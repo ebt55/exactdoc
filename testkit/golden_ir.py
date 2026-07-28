@@ -74,10 +74,35 @@ def digest(path):
     return {"backend": "pymupdf", "pages": pages}
 
 
+# The corpus is REGENERATED on each machine, so a golden is only meaningful
+# for producers whose output is deterministic across platforms. ReportLab and
+# fpdf2 lay out with metric-defined core-14 fonts and are stable. Chromium
+# (Skia) depends on the browser build and the system font stack, and
+# LibreOffice on its own version -- their PDFs legitimately differ between a
+# Windows workstation and a Linux runner, so freezing them makes CI fail for
+# reasons that have nothing to do with the parser. Found exactly that way: the
+# first CI run rejected eight Skia documents.
+#
+# This costs nothing that matters. The golden guards the PARSER, and the
+# parser does not know which producer made its input.
+STABLE_PRODUCERS = ("reportlab", "fpdf", "py-pdf")
+
+
+def _stable(path):
+    import fitz
+    d = fitz.open(path)
+    prod = ((d.metadata or {}).get("producer") or "").lower()
+    creator = ((d.metadata or {}).get("creator") or "").lower()
+    d.close()
+    if not prod and not creator:
+        return True                      # fpdf2 writes no producer
+    return any(s in prod or s in creator for s in STABLE_PRODUCERS)
+
+
 def corpus():
     pdfs = sorted(glob.glob(os.path.join(ROOT, "corpus", "pdfs", "*.pdf")))
     pdfs += sorted(glob.glob(os.path.join(ROOT, "testkit", "adv", "*.pdf")))
-    return pdfs
+    return [p for p in pdfs if _stable(p)]
 
 
 def freeze():
