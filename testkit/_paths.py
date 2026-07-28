@@ -3,7 +3,7 @@ import os, sys, glob, shutil
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJECT = os.path.dirname(HERE)
-TOOL = os.path.join(PROJECT, "exactdoc_v1.1")
+TOOL = PROJECT                       # the `exactdoc` package lives at the root
 if TOOL not in sys.path:
     sys.path.insert(0, TOOL)
 if HERE not in sys.path:

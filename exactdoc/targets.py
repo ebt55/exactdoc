@@ -37,8 +37,8 @@ def _gdocs_render_factory() -> Callable[[str, str], Optional[str]]:
     network, neither of which a conversion should require.
     """
     import sys
-    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    tk = os.path.join(os.path.dirname(here), "testkit")
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    tk = os.path.join(root, "testkit")
     if tk not in sys.path:
         sys.path.insert(0, tk)
     import gdocs_oracle as G           # noqa: E402

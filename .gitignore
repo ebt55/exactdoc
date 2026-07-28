@@ -27,3 +27,6 @@ client_secret*
 *apps.googleusercontent.com.json
 *.pem
 .env
+
+# personal test inputs -- never publish
+my_samples/

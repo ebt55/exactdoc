@@ -1,21 +1,64 @@
-# exactdoc — high-fidelity PDF → DOCX
+# exactdoc
 
-A ground-up PDF-to-Word converter built for **design preservation**, tuned for
-**Claude-generated whitepapers and research papers**, with output restricted to
-constructs that **Google Docs imports faithfully**.
+**PDF → DOCX that keeps the design, survives Google Docs, and measures whether it worked.**
 
-Existing tools (pdf2docx, LibreOffice import, Word's own PDF reflow) lose
-decorative vector art, callout boxes, cover bands, exact spacing and colors.
-exactdoc reconstructs the document semantically and reproduces the design.
+Most PDF-to-Word converters either redesign your page (Word's reflow), turn every
+line into a floating frame that Google Docs then mangles (LibreOffice import), or
+throw the design away entirely and emit Markdown (Docling, Marker, MinerU).
+[`pdf2docx`](https://pypi.org/project/pdf2docx/), the usual Python answer, is no
+longer actively maintained by Artifex.
+
+exactdoc decompiles the page instead: it recovers paragraphs, tables, callouts,
+columns and rules as real editable Word constructs, restricted to the subset
+Google Docs imports faithfully — no text boxes, no VML, no embedded fonts.
+
+Then it checks its own work. Every claim below is a number produced by
+[`testkit/`](testkit/README.md), which shares no code with the converter:
+
+| | |
+|---|---|
+| gate passed | 15/18 documents |
+| page count 1:1 | 17/18 |
+| live (editable) text recovered | 96.9% |
+| words within 2pt of source | 40.4% |
+| median per-word vertical drift | 1.02pt |
+
+## Install
+
+```bash
+pip install exactdoc
+```
 
 ## Usage
 
 ```bash
-python3 -m exactdoc.cli input.pdf                    # writes input.docx
-python3 -m exactdoc.cli input.pdf --target gdocs     # tune for Google Docs
-python3 -m exactdoc.cli input.pdf -o out.docx --verify
-python3 -m exactdoc.cli *.pdf --dpi 300              # batch, high-res figures
+exactdoc input.pdf                       # writes input.docx
 ```
+
+```bash
+exactdoc input.pdf --target gdocs        # tune for Google Docs specifically
+```
+
+```bash
+exactdoc *.pdf --dpi 300 --verify        # batch, high-res figures, with a report
+```
+
+```python
+from exactdoc.convert import convert
+convert("whitepaper.pdf", "whitepaper.docx", target="gdocs", refine_rounds=2)
+```
+
+## Why a "target" matters
+
+There is no single correct DOCX. The *same file* lays out differently in Word,
+LibreOffice and Google Docs, and the gap is not cosmetic — on a document where
+LibreOffice places 99% of words within 2pt of the source, **Google Docs places
+1%**. Docs adds a one-off gap after the first heading plus roughly 3pt at every
+paragraph boundary, and it accumulates down the page.
+
+Most converters are tuned against one renderer and silently assume it
+generalises. It does not. exactdoc makes the target an explicit choice and
+optimises for it.
 
 ### Pick a target renderer
 
@@ -158,3 +201,39 @@ it *rewards* a rasterised page: a resume converted into two flat images scored
 - Line-break-exact justification depends on metric-compatible fonts; exotic
   embedded fonts fall back to the closest safe family.
 - Scanned/OCR PDFs are out of scope (no OCR pass).
+
+## Is a pixel-perfect result possible?
+
+For text-flow documents — whitepapers, papers, reports, resumes — near-perfect
+*and editable* is reachable. These are hard limits, not bugs:
+
+1. **Pixel-perfect and editable is a contradiction.** Text re-flowed by a
+   different engine will occasionally break a line differently, and everything
+   below a changed break moves. You can make it rare, not impossible.
+2. **OOXML quantises font size to 0.5pt.** A 10.1pt source font cannot be
+   emitted at 10.1pt. Compensable via wrap width; not removable.
+3. **Google Docs ignores embedded fonts.** Metric-compatible substitution is
+   the ceiling.
+4. **Google Docs flattens per-section page geometry**, which puts full-bleed
+   cover bands permanently at risk.
+5. **Gradients, rounded corners and rotated text** have no paragraph-flow
+   equivalent and must rasterise.
+
+## Documentation
+
+- [THEORY.md](THEORY.md) — the fidelity model, what worked, what didn't, and why
+- [FINDINGS.md](FINDINGS.md) — an independent audit of v1.1 with reproductions
+- [testkit/README.md](testkit/README.md) — the measurement harness and its metrics
+
+## Contributing
+
+The fastest way to help is a PDF that breaks it. Producer dialects differ far
+more than content does, and the corpus is thin on LaTeX, Typst, InDesign and
+Quartz. Run `python testkit/runall.py testkit/adv` — it exits non-zero on
+regression, so it doubles as CI.
+
+## License
+
+[AGPL-3.0-or-later](LICENSE). exactdoc links PyMuPDF, which is AGPL-3.0; the
+copyleft is inherited, not chosen. Moving the parser to pypdfium2 + pdfplumber
+would allow relicensing under permissive terms — a welcome contribution.

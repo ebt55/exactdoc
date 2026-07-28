@@ -1,0 +1,271 @@
+Metadata-Version: 2.4
+Name: exactdoc
+Version: 0.2.0
+Summary: High-fidelity PDF to DOCX that survives Google Docs, with a render-back diff that proves it
+Author: Ebin Babu Thomas
+License: AGPL-3.0-or-later
+Project-URL: Homepage, https://github.com/ebt55/exactdoc
+Project-URL: Issues, https://github.com/ebt55/exactdoc/issues
+Keywords: pdf,docx,pdf-to-docx,pdf-to-word,google-docs,document-conversion,ooxml,layout-analysis,pymupdf,whitepaper,research-paper
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Text Processing :: Markup
+Classifier: Topic :: Office/Business :: Office Suites
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: pymupdf>=1.23
+Requires-Dist: python-docx>=1.1
+Requires-Dist: numpy>=1.24
+Requires-Dist: pillow>=10.0
+Requires-Dist: lxml>=4.9
+Provides-Extra: test
+Requires-Dist: reportlab>=4.0; extra == "test"
+Requires-Dist: fpdf2>=2.7; extra == "test"
+Provides-Extra: gdocs
+Requires-Dist: google-api-python-client>=2.100; extra == "gdocs"
+Requires-Dist: google-auth-httplib2>=0.1; extra == "gdocs"
+Requires-Dist: google-auth-oauthlib>=1.1; extra == "gdocs"
+Dynamic: license-file
+
+# exactdoc
+
+**PDF → DOCX that keeps the design, survives Google Docs, and measures whether it worked.**
+
+Most PDF-to-Word converters either redesign your page (Word's reflow), turn every
+line into a floating frame that Google Docs then mangles (LibreOffice import), or
+throw the design away entirely and emit Markdown (Docling, Marker, MinerU).
+[`pdf2docx`](https://pypi.org/project/pdf2docx/), the usual Python answer, is no
+longer actively maintained by Artifex.
+
+exactdoc decompiles the page instead: it recovers paragraphs, tables, callouts,
+columns and rules as real editable Word constructs, restricted to the subset
+Google Docs imports faithfully — no text boxes, no VML, no embedded fonts.
+
+Then it checks its own work. Every claim below is a number produced by
+[`testkit/`](testkit/README.md), which shares no code with the converter:
+
+| | |
+|---|---|
+| gate passed | 15/18 documents |
+| page count 1:1 | 17/18 |
+| live (editable) text recovered | 96.9% |
+| words within 2pt of source | 40.4% |
+| median per-word vertical drift | 1.02pt |
+
+## Install
+
+```bash
+pip install exactdoc
+```
+
+## Usage
+
+```bash
+exactdoc input.pdf                       # writes input.docx
+```
+
+```bash
+exactdoc input.pdf --target gdocs        # tune for Google Docs specifically
+```
+
+```bash
+exactdoc *.pdf --dpi 300 --verify        # batch, high-res figures, with a report
+```
+
+```python
+from exactdoc.convert import convert
+convert("whitepaper.pdf", "whitepaper.docx", target="gdocs", refine_rounds=2)
+```
+
+## Why a "target" matters
+
+There is no single correct DOCX. The *same file* lays out differently in Word,
+LibreOffice and Google Docs, and the gap is not cosmetic — on a document where
+LibreOffice places 99% of words within 2pt of the source, **Google Docs places
+1%**. Docs adds a one-off gap after the first heading plus roughly 3pt at every
+paragraph boundary, and it accumulates down the page.
+
+Most converters are tuned against one renderer and silently assume it
+generalises. It does not. exactdoc makes the target an explicit choice and
+optimises for it.
+
+### Pick a target renderer
+
+There is no single "correct" DOCX. Word, LibreOffice and Google Docs lay the
+same file out differently, and the gap is not small: on a document where
+LibreOffice places 99% of words within 2pt of the source, Google Docs places
+1% — Docs adds a one-off gap after the first heading plus ~3pt at every
+paragraph boundary, which accumulates down the page.
+
+So `--target` chooses which program the output should look right in, and the
+closed-loop pass (below) optimises for that renderer:
+
+| `--target` | Oracle | Notes |
+|---|---|---|
+| `libreoffice` | LibreOffice headless | default; fast, offline, a good proxy for Word |
+| `gdocs` | Google Docs via the Drive API | needs credentials; slowest; the only oracle that answers the question this project asks |
+| `none` | — | no feedback loop, deterministic, no dependencies |
+
+Measured, opening the result in Google Docs: tuning for `gdocs` instead of
+`libreoffice` moved `c8_toc_links` from dy₅₀ 41.4pt to 4.6pt, and
+`02_research_paper` from 3 pages to the correct 2.
+
+### Closed-loop correction
+
+`--refine N` (default 2) writes the DOCX, renders it back through the chosen
+target, measures page overflow and per-page offsets, corrects the layout and
+rewrites — keeping the best round. Without an oracle available it degrades
+silently to a single ordinary write, so conversion never depends on it.
+
+Python API:
+
+```python
+from exactdoc.convert import convert
+convert("whitepaper.pdf", "whitepaper.docx")
+```
+
+## How it works
+
+1. **Parse** (`parse.py`) — PyMuPDF extracts every text span (font, size,
+   weight, color, exact position), vector drawing, image and link into an
+   intermediate model.
+1b. **Normalise** (`dialect.py`) — rewrite producer-specific idioms into one
+   canonical form, so the heuristics below stop encoding "how ReportLab draws
+   things". Drops page-backdrop fills (Chromium paints an opaque white page
+   rect that otherwise merges every drawing into one region), rewrites vector
+   list markers as text markers (a CSS `disc` bullet reaches the PDF as a 3×3pt
+   bezier circle, not a character), and moves rotated text out of the flow.
+   Driven by evidence in the page, never by the `/Producer` string — those are
+   absent, rewritten by post-processors, and version-dependent.
+2. **Infer** (`infer.py`) — heuristics reconstruct semantics:
+   - repeating headers/footers, with page numbers converted to live
+     `PAGE`/`NUMPAGES` fields (verified across pages so "v3.2" never becomes a
+     field)
+   - full-width cover bands and continuation strips
+   - grid tables, booktabs (ruled) tables, zebra striping, stat-card rows
+   - callout boxes (left-accent), warning boxes, quote bars, code blocks
+     (blank lines reconstructed from baseline gaps)
+   - bullet/numbered lists, headings (outline levels), hyperlinks, underlines
+   - multi-column layouts with true section columns + column breaks
+   - chart/diagram regions -> rasterized at high DPI with overlap-aware text
+     absorption (axis labels ride along in the image)
+3. **Write** (`docxout.py`) — python-docx + raw OOXML emits a DOCX using only
+   the Google-Docs-safe vocabulary: styled paragraphs, fixed-layout tables
+   with per-side borders/shading, section geometry & columns, inline images,
+   headers/footers, tab stops, fields. No floating text boxes, no VML, no
+   embedded fonts.
+4. **Verify** (`verify.py`) — text-coverage audit plus an optional render-back
+   loop (LibreOffice) that scores per-page visual similarity (SSIM) and emits
+   side-by-side comparison images.
+
+## Fidelity model (the hard-won parts)
+
+- **Baseline anchoring.** Word bottom-aligns glyphs inside "exact" line boxes
+  and PDF line bboxes are taller than Word's natural line. All vertical
+  spacing is therefore anchored on *baselines*:
+  `para_top = baseline − (leading − 0.21·size)`, paragraph height =
+  `n_lines × leading` (exact line rule).
+- **Content-driven table heights.** LibreOffice adds cell margins *on top of*
+  `trHeight atLeast`, Word doesn't. Rows carry no explicit height when they
+  contain text; padding + exact-leading paragraphs sum to the source height,
+  which renders identically everywhere.
+- **Page-break discipline.** Every source page ends with an explicit break, so
+  pagination cannot drift. Section-break paragraphs are crushed to 1pt (a
+  default-styled one can silently spill a blank page).
+- **Column sections.** Space-before on the first paragraph after a continuous
+  break pushes the whole column block down in some renderers — the shared gap
+  is hoisted into a spacer *before* the break, and original column
+  distribution is enforced with explicit column breaks.
+- **Full-bleed cover pages.** The cover lives in its own near-zero-margin
+  section; every non-band element is shifted back into place with indents
+  (mid-page L/R margin changes via continuous breaks are not honored by all
+  renderers).
+- **Font mapping** targets Google-Docs-available, metric-compatible families:
+  Helvetica→Arial, Times→Times New Roman, Courier→Courier New; Roboto, Lato,
+  Montserrat, Merriweather, Source Code Pro etc. pass through (`fonts.py`).
+
+## Verified corpus results
+
+18 documents across five producer dialects (Chromium/Skia, WeasyPrint,
+ReportLab, fpdf2, LibreOffice), measured by `testkit/`, which shares no code
+with this package:
+
+| | |
+|---|---|
+| gate passed | 15/18 |
+| page count 1:1 | 17/18 |
+| live (editable) text | 96.9% mean |
+| words within 2pt of source | 40.4% mean |
+| median per-word vertical drift | 1.02pt |
+| SSIM (LibreOffice render-back) | 0.809 mean |
+
+Run it yourself: `python testkit/runall.py testkit/adv my_samples`. It exits
+non-zero on regression, so it doubles as CI.
+
+**Do not use SSIM as the headline number.** It is dominated by whitespace and
+it *rewards* a rasterised page: a resume converted into two flat images scored
+0.594, comparable to genuinely good conversions. `live_text_cov` and
+`within2pt` are what distinguish a document from a photograph of one.
+
+## Known-broken
+
+- **Nested tables** flatten, with borders in the wrong places (`c3_tables`).
+- **LaTeX/pdfTeX** papers still inflate their page count substantially. Text is
+  recovered (≈95% live) but pagination is not; the multi-column author block on
+  a paper's first page explodes into a vertical cascade.
+- **Rounded-corner "stat card" rows** stack diagonally instead of forming a row:
+  `border-radius` makes the card a curve, and the card-row detector requires a
+  rect.
+- **Letter-spaced headings** lose their spaces — "TECHNICAL SKILLS" comes out
+  "TECHNICALSKILLS".
+- **Mixed page geometry** is discarded: page size and orientation come from
+  page 1 and apply to the whole document.
+
+## Limitations
+
+- Word/Docs cannot bleed content into side margins from a normal section;
+  cover bands bleed via a dedicated section, continuation strip headers span
+  content width.
+- Chart labels live inside the rasterized figure image (by design).
+- Line-break-exact justification depends on metric-compatible fonts; exotic
+  embedded fonts fall back to the closest safe family.
+- Scanned/OCR PDFs are out of scope (no OCR pass).
+
+## Is a pixel-perfect result possible?
+
+For text-flow documents — whitepapers, papers, reports, resumes — near-perfect
+*and editable* is reachable. These are hard limits, not bugs:
+
+1. **Pixel-perfect and editable is a contradiction.** Text re-flowed by a
+   different engine will occasionally break a line differently, and everything
+   below a changed break moves. You can make it rare, not impossible.
+2. **OOXML quantises font size to 0.5pt.** A 10.1pt source font cannot be
+   emitted at 10.1pt. Compensable via wrap width; not removable.
+3. **Google Docs ignores embedded fonts.** Metric-compatible substitution is
+   the ceiling.
+4. **Google Docs flattens per-section page geometry**, which puts full-bleed
+   cover bands permanently at risk.
+5. **Gradients, rounded corners and rotated text** have no paragraph-flow
+   equivalent and must rasterise.
+
+## Documentation
+
+- [THEORY.md](THEORY.md) — the fidelity model, what worked, what didn't, and why
+- [FINDINGS.md](FINDINGS.md) — an independent audit of v1.1 with reproductions
+- [testkit/README.md](testkit/README.md) — the measurement harness and its metrics
+
+## Contributing
+
+The fastest way to help is a PDF that breaks it. Producer dialects differ far
+more than content does, and the corpus is thin on LaTeX, Typst, InDesign and
+Quartz. Run `python testkit/runall.py testkit/adv` — it exits non-zero on
+regression, so it doubles as CI.
+
+## License
+
+[AGPL-3.0-or-later](LICENSE). exactdoc links PyMuPDF, which is AGPL-3.0; the
+copyleft is inherited, not chosen. Moving the parser to pypdfium2 + pdfplumber
+would allow relicensing under permissive terms — a welcome contribution.

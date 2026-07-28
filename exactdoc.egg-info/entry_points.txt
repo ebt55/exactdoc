@@ -1,0 +1,2 @@
+[console_scripts]
+exactdoc = exactdoc.cli:main
