@@ -332,11 +332,106 @@ def _spacer(container, height_pt: float):
     return par
 
 
+def _cell_text_width(cell) -> float:
+    """Widest single source line in the cell, in pt, via base-14 metrics.
+
+    Returns 0 when any run's font has no metric-compatible base-14 equivalent
+    -- an unmeasurable requirement must not force a resize."""
+    import fitz
+    from .ladder import _b14
+    widest = 0.0
+    for p in cell.paras:
+        if p.src_lines > 1 or "\n" in p.text:
+            continue                     # multi-line in source: allowed to wrap
+        w = 0.0
+        for r in p.runs:
+            if r.is_tab or not r.text:
+                continue
+            fn = _b14(map_font(r.font, mono=r.mono, serif=r.serif),
+                      r.bold, r.italic)
+            if fn is None:
+                return 0.0
+            try:
+                w += fitz.get_text_length(r.text, fontname=fn, fontsize=r.size)
+            except Exception:
+                return 0.0
+        widest = max(widest, w)
+    return widest
+
+
+def _fit_col_widths(t: TableEl, content_w: float = 0.0) -> List[float]:
+    """Widen any column too narrow for its own single-line content, funded by
+    columns with slack. Table width is unchanged.
+
+    Column boundaries are inferred from text x-position clustering, and on
+    dense numeric tables (booktabs especially) they land tight: measured on an
+    arXiv paper, '23.75' needed 22.5pt in a 15.6pt column while column 0 sat
+    on 44pt of slack. Every such cell wraps to two lines, the row doubles, and
+    a 13-row results table gains ~250pt -- the single largest contributor to
+    LaTeX page inflation. A cell that occupied one line in the source must get
+    a column wide enough to stay one line.
+    """
+    n = len(t.col_widths)
+    widths = list(t.col_widths)
+    if n == 0:
+        return widths
+    # The requirement must include each cell's OWN pads: pads encode the
+    # source x-alignment (left pad = text x minus column boundary) and run
+    # 7-8pt on booktabs cells. A flat allowance under-asks, the funded width
+    # still wraps, and the fix silently does nothing -- measured exactly so on
+    # its first run.
+    need = [0.0] * n
+    for row in t.rows:
+        ci = 0
+        for cell in row:
+            if cell is None:
+                ci += 1
+                continue
+            span = max(1, getattr(cell, "col_span", 1))
+            w = _cell_text_width(cell)
+            if w > 0 and span == 1 and ci < n:
+                pads = cell.pad[1] + cell.pad[3] if len(cell.pad) >= 4 else 8.0
+                need[ci] = max(need[ci], w + pads + 1.0)
+            ci += span
+    deficit = [max(0.0, need[i] - widths[i]) for i in range(n)]
+    surplus = [max(0.0, widths[i] - need[i] - 1.0) if need[i] > 0
+               else max(0.0, widths[i] - 12.0) for i in range(n)]
+    if sum(deficit) <= 0.01:
+        return widths
+    # A column must be funded FULLY or not at all: a partially-widened column
+    # still wraps, so the width is spent and nothing is fixed. (The first
+    # version scaled every deficit proportionally when funds ran short --
+    # measured effect: zero.) Funds are the gap up to the container width
+    # first -- growing the table costs nothing visually, the source usually
+    # leaves room -- then slack shaved from over-wide columns.
+    grow = max(0.0, (content_w or 0.0) - sum(widths)) if content_w else 0.0
+    have = grow + sum(surplus)
+    order = sorted((i for i in range(n) if deficit[i] > 0),
+                   key=lambda i: deficit[i])
+    funded = []
+    for i in order:
+        if deficit[i] <= have + 0.01:
+            funded.append(i)
+            have -= deficit[i]
+    spend = sum(deficit[i] for i in funded)
+    for i in funded:
+        widths[i] += deficit[i]
+    from_slack = max(0.0, spend - grow)
+    tot_sur = sum(surplus)
+    if from_slack > 0.01 and tot_sur > 0.01:
+        for i in range(n):
+            if surplus[i] > 0:
+                widths[i] -= from_slack * (surplus[i] / tot_sur)
+    return widths
+
+
 def write_table(container, t: TableEl, content_w: float):
     n_rows = len(t.rows)
     n_cols = len(t.col_widths)
     if n_rows == 0 or n_cols == 0:
         return None
+    t = copy.copy(t)
+    t.col_widths = _fit_col_widths(t, content_w)
     if t.space_before > 0.5:
         _spacer(container, t.space_before)
     try:
@@ -428,10 +523,23 @@ def write_table(container, t: TableEl, content_w: float):
                 va.set(qn("w:val"), spec.valign)
                 tcPr.append(va)
             if spec.paras:
+                # Cell paragraphs carry indents measured from the CELL EDGE
+                # (text x minus cell x), and the same distance is already
+                # emitted as tcMar above -- so an unadjusted indent applies the
+                # pad twice and the text area loses it twice. Measured: a
+                # 35.8pt column left 14.6pt for '24.6' (17.5pt), so the number
+                # wrapped char-by-char and the row doubled. Word indents are
+                # measured from the tcMar edge; make the paragraphs agree.
+                def _depadded(p):
+                    q = copy.copy(p)
+                    q.left_indent = max(0.0, p.left_indent - pads[1])
+                    q.right_indent = max(0.0, p.right_indent - pads[3])
+                    return q
                 first = cell.paragraphs[0]
-                write_para(cell, spec.paras[0], t.col_widths[ci], par=first)
+                write_para(cell, _depadded(spec.paras[0]), t.col_widths[ci],
+                           par=first)
                 for p in spec.paras[1:]:
-                    write_para(cell, p, t.col_widths[ci])
+                    write_para(cell, _depadded(p), t.col_widths[ci])
             else:
                 _blank_cell(cell)
     return tbl
