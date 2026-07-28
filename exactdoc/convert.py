@@ -24,7 +24,12 @@ def convert(pdf_path: str, out_path: str = None, dpi: int = 240,
     """
     if out_path is None:
         out_path = os.path.splitext(pdf_path)[0] + ".docx"
-    ir = normalize(parse_pdf(pdf_path))
+    _bk = os.environ.get("EXACTDOC_BACKEND", "").strip().lower()
+    if _bk and _bk not in ("pymupdf", "fitz", "default"):
+        from .backend import get_backend
+        ir = normalize(get_backend(_bk).parse_pdf(pdf_path))
+    else:
+        ir = normalize(parse_pdf(pdf_path))
     lay = infer(ir)
     if ladder:
         from .ladder import apply_ladder, summarise

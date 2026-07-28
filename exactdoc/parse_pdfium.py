@@ -1,0 +1,366 @@
+"""PDF -> IR parser built on pypdfium2 (Apache-2.0 / BSD-3).
+
+The permissive replacement for parse.py. exactdoc is AGPL only because
+PyMuPDF is; this module exists so the project can relicense.
+
+PDFium exposes glyphs, not documents: characters with a font, a size, a colour
+and a box, and nothing that says which of them form a word, a line or a
+paragraph. PyMuPDF's `get_text("dict")` does that grouping internally, and
+every threshold downstream of parse.py was calibrated against its answers. So
+the grouping has to be rebuilt here, and rebuilt to agree -- which is exactly
+what testkit/golden_ir.py measures.
+
+Coordinates: PDFium is bottom-left origin, the IR is top-left. Every y is
+flipped on the way in. Sizes are in points throughout.
+"""
+import ctypes
+import re
+from typing import List, Optional
+
+import pypdfium2 as pdfium
+import pypdfium2.raw as raw
+
+from .model import DocIR, PageIR, TextBlock, Line, Span, DrawCmd, ImageObj
+
+_SUBSET_RE = re.compile(r"^[A-Z]{6}\+")
+
+# PDF FontDescriptor flag bits (PDF 32000-1, table 123)
+_FLAG_FIXED = 1 << 0
+_FLAG_SERIF = 1 << 1
+_FLAG_ITALIC = 1 << 6
+_FLAG_BOLD = 1 << 18
+
+# Grouping tolerances, in points. Chosen to reproduce PyMuPDF's grouping;
+# golden_ir.py is the arbiter, not intuition.
+BASELINE_TOL = 1.0        # chars on the same visual line
+SPAN_GAP_EM = 0.28        # style-independent gap that ends a span
+SPACE_GAP_EM = 0.24       # gap wide enough to mean a space the producer drew
+                          # by positioning rather than by emitting a character
+LINE_SPLIT_EM = 1.10      # gap that ends the LINE, not merely the span:
+                          # sharing a baseline is not sharing a line. Table
+                          # cells and the two halves of a two-column page do
+                          # exactly that, and merging them fused rows into
+                          # single lines (measured: 0.60x PyMuPDF's count).
+BLOCK_GAP_FACTOR = 1.6    # line pitch multiple that ends a block
+
+
+def _hexcol(r, g, b):
+    return "#%02x%02x%02x" % (r & 255, g & 255, b & 255)
+
+
+class _Char:
+    __slots__ = ("u", "x0", "y0", "x1", "y1", "ox", "oy", "size", "font",
+                 "flags", "color")
+
+
+def _page_chars(textpage, page_h) -> List[_Char]:
+    n = raw.FPDFText_CountChars(textpage.raw)
+    out = []
+    buf = ctypes.create_string_buffer(128)
+    for i in range(n):
+        u = raw.FPDFText_GetUnicode(textpage.raw, i)
+        if u in (0, 0xFFFE):
+            continue
+        l = ctypes.c_double(); r_ = ctypes.c_double()
+        b = ctypes.c_double(); t = ctypes.c_double()
+        if not raw.FPDFText_GetCharBox(textpage.raw, i,
+                                       ctypes.byref(l), ctypes.byref(r_),
+                                       ctypes.byref(b), ctypes.byref(t)):
+            continue
+        ox = ctypes.c_double(); oy = ctypes.c_double()
+        raw.FPDFText_GetCharOrigin(textpage.raw, i, ctypes.byref(ox), ctypes.byref(oy))
+        flags = ctypes.c_int()
+        ln = raw.FPDFText_GetFontInfo(textpage.raw, i, buf, 128, ctypes.byref(flags))
+        font = buf.raw[:max(0, ln - 1)].decode("utf-8", "replace") if ln else ""
+        cr = ctypes.c_uint(); cg = ctypes.c_uint()
+        cb = ctypes.c_uint(); ca = ctypes.c_uint()
+        raw.FPDFText_GetFillColor(textpage.raw, i, ctypes.byref(cr), ctypes.byref(cg),
+                                  ctypes.byref(cb), ctypes.byref(ca))
+        c = _Char()
+        c.u = chr(u)
+        # flip y: PDFium is bottom-left origin, the IR is top-left
+        c.x0, c.x1 = float(l.value), float(r_.value)
+        c.y0, c.y1 = page_h - float(t.value), page_h - float(b.value)
+        c.ox, c.oy = float(ox.value), page_h - float(oy.value)
+        c.size = abs(float(raw.FPDFText_GetFontSize(textpage.raw, i)))
+        c.font = _SUBSET_RE.sub("", font)
+        c.flags = int(flags.value)
+        c.color = _hexcol(cr.value, cg.value, cb.value)
+        out.append(c)
+    return out
+
+
+def _style(c: _Char):
+    fl = c.font.lower()
+    bold = bool(c.flags & _FLAG_BOLD) or "bold" in fl or "black" in fl or "heavy" in fl
+    italic = bool(c.flags & _FLAG_ITALIC) or "italic" in fl or "oblique" in fl
+    mono = bool(c.flags & _FLAG_FIXED) or "courier" in fl or "mono" in fl
+    serif = bool(c.flags & _FLAG_SERIF)
+    return (c.font, round(c.size, 2), c.color, bold, italic, mono, serif)
+
+
+def _build_lines(chars: List[_Char]) -> List[Line]:
+    """chars -> spans -> lines, by baseline then x.
+
+    PDFium emits characters in content-stream order, which is not reading
+    order, so grouping is geometric: characters sharing a baseline form a
+    line, and a style change or a wide gap ends a span. The gap test also
+    reinserts the spaces that a producer drew as positioning rather than as
+    space characters -- without it, justified text arrives as one long word.
+    """
+    if not chars:
+        return []
+    rows = []
+    for c in sorted(chars, key=lambda c: (round(c.oy, 1), c.ox)):
+        placed = False
+        for r in rows:
+            if abs(c.oy - r[0].oy) <= max(BASELINE_TOL, 0.12 * c.size):
+                r.append(c)
+                placed = True
+                break
+        if not placed:
+            rows.append([c])
+
+    # split each baseline row into visual lines at wide horizontal gaps
+    vis_rows = []
+    for row in rows:
+        row.sort(key=lambda c: c.x0)
+        part = [row[0]]
+        for prev, c in zip(row, row[1:]):
+            if c.x0 - prev.x1 > LINE_SPLIT_EM * max(prev.size, c.size, 1.0):
+                vis_rows.append(part)
+                part = [c]
+            else:
+                part.append(c)
+        vis_rows.append(part)
+
+    lines = []
+    for row in vis_rows:
+        spans, cur, cur_key = [], [], None
+        for c in row:
+            k = _style(c)
+            gap = (c.x0 - cur[-1].x1) if cur else 0.0
+            if cur and (k != cur_key or gap > SPAN_GAP_EM * max(c.size, 1.0)):
+                spans.append((cur, cur_key))
+                cur, cur_key = [], None
+            if not cur:
+                cur_key = k
+            elif gap > SPACE_GAP_EM * max(c.size, 1.0) \
+                    and not cur[-1].u.isspace() and not c.u.isspace():
+                cur[-1].u += " "
+            cur.append(c)
+        if cur:
+            spans.append((cur, cur_key))
+
+        sp_objs = []
+        for cs, key in spans:
+            if not cs:
+                continue
+            font, size, color, bold, italic, mono, serif = key
+            text = "".join(c.u for c in cs)
+            if not text.strip() and not sp_objs:
+                continue
+            bb = (min(c.x0 for c in cs), min(c.y0 for c in cs),
+                  max(c.x1 for c in cs), max(c.y1 for c in cs))
+            sp_objs.append(Span(
+                text=text, font=font, size=size, color=color, bold=bold,
+                italic=italic, mono=mono, serif=serif, superscript=False,
+                bbox=bb, origin=(cs[0].ox, cs[0].oy)))
+        if not sp_objs:
+            continue
+        lb = (min(s.bbox[0] for s in sp_objs), min(s.bbox[1] for s in sp_objs),
+              max(s.bbox[2] for s in sp_objs), max(s.bbox[3] for s in sp_objs))
+        lines.append(Line(spans=sp_objs, bbox=lb))
+    lines.sort(key=lambda l: (round(l.bbox[1], 1), l.bbox[0]))
+    return lines
+
+
+def _build_blocks(lines: List[Line]) -> List[TextBlock]:
+    """lines -> blocks, by vertical pitch and horizontal overlap."""
+    if not lines:
+        return []
+    pitches = []
+    for a, b in zip(lines, lines[1:]):
+        d = b.baseline - a.baseline
+        if 0 < d < 60:
+            pitches.append(d)
+    pitches.sort()
+    typical = pitches[len(pitches) // 2] if pitches else 12.0
+
+    blocks, cur = [], [lines[0]]
+    for prev, ln in zip(lines, lines[1:]):
+        gap = ln.baseline - prev.baseline
+        overlap = min(prev.bbox[2], ln.bbox[2]) - max(prev.bbox[0], ln.bbox[0])
+        same = (0 < gap <= typical * BLOCK_GAP_FACTOR) and overlap > 0
+        if same:
+            cur.append(ln)
+        else:
+            blocks.append(cur)
+            cur = [ln]
+    blocks.append(cur)
+
+    out = []
+    for grp in blocks:
+        bb = (min(l.bbox[0] for l in grp), min(l.bbox[1] for l in grp),
+              max(l.bbox[2] for l in grp), max(l.bbox[3] for l in grp))
+        out.append(TextBlock(lines=grp, bbox=bb))
+    return out
+
+
+def _classify(pts, w, h) -> str:
+    if len(pts) <= 5 and all(t != 2 for _, _, t in pts):
+        if h <= 2.0 and w > 4:
+            return "hline"
+        if w <= 2.0 and h > 4:
+            return "vline"
+        if len(pts) in (4, 5):
+            return "rect"
+        return "line"
+    if any(t == 2 for _, _, t in pts):
+        return "curve" if len(pts) <= 12 else "complex"
+    return "complex"
+
+
+def _page_paths(page, page_h) -> List[DrawCmd]:
+    out = []
+    for obj in page.get_objects():
+        try:
+            if raw.FPDFPageObj_GetType(obj.raw) != raw.FPDF_PAGEOBJ_PATH:
+                continue
+        except Exception:
+            continue
+        l = ctypes.c_float(); b = ctypes.c_float()
+        r_ = ctypes.c_float(); t = ctypes.c_float()
+        if not raw.FPDFPageObj_GetBounds(obj.raw, ctypes.byref(l), ctypes.byref(b),
+                                         ctypes.byref(r_), ctypes.byref(t)):
+            continue
+        bbox = (float(l.value), page_h - float(t.value),
+                float(r_.value), page_h - float(b.value))
+        n = raw.FPDFPath_CountSegments(obj.raw)
+        pts = []
+        for i in range(max(0, n)):
+            seg = raw.FPDFPath_GetPathSegment(obj.raw, i)
+            if not seg:
+                continue
+            sx = ctypes.c_float(); sy = ctypes.c_float()
+            raw.FPDFPathSegment_GetPoint(seg, ctypes.byref(sx), ctypes.byref(sy))
+            pts.append((float(sx.value), page_h - float(sy.value),
+                        raw.FPDFPathSegment_GetType(seg)))
+        fillmode = ctypes.c_int(); stroke = ctypes.c_int()
+        raw.FPDFPath_GetDrawMode(obj.raw, ctypes.byref(fillmode), ctypes.byref(stroke))
+        fr = ctypes.c_uint(); fg = ctypes.c_uint()
+        fb = ctypes.c_uint(); fa = ctypes.c_uint()
+        raw.FPDFPageObj_GetFillColor(obj.raw, ctypes.byref(fr), ctypes.byref(fg),
+                                     ctypes.byref(fb), ctypes.byref(fa))
+        sr = ctypes.c_uint(); sg = ctypes.c_uint()
+        sb = ctypes.c_uint(); sa = ctypes.c_uint()
+        raw.FPDFPageObj_GetStrokeColor(obj.raw, ctypes.byref(sr), ctypes.byref(sg),
+                                       ctypes.byref(sb), ctypes.byref(sa))
+        sw = ctypes.c_float()
+        raw.FPDFPageObj_GetStrokeWidth(obj.raw, ctypes.byref(sw))
+        has_fill = fillmode.value != 0 and fa.value > 0
+        has_stroke = bool(stroke.value) and sa.value > 0
+        kind = "fillstroke" if (has_fill and has_stroke) else \
+               "stroke" if has_stroke else "fill"
+        w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
+        shape = _classify(pts, w, h)
+        fill = _hexcol(fr.value, fg.value, fb.value) if has_fill else None
+        if shape == "rect" and fill is not None:
+            if h <= 2.5 and w > 8:
+                shape = "hline"
+            elif w <= 2.5 and h > 8:
+                shape = "vline"
+        out.append(DrawCmd(
+            kind=kind, shape=shape, bbox=bbox, fill=fill,
+            stroke=_hexcol(sr.value, sg.value, sb.value) if has_stroke else None,
+            width=float(sw.value), opacity=(fa.value if has_fill else sa.value) / 255.0,
+            n_items=max(1, len(pts))))
+    return out
+
+
+def _page_images(page, page_h, keep_data) -> List[ImageObj]:
+    out = []
+    for obj in page.get_objects():
+        try:
+            if raw.FPDFPageObj_GetType(obj.raw) != raw.FPDF_PAGEOBJ_IMAGE:
+                continue
+        except Exception:
+            continue
+        l = ctypes.c_float(); b = ctypes.c_float()
+        r_ = ctypes.c_float(); t = ctypes.c_float()
+        if not raw.FPDFPageObj_GetBounds(obj.raw, ctypes.byref(l), ctypes.byref(b),
+                                         ctypes.byref(r_), ctypes.byref(t)):
+            continue
+        bbox = (float(l.value), page_h - float(t.value),
+                float(r_.value), page_h - float(b.value))
+        data = None
+        if keep_data:
+            try:
+                import io
+                from PIL import Image
+                pil = obj.get_bitmap(render=False).to_pil()
+                buf = io.BytesIO()
+                pil.save(buf, format="PNG")
+                data = buf.getvalue()
+            except Exception:
+                data = None
+        out.append(ImageObj(bbox=bbox, xref=0,
+                            width=int(bbox[2] - bbox[0]), height=int(bbox[3] - bbox[1]),
+                            data=data, ext="png"))
+    return out
+
+
+def _page_links(page, textpage, page_h):
+    links = []
+    try:
+        wl = raw.FPDFLink_LoadWebLinks(textpage.raw)
+        if wl:
+            n = raw.FPDFLink_CountWebLinks(wl)
+            for i in range(n):
+                need = raw.FPDFLink_GetURL(wl, i, None, 0)
+                buf = (ctypes.c_ushort * need)()
+                raw.FPDFLink_GetURL(wl, i, buf, need)
+                uri = "".join(chr(c) for c in buf[:max(0, need - 1)])
+                cnt = raw.FPDFLink_CountRects(wl, i)
+                for j in range(cnt):
+                    l = ctypes.c_double(); t = ctypes.c_double()
+                    r_ = ctypes.c_double(); b = ctypes.c_double()
+                    raw.FPDFLink_GetRect(wl, i, j, ctypes.byref(l), ctypes.byref(t),
+                                         ctypes.byref(r_), ctypes.byref(b))
+                    links.append({"bbox": (float(l.value), page_h - float(t.value),
+                                           float(r_.value), page_h - float(b.value)),
+                                  "uri": uri})
+    except Exception:
+        pass
+    return links
+
+
+def parse_pdf(path: str, keep_image_data: bool = True) -> DocIR:
+    doc = pdfium.PdfDocument(path)
+    meta = {}
+    try:
+        meta = {k.lower(): v for k, v in (doc.get_metadata_dict() or {}).items()}
+    except Exception:
+        pass
+    ir = DocIR(path=path, meta=meta)
+    for pno in range(len(doc)):
+        page = doc[pno]
+        w, h = page.get_width(), page.get_height()
+        pir = PageIR(number=pno + 1, width=w, height=h)
+        tp = page.get_textpage()
+        pir.links = _page_links(page, tp, h)
+        lines = _build_lines(_page_chars(tp, h))
+        for sp in (s for l in lines for s in l.spans):
+            for lk in pir.links:
+                lb = lk["bbox"]
+                ov = (max(0, min(sp.bbox[2], lb[2]) - max(sp.bbox[0], lb[0])) *
+                      max(0, min(sp.bbox[3], lb[3]) - max(sp.bbox[1], lb[1])))
+                if ov > 0.5 * max(1e-6, (sp.bbox[2] - sp.bbox[0]) *
+                                  (sp.bbox[3] - sp.bbox[1])):
+                    sp.link = lk["uri"]
+                    break
+        pir.blocks = _build_blocks(lines)
+        pir.drawings = _page_paths(page, h)
+        pir.images = _page_images(page, h, keep_image_data)
+        ir.pages.append(pir)
+    return ir
