@@ -20,6 +20,10 @@ class Run:
     underline: bool = False
     superscript: bool = False
     field: Optional[str] = None  # 'PAGE' | 'NUMPAGES'
+    # Per-character tracking in points, emitted as w:spacing on rPr. Negative
+    # values compress a line that TeX fitted by shrinking inter-word glue --
+    # something Word's line breaker cannot do on its own.
+    char_spacing: float = 0.0
 
 
 @dataclass
@@ -36,6 +40,13 @@ class Para:
     tab_stops: List[Tuple[float, str]] = field(default_factory=list)  # (pos_pt, align)
     line_breaks: bool = False    # True: runs contain '\n' to keep as soft breaks
     bbox: Optional[BBox] = None  # source position (debug/audit)
+    # How many visual lines this paragraph occupied in the source, and how wide
+    # each one was. The quality ladder needs the source truth to compare a
+    # predicted re-wrap against; without it, "did this paragraph change height?"
+    # can only be guessed from bbox/leading arithmetic.
+    src_lines: int = 0
+    src_widths: List[float] = field(default_factory=list)
+    fidelity: str = "flow"       # 'flow' | 'line-locked' (see ladder.py)
 
     @property
     def text(self) -> str:
@@ -148,6 +159,7 @@ class DocLayout:
     cover_top: float = 0.0                 # top margin for the cover section
     pages: List[PageLayout] = field(default_factory=list)
     src_path: str = ""
+    ladder_report: dict = field(default_factory=dict)  # see ladder.py
 
     @property
     def content_w(self) -> float:

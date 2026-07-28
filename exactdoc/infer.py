@@ -247,6 +247,8 @@ def para_from_lines(lines: List[Line], col_l: float, col_r: float) -> Para:
     if p.align == "center":
         p.left_indent = 0.0
     p.runs = []
+    p.src_lines = len(lines)
+    p.src_widths = [round(ln.bbox[2] - ln.bbox[0], 1) for ln in lines]
     for i, ln in enumerate(lines):
         p.runs.extend(runs_from_spans(ln.spans))
         if i < len(lines) - 1:

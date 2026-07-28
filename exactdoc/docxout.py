@@ -75,6 +75,11 @@ def _style_run(r, run: Run):
         va = OxmlElement("w:vertAlign")
         va.set(qn("w:val"), "superscript")
         rpr.append(va)
+    if abs(getattr(run, "char_spacing", 0.0)) > 0.004:
+        # w:spacing on rPr is character tracking, in twentieths of a point
+        sp = OxmlElement("w:spacing")
+        sp.set(qn("w:val"), str(int(round(run.char_spacing * 20))))
+        rpr.append(sp)
     try:
         f.color.rgb = RGBColor.from_string(_hex(run.color))
     except Exception:

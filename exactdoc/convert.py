@@ -11,7 +11,7 @@ from .docxout import write_docx
 
 def convert(pdf_path: str, out_path: str = None, dpi: int = 240,
             refine_rounds: int = 0, target: str = "libreoffice",
-            verbose: bool = False) -> str:
+            ladder: bool = False, verbose: bool = False) -> str:
     """Convert a PDF to DOCX.
 
     `refine_rounds` > 0 enables the closed-loop pass: render the DOCX back and
@@ -26,6 +26,12 @@ def convert(pdf_path: str, out_path: str = None, dpi: int = 240,
         out_path = os.path.splitext(pdf_path)[0] + ".docx"
     ir = normalize(parse_pdf(pdf_path))
     lay = infer(ir)
+    if ladder:
+        from .ladder import apply_ladder, summarise
+        rep = apply_ladder(lay)
+        lay.ladder_report = rep
+        if verbose:
+            print("  ladder: " + summarise(rep))
     if refine_rounds > 0:
         from .refine import refine
         from .targets import get_renderer
