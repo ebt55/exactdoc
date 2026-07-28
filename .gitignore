@@ -3,6 +3,14 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+*.egg-info/
+build/
+dist/
+
+# editor / tooling local state
+.claude/
+.vscode/
+.idea/
 
 # Generated test corpora and conversion outputs (all reproducible)
 testkit/adv/
@@ -14,7 +22,7 @@ testkit/chromefix_off/
 testkit/chromefix_on/
 testkit/exp_off/
 testkit/exp_on/
-exactdoc_v1.1/corpus/pdfs/
+corpus/pdfs/
 
 # Google API credentials -- never commit these.
 # Patterns are deliberately broad: Google's download name is
