@@ -366,10 +366,31 @@ def _column_split(lines: List[Line]) -> Optional[float]:
 
 
 def _build_blocks(lines: List[Line], page_w: float = 612.0) -> List[TextBlock]:
-    """lines -> blocks, by vertical pitch and horizontal adjacency."""
+    """lines -> blocks, by vertical pitch and horizontal adjacency.
+
+    On a two-column page each column is blocked SEPARATELY. Blocking the page
+    as one stream sorts the lines by baseline, which interleaves the columns --
+    left line 1, right line 1, left line 2 -- so consecutive lines never
+    overlap horizontally and every one becomes a block, and then a paragraph,
+    of its own. Measured: 20 paragraphs holding 23 source lines where PyMuPDF
+    had 16 holding 47, and 106pt of extra space_before, which cost a page.
+    """
     if not lines:
         return []
     col_x = _column_split(lines)
+    if col_x is not None:
+        left = [l for l in lines if (l.bbox[0] + l.bbox[2]) / 2 <= col_x]
+        right = [l for l in lines if (l.bbox[0] + l.bbox[2]) / 2 > col_x]
+        if left and right:
+            out = _build_blocks_one(left, col_x) + _build_blocks_one(right, col_x)
+            out.sort(key=lambda b: (round(b.bbox[1], 1), b.bbox[0]))
+            return out
+    return _build_blocks_one(lines, col_x)
+
+
+def _build_blocks_one(lines: List[Line], col_x) -> List[TextBlock]:
+    if not lines:
+        return []
     pitches = []
     for a, b in zip(lines, lines[1:]):
         d = b.baseline - a.baseline
@@ -388,6 +409,17 @@ def _build_blocks(lines: List[Line], page_w: float = 612.0) -> List[TextBlock]:
         # document went from 29 paragraphs to 98, its accumulated space_before
         # from 176pt to 1359pt, and the column detector started finding
         # two-column regions in the debris.
+        # A change of type size ends the block. Without it a heading merges
+        # into the paragraph beneath it -- '1 Introduction Retrieval quality
+        # degrades...' as one 12-line paragraph where PyMuPDF has a 1-line
+        # heading and a 6-line body -- because the gap between them is within
+        # the ordinary line-pitch tolerance.
+        if abs(_line_size(ln) - _line_size(prev)) > 0.06 * max(
+                _line_size(prev), _line_size(ln), 1.0):
+            blocks.append(cur)
+            cur = [ln]
+            continue
+
         if abs(gap) <= 0.6:
             # ...unless they cross this page's column boundary (structural,
             # see _column_split), or sit too far apart to be one row.

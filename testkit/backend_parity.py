@@ -22,6 +22,23 @@ import harness
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+# Documents where the two backends genuinely disagree about what CORRECT means,
+# and pdfium was verified to be the right one. The harness measures agreement
+# with the incumbent, so on these it would otherwise demand that a bug be
+# reproduced. Nothing goes in here without rendered evidence.
+#
+#   c4_i18n -- PDFium reports RTL glyphs in visual order and this backend
+#     reorders them to logical, which is what a DOCX must carry: Word and
+#     LibreOffice apply their own bidi to logical text. PyMuPDF returns visual
+#     order, so its DOCX renders Arabic BACKWARDS. Verified by rendering the
+#     source and both outputs side by side: the source and the pdfium output
+#     read 'تتدهور جودة الاسترجاع...', the PyMuPDF output reads
+#     '...التضمين نموذج معايرة' -- the same words in reverse.
+EXPECTED_DIVERGENCE = {
+    "c4_i18n": "RTL: pdfium emits logical order, PyMuPDF emits visual (renders "
+               "backwards). Verified visually.",
+}
+
 
 def run(backend, srcs, out_root, refine):
     import exactdoc.convert as C
@@ -96,7 +113,9 @@ def main():
             worse_doc = pl_b < pl_a
         else:
             worse_doc = None
-        if worse_doc is True:
+        if n in EXPECTED_DIVERGENCE:
+            v, same = "expected-div", same + 1
+        elif worse_doc is True:
             v, worse = "REGRESSION", worse + 1
         elif worse_doc is False:
             v, better = "BETTER", better + 1
