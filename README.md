@@ -241,5 +241,31 @@ regression, so it doubles as CI.
 ## License
 
 [AGPL-3.0-or-later](LICENSE). exactdoc links PyMuPDF, which is AGPL-3.0; the
-copyleft is inherited, not chosen. Moving the parser to pypdfium2 + pdfplumber
-would allow relicensing under permissive terms — a welcome contribution.
+copyleft is inherited, not chosen.
+
+Relicensing means replacing the parser, and the obstacle is not the API — it
+is that every threshold downstream was tuned against the *shape* of PyMuPDF's
+output, especially its grouping of glyphs into lines and blocks. Measured over
+20 documents (`testkit/backend_probe.py`, ratio to PyMuPDF):
+
+| axis | median | range |
+|---|---|---|
+| chars | 1.00 | 0.84 – 1.00 |
+| lines | 0.98 | 0.73 – 1.79 |
+| blocks | **1.39** | 0.55 – **3.67** |
+| drawings | 1.00 | **0.04** – 1.12 |
+
+So pdfminer.six is not a drop-in — it loses up to 16% of text and sees 4% of
+the vector paths on arXiv papers. pypdfium2 (Apache-2.0) extracts text and
+paths but provides no line/block grouping, so that clustering has to be
+written here.
+
+That is the plan, and `testkit/golden_ir.py` makes it tractable: the current
+parser's output is frozen per corpus document and checked in CI, so a
+replacement backend is correct when it reproduces the goldens. The existing
+tuning becomes the specification rather than a casualty. See
+[`exactdoc/backend.py`](exactdoc/backend.py) for the contract.
+
+**Until the swap lands, please do not send patches to `parse.py`** —
+relicensing needs every contributor's consent, and the change is confined to
+that one module. Contributions anywhere else cost nothing.

@@ -51,6 +51,11 @@ jobs:
       - name: Purity - writing the same layout twice must be byte-identical
         run: python tests/test_purity.py
 
+      - name: Golden IR - the parser's output must not drift
+        # Also the acceptance test for any future permissive-parser backend:
+        # a replacement is correct when it reproduces these.
+        run: python testkit/golden_ir.py verify
+
       - name: Fidelity gate, both lanes
         continue-on-error: true   # reporting until the Linux baseline is pinned
         env:
