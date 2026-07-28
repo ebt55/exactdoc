@@ -307,45 +307,64 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
     return lines
 
 
-def _gutters(lines: List[Line], page_w: float) -> List[tuple]:
-    """X-intervals that carry no text anywhere down the page.
+def _column_split(lines: List[Line]) -> Optional[float]:
+    """The x of a genuine column gutter on this page, or None.
 
-    Distinguishing a column gutter from the gap between two table cells cannot
-    be done with a width threshold: measured, a table's cell gaps run WIDER
-    than a two-column gutter, so any single value fixes one document and breaks
-    the other. The real difference is extent -- a gutter is empty for the whole
-    page, a cell gap only for its own row.
+    Deciding whether two lines that share a baseline belong together is the
+    difference between a table row (join: they are cells) and a two-column page
+    (do not join: they are separate flows). Width cannot decide it -- measured,
+    a table's cell gaps run WIDER than a two-column gutter, so every single
+    threshold fixes one document and breaks the other, and page-wide empty-band
+    detection fails too because a full-width title sits across the gutter.
+
+    Structure decides it. A two-column page splits into exactly TWO groups, both
+    wide, at the same x, for most of its rows. A table row splits into several
+    narrow cells at x positions that differ per table. So look for that shape
+    and nothing else.
     """
-    if not lines:
-        return []
-    step = 2.0
-    n = max(1, int(page_w / step) + 1)
-    occupied = [False] * n
+    rows = {}
     for ln in lines:
-        a = max(0, int(ln.bbox[0] / step))
-        b = min(n - 1, int(ln.bbox[2] / step))
-        for k in range(a, b + 1):
-            occupied[k] = True
-    spans, k = [], 0
-    while k < n:
-        if occupied[k]:
-            k += 1
+        rows.setdefault(round(ln.baseline, 0), []).append(ln)
+    span_lo = min(l.bbox[0] for l in lines)
+    span_hi = max(l.bbox[2] for l in lines)
+    content_w = max(1.0, span_hi - span_lo)
+
+    votes = {}
+    pairs = 0
+    for _, row in rows.items():
+        row.sort(key=lambda l: l.bbox[0])
+        # EXACTLY two groups. This is the whole discriminator: a two-column
+        # baseline carries one line from each column, while a table row carries
+        # one per cell -- four to seven on the corpus's tables. Taking the
+        # widest gap of an arbitrary-length row instead let a wide first table
+        # column masquerade as a gutter.
+        if len(row) != 2:
             continue
-        j = k
-        while j < n and not occupied[j]:
-            j += 1
-        if (j - k) * step >= 12.0:            # a real band, not letterspacing
-            spans.append((k * step, j * step))
-        k = j
-    # ignore the page margins; only interior bands are gutters
-    return [(a, b) for a, b in spans if a > 1.0 and b < page_w - 1.0]
+        a, b = row
+        g = b.bbox[0] - a.bbox[2]
+        if g < 6.0:
+            continue
+        left_w = a.bbox[2] - a.bbox[0]
+        right_w = b.bbox[2] - b.bbox[0]
+        # both halves substantial: columns are wide, cells are not
+        if left_w < 0.25 * content_w or right_w < 0.25 * content_w:
+            continue
+        pairs += 1
+        bx = (a.bbox[2] + b.bbox[0]) / 2
+        votes[round(bx / 4.0)] = votes.get(round(bx / 4.0), 0) + 1
+
+    if not votes or pairs < 3:
+        return None
+    bx4, n = max(votes.items(), key=lambda kv: kv[1])
+    # a gutter is consistent; a coincidence is not
+    return bx4 * 4.0 if n >= max(3, 0.6 * pairs) else None
 
 
 def _build_blocks(lines: List[Line], page_w: float = 612.0) -> List[TextBlock]:
     """lines -> blocks, by vertical pitch and horizontal adjacency."""
     if not lines:
         return []
-    guts = _gutters(lines, page_w)
+    col_x = _column_split(lines)
     pitches = []
     for a, b in zip(lines, lines[1:]):
         d = b.baseline - a.baseline
@@ -365,21 +384,23 @@ def _build_blocks(lines: List[Line], page_w: float = 612.0) -> List[TextBlock]:
         # from 176pt to 1359pt, and the column detector started finding
         # two-column regions in the debris.
         if abs(gap) <= 0.6:
-            # ...but only when horizontally adjacent. The two columns of a
-            # two-column page also share baselines, and merging across the
-            # gutter destroys column detection.
+            # ...unless they cross this page's column boundary (structural,
+            # see _column_split), or sit too far apart to be one row.
             #
-            # This threshold is a compromise and is known to be one: measured,
-            # a table's cell gaps run WIDER than a two-column gutter, so no
-            # single value satisfies both. 1.8em keeps the two-column documents
-            # correct and leaves c3_tables at 3/5 pages against PyMuPDF's 3/4 --
-            # a document that already fails on PyMuPDF for unrelated reasons
-            # (nested tables). Page-wide gutter detection was tried instead and
-            # is worse: a full-width title above the columns occupies the
-            # gutter band, so no gutter is found at all.
+            # The distance test is a compromise and provably so: measured over
+            # the corpus, the same-baseline gaps inside a TABLE and the
+            # spurious ones that merely coincide have identical distributions
+            # (median 4.7em for both), so no threshold separates them. The
+            # parser cannot answer this question from geometry alone -- knowing
+            # a region is a table needs the ruling lines, which infer.py has
+            # and this module does not. BLOCK_SAME_ROW_EM keeps the common
+            # cases right; the residue is a known limit, not a tuning target.
             hgap = max(ln.bbox[0], prev.bbox[0]) - min(ln.bbox[2], prev.bbox[2])
             em = max(_line_size(prev), _line_size(ln), 1.0)
             same = hgap <= BLOCK_SAME_ROW_EM * em
+            if same and col_x is not None:
+                same = not (min(prev.bbox[2], ln.bbox[2]) <= col_x <=
+                            max(prev.bbox[0], ln.bbox[0]))
         else:
             same = (0 < gap <= typical * BLOCK_GAP_FACTOR) and overlap > 0
         if same:
