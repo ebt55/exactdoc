@@ -33,7 +33,12 @@ from .layout import DocLayout, Para, TableEl, FigureEl, ImageEl, RuleEl
 # heights are load-bearing; the gaps between elements are the slack.
 MIN_GAP_SCALE = 0.30     # never crush a gap below 30% of its measured value
 OFFSET_DEADBAND = 0.4    # pt; do not chase noise
-MAX_OFFSET_FIX = 40.0    # pt; a larger error is a structural bug, not an offset
+# Cap on a single correction step. This was 40pt on the theory that anything
+# larger had to be a structural bug rather than an offset -- which turned out
+# to be wrong, and self-serving: Google Docs offsets measure ~41pt, so the
+# guard silently refused to correct the exact case the loop exists for. The
+# loop is iterative and keeps the best round, so a generous cap is safe.
+MAX_OFFSET_FIX = 200.0
 
 
 def _norm(t: str) -> str:
@@ -152,30 +157,61 @@ def _apply(lay: DocLayout, m) -> bool:
                         _set_gap(e, g * scale)
                 changed = True
 
-        # 2. constant per-page offset -- shift the whole page by its first gap
+        # 2. constant per-page offset
         off = m["offset"][idx]
         if abs(off) > OFFSET_DEADBAND and abs(off) <= MAX_OFFSET_FIX \
                 and m["spill"][idx] == 0:
-            first = els[0]
-            _set_gap(first, _gap_of(first) - off)
-            changed = True
+            if off < 0:
+                # content sits too high: push it down, the first gap absorbs it
+                _set_gap(els[0], _gap_of(els[0]) - off)
+                changed = True
+            else:
+                # Content sits too low, so `off` points must be *removed*. The
+                # first gap is often already 0 and w:before cannot be negative
+                # (ST_TwipsMeasure is unsigned), so a first-gap-only correction
+                # silently does nothing -- which is exactly how the Google Docs
+                # offset survived every round untouched. Reclaim from every gap
+                # on the page instead, nearest first.
+                remaining = off
+                for e in els:
+                    if remaining <= 0.05:
+                        break
+                    g = _gap_of(e)
+                    take = min(g, remaining)
+                    if take > 0:
+                        _set_gap(e, g - take)
+                        remaining -= take
+                        changed = True
     return changed
 
 
 def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
-           rounds: int = 2, verbose: bool = False) -> str:
-    """Write `lay`, then correct it against real renders. Returns out_path."""
+           rounds: int = 2, verbose: bool = False, render=None) -> str:
+    """Write `lay`, then correct it against real renders. Returns out_path.
+
+    `render(docx_path, tmp_dir) -> pdf_path | None` selects the oracle. It
+    defaults to LibreOffice, but nothing in this loop is LibreOffice-specific:
+    pass the Google Docs round-trip instead and the same machinery corrects for
+    Docs. That matters, because the two renderers disagree substantially --
+    Docs adds a one-off gap after the first heading plus roughly 3pt at every
+    paragraph boundary, so a layout tuned against LibreOffice is NOT tuned for
+    the renderer this project actually targets.
+    """
     from .docxout import write_docx
     from .verify import docx_to_pdf, SOFFICE
 
-    if SOFFICE is None or rounds <= 0:
+    if render is None:
+        if SOFFICE is None:
+            return write_docx(copy.deepcopy(lay), out_path, dpi=dpi)
+        render = docx_to_pdf
+    if rounds <= 0:
         return write_docx(copy.deepcopy(lay), out_path, dpi=dpi)
 
     best_path, best_score = None, None
     with tempfile.TemporaryDirectory() as td:
         for rnd in range(rounds + 1):
             write_docx(copy.deepcopy(lay), out_path, dpi=dpi)
-            rendered = docx_to_pdf(out_path, td)
+            rendered = render(out_path, td)
             if rendered is None:
                 return out_path
             m = _measure(src_pdf, rendered)

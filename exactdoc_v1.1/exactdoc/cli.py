@@ -13,11 +13,18 @@ def main(argv=None):
     ap.add_argument("-o", "--out", help="output .docx path (single input only)")
     ap.add_argument("--dpi", type=int, default=240,
                     help="raster DPI for vector figure regions (default 240)")
+    ap.add_argument("--target", default="libreoffice",
+                    choices=["gdocs", "libreoffice", "none"],
+                    help="which program the output should look right in. The "
+                         "closed loop optimises for this renderer, and the "
+                         "choice matters: a layout tuned for LibreOffice is "
+                         "measurably not tuned for Google Docs. 'gdocs' needs "
+                         "Drive credentials (default: libreoffice)")
     ap.add_argument("--refine", type=int, default=2, metavar="N",
                     help="closed-loop correction passes: render the DOCX back "
                          "and correct page overflow and per-page offsets "
-                         "against what actually rendered (needs LibreOffice; "
-                         "0 disables, default 2)")
+                         "against what actually rendered (0 disables, "
+                         "default 2)")
     ap.add_argument("--verify", action="store_true",
                     help="render the DOCX back to PDF (needs LibreOffice) and "
                          "report per-page visual similarity + text coverage")
@@ -30,8 +37,8 @@ def main(argv=None):
 
     from .convert import convert
     for p in args.pdf:
-        out = convert(p, args.out, dpi=args.dpi,
-                      refine_rounds=args.refine, verbose=args.verbose)
+        out = convert(p, args.out, dpi=args.dpi, refine_rounds=args.refine,
+                      target=args.target, verbose=args.verbose)
         print("wrote", out)
         if args.verify:
             from .verify import verify, audit

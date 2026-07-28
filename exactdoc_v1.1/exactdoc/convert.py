@@ -10,13 +10,17 @@ from .docxout import write_docx
 
 
 def convert(pdf_path: str, out_path: str = None, dpi: int = 240,
-            refine_rounds: int = 0, verbose: bool = False) -> str:
+            refine_rounds: int = 0, target: str = "libreoffice",
+            verbose: bool = False) -> str:
     """Convert a PDF to DOCX.
 
     `refine_rounds` > 0 enables the closed-loop pass: render the DOCX back and
     correct page overflow and per-page offsets against what actually rendered.
-    It needs LibreOffice and costs one render per round; without LibreOffice it
-    degrades silently to the ordinary single write.
+
+    `target` chooses which renderer that loop optimises for -- "gdocs",
+    "libreoffice" or "none". This is a real choice, not a detail: a layout
+    tuned for LibreOffice is measurably not tuned for Google Docs. If the
+    chosen oracle is unavailable the conversion still succeeds, open-loop.
     """
     if out_path is None:
         out_path = os.path.splitext(pdf_path)[0] + ".docx"
@@ -24,8 +28,13 @@ def convert(pdf_path: str, out_path: str = None, dpi: int = 240,
     lay = infer(ir)
     if refine_rounds > 0:
         from .refine import refine
-        return refine(lay, pdf_path, out_path, dpi=dpi,
-                      rounds=refine_rounds, verbose=verbose)
+        from .targets import get_renderer
+        render, resolved = get_renderer(target)
+        if render is not None:
+            if verbose:
+                print("  refining against: %s" % resolved)
+            return refine(lay, pdf_path, out_path, dpi=dpi,
+                          rounds=refine_rounds, verbose=verbose, render=render)
     return write_docx(lay, out_path, dpi=dpi)
 
 
