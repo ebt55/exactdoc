@@ -52,6 +52,11 @@ class _Char:
     __slots__ = ("u", "x0", "y0", "x1", "y1", "ox", "oy", "size", "font",
                  "flags", "color")
 
+    @property
+    def mono_hint(self) -> bool:
+        fl = (self.font or "").lower()
+        return bool(self.flags & _FLAG_FIXED) or "courier" in fl or "mono" in fl
+
 
 def _page_chars(textpage, page_h) -> List[_Char]:
     n = raw.FPDFText_CountChars(textpage.raw)
@@ -143,6 +148,44 @@ def _page_chars(textpage, page_h) -> List[_Char]:
     return out
 
 
+def _is_rtl(ch: str) -> bool:
+    o = ord(ch)
+    return (0x0590 <= o <= 0x05FF or 0x0600 <= o <= 0x06FF or
+            0x0700 <= o <= 0x074F or 0x0750 <= o <= 0x077F or
+            0x08A0 <= o <= 0x08FF or 0xFB1D <= o <= 0xFB4F or
+            0xFB50 <= o <= 0xFDFF or 0xFE70 <= o <= 0xFEFF)
+
+
+def _reorder_rtl(row):
+    """Visual order -> logical order for right-to-left runs.
+
+    PDFium reports glyphs in visual order, so sorting a line by x -- which is
+    what every other script needs -- lays each Arabic or Hebrew word out
+    backwards: 'نيمضتلا' where the text reads 'التضمين'. The characters are all
+    present and correctly shaped; only their sequence is mirrored. Reversing
+    each maximal run of RTL characters restores logical order, which is what
+    the writer must emit and what PyMuPDF already returns.
+
+    This is not a full bidi implementation -- no embedding levels, no bracket
+    pairing -- and it does not need to be: the IR only has to carry the same
+    order the other backend does.
+    """
+    out, i, n = [], 0, len(row)
+    while i < n:
+        if _is_rtl(row[i].u[:1] or " "):
+            j = i
+            while j < n and (_is_rtl(row[j].u[:1] or " ") or
+                             (row[j].u.isspace() and j + 1 < n and
+                              _is_rtl(row[j + 1].u[:1] or " "))):
+                j += 1
+            out.extend(reversed(row[i:j]))
+            i = j
+        else:
+            out.append(row[i])
+            i += 1
+    return out
+
+
 def _is_cjk(ch: str) -> bool:
     """CJK, kana, hangul and full-width forms.
 
@@ -206,6 +249,8 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
 
     lines = []
     for row in vis_rows:
+        if any(_is_rtl(c.u[:1] or " ") for c in row):
+            row = _reorder_rtl(row)
         spans, cur, cur_key = [], [], None
         for c in row:
             k = _style(c)
@@ -216,9 +261,19 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
             if not cur:
                 cur_key = k
             elif gap > SPACE_GAP_EM * max(c.size, 1.0) \
-                    and not cur[-1].u.isspace() and not c.u.isspace() \
                     and not _is_cjk(cur[-1].u[-1]) and not _is_cjk(c.u):
-                cur[-1].u += " "
+                # A gap can stand for SEVERAL spaces. Code indentation is one
+                # wide gap, and emitting a single space for it collapsed four
+                # columns to one -- 19 unmatched words and 40pt of horizontal
+                # drift on a listing. Monospace advances are ~0.6em, so the
+                # count is recoverable from the gap; proportional text is
+                # ~0.28em and rarely runs more than one.
+                adv = (0.6 if cur[-1].mono_hint else 0.28) * max(c.size, 1.0)
+                n_sp = int(round(gap / adv)) if adv > 0 else 1
+                if cur[-1].u.isspace() or c.u.isspace():
+                    n_sp = min(n_sp, 1) if not cur[-1].mono_hint else n_sp
+                if n_sp >= 1:
+                    cur[-1].u += " " * min(n_sp, 24)
             cur.append(c)
         if cur:
             spans.append((cur, cur_key))
