@@ -13,18 +13,25 @@ def main(argv=None):
     ap.add_argument("-o", "--out", help="output .docx path (single input only)")
     ap.add_argument("--dpi", type=int, default=240,
                     help="raster DPI for vector figure regions (default 240)")
+    ap.add_argument("--refine", type=int, default=2, metavar="N",
+                    help="closed-loop correction passes: render the DOCX back "
+                         "and correct page overflow and per-page offsets "
+                         "against what actually rendered (needs LibreOffice; "
+                         "0 disables, default 2)")
     ap.add_argument("--verify", action="store_true",
                     help="render the DOCX back to PDF (needs LibreOffice) and "
                          "report per-page visual similarity + text coverage")
     ap.add_argument("--report-dir", default=None,
                     help="directory for side-by-side comparison images")
+    ap.add_argument("-v", "--verbose", action="store_true")
     args = ap.parse_args(argv)
     if args.out and len(args.pdf) > 1:
         ap.error("-o works with a single input")
 
     from .convert import convert
     for p in args.pdf:
-        out = convert(p, args.out, dpi=args.dpi)
+        out = convert(p, args.out, dpi=args.dpi,
+                      refine_rounds=args.refine, verbose=args.verbose)
         print("wrote", out)
         if args.verify:
             from .verify import verify, audit

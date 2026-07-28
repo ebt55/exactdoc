@@ -9,11 +9,23 @@ from .infer import infer
 from .docxout import write_docx
 
 
-def convert(pdf_path: str, out_path: str = None, dpi: int = 240) -> str:
+def convert(pdf_path: str, out_path: str = None, dpi: int = 240,
+            refine_rounds: int = 0, verbose: bool = False) -> str:
+    """Convert a PDF to DOCX.
+
+    `refine_rounds` > 0 enables the closed-loop pass: render the DOCX back and
+    correct page overflow and per-page offsets against what actually rendered.
+    It needs LibreOffice and costs one render per round; without LibreOffice it
+    degrades silently to the ordinary single write.
+    """
     if out_path is None:
         out_path = os.path.splitext(pdf_path)[0] + ".docx"
     ir = normalize(parse_pdf(pdf_path))
     lay = infer(ir)
+    if refine_rounds > 0:
+        from .refine import refine
+        return refine(lay, pdf_path, out_path, dpi=dpi,
+                      rounds=refine_rounds, verbose=verbose)
     return write_docx(lay, out_path, dpi=dpi)
 
 

@@ -180,7 +180,10 @@ def write_para(container, p: Para, content_w: float, par=None):
     """Write a Para into container (doc/cell/header). Returns the paragraph."""
     if par is None:
         par = container.add_paragraph()
-    p.right_indent += _wrap_correction(p, content_w)
+    # NB: local, not `p.right_indent +=`. The refine loop writes the same
+    # layout more than once, and mutating it here would compound the
+    # correction on every pass.
+    right_indent = p.right_indent + _wrap_correction(p, content_w)
     pf = par.paragraph_format
     par.alignment = ALIGN.get(p.align, WD_ALIGN_PARAGRAPH.LEFT)
     if p.space_before > 0.05:
@@ -195,8 +198,8 @@ def write_para(container, p: Para, content_w: float, par=None):
         pf.left_indent = Pt(round(p.left_indent, 1))
     if abs(p.first_indent) > 0.05:
         pf.first_line_indent = Pt(round(p.first_indent, 1))
-    if p.right_indent > 0.05:
-        pf.right_indent = Pt(round(p.right_indent, 1))
+    if right_indent > 0.05:
+        pf.right_indent = Pt(round(right_indent, 1))
     for pos, al in p.tab_stops:
         pf.tab_stops.add_tab_stop(Pt(round(pos, 1)), TABAL.get(al, WD_TAB_ALIGNMENT.LEFT))
     # keep heading with following content

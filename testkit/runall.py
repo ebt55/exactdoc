@@ -19,7 +19,9 @@ GATE = {"page_match": True, "live_text_cov": 0.95, "doc_recall": 0.95,
         "word_recall": 0.90}
 
 
-def main(dirs, out=OUT, gate=True):
+def main(dirs, out=OUT, gate=True, refine_rounds=None):
+    if refine_rounds is None:
+        refine_rounds = int(os.environ.get("REFINE", "0"))
     os.makedirs(out, exist_ok=True)
     pdfs = []
     for d in dirs:
@@ -35,7 +37,7 @@ def main(dirs, out=OUT, gate=True):
         docx = os.path.join(out, name + ".docx")
         t0 = time.time()
         try:
-            convert(p, docx)
+            convert(p, docx, refine_rounds=refine_rounds)
             converted.append((p, docx, round(time.time() - t0, 2)))
         except Exception as e:
             results.append({"src": os.path.basename(p),

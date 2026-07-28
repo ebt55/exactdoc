@@ -8,22 +8,53 @@ from typing import List, Optional
 import fitz
 import numpy as np
 
-SOFFICE = None
-for cand in ("/opt/libreoffice26.2/program/soffice", "/usr/bin/soffice", "soffice"):
-    if os.path.exists(cand):
-        SOFFICE = cand
-        break
+def _find_soffice():
+    """Locate LibreOffice on any platform.
+
+    The previous list held POSIX paths only, so `--verify` silently reported
+    'LibreOffice not found' on every Windows and macOS machine even with a
+    working install.
+    """
+    import shutil
+    env = os.environ.get("SOFFICE")
+    if env and os.path.exists(env):
+        return env
+    for cand in (
+            r"C:\Program Files\LibreOffice\program\soffice.exe",
+            r"C:\Program Files (x86)\LibreOffice\program\soffice.exe",
+            "/Applications/LibreOffice.app/Contents/MacOS/soffice",
+            "/opt/libreoffice26.2/program/soffice",
+            "/usr/bin/soffice", "/usr/local/bin/soffice"):
+        if os.path.exists(cand):
+            return cand
+    return shutil.which("soffice") or shutil.which("libreoffice")
+
+
+SOFFICE = _find_soffice()
 
 
 def docx_to_pdf(docx_path: str, out_dir: str) -> Optional[str]:
+    """Render a DOCX to PDF. Returns None if LibreOffice is unavailable.
+
+    Uses a dedicated user profile: soffice refuses rapid successive starts
+    against a shared default profile and exits 0 without writing anything,
+    which looks exactly like a silent conversion failure.
+    """
     if SOFFICE is None:
         return None
     env = dict(os.environ)
-    env["HOME"] = env.get("HOME", "/tmp")
-    cmd = [SOFFICE, "--headless", "--norestore", "--convert-to", "pdf",
-           "--outdir", out_dir, docx_path]
-    subprocess.run(cmd, check=True, capture_output=True, timeout=180, env=env)
+    env.setdefault("HOME", tempfile.gettempdir())
+    prof = os.path.join(tempfile.gettempdir(), "exactdoc_soffice_profile")
     out = os.path.join(out_dir, os.path.splitext(os.path.basename(docx_path))[0] + ".pdf")
+    if os.path.exists(out):
+        os.remove(out)
+    cmd = [SOFFICE, "--headless", "--norestore", "--invisible", "--nolockcheck",
+           "-env:UserInstallation=file:///" + prof.replace("\\", "/"),
+           "--convert-to", "pdf", "--outdir", out_dir, docx_path]
+    try:
+        subprocess.run(cmd, capture_output=True, timeout=300, env=env)
+    except (subprocess.TimeoutExpired, OSError):
+        return None
     return out if os.path.exists(out) else None
 
 

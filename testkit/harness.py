@@ -229,7 +229,14 @@ def ink_iou(a, b, thr=200):
 
 
 # ------------------------------------------------------------------- runner
-def evaluate(src_pdf, docx_path, work_dir, save_images=True, dpi=110, img_dir=None):
+def evaluate(src_pdf, docx_path, work_dir, save_images=True, dpi=110, img_dir=None,
+             rendered_pdf=None):
+    """Score a conversion.
+
+    `rendered_pdf` lets a caller supply a render from somewhere other than the
+    LibreOffice proxy -- notably the Google Docs oracle, which is the renderer
+    the product actually targets.
+    """
     os.makedirs(work_dir, exist_ok=True)
     img_dir = img_dir or work_dir
     if save_images:
@@ -247,11 +254,12 @@ def evaluate(src_pdf, docx_path, work_dir, save_images=True, dpi=110, img_dir=No
     res["media_bytes"] = sum(s for _, s in imgs)
 
     try:
-        rpdf = docx_to_pdf(docx_path, work_dir)
+        rpdf = rendered_pdf or docx_to_pdf(docx_path, work_dir)
     except Exception as e:
         res["error"] = str(e)[:300]
         return res
     res["render_pdf"] = rpdf
+    res["renderer"] = "supplied" if rendered_pdf else "libreoffice"
 
     s_doc, r_doc = fitz.open(src_pdf), fitz.open(rpdf)
     res["src_pages"], res["out_pages"] = s_doc.page_count, r_doc.page_count
