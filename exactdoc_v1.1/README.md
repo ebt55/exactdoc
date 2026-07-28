@@ -12,9 +12,38 @@ exactdoc reconstructs the document semantically and reproduces the design.
 
 ```bash
 python3 -m exactdoc.cli input.pdf                    # writes input.docx
+python3 -m exactdoc.cli input.pdf --target gdocs     # tune for Google Docs
 python3 -m exactdoc.cli input.pdf -o out.docx --verify
 python3 -m exactdoc.cli *.pdf --dpi 300              # batch, high-res figures
 ```
+
+### Pick a target renderer
+
+There is no single "correct" DOCX. Word, LibreOffice and Google Docs lay the
+same file out differently, and the gap is not small: on a document where
+LibreOffice places 99% of words within 2pt of the source, Google Docs places
+1% — Docs adds a one-off gap after the first heading plus ~3pt at every
+paragraph boundary, which accumulates down the page.
+
+So `--target` chooses which program the output should look right in, and the
+closed-loop pass (below) optimises for that renderer:
+
+| `--target` | Oracle | Notes |
+|---|---|---|
+| `libreoffice` | LibreOffice headless | default; fast, offline, a good proxy for Word |
+| `gdocs` | Google Docs via the Drive API | needs credentials; slowest; the only oracle that answers the question this project asks |
+| `none` | — | no feedback loop, deterministic, no dependencies |
+
+Measured, opening the result in Google Docs: tuning for `gdocs` instead of
+`libreoffice` moved `c8_toc_links` from dy₅₀ 41.4pt to 4.6pt, and
+`02_research_paper` from 3 pages to the correct 2.
+
+### Closed-loop correction
+
+`--refine N` (default 2) writes the DOCX, renders it back through the chosen
+target, measures page overflow and per-page offsets, corrects the layout and
+rewrites — keeping the best round. Without an oracle available it degrades
+silently to a single ordinary write, so conversion never depends on it.
 
 Python API:
 
@@ -28,6 +57,14 @@ convert("whitepaper.pdf", "whitepaper.docx")
 1. **Parse** (`parse.py`) — PyMuPDF extracts every text span (font, size,
    weight, color, exact position), vector drawing, image and link into an
    intermediate model.
+1b. **Normalise** (`dialect.py`) — rewrite producer-specific idioms into one
+   canonical form, so the heuristics below stop encoding "how ReportLab draws
+   things". Drops page-backdrop fills (Chromium paints an opaque white page
+   rect that otherwise merges every drawing into one region), rewrites vector
+   list markers as text markers (a CSS `disc` bullet reaches the PDF as a 3×3pt
+   bezier circle, not a character), and moves rotated text out of the flow.
+   Driven by evidence in the page, never by the `/Producer` string — those are
+   absent, rewritten by post-processors, and version-dependent.
 2. **Infer** (`infer.py`) — heuristics reconstruct semantics:
    - repeating headers/footers, with page numbers converted to live
      `PAGE`/`NUMPAGES` fields (verified across pages so "v3.2" never becomes a
@@ -77,11 +114,40 @@ convert("whitepaper.pdf", "whitepaper.docx")
 
 ## Verified corpus results
 
-Five synthesized Claude-style PDFs (cover bands, callouts, shaded + booktabs
-tables, lists, code blocks, vector charts, stat cards, two-column paper,
-footers with page fields). Page counts match 1:1; text coverage ≈ 100%;
-LibreOffice render-back SSIM 0.71–0.94 (covers score lowest because solid
-color panels amplify ±2pt offsets; visually they are near-identical).
+18 documents across five producer dialects (Chromium/Skia, WeasyPrint,
+ReportLab, fpdf2, LibreOffice), measured by `testkit/`, which shares no code
+with this package:
+
+| | |
+|---|---|
+| gate passed | 15/18 |
+| page count 1:1 | 17/18 |
+| live (editable) text | 96.9% mean |
+| words within 2pt of source | 40.4% mean |
+| median per-word vertical drift | 1.02pt |
+| SSIM (LibreOffice render-back) | 0.809 mean |
+
+Run it yourself: `python testkit/runall.py testkit/adv my_samples`. It exits
+non-zero on regression, so it doubles as CI.
+
+**Do not use SSIM as the headline number.** It is dominated by whitespace and
+it *rewards* a rasterised page: a resume converted into two flat images scored
+0.594, comparable to genuinely good conversions. `live_text_cov` and
+`within2pt` are what distinguish a document from a photograph of one.
+
+## Known-broken
+
+- **Nested tables** flatten, with borders in the wrong places (`c3_tables`).
+- **LaTeX/pdfTeX** papers still inflate their page count substantially. Text is
+  recovered (≈95% live) but pagination is not; the multi-column author block on
+  a paper's first page explodes into a vertical cascade.
+- **Rounded-corner "stat card" rows** stack diagonally instead of forming a row:
+  `border-radius` makes the card a curve, and the card-row detector requires a
+  rect.
+- **Letter-spaced headings** lose their spaces — "TECHNICAL SKILLS" comes out
+  "TECHNICALSKILLS".
+- **Mixed page geometry** is discarded: page size and orientation come from
+  page 1 and apply to the whole document.
 
 ## Limitations
 
