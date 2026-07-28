@@ -52,6 +52,11 @@ class Span:
 class Line:
     spans: List[Span]
     bbox: BBox
+    dir: Tuple[float, float] = (1.0, 0.0)   # writing direction (cos, sin)
+
+    @property
+    def horizontal(self) -> bool:
+        return abs(self.dir[1]) < 0.08
 
     @property
     def text(self) -> str:
@@ -105,6 +110,7 @@ class PageIR:
     drawings: List[DrawCmd] = field(default_factory=list)
     images: List[ImageObj] = field(default_factory=list)
     links: List[Dict[str, Any]] = field(default_factory=list)  # {'bbox':..., 'uri':...}
+    rotated: List[Line] = field(default_factory=list)  # non-horizontal, out of flow
 
 
 @dataclass

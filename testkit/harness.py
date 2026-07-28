@@ -37,29 +37,47 @@ def _soffice(args, timeout=900):
     return subprocess.run(cmd, capture_output=True, timeout=timeout)
 
 
+def _pdf_for(docx_path, out_dir):
+    return os.path.join(out_dir,
+                        os.path.splitext(os.path.basename(docx_path))[0] + ".pdf")
+
+
+def _is_stale(docx_path, pdf_path):
+    """A render is only reusable if it is NEWER than the DOCX it came from.
+
+    Reusing an existing PDF unconditionally silently reports the previous
+    run's results after a code change -- which looked exactly like 'the fix
+    changed nothing'. Never cache on existence alone.
+    """
+    if not os.path.exists(pdf_path):
+        return True
+    return os.path.getmtime(pdf_path) <= os.path.getmtime(docx_path)
+
+
 def batch_docx_to_pdf(docx_paths, out_dir):
     """Convert many DOCX in one soffice call. Returns {docx: pdf|None}."""
     os.makedirs(out_dir, exist_ok=True)
-    res = {}
     todo = list(docx_paths)
-    for attempt in range(3):
-        pending = [d for d in todo
-                   if not os.path.exists(os.path.join(
-                       out_dir, os.path.splitext(os.path.basename(d))[0] + ".pdf"))]
+    for d in todo:                       # drop stale renders up front
+        p = _pdf_for(d, out_dir)
+        if os.path.exists(p) and _is_stale(d, p):
+            os.remove(p)
+    for _ in range(3):
+        pending = [d for d in todo if _is_stale(d, _pdf_for(d, out_dir))]
         if not pending:
             break
         _soffice(["--convert-to", "pdf", "--outdir", out_dir] + pending)
-    for d in todo:
-        p = os.path.join(out_dir, os.path.splitext(os.path.basename(d))[0] + ".pdf")
-        res[d] = p if os.path.exists(p) else None
-    return res
+    return {d: (None if _is_stale(d, _pdf_for(d, out_dir)) else _pdf_for(d, out_dir))
+            for d in todo}
 
 
 def docx_to_pdf(docx_path, out_dir):
     os.makedirs(out_dir, exist_ok=True)
-    out = os.path.join(out_dir, os.path.splitext(os.path.basename(docx_path))[0] + ".pdf")
-    if os.path.exists(out):
+    out = _pdf_for(docx_path, out_dir)
+    if not _is_stale(docx_path, out):
         return out
+    if os.path.exists(out):
+        os.remove(out)
     for _ in range(3):
         _soffice(["--convert-to", "pdf", "--outdir", out_dir, docx_path])
         if os.path.exists(out):

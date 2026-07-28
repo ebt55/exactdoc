@@ -4,6 +4,7 @@ import sys
 import argparse
 
 from .parse import parse_pdf
+from .dialect import normalize
 from .infer import infer
 from .docxout import write_docx
 
@@ -11,7 +12,7 @@ from .docxout import write_docx
 def convert(pdf_path: str, out_path: str = None, dpi: int = 240) -> str:
     if out_path is None:
         out_path = os.path.splitext(pdf_path)[0] + ".docx"
-    ir = parse_pdf(pdf_path)
+    ir = normalize(parse_pdf(pdf_path))
     lay = infer(ir)
     return write_docx(lay, out_path, dpi=dpi)
 

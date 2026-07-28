@@ -11,6 +11,20 @@ from .layout import (Run, Para, Cell, TableEl, FigureEl, ImageEl, RuleEl,
 BULLET_CHARS = set("•◦▪‣·-–—*➤►○●♦")
 NUM_RE = re.compile(r"^\(?(\d{1,3}|[a-zA-Z]|[ivxlIVXL]{1,5})[\.\)\:]$")
 
+# --- figure-detection budget ----------------------------------------------
+# A figure region is rasterised, so anything it swallows stops being editable
+# text. These caps make that trade explicit and bounded.
+GLYPH_MAX = 9.0            # pt; shapes this small are glyphs, not artwork
+RULE_THICK = 2.5           # pt; thinner than this is a rule, not a shape
+MAX_FIG_GROWTH = 4.0       # a figure may not exceed 4x its seed area
+MAX_FIG_PAGE_FRAC = 0.55   # ...nor 55% of the page
+MAX_FIG_TEXT_FRAC = 0.35   # ...nor swallow more than 35% of a page's text
+
+
+def _thin(d: DrawCmd) -> bool:
+    x0, y0, x1, y1 = d.bbox
+    return min(x1 - x0, y1 - y0) <= RULE_THICK
+
 
 def _mode(vals, nd=1):
     if not vals:
@@ -678,9 +692,22 @@ def _edges_of(d: DrawCmd):
     return hs, vs
 
 
+def _is_glyphlike(d: DrawCmd) -> bool:
+    """Tiny solid shape: a drawn bullet, tick or dingbat, not artwork.
+
+    dialect.normalize() converts the ones that label a text line into real
+    markers; the survivors are ornaments and must not be able to promote a
+    whole cluster to 'figure'."""
+    x0, y0, x1, y1 = d.bbox
+    return (x1 - x0) <= GLYPH_MAX and (y1 - y0) <= GLYPH_MAX
+
+
 def _classify_cluster(cl) -> str:
     ds = [d for _, d in cl]
-    if any(d.shape in ("curve", "complex", "line") for d in ds):
+    art = [d for d in ds if d.shape in ("curve", "complex", "line")
+           and not _is_glyphlike(d)]
+    # A rule is a rule at any length; on its own it is never a figure.
+    if art and not all(d.shape == "line" and _thin(d) for d in art):
         return "figure"
     fills = [d for d in ds if d.fill and d.shape == "rect"]
     if len(fills) >= 3:
@@ -714,7 +741,10 @@ def _classify_cluster(cl) -> str:
             return "stripes"
     if len(fills) == 1:
         return "boxlike"
-    if len(ds) >= 4:
+    # "lots of primitives" only implies artwork when the primitives are
+    # substantial. Four hairline rules are a ruled table, not a chart.
+    substantial = [d for d in ds if not _is_glyphlike(d) and not _thin(d)]
+    if len(substantial) >= 4:
         return "figure"
     return "loose"
 
@@ -1025,7 +1055,15 @@ def build_figure(cl_ds: List[DrawCmd], blocks, images, consumed, page: PageIR) -
     bb = None
     for d in cl_ds:
         bb = bbox_union(bb, d.bbox)
-    fig_w = bb[2] - bb[0]
+    # Absorption thresholds are frozen against the SEED geometry. Deriving them
+    # from `bb` while `bb` is being grown is positive feedback: absorbing a line
+    # widens the box, which loosens the test, which absorbs more lines. That
+    # loop was measured growing a 490x2pt seed to 103x its area.
+    seed = bb
+    seed_w = max(1.0, seed[2] - seed[0])
+    seed_area = max(1.0, bbox_area(seed))
+    page_area = max(1.0, page.width * page.height)
+    max_area = min(MAX_FIG_GROWTH * seed_area, MAX_FIG_PAGE_FRAC * page_area)
     for _ in range(6):
         changed = False
         ex = _expand(bb, 14)
@@ -1036,9 +1074,12 @@ def build_figure(cl_ds: List[DrawCmd], blocks, images, consumed, page: PageIR) -
             if bbox_overlap(lb, ex) > 0:
                 inside = bbox_overlap(lb, bb) > 0.8 * max(1e-6, bbox_area(lb))
                 small = (lb[3] - lb[1]) <= 45 and \
-                    (lb[2] - lb[0]) <= max(1.06 * (bb[2] - bb[0]), 60)
+                    (lb[2] - lb[0]) <= max(1.06 * seed_w, 60)
                 if inside or small:
-                    bb = bbox_union(bb, lb)
+                    cand = bbox_union(bb, lb)
+                    if not inside and bbox_area(cand) > max_area:
+                        continue          # refuse to grow past the budget
+                    bb = cand
                     consumed.add(id(ln))
                     changed = True
         for im in images:
@@ -1054,6 +1095,31 @@ def build_figure(cl_ds: List[DrawCmd], blocks, images, consumed, page: PageIR) -
           min(page.width, bb[2] + 2), min(page.height, bb[3] + 2))
     return FigureEl(page_no=page.number, clip=bb,
                     width=bb[2] - bb[0], height=bb[3] - bb[1])
+
+
+def _figure_in_budget(cl_ds, blocks, images, consumed, page, text_area):
+    """build_figure, rolled back if it would rasterise too much of the page.
+
+    Rasterising is the only irreversible decision in the pipeline: whatever a
+    figure swallows stops being editable text, and no downstream stage can
+    recover it. When a figure would eat more than MAX_FIG_TEXT_FRAC of a page's
+    text, the classification is far likelier to be wrong than the page is to be
+    genuinely that graphical -- so back it out and let the text flow.
+    """
+    before = set(consumed)
+    before_img = [im for im in images if getattr(im, "_consumed", False)]
+    fig = build_figure(cl_ds, blocks, images, consumed, page)
+    eaten = sum(bbox_area(l.bbox) for l in _all_lines(blocks)
+                if id(l) in consumed and id(l) not in before)
+    if eaten > MAX_FIG_TEXT_FRAC * text_area:
+        consumed.clear()
+        consumed.update(before)
+        keep = {id(i) for i in before_img}
+        for im in images:
+            if getattr(im, "_consumed", False) and id(im) not in keep:
+                im._consumed = False
+        return None
+    return fig
 
 
 # ------------------------------------------------------------------ main
@@ -1210,30 +1276,36 @@ def infer(ir: DocIR) -> DocLayout:
         draws = [(i, d) for i, d in enumerate(p.drawings)
                  if i not in cd and d.opacity > 0.05]
         leftover = []
+        page_text_area = sum(bbox_area(l.bbox) for l in _all_lines(blocks)) or 1.0
         for cl in _clusters(draws):
             if len(cl) == 1:
                 leftover.append(cl[0])
                 continue
             kind = _classify_cluster(cl)
             el = None
+
+            def _fig():
+                return _figure_in_budget([d for _, d in cl], blocks, p.images,
+                                         consumed, p, page_text_area)
+
             if kind == "figure":
-                el = build_figure([d for _, d in cl], blocks, p.images, consumed, p)
+                el = _fig()
             elif kind == "grid":
-                el = build_grid_table(cl, blocks, consumed) or \
-                    build_figure([d for _, d in cl], blocks, p.images, consumed, p)
+                el = build_grid_table(cl, blocks, consumed) or _fig()
             elif kind == "cards":
                 el = build_cards_table(cl, blocks, consumed)
             elif kind == "stripes":
-                el = build_stripes_table(cl, blocks, consumed) or \
-                    build_figure([d for _, d in cl], blocks, p.images, consumed, p)
+                el = build_stripes_table(cl, blocks, consumed) or _fig()
             elif kind == "boxlike":
                 el = build_box(cl, blocks, consumed)
                 if el is None and len(cl) >= 4:
-                    el = build_figure([d for _, d in cl], blocks, p.images, consumed, p)
+                    el = _fig()
             else:
                 leftover.extend(cl)
             if el is not None:
                 elements.append(el)
+            elif kind != "loose":
+                leftover.extend(cl)   # budget refused it: fall back to flow
 
         # booktabs groups among leftover long hlines
         hl = [(i, d) for i, d in leftover if d.shape == "hline"
@@ -1293,6 +1365,8 @@ def infer(ir: DocIR) -> DocLayout:
                 r._bbox = d.bbox
                 elements.append(r)
                 continue
+            if _is_glyphlike(d):
+                continue        # stray ornament: not worth rasterising a region for
             if d.shape in ("curve", "complex", "line") or (
                     d.fill and bbox_area(d.bbox) > 400):
                 elements.append(build_figure([d], blocks, p.images, consumed, p))

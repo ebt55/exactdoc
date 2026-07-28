@@ -136,7 +136,9 @@ def parse_pdf(path: str, keep_image_data: bool = True) -> DocIR:
                     ))
                 if spans:
                     lb = tuple(ln["bbox"])
-                    lines.append(Line(spans=spans, bbox=lb))
+                    d = ln.get("dir", (1.0, 0.0))
+                    lines.append(Line(spans=spans, bbox=lb,
+                                      dir=(float(d[0]), float(d[1]))))
             if lines:
                 pir.blocks.append(TextBlock(lines=lines, bbox=tuple(blk["bbox"])))
 
