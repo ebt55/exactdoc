@@ -21,6 +21,7 @@ testkit/sweep/
 testkit/chromefix_off/
 testkit/chromefix_on/
 testkit/quirks/
+testkit/holdout/
 testkit/exp_off/
 testkit/exp_on/
 corpus/pdfs/

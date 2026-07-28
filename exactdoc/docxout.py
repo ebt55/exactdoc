@@ -147,17 +147,30 @@ WRAP_CORRECTION = False
 # "+28pt after the first heading" that the closed loop had been compensating
 # per document. Emitting the same intent as a multiple makes it a static fix.
 #
-# NATURAL_FACTOR is Docs' natural line height as a fraction of font size;
-# 1.15 was calibrated against the probes above (residual < 0.7pt).
-NATURAL_FACTOR = 1.15
+# Natural line height as a fraction of font size, per family, measured in
+# Google Docs (testkit/docs_quirks.py h5: four bare 20pt lines, no spacing
+# properties; factor = rendered_gap / (4 x 20)). The gdocs translation divides
+# by this, so a single constant silently drifts on any document set in a font
+# whose metric differs -- Roboto is 4% taller than Arial, which is exactly the
+# kind of quiet assumption this project exists to avoid.
+NATURAL_FACTORS = {
+    "arial": 1.144, "times new roman": 1.144, "courier new": 1.127,
+    "georgia": 1.130, "roboto": 1.194,
+}
+NATURAL_DEFAULT = 1.144
 LINE_MODE = "exact"          # set to "multiple" for the gdocs target
 
 
-def _apply_leading(pf, leading: float, size: float, mode: str = None):
+def _natural_factor(family: str) -> float:
+    return NATURAL_FACTORS.get((family or "").lower(), NATURAL_DEFAULT)
+
+
+def _apply_leading(pf, leading: float, size: float, mode: str = None,
+                   family: str = ""):
     """Encode a line height the way the current target actually honours."""
     mode = mode or LINE_MODE
     if mode == "multiple" and size and size > 0.5 and leading > 1.0:
-        natural = size * NATURAL_FACTOR
+        natural = size * _natural_factor(family)
         pf.line_spacing = max(0.06, leading / natural)   # w:line as a multiple
         return
     pf.line_spacing_rule = WD_LINE_SPACING.EXACTLY
@@ -229,15 +242,16 @@ def write_para(container, p: Para, content_w: float, par=None):
         pf.space_before = Pt(0)
     pf.space_after = Pt(round(max(0.0, p.space_after), 1))
     if p.leading and p.leading > 1:
-        dom = 0.0
+        dom, fam = 0.0, ""
         if p.runs:
             w = {}
             for r in p.runs:
                 if r.text and not r.is_tab:
-                    w[r.size] = w.get(r.size, 0) + len(r.text)
+                    key = (r.size, map_font(r.font, mono=r.mono, serif=r.serif))
+                    w[key] = w.get(key, 0) + len(r.text)
             if w:
-                dom = max(w, key=w.get)
-        _apply_leading(pf, p.leading, dom)
+                dom, fam = max(w, key=w.get)
+        _apply_leading(pf, p.leading, dom, family=fam)
     if p.left_indent > 0.05:
         pf.left_indent = Pt(round(p.left_indent, 1))
     if abs(p.first_indent) > 0.05:

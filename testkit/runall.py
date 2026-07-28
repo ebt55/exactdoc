@@ -21,7 +21,8 @@ GATE = {"page_match": True, "live_text_cov": 0.95, "doc_recall": 0.95,
 
 def main(dirs, out=OUT, gate=True, refine_rounds=None):
     if refine_rounds is None:
-        refine_rounds = int(os.environ.get("REFINE", "0"))
+        env = os.environ.get("REFINE", "0")
+        refine_rounds = int(env) if env.isdigit() else 0
     os.makedirs(out, exist_ok=True)
     pdfs = []
     for d in dirs:
@@ -87,5 +88,43 @@ def main(dirs, out=OUT, gate=True, refine_rounds=None):
     return 1 if (gate and fails) else 0
 
 
+def lanes(dirs):
+    """Run the gate twice -- refine OFF and refine ON -- and report both.
+
+    refine() tunes the layout against the same renderer the gate then measures
+    with, so a refined-only number can improve because the loop memorised the
+    oracle rather than because the converter got better. The no-refine lane is
+    the uncontaminated number; the refined lane is the product default. Both
+    are always printed side by side, and the exit code gates on the refined
+    lane (what users get) while regressions in the raw lane stay visible.
+    """
+    import statistics as st
+    results = {}
+    for tag, rr in (("norefine", 0), ("refine", 3)):
+        print("\n================ lane: %s ================" % tag)
+        out = os.path.join(OUT, "lane_" + tag)
+        code = main(dirs, out=out, gate=True, refine_rounds=rr)
+        with open(os.path.join(out, "results.json")) as f:
+            results[tag] = (code, json.load(f))
+    print("\n================ lane comparison ================")
+    print("%-10s %-9s %-11s %-9s %-9s" %
+          ("lane", "pagematch", "within2pt", "livetext", "dy50med"))
+    for tag in ("norefine", "refine"):
+        _, rows = results[tag]
+        ok = [r for r in rows if "convert_error" not in r and "eval_error" not in r]
+        if not ok:
+            print("%-10s (no results)" % tag)
+            continue
+        print("%-10s %d/%-7d %-11.3f %-9.4f %-9.2f" % (
+            tag, sum(1 for r in ok if r.get("page_match")), len(ok),
+            st.mean(r.get("within2pt", 0) for r in ok),
+            st.mean(r.get("live_text_cov", 0) for r in ok),
+            st.median([r.get("dy_p50", 0) for r in ok])))
+    return results["refine"][0]
+
+
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:] or [os.path.join(ROOT, "adv")]))
+    args = sys.argv[1:] or [os.path.join(ROOT, "adv")]
+    if os.environ.get("REFINE", "") == "lanes":
+        sys.exit(lanes(args))
+    sys.exit(main(args))

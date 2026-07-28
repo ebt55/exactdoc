@@ -85,22 +85,43 @@ def _source_pages_text(src_pdf):
 def _map_pages(src_pages, out_pages):
     """Which rendered page does each source page's content begin on?
 
-    Returns [rendered_index or None] per source page. Matching is by first
-    distinctive line text, which survives re-wrap better than position.
+    Returns [rendered_index or None] per source page.
+
+    Matching on the FIRST distinctive line alone mis-maps any page whose
+    opening line's text repeats elsewhere -- TOC entries repeating as headings,
+    running "References" heads, "Figure N" captions. That exact failure class
+    contaminated two diagnostic scripts before it was caught here. So: each of
+    the page's first few distinctive lines votes for every rendered page it
+    appears on, and the winner is chosen under a monotonicity constraint
+    (rendered index never decreases across source pages -- pages cannot render
+    out of order).
     """
-    where = {}
+    idx = {}
     for ri, lines in enumerate(out_pages):
         for t, _, _ in lines:
             if len(t) >= 12:
-                where.setdefault(t, ri)
+                idx.setdefault(t, []).append(ri)
     mapping = []
+    prev = 0
     for lines in src_pages:
-        found = None
+        votes = {}
+        used = 0
         for t, _, _ in lines:
-            if len(t) >= 12 and t in where:
-                found = where[t]
+            if len(t) < 12 or t not in idx:
+                continue
+            for ri in idx[t]:
+                votes[ri] = votes.get(ri, 0) + 1
+            used += 1
+            if used >= 5:
                 break
-        mapping.append(found)
+        if not votes:
+            mapping.append(None)
+            continue
+        fwd = {ri: v for ri, v in votes.items() if ri >= prev}
+        pool = fwd or votes            # fall back if monotonicity finds nothing
+        best = min(pool, key=lambda ri: (-pool[ri], ri))
+        mapping.append(best)
+        prev = best
     return mapping
 
 
@@ -123,10 +144,17 @@ def _measure(src_pdf, rendered_pdf):
             continue
         end = nxt if nxt is not None else len(out)
         spill.append(max(0, (end - ri) - 1))
-        pos = {}
-        for t, y0, _ in out[ri]:
-            pos.setdefault(t, y0)
-        ds = [pos[t] - y0 for t, y0, _ in lines if t in pos and len(t) >= 12]
+        # Offsets use only lines whose text is UNIQUE on both sides of the
+        # comparison. A duplicated string ("1. Motivation" in a TOC and again
+        # as a heading) would pair the heading with the TOC entry's y and feed
+        # the corrector a garbage offset -- the same defect as first-line page
+        # mapping, one level down.
+        from collections import Counter
+        sc = Counter(t for t, _, _ in lines)
+        oc = Counter(t for t, _, _ in out[ri])
+        pos = {t: y0 for t, y0, _ in out[ri] if oc[t] == 1}
+        ds = [pos[t] - y0 for t, y0, _ in lines
+              if len(t) >= 12 and sc[t] == 1 and t in pos]
         ds.sort()
         offset.append(ds[len(ds) // 2] if ds else 0.0)
     return {"spill": spill, "offset": offset, "out_pages": len(out),
@@ -143,19 +171,28 @@ def _apply(lay: DocLayout, m) -> bool:
         if not els:
             continue
 
-        # 1. overflow -- reclaim slack from the gaps on this page
+        # 1. overflow -- reclaim slack from the gaps on this page.
+        # Take from the LARGEST gaps first rather than scaling everything
+        # uniformly: a 40pt section break and a 4pt paragraph gap are not
+        # equally elastic -- the eye notices the section break shrinking long
+        # before it notices the paragraph gap, and large gaps carry
+        # proportionally more slack and less rhythm. Every gap keeps an
+        # absolute floor, not just a percentage of itself.
         if m["spill"][idx] > 0:
-            gaps = [(_gap_of(e), e) for e in els]
+            gaps = sorted(((_gap_of(e), e) for e in els),
+                          key=lambda t: -t[0])
             total = sum(g for g, _ in gaps)
             if total > 1.0:
-                # one spilled page means at least one line did not fit; take
-                # back a proportional slice and let the next round re-measure
-                want = min(total * 0.5, total - total * MIN_GAP_SCALE)
-                scale = max(MIN_GAP_SCALE, (total - want) / total)
+                want = total * 0.5      # re-measured next round; iterate, don't guess
                 for g, e in gaps:
-                    if g > 0:
-                        _set_gap(e, g * scale)
-                changed = True
+                    if want <= 0.05:
+                        break
+                    floor = max(2.0, g * MIN_GAP_SCALE)
+                    take = min(max(0.0, g - floor), want)
+                    if take > 0:
+                        _set_gap(e, g - take)
+                        want -= take
+                        changed = True
 
         # 2. constant per-page offset
         off = m["offset"][idx]

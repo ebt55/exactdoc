@@ -166,7 +166,43 @@ def build_exact_vs_multiple(size, leading, mode):
     return b
 
 
+def build_natural_lines(font, size=20.0, n=4):
+    """Measure a font's NATURAL line height in each renderer.
+
+    No line_spacing is set at all, so the gap between the markers is
+    n x natural(font, size) and the factor is (gap - 12) / (n x size).
+    The gdocs line-height translation divides by this factor, so getting it
+    wrong per-font re-introduces the drift the static fix removed.
+    """
+    def b(doc):
+        _text(doc, MARK_A, size=10.0, leading=12.0)
+        for _ in range(n):
+            p = doc.add_paragraph()
+            pf = p.paragraph_format
+            pf.space_before = Pt(0)
+            pf.space_after = Pt(0)
+            r = p.add_run("natural height probe")
+            r.font.size = Pt(size)
+            r.font.name = font
+            rpr = r._element.get_or_add_rPr()
+            rf = rpr.find(qn("w:rFonts"))
+            if rf is None:
+                rf = OxmlElement("w:rFonts")
+                rpr.append(rf)
+            for a in ("w:ascii", "w:hAnsi", "w:cs", "w:eastAsia"):
+                rf.set(qn(a), font)
+        _text(doc, MARK_B, size=10.0, leading=12.0)
+    return b
+
+
 PROBES = {
+    "h5": [
+        probe("natural Arial 20pt x4", build_natural_lines("Arial"), None),
+        probe("natural TimesNewRoman x4", build_natural_lines("Times New Roman"), None),
+        probe("natural CourierNew x4", build_natural_lines("Courier New"), None),
+        probe("natural Georgia x4", build_natural_lines("Georgia"), None),
+        probe("natural Roboto x4", build_natural_lines("Roboto"), None),
+    ],
     "h4": [
         probe("18pt/21pt  exact", build_exact_vs_multiple(18, 21, "exact"), 12 + 63),
         probe("18pt/21pt  atLeast", build_exact_vs_multiple(18, 21, "atleast"), 12 + 63),

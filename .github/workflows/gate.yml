@@ -1,0 +1,68 @@
+# The fidelity gate, run on a pinned Linux oracle.
+#
+# Why Linux is canonical: the fidelity numbers depend on the renderer's fonts.
+# Local Windows runs render with real Arial/Times New Roman; this container
+# renders with Liberation metrics-compatible substitutes. Same code, different
+# wraps. One environment has to be the reference, and it must be the one
+# everyone can reproduce -- so CI is the number of record and local runs are
+# indicative.
+#
+# Two lanes (testkit/runall.py lanes): refine OFF is the uncontaminated
+# converter number; refine ON is the product default. refine() tunes against
+# the same renderer the gate measures with, so only the pair is meaningful.
+#
+# The purity test is a hard failure. The gate lanes are reporting-only until
+# the first Linux run establishes the baseline (thresholds so far were
+# calibrated on Windows fonts); once pinned, drop the continue-on-error.
+name: gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install LibreOffice + fonts (the pinned oracle)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libreoffice-writer fonts-liberation
+          soffice --version
+
+      - name: Install package + test deps
+        run: |
+          python -m pip install -q -e .[test]
+          python -m pip install -q pytest
+
+      - name: Generate corpora (ReportLab + Chromium/WeasyPrint-class dialects)
+        run: |
+          python corpus/make_corpus.py
+          python testkit/gen_corpus.py testkit/adv
+
+      - name: Purity - writing the same layout twice must be byte-identical
+        run: python tests/test_purity.py
+
+      - name: Fidelity gate, both lanes
+        continue-on-error: true   # reporting until the Linux baseline is pinned
+        env:
+          REFINE: lanes
+        run: python testkit/runall.py testkit/adv corpus/pdfs
+
+      - name: Upload lane results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-results
+          path: |
+            testkit/batch/lane_norefine/results.json
+            testkit/batch/lane_refine/results.json
+          if-no-files-found: warn
