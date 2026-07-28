@@ -61,6 +61,17 @@ def _page_chars(textpage, page_h) -> List[_Char]:
         u = raw.FPDFText_GetUnicode(textpage.raw, i)
         if u in (0, 0xFFFE):
             continue
+        # PDFium synthesises spaces and CR/LF that are not in the PDF, to make
+        # get_text() read naturally. They carry a dummy 1.0pt size, so each
+        # became its own span -- 42 stray 1pt Arial runs in one small document,
+        # polluting the run stream and the leading inference. This module
+        # reconstructs spacing from geometry, so the real characters are the
+        # only ones wanted.
+        try:
+            if raw.FPDFText_IsGenerated(textpage.raw, i) == 1:
+                continue
+        except Exception:
+            pass
         l = ctypes.c_double(); r_ = ctypes.c_double()
         b = ctypes.c_double(); t = ctypes.c_double()
         if not raw.FPDFText_GetCharBox(textpage.raw, i,
@@ -82,12 +93,44 @@ def _page_chars(textpage, page_h) -> List[_Char]:
         c.x0, c.x1 = float(l.value), float(r_.value)
         c.y0, c.y1 = page_h - float(t.value), page_h - float(b.value)
         c.ox, c.oy = float(ox.value), page_h - float(oy.value)
-        c.size = abs(float(raw.FPDFText_GetFontSize(textpage.raw, i)))
+        # FPDFText_GetFontSize reports the size BEFORE the text matrix. Chromium
+        # lays out in CSS pixels and applies a 0.75 matrix, so every size came
+        # out 4/3 too large -- which inflated leading, paragraph heights and
+        # therefore page counts across the board (7 source pages rendered as
+        # 20). The effective size is the reported size times the matrix's
+        # vertical scale; producers that use an identity matrix are unaffected.
+        size = abs(float(raw.FPDFText_GetFontSize(textpage.raw, i)))
+        try:
+            m = raw.FS_MATRIX()
+            if raw.FPDFText_GetMatrix(textpage.raw, i, ctypes.byref(m)):
+                vs = (m.b * m.b + m.d * m.d) ** 0.5
+                if vs > 1e-6:
+                    size *= vs
+        except Exception:
+            pass
+        c.size = size
         c.font = _SUBSET_RE.sub("", font)
         c.flags = int(flags.value)
         c.color = _hexcol(cr.value, cg.value, cb.value)
         out.append(c)
     return out
+
+
+def _is_cjk(ch: str) -> bool:
+    """CJK, kana, hangul and full-width forms.
+
+    These scripts set no spaces between characters, and their glyphs are
+    full-width, so an inter-glyph gap that would mean a space in Latin text
+    means nothing here. Without this guard the gap heuristic inserted spaces
+    mid-word -- 'コーパス が埋め込み' where the source has none -- which cost
+    32% of the text-coverage score on the multilingual document.
+    """
+    o = ord(ch)
+    return (0x2E80 <= o <= 0x303F or 0x3040 <= o <= 0x33FF or
+            0x3400 <= o <= 0x4DBF or 0x4E00 <= o <= 0x9FFF or
+            0xA000 <= o <= 0xA4CF or 0xAC00 <= o <= 0xD7AF or
+            0xF900 <= o <= 0xFAFF or 0xFE30 <= o <= 0xFE4F or
+            0xFF00 <= o <= 0xFFEF)
 
 
 def _style(c: _Char):
@@ -146,7 +189,8 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
             if not cur:
                 cur_key = k
             elif gap > SPACE_GAP_EM * max(c.size, 1.0) \
-                    and not cur[-1].u.isspace() and not c.u.isspace():
+                    and not cur[-1].u.isspace() and not c.u.isspace() \
+                    and not _is_cjk(cur[-1].u[-1]) and not _is_cjk(c.u):
                 cur[-1].u += " "
             cur.append(c)
         if cur:
@@ -207,22 +251,78 @@ def _build_blocks(lines: List[Line]) -> List[TextBlock]:
     return out
 
 
+# PDFium segment types. Getting these backwards is not a subtle bug: MOVETO
+# is 2 and BEZIERTO is 1, so treating 2 as "curve" makes EVERY path curved --
+# every path starts with a MOVETO. That classified all 342 rules and fills in
+# one test document as curves, which promoted their cluster to "figure" and
+# rasterised the page: 1.1% live text out of character-perfect extraction.
+SEG_LINETO = raw.FPDF_SEGMENT_LINETO      # 0
+SEG_BEZIERTO = raw.FPDF_SEGMENT_BEZIERTO  # 1
+SEG_MOVETO = raw.FPDF_SEGMENT_MOVETO      # 2
+
+
 def _classify(pts, w, h) -> str:
-    if len(pts) <= 5 and all(t != 2 for _, _, t in pts):
+    has_curve = any(t == SEG_BEZIERTO for _, _, t in pts)
+    # a rectangle arrives as MOVETO + 3-4 LINETO
+    corners = sum(1 for _, _, t in pts if t in (SEG_LINETO, SEG_MOVETO))
+    if not has_curve:
         if h <= 2.0 and w > 4:
             return "hline"
         if w <= 2.0 and h > 4:
             return "vline"
-        if len(pts) in (4, 5):
+        if corners in (4, 5):
             return "rect"
-        return "line"
-    if any(t == 2 for _, _, t in pts):
-        return "curve" if len(pts) <= 12 else "complex"
-    return "complex"
+        if corners <= 3:
+            return "line"
+        return "complex"
+    return "curve" if len(pts) <= 12 else "complex"
+
+
+def _rect_pts(pts):
+    """The (x, y) corners of a path, if it is an axis-aligned rectangle."""
+    if any(t == SEG_BEZIERTO for _, _, t in pts):
+        return None
+    xs = {round(x, 2) for x, _, _ in pts}
+    ys = {round(y, 2) for _, y, _ in pts}
+    if len(xs) == 2 and len(ys) == 2:
+        return (min(xs), min(ys), max(xs), max(ys))
+    return None
+
+
+def _frame_edges(sub_rects):
+    """Two nested rectangles (an even-odd ring) -> its visible edge bars.
+
+    parse.py does this so a decorative frame's bounding box does not swallow
+    everything inside it. Without it the same frames become opaque blocks here.
+    """
+    if len(sub_rects) != 2:
+        return None
+    r1, r2 = sub_rects
+    a1 = (r1[2] - r1[0]) * (r1[3] - r1[1])
+    a2 = (r2[2] - r2[0]) * (r2[3] - r2[1])
+    outer, inner = (r1, r2) if a1 >= a2 else (r2, r1)
+    if not (inner[0] >= outer[0] - 0.2 and inner[1] >= outer[1] - 0.2 and
+            inner[2] <= outer[2] + 0.2 and inner[3] <= outer[3] + 0.2):
+        return None
+    ow, oh = outer[2] - outer[0], outer[3] - outer[1]
+    iw, ih = inner[2] - inner[0], inner[3] - inner[1]
+    if iw < 0.5 * ow or ih < 0.3 * oh:
+        return None
+    edges = []
+    if inner[1] - outer[1] > 0.2:
+        edges.append((outer[0], outer[1], outer[2], inner[1]))
+    if outer[3] - inner[3] > 0.2:
+        edges.append((outer[0], inner[3], outer[2], outer[3]))
+    if inner[0] - outer[0] > 0.2:
+        edges.append((outer[0], inner[1], inner[0], inner[3]))
+    if outer[2] - inner[2] > 0.2:
+        edges.append((inner[2], inner[1], outer[2], inner[3]))
+    return edges or None
 
 
 def _page_paths(page, page_h) -> List[DrawCmd]:
     out = []
+    seen = set()
     for obj in page.get_objects():
         try:
             if raw.FPDFPageObj_GetType(obj.raw) != raw.FPDF_PAGEOBJ_PATH:
@@ -263,18 +363,50 @@ def _page_paths(page, page_h) -> List[DrawCmd]:
         kind = "fillstroke" if (has_fill and has_stroke) else \
                "stroke" if has_stroke else "fill"
         w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
-        shape = _classify(pts, w, h)
         fill = _hexcol(fr.value, fg.value, fb.value) if has_fill else None
+        stroke_c = _hexcol(sr.value, sg.value, sb.value) if has_stroke else None
+        opacity = (fa.value if has_fill else sa.value) / 255.0
+
+        # Producers emit borders twice; keep one. parse.py dedupes the same way.
+        sig = (tuple(round(v, 1) for v in bbox), kind, fill, stroke_c,
+               round(float(sw.value), 2), len(pts))
+        if sig in seen:
+            continue
+        seen.add(sig)
+
+        # even-odd ring -> its visible edge bars, so the frame's bbox does not
+        # swallow the content inside it
+        subs = []
+        cur = []
+        for x, y, t in pts:
+            if t == SEG_MOVETO and cur:
+                subs.append(cur)
+                cur = []
+            cur.append((x, y, t))
+        if cur:
+            subs.append(cur)
+        if len(subs) == 2 and fillmode.value == raw.FPDF_FILLMODE_ALTERNATE:
+            rects = [_rect_pts(s) for s in subs]
+            if all(rects):
+                edges = _frame_edges(rects)
+                if edges:
+                    for eb in edges:
+                        out.append(DrawCmd(
+                            kind="fill",
+                            shape="hline" if (eb[3] - eb[1]) <= (eb[2] - eb[0]) else "vline",
+                            bbox=eb, fill=fill or stroke_c, stroke=None, width=0.0,
+                            opacity=opacity, n_items=1))
+                    continue
+
+        shape = _classify(pts, w, h)
         if shape == "rect" and fill is not None:
             if h <= 2.5 and w > 8:
                 shape = "hline"
             elif w <= 2.5 and h > 8:
                 shape = "vline"
         out.append(DrawCmd(
-            kind=kind, shape=shape, bbox=bbox, fill=fill,
-            stroke=_hexcol(sr.value, sg.value, sb.value) if has_stroke else None,
-            width=float(sw.value), opacity=(fa.value if has_fill else sa.value) / 255.0,
-            n_items=max(1, len(pts))))
+            kind=kind, shape=shape, bbox=bbox, fill=fill, stroke=stroke_c,
+            width=float(sw.value), opacity=opacity, n_items=max(1, len(pts))))
     return out
 
 
