@@ -112,10 +112,75 @@ def _add_hyperlink(par, url: str, runs_and_styles):
         _style_run(DRun(r, par), style)
 
 
+# Half-point wrap correction: implemented and measured, OFF by default.
+#
+# It works -- line-break agreement on the WeasyPrint sample goes 0.599 -> 0.796,
+# and a parameter sweep puts the optimum narrowing at ~1%, exactly the
+# 10.0/10.1 size ratio. But restoring the correct line breaks makes paragraphs
+# their correct (taller) height, and the writer currently has no way to keep a
+# page from overflowing, so that sample goes 10 -> 11 pages and word placement
+# drops 0.985 -> 0.706. Net regression, so it stays off.
+#
+# Turning it on is blocked on overflow control (the closed-loop second pass):
+# render, find pages that spilled, shrink discretionary space, re-emit. Enable
+# both together, never this alone.
+WRAP_CORRECTION = False
+
+
+def _quantised_size(sz: float) -> float:
+    """OOXML stores font size in half-points (w:sz is in half-points, integer)."""
+    return round(sz * 2) / 2
+
+
+def _wrap_correction(p: Para, content_w: float) -> float:
+    """Extra right indent that cancels the half-point font quantisation.
+
+    A 10.1pt source font can only be emitted at 10.0 or 10.5. At 10.0 the
+    glyphs are 1% narrow, so ~1% more text fits per line and the paragraph
+    re-wraps; at 9.5 (from 9.7) they are 2% narrow the other way. Either way
+    the line breaks move, and every paragraph below shifts.
+
+    Line breaking is scale-invariant: shrink every advance by k and the same
+    breaks return if the wrap width also shrinks by k. So narrow the column by
+    (1 - emitted/source). This is exact for a uniform-size paragraph and a good
+    approximation for mixed runs, where the dominant size is used.
+
+    Only applied where it can help and cannot hurt: the paragraph must actually
+    wrap (a single-line paragraph has no breaks to preserve) and must be
+    left/justified (on centred or right-aligned text a right indent *moves* the
+    text instead of only changing where it wraps).
+    """
+    if not WRAP_CORRECTION:
+        return 0.0
+    if p.align not in ("left", "justify") or not p.runs:
+        return 0.0
+    weight = {}
+    for r in p.runs:
+        if r.text and not r.is_tab:
+            weight[r.size] = weight.get(r.size, 0) + len(r.text)
+    if not weight:
+        return 0.0
+    src = max(weight, key=weight.get)
+    if src < 1.0:
+        return 0.0
+    k = _quantised_size(src) / src
+    if abs(k - 1.0) < 1e-6:
+        return 0.0
+    wrap_w = max(1.0, content_w - p.left_indent - p.right_indent)
+    # a paragraph that fits on one line has no wrap to preserve
+    if p.bbox is not None and (p.bbox[2] - p.bbox[0]) < 0.92 * wrap_w and \
+            not p.line_breaks:
+        est_lines = sum(len(r.text) for r in p.runs) * 0.5 * src / max(1.0, wrap_w)
+        if est_lines < 1.2:
+            return 0.0
+    return wrap_w * (1.0 - k)
+
+
 def write_para(container, p: Para, content_w: float, par=None):
     """Write a Para into container (doc/cell/header). Returns the paragraph."""
     if par is None:
         par = container.add_paragraph()
+    p.right_indent += _wrap_correction(p, content_w)
     pf = par.paragraph_format
     par.alignment = ALIGN.get(p.align, WD_ALIGN_PARAGRAPH.LEFT)
     if p.space_before > 0.05:
