@@ -1,4 +1,4 @@
-"""PDF -> IR parser built on pypdfium2 (Apache-2.0 / BSD-3).
+﻿"""PDF -> IR parser built on pypdfium2 (Apache-2.0 / BSD-3).
 
 The permissive replacement for parse.py. exactdoc is AGPL only because
 PyMuPDF is; this module exists so the project can relicense.
@@ -42,6 +42,12 @@ LINE_SPLIT_EM = 1.10      # gap that ends the LINE, not merely the span:
                           # exactly that, and merging them fused rows into
                           # single lines (measured: 0.60x PyMuPDF's count).
 BLOCK_GAP_FACTOR = 1.6    # line pitch multiple that ends a block
+BLOCK_SAME_ROW_EM = 1.8   # horizontal reach for joining lines that share a
+                          # baseline; wider than this is a column gutter
+
+
+def _line_size(ln) -> float:
+    return max((s.size for s in ln.spans), default=10.0)
 
 
 def _hexcol(r, g, b):
@@ -161,7 +167,7 @@ def _reorder_rtl(row):
 
     PDFium reports glyphs in visual order, so sorting a line by x -- which is
     what every other script needs -- lays each Arabic or Hebrew word out
-    backwards: 'نيمضتلا' where the text reads 'التضمين'. The characters are all
+    backwards: 'Ù†ÙŠÙ…Ø¶ØªÙ„Ø§' where the text reads 'Ø§Ù„ØªØ¶Ù…ÙŠÙ†'. The characters are all
     present and correctly shaped; only their sequence is mirrored. Reversing
     each maximal run of RTL characters restores logical order, which is what
     the writer must emit and what PyMuPDF already returns.
@@ -192,7 +198,7 @@ def _is_cjk(ch: str) -> bool:
     These scripts set no spaces between characters, and their glyphs are
     full-width, so an inter-glyph gap that would mean a space in Latin text
     means nothing here. Without this guard the gap heuristic inserted spaces
-    mid-word -- 'コーパス が埋め込み' where the source has none -- which cost
+    mid-word -- 'ã‚³ãƒ¼ãƒ‘ã‚¹ ãŒåŸ‹ã‚è¾¼ã¿' where the source has none -- which cost
     32% of the text-coverage score on the multilingual document.
     """
     o = ord(ch)
@@ -301,10 +307,45 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
     return lines
 
 
-def _build_blocks(lines: List[Line]) -> List[TextBlock]:
-    """lines -> blocks, by vertical pitch and horizontal overlap."""
+def _gutters(lines: List[Line], page_w: float) -> List[tuple]:
+    """X-intervals that carry no text anywhere down the page.
+
+    Distinguishing a column gutter from the gap between two table cells cannot
+    be done with a width threshold: measured, a table's cell gaps run WIDER
+    than a two-column gutter, so any single value fixes one document and breaks
+    the other. The real difference is extent -- a gutter is empty for the whole
+    page, a cell gap only for its own row.
+    """
     if not lines:
         return []
+    step = 2.0
+    n = max(1, int(page_w / step) + 1)
+    occupied = [False] * n
+    for ln in lines:
+        a = max(0, int(ln.bbox[0] / step))
+        b = min(n - 1, int(ln.bbox[2] / step))
+        for k in range(a, b + 1):
+            occupied[k] = True
+    spans, k = [], 0
+    while k < n:
+        if occupied[k]:
+            k += 1
+            continue
+        j = k
+        while j < n and not occupied[j]:
+            j += 1
+        if (j - k) * step >= 12.0:            # a real band, not letterspacing
+            spans.append((k * step, j * step))
+        k = j
+    # ignore the page margins; only interior bands are gutters
+    return [(a, b) for a, b in spans if a > 1.0 and b < page_w - 1.0]
+
+
+def _build_blocks(lines: List[Line], page_w: float = 612.0) -> List[TextBlock]:
+    """lines -> blocks, by vertical pitch and horizontal adjacency."""
+    if not lines:
+        return []
+    guts = _gutters(lines, page_w)
     pitches = []
     for a, b in zip(lines, lines[1:]):
         d = b.baseline - a.baseline
@@ -317,7 +358,30 @@ def _build_blocks(lines: List[Line]) -> List[TextBlock]:
     for prev, ln in zip(lines, lines[1:]):
         gap = ln.baseline - prev.baseline
         overlap = min(prev.bbox[2], ln.bbox[2]) - max(prev.bbox[0], ln.bbox[0])
-        same = (0 < gap <= typical * BLOCK_GAP_FACTOR) and overlap > 0
+        # gap == 0 means the two lines SHARE a baseline -- the cells of a table
+        # row, or a marker and its item. Requiring 0 < gap made each of them a
+        # block of its own, and therefore a paragraph of its own: one table
+        # document went from 29 paragraphs to 98, its accumulated space_before
+        # from 176pt to 1359pt, and the column detector started finding
+        # two-column regions in the debris.
+        if abs(gap) <= 0.6:
+            # ...but only when horizontally adjacent. The two columns of a
+            # two-column page also share baselines, and merging across the
+            # gutter destroys column detection.
+            #
+            # This threshold is a compromise and is known to be one: measured,
+            # a table's cell gaps run WIDER than a two-column gutter, so no
+            # single value satisfies both. 1.8em keeps the two-column documents
+            # correct and leaves c3_tables at 3/5 pages against PyMuPDF's 3/4 --
+            # a document that already fails on PyMuPDF for unrelated reasons
+            # (nested tables). Page-wide gutter detection was tried instead and
+            # is worse: a full-width title above the columns occupies the
+            # gutter band, so no gutter is found at all.
+            hgap = max(ln.bbox[0], prev.bbox[0]) - min(ln.bbox[2], prev.bbox[2])
+            em = max(_line_size(prev), _line_size(ln), 1.0)
+            same = hgap <= BLOCK_SAME_ROW_EM * em
+        else:
+            same = (0 < gap <= typical * BLOCK_GAP_FACTOR) and overlap > 0
         if same:
             cur.append(ln)
         else:
@@ -588,7 +652,7 @@ def parse_pdf(path: str, keep_image_data: bool = True) -> DocIR:
                                   (sp.bbox[3] - sp.bbox[1])):
                     sp.link = lk["uri"]
                     break
-        pir.blocks = _build_blocks(lines)
+        pir.blocks = _build_blocks(lines, w)
         pir.drawings = _page_paths(page, h)
         pir.images = _page_images(page, h, keep_image_data)
         ir.pages.append(pir)
