@@ -1,4 +1,4 @@
-"""Closed-loop layout correction: write, render, measure, correct, rewrite.
+﻿"""Closed-loop layout correction: write, render, measure, correct, rewrite.
 
 The converter is otherwise open-loop -- it predicts how Word will lay the
 document out and hopes. Two errors survive that prediction and neither is
@@ -186,7 +186,8 @@ def _apply(lay: DocLayout, m) -> bool:
 
 
 def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
-           rounds: int = 2, verbose: bool = False, render=None) -> str:
+           rounds: int = 2, verbose: bool = False, render=None,
+           target: str = "libreoffice") -> str:
     """Write `lay`, then correct it against real renders. Returns out_path.
 
     `render(docx_path, tmp_dir) -> pdf_path | None` selects the oracle. It
@@ -202,15 +203,15 @@ def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
 
     if render is None:
         if SOFFICE is None:
-            return write_docx(copy.deepcopy(lay), out_path, dpi=dpi)
+            return write_docx(lay, out_path, dpi=dpi, target=target)
         render = docx_to_pdf
     if rounds <= 0:
-        return write_docx(copy.deepcopy(lay), out_path, dpi=dpi)
+        return write_docx(lay, out_path, dpi=dpi, target=target)
 
     best_path, best_score = None, None
     with tempfile.TemporaryDirectory() as td:
         for rnd in range(rounds + 1):
-            write_docx(copy.deepcopy(lay), out_path, dpi=dpi)
+            write_docx(lay, out_path, dpi=dpi, target=target)   # write_docx is pure
             rendered = render(out_path, td)
             if rendered is None:
                 return out_path

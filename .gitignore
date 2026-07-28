@@ -20,6 +20,7 @@ testkit/edge/
 testkit/sweep/
 testkit/chromefix_off/
 testkit/chromefix_on/
+testkit/quirks/
 testkit/exp_off/
 testkit/exp_on/
 corpus/pdfs/
@@ -38,3 +39,6 @@ client_secret*
 
 # personal test inputs -- never publish
 my_samples/
+
+# private working notes -- not for publication
+Executor Advisory.md

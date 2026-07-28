@@ -33,9 +33,9 @@ def convert(pdf_path: str, out_path: str = None, dpi: int = 240,
         if render is not None:
             if verbose:
                 print("  refining against: %s" % resolved)
-            return refine(lay, pdf_path, out_path, dpi=dpi,
-                          rounds=refine_rounds, verbose=verbose, render=render)
-    return write_docx(lay, out_path, dpi=dpi)
+            return refine(lay, pdf_path, out_path, dpi=dpi, rounds=refine_rounds,
+                          verbose=verbose, render=render, target=target)
+    return write_docx(lay, out_path, dpi=dpi, target=target)
 
 
 def main(argv=None):

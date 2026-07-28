@@ -5,6 +5,7 @@ and cell shading, section geometry + true column sections, inline images,
 headers/footers with PAGE/NUMPAGES fields, hyperlinks, tab stops.
 No floating text boxes, no embedded fonts, no VML.
 """
+import copy
 import io
 import re
 from typing import Optional, List
@@ -127,6 +128,42 @@ def _add_hyperlink(par, url: str, runs_and_styles):
 WRAP_CORRECTION = False
 
 
+# --- line-height encoding, per render target ------------------------------
+# Word and LibreOffice honour w:spacing lineRule="exact" literally, and the
+# whole fidelity model (THEORY 3.1) is built on it: paragraph height is
+# n_lines x leading, exactly.
+#
+# Google Docs has no "exact" line spacing in its own document model -- only
+# multiples -- so its importer must translate, and the translation is wrong in
+# a way that scales with font size. Measured (testkit/docs_quirks.py, three
+# lines per probe, error vs LibreOffice):
+#
+#     size/leading      exact      atLeast    multiple
+#     10pt / 12.0pt     -2.0pt     -2.0pt     --
+#     18pt / 21.0pt    +45.2pt     -1.4pt     -0.3pt
+#     22pt / 25.5pt    +84.3pt     -1.1pt     -0.6pt
+#
+# So a heading with exact leading gains ~28pt in Docs, which is precisely the
+# "+28pt after the first heading" that the closed loop had been compensating
+# per document. Emitting the same intent as a multiple makes it a static fix.
+#
+# NATURAL_FACTOR is Docs' natural line height as a fraction of font size;
+# 1.15 was calibrated against the probes above (residual < 0.7pt).
+NATURAL_FACTOR = 1.15
+LINE_MODE = "exact"          # set to "multiple" for the gdocs target
+
+
+def _apply_leading(pf, leading: float, size: float, mode: str = None):
+    """Encode a line height the way the current target actually honours."""
+    mode = mode or LINE_MODE
+    if mode == "multiple" and size and size > 0.5 and leading > 1.0:
+        natural = size * NATURAL_FACTOR
+        pf.line_spacing = max(0.06, leading / natural)   # w:line as a multiple
+        return
+    pf.line_spacing_rule = WD_LINE_SPACING.EXACTLY
+    pf.line_spacing = Pt(round(leading, 1))
+
+
 def _quantised_size(sz: float) -> float:
     """OOXML stores font size in half-points (w:sz is in half-points, integer)."""
     return round(sz * 2) / 2
@@ -192,8 +229,15 @@ def write_para(container, p: Para, content_w: float, par=None):
         pf.space_before = Pt(0)
     pf.space_after = Pt(round(max(0.0, p.space_after), 1))
     if p.leading and p.leading > 1:
-        pf.line_spacing_rule = WD_LINE_SPACING.EXACTLY
-        pf.line_spacing = Pt(round(p.leading, 1))
+        dom = 0.0
+        if p.runs:
+            w = {}
+            for r in p.runs:
+                if r.text and not r.is_tab:
+                    w[r.size] = w.get(r.size, 0) + len(r.text)
+            if w:
+                dom = max(w, key=w.get)
+        _apply_leading(pf, p.leading, dom)
     if p.left_indent > 0.05:
         pf.left_indent = Pt(round(p.left_indent, 1))
     if abs(p.first_indent) > 0.05:
@@ -523,7 +567,34 @@ def _fill_hf(hf_obj, part: Optional[HFPart], lay: DocLayout):
 
 
 # ------------------------------------------------------------------ main
-def write_docx(lay: DocLayout, out_path: str, dpi: int = 240) -> str:
+def write_docx(lay: DocLayout, out_path: str, dpi: int = 240,
+               target: str = "libreoffice") -> str:
+    """Render a DocLayout to a .docx. Pure: `lay` is never modified.
+
+    `target` selects the line-height encoding (see LINE_MODE above): Word and
+    LibreOffice honour lineRule="exact", Google Docs mistranslates it, so the
+    gdocs target emits the same intent as a multiple instead.
+
+    The cover-band path shifts every page-1 element by the bleed delta, and
+    those shifts are *accumulating* assignments (`el.left_indent + delta_l`,
+    `c.pad[1] + delta_l`). Writing the same layout twice therefore used to
+    double-shift the second document — silently, and only on cover-band
+    documents, which is why it survived: 2 of 16 corpus documents were not
+    reproducible on a second write. Callers must not have to know this, so the
+    copy lives here and purity is part of the contract, verified by
+    tests/test_purity.py.
+    """
+    global LINE_MODE
+    prev_mode = LINE_MODE
+    LINE_MODE = "multiple" if target == "gdocs" else "exact"
+    try:
+        return _write_docx(lay, out_path, dpi)
+    finally:
+        LINE_MODE = prev_mode
+
+
+def _write_docx(lay: DocLayout, out_path: str, dpi: int = 240) -> str:
+    lay = copy.deepcopy(lay)
     doc = Document()
     src_doc = fitz.open(lay.src_path) if lay.src_path else None
     content_w = lay.content_w
