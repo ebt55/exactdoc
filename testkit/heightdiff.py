@@ -1,4 +1,4 @@
-"""Where does the extra vertical height enter, line by line?
+﻿"""Where does the extra vertical height enter, line by line?
 
 Two root-cause attempts on LaTeX pagination started from plausible mechanisms
 (re-wrap; fragment paragraphs) and each fixed something real without moving
@@ -80,25 +80,112 @@ def annotate(lay, pageno, y0, y1):
     return out
 
 
+def classify(lay, pageno, y0, y1, crossed_break):
+    """Bucket an injection interval by the constructs inside it."""
+    els = annotate(lay, pageno, y0, y1)
+    kinds = set()
+    for s in els:
+        kinds.add(s.split("(")[0])
+    if crossed_break:
+        return "page-break tail"
+    if not kinds:
+        return "within a paragraph (re-wrap)"
+    if "FIGURE" in kinds or "IMAGE" in kinds:
+        return "figure/image"
+    if "TABLE" in kinds:
+        return "table"
+    if "RULE" in kinds:
+        return "rule / footnote separator"
+    if kinds == {"Para"}:
+        return "between paragraphs (space_before)"
+    return "mixed: " + ",".join(sorted(kinds))
+
+
+def summarise(paths, min_jump):
+    from collections import defaultdict
+    tot = defaultdict(float)
+    cnt = defaultdict(int)
+    per_doc = {}
+    skipped = [0]
+    out_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "hdiff")
+    os.makedirs(out_dir, exist_ok=True)
+    from exactdoc.convert import convert
+    for src in paths:
+        name = os.path.splitext(os.path.basename(src))[0]
+        docx = os.path.join(out_dir, name + ".docx")
+        convert(src, docx, refine_rounds=0)
+        rendered = harness.docx_to_pdf(docx, out_dir)
+        src_pages, SH = doc_lines(src)
+        out_pages, OH = doc_lines(rendered)
+        ocount = Counter(t for pg in out_pages for t, _, _ in pg)
+        opos = {}
+        for ri, pg in enumerate(out_pages):
+            for t, y0, y1 in pg:
+                if ocount[t] == 1:
+                    opos[t] = (ri, ri * OH + y0)
+        lay = infer(normalize(parse_pdf(src, keep_image_data=False)))
+        dtot = 0.0
+        for pno in range(1, len(src_pages) + 1):
+            sp = src_pages[pno - 1]
+            scount = Counter(t for t, _, _ in sp)
+            m = [(t, y0, opos[t]) for t, y0, _ in sp if scount[t] == 1 and t in opos]
+            m.sort(key=lambda x: x[1])
+            if len(m) < 4:
+                continue
+            for (t0, y0, (r0, c0)), (t1, y1, (r1, c1)) in zip(m, m[1:]):
+                # An interval spanning a rendered page break carries the unused
+                # tail of that page, which is a CONSEQUENCE of overflow, not a
+                # cause -- and when a match lands pages away (duplicate text,
+                # reordering) the continuous-scroll delta is meaningless. Both
+                # are excluded; the flow injections are what can be acted on.
+                if r1 != r0:
+                    skipped[0] += 1
+                    continue
+                jump = (c1 - c0) - (y1 - y0)
+                if jump < min_jump:
+                    continue
+                k = classify(lay, pno, y0, y1, False)
+                tot[k] += jump
+                cnt[k] += 1
+                dtot += jump
+        per_doc[name] = dtot
+    grand = sum(tot.values()) or 1.0
+    print("\n%-36s %10s %7s %8s" % ("injection site", "total pt", "count", "share"))
+    for k in sorted(tot, key=lambda k: -tot[k]):
+        print("%-36s %10.0f %7d %7.0f%%" % (k, tot[k], cnt[k], 100 * tot[k] / grand))
+    print("%-36s %10.0f" % ("TOTAL (in-flow)", grand))
+    print("(%d intervals crossed a rendered page break and were excluded)"
+          % skipped[0])
+    print("\nper document:")
+    for n, v in sorted(per_doc.items(), key=lambda kv: -kv[1]):
+        print("  %-28s %8.0f pt  (~%.1f pages)" % (n, v, v / 720.0))
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("src")
+    ap.add_argument("src", nargs="+")
     ap.add_argument("--pages", default="1-3")
     ap.add_argument("--min-jump", type=float, default=4.0)
+    ap.add_argument("--summary", action="store_true",
+                    help="aggregate injections by construct across all pages")
     a = ap.parse_args()
+    if a.summary or len(a.src) > 1:
+        summarise(a.src, a.min_jump)
+        return
 
+    src = a.src[0]
     lo, hi = (int(x) for x in a.pages.split("-")) if "-" in a.pages \
         else (int(a.pages), int(a.pages))
 
     out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "hdiff")
     os.makedirs(out, exist_ok=True)
-    name = os.path.splitext(os.path.basename(a.src))[0]
+    name = os.path.splitext(os.path.basename(src))[0]
     docx = os.path.join(out, name + ".docx")
     from exactdoc.convert import convert
-    convert(a.src, docx, refine_rounds=0)
+    convert(src, docx, refine_rounds=0)
     rendered = harness.docx_to_pdf(docx, out)
 
-    src_pages, SH = doc_lines(a.src)
+    src_pages, SH = doc_lines(src)
     out_pages, OH = doc_lines(rendered)
 
     # continuous-scroll index of rendered lines, keyed by unique text
@@ -109,7 +196,7 @@ def main():
             if ocount[t] == 1:
                 opos[t] = (ri, ri * OH + y0)
 
-    lay = infer(normalize(parse_pdf(a.src, keep_image_data=False)))
+    lay = infer(normalize(parse_pdf(src, keep_image_data=False)))
 
     for pno in range(lo, hi + 1):
         sp = src_pages[pno - 1]
