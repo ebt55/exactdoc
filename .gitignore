@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Generated test corpora and conversion outputs (all reproducible)
+testkit/adv/
+testkit/real/
+testkit/batch/
+testkit/edge/
+testkit/sweep/
+testkit/chromefix_off/
+testkit/chromefix_on/
+testkit/exp_off/
+testkit/exp_on/
+exactdoc_v1.1/corpus/pdfs/
+
+# Google API credentials -- never commit these
+credentials.json
+token.json
+*.client_secret.json
