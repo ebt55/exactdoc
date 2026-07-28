@@ -26,8 +26,14 @@ Then it checks its own work. Every claim below is a number produced by
 ## Install
 
 ```bash
-pip install exactdoc
+pip install git+https://github.com/ebt55/exactdoc.git
 ```
+
+Optional extras: `[test]` for the measurement harness, `[gdocs]` for the Google
+Docs oracle. Neither is needed for a plain conversion.
+
+`--verify` and `--refine` additionally need LibreOffice on PATH; without it,
+conversion still works and simply skips the feedback loop.
 
 ## Usage
 
