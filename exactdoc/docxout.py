@@ -165,6 +165,11 @@ NATURAL_FACTORS = {
 NATURAL_DEFAULT = 1.144
 LINE_MODE = "exact"          # set to "multiple" for the gdocs target
 
+# Floor on compressing a table row's leading to make it fit its source height.
+# Below this the text starts to collide with its neighbours, and an honestly
+# too-tall row beats an unreadable one.
+MIN_ROW_SHRINK = 0.55
+
 
 def _natural_factor(family: str) -> float:
     return NATURAL_FACTORS.get((family or "").lower(), NATURAL_DEFAULT)
@@ -489,6 +494,27 @@ def write_table(container, t: TableEl, content_w: float):
             th.set(qn("w:val"), str(int(round(h * 20))))
             th.set(qn("w:hRule"), "atLeast")
             trPr.append(th)
+        # The content-driven model assumes pads + exact-leading paragraphs sum
+        # to the source row height. That holds for ordinary tables and fails
+        # for maths: a row of stacked sub/superscripts can occupy 5.2pt in the
+        # source while its text carries an 11.6pt leading, so the row renders
+        # at more than twice its height. Measured on an arXiv paper: a 73.6pt
+        # seven-row table rendered 31.4pt (43%) taller, entirely from three
+        # such rows. Where the source row is shorter than its own content,
+        # the leading is compressed to fit rather than left to overflow.
+        row_shrink = 1.0
+        if h and row_has_text:
+            need = 0.0
+            for c in rowspec:
+                if not c:
+                    continue
+                cell_h = (c.pad[0] + c.pad[2]) if len(c.pad) >= 4 else 0.0
+                for p in c.paras:
+                    lead = p.leading or (p.runs[0].size * 1.2 if p.runs else 11.0)
+                    cell_h += max(1, p.src_lines or 1) * lead
+                need = max(need, cell_h)
+            if need > h + 0.5:
+                row_shrink = max(MIN_ROW_SHRINK, h / need)
         for ci in range(n_cols):
             spec = rowspec[ci] if ci < len(rowspec) else None
             cell = tbl.cell(ri, ci)
@@ -530,10 +556,12 @@ def write_table(container, t: TableEl, content_w: float):
                 # 35.8pt column left 14.6pt for '24.6' (17.5pt), so the number
                 # wrapped char-by-char and the row doubled. Word indents are
                 # measured from the tcMar edge; make the paragraphs agree.
-                def _depadded(p):
+                def _depadded(p, _s=row_shrink):
                     q = copy.copy(p)
                     q.left_indent = max(0.0, p.left_indent - pads[1])
                     q.right_indent = max(0.0, p.right_indent - pads[3])
+                    if _s < 0.999 and p.leading:
+                        q.leading = max(2.0, p.leading * _s)
                     return q
                 first = cell.paragraphs[0]
                 write_para(cell, _depadded(spec.paras[0]), t.col_widths[ci],
