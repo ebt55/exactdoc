@@ -275,6 +275,109 @@ def _coalesce_row_fragments(page: PageIR) -> int:
     return joined
 
 
+def _ruled_bands(page: PageIR):
+    """Y-bands that look like tables, from the ruling lines.
+
+    Whether two lines sharing a baseline belong together -- cells of one row,
+    or unrelated text that merely lines up -- cannot be decided from the text
+    alone. Measured over the corpus, the same-baseline gaps inside a table and
+    the coincidental ones have identical distributions (median 4.7em for both),
+    so no width threshold separates them, and five attempts at one oscillated
+    between 3 and 4 regressions instead of converging.
+
+    The ruling lines settle it, and a parser does not have them. This does: a
+    band spanned by two or more horizontal rules that overlap in x is a table,
+    and inside such a band same-baseline lines are cells and may be joined.
+    """
+    raw_rules = [d for d in page.drawings
+                 if d.shape == "hline" and (d.bbox[2] - d.bbox[0]) > 24]
+    if len(raw_rules) < 2:
+        return []
+    # Merge rules that share a y FIRST. A table's borders are drawn per cell,
+    # so several sit side by side on one line; sorted by y, consecutive ones
+    # then have zero horizontal overlap and every band breaks at the first
+    # pair. One measured page had 70 rules and produced no bands at all.
+    raw_rules.sort(key=lambda d: (round(d.bbox[1], 1), d.bbox[0]))
+    rules = []
+    for d in raw_rules:
+        if rules and abs(d.bbox[1] - rules[-1][1]) <= 2.0:
+            r = rules[-1]
+            rules[-1] = (min(r[0], d.bbox[0]), r[1], max(r[2], d.bbox[2]), r[3])
+        else:
+            rules.append((d.bbox[0], d.bbox[1], d.bbox[2], d.bbox[3]))
+    if len(rules) < 2:
+        return []
+
+    bands, cur = [], [rules[0]]
+    for prev, r in zip(rules, rules[1:]):
+        ox = min(prev[2], r[2]) - max(prev[0], r[0])
+        w = max(1.0, min(prev[2] - prev[0], r[2] - r[0]))
+        if ox > 0.5 * w and (r[1] - prev[3]) < 220:
+            cur.append(r)
+        else:
+            bands.append(cur)
+            cur = [r]
+    bands.append(cur)
+    out = []
+    for grp in bands:
+        if len(grp) < 2:
+            continue
+        out.append((min(d[0] for d in grp) - 6, min(d[1] for d in grp) - 4,
+                    max(d[2] for d in grp) + 6, max(d[3] for d in grp) + 4))
+    return out
+
+
+def _join_ruled_rows(page: PageIR) -> int:
+    """Inside a ruled band, join blocks whose lines share a baseline."""
+    bands = _ruled_bands(page)
+    if not bands:
+        return 0
+
+    def in_band(ln):
+        cx = (ln.bbox[0] + ln.bbox[2]) / 2
+        cy = (ln.bbox[1] + ln.bbox[3]) / 2
+        for b in bands:
+            if b[0] <= cx <= b[2] and b[1] <= cy <= b[3]:
+                return b
+        return None
+
+    rows = {}
+    for bi, b in enumerate(page.blocks):
+        for ln in b.lines:
+            if not ln.horizontal or not ln.spans:
+                continue
+            band = in_band(ln)
+            if band is None:
+                continue
+            key = (id(band) if False else band, round(ln.baseline, 0))
+            rows.setdefault(key, []).append((bi, ln))
+
+    joined = 0
+    for _, items in rows.items():
+        if len({bi for bi, _ in items}) < 2:
+            continue
+        items.sort(key=lambda t: t[1].bbox[0])
+        host = items[0][0]
+        drop = {id(ln) for _, ln in items[1:]}
+        for b in page.blocks:
+            b.lines = [l for l in b.lines if id(l) not in drop]
+        for _, ln in items[1:]:
+            page.blocks[host].lines.append(ln)
+        page.blocks[host].lines.sort(key=lambda l: (round(l.baseline, 1), l.bbox[0]))
+        joined += len(items) - 1
+
+    page.blocks = [b for b in page.blocks if b.lines]
+    for b in page.blocks:
+        bb = None
+        for l in b.lines:
+            bb = (l.bbox if bb is None else
+                  (min(bb[0], l.bbox[0]), min(bb[1], l.bbox[1]),
+                   max(bb[2], l.bbox[2]), max(bb[3], l.bbox[3])))
+        b.bbox = bb
+    page.blocks.sort(key=lambda b: (round(b.bbox[1], 1), b.bbox[0]))
+    return joined
+
+
 def fingerprint(ir: DocIR) -> dict:
     """Observable dialect traits. Diagnostics and CI only -- never a switch."""
     fp = {"producer": (ir.meta or {}).get("producer", "") or "",
@@ -302,7 +405,8 @@ def fingerprint(ir: DocIR) -> dict:
 
 def normalize(ir: DocIR) -> DocIR:
     """Rewrite producer idioms into canonical form. Mutates and returns `ir`."""
-    stats = {"backdrops": 0, "vector_markers": 0, "rotated": 0, "row_joins": 0}
+    stats = {"backdrops": 0, "vector_markers": 0, "rotated": 0, "row_joins": 0,
+             "ruled_rows": 0}
     for p in ir.pages:
         if not hasattr(p, "rotated"):
             p.rotated = []
@@ -310,6 +414,7 @@ def normalize(ir: DocIR) -> DocIR:
         stats["rotated"] += _split_rotated(p)
         stats["vector_markers"] += _markers_to_text(p)
         stats["row_joins"] += _coalesce_row_fragments(p)
+        stats["ruled_rows"] += _join_ruled_rows(p)
     ir.meta = dict(ir.meta or {})
     ir.meta["_dialect"] = fingerprint(ir)
     ir.meta["_normalized"] = stats

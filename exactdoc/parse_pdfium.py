@@ -42,8 +42,13 @@ LINE_SPLIT_EM = 1.10      # gap that ends the LINE, not merely the span:
                           # exactly that, and merging them fused rows into
                           # single lines (measured: 0.60x PyMuPDF's count).
 BLOCK_GAP_FACTOR = 1.6    # line pitch multiple that ends a block
-BLOCK_SAME_ROW_EM = 1.8   # horizontal reach for joining lines that share a
-                          # baseline; wider than this is a column gutter
+# Horizontal reach for joining lines that share a baseline. Deliberately
+# SHORT: it now only has to catch genuinely adjacent text, such as a list
+# marker and its item. Table rows are joined later by dialect._join_ruled_rows,
+# which has the ruling lines and can tell a cell gap from a coincidence --
+# something no width threshold here can do, since the two have identical gap
+# distributions (median 4.7em each).
+BLOCK_SAME_ROW_EM = 1.2
 
 
 def _line_size(ln) -> float:
