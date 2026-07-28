@@ -61,17 +61,24 @@ def _page_chars(textpage, page_h) -> List[_Char]:
         u = raw.FPDFText_GetUnicode(textpage.raw, i)
         if u in (0, 0xFFFE):
             continue
-        # PDFium synthesises spaces and CR/LF that are not in the PDF, to make
-        # get_text() read naturally. They carry a dummy 1.0pt size, so each
-        # became its own span -- 42 stray 1pt Arial runs in one small document,
-        # polluting the run stream and the leading inference. This module
-        # reconstructs spacing from geometry, so the real characters are the
-        # only ones wanted.
+        # PDFium synthesises characters that are not in the PDF: spaces, where
+        # a producer positioned words instead of emitting a space, and CR/LF at
+        # line ends. All of them carry a dummy 1.0pt size.
+        #
+        # Dropping them all was wrong. PDFium's space synthesis is better than
+        # the gap heuristic below -- with the generated spaces gone, headings
+        # came out as 'ImplementationNotes', because at 22pt the ink-to-ink gap
+        # falls under any threshold that does not also produce spurious spaces
+        # in body text. So keep generated SPACES and let them inherit the
+        # neighbouring style; drop only the line breaks, which are pure
+        # reading-order decoration and would otherwise each become a 1pt run.
+        generated = False
         try:
-            if raw.FPDFText_IsGenerated(textpage.raw, i) == 1:
-                continue
+            generated = raw.FPDFText_IsGenerated(textpage.raw, i) == 1
         except Exception:
             pass
+        if generated and chr(u) in ("\r", "\n"):
+            continue
         l = ctypes.c_double(); r_ = ctypes.c_double()
         b = ctypes.c_double(); t = ctypes.c_double()
         if not raw.FPDFText_GetCharBox(textpage.raw, i,
@@ -87,11 +94,22 @@ def _page_chars(textpage, page_h) -> List[_Char]:
         cb = ctypes.c_uint(); ca = ctypes.c_uint()
         raw.FPDFText_GetFillColor(textpage.raw, i, ctypes.byref(cr), ctypes.byref(cg),
                                   ctypes.byref(cb), ctypes.byref(ca))
+        # The LOOSE box is derived from the font's metrics; the tight box is
+        # the glyph's ink. PyMuPDF reports metric-based line boxes, so using
+        # ink here made every line box start below the true ascent and shifted
+        # the inferred top margin (measured 71.8pt against 67.8pt) and with it
+        # every space_before on the page.
+        lr = raw.FS_RECTF()
+        if raw.FPDFText_GetLooseCharBox(textpage.raw, i, ctypes.byref(lr)):
+            ly0, ly1 = float(lr.bottom), float(lr.top)
+        else:
+            ly0, ly1 = float(b.value), float(t.value)
+
         c = _Char()
         c.u = chr(u)
         # flip y: PDFium is bottom-left origin, the IR is top-left
         c.x0, c.x1 = float(l.value), float(r_.value)
-        c.y0, c.y1 = page_h - float(t.value), page_h - float(b.value)
+        c.y0, c.y1 = page_h - max(ly1, float(t.value)), page_h - min(ly0, float(b.value))
         c.ox, c.oy = float(ox.value), page_h - float(oy.value)
         # FPDFText_GetFontSize reports the size BEFORE the text matrix. Chromium
         # lays out in CSS pixels and applies a 0.75 matrix, so every size came
@@ -108,6 +126,15 @@ def _page_chars(textpage, page_h) -> List[_Char]:
                     size *= vs
         except Exception:
             pass
+        # a generated space has no font of its own; inherit the run it joins
+        if generated and out:
+            prev = out[-1]
+            c.size = prev.size
+            c.font, c.flags, c.color = prev.font, prev.flags, prev.color
+            c.x0, c.x1 = prev.x1, max(prev.x1, c.x1)
+            c.y0, c.y1 = prev.y0, prev.y1
+            out.append(c)
+            continue
         c.size = size
         c.font = _SUBSET_RE.sub("", font)
         c.flags = int(flags.value)
@@ -266,6 +293,21 @@ def _classify(pts, w, h) -> str:
     # a rectangle arrives as MOVETO + 3-4 LINETO
     corners = sum(1 for _, _, t in pts if t in (SEG_LINETO, SEG_MOVETO))
     if not has_curve:
+        # Orientation comes from the POINTS, not the bounds. FPDFPageObj_GetBounds
+        # includes the stroke width, so a 3pt-wide stroked rule measures 3pt
+        # across and misses a bounds-based "thin" test -- PyMuPDF's rect is the
+        # geometric path and does not. Those rules then classified as "line",
+        # which promotes their cluster straight to "figure": two callout accent
+        # bars were enough to rasterise both callouts and 23% of a document's
+        # text.
+        if len(pts) <= 3:
+            xs = [x for x, _, _ in pts]
+            ys = [y for _, y, _ in pts]
+            dx, dy = max(xs) - min(xs), max(ys) - min(ys)
+            if dy <= 1.0 and dx > 4:
+                return "hline"
+            if dx <= 1.0 and dy > 4:
+                return "vline"
         if h <= 2.0 and w > 4:
             return "hline"
         if w <= 2.0 and h > 4:
