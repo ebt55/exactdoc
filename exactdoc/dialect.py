@@ -33,6 +33,12 @@ BULLET_GAP = 46.0         # max distance from marker to the text it labels
 BULLET_VTOL = 1.0         # vertical overlap tolerance, in marker heights
 BACKDROP_COVER = 0.60     # page-area fraction that makes a fill a backdrop
 BACKDROP_LUMA = 245       # min channel value for "invisible" light backdrop
+# em. A producer splitting one visual line leaves fragments almost touching --
+# a maths script boundary is ~0.1-0.3em, an inter-word space ~0.25em. Anything
+# wider is a real gap, and on a two-column page it may be the gutter: joining
+# across it fuses two columns into one enormous line that then re-wraps into
+# many. Measured on a two-column paper, 1.6em cost five extra pages.
+MAX_FRAGMENT_GAP = 0.55
 
 
 def _luma_ok(hexcol: Optional[str]) -> bool:
@@ -153,6 +159,122 @@ def _split_rotated(page: PageIR) -> int:
     return moved
 
 
+def _line_size(ln: Line) -> float:
+    return max((s.size for s in ln.spans), default=10.0)
+
+
+def _coalesce_row_fragments(page: PageIR) -> int:
+    """Rejoin one visual line that a producer split across several blocks.
+
+    pdfTeX emits inline maths as separate text blocks: the run before the
+    script, the script itself, the run after. They share a baseline but sit in
+    different blocks, and inference rebuilds its paragraph flow from blocks --
+    so each fragment became its own single-line paragraph. One measured page
+    turned two source lines into eight paragraphs; every fragment then consumed
+    a full line, the page overflowed, and since each source page ends in a hard
+    break the overflow cost a whole page. That was the bulk of LaTeX page
+    inflation, and none of it was re-wrap.
+
+    Fragments are joined only when they share a baseline AND are horizontally
+    close. The proximity test is what keeps two-column layouts intact: those
+    also share baselines across the gutter, but are an inch apart.
+    """
+    flat = [(bi, ln) for bi, b in enumerate(page.blocks) for ln in b.lines
+            if ln.horizontal and ln.spans]
+    rows = {}
+    for bi, ln in flat:
+        sz = _line_size(ln)
+        key = None
+        for base in rows:
+            if abs(ln.baseline - base) <= max(1.2, 0.18 * sz):
+                key = base
+                break
+        rows.setdefault(key if key is not None else round(ln.baseline, 2),
+                        []).append((bi, ln))
+
+    # Absorb raised/lowered scripts. A subscript sits on its own baseline by
+    # definition, so baseline grouping alone leaves it stranded as its own
+    # paragraph -- which is most of what is left of the maths problem.
+    for base in sorted(rows, key=lambda b: -len(rows[b])):
+        host = rows.get(base)
+        if not host:
+            continue
+        hsz = max(_line_size(l) for _, l in host)
+        hx0 = min(l.bbox[0] for _, l in host)
+        hx1 = max(l.bbox[2] for _, l in host)
+        for other in [b for b in list(rows) if b != base]:
+            grp = rows.get(other)
+            if not grp:
+                continue
+            if any(_line_size(l) >= 0.92 * hsz for _, l in grp):
+                continue                       # full-size: a real line
+            # scripts are short. A wide fragment at a nearby baseline is a
+            # genuine line of small type (a caption, a footnote), not a script.
+            if any((l.bbox[2] - l.bbox[0]) > 0.25 * max(1.0, hx1 - hx0)
+                   for _, l in grp):
+                continue
+            if abs(other - base) > 0.75 * hsz:
+                continue                       # outside the em box
+            if any(l.bbox[0] < hx0 - 2.0 or l.bbox[0] > hx1 + 0.6 * hsz
+                   for _, l in grp):
+                continue                       # not adjacent horizontally
+            for _, l in grp:
+                if l.baseline < base - 0.12 * hsz:
+                    for s in l.spans:
+                        s.superscript = True
+            host.extend(grp)
+            del rows[other]
+
+    joined = 0
+    for base, items in rows.items():
+        if len({bi for bi, _ in items}) < 2:
+            continue                       # already one block: nothing to do
+        items.sort(key=lambda t: t[1].bbox[0])
+        # split into horizontally-contiguous groups
+        groups, cur = [], [items[0]]
+        for prev, nxt in zip(items, items[1:]):
+            gap = nxt[1].bbox[0] - prev[1].bbox[2]
+            if gap > MAX_FRAGMENT_GAP * _line_size(prev[1]):
+                groups.append(cur)
+                cur = [nxt]
+            else:
+                cur.append(nxt)
+        groups.append(cur)
+        for grp in groups:
+            if len({bi for bi, _ in grp}) < 2:
+                continue
+            host_bi = grp[0][0]
+            spans, bb = [], None
+            for k, (bi, ln) in enumerate(grp):
+                if k and spans and not spans[-1].text.endswith(" "):
+                    gap = ln.bbox[0] - grp[k - 1][1].bbox[2]
+                    if gap > 0.22 * _line_size(ln):
+                        spans[-1].text += " "
+                spans.extend(ln.spans)
+                bb = (ln.bbox if bb is None else
+                      (min(bb[0], ln.bbox[0]), min(bb[1], ln.bbox[1]),
+                       max(bb[2], ln.bbox[2]), max(bb[3], ln.bbox[3])))
+            merged = Line(spans=spans, bbox=bb, dir=grp[0][1].dir)
+            drop = {id(ln) for _, ln in grp}
+            for bi, b in enumerate(page.blocks):
+                b.lines = [l for l in b.lines if id(l) not in drop]
+            page.blocks[host_bi].lines.append(merged)
+            page.blocks[host_bi].lines.sort(key=lambda l: (round(l.baseline, 1),
+                                                          l.bbox[0]))
+            joined += len(grp) - 1
+
+    page.blocks = [b for b in page.blocks if b.lines]
+    for b in page.blocks:
+        bb = None
+        for l in b.lines:
+            bb = (l.bbox if bb is None else
+                  (min(bb[0], l.bbox[0]), min(bb[1], l.bbox[1]),
+                   max(bb[2], l.bbox[2]), max(bb[3], l.bbox[3])))
+        b.bbox = bb
+    page.blocks.sort(key=lambda b: (round(b.bbox[1], 1), b.bbox[0]))
+    return joined
+
+
 def fingerprint(ir: DocIR) -> dict:
     """Observable dialect traits. Diagnostics and CI only -- never a switch."""
     fp = {"producer": (ir.meta or {}).get("producer", "") or "",
@@ -180,13 +302,14 @@ def fingerprint(ir: DocIR) -> dict:
 
 def normalize(ir: DocIR) -> DocIR:
     """Rewrite producer idioms into canonical form. Mutates and returns `ir`."""
-    stats = {"backdrops": 0, "vector_markers": 0, "rotated": 0}
+    stats = {"backdrops": 0, "vector_markers": 0, "rotated": 0, "row_joins": 0}
     for p in ir.pages:
         if not hasattr(p, "rotated"):
             p.rotated = []
         stats["backdrops"] += _drop_backdrops(p)
         stats["rotated"] += _split_rotated(p)
         stats["vector_markers"] += _markers_to_text(p)
+        stats["row_joins"] += _coalesce_row_fragments(p)
     ir.meta = dict(ir.meta or {})
     ir.meta["_dialect"] = fingerprint(ir)
     ir.meta["_normalized"] = stats

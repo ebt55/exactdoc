@@ -98,22 +98,74 @@ def runs_from_spans(spans: List[Span]) -> List[Run]:
     return runs
 
 
+def _line_size(ln: Line) -> float:
+    return max((s.size for s in ln.spans), default=10.0)
+
+
 def _merge_row_lines(lines: List[Line]) -> List[Line]:
     """Merge Line fragments that share a baseline into single visual rows.
 
     PDF producers split lines at link/style boundaries; alignment analysis
     needs whole visual rows.
+
+    Grouping is by BASELINE, not by bbox top. Tops disagree whenever glyph
+    heights disagree -- a fragment reading "R^{d x d}" is far taller than one
+    reading "i" even though both sit on the same baseline -- so top-grouping
+    silently split every line of inline maths into separate rows, and each
+    fragment then became its own single-line paragraph. One measured pdfTeX
+    page turned two source lines into eight paragraphs; each consumed a full
+    line, the page overflowed, and since every source page ends in a hard
+    break the overflow cost a whole page. That was the bulk of LaTeX page
+    inflation.
+
+    A second pass then absorbs true super/subscripts: smaller fragments whose
+    baseline is shifted but which still sit inside the host row's em box.
     """
     rows: List[List[Line]] = []
-    for ln in sorted(lines, key=lambda l: (round(l.bbox[1], 1), l.bbox[0])):
+    for ln in sorted(lines, key=lambda l: (round(l.baseline, 1), l.bbox[0])):
         placed = False
         for row in rows:
-            if abs(ln.bbox[1] - row[0].bbox[1]) < 2.0:
+            tol = max(1.2, 0.18 * _line_size(row[0]))
+            if abs(ln.baseline - row[0].baseline) < tol:
                 row.append(ln)
                 placed = True
                 break
         if not placed:
             rows.append([ln])
+
+    # absorb raised/lowered script fragments into the row they belong to
+    rows.sort(key=lambda r: min(l.baseline for l in r))
+    merged = True
+    while merged:
+        merged = False
+        for i, frag in enumerate(rows):
+            if len(frag) != 1:
+                continue
+            f = frag[0]
+            fsz = _line_size(f)
+            for j, host in enumerate(rows):
+                if i == j or not host:
+                    continue
+                hsz = max(_line_size(l) for l in host)
+                if fsz >= 0.92 * hsz:
+                    continue                      # same size: a real line
+                hb = host[0].baseline
+                if abs(f.baseline - hb) > 0.75 * hsz:
+                    continue                      # outside the em box
+                hx0 = min(l.bbox[0] for l in host)
+                hx1 = max(l.bbox[2] for l in host)
+                if f.bbox[0] < hx0 - 2.0 or f.bbox[0] > hx1 + 0.5 * hsz:
+                    continue                      # not adjacent horizontally
+                for s in f.spans:
+                    if f.baseline < hb - 0.12 * hsz:
+                        s.superscript = True
+                host.append(f)
+                rows.pop(i)
+                merged = True
+                break
+            if merged:
+                break
+
     out = []
     for row in rows:
         row.sort(key=lambda l: l.bbox[0])
@@ -131,7 +183,7 @@ def _merge_row_lines(lines: List[Line]) -> List[Line]:
         bb = None
         for ln in row:
             bb = bbox_union(bb, ln.bbox)
-        out.append(Line(spans=spans, bbox=bb))
+        out.append(Line(spans=spans, bbox=bb, dir=row[0].dir))
     out.sort(key=lambda l: (l.bbox[1], l.bbox[0]))
     return out
 
