@@ -1281,3 +1281,71 @@ losing on.
 document in the regression set is at or near 0% on every structural instrument,
 and the remaining gaps are entirely vertical placement — which is memo §5 item 4,
 gated behind the `c7_code` noise floor.
+
+### `c7_code` noise floor (memo §4) — step 3, not step 2
+
+| refine | pymupdf | pdfium | gap |
+|---|---|---|---|
+| 0 | 0.56 | 0.38 | −0.180 |
+| 1 | 0.91 | 0.82 | −0.090 |
+| 2 | 0.91 | 0.82 | −0.090 |
+| 3 | 0.91 | 0.82 | −0.090 |
+| 3 (repeat) | 0.91 | 0.82 | −0.090 |
+
+The raw spread across configurations is 0.090, which touches the memo's ≥0.09
+step-2 trigger — but reading it that way would be wrong. Refine 0 is a different
+*configuration* (no correction loop at all), not a noisy repeat of the same one.
+At refine 1, 2 and 3 the numbers are **identical**, the repeat is bit-identical,
+and the gap never changes sign. The harness is not noisy here; it is exact.
+So: **step 3 — something systematic survives below the structural floor.**
+
+### And it was mine
+
+Per-word attribution (memo §4 step 3's suggested tool). The entire gap is **17
+words on exactly two source lines**, and pdfium's horizontal error accumulates
+linearly along each:
+
+```
+word          src y   pymupdf dx,dy      pdfium dx,dy
+quality       103.9   (+0.03, -1.95)     ( -2.62, -1.40)
+degrades      103.9   (-0.03, -1.95)     ( -5.31, -1.40)
+non-linearly  103.9   (-0.08, -1.95)     ( -7.99, -1.40)
+...                                       ...
+embedding     103.9   (-0.43, -1.95)     (-34.72, -1.40)
+```
+
+−2.67pt per word gap, perfectly linear — one space advance at that size. Words
+clearing 2pt under PyMuPDF but not pdfium: **17. The other way round: 0.**
+
+The block diff named the cause: `pdfium SPLITS where PyMuPDF merges`, three
+times, every one at exactly gap=15.0 with overlap 489.7 — the body-text pitch.
+**This was my own M2.c change.** `c7_code` sets its code listings at an 11.25pt
+pitch, which drags the page-wide 20th percentile *below* the body text's 15.0pt,
+so body paragraphs split into one block per line, each became its own justified
+paragraph, and a one-line justified paragraph is not stretched to the measure.
+Exactly the mirror of the median's failure: dragged *up* by tables then, *down*
+by code now.
+
+**Fix: compute the body pitch per type size.** Text of one size shares one
+leading, so the reference lives with the text rather than with the page. It is
+not the reverted sliding window — a window has no idea what it is averaging
+over; a size bucket is a property of the text itself. Falls back to the page
+percentile when a size has fewer than three samples.
+
+**Result: 3 regressions → 2, 13 same, 1 better.**
+
+| document | before | after | |
+|---|---|---|---|
+| `c7_code` | 0.82 | **0.91** | **left the set — equals PyMuPDF exactly** |
+| `05_memo` | 0.64 | **0.88** | **BETTER than PyMuPDF's 0.64** |
+| everything else | | | unchanged |
+
+Block boundaries: `c7_code` 23/26 → **26/26**, `c6_long` and `c8_toc_links` hold
+at 201/201 and 17/17.
+
+**The memo's §4 owner decision is now moot.** `c7_code` needed 0.02 and gained
+0.09; it sits *on* PyMuPDF's number. No `ACCEPTED_SHORTFALL` entry is required,
+and I have not created the mechanism.
+
+**Remaining: 2.** `01_whitepaper_market` 0.53 vs 0.72, `02_research_paper` 0.57
+vs 0.76. Both are the vertical-placement question — memo §5 item 4.

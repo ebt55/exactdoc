@@ -607,10 +607,44 @@ def _body_pitch(lines: List[Line]) -> float:
     return gaps[max(0, int(0.2 * len(gaps)) - 1)]
 
 
+def _pitch_by_size(lines: List[Line]) -> dict:
+    """Body pitch per type size, because a page can set more than one.
+
+    The page-wide 20th percentile fixed the median's upward bias but inherited
+    the same shape of error in the other direction: on c7_code the code
+    listings run at an 11.25pt pitch, which drags the page percentile below the
+    15.0pt pitch of the body text, and body paragraphs then split into one block
+    per line. Measured, that is the whole of that document's remaining gap --
+    3 boundary disagreements, all `pdfium SPLITS where PyMuPDF merges` at
+    exactly gap=15.0.
+
+    Text of one size shares one leading, so the reference is computed within
+    each size and only falls back to the page when a size has too few samples
+    to be worth trusting. This is not the sliding window that was tried and
+    reverted (SESSIONS.md, `local_pitch`): a window has no idea what it is
+    averaging over and cut 02_research_paper's paragraphs in half, whereas a
+    size bucket is a property of the text itself.
+    """
+    buckets = {}
+    for a, b in zip(lines, lines[1:]):
+        d = b.baseline - a.baseline
+        if not (0 < d < 60):
+            continue
+        buckets.setdefault(round(_line_size(a), 1), []).append(d)
+    out = {}
+    for size, gaps in buckets.items():
+        if len(gaps) < 3:
+            continue
+        gaps.sort()
+        out[size] = gaps[max(0, int(0.2 * len(gaps)) - 1)]
+    return out
+
+
 def _build_blocks_one(lines: List[Line], col_x) -> List[TextBlock]:
     if not lines:
         return []
     typical = _body_pitch(lines)
+    by_size = _pitch_by_size(lines)
 
     blocks, cur = [], [lines[0]]
     for prev, ln in zip(lines, lines[1:]):
@@ -652,7 +686,8 @@ def _build_blocks_one(lines: List[Line], col_x) -> List[TextBlock]:
                 same = not (min(prev.bbox[2], ln.bbox[2]) <= col_x <=
                             max(prev.bbox[0], ln.bbox[0]))
         else:
-            same = (0 < gap <= typical * BLOCK_GAP_FACTOR) and overlap > 0
+            ref = by_size.get(round(_line_size(prev), 1), typical)
+            same = (0 < gap <= ref * BLOCK_GAP_FACTOR) and overlap > 0
         if same:
             cur.append(ln)
         else:
