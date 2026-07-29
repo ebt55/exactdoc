@@ -214,12 +214,29 @@ def _is_cjk(ch: str) -> bool:
             0xFF00 <= o <= 0xFFEF)
 
 
+# Serif families whose FontDescriptor is routinely absent. The standard 14
+# fonts may legally omit the descriptor entirely, and non-embedded system
+# fonts often do too, so `flags` arrives as 0 and the Serif bit is unreadable.
+_SERIF_NAMES = ("times", "georgia", "garamond", "cambria", "palatino", "book",
+                "minion", "caslon", "baskerville", "didot", "bodoni", "utopia",
+                "charter", "constantia", "sabon", "century", "roman", "serif",
+                "mincho", "songti", "sungti", "batang", "yugothic")
+
+
 def _style(c: _Char):
     fl = c.font.lower()
     bold = bool(c.flags & _FLAG_BOLD) or "bold" in fl or "black" in fl or "heavy" in fl
     italic = bool(c.flags & _FLAG_ITALIC) or "italic" in fl or "oblique" in fl
     mono = bool(c.flags & _FLAG_FIXED) or "courier" in fl or "mono" in fl
+    # The descriptor is authoritative when present, but "present" is not
+    # detectable from a single bit -- a font with no descriptor and a font with
+    # a descriptor that clears every flag both arrive as 0. Measured against
+    # PyMuPDF, this backend called Times-Roman, Times-Bold and Times-Italic
+    # sans on every core-14 document. Fall back to the name, as bold/italic/
+    # mono already do above, and never let "sans-serif" match "serif".
     serif = bool(c.flags & _FLAG_SERIF)
+    if not serif and "sans" not in fl:
+        serif = any(k in fl for k in _SERIF_NAMES)
     return (c.font, round(c.size, 2), c.color, bold, italic, mono, serif)
 
 

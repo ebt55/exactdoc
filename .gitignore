@@ -24,6 +24,7 @@ testkit/quirks/
 testkit/holdout/
 testkit/hdiff/
 testkit/parity/
+testkit/regroup/
 testkit/exp_off/
 testkit/exp_on/
 corpus/pdfs/
