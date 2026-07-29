@@ -135,6 +135,39 @@ def gram_cov(src, out, k=3):
 
 
 # ------------------------------------------------------------- geometry side
+# Chinese, Japanese and Korean are written without spaces, so a whitespace
+# tokeniser returns one "word" per rendered LINE -- up to 32 characters on the
+# corpus i18n page. Re-wrap that line one character earlier and the token no
+# longer matches anything, although every character survived: c4_i18n scored
+# doc_recall 0.8298 on Linux and passed on Windows purely because the two
+# renderers broke the line in different places. Measured before the fix: 16 of
+# 94 source tokens unmatched, all 16 Hangul/CJK/Kana, zero Latin, zero Arabic,
+# zero Hebrew (Arabic and Hebrew DO use spaces and never had the problem).
+#
+# So runs in these scripts are tokenised per character, with the run's box
+# divided evenly across them. It is not a leniency: it counts the same content
+# the writer emitted, in the unit that script actually has.
+_CONTINUA = ((0x3040, 0x30FF),    # Hiragana + Katakana
+             (0x3400, 0x4DBF),    # CJK ext A
+             (0x4E00, 0x9FFF),    # CJK unified
+             (0xAC00, 0xD7AF),    # Hangul syllables
+             (0xF900, 0xFAFF))    # CJK compatibility
+
+
+def _is_continua(ch):
+    o = ord(ch)
+    return any(lo <= o <= hi for lo, hi in _CONTINUA)
+
+
+def _split_continua(text, x0, y0, x1, y1):
+    """One token per character when the run has no word boundaries of its own."""
+    if not any(_is_continua(c) for c in text):
+        return [(text, x0, y0, x1, y1)]
+    step = (x1 - x0) / max(1, len(text))
+    return [(c, x0 + i * step, y0, x0 + (i + 1) * step, y1)
+            for i, c in enumerate(text) if not c.isspace()]
+
+
 def page_words(pdf_path):
     """[(page_idx, text, x0, y0, x1, y1)] in reading order per page."""
     doc = fitz.open(pdf_path)
@@ -142,7 +175,10 @@ def page_words(pdf_path):
     for p in doc:
         ws = p.get_text("words")           # x0,y0,x1,y1,word,block,line,wordno
         ws.sort(key=lambda w: (round(w[1], 1), w[0]))
-        pages.append([(w[4], w[0], w[1], w[2], w[3]) for w in ws])
+        out = []
+        for w in ws:
+            out.extend(_split_continua(w[4], w[0], w[1], w[2], w[3]))
+        pages.append(out)
     doc.close()
     return pages
 
