@@ -25,19 +25,23 @@ REFINE=lanes python testkit/runall.py testkit/adv corpus/pdfs
 
 ## 1. Where the converter stands
 
-| Metric | no-refine lane | refine lane (shipped) | Windows, same day |
-|---|---|---|---|
-| Gate passed | 12/16 | 13/16 | 12 / 13 |
-| Page count 1:1 | 13/16 | 15/16 | 13 / 15 |
-| Live (editable) text | 0.965 | 0.965 | 0.965 |
-| Words within 2pt of source | 0.349 | **0.512** | 0.361 / 0.510 |
-| Median per-word vertical drift | 2.20pt | **0.62pt** | 2.79 / 0.69pt |
+| Metric | no-refine lane | refine lane (shipped) | local container | Windows |
+|---|---|---|---|---|
+| Gate passed | 12/16 | 13/16 | 12 / 13 | 12 / 13 |
+| Page count 1:1 | 13/16 | 15/16 | 13 / 15 | 13 / 15 |
+| Live (editable) text | 0.965 | 0.965 | 0.965 | 0.965 |
+| Words within 2pt of source | 0.366 | **0.529** | 0.349 / 0.512 | 0.361 / 0.510 |
+| Median per-word vertical drift | 2.20pt | **0.68pt** | 2.20 / 0.62pt | 2.79 / 0.69pt |
 
-Measured on `ubuntu:24.04` provisioned from `scripts/bootstrap.sh`, on a corpus
-regenerated there. Two environments with different fonts, a different
-LibreOffice build and a different Chromium agree to within measurement noise on
-every headline number — the harness is portable, and it was only its
-*provisioning* that was folklore.
+The first two columns are the CI run
+([#30455217670](https://github.com/ebt55/exactdoc/actions/runs/30455217670)) and
+are the number of record. Beside them, the same measurement on a local
+`ubuntu:24.04` container and on Windows.
+
+**Three environments** — different fonts, three LibreOffice builds, three
+Chromium builds — agree on every structural number (which documents pass, page
+counts, live text, drift) and differ only in the third decimal of `within2pt`.
+The harness is portable; it was only its *provisioning* that was folklore.
 
 The gate is a **regression** gate, not an absolute one: three documents have
 never cleared the thresholds (D3, D4/graphics, and `04_exec_brief`'s live-text

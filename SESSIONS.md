@@ -216,10 +216,21 @@ over-permits silently re-admits the regression it exists to catch.
       manifest-carrying goldens. Also 7/7 on Windows, with the platform
       difference named rather than presented as parser drift.
 - [x] CI runs golden verify + two-lane runall + parity, thresholds pinned, no
-      `continue-on-error` on the lanes. Verified by running the same commands
-      in the container: `9 known failure(s) in the record, 0 new, 0 stale`,
-      `GATE_EXIT=0`. *(CI itself has not been triggered — the branch is not
-      pushed; see the note below.)*
+      `continue-on-error` on the lanes. **Confirmed on a real runner** —
+      [run 30455217670](https://github.com/ebt55/exactdoc/actions/runs/30455217670),
+      green in 3m21s, every step passing:
+
+          Golden IR                7/7 documents match
+          lane norefine            12/16 pass · 12 known, 0 new, 0 stale
+          lane refine              13/16 pass ·  9 known, 0 new, 0 stale
+          lane comparison          norefine 13/16 0.366 0.9652 2.20
+                                   refine   15/16 0.529 0.9652 0.68
+          backend parity           8 regressions, 7 same, 1 better
+
+      The baseline recorded in a local container transferred to GitHub's runner
+      with **0 new and 0 stale in both lanes**, and parity reproduced its count
+      exactly. That is the regression gate proving portable across two
+      independent Linux environments, which is the property it needed to have.
 - [x] Numbers recorded in STATUS.md §1 as the Linux/CI baseline, beside the
       Windows column.
 - [x] A deliberately broken environment still produces a passing
@@ -229,11 +240,10 @@ over-permits silently re-admits the regression it exists to catch.
 - [x] Mojibake (plan §8.6): **not present** — bullets are `E2 80 A2`. No golden
       churn spent on a defect that had already been fixed.
 
-**Not done, and why.** The workflow file cannot be *observed* green until the
-branch is pushed to GitHub, and `gh` is unauthenticated on this machine.
-Everything the workflow runs has been run here, in the same image family, with
-the same commands — but "CI is green" is a claim only a CI run can make, so it
-is recorded as unverified rather than checked.
+**Closed later the same day.** This box was first recorded as unverified,
+because "CI is green" is a claim only a CI run can make and `gh` was
+unauthenticated at the time. The owner authenticated it; the branch was pushed,
+PR #1 opened, and the run came back green. The box above carries its output.
 
 ---
 
