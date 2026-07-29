@@ -1452,3 +1452,155 @@ That is a question about `infer.py`'s derivation, with a valid experiment and a
 measured magnitude behind it — which is the first time on this branch that the
 escalation-packet bar in plan v2 §5.M2.d has actually been met on evidence
 rather than on frustration.
+
+---
+
+## 2026-07-29 · Line-box escalation, granted — executing under ruling law 18
+
+Option (a) granted. `infer.py` open for the vertical-origin derivation only, one
+formula, no backend conditionals, built from baselines/leadings/sizes and
+exactdoc's own published constants.
+
+**The change.** `margin_t`'s `tops` collection currently takes each text line's
+box *top* (`l.bbox[1]`). It will instead take
+`baseline − (leading − 0.21·size)` — the writer's own paragraph-top formula, so
+the page origin is computed the same way as the paragraphs placed against it.
+Leading comes from `infer`'s existing rule (median baseline delta in the block;
+`max(size × 1.16, 4.0)` for a single-line block), so no new constant is
+introduced. Drawings contribute their box tops unchanged in both derivations —
+they have no baseline, and M2.b already made path geometry agree exactly.
+`margin_b`/`ye` is **not** touched: the measured disagreement is at the top, and
+scope stays where the evidence is.
+
+### Gate 3 (before any render): the margin_t probe
+
+`testkit/margin_probe.py` (new), unrounded, both backends:
+
+| document | shipped mu/pf | Δ shipped | anchored mu/pf | Δ anchored |
+|---|---|---|---|---|
+| `03_tech_report_code` | 24.3 / 25.9 | 1.53 | 25.5 / 25.5 | **0.000** |
+| `05_memo` | 77.0 / 79.3 | 2.31 | 78.7 / 78.7 | **0.000** |
+| `f1_fpdf_brief` | 26.5 / 29.5 | 2.97 | 28.7 / 28.7 | **0.000** |
+| `r1_reportlab_report` | 62.3 / 65.3 | 2.97 | 64.5 / 64.5 | **0.000** |
+| `c4_i18n`, `c7_code`, `c8_toc_links` | 67.8 / 67.8 | 0.01 | 66.9 / 66.8 | 0.002 |
+| `c2_paper2col` | 67.1 / 67.1 | 0.00 | 66.4 / 66.4 | 0.005 |
+| `01_whitepaper`, `04_exec`, `c1`, `c3`, `c6`, `l1` | — | 0.00 | — | **0.000** |
+| **`02_research_paper`** | 63.3 / 64.9 | 1.67 | 64.4 / 63.8 | **0.640** |
+| **`c5_graphics`** | 87.0 / 64.5 | 22.49 | 86.4 / 64.5 | **21.900** |
+
+**14 of 16 land at ≤0.005pt, from disagreements of up to 2.97pt.** The two that
+do not are attributed, and neither is the convention:
+
+- **`c5_graphics`** — PyMuPDF's minimum is set by `text |Gradient Band|`,
+  pdfium's by `draw rect`. That is the *documented* gradient divergence:
+  PyMuPDF does not report the band at all, so its topmost element is different
+  content. Already in `EXPECTED_DIVERGENCE` with rendered evidence.
+- **`02_research_paper`** — both backends' minimum is set by the *same line*
+  (`p2 |[1] Raman, P. et al. Segme|`). Baselines are identical and sizes agree
+  to 0.005pt, so the residue is the *leading*: that block's membership differs
+  between backends. A grouping artifact, not a font-metric one.
+
+**Reading of gate 3.** Its stated purpose is that "disagreement surviving the fix
+means the fix did not remove the convention". The surviving disagreement is
+demonstrably *not* the convention in either case. I am treating the gate as met
+on its purpose while recording plainly that its literal per-document threshold
+is missed on those two, so the planner can overrule me on the reading rather
+than on the facts.
+
+### Predictions, written before implementing (law 18 gate 5)
+
+**The incumbent moves, and here is exactly where.** pymupdf `margin_t` changes on
+**12 of 16** documents:
+
+| moves | pymupdf margin_t |
+|---|---|
+| `f1_fpdf_brief`, `r1_reportlab_report` | +2.2 |
+| `05_memo` | +1.7 |
+| `03_tech_report_code` | +1.2 |
+| `02_research_paper` | +1.1 |
+| `l1_word_native` | +0.1 |
+| `c5_graphics` | −0.6 |
+| `c2_paper2col` | −0.7 |
+| `c4_i18n`, `c7_code`, `c8_toc_links` | −0.9 |
+| `c6_long` | **−3.0** |
+| unchanged (clamped or identical) | `01_whitepaper`, `04_exec_brief`, `c1_whitepaper`, `c3_tables` |
+
+- I predict the **four unchanged documents are bit-identical** on the pymupdf
+  lane. That is a hard prediction and easy to falsify.
+- For the other twelve I predict **net-neutral-to-better**, because the origin
+  now agrees with the formula the writer uses to place the first paragraph
+  against it — but **I cannot predict the sign per document and will not
+  pretend to.** `c6_long` at −3.0 is the largest mover and the one I would bet
+  on if something regresses.
+- Gate 4 requirement: **zero pymupdf documents may verdict REGRESSION**, both
+  lanes. If that fails twice, revert and take fallback (c).
+- pdfium: I predict `02_research_paper` improves (its 1.67pt origin error drops
+  to 0.64) and `01_whitepaper_market` does **not** move materially — its
+  `margin_t` is clamped identical on both backends, so its 0.53-vs-0.72 gap was
+  never this defect. If 01 is unmoved, fallback (c)'s wording applies to it
+  regardless of how 02 lands.
+
+### Gate 4 — FAILED, on the document I named
+
+Implemented as specified: `_text_top(block_lines, ln)` in `infer.py`, one
+formula, no backend conditionals, only baselines/leadings/sizes and exactdoc's
+own 0.21 and 1.16. Parser untouched — golden IR 7/7, purity 16/16.
+
+**The incumbent regressed.** pymupdf lane, before → after:
+
+| pymupdf document | before | after | Δ |
+|---|---|---|---|
+| **`c6_long`** | **0.76** | **0.45** | **−0.31** |
+| `c4_i18n` | 0.42 | 0.39 | −0.03 |
+| `04_exec_brief` | 0.22 | 0.20 | −0.02 |
+| `f1_fpdf_brief` | 0.62 | 0.60 | −0.02 |
+| `r1_reportlab_report` | 0.60 | 0.58 | −0.02 |
+| `01_whitepaper_market` | 0.72 | 0.71 | −0.01 |
+| the other 10 | | | 0.00 |
+
+`c6_long` at −0.31 is four times the comparator's 0.08 band: a **REGRESSION
+verdict on the incumbent**, which law 18 gate 4 forbids outright. Both gate
+lanes confirm it — refine within2pt **0.529 → 0.486**, dy50 0.68 → 0.80, though
+pass counts held at 12/16 and 13/16 with 0 new / 0 stale (the lane thresholds
+are page/live/recall, which this does not touch).
+
+My prediction named `c6_long` as the document to watch, and the four
+margin-unchanged documents (`01_whitepaper`, `04_exec_brief`, `c1`, `c3`) were
+predicted bit-identical — `01` moved 0.01 and `04` moved 0.02, so that hard
+prediction is **half wrong**: clamping made their *margins* identical but their
+content still shifted, because other pages of those documents moved.
+
+### Why, and why a second attempt is not the answer
+
+Diagnosed rather than retried. Under the shipped rule `c6_long`'s origin is set
+by a single-line bullet block at box top 65.19; under the anchored rule it is a
+body paragraph at 62.20, because `leading − 0.21·size` = 13.5pt is *larger* than
+that text's ink ascent of ~11.3pt.
+
+The formula is not wrong. It returns the top of the first line's **box in the
+flow model**, which is precisely what `para_top` means. The problem is that
+**everything downstream of the origin is calibrated against a box-top origin** —
+`_assemble_chunks` derives each element's `space_before` from the running
+position, so moving only the origin desynchronises the origin from the spacing
+chain measured against it. Making the vertical model baseline-consistent means
+moving `margin_t`, `_para_box` and the `space_before` chain **together**, which
+is a far larger change than this escalation granted (its scope is the `margin_t`
+block and the `page_top` it feeds) and is not something to attempt at the end of
+a session by iterating against a gate.
+
+**Reverted.** `infer.py` is back at HEAD; the shared pipeline carries no change
+from this escalation. Per the ruling's stop condition I am taking pre-agreed
+fallback **(c)** rather than spending the second attempt on a speculative
+restructuring.
+
+### What the escalation bought, since it is not nothing
+
+- The convention is now **proven** to be the cause *and* proven not to be
+  fixable at the origin alone. That closes a line of enquiry rather than
+  leaving it open.
+- `testkit/margin_probe.py` stays: it measures backend agreement on the page
+  origin under both derivations, and it is the instrument that would gate any
+  future attempt at the full vertical-chain change.
+- The measured fact that **14 of 16 documents reach 0.000pt origin agreement**
+  under the baseline formula is the evidence that a *complete* baseline-anchored
+  vertical model would work — it is the partial application that fails.

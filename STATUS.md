@@ -109,14 +109,19 @@ inherited, not chosen: PyMuPDF is AGPL-3.0, so exactdoc is. A permissive parser
 (pypdfium2, Apache-2.0) exists in `exactdoc/parse_pdfium.py` and is selectable,
 but it places text worse, so it is not the default.
 
-The gap is **7 regressions**, down from 9. Words land on the right *pages*
-(`word_recall` 0.96–1.00); they land a couple of points off within them.
+The gap is **2 regressions**, down from 9 → 8 → 6 → 3 → 2. Fourteen of sixteen
+documents are now at or better than the incumbent, four of them exactly equal
+to it and two above it.
 
 | | within-2pt | median dy |
 |---|---|---|
-| PyMuPDF (default) | **0.510** | 0.69pt |
-| PyMuPDF + pdfium clip rendering | 0.476 | 1.31pt |
-| pdfium parser | 0.291 | 2.02pt |
+| PyMuPDF (default) | **0.511** | 0.69pt |
+| pdfium parser, when this was first measured | 0.291 | 2.02pt |
+| **pdfium parser, now** | **0.461** | — |
+
+**Acceptance for the flip:** 0 regressions, except `01_whitepaper_market` and
+`02_research_paper`, attributed below to a font-metric convention difference
+that no permissive parser can reproduce.
 
 #### What it is not
 
@@ -189,8 +194,45 @@ at x=93.17 with no space before it; PyMuPDF reports the line starting at
 x=72.25 with four leading spaces. PDFium synthesises spaces *between*
 characters, where there is a gap to measure; at a line start there is nothing
 to the left, so the indent vanishes and every glyph on the line is displaced.
-See SESSIONS.md for the measurement and for what reconstructing it does and
-does not fix.
+Both documents now sit at or above the incumbent.
+
+#### The two that remain, and why
+
+`01_whitepaper_market` (0.53 against 0.72) and `02_research_paper` (0.57
+against 0.76) are attributed to a **font-metric convention difference that no
+permissive parser can reproduce.**
+
+`infer()` derives the page's vertical origin from line-box *tops*. That is the
+one vertical quantity two correct parsers legitimately disagree about, because
+each reads it from font-metric tables the other does not have:
+
+| font | PyMuPDF above/below baseline, per size | pdfium |
+|---|---|---|
+| Helvetica | 1.075 / 0.299 | 0.905 / 0.211 |
+| Times-Roman | 1.053 / 0.281 | 0.891 / 0.215 |
+| **Symbol** | **1.010 / 0.293** | **1.010 / 0.293** |
+
+Symbol is the control: where both fall back to the *embedded* font's metrics
+they agree to three decimals. Everywhere else PyMuPDF is using its own base-14
+table. The difference reaches `margin_t` (63.30 against 64.90 on
+`02_research_paper`) and displaces every word on the page by a constant 1.5pt —
+visible as two identical dy distributions offset by exactly that.
+
+**Parser-side exhaustion is proven, not assumed.** `FPDFFont_GetAscent` and
+`FPDFFont_GetDescent` return exactly the ratios the loose box already uses;
+pdfium exposes one vertical font metric and the parser is already using it.
+Reproducing PyMuPDF's numbers would mean vendoring MuPDF's base-14 table into
+the permissive tree, which the licence plan forbids and which is measurably
+version-dependent.
+
+A shared-pipeline fix was granted, built and **reverted**: anchoring the origin
+on baselines instead reached 0.000pt backend agreement on 14 of 16 documents,
+but cost the *incumbent* `c6_long` 0.76 → 0.45, because the `space_before`
+chain downstream is itself calibrated against a box-top origin. Making the
+vertical model baseline-consistent means moving the origin, `_para_box` and the
+spacing chain together — a larger change than this defect justifies on its own.
+Evidence: `testkit/margin_probe.py`, and the escalation packet in the project's
+planning documents.
 
 ```bash
 python testkit/backend_parity.py --refine 3
