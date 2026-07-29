@@ -7,21 +7,53 @@ from its own score. A converter must not define its own ground truth.
 
 ## Quick start
 
+On Linux, one command provisions everything below and prints a capability
+report — Python packages, the LibreOffice and Chromium oracles, and the
+metric-compatible fonts the oracle renders with:
+
 ```bash
-pip install pymupdf python-docx numpy pillow reportlab fpdf2 lxml
+bash scripts/bootstrap.sh
+```
+
+By hand, or on Windows/macOS:
+
+```bash
+pip install -e ".[test,pdfium]"
+```
+
+`pypdfium2` is in that list deliberately. It is not needed to convert a PDF,
+but `backend_parity.py` — the acceptance test for the whole licence swap —
+cannot run without it, and it was once omitted here: a `uv sync` evicted it and
+the parity gate spent an unknown number of runs reporting `ModuleNotFoundError`
+instead of regressions. A gate that cannot run looks exactly like a gate that
+passes.
+
+```bash
+python testkit/gen_corpus.py testkit/adv && python corpus/make_corpus.py
 ```
 
 ```bash
-python testkit/gen_corpus.py testkit/adv
-```
-
-```bash
-python testkit/runall.py testkit/adv my_samples exactdoc_v1.1/corpus/pdfs
+REFINE=lanes python testkit/runall.py testkit/adv corpus/pdfs
 ```
 
 `runall.py` exits non-zero when any document misses the gate, so it works as
-the CI check. LibreOffice and Chrome/Edge are found automatically; override
-with the `SOFFICE` / `CHROME` environment variables.
+the CI check.
+
+### External tools
+
+| Tool | Needed for | Override |
+|---|---|---|
+| LibreOffice | render-back: every metric except the corpus itself | `SOFFICE=/path/to/soffice` |
+| Chrome/Chromium/Edge | generating the 8 Chromium/Skia corpus documents | `CHROME=/path/to/chrome` |
+| Liberation + DejaVu fonts | what the LibreOffice oracle renders with | — |
+
+Both are auto-discovered (`_paths.py`); the environment variables win when set.
+A missing tool makes `gen_corpus.py` skip the documents it produces and say so,
+exiting 0 — but the resulting corpus is smaller than the one the recorded
+baselines were measured on, so its numbers are not comparable to them. A tool
+that is *present and failing* exits 1 instead. Ubuntu's `chromium-browser`
+package is the case that motivates the distinction: it is a snap shim that
+installs, sits on `PATH`, and fails on every invocation inside a container.
 
 ## Metrics
 
@@ -68,8 +100,9 @@ distinguish a document from a photograph of a document.
 ## Producer dialects
 
 `gen_corpus.py` generates from four engines because **a PDF's producer changes
-its structure more than its content does**. The corpus in
-`exactdoc_v1.1/corpus/` is five ReportLab documents — one dialect, authored by
-the same process that was tuned against it. Chromium/Skia, the likely producer
-for anything printed from a browser, was absent and is where the tool fails
-hardest.
+its structure more than its content does**. `corpus/make_corpus.py` adds five
+ReportLab documents — one dialect, authored by the same process that was tuned
+against it. Chromium/Skia, the likely producer for anything printed from a
+browser, was absent from the original corpus and is where the tool failed
+hardest. The two generators together make the 16-document gate corpus:
+8 Chromium/Skia, 6 ReportLab, 1 fpdf2, 1 LibreOffice.

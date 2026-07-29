@@ -12,6 +12,11 @@ dist/
 .vscode/
 .idea/
 
+# Written by scripts/bootstrap.sh: discovered oracle paths, and any tool it had
+# to fetch because the distribution does not package it.
+scripts/env.sh
+.tools/
+
 # Generated test corpora and conversion outputs (all reproducible)
 testkit/adv/
 testkit/real/
