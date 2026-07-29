@@ -16,7 +16,18 @@ element counts, and per-line rounded bbox + baseline + text hash + font/size.
 That is what inference actually consumes, and it keeps the goldens small
 enough to live in git and to diff by eye.
 
-    python testkit/golden_ir.py freeze     # write goldens
+**The canonical freeze environment is CI Linux** (`.github/workflows/gate.yml`:
+ubuntu-24.04 + fonts-liberation), for the same reason CI is the number of
+record everywhere else in this project. A golden is a comparison between two
+runs, and the corpus is *regenerated* on every machine: ReportLab and fpdf2 are
+deterministic in their layout, but the library versions that produce the PDFs
+and the PyMuPDF version that reads them are not fixed by this repository. So
+each golden carries a manifest of the versions it was frozen with, and `verify`
+says so when the running environment differs -- otherwise environment drift
+arrives looking exactly like parser breakage, and the natural response to that
+is to "fix" a parser that was never broken.
+
+    python testkit/golden_ir.py freeze     # write goldens (+ env manifest)
     python testkit/golden_ir.py verify     # compare, exit non-zero on drift
 """
 import argparse
@@ -40,6 +51,38 @@ TOL = {"n_lines": 0.02, "n_blocks": 0.05, "n_draws": 0.05, "chars": 0.005}
 
 def _h(s):
     return hashlib.sha1(s.encode("utf-8", "replace")).hexdigest()[:12]
+
+
+# Everything that can legitimately change a golden without the parser changing.
+# pymupdf reads the PDFs; reportlab and fpdf2 WRITE them, so their versions are
+# part of the input, not of the environment around it.
+MANIFEST_PKGS = ("pymupdf", "reportlab", "fpdf2")
+
+
+def manifest():
+    import platform
+    try:
+        from importlib.metadata import version, PackageNotFoundError
+    except ImportError:                                   # py<3.8
+        return {"platform": platform.system()}
+    out = {}
+    for pkg in MANIFEST_PKGS:
+        try:
+            out[pkg] = version(pkg)
+        except PackageNotFoundError:
+            out[pkg] = "absent"
+    out["python"] = "%d.%d" % sys.version_info[:2]
+    out["platform"] = platform.system()
+    return out
+
+
+def manifest_delta(frozen, running):
+    """Keys whose value differs, as 'key frozen->running'. Empty if identical."""
+    if not frozen:
+        return ["(golden carries no manifest -- frozen before this was recorded)"]
+    return ["%s %s->%s" % (k, frozen.get(k, "?"), running.get(k, "?"))
+            for k in sorted(set(frozen) | set(running))
+            if frozen.get(k) != running.get(k)]
 
 
 def digest(path):
@@ -71,7 +114,7 @@ def digest(path):
             "lines": lines,
             "draws": draws,
         })
-    return {"backend": "pymupdf", "pages": pages}
+    return {"backend": "pymupdf", "manifest": manifest(), "pages": pages}
 
 
 # The corpus is REGENERATED on each machine, so a golden is only meaningful
@@ -127,6 +170,8 @@ def verify():
     if not pdfs:
         print("no corpus; run the generators first")
         return 2
+    running = manifest()
+    deltas = set()
     bad = 0
     for p in pdfs:
         name = os.path.splitext(os.path.basename(p))[0]
@@ -137,6 +182,7 @@ def verify():
             continue
         want = json.load(open(gp))
         got = digest(p)
+        deltas.update(manifest_delta(want.get("manifest"), running))
         if len(want["pages"]) != len(got["pages"]):
             print("  %-26s page count %d -> %d" %
                   (name[:26], len(want["pages"]), len(got["pages"])))
@@ -160,6 +206,14 @@ def verify():
         else:
             print("  %-26s ok" % name[:26])
     print("\n%d/%d documents match the golden IR" % (len(pdfs) - bad, len(pdfs)))
+    if deltas:
+        print("\nNOTE: this environment is not the one the goldens were frozen "
+              "in:\n  " + "\n  ".join(sorted(deltas)))
+        print("  Running:  " + ", ".join("%s=%s" % kv for kv in sorted(running.items())))
+        if bad:
+            print("  Drift above may be attributable to that and NOT to the "
+                  "parser. Re-freeze only on the canonical environment "
+                  "(CI Linux), never to make a failure go away.")
     return 1 if bad else 0
 
 
