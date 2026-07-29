@@ -364,3 +364,85 @@ That is the second failed attempt at moving `03_tech_report_code`, so by §12.5
 this stops here rather than trying a third estimator. What is *kept* is the
 attribution and the instrument: `backend_spans.py`, `--only`, and a named,
 measured cause for a defect the register had carried as unexplained.
+
+### Owner decision: land the indent fix, and trace 03 downstream
+
+Escalated per §12.8 and the owner chose to land it and to lift the
+forbidden-file rule for the trace. The trace was read-only in the end — it never
+needed to edit the shared pipeline, because it found the cause in the parser.
+
+**Where 03 loses it.** Rendered x of the same source line, against a source x of
+84.40:
+
+| | `policy=Policy...` | `return downstream...` |
+|---|---|---|
+| PyMuPDF render | 90.25 (+5.9) | 90.25 (+5.9) |
+| PDFium render | 199.70 (+115) | 281.30 (+197) |
+
+Two lines with the *same* source x landing 80pt apart is not a drift, it is a
+structural failure: the code listing is being laid out as flowing prose. Reading
+the layout confirmed it — PyMuPDF builds that region as
+
+    role=code  rows=1  col_widths=[504.0]
+    para leading=11.50 line_breaks=True vis_lines=10 runs=15
+
+and PDFium built it as `role=table`, two columns of 3.0pt and 501.0pt, three
+paragraphs with `line_breaks=False`, so `detector = Detector(` and the four
+lines beneath it were concatenated into one line of prose.
+
+**Why: the two backends disagree about what a stroked path's bbox means.**
+`FPDFPageObj_GetBounds` returns the *ink envelope* — a stroked path inflated by
+its line width in every direction — while PyMuPDF returns the geometric path:
+
+| path | PyMuPDF | PDFium |
+|---|---|---|
+| box border, 0.75pt | `x=54.00..54.00` (w 0.00) | `x=53.25..54.75` (w **1.50**) |
+| callout accent, 3pt | `x=57.00..57.00` (w 0.00) | `x=54.00..60.00` (w **6.00**) |
+
+`infer.py`'s table detector reads that 1.5pt bar as a column boundary, which is
+where the phantom 3pt first column came from. `_classify` already worked around
+this for *orientation* by reading the path points instead of the bounds; taking
+the bbox from the same place makes the workaround whole, and it is confined to
+`parse_pdfium.py` — the shared pipeline needed no change at all.
+
+With the bbox taken from the points, PDFium builds the region **identically** to
+PyMuPDF: `role=code`, one 504.0pt column, `line_breaks=True`, 10 visual lines,
+15 runs.
+
+**And the rendered score still did not follow.** `03_tech` 0.02 → 0.03,
+`c7_code` **0.59 → 0.30** with `word_recall` slipping 1.00 → 0.95. On the full
+corpus — because a two-document subset had already misled this session once —
+it is worse still:
+
+    8 regressions -> 9
+
+with `01_whitepaper_market` pages 3/3 → 3/4 (w 0.31 → 0.01), `02_research_paper`
+2/2 → 2/3, `c5_graphics` 1/1 → 1/2, and `r1_reportlab_report` newly a regression
+at 0.57 → 0.38. **Reverted.**
+
+The reason is worth keeping. A stroked box's *ink envelope* contains its text,
+while the geometric path is the centreline — so making the bbox faithful makes
+containment tests fail at the edges and box detection starts losing boxes
+(`c7_code` drops from two `TableEl`s to one). The convention is not
+independently right or wrong; it has to match whatever the containment tests
+were tuned against, and they were tuned against PyMuPDF's.
+
+That is the third time this session that a demonstrably more faithful IR scored
+*worse*, which is a finding about the pipeline rather than about the parser, and
+it is the strongest evidence yet for the plan's RC1: the downstream is tuned to
+PyMuPDF's *shape*, including the parts of that shape that are arbitrary. Two
+consequences for whoever picks this up:
+
+1. **The remaining regressions are unlikely to fall one parser fix at a time.**
+   Three separate faithfulness improvements each cost more than they paid.
+   `exp_regroup.py` already showed grouping fully recovers `c6_long` (0.23 →
+   0.73) and `c8_toc_links` (0.63 → 1.00) — those two are the honest next
+   targets, because there the evidence says the downstream *agrees* with the
+   more faithful answer.
+2. **A containment/tolerance audit of `infer.py` is the real unlock**, and it is
+   a shared-pipeline change that must be measured on *both* backends. The bar:
+   pymupdf's numbers may not move at all.
+
+**Gate after this session:** `backend_parity.py --refine 3` → **8 regressions,
+7 same, 1 better** — unchanged in count from the session's start, with
+`c7_code` 0.16 → 0.59 and `03_tech_report_code` 0.23 → 0.02 inside it.
