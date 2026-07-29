@@ -41,7 +41,9 @@ LINE_SPLIT_EM = 1.10      # gap that ends the LINE, not merely the span:
                           # cells and the two halves of a two-column page do
                           # exactly that, and merging them fused rows into
                           # single lines (measured: 0.60x PyMuPDF's count).
-BLOCK_GAP_FACTOR = 1.6    # line pitch multiple that ends a block
+BLOCK_GAP_FACTOR = 1.15   # multiple of the BODY pitch that ends a block. See
+                          # _body_pitch: the reference is the 20th-percentile
+                          # gap, not the median, so the factor is close to 1.
 # Horizontal reach for joining lines that share a baseline. Deliberately
 # SHORT: it now only has to catch genuinely adjacent text, such as a list
 # marker and its item. Table rows are joined later by dialect._join_ruled_rows,
@@ -489,26 +491,46 @@ def _build_blocks(lines: List[Line], page_w: float = 612.0) -> List[TextBlock]:
     return _build_blocks_one(lines, col_x)
 
 
+def _body_pitch(lines: List[Line]) -> float:
+    """The pitch of ordinary body text: the 20th-percentile line gap.
+
+    This is the reference the block-split test multiplies, and it used to be the
+    MEDIAN gap. The median is biased upward by exactly the thing it is meant to
+    exclude -- the gaps *between* blocks are in the sample, and so are a table's
+    row pitches -- so on a page of paragraphs the tolerance grew until the
+    paragraph boundary fitted inside it. Measured on c6_long: body pitch 15pt,
+    paragraph boundaries 19.5-23.2pt, and median x 1.6 admitted anything up to
+    ~24pt, fusing 72 of 201 lines into the wrong block.
+
+    The 20th percentile approximates the tightest recurring pitch on the page,
+    which is what body text sets, and is unmoved by however many wide gaps sit
+    above it.
+
+    Evidence for the choice, and for the factor (testkit/block_gaps.py, which
+    labels 685 consecutive line pairs with PyMuPDF's own answer):
+
+        gap <= median * 1.60   355/685 wrong     <- shipped before this
+        gap <= p20    * 1.30   178/685
+        gap <= p20    * 1.15   140/685           <- this
+        gap <= p20    * 1.05   154/685
+        per-page adaptive cut  322/682
+
+    Note what that table also says: no fixed factor is *right*. Every document
+    separates cleanly on its own, at its own ratio (1.00 to 1.24 across the
+    corpus), and no single value serves all of them -- 140 of 685 stay wrong.
+    A per-page adaptive cut was measured before being written and is worse.
+    """
+    gaps = sorted(b.baseline - a.baseline for a, b in zip(lines, lines[1:])
+                  if 0 < b.baseline - a.baseline < 60)
+    if not gaps:
+        return 12.0
+    return gaps[max(0, int(0.2 * len(gaps)) - 1)]
+
+
 def _build_blocks_one(lines: List[Line], col_x) -> List[TextBlock]:
     if not lines:
         return []
-    # A page-wide median pitch is a poor threshold for a page with several
-    # pitches -- 03_tech_report_code page 1 has fourteen, and its median of
-    # 22.0pt (the configuration table outnumbers everything else) puts the split
-    # at 35.2pt, swallowing the 23.0pt blank lines inside a code listing whose
-    # own pitch is 11.5pt. Replacing it with a LOCAL median was tried and
-    # reverted: it split the listing correctly and cost 02_research_paper
-    # within-2pt 0.57 -> 0.02, because a local window inside a dense
-    # two-column body finds a pitch small enough to cut paragraphs in half.
-    # Recorded in SESSIONS.md; the estimator needs to be robust in both
-    # directions before it is worth another attempt.
-    pitches = []
-    for a, b in zip(lines, lines[1:]):
-        d = b.baseline - a.baseline
-        if 0 < d < 60:
-            pitches.append(d)
-    pitches.sort()
-    typical = pitches[len(pitches) // 2] if pitches else 12.0
+    typical = _body_pitch(lines)
 
     blocks, cur = [], [lines[0]]
     for prev, ln in zip(lines, lines[1:]):

@@ -823,3 +823,54 @@ median, and `BLOCK_GAP_FACTOR` 1.6 → 1.15.
 - **Everything else** should hold. This is a global change to every document's
   blocking, so "should" is doing real work in that sentence — the full gate
   decides, and the requirement is unchanged: **count ≤ 8, no new regressions**.
+
+### Result — 8 regressions → 6, and both predictions narrowly missed
+
+Block boundaries first: on both target documents pdfium now agrees with PyMuPDF
+on **every single boundary** — `c6_long` 201 of 201 lines, `c8_toc_links` 17 of
+17, from 72 and 3 disagreements. Grouping on these two is finished.
+
+`backend_parity.py --refine 3`, canonical environment: **6 regressions, 10 same,
+0 better.**
+
+| document | before | after | Δ | verdict |
+|---|---|---|---|---|
+| `c6_long` | 0.21 | **0.46** | **+0.25** | still regression (pymupdf 0.76) |
+| `c8_toc_links` | 0.54 | **0.78** | **+0.24** | still regression (pymupdf 1.00) |
+| `01_whitepaper_market` | 0.31 | **0.48** | **+0.17** | still regression |
+| `05_memo` | 0.49 | **0.64** | **+0.15** | **left the set** — equals pymupdf exactly |
+| `c1_whitepaper` | 0.00 | **0.12** | **+0.12** | **left the set** (pymupdf 0.18) |
+| `c7_code` | 0.76 | 0.72 | −0.04 | still regression |
+| `c2_paper2col` | 0.21 | 0.20 | −0.01 | same |
+| the other 8 | | | — | unchanged |
+
+**Scorecard.**
+
+| | prediction | outcome |
+|---|---|---|
+| `c6_long` ≥ 0.50 | | ❌ **0.46** — right direction, missed the number |
+| `c8_toc_links` ≥ 0.80 | | ❌ **0.78** — same |
+| `l1_word_native` is where a new regression would appear | | ❌ unchanged at 0.03 |
+| no new regressions, count ≤ 8 | | ✅ **6**, none |
+| pymupdf lane unmoved | | ✅ golden 7/7, purity 16/16 |
+
+Three of five predictions wrong, and the milestone still moved further than any
+change so far. Worth being precise about what that means: I predicted the two
+documents I was *aiming* at and missed both by 0.02–0.04, while the change's
+biggest effects landed on `01_whitepaper_market` and the two documents that
+actually left the set — **neither of which I predicted at all.** A global
+change to blocking does not respect the document you had in mind.
+
+**The trade (law 17).** `c7_code` −0.04 and `c2_paper2col` −0.01. Neither
+changes a verdict, and both are inside the parity comparator's 0.08 tolerance
+band. `c7_code` remains far above where this session found it (0.16).
+
+**M2.c's own acceptance is not fully met, and I am not going to claim it is.**
+It asks that both target documents *leave the regression set*; they did not,
+they improved by ~0.25 each and stayed in. But their block boundaries now match
+PyMuPDF's exactly, which means **grouping is exhausted as an explanation for
+them** — whatever residual `c6_long` and `c8_toc_links` carry is a different
+cause, and naming it is M2.d's re-attribution, not a second grouping attempt.
+That is also why I am not iterating further here: §12.5 stops a second attempt
+on the same metric, and in this case the instrument says there is nothing left
+to converge.
