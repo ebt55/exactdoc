@@ -34,9 +34,24 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 #     source and both outputs side by side: the source and the pdfium output
 #     read 'تتدهور جودة الاسترجاع...', the PyMuPDF output reads
 #     '...التضمين نموذج معايرة' -- the same words in reverse.
+#   c5_graphics -- the page opens with a gradient band carrying white text.
+#     PyMuPDF does not report the gradient at all, so exactdoc emits the band's
+#     text with no background: white on white, invisible. PDFium reports the
+#     pattern flattened to a grey fill, so the band survives and its text is
+#     legible, at the cost of grey instead of blue. Verified by rendering:
+#     PyMuPDF's output simply has no band, pdfium's has a grey one with the
+#     heading readable.
+#
+#     Note what this exposes in the metric: live_text_cov scored PyMuPDF HIGHER
+#     (0.71 against 0.68), because invisible white text still counts as live
+#     while pdfium's legible text is partly inside a rasterised region. Text
+#     coverage cannot see contrast, so on documents with knocked-out text it
+#     rewards losing the background. Worth remembering before trusting it alone.
 EXPECTED_DIVERGENCE = {
     "c4_i18n": "RTL: pdfium emits logical order, PyMuPDF emits visual (renders "
                "backwards). Verified visually.",
+    "c5_graphics": "gradient band: PyMuPDF drops it and its white text becomes "
+                   "invisible; pdfium keeps it legible. Verified visually.",
 }
 
 
@@ -105,12 +120,20 @@ def main():
         dp_b = abs(B["out_pages"] - B["src_pages"])
         lv_a, lv_b = A["live_text_cov"], B["live_text_cov"]
         pl_a, pl_b = A.get("word_recall", 0), B.get("word_recall", 0)
+        # within2pt is FINE placement, and leaving it out was a real hole:
+        # a backend can put every word on the right page (word_recall) while
+        # putting none of them in the right spot. Measured that way, a swap
+        # that this harness called clean cost within-2pt 0.510 -> 0.291 and
+        # median drift 0.69pt -> 2.02pt across the gate, invisibly.
+        w2_a, w2_b = A.get("within2pt", 0), B.get("within2pt", 0)
         if dp_b != dp_a:
             worse_doc = dp_b > dp_a
         elif abs(lv_b - lv_a) > 0.05:
             worse_doc = lv_b < lv_a
         elif abs(pl_b - pl_a) > 0.05:
             worse_doc = pl_b < pl_a
+        elif abs(w2_b - w2_a) > 0.08:
+            worse_doc = w2_b < w2_a
         else:
             worse_doc = None
         if n in EXPECTED_DIVERGENCE:
@@ -121,9 +144,9 @@ def main():
             v, better = "BETTER", better + 1
         else:
             v, same = "same", same + 1
-        print("%-22s %s/%-3s l%.2f p%.2f  %s/%-3s l%.2f p%.2f  %s" % (
-            n[:22], A["src_pages"], A["out_pages"], lv_a, pl_a,
-            B["src_pages"], B["out_pages"], lv_b, pl_b, v))
+        print("%-20s %s/%-2s l%.2f p%.2f w%.2f  %s/%-2s l%.2f p%.2f w%.2f  %s" % (
+            n[:20], A["src_pages"], A["out_pages"], lv_a, pl_a, w2_a,
+            B["src_pages"], B["out_pages"], lv_b, pl_b, w2_b, v))
 
     print("\n%d regressions, %d same, %d better" % (worse, same, better))
     print("swap is acceptable when regressions == 0")
