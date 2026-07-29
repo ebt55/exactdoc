@@ -456,3 +456,122 @@ consequences for whoever picks this up:
 **Gate after this session:** `backend_parity.py --refine 3` → **8 regressions,
 7 same, 1 better** — unchanged in count from the session's start, with
 `c7_code` 0.16 → 0.59 and `03_tech_report_code` 0.23 → 0.02 inside it.
+
+---
+
+## 2026-07-29 · M2.b — page-space path geometry (plan v2)
+
+**Correction I am acting on.** The stroke-bbox experiment above was confounded
+and my conclusion from it was wrong. I derived path bboxes from
+`FPDFPath_GetPathSegment` points, which PDFium reports in **object space**,
+without applying `FPDFPageObj_GetMatrix`. So the change did not give the corpus
+PyMuPDF's convention; it gave every transformed path scrambled coordinates.
+That, not "faithfulness is punished", is why pagination broke on exactly the
+documents it broke on — and the inference I drew from it (that `infer.py`'s
+tolerances are the blocker) has **no valid evidence behind it** and is
+withdrawn. `infer.py` stays closed; M2.d is the only way in.
+
+The tell I missed: the two example paths in my own probe table were
+identity-matrix paths. A microscope aimed at two objects cannot see a systematic
+transform. Law 15 exists now because of this, and law 16 because the same shape
+of error nearly landed twice.
+
+**Goal.** Put path geometry in page space throughout `parse_pdfium.py`: matrix
+first, then centreline bboxes from the transformed points, then `_classify`,
+`_rect_pts` and the frame-edge decomposition all reading the same space.
+
+**Gate before** (canonical environment, unchanged from the last session):
+
+| Measurement | Value |
+|---|---|
+| `backend_parity.py --refine 3` | **8 regressions, 7 same, 1 better** |
+| `golden_ir.py verify` | 7/7 |
+| Gate lanes | 12/16 no-refine, 13/16 refine; 0 new, 0 stale |
+| `03_tech_report_code` | w 0.02 (pymupdf 0.46) |
+| `c7_code` | w 0.59 (pymupdf 0.91) |
+
+**Hypotheses → experiments → expected movement.** Written before running, and
+deliberately more falsifiable than "may move":
+
+- **H1 (the probe, and the gate on everything else).** On Chromium/Skia
+  documents ≥90% of path objects carry a non-identity matrix, and
+  matrix-transformed points reproduce `GetBounds` on ~100% of paths once the
+  stroke envelope is accounted for, while raw points reproduce it only on the
+  identity ones. There is a strong prior: `_page_chars` already compensates for
+  Chromium's 0.75 text matrix, so the same 0.75 should appear on paths.
+  **If H1 fails, the scrutiny's finding is wrong and I stop and report rather
+  than "fix" anything.**
+- **H2 (structural, 03_tech).** With page-space centreline bboxes the 0.75pt
+  box border reports width ≤ 0.1pt, the phantom 3.0pt table column disappears,
+  and the region classifies `role=code` with `rows=1`, one ~504pt column,
+  `line_breaks=True` — matching PyMuPDF's layout dump.
+- **H3 (03_tech score).** ≥ 0.23, i.e. it recovers at least the value it had
+  before the indent fix, because the phantom column was its attributed cause.
+  I expect better than that — 0.30–0.46 — since the indent fix is still in and
+  the two were fighting each other.
+- **H4 (c7_code).** Holds at ≥ 0.55. Its box is Chromium-produced, so all four
+  of its paths currently run mixed-space classification; I do not predict a
+  direction for it beyond "does not regress".
+- **H5 (the requirement).** Count ≤ 8 and **no new regression documents**.
+  Chromium documents c1/c6/c8 run 100% mixed-space classification today, so
+  they may move either way; movement in either direction is informative, a new
+  regression is a failure.
+- **H6 (invariance).** Golden IR stays 7/7 and the pymupdf column of the parity
+  table is unchanged — trivially, since no shared code is touched, but checked
+  rather than assumed.
+
+**Files intended.** `testkit/backend_paths.py` (new probe, committed first and
+alone, per M2.b's build guideline and law 15), then
+`exactdoc/parse_pdfium.py`. **Forbidden:** `exactdoc/parse.py`, `infer.py`,
+`docxout.py`, `dialect.py`. Baselines (`gate_baseline.json`, `testkit/golden/*`)
+are not expected to change at all; if one must, it is its own commit (law 14).
+
+### H1 — confirmed, and reproduced independently
+
+`testkit/backend_paths.py` compares, per path object, the raw-points bbox, the
+matrix-transformed-points bbox and `FPDFPageObj_GetBounds`. A geometric bbox
+"reconstructs" GetBounds when it lands within 0.6pt after the stroke envelope is
+added back.
+
+| document | paths | non-identity matrix | raw reconstruct | worst raw miss | matrix reconstruct |
+|---|---|---|---|---|---|
+| `01_whitepaper_market` | 41 | 34 | 7 | 588.00pt | **41** |
+| `02_research_paper` | 13 | 13 | 0 | 420.00pt | **13** |
+| `03_tech_report_code` | 46 | 44 | 2 | 692.00pt | **46** |
+| `04_exec_brief` | 18 | 16 | 2 | 590.00pt | 17 (0.60pt) |
+| `05_memo` | 1 | 1 | 0 | 623.20pt | **1** |
+| `c1_whitepaper` | 43 | **43** | 0 | 758.16pt | **43** |
+| `c2_paper2col` | 5 | 5 | 0 | 578.00pt | **5** |
+| `c3_tables` | 342 | **342** | 0 | 1680.00pt | **342** |
+| `c5_graphics` | 9 | **9** | 0 | 646.50pt | **9** |
+| `c6_long` | 50 | **50** | 0 | **5438.00pt** | **50** |
+| `c7_code` | 4 | **4** | 0 | 382.00pt | **4** |
+| `c8_toc_links` | 3 | **3** | 0 | 226.25pt | **3** |
+| `f1_fpdf_brief` | 12 | 0 | **12** | 0.00pt | **12** |
+| `l1_word_native` | 11 | 0 | **11** | 0.00pt | **11** |
+| `r1_reportlab_report` | 14 | 14 | 0 | 377.40pt | **14** |
+| **corpus** | **612** | **578** | **34** | — | **611** |
+
+The correspondence is exact: raw points reconstruct GetBounds on **34** paths,
+and there are **34** identity-matrix paths in the corpus. Every Chromium
+document is 100% non-identity. Worst raw miss is 5438pt on a Letter page.
+
+These numbers reproduce plan v2 §4's table cell for cell on every column it
+reports (`01_whitepaper` 34/41 and 7; `03_tech` 44/46 and 2; `c1` 43/43 and 0;
+`c5` 9/9 and 0; `c7` 4/4 and 0) from an independently written probe. The
+scrutiny's finding is confirmed, not taken on trust — **H1 holds and the work
+proceeds.**
+
+One path, in `04_exec_brief`, misses by 0.60pt after transformation; the other
+611 land within 0.12pt and most at 0.00. Bezier control points hull wider than
+the drawn curve, which is why the change below keeps `GetBounds` for curves.
+
+**A probe bug found and fixed before the table was trusted.** The first run
+reported a worst miss of exactly 1.00pt on hundreds of paths — a suspiciously
+round constant. Cause: PDFium reports a stroke *width* of 1.0 on fill-only
+objects, and the probe was inflating every filled rectangle by it. The envelope
+is now added only when the object is genuinely stroked (draw mode + non-zero
+stroke alpha), with the width scaled by the matrix like everything else. Worth
+recording because it is the same class of error as the one being corrected:
+a number read from this API means nothing until you know what it is measured
+in and when it applies.
