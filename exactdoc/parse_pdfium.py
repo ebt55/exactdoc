@@ -52,6 +52,7 @@ BLOCK_GAP_FACTOR = 1.15   # multiple of the BODY pitch that ends a block. See
 # distributions (median 4.7em each).
 BLOCK_SAME_ROW_EM = 1.2
 MONO_ADV_EM = 0.6         # advance of a monospaced glyph, as a fraction of size
+SPACE_ADV_EM = 0.28       # advance of a space in a proportional face
 
 
 def _line_size(ln) -> float:
@@ -64,7 +65,7 @@ def _hexcol(r, g, b):
 
 class _Char:
     __slots__ = ("u", "x0", "y0", "x1", "y1", "ox", "oy", "size", "font",
-                 "flags", "color")
+                 "flags", "color", "gen")
 
     @property
     def mono_hint(self) -> bool:
@@ -162,6 +163,7 @@ def _page_chars(textpage, page_h) -> List[_Char]:
                     size *= vs
         except Exception:
             pass
+        c.gen = generated
         # a generated space has no font of its own; inherit the run it joins
         if generated and out:
             prev = out[-1]
@@ -176,6 +178,31 @@ def _page_chars(textpage, page_h) -> List[_Char]:
         c.flags = int(flags.value)
         c.color = _hexcol(cr.value, cg.value, cb.value)
         out.append(c)
+
+    # A generated space carries no box of its own worth the name: PDFium
+    # reports it degenerate, `x..x` at a single coordinate, so the branch above
+    # ends up giving it [previous character's end, that coordinate] -- 1.70pt
+    # wide on c7_code where the real advance is 5.10pt. The remaining 3.401pt
+    # surfaces as a gap to the next character, and downstream that gap is
+    # indistinguishable from a producer who positioned words instead of emitting
+    # a space: a SECOND space gets synthesised on top of the one already there,
+    # giving `def··rerank` where PyMuPDF has `def·rerank`.
+    #
+    # It is worth exactly ONE space, though, and no more. Running it all the way
+    # to the next character also closes the gap between two table cells that
+    # happen to have a generated space in it, and _build_lines splits a row into
+    # visual lines on precisely that gap (LINE_SPLIT_EM): measured, that fused
+    # cells back into single lines and cost 01_whitepaper_market 130 lines -> 105
+    # and 03_tech_report_code 73 -> 53. So the space is given one space advance,
+    # capped at wherever the next character actually starts.
+    for i, c in enumerate(out[:-1]):
+        if not c.gen:
+            continue
+        nxt = out[i + 1]
+        if abs(nxt.oy - c.oy) >= 0.5 or nxt.x0 <= c.x1:
+            continue
+        adv = (MONO_ADV_EM if c.mono_hint else SPACE_ADV_EM) * max(c.size, 1.0)
+        c.x1 = min(nxt.x0, max(c.x1, c.x0 + adv))
     return out
 
 
@@ -303,7 +330,22 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
         for c in row:
             k = _style(c)
             gap = (c.x0 - cur[-1].x1) if cur else 0.0
-            if cur and (k != cur_key or gap > SPAN_GAP_EM * max(c.size, 1.0)):
+            # A span ends where the STYLE ends. A gap does not end it: a gap
+            # with the same style on both sides is a space the producer drew by
+            # positioning, and the branch below turns it into one.
+            #
+            # This condition used to also split on `gap > SPAN_GAP_EM`, which
+            # ran BEFORE the space-insertion branch and so consumed the gap
+            # instead of bridging it. Measured on c7_code: 79 of 79 intra-line
+            # span boundaries sat between spans of identical style, every one at
+            # a 3.401pt gap -- exactly one space at that size -- giving 105 spans
+            # for 26 lines where PyMuPDF gives 26. The text came out right and
+            # reached the writer as four runs per line instead of one.
+            #
+            # Nothing is left unbounded by dropping it: _build_lines has already
+            # split the LINE at LINE_SPLIT_EM (1.10em) further up, so every gap
+            # still under consideration here is small enough for spaces to span.
+            if cur and k != cur_key:
                 spans.append((cur, cur_key))
                 cur, cur_key = [], None
             if not cur:

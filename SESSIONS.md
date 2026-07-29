@@ -1011,3 +1011,107 @@ is worth remembering the next time a correct change measures flat.
 | `c7_code` | 0.82 | 0.91 | **0.02** |
 | `01_whitepaper_market` | 0.53 | 0.72 | 0.11 |
 | `02_research_paper` | 0.57 | 0.76 | 0.11 |
+
+---
+
+## 2026-07-29 · M2.e — the last three
+
+**Gate before.** 3 regressions, 13 same, 0 better.
+
+**Horizontal is finished.** The residual table on the current renders:
+
+| document | median dx pymupdf | median dx pdfium |
+|---|---|---|
+| `01_whitepaper_market` | 0.30 → 0.31 | **0.26 → 0.29** |
+| `02_research_paper` | 0.10 → 0.11 | **0.10 → 0.12** |
+| `c7_code` | 0.26 → 0.04 | **0.27 → 0.04** |
+
+pdfium now matches or beats PyMuPDF horizontally on all three. Everything left
+is vertical, or structural.
+
+**Three separate causes, each named before any rule is written.**
+
+1. **`c7_code` — span fragmentation on identical styles.** 26 lines, and PyMuPDF
+   emits 26 spans (1.00 per line) against pdfium's 105 (4.04). Of pdfium's 79
+   intra-line span boundaries, **79 are between spans whose style keys are
+   identical**, every one at a gap of exactly 3.401pt — one space at that size.
+   `_build_lines` tests `gap > SPAN_GAP_EM` in the *same* condition as the style
+   change, and that test runs *before* the space-insertion branch, so a
+   space-sized gap ends the span instead of becoming a space. The line's text is
+   still right (text diff 0%), but it reaches the writer as four runs instead of
+   one, and LibreOffice lays fragmented runs out slightly differently.
+2. **`01_whitepaper_market` — trailing spaces.** 25% of lines differ in text,
+   with space-run diff 0%: pdfium appends one trailing space PyMuPDF does not
+   (`|•|` vs `|•·|`, `|Tier|` vs `|Tier·|`, `|…Confidential|` vs
+   `|…Confidential·|`). PDFium's end-of-line generated space is being kept.
+3. **`02_research_paper` — 4 missing lines** (93 against 89) plus the largest
+   vertical error left anywhere: median |dy| 1.29 against PyMuPDF's 0.04, and it
+   barely improves under a per-page affine fit (1.15). That is a different
+   problem from the other two and the hardest of the three.
+
+**Order and hypotheses.** Take them cheapest-first, one commit each.
+
+- **H1 (span splits).** A span should end where the *style* ends. A gap with
+  identical style on both sides should insert spaces and continue, which is what
+  PyMuPDF does. Note `LINE_SPLIT_EM` already ends the *line* at 1.10em, so any
+  gap still under consideration is small enough for spaces to bridge.
+  Expected: pdfium spans-per-line on `c7_code` 4.04 → ~1.0; `c7_code` within2pt
+  0.82 → ≥ 0.88; text unchanged (0% diff must stay 0%).
+- **H2 (trailing space).** Strip a single trailing generated space from a line.
+  Expected: `01_whitepaper_market` text diff 25% → near 0%; within2pt improves
+  by an unknown amount — I will not pretend to predict it, since a trailing
+  space affects placement only via wrap and alignment.
+- **H3 (`02_research_paper`).** Unnamed as yet; diagnose after the first two,
+  since both change line construction and may move it.
+
+Requirement throughout: **count ≤ 3, no new regressions**, pymupdf lane
+untouched.
+
+### H1 result — structurally exact, and score-neutral. The prediction failed.
+
+Two changes, interdependent and therefore one commit. Splitting spans on style
+alone was *wrong on its own*: the gap it stopped consuming then reached the
+space-synthesis branch and produced `def··rerank`, doubling every space
+(c7_code text diff 0% → 65%). Chasing that exposed the real defect underneath —
+PDFium reports a generated space's box as degenerate (`x..x` at one coordinate),
+so the branch that inherits the previous character's end gives it 1.70pt where
+its true advance is 5.10pt, and the remaining 3.401pt surfaces as a phantom gap
+indistinguishable from positioned text.
+
+Giving the space one space-advance of width (capped at the next character) fixed
+both. The cap matters: running it to the next character also closes *table cell*
+gaps, which `LINE_SPLIT_EM` splits rows on — measured, that fused cells and cost
+`01_whitepaper_market` 130 lines → 105 and `03_tech_report_code` 73 → 53.
+
+Structural convergence afterwards, on every document measured:
+
+| document | span count diff | text diff | space-run diff |
+|---|---|---|---|
+| `c7_code` | 65% → **0%** | 0% → **0%** | 0% → **0%** |
+| `01_whitepaper_market` | 5% → **0%** | | |
+| `02_research_paper` | 20% → **0%** | | |
+| `03_tech_report_code` | 13% → **0%** | | |
+| `c6_long`, `c8_toc_links` | **0%** | **0%** | **0%** |
+
+`c7_code` now emits 26 spans for 26 lines — exactly PyMuPDF's 1.00 per line,
+down from 105.
+
+**And the gate did not move.** 3 regressions, 13 same. `c7_code` 0.82 before and
+0.82 after; every other document unchanged except `r1_reportlab_report`
+0.58 → 0.55 and `l1_word_native` 0.03 → 0.01 (which now equals PyMuPDF exactly).
+
+**H1 predicted `c7_code` ≥ 0.88. It scored 0.82. The prediction failed, and the
+hypothesis behind it — that span fragmentation was costing placement — is
+falsified.** Fragmented runs and merged runs lay out identically here; the
+writer's output was already equivalent.
+
+**The trade (law 17), and why this is kept anyway.** It costs
+`r1_reportlab_report` 0.03, changes no verdict, and buys no measured score. What
+it buys is correctness that is not visible in this metric: without the
+generated-space fix the parser emits *doubled spaces* in its text — content that
+is simply wrong, and that `live_text_cov` cannot see because it strips
+whitespace. It also removes 79 spurious runs from one document's DOCX. And this
+branch has twice now seen structurally-correct changes measure flat and then pay
+in combination (M2.b and M2.c both looked disappointing until the metric-box fix
+landed). That is an argument from precedent, not proof, and it is labelled as
+such.
