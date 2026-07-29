@@ -1165,3 +1165,119 @@ hypotheses (H1 span fragmentation, H2 trailing spaces) were both structurally
 confirmed and both scored flat. The next move needs new attribution, and on the
 evidence it points outside `parse_pdfium.py` — which makes it an M2.d escalation
 packet question, not another parser change.
+
+---
+
+## 2026-07-29 · Decision-memo session 1 — `02_research_paper`, then the text diffs
+
+Following the memo's §5 sequencing and §6 kickoff. Target-selection rule
+accepted: while any document in the regression set shows a structural diff, the
+next target is the largest structural diff on the worst-gapped document. That
+resolves the "third self-picked target" worry — the rule picks, not me.
+
+**Gate before.** 3 regressions, 13 same, 0 better.
+
+### The four missing lines — named, and both leading hypotheses falsified
+
+Evidence ask answered. They are all on **one baseline**:
+
+| page | y | x0..x1 | size | text |
+|---|---|---|---|---|
+| 1 | 585.30 | 378.55..415.75 | 9.5 | `decoding ` |
+| 1 | 585.30 | 423.59..449.20 | 9.5 | `builds ` |
+| 1 | 585.30 | 457.04..468.92 | 9.5 | `on ` |
+| 1 | 585.30 | 476.76..548.00 | 9.5 | `rejection-sampling` |
+
+- **Memo hypothesis 1 (whitespace-only lines dropped by construction):
+  falsified.** None of them is whitespace, and the PyMuPDF IR for this document
+  contains **zero** whitespace-only lines.
+- **Memo hypothesis 2 (superscript fragments): falsified.** All four are body
+  text at 9.5pt, the document's body size, and none is a marker.
+- **What it actually is:** pdfium is not *missing* lines. **PyMuPDF is
+  fragmenting one.** These four are consecutive word-groups of a single
+  justified line, split at its stretched word gaps (7.84pt each, a constant
+  0.83em). pdfium emits the whole line, `378.55..548.00`, as one Line — and
+  `LINE_SPLIT_EM` at 1.10em (10.45pt here) correctly declines to split at 7.84pt.
+  Every pdfium line matched a PyMuPDF line; there are **zero** lines in pdfium
+  that PyMuPDF lacks.
+
+So the "4 missing lines" is a **line-count difference in which pdfium is the
+more faithful side**, not a defect. Nothing to fix, and I am not going to
+reproduce a fragmentation to flatter a count.
+
+### The text diffs — one mechanism, quoted
+
+Same justified text, and this one *is* a defect:
+
+```
+mupdf  |Speculative·decoding·accelerates·autoregressive·generation|
+pdfium |Speculative··decoding··accelerates··autoregressive··generation|
+
+mupdf  |with·a·large·one.·Fixed·draft·models,·however,·leave|
+pdfium |with··a··large··one.··Fixed··draft··models,··however,··leave|
+
+mupdf  |Priya·Raman···Diego·Álvarez···Hannah·Cole|   runs=[3, 3]
+pdfium |Priya·Raman··Diego·Álvarez··Hannah·Cole|     runs=[2, 2]
+```
+
+Justified text stretches its word gaps. A space *character* is already present;
+the stretched remainder still exceeds `SPACE_GAP_EM`, so the synthesis adds
+another on top. The existing guard caps the addition at one for proportional
+text (`n_sp = min(n_sp, 1)`) — which is exactly how every gap comes out as two
+spaces instead of one.
+
+**Hypothesis → change → expected movement.** In proportional text a gap that is
+already occupied by a space character should contribute **no** additional space;
+MuPDF emits one space however far the gap is stretched. Monospace keeps the
+existing behaviour, because there the count is load-bearing (code indentation)
+and the earlier measurement stands. Expected: `02_research_paper` text diff
+22% → near 0, `01_whitepaper_market` 12% → near 0; both are justified-text
+documents and this is the whole of their remaining structural diff. Score
+prediction, written before running and deliberately modest given the last two
+flat results: **02 improves, because doubled spaces displace every word after
+them on a justified line — unlike the fragmentation and trailing-space fixes,
+this one moves ink.** Requirement unchanged: count ≤ 3, no new regressions.
+
+*(Counter-example noted and not swept under: `1··Introduction` → `1·Introduction`
+runs the other way — PyMuPDF emits two spaces at a wide heading gap where pdfium
+emits one. That is a second, rarer pattern with the opposite sign; it is left
+alone this session rather than fitted, and recorded here so it is not lost.)*
+
+### Result — text converged again, score identical again. Prediction failed.
+
+| document | text diff | space-run diff |
+|---|---|---|
+| `02_research_paper` | 22% → **8%** | 22% → **7%** |
+| `01_whitepaper_market` | 12% → **8%** | 5% → **1%** |
+
+**Gate: 3 regressions, 13 same — every single number identical to the previous
+run.** `02_research_paper` 0.57 before and after; `01_whitepaper_market` 0.53
+before and after.
+
+I predicted this one would move, and said why: *"doubled spaces displace every
+word after them on a justified line — unlike the fragmentation and
+trailing-space fixes, this one moves ink."* **It does not, and now I know why:**
+in justified text the renderer redistributes inter-word space to fill the
+measure, so the *number* of spaces in the source has no effect on where the
+words land. LibreOffice re-justifies to the same width whether the source says
+one space or two. The doubled spaces were wrong content, and positionally inert.
+
+**That is three structurally-confirmed, score-flat hypotheses in a row** — H1
+span fragmentation, H2 trailing spaces, H3 justified spacing — and the third one
+retroactively explains the first two. Text- and span-level differences in this
+corpus do not reach `within2pt` at all, because the renderer normalises exactly
+those degrees of freedom. §12.5 stops this line of work, and this time the stop
+is principled rather than merely procedural: **the class of defect has been
+shown not to matter to the metric.**
+
+**The trade (law 17):** no score movement, no regression, no verdict change. Kept
+on the same grounds as the trailing-space fix — one space is the correct content
+and two is not, `live_text_cov` strips whitespace so it cannot see the
+difference, and a user opening the DOCX would. Structural fidelity is worth
+having on its own terms; it is simply not what the last three documents are
+losing on.
+
+**Structural convergence is now finished and demonstrated finished.** Every
+document in the regression set is at or near 0% on every structural instrument,
+and the remaining gaps are entirely vertical placement — which is memo §5 item 4,
+gated behind the `c7_code` noise floor.

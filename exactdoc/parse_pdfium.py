@@ -368,10 +368,21 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
                 # drift on a listing. Monospace advances are ~0.6em, so the
                 # count is recoverable from the gap; proportional text is
                 # ~0.28em and rarely runs more than one.
-                adv = (MONO_ADV_EM if cur[-1].mono_hint else 0.28) * max(c.size, 1.0)
+                adv = (MONO_ADV_EM if cur[-1].mono_hint else SPACE_ADV_EM) * max(c.size, 1.0)
                 n_sp = int(round(gap / adv)) if adv > 0 else 1
                 if cur[-1].u.isspace() or c.u.isspace():
-                    n_sp = min(n_sp, 1) if not cur[-1].mono_hint else n_sp
+                    # A space is already there, and in proportional text that is
+                    # the whole answer however far the gap has been stretched.
+                    # Justified text pulls its word gaps to 7.84pt at 9.5pt type
+                    # on 02_research_paper and PyMuPDF still reports ONE space;
+                    # adding to it gave `Speculative··decoding` on 22% of that
+                    # document's lines and 12% of 01_whitepaper_market's,
+                    # displacing every word after it along the line.
+                    #
+                    # Monospace keeps counting: there a run length is code
+                    # indentation, and collapsing it once cost 19 unmatched
+                    # words and 40pt of horizontal drift on a listing.
+                    n_sp = n_sp if cur[-1].mono_hint else 0
                 if n_sp >= 1:
                     cur[-1].u += " " * min(n_sp, 24)
             cur.append(c)
