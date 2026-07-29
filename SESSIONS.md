@@ -234,3 +234,133 @@ branch is pushed to GitHub, and `gh` is unauthenticated on this machine.
 Everything the workflow runs has been run here, in the same image family, with
 the same commands — but "CI is green" is a claim only a CI run can make, so it
 is recorded as unverified rather than checked.
+
+---
+
+## 2026-07-29 · M2 — finish the licence swap
+
+**Goal.** `backend_parity.py --refine 3` reports **0 regressions**, so the
+default parser can become pypdfium2 and the licence can become Apache-2.0.
+
+**Gate before.** Measured on the canonical Linux container, this session:
+
+| Measurement | Result |
+|---|---|
+| `backend_parity.py --refine 3` | *(running — recorded below)* |
+| `golden_ir.py verify` | 7/7 |
+| Gate lanes | 12/16 no-refine, 13/16 refine; 0 new, 0 stale |
+
+**The reframe this milestone starts from.** The parity gate is the contract;
+the golden IR is a microscope. The two definitions of "correct" have already
+diverged — the backend deliberately refuses to reproduce three PyMuPDF
+behaviours because they are bugs (RTL visual order, dropped gradients, Calibri's
+serif flag), and M1 measured a fourth reason: **MuPDF's grouping changes between
+its own point releases** (1.26 puts `02_research_paper` p2 in 4 blocks, 1.28 in
+7). Converging bit-for-bit on a target that moves with the dependency version is
+not a finish line. Not worse on the rendered output is.
+
+**Working loops.** Inner: golden digest diff + `backend_geom.py`, seconds, no
+oracle. Middle: `backend_parity.py --only <doc>`, one document in ~10s — to be
+added first, since without it every hypothesis costs a full 16-document run.
+Outer: the full parity run, which is the only thing that decides anything.
+
+**Order.** (1) `--only`, (2) the 9.B instrument `backend_spans.py` and the
+diagnosis of the code-heavy pair, because it is the part the plan marks
+*unattributed* and guessing at it is how this project has been wrong before,
+(3) 9.A grouping convergence document by document, worst first, (4) 9.C
+superscript, (5) 9.D flip and relicense.
+
+**Files intended.** `exactdoc/parse_pdfium.py`, `exactdoc/backend.py`,
+`testkit/*`, and at 9.D `pyproject.toml`, `LICENSE`/`NOTICE`, docs.
+**Forbidden:** `exactdoc/parse.py`, `infer.py`, `docxout.py`, `dialect.py` — if a
+parity failure traces into the shared pipeline, stop and escalate rather than
+tune the shared code to flatter one backend.
+
+**Gate before (measured).** `backend_parity.py --refine 3` on the container:
+**8 regressions, 7 same, 1 better**. One more than the plan's 7 —
+`02_research_paper` (w 0.76 → 0.57) is a regression here and was not in the
+audit's list. The set: `01_whitepaper_market`, `02_research_paper`,
+`03_tech_report_code`, `05_memo`, `c1_whitepaper`, `c6_long`, `c7_code`,
+`c8_toc_links`. `04_exec_brief` is *better* under pdfium (0.22 → 0.34).
+
+### 9.B — the code-heavy pair, attributed
+
+Built `testkit/backend_spans.py` (new): pairs lines across backends by baseline
+and x, then diffs span structure, text, injected space runs, mono flags and
+style keys. Run on the two failing documents with two passing ones as controls.
+
+**All four of the plan's candidate hypotheses are wrong.** Measured:
+
+| | c7_code | 03_tech | f1 (control) | r1 (control) |
+|---|---|---|---|---|
+| space-run diff | **0%** | **0%** | 0% | 0% |
+| text diff | **0%** | 36% | 40% | 42% |
+| lines unmatched | **16/26** | 9/73 | 0/20 | 0/36 |
+
+Multi-space synthesis (§9.B.1) is not it — space runs agree on every line of
+every document. Different text (§9.B.1's consequence) is not it either: the two
+*passing* controls have 40% and 42% text differences, more than the failing
+`c7_code`, which has none. `LINE_SPLIT_EM` (§9.B.2) is not splitting anything,
+and `superscript` (§9.B.4) is unrelated.
+
+What it is: **PDFium does not report leading indentation, and PyMuPDF
+synthesises it.** Verified against the raw character stream rather than by
+reading grouping code — for `    def __init__(...)`, PDFium's first character is
+`d` at x=93.17 with no space anywhere before it, while PyMuPDF reports the same
+line beginning at x=72.25 with four leading spaces. PDFium *does* synthesise
+spaces between characters (there is a gap to measure); at the start of a line
+there is nothing to the left of the first glyph, so the indent is simply
+absent. The line box then starts at first ink, the paragraph is written at the
+wrong x, and every glyph on the line is displaced by the indent width.
+
+*Fixes made, each measured:*
+
+1. `_reconstruct_indents` — rebuild leading indentation for monospace runs
+   against the leftmost line of the run.
+2. Excluding lines that share a baseline from those runs. Necessary: a
+   configuration table whose cells are monospace puts three on one baseline at
+   x=61/153/223, and read as a listing they were "indented" by 18 and 32 spaces.
+   Measured cost of the bug: `03_tech` 0.23 → 0.03.
+3. `local_pitch` — the block splitter's gap threshold was multiplying a
+   **page-wide** median pitch. Page 1 of `03_tech` has fourteen distinct
+   pitches and a median of 22.0pt (the table's rows outnumber everything), so
+   the threshold was 35.2pt and the 23.0pt blank lines inside a code listing —
+   an unmistakable double of the listing's own 11.5pt — were swallowed, fusing
+   three PyMuPDF blocks into one. `BLOCK_GAP_FACTOR` is untouched: the factor
+   was never wrong, the statistic it multiplied was.
+
+*Result, isolated by an A/B on the same corpus and renders:*
+
+| document | indent OFF | indent ON | pymupdf |
+|---|---|---|---|
+| `c7_code` | 0.16 | **0.59** | 0.91 |
+| `03_tech_report_code` | **0.23** | 0.02 | 0.46 |
+
+So the indent reconstruction is worth +0.43 on one document and −0.21 on the
+other, and `local_pitch` alone is score-neutral on both (it reproduces the
+0.16/0.23 baseline exactly). Both documents remain regressions either way, so
+the *verdict count* is unmoved at this point.
+
+### `local_pitch` reverted — the subset run was hiding its real cost
+
+A two-document run cannot decide a page-wide change, so both variants were then
+run over the whole corpus. That is what caught it:
+
+| document | baseline | local pitch | local pitch + indent |
+|---|---|---|---|
+| `02_research_paper` | 0.57 | **0.02** | **0.02** |
+| `c5_graphics` (expected-div) | 0.24 | 0.66 | 0.66 |
+| `03_tech_report_code` | 0.23 | 0.23 | 0.02 |
+| `c7_code` | 0.16 | 0.16 | **0.59** |
+| the other twelve | — | unchanged | unchanged |
+
+`local_pitch` costs `02_research_paper` **0.55** of within-2pt and buys nothing
+on the count: 8 regressions before, 8 after, 8 with both. A local window inside
+a dense two-column body finds a pitch small enough to cut paragraphs in half —
+the mirror image of the problem it fixed on the code listing. **Reverted**, with
+the reasoning left in the code where the next person will look for it.
+
+That is the second failed attempt at moving `03_tech_report_code`, so by §12.5
+this stops here rather than trying a third estimator. What is *kept* is the
+attribution and the instrument: `backend_spans.py`, `--only`, and a named,
+measured cause for a defect the register had carried as unexplained.

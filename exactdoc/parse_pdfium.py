@@ -49,6 +49,7 @@ BLOCK_GAP_FACTOR = 1.6    # line pitch multiple that ends a block
 # something no width threshold here can do, since the two have identical gap
 # distributions (median 4.7em each).
 BLOCK_SAME_ROW_EM = 1.2
+MONO_ADV_EM = 0.6         # advance of a monospaced glyph, as a fraction of size
 
 
 def _line_size(ln) -> float:
@@ -296,7 +297,7 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
                 # drift on a listing. Monospace advances are ~0.6em, so the
                 # count is recoverable from the gap; proportional text is
                 # ~0.28em and rarely runs more than one.
-                adv = (0.6 if cur[-1].mono_hint else 0.28) * max(c.size, 1.0)
+                adv = (MONO_ADV_EM if cur[-1].mono_hint else 0.28) * max(c.size, 1.0)
                 n_sp = int(round(gap / adv)) if adv > 0 else 1
                 if cur[-1].u.isspace() or c.u.isspace():
                     n_sp = min(n_sp, 1) if not cur[-1].mono_hint else n_sp
@@ -326,7 +327,90 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
               max(s.bbox[2] for s in sp_objs), max(s.bbox[3] for s in sp_objs))
         lines.append(Line(spans=sp_objs, bbox=lb))
     lines.sort(key=lambda l: (round(l.bbox[1], 1), l.bbox[0]))
+    _reconstruct_indents(lines)
     return lines
+
+
+def _reconstruct_indents(lines: List[Line]) -> None:
+    """Put back the leading indentation PDFium does not report.
+
+    PDFium synthesises the spaces a producer drew by positioning -- but only
+    BETWEEN two characters, because that is the only place a gap exists to
+    measure. At the start of a line there is nothing to the left, so the indent
+    is simply absent: measured on c7_code, the raw character stream for
+    `    def __init__(...)` begins with 'd' at x=93.17 and contains no space at
+    all, while PyMuPDF reports the same line starting at x=72.25 with four
+    leading spaces.
+
+    Downstream that is not a cosmetic difference. The line box starts at the
+    first ink instead of at the code block's left edge, so the paragraph is
+    written at the wrong x and every glyph on the line is displaced by the
+    indent. It is the whole of the code-heavy gap the defect register left
+    unattributed: c7_code within-2pt 0.91 -> 0.16 with 16 of its 26 lines
+    failing to pair with their PyMuPDF counterparts at all.
+
+    Reconstruction needs a left edge to measure from, and the block's own
+    minimum will not do -- a block whose every line is indented (a continuation
+    inside a function body) would measure zero indent. The reference is the
+    leftmost line of the surrounding *monospace run*: consecutive mono lines,
+    which is exactly the extent of one code listing, ended by the first
+    proportional line. On c7_code that yields 72.25 for both listings, and the
+    two are separated by their heading.
+
+    Restricted to monospace deliberately. Indentation is load-bearing in code
+    and decorative almost everywhere else, a proportional font has no single
+    advance width to divide by, and the measured defect is entirely in code
+    blocks. A proportional first-line indent stays where it is: expressed by
+    the line box, as it already was.
+
+    Lines that SHARE a baseline are excluded, and that exclusion is not a
+    detail. A configuration table whose cells are set in a monospace face puts
+    three of them on one baseline at x=61, 153 and 223; read as a listing, the
+    second and third are "indented" by 18 and 32 spaces and get dragged back to
+    the left margin. Measured, when this function did that:
+    03_tech_report_code within-2pt 0.23 -> 0.03. A line alone on its baseline is
+    a line of a listing; several lines on one baseline are the cells of a row,
+    and their x is a column position rather than an indent.
+    """
+    # A baseline carrying more than one line is a row of cells, not a listing.
+    rows = {}
+    for ln in lines:
+        rows.setdefault(round(ln.baseline, 1), []).append(ln)
+    solo = {id(ln) for group in rows.values() if len(group) == 1 for ln in group}
+
+    def flush(run):
+        if len(run) < 2:
+            return
+        left = min(l.bbox[0] for l in run)
+        for ln in run:
+            size = max((s.size for s in ln.spans), default=10.0)
+            adv = MONO_ADV_EM * max(size, 1.0)
+            n = int(round((ln.bbox[0] - left) / adv)) if adv > 0 else 0
+            if n < 1:
+                continue
+            first = ln.spans[0]
+            first.text = " " * min(n, 40) + first.text
+            first.bbox = (left, first.bbox[1], first.bbox[2], first.bbox[3])
+            first.origin = (left, first.origin[1])
+            ln.bbox = (left, ln.bbox[1], ln.bbox[2], ln.bbox[3])
+
+    run = []
+    for ln in lines:
+        inked = [s for s in ln.spans if s.text.strip()]
+        mono = bool(inked) and all(s.mono for s in inked) and id(ln) in solo
+        # A listing is contiguous. Two listings separated by other content share
+        # no left edge, and the run must not straddle the gap between them.
+        if mono and run:
+            pitch = max(_line_size(ln), _line_size(run[-1]), 1.0)
+            if ln.baseline - run[-1].baseline > 3.0 * pitch:
+                flush(run)
+                run = []
+        if mono:
+            run.append(ln)
+        else:
+            flush(run)
+            run = []
+    flush(run)
 
 
 def _column_split(lines: List[Line]) -> Optional[float]:
@@ -408,6 +492,16 @@ def _build_blocks(lines: List[Line], page_w: float = 612.0) -> List[TextBlock]:
 def _build_blocks_one(lines: List[Line], col_x) -> List[TextBlock]:
     if not lines:
         return []
+    # A page-wide median pitch is a poor threshold for a page with several
+    # pitches -- 03_tech_report_code page 1 has fourteen, and its median of
+    # 22.0pt (the configuration table outnumbers everything else) puts the split
+    # at 35.2pt, swallowing the 23.0pt blank lines inside a code listing whose
+    # own pitch is 11.5pt. Replacing it with a LOCAL median was tried and
+    # reverted: it split the listing correctly and cost 02_research_paper
+    # within-2pt 0.57 -> 0.02, because a local window inside a dense
+    # two-column body finds a pitch small enough to cut paragraphs in half.
+    # Recorded in SESSIONS.md; the estimator needs to be robust in both
+    # directions before it is worth another attempt.
     pitches = []
     for a, b in zip(lines, lines[1:]):
         d = b.baseline - a.baseline
