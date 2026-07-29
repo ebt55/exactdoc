@@ -5,6 +5,11 @@
 > **Status: alpha (0.1.0a1). Nothing has been released yet.** It works well on the
 > documents it was developed against and it fails on pagination for PDFs it has
 > never seen. Both numbers are below, in the same table, on purpose.
+>
+> **Next: the permissive relicence.** The AGPL is inherited from PyMuPDF, and the
+> replacement parser is now measured not worse than it on 14 of 16 corpus
+> documents. The flip to Apache-2.0 is the next milestone —
+> [ROADMAP.md](ROADMAP.md) has the sequence and the distance.
 
 Most PDF-to-Word converters either redesign your page (Word's reflow), turn every
 line into a floating frame that Google Docs then mangles (LibreOffice import), or
@@ -25,8 +30,8 @@ Then it checks its own work. Every claim below is a number produced by
 | gate passed | 13/16 | **0/4** |
 | page count 1:1 | 15/16 | fails |
 | live (editable) text recovered | 96.5% | 94–97% |
-| words within 2pt of source | 51.0% | — |
-| median per-word vertical drift | 0.69pt | — |
+| words within 2pt of source | 52.9% | — |
+| median per-word vertical drift | 0.68pt | — |
 
 The corpus has been developed against; the [holdout](testkit/fetch_holdout.py)
 never has. The gap between those two columns is the honest measure of how far
@@ -183,8 +188,12 @@ Both lanes, because only the pair is meaningful:
 | gate passed | 12/16 | 13/16 |
 | page count 1:1 | 13/16 | 15/16 |
 | live (editable) text | 96.5% | 96.5% |
-| words within 2pt of source | 36.1% | **51.0%** |
-| median per-word vertical drift | 2.79pt | **0.69pt** |
+| words within 2pt of source | 36.6% | **52.9%** |
+| median per-word vertical drift | 2.20pt | **0.68pt** |
+
+Measured on CI Linux, which is the number of record; the same figures reproduce
+on a local container and on Windows to within measurement noise
+([STATUS.md §1](STATUS.md#1-where-the-converter-stands)).
 
 `refine()` optimises against the same renderer the gate scores with, so a
 refined-only number can improve because the loop memorised the oracle rather
@@ -267,6 +276,8 @@ release, not after it.
 
 ## Documentation
 
+- [ROADMAP.md](ROADMAP.md) — what is done, what is left, and how far. Start here
+  if you want to know where this is going
 - [STATUS.md](STATUS.md) — the authority on every number, the defect register,
   and the measurement mistakes that produced confident wrong answers
 - [SESSIONS.md](SESSIONS.md) — the working log: what each session expected to
@@ -286,8 +297,11 @@ regression, so it doubles as CI.
 
 ## License
 
-[AGPL-3.0-or-later](LICENSE). exactdoc links PyMuPDF, which is AGPL-3.0; the
-copyleft is inherited, not chosen.
+[AGPL-3.0-or-later](LICENSE) **today, Apache-2.0 next.** exactdoc links PyMuPDF,
+which is AGPL-3.0; the copyleft is inherited, not chosen — and the permissive
+replacement parser is now measured good enough to take over. The flip is the
+next milestone, and no AGPL wheel will ever be published: see
+[ROADMAP.md](ROADMAP.md).
 
 Relicensing means replacing the parser, and the obstacle is not the API — it
 is that every threshold downstream was tuned against the *shape* of PyMuPDF's
@@ -307,19 +321,30 @@ paths but provides no line/block grouping, so that clustering has to be
 written here.
 
 A pypdfium2 backend is written and selectable (`EXACTDOC_BACKEND=pdfium`,
-requires the `[pdfium]` extra), but it is **not** the default and the licence has
-**not** changed. Measured against PyMuPDF over the corpus it stands at **7
-regressions** on fine placement — `within2pt` 0.510 → 0.291, median word drift
-0.69pt → 2.02pt. Extraction is at parity (text character-identical, paths
-exact); positional precision is not.
+requires the `[pdfium]` extra). It is not the default *yet* — but it is no
+longer the blocker it was.
 
-The gap is attributed, not guessed. Geometry is ruled out by direct measurement:
-baselines identical on 4,734 of 4,734 matched lines, leadings 99–100%, sizes to
-0.005pt, font names identical. What is left is **grouping** — the two parsers
-put the same lines into different blocks, and grafting PyMuPDF's block
-boundaries onto pdfium's geometry recovers roughly half the failing documents
-outright. The other half is code-heavy and still unexplained; naming a cause for
-it before measuring one is how this project has been wrong before.
+Measured against PyMuPDF over the corpus it stands at **2 regressions, 13 same,
+1 better**, down from 9. Fourteen of sixteen documents are at or above the
+incumbent — four exactly equal to it, two better. Mean within-2pt 0.461 against
+the incumbent's 0.511.
+
+The remaining two are attributed, and the attribution is why they are being
+accepted rather than chased: `infer()` derives the page's vertical origin from
+line-box *tops*, which is the one vertical quantity two correct parsers
+legitimately disagree about, because each reads it from font-metric tables the
+other does not have. PyMuPDF puts Helvetica's box 1.075× the type size above the
+baseline; pdfium says 0.905×. On Symbol, where both fall back to the *embedded*
+font's metrics, they agree to three decimals — which is how we know it is the
+tables and not the code. pdfium exposes exactly one vertical font metric and the
+parser already uses it, so matching PyMuPDF would mean vendoring MuPDF's own
+base-14 table into a permissive tree. That is not something this project will
+do. See [STATUS.md](STATUS.md) D2 and [ROADMAP.md](ROADMAP.md) §4.
+
+Everything else that separated the two parsers has been closed: extraction was
+always at parity (text character-identical, baselines identical on 4,734 of
+4,734 lines, paths exact), and grouping, path geometry, span segmentation and
+whitespace now match the incumbent exactly on every document where they can.
 
 Two documents diverge on purpose, both verified by rendering, and on both the
 new backend is the *correct* one: RTL text (PyMuPDF returns visual order, so

@@ -102,12 +102,18 @@ partly-wrong answer, documented in §5.
 python testkit/elemheight.py testkit/real/arxiv_transformer.pdf
 ```
 
-### D2 — pdfium backend: fine-placement gap · **severity: high (blocks relicensing)**
+### D2 — pdfium backend: fine-placement gap · **severity: low (no longer blocks relicensing)**
 
-**This is the only thing keeping exactdoc off Apache-2.0.** The licence is
-inherited, not chosen: PyMuPDF is AGPL-3.0, so exactdoc is. A permissive parser
-(pypdfium2, Apache-2.0) exists in `exactdoc/parse_pdfium.py` and is selectable,
-but it places text worse, so it is not the default.
+**This used to be the only thing keeping exactdoc off Apache-2.0. It is not any
+more.** The licence is inherited, not chosen: PyMuPDF is AGPL-3.0, so exactdoc
+is. A permissive parser (pypdfium2, Apache-2.0) exists in
+`exactdoc/parse_pdfium.py`, and it is now measured **not worse than the
+incumbent on 14 of 16 corpus documents** — four exactly equal, two better. The
+flip is scheduled, not blocked: see [ROADMAP.md](ROADMAP.md) §3.2.
+
+The two documents that remain are attributed to a font-metric convention no
+permissive parser can reproduce, and are accepted as a documented divergence
+rather than chased — the reasoning is below, under *The two that remain*.
 
 The gap is **2 regressions**, down from 9 → 8 → 6 → 3 → 2. Fourteen of sixteen
 documents are now at or better than the incumbent, four of them exactly equal
@@ -310,15 +316,24 @@ smell, not a correctness bug.
 
 ## 3. Pending work, in the order I would do it
 
+**Sequence and distance live in [ROADMAP.md](ROADMAP.md).** This table is the
+defect view; the roadmap is the plan view.
+
+**D2 is no longer a blocker.** The permissive parser is at 2 regressions from 9,
+both attributed and accepted as a documented divergence, so the relicence can
+proceed. That was the only thing gating it.
+
 | # | Item | Blocks | Notes |
 |---|---|---|---|
-| 1 | **D2 fine-placement gap** | Apache-2.0 relicensing | Now attributed, not guessed: converge `_build_blocks` against the golden IR (≈3 documents), then find what ails the code-heavy pair |
-| 2 | **D1 LaTeX pagination** | core use case | Needs writer-side instrumentation (§5), not another hypothesis |
-| 3 | **Un-gate the wrap correction** | fidelity | Written and measured (+20pt line agreement); needs predicted `n_lines` in the page-capacity model *before* the first write, or it costs a page |
-| 4 | D4, D5, D6 | — | Bounded, independent |
-| 5 | **Google Docs cover-band check** | a real claim in the README | One oracle run; may invalidate the design |
-| 6 | D3 nested tables | — | |
-| 7 | PyPI release | adoption | After 1 |
+| 1 | **Superscript in the pdfium backend** | nothing — queued ahead of the flip by choice | Hardcoded `False`; the detection already exists in `infer._merge_row_lines`. Read it, or prove inference recovers it |
+| 2 | **The flip and the relicence** | **the whole point of the project** | Mechanical: default backend, `[mupdf]` extra, golden re-freeze, Apache-2.0 + NOTICE, version `0.2.0a1`. `parse.py` is kept, not deleted |
+| 3 | **D8 clean unsupported-input error** | the release | Encrypted/truncated PDFs; both files into CI |
+| 4 | **PyPI release** | adoption | TestPyPI dry run first; release notes lead with the holdout |
+| 5 | **D1 LaTeX pagination** | the holdout, and the core use case | Needs writer-side instrumentation (§5) — per-element emitted-vs-source height accounting inside `docxout` — not another hypothesis. Three attempts have each produced a partly-wrong answer |
+| 6 | **The baseline-consistent vertical model** | the last 2 parity regressions, and probably much else | Move `margin_t`, `_para_box` and the `space_before` chain together. A partial version was granted, built and reverted (D2) — the origin alone desynchronises from the spacing calibrated against it |
+| 7 | **Google Docs cover-band check** | a real claim in the README | One oracle run; may invalidate the design. The least-measured part of the stated product goal |
+| 8 | Un-gate the wrap correction | fidelity | Needs predicted `n_lines` in the page-capacity model *before* the first write, or it costs a page |
+| 9 | D3, D4, D5, D6, D9 | — | Bounded, independent |
 
 Not planned: OCR for scanned PDFs; CJK/RTL shaping beyond the reordering
 already done; forms.

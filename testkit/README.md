@@ -97,6 +97,33 @@ distinguish a document from a photograph of a document.
 | `exp_chromefix.py` | A/B prototype of the Chromium-dialect fix (monkey-patched, edits nothing) |
 | `exp_sweep.py` | sweeps the wrap-width correction, measuring line-break agreement |
 
+### Backend-comparison instruments
+
+Built during the permissive-parser port, each because a question could not
+otherwise be answered. They compare the two backends on the same document and
+need no oracle, so they run in seconds.
+
+| File | Answers |
+|---|---|
+| `backend_parity.py` | **the swap's verdict.** Converts the corpus on both backends and marks each document REGRESSION / same / BETTER. `--only <doc>` for one document; `--refine N` for the lane |
+| `backend_geom.py` | is the *geometry* the same? (baselines, leadings, sizes, fonts) |
+| `backend_spans.py` | is the *line content* the same? span boundaries, text, injected space runs, mono flags, style keys |
+| `backend_paths.py` | which coordinate space are path points in? Answer: object space — 578 of 612 corpus paths carry a non-identity matrix, and untransformed points miss by up to 5438pt |
+| `block_gaps.py` | does a block-split threshold exist? Plots the two distributions it must separate and scores candidate rules against PyMuPDF's own answers |
+| `residual.py` | is the remaining placement error systematic or scatter? Reports the **ceiling** a perfect anchoring fix could reach, and `--hist` shows whether the error is a few lines displaced by a whole leading or every line off by a fraction |
+| `margin_probe.py` | do the backends agree on the page's vertical origin, and would they under a baseline-anchored derivation? |
+| `golden_ir.py` | frozen per-document parser digests. A **microscope** for locating a disagreement — `backend_parity.py` is the contract that decides whether it matters |
+| `exp_regroup.py` | grafts PyMuPDF's block boundaries onto the other backend's geometry, to isolate grouping from everything else |
+
+Two habits these encode, both learned expensively:
+
+- **Probe a native API's quantity before building on it.** Object space vs page
+  space, ink envelope vs geometric path, before-matrix vs after-matrix font
+  sizes — this API has all three traps and the project has hit all three.
+- **A subset run never decides.** `--only` exists for iteration speed; a change
+  is judged on the full corpus, because a two-document run once looked clean
+  while costing a third document 0.55.
+
 ## Producer dialects
 
 `gen_corpus.py` generates from four engines because **a PDF's producer changes
