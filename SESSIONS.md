@@ -874,3 +874,140 @@ cause, and naming it is M2.d's re-attribution, not a second grouping attempt.
 That is also why I am not iterating further here: §12.5 stops a second attempt
 on the same metric, and in this case the instrument says there is nothing left
 to converge.
+
+---
+
+## 2026-07-29 · M2.d — re-attribution, and the cause behind three failed predictions
+
+**Gate before.** 6 regressions, 10 same, 0 better. Survivors:
+`01_whitepaper_market` .48, `02_research_paper` .57, `03_tech_report_code` .05,
+`c6_long` .46, `c7_code` .72, `c8_toc_links` .78.
+
+### The measurement that broke the case open
+
+`testkit/residual.py` (new) splits each document's placement error into the part
+a second pass could remove — a per-page affine trend in y, a per-page constant
+in x — and the part that survives it, then reports the **ceiling**: the
+within-2pt a perfect anchoring fix could reach.
+
+| document | backend | median dx raw→resid | median dy raw→resid | within2 → ceiling |
+|---|---|---|---|---|
+| `c6_long` | pymupdf | 0.11 → 0.15 | 0.65 → 0.21 | 0.758 → 0.935 |
+| `c6_long` | **pdfium** | **0.56 → 0.73** | 1.35 → 0.27 | 0.462 → 0.682 |
+| `c8_toc_links` | pymupdf | 0.14 → 0.21 | 0.10 → 0.34 | 1.000 → 1.000 |
+| `c8_toc_links` | **pdfium** | **0.61 → 0.76** | 0.10 → 0.32 | 0.784 → 0.763 |
+| `c7_code` | pymupdf | 0.26 → 0.04 | 0.70 → 0.35 | 0.915 → 0.989 |
+| `c7_code` | **pdfium** | **0.55 → 0.26** | 0.70 → 1.01 | 0.722 → 0.477 |
+
+The vertical axis is fine, and on `c6_long` it is *excellent* (1.35 → 0.27, more
+systematic than PyMuPDF's own). **Every document's horizontal error is 2–5×
+PyMuPDF's, and it does not shrink when a per-page constant is removed.** That is
+diffuse sub-point horizontal error — precisely the shape that no structural fix
+can touch, and precisely why three of them didn't.
+
+### The structural instruments say there is nothing left to fix
+
+| document | lines | span count diff | text diff | space-run diff | style diff |
+|---|---|---|---|---|---|
+| `c6_long` | 201/201 | **0%** | **0%** | **0%** | **0%** |
+| `c8_toc_links` | 17/17 | **0%** | 12% | 12% | **0%** |
+| `c7_code` | 26/26 | 73% | 0% | 0% | 73% |
+
+`c6_long`'s IR is identical to PyMuPDF's on every axis these instruments can
+see — lines, spans, text, spaces, styles, and block boundaries (201/201) — and
+it scores 0.46 against 0.76. The difference therefore lives *inside the
+instruments' tolerances*: sub-point, per-line, horizontal.
+
+### Cause, measured
+
+`_page_chars` takes **y** from `FPDFText_GetLooseCharBox` — the font-metric box
+— with a comment in the code explaining that the tight ink box made every line
+start below the true ascent. It still takes **x** from `FPDFText_GetCharBox`,
+the tight ink box. The bug was half-fixed.
+
+PyMuPDF reports every line of `c6_long` starting at exactly x=61.500, the pen
+origin. pdfium reports the ink left edge, which moves with whichever glyph
+happens to start the line:
+
+| first char | PyMuPDF x0 | pdfium x0 | delta |
+|---|---|---|---|
+| `L` | 61.500 | 63.194 | **+1.694** |
+| `1` | 61.500 | 62.606 | +1.106 |
+| `R` | 61.500 | 62.004 | +0.504 |
+| `m` | 61.500 | 61.794 | +0.294 |
+| `T` | 61.500 | 61.574 | +0.074 |
+| `w` | 61.500 | 61.489 | −0.011 |
+
+That is the left side bearing, and it is a *different* number for every line.
+Probing the API directly (law 15) settles which box is which: `loose.left`
+equals `GetCharOrigin`'s x to **±0.000** on every character sampled, and equals
+PyMuPDF's line x0 exactly, while the tight box is off by +0.074 to +1.694.
+
+**This one defect explains all three failed predictions on this branch.** It is
+per-character, so no per-page correction removes it; it is present on every line
+of every document, so structural convergence cannot reach it; and it is exactly
+2–5× the horizontal error PyMuPDF carries, which is what the residual table
+measures.
+
+**Hypothesis → change → expected movement.** Take x from the loose box, as y
+already is. Expected: median |dx| falls to PyMuPDF's order (~0.1–0.3pt) on every
+document, and within-2pt rises across the board — most on the documents whose
+structure is already exact (`c6_long`, `c8_toc_links`). Risk to name in advance:
+the space-synthesis thresholds (`SPAN_GAP_EM`, `SPACE_GAP_EM`, `LINE_SPLIT_EM`)
+were calibrated against *ink* gaps, and advance boxes tile, so gaps shrink and
+fewer spaces may be synthesised. The structural instruments will show that as a
+text/space-run diff before the gate sees it — if they do, this needs splitting
+into two coordinate systems rather than one. Requirement unchanged: **count ≤ 6,
+no new regressions.**
+
+### Result — 6 regressions → 3
+
+Line x0 agreement first: median delta **+0.368 → +0.000** on `c6_long` and
+**+0.399 → +0.000** on `c8_toc_links`. The named risk did not materialise —
+`c8_toc_links`'s text diff went 12% → **0%**, `c6_long` stayed at 0%, and
+`c7_code`'s span fragmentation *improved* 73% → 65%. Advance boxes tile, so the
+gap heuristics saw cleaner input rather than degraded input.
+
+`backend_parity.py --refine 3`: **3 regressions, 13 same, 0 better.**
+
+| document | before | after | Δ | |
+|---|---|---|---|---|
+| `03_tech_report_code` | 0.05 | **0.48** | **+0.43** | **left the set** — *above* pymupdf's 0.46 |
+| `c6_long` | 0.46 | **0.76** | **+0.30** | **left the set** — equals pymupdf exactly |
+| `c8_toc_links` | 0.78 | **1.00** | **+0.22** | **left the set** — equals pymupdf exactly |
+| `c7_code` | 0.72 | **0.82** | +0.10 | still regression (pymupdf 0.91) |
+| `c4_i18n` | 0.49 | 0.57 | +0.08 | expected-divergence |
+| `01_whitepaper_market` | 0.48 | 0.53 | +0.05 | still regression (0.72) |
+| `c1_whitepaper` | 0.12 | 0.15 | +0.03 | |
+| `02_research_paper` | 0.57 | 0.57 | — | still regression (0.76) |
+| the rest | | | ±0.01 | |
+
+**Scorecard.** I predicted median |dx| would fall to PyMuPDF's order and that
+the documents with already-exact structure would gain most. Both held:
+`c6_long` and `c8_toc_links` were the two structurally-exact documents and they
+gained 0.30 and 0.22, landing on PyMuPDF's number *to the second decimal*. The
+one I did not predict is `03_tech_report_code` at +0.43 — the document that had
+resisted three previous fixes — which now scores **above** the incumbent.
+
+**Aggregate.** Mean within-2pt over all 16 documents: **0.384 → 0.461**, against
+PyMuPDF's 0.511. The branch has now closed **75%** of the gap it started with
+(0.312 → 0.461 against a 0.511 target).
+
+**What this says about the three failed predictions earlier on this branch.**
+They were not failures of the fixes; they were masked by a per-character error
+underneath them. The indent reconstruction, the page-space geometry and the
+grouping convergence were all correct and all necessary — `c6_long` could only
+land exactly on 0.76 because its blocks were already exactly right, and
+`03_tech` could only reach 0.48 because its code box was already classified
+correctly. Each looked disappointing in isolation and paid in combination. That
+is worth remembering the next time a correct change measures flat.
+
+**Invariance:** golden IR 7/7, purity 16/16, pymupdf column unchanged.
+
+**Remaining three**, with the 0.08 comparator band:
+
+| document | pdfium | pymupdf | needs |
+|---|---|---|---|
+| `c7_code` | 0.82 | 0.91 | **0.02** |
+| `01_whitepaper_market` | 0.53 | 0.72 | 0.11 |
+| `02_research_paper` | 0.57 | 0.76 | 0.11 |

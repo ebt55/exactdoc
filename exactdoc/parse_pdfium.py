@@ -118,16 +118,33 @@ def _page_chars(textpage, page_h) -> List[_Char]:
         # ink here made every line box start below the true ascent and shifted
         # the inferred top margin (measured 71.8pt against 67.8pt) and with it
         # every space_before on the page.
+        # ...and the same is true HORIZONTALLY, which this used to get wrong.
+        # PyMuPDF reports a line box that starts at the pen origin, so every
+        # line of a left-aligned page starts at exactly the same x. The ink box
+        # starts at the first glyph's ink, which moves with whichever letter
+        # happens to begin the line: measured on c6_long, 'L' +1.694pt,
+        # '1' +1.106, 'R' +0.504, 'T' +0.074, 'w' -0.011 against PyMuPDF's
+        # constant 61.500. That is the left side bearing, a different number
+        # per line, and it is unfixable downstream -- no per-page correction
+        # removes a per-character error. It is why c6_long could reach an IR
+        # identical to PyMuPDF's on lines, spans, text, spaces, styles and block
+        # boundaries and still score 0.46 against 0.76.
+        #
+        # Probed before being relied on (§12 law 15): loose.left equals
+        # FPDFText_GetCharOrigin's x to 0.000 on every character sampled, and
+        # equals PyMuPDF's line x0 exactly.
         lr = raw.FS_RECTF()
         if raw.FPDFText_GetLooseCharBox(textpage.raw, i, ctypes.byref(lr)):
             ly0, ly1 = float(lr.bottom), float(lr.top)
+            lx0, lx1 = float(lr.left), float(lr.right)
         else:
             ly0, ly1 = float(b.value), float(t.value)
+            lx0, lx1 = float(l.value), float(r_.value)
 
         c = _Char()
         c.u = chr(u)
         # flip y: PDFium is bottom-left origin, the IR is top-left
-        c.x0, c.x1 = float(l.value), float(r_.value)
+        c.x0, c.x1 = lx0, max(lx1, lx0)
         c.y0, c.y1 = page_h - max(ly1, float(t.value)), page_h - min(ly0, float(b.value))
         c.ox, c.oy = float(ox.value), page_h - float(oy.value)
         # FPDFText_GetFontSize reports the size BEFORE the text matrix. Chromium
