@@ -21,8 +21,9 @@ in refine.py measures against the chosen renderer and corrects for it.
 import os
 from typing import Callable, Optional
 
-TARGETS = ("none", "libreoffice", "gdocs")
-DEFAULT = "libreoffice"
+from .options import DEFAULT_TARGET, TARGETS, canonical_target
+
+DEFAULT = DEFAULT_TARGET
 
 
 def _libreoffice_render(docx_path: str, tmp_dir: str) -> Optional[str]:
@@ -53,15 +54,20 @@ def _gdocs_render_factory() -> Callable[[str, str], Optional[str]]:
 
 
 def get_renderer(target: str):
-    """-> (render_callable | None, resolved_target_name)."""
-    t = (target or DEFAULT).lower()
-    if t in ("none", "off"):
+    """-> (render_callable | None, resolved_target_name).
+
+    A resolved name that differs from the requested one is a *fallback*, and
+    the caller has to be able to see it: 'libreoffice' resolving to 'none'
+    means the conversion ran open-loop, which is a different product than the
+    one the user asked for. Reporting that explicitly is REL-01's job; this
+    function's contract is to name the target it actually resolved to.
+    """
+    t = canonical_target(target or DEFAULT)
+    if t == "none":
         return None, "none"
-    if t in ("gdocs", "google", "googledocs", "google-docs"):
+    if t == "gdocs":
         return _gdocs_render_factory(), "gdocs"
-    if t in ("libreoffice", "lo", "word", "soffice"):
-        from .verify import SOFFICE
-        if SOFFICE is None:
-            return None, "none"
-        return _libreoffice_render, "libreoffice"
-    raise ValueError("unknown target %r; choose from %s" % (target, ", ".join(TARGETS)))
+    from .verify import SOFFICE
+    if SOFFICE is None:
+        return None, "none"
+    return _libreoffice_render, "libreoffice"

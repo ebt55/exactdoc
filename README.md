@@ -7,8 +7,8 @@
 > never seen. Both numbers are below, in the same table, on purpose.
 >
 > **Next: the permissive relicence.** The AGPL is inherited from PyMuPDF, and the
-> replacement parser is now measured not worse than it on 14 of 16 corpus
-> documents. The flip to Apache-2.0 is the next milestone —
+> replacement parser now passes the parity gate with zero regressions under a
+> ratified, executable policy. The flip to Apache-2.0 is the next milestone —
 > [ROADMAP.md](ROADMAP.md) has the sequence and the distance.
 
 Most PDF-to-Word converters either redesign your page (Word's reflow), turn every
@@ -22,24 +22,32 @@ columns and rules as real editable Word constructs, restricted to the subset
 Google Docs imports faithfully — no text boxes, no VML, no embedded fonts.
 
 Then it checks its own work. Every claim below is a number produced by
-[`testkit/`](testkit/README.md), which shares no code with the converter.
-[STATUS.md](STATUS.md) is the authority on all of them:
+[`testkit/`](testkit/README.md), which shares no code with the converter, and
+every one of them traces to a single machine-readable artifact —
+`testkit/batch/evidence.json`, keyed to the commit, the dependency versions and
+the LibreOffice build that produced it. [STATUS.md](STATUS.md) is the authority
+on what they mean:
 
 | | 16-document corpus | 4 wild PDFs (holdout) |
 |---|---|---|
 | gate passed | 13/16 | **0/4** |
 | page count 1:1 | 15/16 | fails |
 | live (editable) text recovered | 96.5% | 94–97% |
-| words within 2pt of source | 52.9% | — |
-| median per-word vertical drift | 0.68pt | — |
+| words within 2pt of source | 51.2% | — |
+| median per-word vertical drift | 0.62pt | — |
 
 The corpus has been developed against; the [holdout](testkit/fetch_holdout.py)
 never has. The gap between those two columns is the honest measure of how far
-along this is: **the text survives, the pagination does not.** Everything in the
-corpus column is the `--refine` lane, the shipped default; the uncontaminated
-no-refine lane is in [STATUS.md §1](STATUS.md#1-where-the-converter-stands) and
-both are always reported, because the refine loop tunes against the same renderer
-the gate measures with.
+along this is: **the text survives, the pagination does not.**
+
+The corpus column is the `product` lane — the profile a bare `exactdoc file.pdf`
+or `convert(file)` actually runs, which is now the same profile the numbers are
+measured on. It was not: the API ran 0 refine rounds, the CLI ran 2, and these
+figures came from a CI lane that ran 3, so "reproduce it with `convert()`"
+produced the raw number with nothing anywhere to say why. There is one profile
+now ([`exactdoc/options.py`](exactdoc/options.py)), and the uncontaminated
+zero-refine `raw` lane is reported beside it always, because the refine loop
+tunes against the same renderer the gate measures with.
 
 ## Install
 
@@ -72,8 +80,8 @@ exactdoc *.pdf --dpi 300 --verify        # batch, high-res figures, with a repor
 ```
 
 ```python
-from exactdoc.convert import convert
-convert("whitepaper.pdf", "whitepaper.docx", target="gdocs", refine_rounds=2)
+from exactdoc import convert
+convert("whitepaper.pdf", "whitepaper.docx", target="gdocs")
 ```
 
 ## Why a "target" matters
@@ -101,15 +109,20 @@ Measured, opening the result in Google Docs: tuning for `gdocs` instead of
 
 ### Closed-loop correction
 
-`--refine N` (default 2) writes the DOCX, renders it back through the chosen
-target, measures page overflow and per-page offsets, corrects the layout and
-rewrites — keeping the best round. Without an oracle available it degrades
-silently to a single ordinary write, so conversion never depends on it.
+`--refine N` writes the DOCX, renders it back through the chosen target, measures
+page overflow and per-page offsets, corrects the layout and rewrites — keeping the
+best round. Without an oracle available it degrades to a single ordinary write, so
+conversion never depends on it.
 
-Python API:
+The default is 3, and it is 3 everywhere: the CLI, the Python API and the lane
+every published number is measured on all read it from one place
+([`exactdoc/options.py`](exactdoc/options.py)). `--refine 0` is the deliberate
+open-loop control.
+
+Python API — same profile, no arguments needed:
 
 ```python
-from exactdoc.convert import convert
+from exactdoc import convert
 convert("whitepaper.pdf", "whitepaper.docx")
 ```
 
@@ -183,34 +196,43 @@ largest open defect (see below).
 
 Both lanes, because only the pair is meaningful:
 
-| | no-refine | refine (shipped default) |
+| | `raw` (0 refine rounds) | `product` (shipped) |
 |---|---|---|
 | gate passed | 12/16 | 13/16 |
 | page count 1:1 | 13/16 | 15/16 |
 | live (editable) text | 96.5% | 96.5% |
-| words within 2pt of source | 36.6% | **52.9%** |
-| median per-word vertical drift | 2.20pt | **0.68pt** |
+| words within 2pt of source | 34.9% | **51.2%** |
+| median per-word vertical drift | 2.20pt | **0.62pt** |
 
-Measured on CI Linux, which is the number of record; the same figures reproduce
-on a local container and on Windows to within measurement noise
-([STATUS.md §1](STATUS.md#1-where-the-converter-stands)).
+Every figure comes from `testkit/gate_baseline.json`, which records the numeric
+value of every gated metric for every document in both lanes, together with the
+environment that produced it — Linux, LibreOffice 24.2.7.2, the Liberation metric
+fonts, and the exact dependency versions. Three environments (CI Linux, a local
+`ubuntu:24.04` container, Windows) agree on every structural number and differ in
+the third decimal of `within2pt`; the gate's tolerances are sized from that
+spread.
 
 `refine()` optimises against the same renderer the gate scores with, so a
 refined-only number can improve because the loop memorised the oracle rather
-than because the converter got better. Reporting one lane would hide that.
+than because the converter got better. Reporting one lane would hide that — and
+until recently the exit code did exactly that, gating on the refined lane while
+the control lane could regress freely.
 
 Run it yourself (needs the `[test]` extra, LibreOffice for the render-back, and
 Chrome to generate the Chromium half of the corpus):
 
 ```bash
-python testkit/gen_corpus.py testkit/adv && python corpus/make_corpus.py
+python testkit/gen_corpus.py testkit/adv --strict && python corpus/make_corpus.py
 ```
 
 ```bash
-REFINE=lanes python testkit/runall.py testkit/adv corpus/pdfs
+python testkit/corpus_manifest.py verify && python testkit/runall.py
 ```
 
-It exits non-zero on regression, so it doubles as CI.
+Both lanes gate the exit code, so it doubles as CI. Add `--absolute` for the
+release-qualification gate, which **fails today** — D3 and D10 sit below
+threshold, and the point of a separate absolute gate is that it says so instead
+of being folded into "nothing got worse".
 
 **Do not use SSIM as the headline number.** It is dominated by whitespace and
 it *rewards* a rasterised page: a resume converted into two flat images scored
@@ -292,8 +314,9 @@ release, not after it.
 
 The fastest way to help is a PDF that breaks it. Producer dialects differ far
 more than content does, and the corpus is thin on LaTeX, Typst, InDesign and
-Quartz. Run `python testkit/runall.py testkit/adv` — it exits non-zero on
-regression, so it doubles as CI.
+Quartz. Run `python testkit/runall.py` — both lanes gate the exit code, so it
+doubles as CI, and `python tests/test_gate_mutations.py` checks the gate itself
+in about a second without needing a corpus or an oracle.
 
 ## License
 
@@ -320,14 +343,28 @@ the vector paths on arXiv papers. pypdfium2 (Apache-2.0) extracts text and
 paths but provides no line/block grouping, so that clustering has to be
 written here.
 
-A pypdfium2 backend is written and selectable (`EXACTDOC_BACKEND=pdfium`,
-requires the `[pdfium]` extra). It is not the default *yet* — but it is no
-longer the blocker it was.
+A pypdfium2 backend is written and selectable (`--backend pdfium`, or
+`EXACTDOC_BACKEND=pdfium`; requires the `[pdfium]` extra). It is not the default
+*yet* — but it is no longer the blocker it was.
 
-Measured against PyMuPDF over the corpus it stands at **2 regressions, 13 same,
-1 better**, down from 9. Fourteen of sixteen documents are at or above the
-incumbent — four exactly equal to it, two better. Mean within-2pt 0.461 against
-the incumbent's 0.511.
+Measured against PyMuPDF over the corpus, under the acceptance policy in
+[`testkit/parity_policy.json`](testkit/parity_policy.json):
+
+| verdict | count | which |
+|---|---|---|
+| regression | **0** | — |
+| same | 11 | |
+| better | 1 | `05_memo`, 0.64 → 0.88 within-2pt |
+| expected divergence | 2 | `c4_i18n`, `c5_graphics` — pdfium is the *correct* one, verified by rendering |
+| accepted shortfall | 2 | `01_whitepaper_market`, `02_research_paper` — D2, bounded by recorded numeric floors |
+
+Down from 9 regressions. Those last four documents used to be prose: the code
+exited on `regressions == 0` while the docs said two of them were formally
+accepted, so CI marked the step `continue-on-error` to keep the build usable —
+which retired the only gate the whole relicensing effort was aimed at. The policy
+is now data the test executes, the two acceptances carry numeric floors that fail
+when crossed, and an acceptance that stops describing reality fails as stale. The
+step is required.
 
 The remaining two are attributed, and the attribution is why they are being
 accepted rather than chased: `infer()` derives the page's vertical origin from

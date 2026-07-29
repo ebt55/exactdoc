@@ -1,0 +1,118 @@
+{
+ "_note": "The exact corpus the gate baseline was recorded against. Written and verified by testkit/corpus_manifest.py; regenerate the measured fields with `python testkit/corpus_manifest.py update` on the canonical environment. `src_pages` is an identity check, not a metric: the corpus is regenerated from scripts, so a generator change that alters a document silently re-bases every number measured from it. The PDFs are NOT byte-stable (ReportLab and Chromium both embed timestamps), so a content hash would fail on every run -- page count plus generator identity is what can honestly be pinned.",
+ "documents": {
+  "01_whitepaper_market.pdf": {
+   "dialect": "reportlab",
+   "generator": "corpus/make_corpus.py",
+   "path": "corpus/pdfs",
+   "src_pages": 3,
+   "why": "cover band, callouts, bar chart, ruled tables -- the Claude-style whitepaper this project started from"
+  },
+  "02_research_paper.pdf": {
+   "dialect": "reportlab",
+   "generator": "corpus/make_corpus.py",
+   "path": "corpus/pdfs",
+   "src_pages": 2,
+   "why": "two-column academic layout with figures and a references list"
+  },
+  "03_tech_report_code.pdf": {
+   "dialect": "reportlab",
+   "generator": "corpus/make_corpus.py",
+   "path": "corpus/pdfs",
+   "src_pages": 2,
+   "why": "monospace code blocks inside flowing prose"
+  },
+  "04_exec_brief.pdf": {
+   "dialect": "reportlab",
+   "generator": "corpus/make_corpus.py",
+   "path": "corpus/pdfs",
+   "src_pages": 2,
+   "why": "dense one-page brief; its live-text coverage is a recorded shortfall"
+  },
+  "05_memo.pdf": {
+   "dialect": "reportlab",
+   "generator": "corpus/make_corpus.py",
+   "path": "corpus/pdfs",
+   "src_pages": 1,
+   "why": "the minimal case -- if this one moves, something fundamental moved"
+  },
+  "c1_whitepaper.pdf": {
+   "dialect": "chromium",
+   "generator": "testkit/gen_corpus.py",
+   "path": "testkit/adv",
+   "src_pages": 2,
+   "why": "rounded-corner stat cards (D4) and a full-bleed cover band"
+  },
+  "c2_paper2col.pdf": {
+   "dialect": "chromium",
+   "generator": "testkit/gen_corpus.py",
+   "path": "testkit/adv",
+   "src_pages": 1,
+   "why": "true multi-column sections, the case a naive reading order destroys"
+  },
+  "c3_tables.pdf": {
+   "dialect": "chromium",
+   "generator": "testkit/gen_corpus.py",
+   "path": "testkit/adv",
+   "src_pages": 3,
+   "why": "nested tables (D3) -- a recorded shortfall on both backends"
+  },
+  "c4_i18n.pdf": {
+   "dialect": "chromium",
+   "generator": "testkit/gen_corpus.py",
+   "path": "testkit/adv",
+   "src_pages": 1,
+   "why": "CJK, Arabic and Hebrew: script continua and RTL reordering"
+  },
+  "c5_graphics.pdf": {
+   "dialect": "chromium",
+   "generator": "testkit/gen_corpus.py",
+   "path": "testkit/adv",
+   "src_pages": 1,
+   "why": "gradient band with knocked-out white text; rasterised SVG chart"
+  },
+  "c6_long.pdf": {
+   "dialect": "chromium",
+   "generator": "testkit/gen_corpus.py",
+   "path": "testkit/adv",
+   "src_pages": 7,
+   "why": "long enough that a per-page offset compounds into a page count error"
+  },
+  "c7_code.pdf": {
+   "dialect": "chromium",
+   "generator": "testkit/gen_corpus.py",
+   "path": "testkit/adv",
+   "src_pages": 1,
+   "why": "leading indentation, which PDFium does not report and PyMuPDF synthesises"
+  },
+  "c8_toc_links.pdf": {
+   "dialect": "chromium",
+   "generator": "testkit/gen_corpus.py",
+   "path": "testkit/adv",
+   "src_pages": 1,
+   "why": "table of contents with tab leaders and internal hyperlinks"
+  },
+  "f1_fpdf_brief.pdf": {
+   "dialect": "fpdf2",
+   "generator": "testkit/gen_corpus.py",
+   "path": "testkit/adv",
+   "src_pages": 1,
+   "why": "core-14 fonts with no FontDescriptor -- the serif-flag case"
+  },
+  "l1_word_native.pdf": {
+   "dialect": "libreoffice",
+   "generator": "testkit/gen_corpus.py",
+   "path": "testkit/adv",
+   "src_pages": 1,
+   "why": "a PDF printed from a word processor: the round trip back to its own kind"
+  },
+  "r1_reportlab_report.pdf": {
+   "dialect": "reportlab",
+   "generator": "testkit/gen_corpus.py",
+   "path": "testkit/adv",
+   "src_pages": 1,
+   "why": "a second ReportLab dialect written by a different generator than corpus/"
+  }
+ },
+ "schema": 1
+}

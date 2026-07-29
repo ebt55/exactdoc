@@ -14,41 +14,78 @@ bash scripts/bootstrap.sh          # Linux: provisions the oracles, reports what
 ```
 
 ```bash
-python testkit/gen_corpus.py testkit/adv && python corpus/make_corpus.py
+python testkit/gen_corpus.py testkit/adv --strict && python corpus/make_corpus.py
 ```
 
 ```bash
-REFINE=lanes python testkit/runall.py testkit/adv corpus/pdfs
+python testkit/corpus_manifest.py verify && python testkit/runall.py
 ```
 
 ---
 
 ## 1. Where the converter stands
 
-| Metric | no-refine lane | refine lane (shipped) | local container | Windows |
+| Metric | `raw` lane | `product` lane (shipped) | earlier CI run | Windows |
 |---|---|---|---|---|
 | Gate passed | 12/16 | 13/16 | 12 / 13 | 12 / 13 |
 | Page count 1:1 | 13/16 | 15/16 | 13 / 15 | 13 / 15 |
-| Live (editable) text | 0.965 | 0.965 | 0.965 | 0.965 |
-| Words within 2pt of source | 0.366 | **0.529** | 0.349 / 0.512 | 0.361 / 0.510 |
-| Median per-word vertical drift | 2.20pt | **0.68pt** | 2.20 / 0.62pt | 2.79 / 0.69pt |
+| Live (editable) text | 0.9652 | 0.9652 | 0.965 | 0.965 |
+| Words within 2pt of source | 0.3486 | **0.5118** | 0.366 / 0.529 | 0.361 / 0.510 |
+| Median per-word vertical drift | 2.20pt | **0.62pt** | 2.20 / 0.68pt | 2.79 / 0.69pt |
 
-The first two columns are the CI run
+The first two columns are the **recorded baseline** —
+`testkit/gate_baseline.json`, measured on the canonical Linux environment
+(LibreOffice 24.2.7.2, Liberation metric fonts, PyMuPDF 1.28.0 / MuPDF 1.29.0,
+pypdfium2 5.12.1), which the file names in full beside the numbers. Beside them,
+an earlier CI run
 ([#30455217670](https://github.com/ebt55/exactdoc/actions/runs/30455217670)) and
-are the number of record. Beside them, the same measurement on a local
-`ubuntu:24.04` container and on Windows.
+Windows.
+
+The `within2pt` spread across those columns — 0.510 to 0.529 — is what different
+LibreOffice builds and font sets cost, and it is why the gate's tolerances are
+absolute-plus-proportional rather than exact. It is also why `dy_p50` gets a
+proportional term: it is the one gated metric that is not a fraction, running
+from 0.04pt to 101pt across the corpus, so a single absolute slack cannot serve
+both ends.
 
 **Three environments** — different fonts, three LibreOffice builds, three
 Chromium builds — agree on every structural number (which documents pass, page
 counts, live text, drift) and differ only in the third decimal of `within2pt`.
 The harness is portable; it was only its *provisioning* that was folklore.
 
-The gate is a **regression** gate, not an absolute one: three documents have
-never cleared the thresholds (D3, D4/graphics, and `04_exec_brief`'s live-text
-coverage at 0.941 against 0.95), so `runall.py` used to exit non-zero on every
-run ever made, and the CI step had to ignore its own result. The known-failing
-set is recorded per lane in `testkit/gate_baseline.json`; the run now fails on a
-new failure, a new metric on an already-failing document, or a stale record.
+The gate is **both** a regression gate and, on demand, an absolute one, and it
+runs fail-closed. Three documents have never cleared the thresholds, and naming
+them precisely matters because an earlier version of this paragraph wrote
+"D3, D4/graphics" and thereby merged two different documents with two different
+causes:
+
+| Document | Fails | Defect |
+|---|---|---|
+| `c3_tables` | page count, word recall 0.331, live text 0.923 | D3 nested tables |
+| `c5_graphics` | live text 0.707, word recall 0.678 (raw: also page count) | D10 rasterised regions |
+| `04_exec_brief` | live text 0.941, doc recall 0.934 | D10 rasterised regions |
+| `c1_whitepaper` | raw lane only: page count, word recall 0.767 | D4 rounded cards |
+
+Because those exist, `runall.py` used to exit non-zero on every run ever made and
+the CI step had to ignore its own result. The record in
+`testkit/gate_baseline.json` is now **numeric**: every gated metric of every
+document, per lane, plus the defect ID each shortfall answers to. The gate asks
+three separate questions of it —
+
+- **regression** — is anything worse than the recorded number beyond tolerance?
+  Every document, every metric, passing or not. This is the pull-request gate,
+  and it is what closes the hole where a known 0.941 could have slid to 0.10
+  while staying green, because the old record stored only the metric's *name*.
+- **absolute** (`--absolute`) — does every document clear its release threshold?
+  This is the release-qualification gate, and today it fails, by design and on
+  the record.
+- **stale** — does a recorded shortfall now pass? Then the record is wrong, and a
+  wrong record silently re-admits the regression it exists to catch.
+
+Both lanes gate the exit code. Gating on the refined lane alone meant the raw
+lane — the control, whose whole purpose is to be untainted — was the one nobody
+had to answer for. Every false-green path the previous gate had is now a test in
+`tests/test_gate_mutations.py`, which needs no corpus and no oracle.
 
 Two lanes are always reported because `refine()` tunes the layout against the
 same renderer the gate measures with. A refined-only number can improve because
@@ -62,14 +99,20 @@ That is the honest generalisation number and it is worse than the corpus number
 
 ### By producer dialect
 
-| Dialect | Docs | State |
-|---|---|---|
-| ReportLab | 6 | good — page match, 94–100% live text |
-| Chromium / Skia | 8 | good after the P0 dialect work; was catastrophic |
-| WeasyPrint | 1 | good — 10/10 pages, 98% live |
-| fpdf2 | 1 | good |
-| LibreOffice | 1 | fair |
-| **LaTeX / pdfTeX** | **4** | **worst — see D1** |
+| Dialect | Docs | In the gate corpus? | State |
+|---|---|---|---|
+| ReportLab | 6 | yes | good — page match, 94–100% live text |
+| Chromium / Skia | 8 | yes | good after the P0 dialect work; was catastrophic |
+| fpdf2 | 1 | yes | good |
+| LibreOffice | 1 | yes | fair |
+| WeasyPrint | 1 | **no** — a real document outside the corpus | good — 10/10 pages, 98% live |
+| **LaTeX / pdfTeX** | **4** | **no** — the holdout | **worst — see D1** |
+
+The third column was missing and the rows summed to 17 for a 16-document corpus,
+which is the kind of arithmetic that survives in prose and cannot survive in
+`testkit/corpus_manifest.json` — the manifest names all 16, their generator and
+their dialect, and the gate fails if the run and the manifest disagree in either
+direction.
 
 ---
 
@@ -125,9 +168,22 @@ to it and two above it.
 | pdfium parser, when this was first measured | 0.291 | 2.02pt |
 | **pdfium parser, now** | **0.461** | — |
 
-**Acceptance for the flip:** 0 regressions, except `01_whitepaper_market` and
-`02_research_paper`, attributed below to a font-metric convention difference
-that no permissive parser can reproduce.
+**Acceptance for the flip, and it is now executable rather than stated:**
+`testkit/parity_policy.json` carries the rule the test applies — comparison
+margins, the two expected divergences with their rendered evidence, and these two
+accepted shortfalls with **numeric floors**, recorded on the canonical
+environment:
+
+| Document | PyMuPDF | pdfium floor | fails if |
+|---|---|---|---|
+| `01_whitepaper_market` | 0.719 | **0.533** | within-2pt drops below the floor, or the divergence disappears |
+| `02_research_paper` | 0.761 | **0.569** | same |
+
+Both directions matter. An acceptance with no floor is an acceptance of anything,
+and an acceptance that no longer describes reality is a stale record that hides
+the next real regression on that document. The current verdict is **0
+regressions, 11 same, 1 better, 2 expected divergences, 2 accepted** — and the CI
+step is required, not `continue-on-error`.
 
 #### What it is not
 
@@ -241,7 +297,7 @@ Evidence: `testkit/margin_probe.py`, and the escalation packet in the project's
 planning documents.
 
 ```bash
-python testkit/backend_parity.py --refine 3
+python testkit/backend_parity.py
 ```
 
 ```bash
@@ -312,6 +368,36 @@ tiny, dense microtype) convert without crashing.
 Shading applied very aggressively per-run/per-cell. File-size and complexity
 smell, not a correctness bug.
 
+### D10 — text inside rasterised regions is not live text · **severity: medium**
+
+The defect ID the gate baseline needed. Two documents have never cleared the
+0.95 live-text threshold and the reason was recorded only as prose, which meant
+`04_exec_brief`'s 0.941 could have fallen to 0.10 without the gate noticing —
+the old baseline stored the metric's *name*, not its value.
+
+| Document | live text | doc recall | with figure regions excluded |
+|---|---|---|---|
+| `c5_graphics` | 0.707 | 0.678 | **0.988** |
+| `04_exec_brief` | 0.941 | 0.934 | **0.978** |
+| `c3_tables` (D3) | 0.923 | 0.936 | 0.966 |
+
+The third column is `exactdoc/verify.py:audit()`, which excludes figure-region
+text from its denominator — the converter's own view, and the one STATUS §4.5
+warns not to trust alone. Read only as an attribution it says: **rasterisation
+is the dominant cause on all three and the whole cause on none.** `c5_graphics`
+loses 28 points of coverage to a gradient band and an SVG chart that must
+rasterise (§6.5), and recovers 28 of them when those regions are excluded.
+`04_exec_brief` recovers most but not all of its 6 points. The residual is
+**unattributed** and deliberately not guessed at.
+
+Not the same defect as D3: `c3_tables` fails structurally (word recall 0.331,
+one page over), and its live-text shortfall is a symptom of the nested-table
+flattening rather than of a figure.
+
+```bash
+python testkit/runall.py --lane product --absolute
+```
+
 ---
 
 ## 3. Pending work, in the order I would do it
@@ -325,8 +411,8 @@ proceed. That was the only thing gating it.
 
 | # | Item | Blocks | Notes |
 |---|---|---|---|
-| 1 | **Superscript in the pdfium backend** | nothing — queued ahead of the flip by choice | Hardcoded `False`; the detection already exists in `infer._merge_row_lines`. Read it, or prove inference recovers it |
-| 2 | **The flip and the relicence** | **the whole point of the project** | Mechanical: default backend, `[mupdf]` extra, golden re-freeze, Apache-2.0 + NOTICE, version `0.2.0a1`. `parse.py` is kept, not deleted |
+| ~~1~~ | ~~Superscript in the pdfium backend~~ | — | **Closed by measurement, no code written.** `backend_superscript.py`: the writer never sees the parser's flag — `dialect` and `infer` recover superscript from geometry, and all 16 documents agree at the layout level. ROADMAP §3.1 |
+| 2 | **The flip and the relicence** | **the whole point of the project** | **Not mechanical.** `fitz` is on the default *runtime* path well past the parser: `docxout.py` imports it at module load and uses MuPDF text metrics for table fitting and MuPDF rasterisation for figure clips, `refine.py` extracts text through it, `verify.py` compares images with it, `ladder.py` measures with it. A wheel installed without PyMuPDF fails while importing the writer, before any backend selection happens. The backend has to be chosen once and carried through parse, write, refine and verify first |
 | 3 | **D8 clean unsupported-input error** | the release | Encrypted/truncated PDFs; both files into CI |
 | 4 | **PyPI release** | adoption | TestPyPI dry run first; release notes lead with the holdout |
 | 5 | **D1 LaTeX pagination** | the holdout, and the core use case | Needs writer-side instrumentation (§5) — per-element emitted-vs-source height accounting inside `docxout` — not another hypothesis. Three attempts have each produced a partly-wrong answer |
@@ -449,6 +535,12 @@ pattern is more useful than the individual fixes.
 | Gated on *any* failure, with three documents that had never passed | `runall.py` returned non-zero on every run it ever made, so the CI step was marked `continue-on-error` and nothing was gated at all | A check that always fails carries the same information as one that always passes. Gate on the *delta* against a recorded set |
 | Tokenised words on whitespace, which CJK does not use | A "word" was a whole rendered line; a one-character re-wrap lost it. `c4_i18n` scored `doc_recall` 0.83 on Linux and passed on Windows **with every character present in both** | The unit a metric counts in must be a unit the content actually has |
 | Read golden drift as parser drift | A version-dependent difference (PyMuPDF 1.26 groups `02_research_paper` p2 into 4 blocks, 1.28 into 7) was recorded as cross-platform instability | A frozen artifact without a manifest of what froze it cannot tell you which of the two changed |
+| Recorded the *names* of failing metrics, not their values | `04_exec_brief`'s live-text coverage was on record as "known failing" at 0.941. It could have fallen to 0.10 and stayed exactly as green. Same hole in `page_match`, a boolean that cannot tell one page over from forty | A known failure needs a *bound*, not a label. Record the number |
+| Treated a missing measurement as a skip | `harness.evaluate()` returns `{"error": ...}` when the render fails and nothing read the key; absent metrics hit `if v is None: continue`. A renderer dying on all 16 documents scored zero failures | Fail closed. A metric that could not be computed is a failure, never a row to pass over |
+| Never checked the corpus against a manifest | Measured in a bare container: the generator produced 3 of 16 documents, printed "the corpus is incomplete, numbers are NOT comparable", exited 0 — and the gate scored those 3 against a 16-document baseline and reported a pass | Prose that the next step ignores is not a safeguard. `--strict`, and a manifest the gate compares against in both directions |
+| Wrote the oracle paths to a file nobody sourced | `bootstrap.sh` discovers Chromium and writes `scripts/env.sh`, then every subsequent shell — including each CI step — starts without it. CI only ever worked because the GitHub runner image happens to ship `/usr/bin/google-chrome`: provisioning by accident | Discovery has to be readable by the thing that needs it. `_paths.py` now reads the record itself |
+| Let the executable rule and the ratified rule disagree | `backend_parity.py` exited on `regressions == 0` while ROADMAP and this file said two documents were formally accepted. The disagreement was resolved by marking the CI step `continue-on-error`, which retired the one gate the entire relicensing effort was aimed at | A gate whose policy lives in prose will be switched off, not corrected. Put the policy in a file the test reads |
+| Injected a parser by assigning a module global | The instruments set `exactdoc.convert.parse_pdf`. That worked only because `convert` happened to hold the parser as a global; once the backend was selected through the seam, the assignment became a no-op that set an attribute nobody read — and an experiment that silently measures the default still prints a number | An injection point should be declared (`register_backend`), so removing it breaks loudly instead of quietly |
 
 Two compensators were built, measured, and **left switched off** because they
 did not pay: the quality ladder (line-locking) and the half-point wrap

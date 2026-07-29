@@ -19,7 +19,17 @@ documented divergence.
 |---|---|
 | How far to `pip install exactdoc` under Apache-2.0? | **three working sessions** — see §3 |
 | How far to "fully working on any PDF you throw at it"? | **much further, and it is a different project** — see §5 |
-| Is anything still blocking the swap? | **No.** One small item (superscript) is queued ahead of it by choice, not necessity |
+| Is anything still blocking the swap? | **No.** The one item that was queued ahead of it (superscript) turned out to need no code at all — §3.1 |
+
+**Before the flip, the gate had to become worth trusting.** The licence swap is a
+change to which parser produces every number, and it was about to be judged by a
+gate that could pass while the renderer failed on every document, while a
+required metric was missing, while 8 of the 16 corpus documents did not exist,
+and while a known shortfall slid arbitrarily far. That work is done and is
+described in [STATUS.md §1](STATUS.md#1-where-the-converter-stands): a numeric
+per-document baseline, an exact corpus manifest, both lanes gating the exit code,
+the parity policy as executable data rather than prose, one evidence artifact,
+and a mutation test for every false-green path the old gate had.
 
 The distinction in the last two rows is the important one. Shipping a permissive,
 honest, well-measured alpha is close. Making the converter *good on documents it
@@ -36,9 +46,10 @@ critical path to a release.
 | Started at | 9 regressions, then 8 when first measured on the canonical environment |
 | Mean within-2pt, pdfium | **0.461** against the incumbent's 0.511 |
 | Documents at or above the incumbent | **14 of 16** — four exactly equal, two better |
-| Gate lanes (default backend) | 12/16 no-refine, 13/16 refine; 0 new, 0 stale across three environments |
+| Gate lanes (default backend) | 13/16 page match raw, 15/16 product; both lanes gate the exit code |
 | Golden IR | 7/7 |
-| CI | green, and meaningfully gating — it fails on a new regression or a stale record |
+| CI | green, and fail-closed — see the three questions in [STATUS §1](STATUS.md#1-where-the-converter-stands) |
+| Release-qualification gate (`--absolute`) | **fails, on the record.** D3 and D10 are below threshold and say so |
 | Holdout (4 wild PDFs) | **0/4** — unchanged, and the honest generalisation number |
 
 ---
@@ -53,22 +64,41 @@ critical path to a release.
 | **M2.b — page-space geometry** | Path points transformed by the object matrix; bboxes are the geometric path, not the ink envelope. 578 of 612 corpus paths carry a non-identity matrix. |
 | **M2.c — block grouping** | Body-pitch reference per type size instead of a page-wide median. Block boundaries now match the incumbent exactly on the documents that were failing. |
 | **M2.d — the metric box** | The single largest find: x was read from the ink box while y came from the metric box. Fixing it took three documents out of the regression set at once. |
-| **M2.e (partial) — span and space fidelity** | Spans end where styles end; generated spaces have real widths; invented end-of-line spaces dropped; justified text no longer doubles its spaces. |
+| **M2.e — span and space fidelity** | Spans end where styles end; generated spaces have real widths; invented end-of-line spaces dropped; justified text no longer doubles its spaces. Superscript, the last item, needed no code: measured, the writer never sees the parser's flag (§3.1). |
 | **The line-box escalation** | Granted, built, measured, **reverted** — and the cause closed out as unreachable. §4. |
+| **M2.g — the gate made worth trusting** | One product profile shared by API, CLI, CI and docs, replacing three that disagreed. An exact corpus manifest. A numeric per-document baseline for every gated metric, replacing a list of metric *names*. Both lanes gating. The parity policy as data with numeric floors and stale detection, so `continue-on-error` could come off the step. One `evidence.json`. A mutation test for every false-green path the old gate had. |
 
 ---
 
 ## 3. Left to do, in order
 
-### 3.1 — Superscript (`M2.e` remainder) · *small, one short session*
+### 3.1 — Superscript (`M2.e` remainder) · **CLOSED by measurement, no code**
 
-`parse_pdfium.py` hardcodes `superscript=False`. The detection logic already
-exists in `infer._merge_row_lines` (baseline shift + size test inside the em
-box). Either read it in the backend or verify that inference recovers it, and
-prove which on the corpus.
+`parse_pdfium.py` hardcodes `superscript=False`, and the plan was to implement
+it. It does not need implementing, and the way to find that out was to measure
+the level that matters rather than the level that looked wrong.
 
-**Done when:** superscript flags agree with the incumbent across the corpus, or
-a measurement shows inference already recovers them.
+`testkit/backend_superscript.py` compares both levels across the corpus:
+
+| level | what it compares | result |
+|---|---|---|
+| parse | spans the *parser* flags | `c2_paper2col` 3 (PyMuPDF) vs 0 (PDFium); every other document 0 vs 0 |
+| **layout** | runs the *writer* receives, after `normalize()` + `infer()` | **3 vs 3 on `c2_paper2col`, identical text; 16 of 16 documents agree** |
+
+`dialect._merge_row_lines` and `infer` both promote a small fragment sitting
+above its host line's baseline, measured from geometry inside the em box, and
+neither looks at the backend. So the parser flag is not load-bearing: it never
+reaches a DOCX. One corpus document in sixteen even has a superscript, and its
+flags survive the swap.
+
+**Done. Verdict recorded, no backend change made:**
+
+```bash
+python testkit/backend_superscript.py
+```
+
+This is the cheaper half of a habit worth keeping — before implementing a
+missing feature in a component, measure whether anything downstream consumes it.
 
 ### 3.2 — The flip and the relicence (`M2.f`) · *one session, mechanical*
 
@@ -163,20 +193,34 @@ claim to have solved it — the README leads with the 0/4.
 
 ## 6. How to tell if this is on track
 
-The project's own discipline, in three checks anyone can run:
+The project's own discipline, in four checks anyone can run:
 
 ```bash
-bash scripts/bootstrap.sh && python testkit/gen_corpus.py testkit/adv && python corpus/make_corpus.py
+bash scripts/bootstrap.sh --strict && python testkit/gen_corpus.py testkit/adv --strict && python corpus/make_corpus.py
 ```
 
 ```bash
-REFINE=lanes python testkit/runall.py testkit/adv corpus/pdfs
+python testkit/corpus_manifest.py verify
 ```
 
 ```bash
-python testkit/backend_parity.py --refine 3
+python testkit/runall.py
 ```
 
-The first must produce 16 documents or name what it skipped. The second must say
-`0 new, 0 stale`. The third is the swap's verdict. Every number in STATUS.md
-comes from those three commands, and CI runs all of them on every push.
+```bash
+python testkit/backend_parity.py
+```
+
+The first must produce all 16 documents — `--strict` makes a skip a failure,
+because the un-strict version printed "the corpus is incomplete", exited 0, and
+the gate then scored 8 documents against a 16-document baseline. The second
+proves the corpus is the one the baseline describes. The third must print
+`gate PASS` for **both** lanes. The fourth is the swap's verdict, and it is now a
+required check rather than a report.
+
+Every number in STATUS.md traces to `testkit/batch/evidence.json`, which those
+commands write and CI attaches to the run: commit, dependency versions, oracle
+versions, the profile measured, the corpus manifest, both lanes and the parity
+verdict, in one file. Prose in three documents drifted apart once — one said
+`12 same / 2 better` where another said `13 same / 1 better` — and prose cannot
+be diffed.

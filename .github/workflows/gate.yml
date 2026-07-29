@@ -7,14 +7,23 @@
 # everyone can reproduce -- so CI is the number of record and local runs are
 # indicative.
 #
-# Two lanes (testkit/runall.py lanes): refine OFF is the uncontaminated
-# converter number; refine ON is the product default. refine() tunes against
-# the same renderer the gate measures with, so only the pair is meaningful.
+# Two lanes (testkit/runall.py): `raw` is the uncontaminated converter number,
+# `product` is exactdoc.options.PRODUCT -- the profile the API, the CLI and every
+# published number all share. refine() tunes against the same renderer the gate
+# measures with, so only the pair is meaningful, and **both** lanes gate the exit
+# code. Gating on the refined lane alone meant the control lane, whose entire
+# purpose is to be untainted, was the one nobody had to answer for.
+#
+# Every step here is fail-closed. That is the whole design: a green check must
+# mean that all 16 manifest documents existed, the renderer answered, every
+# required metric was computed, nothing regressed past its recorded number, and
+# the backend policy still describes reality. It previously could mean none of
+# those things -- see the docstrings in testkit/gate.py for the list, each entry
+# of which is now a test in tests/test_gate_mutations.py.
 #
 # Provisioning is scripts/bootstrap.sh, the same command a contributor runs, so
 # CI cannot drift away from the documented setup without going red. --strict
-# makes a missing oracle a failure here: an incomplete corpus silently produces
-# numbers for a different corpus than the one on record.
+# makes a missing oracle a failure.
 #
 # The dependency versions come from uv.lock (--frozen). The goldens are pinned
 # to the PyMuPDF version -- measured: 1.26 and 1.24 both put 02_research_paper
@@ -30,7 +39,7 @@ on:
 jobs:
   gate:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
 
@@ -46,39 +55,52 @@ jobs:
       - name: Provision the oracles (LibreOffice, Chromium, fonts) + deps
         run: bash scripts/bootstrap.sh --strict
 
-      - name: Generate the 16-document corpus
+      # --strict here too: this printed "SKIPPED 8 document(s)" and "gate numbers
+      # are NOT comparable", then exited 0, and the next step scored the 8 that
+      # existed against a 16-document baseline. Prose the next step ignores is
+      # not a safeguard.
+      - name: Generate the corpus (16 documents, or fail)
         run: |
-          uv run python testkit/gen_corpus.py testkit/adv
+          uv run python testkit/gen_corpus.py testkit/adv --strict
           uv run python corpus/make_corpus.py
 
-      - name: Unit tests (write purity, corpus degradation)
+      - name: Corpus manifest - is this the corpus the baseline describes?
+        run: uv run python testkit/corpus_manifest.py verify
+
+      - name: Unit tests (write purity, corpus degradation, gate mutations)
         run: |
           uv run python tests/test_purity.py
           uv run python tests/test_corpus_degradation.py
+          uv run python tests/test_gate_mutations.py
 
       - name: Golden IR - the parser's output must not drift
         run: uv run python testkit/golden_ir.py verify
 
-      - name: Fidelity gate, both lanes
-        env:
-          REFINE: lanes
-        run: uv run python testkit/runall.py testkit/adv corpus/pdfs
+      - name: Fidelity gate, both lanes, fail closed
+        run: uv run python testkit/runall.py
 
+      # No longer continue-on-error. It was reporting-only "until the swap
+      # lands", which made the number it exists to drive the one number nothing
+      # depended on. The policy the two accepted shortfalls were ratified under
+      # now lives in testkit/parity_policy.json with numeric floors, so the
+      # executable rule and the ratified rule are the same rule and the step can
+      # be required.
       - name: Backend parity - the licence-swap verdict
-        # Reporting-only by design until the swap lands: this is the number M2
-        # is driving to zero, so a non-zero count is the expected state, not a
-        # broken build. It runs in CI because it once lost the ability to run
-        # at all (an undeclared pypdfium2) and nobody noticed for weeks -- a
-        # gate that cannot run looks exactly like a gate that passes.
-        continue-on-error: true
-        run: uv run python testkit/backend_parity.py --refine 3
+        run: uv run python testkit/backend_parity.py
 
-      - name: Upload lane results
+      - name: Evidence - one artifact every published number traces to
+        if: always()
+        run: uv run python testkit/evidence.py --out testkit/batch/evidence.json
+
+      - name: Upload lane results and evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: gate-results
           path: |
-            testkit/batch/lane_norefine/results.json
-            testkit/batch/lane_refine/results.json
-          if-no-files-found: warn
+            testkit/batch/evidence.json
+            testkit/batch/lane_raw/results.json
+            testkit/batch/lane_raw/verdict.json
+            testkit/batch/lane_product/results.json
+            testkit/batch/lane_product/verdict.json
+          if-no-files-found: error

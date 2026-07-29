@@ -57,3 +57,7 @@ my_samples/
 Executor Advisory.md
 exactdoc — *.md
 *Execution Plan*.md
+# The em-dash pattern above missed `exactdoc-production-readiness-plan.md`, which
+# is the same kind of document under a hyphen. Match the suffix as well: no
+# tracked doc ends in -plan.md.
+*-plan.md

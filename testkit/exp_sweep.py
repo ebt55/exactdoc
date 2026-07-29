@@ -60,6 +60,10 @@ if __name__ == "__main__":
         srcs += sorted(glob.glob(os.path.join(d, "*.pdf")))
     root = os.path.dirname(os.path.abspath(__file__))
     from exactdoc.convert import convert
+    # Zero refine, explicitly: this sweep measures what the wrap-width correction
+    # does to line-break agreement, and the closed loop would correct over the top
+    # of the very effect being swept.
+    from exactdoc.options import RAW
 
     print("%-8s %-6s | %-28s %s" % ("alpha", "quant", "doc", "line_match  pages  <2pt"))
     for quant, alpha in [(False, 0.0), (True, 0.0), (True, -0.004), (True, 0.004),
@@ -73,7 +77,7 @@ if __name__ == "__main__":
         for s in srcs:
             n = os.path.splitext(os.path.basename(s))[0]
             dx = os.path.join(out, n + ".docx")
-            convert(s, dx)
+            convert(s, dx, options=RAW)
             pairs.append((s, dx))
         harness.batch_docx_to_pdf([d for _, d in pairs], os.path.join(out, "r"))
         for s, dx in pairs:

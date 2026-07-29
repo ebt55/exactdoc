@@ -1,0 +1,60 @@
+{
+ "_note": "The backend-swap acceptance policy, as data the gate executes rather than prose a reader is trusted to apply. The test used to say 'swap is acceptable when regressions == 0' and exit on that count, while ROADMAP \u00a73.2 and STATUS D2 said two named documents were formally accepted divergences -- so the executable rule and the ratified rule disagreed, and CI resolved the disagreement by marking the step continue-on-error, which retired the gate altogether. Record the floors with `backend_parity.py --update-policy` on the canonical environment.",
+ "accepted_shortfalls": {
+  "01_whitepaper_market.pdf": {
+   "defect": "D2",
+   "floors": {
+    "live_text_cov": 0.9573,
+    "page_err": 0,
+    "within2pt": 0.5333,
+    "word_recall": 0.9677
+   },
+   "reason": "font-metric convention difference: PyMuPDF's base-14 above/below-baseline ratios reach margin_t and displace every word on the page by a constant. Reproducing them means vendoring MuPDF's table into the permissive tree.",
+   "reference_at_record": {
+    "live_text_cov": 0.9595,
+    "page_err": 0,
+    "within2pt": 0.7194,
+    "word_recall": 0.9677
+   }
+  },
+  "02_research_paper.pdf": {
+   "defect": "D2",
+   "floors": {
+    "live_text_cov": 0.9736,
+    "page_err": 0,
+    "within2pt": 0.5685,
+    "word_recall": 0.9586
+   },
+   "reason": "same cause as 01_whitepaper_market: measured margin_t 63.30 (PyMuPDF) against 64.90 (PDFium), a constant 1.5pt displacement visible as two identical dy distributions offset by exactly that.",
+   "reference_at_record": {
+    "live_text_cov": 0.9736,
+    "page_err": 0,
+    "within2pt": 0.7614,
+    "word_recall": 0.9586
+   }
+  },
+  "_note": "Documents where the candidate is measurably worse and that is RATIFIED, with the cause attributed and proven unreachable from a permissive parser (STATUS D2: infer() derives the page's vertical origin from line-box tops, PyMuPDF reads it from its own base-14 metric table, PDFium exposes one vertical font metric and the parser already uses it). Acceptance is bounded by numeric floors: worsening past them fails, and clearing the divergence entirely fails as stale."
+ },
+ "candidate_backend": "pdfium",
+ "expected_divergence": {
+  "_note": "Documents where the two backends disagree about what CORRECT means and the candidate was verified to be the right one. Nothing goes in here without rendered evidence, because the harness measures agreement with the incumbent and would otherwise demand that a bug be reproduced.",
+  "c4_i18n.pdf": {
+   "reason": "RTL: PDFium reports glyphs in visual order and this backend reorders them to logical, which is what a DOCX must carry. PyMuPDF returns visual order, so its DOCX renders Arabic backwards.",
+   "verified": "rendered source and both outputs side by side; the PyMuPDF output reads the same words in reverse"
+  },
+  "c5_graphics.pdf": {
+   "metric_caveat": "live_text_cov scored PyMuPDF higher (0.71 vs 0.68) because invisible white text still counts as live. Text coverage cannot see contrast.",
+   "reason": "The page opens with a gradient band carrying white text. PyMuPDF does not report the gradient, so the band's text is emitted white on white and is invisible. PDFium reports the pattern flattened to grey, so the band survives and its text is legible.",
+   "verified": "rendered: PyMuPDF's output has no band, PDFium's has a grey one with the heading readable"
+  }
+ },
+ "margins": {
+  "_note": "How much worse the candidate may be on a dimension before the document counts as a regression. Compared in priority order -- page error, then live text, then page-level placement, then fine placement -- because that is the order in which a reader notices, and a flat 'any drop is a regression' rule once called c5_graphics worse for a 0.03 live-text dip while it gained a correct page count and 0.45 of placement.",
+  "live_text_cov": 0.05,
+  "page_err": 0,
+  "within2pt": 0.08,
+  "word_recall": 0.05
+ },
+ "reference_backend": "pymupdf",
+ "schema": 1
+}

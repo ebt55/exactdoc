@@ -77,7 +77,21 @@ BBox = Tuple[float, float, float, float]
 
 
 class Backend(Protocol):
-    """Structural interface. PyMuPDF is the only implementation today."""
+    """Structural interface. Two shipped implementations, plus registrations.
+
+    Selected once per conversion, by name, from `ConversionOptions.backend` --
+    not by an environment variable read at an arbitrary depth, and not by
+    assigning over a module global. `EXACTDOC_BACKEND` still works and is now the
+    lowest-priority source.
+
+    The seam stops at parsing and rendering, and that is the honest description
+    of where it stops being enough: the writer, the refiner and the verifier all
+    still reach for `fitz` directly, so a wheel installed without PyMuPDF fails
+    while importing `exactdoc.docxout`, before any of this gets a chance to
+    choose. Carrying the chosen backend through those three stages is the next
+    milestone (STATUS §3 item 2), and it is the real content of "the licence
+    flip", which was previously described as mechanical.
+    """
 
     name: str
 
@@ -143,20 +157,22 @@ class PDFiumBackend:
     paragraph assembly, and line boundaries decide which text a figure or table
     region absorbs. A cluster classified differently rasterises a page.
 
-    End-to-end that costs **7 regressions** on the parity gate (was 9 before the
-    serif-flag fix, and 15 before block convergence). testkit/exp_regroup.py
-    grafts PyMuPDF's block boundaries onto this backend's geometry and shows the
-    cost is bimodal: grouping is the entire cause on c6_long (0.23 -> 0.73) and
-    c8_toc_links (0.63 -> 1.00), and none of it on c7_code or
-    r1_reportlab_report, which do not move.
+    End-to-end that cost 15 regressions before block convergence, then 9 before
+    the serif-flag fix, then 7, and it is now **0** against the ratified policy in
+    testkit/parity_policy.json: 11 same, 1 better, 2 expected divergences where
+    this backend is the correct one, and 2 accepted shortfalls bounded by recorded
+    numeric floors. testkit/exp_regroup.py grafts PyMuPDF's block boundaries onto
+    this backend's geometry and showed the cost was bimodal: grouping was the
+    entire cause on c6_long (0.23 -> 0.73) and c8_toc_links (0.63 -> 1.00), and
+    none of it on c7_code or r1_reportlab_report, which did not move.
 
-    So the remaining work is reproducing PyMuPDF's grouping decisions closely
-    enough that the downstream tuning still applies -- testkit/golden_ir.py is
-    the specification -- plus a cause for the code-heavy documents that grouping
-    does not explain. Superscript is still hardcoded False.
+    `superscript` is still hardcoded False, and measurement says leave it that
+    way: testkit/backend_superscript.py shows the writer never sees this flag --
+    `dialect` and `infer` recover superscript from geometry, and all 16 corpus
+    documents agree at the layout level, including the one that has any.
 
-    This is the measured cost of relicensing. It is a re-tune, not a rewrite,
-    and it is bounded -- but it is not free, and it buys no fidelity.
+    This was the measured cost of relicensing. It was a re-tune, not a rewrite,
+    and it bought no fidelity -- it bought a licence.
     """
 
     name = "pdfium"
@@ -192,10 +208,65 @@ class PDFiumBackend:
         return buf.getvalue()
 
 
-def get_backend(name: str = "pymupdf") -> Backend:
-    if name in ("pymupdf", "fitz", "default"):
-        return PyMuPDFBackend()
-    if name in ("pdfium", "pypdfium2"):
-        return PDFiumBackend()
-    raise ValueError("unknown backend %r (choose 'pymupdf' or the experimental "
-                     "'pdfium'; see the module docstring)" % name)
+_IMPLEMENTATIONS = {"pymupdf": PyMuPDFBackend, "pdfium": PDFiumBackend}
+_EXPERIMENTAL = {}
+
+
+class FunctionBackend:
+    """A backend built from a `parse_pdf` callable, for experiments.
+
+    The instruments in `testkit/` need to convert the corpus through a parse
+    function that is neither shipped backend -- PDFium geometry with PyMuPDF's
+    block boundaries grafted on (`exp_regroup.py`), or PyMuPDF with the Chromium
+    bullet fix applied (`exp_chromefix.py`). They did it by assigning
+    `exactdoc.convert.parse_pdf`, which worked only because `convert` happened to
+    hold the parser as a module global. The moment the backend was selected
+    through the seam instead, that assignment became a no-op that set an
+    attribute nobody read -- and an experiment that silently measures the default
+    is worse than one that crashes, because it produces a number.
+
+    So the seam takes registrations. Rendering falls through to a real backend,
+    because an experiment on grouping has no opinion about rasterising a clip.
+    """
+
+    experimental = True
+
+    def __init__(self, name, parse, renderer=None, license=None):
+        self.name = name
+        self._parse = parse
+        self._renderer = renderer or PyMuPDFBackend()
+        self.license = license
+
+    def parse_pdf(self, path: str, keep_image_data: bool = True) -> DocIR:
+        return self._parse(path, keep_image_data=keep_image_data)
+
+    def render_clip(self, path, page_no, clip, dpi: int = 240):
+        return self._renderer.render_clip(path, page_no, clip, dpi=dpi)
+
+    def render_page(self, path, page_no, dpi: int = 110):
+        return self._renderer.render_page(path, page_no, dpi=dpi)
+
+
+def register_backend(name: str, parse, renderer=None) -> str:
+    """Make `parse` selectable as `backend=name`. Returns the name.
+
+    For instruments and experiments only. Nothing in the package registers
+    anything, and a registered name is never a default.
+    """
+    if name in _IMPLEMENTATIONS:
+        raise ValueError("%r is a shipped backend; pick another name" % name)
+    _EXPERIMENTAL[name] = FunctionBackend(name, parse, renderer=renderer)
+    return name
+
+
+def get_backend(name: str = None) -> Backend:
+    """Instantiate a backend by name. Aliases resolve in options.py.
+
+    Name resolution lives in one place on purpose: an unrecognised backend name
+    that quietly fell back to the default would report numbers for a parser
+    nobody selected.
+    """
+    from .options import DEFAULT_BACKEND, canonical_backend
+    if name in _EXPERIMENTAL:
+        return _EXPERIMENTAL[name]
+    return _IMPLEMENTATIONS[canonical_backend(name or DEFAULT_BACKEND)]()

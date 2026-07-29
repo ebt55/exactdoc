@@ -87,10 +87,18 @@ with open(corrupt, "wb") as f:
 cases["truncated"] = corrupt
 
 from exactdoc.convert import convert
+from exactdoc.options import RAW
+
+# Explicitly the zero-refine profile. What is under test here is whether parse
+# and write survive a hostile input, and running the closed loop over a truncated
+# PDF would add an oracle dependency and minutes per case to a check that is
+# supposed to be fast and offline. Naming the profile also means this file does
+# not silently change meaning when the product default changes -- which it just
+# did, from 0 rounds to 3.
 print("%-22s %s" % ("case", "result"))
 for name, path in cases.items():
     try:
-        o = convert(path, os.path.join(OUT, name + ".docx"))
+        o = convert(path, os.path.join(OUT, name + ".docx"), options=RAW)
         sz = os.path.getsize(o)
         import zipfile
         from lxml import etree

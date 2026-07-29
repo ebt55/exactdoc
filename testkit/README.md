@@ -29,15 +29,69 @@ instead of regressions. A gate that cannot run looks exactly like a gate that
 passes.
 
 ```bash
-python testkit/gen_corpus.py testkit/adv && python corpus/make_corpus.py
+python testkit/gen_corpus.py testkit/adv --strict && python corpus/make_corpus.py
 ```
 
 ```bash
-REFINE=lanes python testkit/runall.py testkit/adv corpus/pdfs
+python testkit/corpus_manifest.py verify && python testkit/runall.py
 ```
 
-`runall.py` exits non-zero when any document misses the gate, so it works as
+`runall.py` runs both lanes and exits non-zero if either fails, so it works as
 the CI check.
+
+## The gate, and what it refuses to let through
+
+`runall.py` produces numbers; **`gate.py` decides**, and it is a pure function
+over already-measured results so that `tests/test_gate_mutations.py` can break
+one thing at a time and assert the verdict turns red — no corpus, no oracle, no
+minute. That separation exists because the previous gate lived inside the runner
+and could not be tested, and an untested gate is a claim. These are the claims it
+was making falsely, each now a test:
+
+| False green | Why it happened |
+|---|---|
+| the renderer failed on every document | `harness.evaluate()` returns `{"error": ...}` and nothing looked for the key |
+| a required metric vanished | absent metrics were skipped (`if v is None: continue`), so losing `within2pt` removed the check instead of failing it |
+| a known shortfall slid arbitrarily far | the baseline stored the *names* of failing metrics; `04_exec_brief`'s 0.941 live text could have fallen to 0.10 |
+| a page count went from 1 over to 40 over | `page_match` is a boolean and cannot record magnitude; `page_err` is now derived and gated |
+| 8 of 16 corpus documents did not exist | nothing compared the run to a manifest; the generator exits 0 after skipping |
+| two documents shared a basename | the second silently overwrote the first's DOCX *and* its result row |
+| the raw lane regressed | `REFINE=lanes` returned only the refined lane's status |
+| the parity policy contradicted itself | the code exited on `regressions == 0` while the docs said two documents were accepted divergences, so CI marked the step `continue-on-error` |
+
+Three separate questions, because they have different answers:
+
+- **regression** — anything worse than the recorded number beyond tolerance, on
+  every document and every metric, passing or not. The pull-request gate.
+- **absolute** (`--absolute`) — every document clears its release threshold. The
+  release-qualification gate. It fails today, by design and on the record.
+- **stale** — a recorded shortfall that now passes. The record is then wrong, and
+  a wrong record re-admits the regression it exists to catch.
+
+Tolerances are sized from measurement, not taste: three environments (CI Linux, a
+local `ubuntu:24.04` container, Windows) agree on every structural number and
+differ in the third decimal of `within2pt`, so the tolerances sit an order of
+magnitude above that noise and an order of magnitude below any regression this
+project has actually shipped.
+
+### Files the gate reads
+
+| File | What it pins |
+|---|---|
+| `corpus_manifest.json` | the exact 16 documents, their generator, dialect and source page count. Not a content hash — both generators embed timestamps, so the bytes differ every run and a hash would fail every run |
+| `gate_baseline.json` | every gated metric of every document, per lane, numerically, plus the environment it was measured on and the defect ID each shortfall answers to |
+| `parity_policy.json` | the backend-swap acceptance rule: comparison margins, the two expected divergences with their rendered evidence, and the two accepted shortfalls with numeric floors |
+
+Re-record deliberately, on the canonical environment, and say so in the commit
+message:
+
+```bash
+GATE_BASELINE=update python testkit/runall.py     # after a ratified change
+```
+
+```bash
+python testkit/corpus_manifest.py update          # after a generator change
+```
 
 ### External tools
 
@@ -47,13 +101,22 @@ the CI check.
 | Chrome/Chromium/Edge | generating the 8 Chromium/Skia corpus documents | `CHROME=/path/to/chrome` |
 | Liberation + DejaVu fonts | what the LibreOffice oracle renders with | — |
 
-Both are auto-discovered (`_paths.py`); the environment variables win when set.
-A missing tool makes `gen_corpus.py` skip the documents it produces and say so,
-exiting 0 — but the resulting corpus is smaller than the one the recorded
-baselines were measured on, so its numbers are not comparable to them. A tool
-that is *present and failing* exits 1 instead. Ubuntu's `chromium-browser`
-package is the case that motivates the distinction: it is a snap shim that
-installs, sits on `PATH`, and fails on every invocation inside a container.
+Discovery order is: an exported variable, then whatever `scripts/bootstrap.sh`
+recorded in `scripts/env.sh`, then the search path. `_paths.py` reads `env.sh`
+itself, because nobody sources it — every CI step is its own shell, and so is
+every command anyone pastes. Measured in a bare `ubuntu:24.04` container:
+bootstrap reported `chromium OK <playwright shell>` and the very next command
+reported `chromium=MISSING` and generated 3 of 16 documents. CI escaped it only
+because the GitHub runner image ships `/usr/bin/google-chrome`, which is
+provisioning by accident.
+
+A missing tool makes `gen_corpus.py` skip the documents it produces and say so.
+Without `--strict` it exits 0, which is right for a contributor on a thin machine
+and wrong for the environment of record — so **CI passes `--strict`**, and a skip
+is a failure there. A tool that is *present and failing* exits 1 either way.
+Ubuntu's `chromium-browser` package is the case that motivates that second
+distinction: a snap shim that installs, sits on `PATH`, and fails on every
+invocation inside a container.
 
 ## Metrics
 
@@ -87,7 +150,11 @@ distinguish a document from a photograph of a document.
 | File | Purpose |
 |---|---|
 | `harness.py` | the metrics; importable, or `python harness.py src.pdf out.docx workdir` |
-| `runall.py` | batch convert + score + CI gate |
+| `runall.py` | convert + score both lanes; produces the numbers, applies no policy of its own |
+| `gate.py` | **the decision.** Pure over already-measured results, so it can be mutation-tested without a corpus |
+| `corpus_manifest.py` | `verify` / `update` the exact 16-document manifest |
+| `evidence.py` | the one artifact every published number traces to: commit, dependency and oracle versions, profile, corpus, both lanes, parity |
+| `backend_superscript.py` | does PDFium's hardcoded `superscript=False` reach a DOCX? Measured: no |
 | `gen_corpus.py` | adversarial corpus across 4 producer dialects (Chromium/Skia, ReportLab, fpdf2, LibreOffice) |
 | `probe.py` | dump a PDF's producer, fonts, drawings and what `infer()` decided |
 | `wrapdiag.py` | compare source vs rendered wrap geometry; find the first diverging line per page |
@@ -105,7 +172,7 @@ need no oracle, so they run in seconds.
 
 | File | Answers |
 |---|---|
-| `backend_parity.py` | **the swap's verdict.** Converts the corpus on both backends and marks each document REGRESSION / same / BETTER. `--only <doc>` for one document; `--refine N` for the lane |
+| `backend_parity.py` | **the swap's verdict**, against `parity_policy.json`. Marks each document REGRESSION / same / BETTER / expected-div / accepted. `--only <doc>` for one document; `--update-policy` to re-record the accepted floors |
 | `backend_geom.py` | is the *geometry* the same? (baselines, leadings, sizes, fonts) |
 | `backend_spans.py` | is the *line content* the same? span boundaries, text, injected space runs, mono flags, style keys |
 | `backend_paths.py` | which coordinate space are path points in? Answer: object space — 578 of 612 corpus paths carry a non-identity matrix, and untransformed points miss by up to 5438pt |
