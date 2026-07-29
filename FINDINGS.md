@@ -1,5 +1,14 @@
 # exactdoc v1.1 — independent test report
 
+> **This is a frozen audit of v1.1 as it was found, not a description of the
+> tool today.** It is kept because the defects it names are the reason for most
+> of the architecture that followed, and because §6 is the plan that was then
+> executed. Nearly every root cause in §2 has since been fixed, and the numbers
+> in §1 are historical. Two claims here were later falsified by measurement and
+> are marked inline.
+>
+> For current state: **[STATUS.md](STATUS.md)**. For the design: **[THEORY.md](THEORY.md)**.
+
 18 documents, 4 producer engines, measured with `testkit/` (shares no code with
 the converter). Every number below is reproducible via
 `python testkit/runall.py testkit/adv my_samples exactdoc_v1.1/corpus/pdfs`.
@@ -228,8 +237,17 @@ Two honest caveats, neither of which is about Python:
   language. §2.4 shows you can get most of the way with pure arithmetic and no
   shaping at all.
 - **PyMuPDF is AGPL-3.0**, which forces the repo to AGPL unless the parser moves
-  to pypdfium2 + pdfplumber. That is a licensing constraint, correctly
-  identified in THEORY §10 — not a technical one.
+  to pypdfium2 + pdfplumber. ~~That is a licensing constraint, correctly
+  identified in THEORY §10 — not a technical one.~~
+
+  > **Falsified.** The backend was built. pypdfium2 extracts *exactly* —
+  > baselines identical on 4,734 of 4,734 lines, paths 1.00×, text
+  > character-identical — and still costs 7 placement regressions, because it
+  > groups glyphs into lines and blocks differently and inference reads
+  > grouping, not glyphs. pdfminer.six is worse still: 16% of characters and
+  > 96% of vector paths lost on arXiv papers. The constraint is technical as
+  > well as legal, and it is the single item still blocking Apache-2.0.
+  > See STATUS.md D2.
 
 The one language-adjacent thing worth changing is python-docx: most of
 `docxout.py` is already raw lxml, so the dependency buys little.

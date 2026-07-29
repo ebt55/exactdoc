@@ -105,29 +105,37 @@ class PyMuPDFBackend:
 
 
 class PDFiumBackend:
-    """Permissive backend, EXPERIMENTAL -- not usable for conversion yet.
+    """Permissive backend, EXPERIMENTAL -- selectable, but not the default.
 
-    Apache-2.0/BSD-3, via pypdfium2. Reaching parity at the IR level was the
-    easy part; the numbers below are why it is not the default.
+    Apache-2.0/BSD-3, via pypdfium2. Requires the `pdfium` extra. Extraction
+    reached parity long ago; placement has not, and that is the whole story.
 
-    Parity achieved (vs PyMuPDF, corpus of 7 stable documents):
+    Extraction, vs PyMuPDF (testkit/backend_geom.py, 8 documents, 4734
+    matched lines):
+        baselines           identical on 4734 of 4734
+        leadings            identical on 99-100% of pairs
+        font size           within 0.005pt (the OOXML quantum is 0.5pt)
+        font names          identical on all 494 sampled lines
         vector paths        1.00x on every document, exactly
         text content        character-identical once whitespace is stripped
-        visual lines        0.96 - 1.00x
-        blocks              0.70 - 1.62x   <-- the gap that matters
+        block grouping      35% agreement            <-- the gap that matters
 
-    End-to-end, converting with this backend: **1 of 16 documents** keeps its
-    page count and 95% live text. c3_tables drops to 1.1% live text, c7_code to
-    0%, c6_long renders 7 source pages as 20. Nothing is wrong with the
-    extraction -- the same glyphs and the same paths come out. What differs is
-    the *grouping*, and inference reads grouping: block boundaries decide
+    Every quantity that reaches the writer's vertical model is exact. What
+    differs is *grouping*, and inference reads grouping: block boundaries decide
     paragraph assembly, and line boundaries decide which text a figure or table
     region absorbs. A cluster classified differently rasterises a page.
 
-    So the remaining work is not extraction, it is reproducing PyMuPDF's
-    grouping decisions closely enough that the tuning still applies -- plus the
-    span flags this backend does not yet derive (superscript is hardcoded
-    False). testkit/golden_ir.py is the target to converge on.
+    End-to-end that costs **7 regressions** on the parity gate (was 9 before the
+    serif-flag fix, and 15 before block convergence). testkit/exp_regroup.py
+    grafts PyMuPDF's block boundaries onto this backend's geometry and shows the
+    cost is bimodal: grouping is the entire cause on c6_long (0.23 -> 0.73) and
+    c8_toc_links (0.63 -> 1.00), and none of it on c7_code or
+    r1_reportlab_report, which do not move.
+
+    So the remaining work is reproducing PyMuPDF's grouping decisions closely
+    enough that the downstream tuning still applies -- testkit/golden_ir.py is
+    the specification -- plus a cause for the code-heavy documents that grouping
+    does not explain. Superscript is still hardcoded False.
 
     This is the measured cost of relicensing. It is a re-tune, not a rewrite,
     and it is bounded -- but it is not free, and it buys no fidelity.

@@ -3,6 +3,14 @@
 How to convert a PDF to a DOCX that opens in Google Docs looking like the
 original — what worked, what didn't, and where the ceiling is.
 
+> **Scope.** This is the *design* document: the model, the reasoning, the dead
+> ends. For where the converter currently stands — measured fidelity, the
+> defect register, what is pending — see **[STATUS.md](STATUS.md)**, which is
+> the authority on numbers. Several claims below were later falsified by
+> measurement; each is marked inline rather than deleted, because the wrong
+> turn is part of the record. **[FINDINGS.md](FINDINGS.md)** is a frozen
+> point-in-time audit of v1.1 and is not maintained.
+
 Everything here was established empirically with a **render-back verification
 loop**: convert the DOCX back to PDF (LibreOffice headless), image-diff every
 page against the source (SSIM + mean absolute difference), and measure
@@ -39,9 +47,21 @@ headers/footers with fields, tab stops, hyperlinks. Nothing else.
 ## 2. Architecture
 
 ```
-PDF ──parse──▶ IR ──infer──▶ Layout model ──write──▶ DOCX ──verify──▶ diff report
-      PyMuPDF        heuristics          python-docx + raw OOXML     LibreOffice + SSIM
+PDF ─parse─▶ IR ─normalise─▶ IR ─infer─▶ Layout ─write─▶ DOCX ─refine─▶ DOCX
+     PyMuPDF     dialect.py      heuristics    OOXML      render, measure,
+     pypdfium2                              subset       correct, rewrite
 ```
+
+Two stages were added after the original design and are load-bearing:
+
+- **Normalise** (`dialect.py`) sits between parse and infer, and exists because
+  producer differences were being absorbed as thresholds scattered through
+  `infer.py`. It rewrites the IR into one shape — dropping page backdrops,
+  turning glyph-drawn bullets into text markers, splitting rotated stamps out
+  of flow, coalescing row fragments, joining ruled bands. Keyed on *page
+  evidence*, never on the `/Producer` metadata string. See §7.
+- **Refine** (`refine.py`) closes the loop: the converter renders its own
+  output, measures the drift, and rewrites. See §4.
 
 1. **Parse** (`parse.py`) — every text span (font, size, bold/italic/mono,
    color, bbox, *baseline origin*), every vector path (classified:
@@ -170,6 +190,26 @@ SSIM interpretation: 0.9+ means near-identical; cover pages sit lower
 rasterization differences — visually they read as the same page. Page-count
 match + coverage + drift table matter more than the absolute SSIM number.
 
+Two later corrections to this method, both of which mattered more than any
+single fix:
+
+**The loop is now closed, not just observed.** Steps 1–5 above *report*. A
+render-back that only reports leaves the converter guessing. `refine.py` feeds
+the measurement back: convert → render → fit per-page drift → re-emit with
+corrected `space_before`. This was justified before it was built — decomposing
+word drift into a per-page affine trend plus a residual showed **77% of the
+vertical error was systematic**, i.e. whole pages sitting a few points off
+rather than paragraphs mis-sized internally. Mean |dy| went 4.01pt → 0.93pt.
+A closed loop can only remove the systematic part, so measuring that share
+first is what made it worth building.
+
+**The verifier must not be the converter.** `verify.py` called `infer()` to
+decide what counted as text, then excluded from the *source* side anything the
+converter had chosen to rasterise. A fully-rasterised page therefore scored
+`text_coverage 0.0 / 0.0` — the document deleted itself from its own
+denominator, and the tool reported success. Everything in `testkit/` shares no
+code with the converter for this reason. See STATUS.md §4.5.
+
 ## 5. What worked (ranked by measured impact)
 
 | Fix | Effect |
@@ -208,22 +248,63 @@ match + coverage + drift table matter more than the absolute SSIM number.
   half-point level; thresholds must encode the union of dialects.
 - **Trusting python-docx section semantics** — `add_section`'s sectPr
   shuffling had to be pinned down empirically and re-applied defensively.
+- **Tuning a threshold that cannot exist** — the last table/paragraph gap
+  discriminator oscillated at 3, 3, 4 regressions across a day of tuning.
+  Plotting the two gap distributions ended it: both had median 4.7em and
+  overlapped almost completely. No threshold on that axis could separate them,
+  so the decision was moved to where the evidence actually is — the ruling
+  lines. **Before tuning a parameter, check the distributions it separates.**
+- **Two compensators that worked and were switched off** — the quality ladder
+  (line-locking) and the half-point wrap correction. Each fixes something real
+  and measurable; neither improved page counts, and the wrap correction *costs*
+  a page unless the page-capacity model knows the predicted line count before
+  the first write. Both are gated off. Shipping a measured regression is worse
+  than shipping nothing.
+- **Guessing at the pdfium placement gap** — "most likely baseline or line-box
+  geometry" was written into the defect register and survived a full revision
+  of it. Direct measurement found baselines identical on 4,734 of 4,734 lines;
+  the cause was block grouping plus a serif-flag bug. Same lesson as the
+  hyphenation dead end above, relearned.
 
 ## 7. Producer dialects (why "PDF" is not one format)
 
-| Behavior | ReportLab (Claude default) | WeasyPrint (HTML→PDF) |
-|---|---|---|
-| List markers | same text block, gap ≥ 4pt | separate blocks, flush (gap 0), several markers per block |
-| Decorative rules | thin stroked/filled rects | even-odd frame paths (bbox swallows content) |
-| Duplicate paths | no | yes (borders emitted twice) |
-| Paragraph blocks | one block per flowable | blocks merge items when spacing ≈ leading |
-| Fonts | core-14 (Helvetica/Times/Courier) | Liberation/DejaVu subsets |
-| Justify artifacts | none | stretched gaps extract as doubled spaces |
+| Behavior | ReportLab (Claude default) | WeasyPrint (HTML→PDF) | Chromium / Skia (print-to-PDF) | pdfTeX / LaTeX |
+|---|---|---|---|---|
+| List markers | same text block, gap ≥ 4pt | separate blocks, flush (gap 0), several markers per block | 3×3pt bezier circles — *drawings*, not text | text, tight |
+| Decorative rules | thin stroked/filled rects | even-odd frame paths (bbox swallows content) | rects, plus a page-sized white backdrop | rules as filled rects |
+| Duplicate paths | no | yes (borders emitted twice) | no | no |
+| Paragraph blocks | one block per flowable | blocks merge items when spacing ≈ leading | one per CSS box | per TeX paragraph |
+| Fonts | core-14 (Helvetica/Times/Courier) | Liberation/DejaVu subsets | system fonts, often no descriptor | Computer Modern subsets |
+| Text matrix | identity | identity | **0.75** (CSS px → pt) | identity |
+| Justify artifacts | none | stretched gaps extract as doubled spaces | none | ligatures, tight kerning |
 
 A converter tuned on one dialect *will* break on the other — this is exactly
 what the first run on a real WeasyPrint paper demonstrated (12 pages from 10,
 SSIM 0.49), and why the verification loop, not the corpus score, is the
 product.
+
+Chromium proved the point far more violently, and it is the dialect that
+matters most: it is what *anything printed from a browser* produces, including
+HTML artifacts exported to PDF. Three of its quirks compounded into total
+failure. The invisible page-sized white backdrop touched every other drawing,
+so cluster-unioning collapsed the whole page into one region; a single bullet
+rendered as a bezier made that region a "figure"; and the figure grew without
+bound because its absorption threshold was derived from the box being grown
+(measured: a 490×2pt seed of two hairlines reached 494×153pt, **103× in area**).
+A browser-printed résumé came out as two full-page JPEGs — visually plausible,
+and not a document. Live text: 0.0%.
+
+The fourth column also carries the one dialect quirk that is pure arithmetic:
+Chromium lays out in CSS pixels and applies a 0.75 text matrix, so
+`FPDFText_GetFontSize`, which reports the size *before* the matrix, was 4/3 too
+large. That inflated leading, then paragraph heights, then page counts — seven
+source pages rendered as twenty. The effective size is the reported size times
+the matrix's vertical scale.
+
+The lesson that shaped `dialect.py`: normalise on **page evidence**, never on
+the `/Producer` string. Metadata is absent, wrong, or rewritten by every tool
+in the chain, and a converter that dispatches on it fails silently on the
+document that was edited after export.
 
 ## 8. Is this the ceiling? What's left
 
@@ -234,6 +315,26 @@ the text editable*. Mitigations already in place (metric-compatible fonts,
 wrap-width pinning via indents, exact leading) get most paragraphs identical;
 they cannot get all of them. Pixel-perfect + fully editable is a
 contradiction at the engine boundary.
+
+> **Corrected.** The *contradiction* stands; the claim that observed re-wrap
+> was mostly it does not. Most of the re-wrap measured here was a compensable
+> unit error: OOXML stores font size in half-points, so 10.1pt body text is
+> emitted at 10.0pt, glyphs run ~1% narrow, ~1% more text fits per line, and
+> nearly every justified paragraph breaks differently. Sweeping the wrap width
+> against line-break agreement moved it 0.599 → 0.796, with the optimum
+> narrowing at 0.8–1.0% — matching 10.0/10.1 = 0.990 exactly. Line breaking is
+> scale-invariant, so that is a principled correction, not a fudge. The engine
+> boundary is the *last* 20% of re-wrap, not the first. (The correction is
+> written and measured but gated off; see §6.)
+
+**A second law, found later and worth stating separately.** Google Docs and
+LibreOffice do not agree on `w:spacing lineRule="exact"`. Docs treats the
+value as a *minimum* against the font's natural line height rather than an
+exact box, so every paragraph set tighter than its natural height grew. The
+fix is a per-font table of natural-height factors applied when targeting Docs
+— a static translation, no loop required, and worth roughly a factor of ten on
+the affected documents. This is the clearest evidence that a LibreOffice-only
+verification loop measures the wrong renderer.
 
 **Engineering headroom (real, unbuilt):**
 
@@ -255,9 +356,26 @@ contradiction at the engine boundary.
    redesign: the architecture (IR → semantic inference → safe vocabulary +
    verification loop) has absorbed two dialects without structural change.
 
-**Honest scorecard today:** structure/text ≈ 99.6–100% recovered; pagination
-1:1; visual similarity 0.7–0.94 by SSIM with the residual dominated by
-antialiasing and ±1-line re-wraps, not by layout errors.
+**Honest scorecard** — *superseded; see [STATUS.md](STATUS.md) §1 for the
+current figures.* What this section used to claim, and why it was wrong, is
+worth keeping:
+
+> structure/text ≈ 99.6–100% recovered; pagination 1:1; visual similarity
+> 0.7–0.94 by SSIM…
+
+Three things were wrong with that. **Pagination was not 1:1** — it is 15/16 on
+the corpus and fails on every LaTeX document, which inflate 25–90%. **SSIM was
+the wrong headline**: a fully-rasterised résumé scored 0.594, inside the band
+quoted here as success and *higher* than a document that kept 100% of its text
+(0.365). SSIM cannot tell a document from a photograph of one, and no metric
+here measured editability at all. And the corpus behind those numbers was one
+self-authored dialect, so it measured tuning, not generalisation — the current
+holdout figure on wild PDFs is **0/4**.
+
+Corpus scores are reported in two lanes (refine on and off) for the same
+reason: `refine()` tunes against the same renderer the gate measures with, so a
+refined-only number can improve because the loop memorised the oracle. Only the
+pair means anything.
 
 ## 9. Is Python the limitation?
 
@@ -277,8 +395,16 @@ No — and it's worth being precise about why:
 - Real Python-adjacent constraints, for honesty: python-docx's API is thin
   (much of the writer is raw lxml/OOXML — fine, just verbose), single-file
   conversion is ~1–3s (irrelevant at this scale), and **PyMuPDF's AGPL
-  license** constrains distribution (see §10) — a licensing limit, not a
-  technical one.
+  license** constrains distribution (see §10) — ~~a licensing limit, not a
+  technical one~~.
+
+  > **Falsified.** Calling the licence "not a technical" limit was the most
+  > expensive wrong sentence in this document, because it made the swap look
+  > like paperwork. A permissive backend was written against pypdfium2 and the
+  > parity harness reported zero regressions, so the default was flipped,
+  > `parse.py` deleted and the project relicensed to Apache-2.0 — before anyone
+  > noticed the harness did not measure fine placement. It had cost within-2pt
+  > 0.510 → 0.291. All of it was reverted. See §10 and STATUS.md D2.
 
 ## 10. Should this be published?
 
@@ -290,9 +416,34 @@ is a contribution; no popular converter ships one.
 Do these first:
 
 1. **Licensing (the important one).** PyMuPDF is **AGPL-3.0**: the repo must
-   be AGPL too, unless the parser is swapped to a permissive stack
-   (pypdfium2 — Apache/BSD, plus pdfplumber for text) to allow MIT/Apache.
-   AGPL is fine for an open tool; it mainly deters closed commercial reuse.
+   be AGPL too, unless the parser is swapped to a permissive stack. AGPL is
+   fine for an open tool; it mainly deters closed commercial reuse.
+
+   The swap turned out to be the hardest single item in this list, and the
+   reasoning above understates it in two ways.
+
+   **pdfminer.six is not a candidate.** Measured over 20 documents, it loses up
+   to 16% of characters on LaTeX and sees **4% of the vector paths** on arXiv
+   papers — materially worse on the dialect that is already weakest.
+
+   **pypdfium2 extracts perfectly and groups differently, and grouping is what
+   inference reads.** It offers no line or block clustering at all, so that had
+   to be written. Extraction reached parity — baselines identical on 4,734 of
+   4,734 lines, paths 1.00× exactly, text character-identical — and the port
+   still costs 7 placement regressions, because block boundaries decide
+   paragraph assembly and line boundaries decide what a figure region absorbs.
+
+   Writing the clustering ourselves is what makes this tractable rather than
+   endless: we *control* the grouping, so the existing tuning stops being a
+   liability and becomes the specification. The port is correct when it
+   reproduces the frozen golden IR (`testkit/golden_ir.py`). A verifiable port,
+   not a rewrite.
+
+   Two consequences worth stating plainly. The swap **buys no fidelity** — it
+   is pure licence work, and it must be held to not-worse, not to better. And
+   until it lands, **do not accept external contributions to `parse.py`**:
+   relicensing needs every contributor's consent, and the swap is confined to
+   that one module, so contributions anywhere else cost nothing.
 2. Package properly: `pyproject.toml`, console entry point, pinned deps,
    `pip install exactdoc`.
 3. CI: run the corpus + a WeasyPrint sample through the verification loop and

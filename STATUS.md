@@ -81,27 +81,83 @@ python testkit/elemheight.py testkit/real/arxiv_transformer.pdf
 
 ### D2 — pdfium backend: fine-placement gap · **severity: high (blocks relicensing)**
 
-The permissive parser is at parity on extraction and **9 regressions** on
-placement.
+**This is the only thing keeping exactdoc off Apache-2.0.** The licence is
+inherited, not chosen: PyMuPDF is AGPL-3.0, so exactdoc is. A permissive parser
+(pypdfium2, Apache-2.0) exists in `exactdoc/parse_pdfium.py` and is selectable,
+but it places text worse, so it is not the default.
+
+The gap is **7 regressions**, down from 9. Words land on the right *pages*
+(`word_recall` 0.96–1.00); they land a couple of points off within them.
 
 | | within-2pt | median dy |
 |---|---|---|
 | PyMuPDF (default) | **0.510** | 0.69pt |
 | PyMuPDF + pdfium clip rendering | 0.476 | 1.31pt |
-| pdfium parser | **0.291** | 2.02pt |
+| pdfium parser | 0.291 | 2.02pt |
 
-Worst documents: `c8_toc_links` 0.99 → 0.40, `c7_code` 0.89 → 0.34, `c6_long`
-0.78 → 0.23, `f1_fpdf_brief` 0.60 → 0.00.
+#### What it is not
 
-Words land on the right *pages* (`word_recall` 0.96–1.00), so this is a
-sub-2pt offset error — most likely baseline or line-box geometry feeding
-`space_before`. Ruled out: the loose-vs-ink line box (using the metric box
-alone changed nothing measurable).
+Only three quantities reach the writer's vertical model:
 
-**This is what blocks Apache-2.0.** exactdoc is AGPL only because PyMuPDF is.
+```
+para_top    = first_baseline − (leading − 0.21 × size)
+para_height = n_lines × leading
+```
+
+All three were measured across 8 documents and 4,734 matched lines
+(`backend_geom.py`): **baselines identical on 4,734 of 4,734**, leadings on
+99–100% of pairs, sizes to 0.005pt — an order of magnitude inside the 0.5pt
+OOXML quantum. The extraction is exact.
+
+An earlier draft of this file named "baseline or line-box geometry" as the
+likely cause. That was a guess, and the measurement above falsifies it. Also
+ruled out by measurement: the loose-vs-ink line box, and font naming (raw names
+agree on all 494 sampled lines).
+
+#### What it is
+
+The parsers disagree about **grouping**, not geometry: only 35% of lines land
+in a block of the same length.
+
+`exp_regroup.py` isolates that by running a third lane — pdfium geometry with
+PyMuPDF's block boundaries grafted on. The answer is bimodal. Grouping is the
+entire cause on some documents and none of it on others:
+
+| Document | PyMuPDF | pdfium | + PyMuPDF grouping |
+|---|---|---|---|
+| `c6_long` | 0.68 | 0.23 | **0.73** |
+| `c8_toc_links` | 0.99 | 0.63 | **1.00** |
+| `02_research_paper` | 0.67 | 0.57 | **0.67** |
+| `c7_code` | 0.56 | 0.28 | 0.28 — unmoved |
+| `r1_reportlab_report` | 0.32 | 0.21 | 0.21 — unmoved |
+
+So grouping is about half the gap. The other half was a **serif-flag bug**,
+since fixed: `_FLAG_SERIF` is read from the FontDescriptor, which the standard
+14 fonts may legally omit, and a missing descriptor is indistinguishable from
+one with every flag cleared — both arrive as `flags = 0`. Times-Roman,
+Times-Bold and Times-Italic were called sans on every core-14 document. Adding
+the name fallback that bold/italic/mono already had took style-flag
+disagreement from 71 lines to 1 and the gate from 9 regressions to 7, moving
+exactly the two documents predicted: `f1_fpdf_brief` 0.00 → 0.60 against
+PyMuPDF's 0.62, `r1_reportlab_report` 0.21 → 0.55 against 0.60.
+
+The one remaining flag disagreement is Calibri, where PyMuPDF reports serif for
+a humanist sans. Matching it would mean reproducing a bug.
+
+#### What is left
+
+Converge `_build_blocks` on PyMuPDF's grouping — `testkit/golden_ir.py` is the
+specification. On the evidence above that should clear roughly three more
+documents. `c7_code` and `03_tech_report_code` are explained by neither
+geometry, grouping nor fonts, and still need a cause; both are code-heavy, so
+intra-line span segmentation is the next place to look.
 
 ```bash
 python testkit/backend_parity.py --refine 3
+```
+
+```bash
+python testkit/backend_geom.py --all && python testkit/exp_regroup.py
 ```
 
 ### D3 — Nested tables flatten · **severity: medium**
@@ -166,7 +222,7 @@ smell, not a correctness bug.
 
 | # | Item | Blocks | Notes |
 |---|---|---|---|
-| 1 | **D2 fine-placement gap** | Apache-2.0 relicensing | Narrow: sub-2pt offsets, right pages. `backend_parity.py` will catch a regression now |
+| 1 | **D2 fine-placement gap** | Apache-2.0 relicensing | Now attributed, not guessed: converge `_build_blocks` against the golden IR (≈3 documents), then find what ails the code-heavy pair |
 | 2 | **D1 LaTeX pagination** | core use case | Needs writer-side instrumentation (§5), not another hypothesis |
 | 3 | **Un-gate the wrap correction** | fidelity | Written and measured (+20pt line agreement); needs predicted `n_lines` in the page-capacity model *before* the first write, or it costs a page |
 | 4 | D4, D5, D6 | — | Bounded, independent |
@@ -283,6 +339,8 @@ pattern is more useful than the individual fixes.
 | Element-gap attribution | Impossible values (130pt between adjacent paragraphs at `sb=0`); aggregate flipped sign between documents | Line-text matching cannot attribute vertical space once content reflows |
 | `spaninflate` on repeated running heads | 46,000pt of "inflation" on one page | Disclosed in the tool rather than silently trusted |
 | Probes matched non-unique strings | Measured body-text "ByteNet", not the table | Match on text that is unique on both sides |
+| Wrote a hypothesis into D2 as if it were a finding | "Most likely baseline or line-box geometry" survived a full revision of this file; the first direct measurement showed baselines identical on 4,734 of 4,734 lines | A plausible cause in a defect register is read as a known one. Mark it as a guess or measure it |
+| Imported `pypdfium2` without declaring it | `uv sync` evicted it; the parity gate began reporting `ModuleNotFoundError` | A gate that cannot run looks exactly like a gate that passes |
 
 Two compensators were built, measured, and **left switched off** because they
 did not pay: the quality ladder (line-locking) and the half-point wrap
