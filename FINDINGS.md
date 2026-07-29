@@ -7,6 +7,12 @@
 > in §1 are historical. Two claims here were later falsified by measurement and
 > are marked inline.
 >
+> "v1.1" is a pre-release internal label from before this repository had
+> versioned releases. It corresponds to no tag and no published artifact; the
+> version line starts at `0.1.0a1` (see the README's Versions table). The
+> 18-document corpus measured here is also not the current one — today's gate
+> corpus is 16 generated documents.
+>
 > For current state: **[STATUS.md](STATUS.md)**. For the design: **[THEORY.md](THEORY.md)**.
 
 18 documents, 4 producer engines, measured with `testkit/` (shares no code with

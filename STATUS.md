@@ -196,6 +196,11 @@ On the *same* DOCX, with the `--target gdocs` static fix applied:
 | mean within-2pt | 0.404 | ~0.20 |
 | page match | 17/18 | 11/16 |
 
+The LibreOffice column is from the 18-document corpus of the time and the Docs
+column from the current 16; the two are not directly comparable and the
+comparison has not been rerun on one corpus. The *direction* is the finding —
+Docs is the harder target — not the ratio.
+
 Docs has no "exact" line spacing, so its importer mistranslates
 `lineRule="exact"` — error scaling with font size (+45pt at 18pt type, +84pt at
 22pt). `--target gdocs` emits multiples instead, which recovers most of it
@@ -212,6 +217,9 @@ error. All other degenerate inputs (empty, image-only, landscape, rotated,
 tiny, dense microtype) convert without crashing.
 
 ### D9 — `w:shd` emitted 17,112 times across 18 documents · **severity: low**
+
+*(Counted on the 18-document corpus of the time; not recounted on the current
+16. The order of magnitude is the point.)*
 
 Shading applied very aggressively per-run/per-cell. File-size and complexity
 smell, not a correctness bug.

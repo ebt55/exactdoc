@@ -2,6 +2,10 @@
 
 **PDF → DOCX that keeps the design, survives Google Docs, and measures whether it worked.**
 
+> **Status: alpha (0.1.0a1). Nothing has been released yet.** It works well on the
+> documents it was developed against and it fails on pagination for PDFs it has
+> never seen. Both numbers are below, in the same table, on purpose.
+
 Most PDF-to-Word converters either redesign your page (Word's reflow), turn every
 line into a floating frame that Google Docs then mangles (LibreOffice import), or
 throw the design away entirely and emit Markdown (Docling, Marker, MinerU).
@@ -13,24 +17,37 @@ columns and rules as real editable Word constructs, restricted to the subset
 Google Docs imports faithfully — no text boxes, no VML, no embedded fonts.
 
 Then it checks its own work. Every claim below is a number produced by
-[`testkit/`](testkit/README.md), which shares no code with the converter:
+[`testkit/`](testkit/README.md), which shares no code with the converter.
+[STATUS.md](STATUS.md) is the authority on all of them:
 
-| | |
-|---|---|
-| gate passed | 15/18 documents |
-| page count 1:1 | 17/18 |
-| live (editable) text recovered | 96.9% |
-| words within 2pt of source | 40.4% |
-| median per-word vertical drift | 1.02pt |
+| | 16-document corpus | 4 wild PDFs (holdout) |
+|---|---|---|
+| gate passed | 13/16 | **0/4** |
+| page count 1:1 | 15/16 | fails |
+| live (editable) text recovered | 96.5% | 94–97% |
+| words within 2pt of source | 51.0% | — |
+| median per-word vertical drift | 0.69pt | — |
+
+The corpus has been developed against; the [holdout](testkit/fetch_holdout.py)
+never has. The gap between those two columns is the honest measure of how far
+along this is: **the text survives, the pagination does not.** Everything in the
+corpus column is the `--refine` lane, the shipped default; the uncontaminated
+no-refine lane is in [STATUS.md §1](STATUS.md#1-where-the-converter-stands) and
+both are always reported, because the refine loop tunes against the same renderer
+the gate measures with.
 
 ## Install
+
+Not on PyPI yet — the first published release will be the Apache-2.0 one (see
+[Versions](#versions)). Until then:
 
 ```bash
 pip install git+https://github.com/ebt55/exactdoc.git
 ```
 
-Optional extras: `[test]` for the measurement harness, `[gdocs]` for the Google
-Docs oracle. Neither is needed for a plain conversion.
+Optional extras: `[test]` for the measurement harness, `[pdfium]` for the
+experimental permissive parser, `[gdocs]` for the Google Docs oracle. None is
+needed for a plain conversion.
 
 `--verify` and `--refine` additionally need LibreOffice on PATH; without it,
 conversion still works and simply skips the feedback loop.
@@ -63,18 +80,8 @@ LibreOffice places 99% of words within 2pt of the source, **Google Docs places
 paragraph boundary, and it accumulates down the page.
 
 Most converters are tuned against one renderer and silently assume it
-generalises. It does not. exactdoc makes the target an explicit choice and
-optimises for it.
-
-### Pick a target renderer
-
-There is no single "correct" DOCX. Word, LibreOffice and Google Docs lay the
-same file out differently, and the gap is not small: on a document where
-LibreOffice places 99% of words within 2pt of the source, Google Docs places
-1% — Docs adds a one-off gap after the first heading plus ~3pt at every
-paragraph boundary, which accumulates down the page.
-
-So `--target` chooses which program the output should look right in, and the
+generalises. It does not. exactdoc makes the target an explicit choice, so
+`--target` chooses which program the output should look right in, and the
 closed-loop pass (below) optimises for that renderer:
 
 | `--target` | Oracle | Notes |
@@ -163,21 +170,38 @@ convert("whitepaper.pdf", "whitepaper.docx")
 
 ## Verified corpus results
 
-18 documents across five producer dialects (Chromium/Skia, WeasyPrint,
-ReportLab, fpdf2, LibreOffice), measured by `testkit/`, which shares no code
-with this package:
+16 generated documents across four producer dialects — Chromium/Skia (8),
+ReportLab (6), fpdf2 (1), LibreOffice/Word-native (1) — measured by `testkit/`,
+which shares no code with this package. WeasyPrint and LaTeX/pdfTeX are covered
+by real documents outside the gate corpus; LaTeX is the worst case and the
+largest open defect (see below).
 
-| | |
-|---|---|
-| gate passed | 15/18 |
-| page count 1:1 | 17/18 |
-| live (editable) text | 96.9% mean |
-| words within 2pt of source | 40.4% mean |
-| median per-word vertical drift | 1.02pt |
-| SSIM (LibreOffice render-back) | 0.809 mean |
+Both lanes, because only the pair is meaningful:
 
-Run it yourself: `python testkit/runall.py testkit/adv my_samples`. It exits
-non-zero on regression, so it doubles as CI.
+| | no-refine | refine (shipped default) |
+|---|---|---|
+| gate passed | 12/16 | 13/16 |
+| page count 1:1 | 13/16 | 15/16 |
+| live (editable) text | 96.5% | 96.5% |
+| words within 2pt of source | 36.1% | **51.0%** |
+| median per-word vertical drift | 2.79pt | **0.69pt** |
+
+`refine()` optimises against the same renderer the gate scores with, so a
+refined-only number can improve because the loop memorised the oracle rather
+than because the converter got better. Reporting one lane would hide that.
+
+Run it yourself (needs the `[test]` extra, LibreOffice for the render-back, and
+Chrome to generate the Chromium half of the corpus):
+
+```bash
+python testkit/gen_corpus.py testkit/adv && python corpus/make_corpus.py
+```
+
+```bash
+REFINE=lanes python testkit/runall.py testkit/adv corpus/pdfs
+```
+
+It exits non-zero on regression, so it doubles as CI.
 
 **Do not use SSIM as the headline number.** It is dominated by whitespace and
 it *rewards* a rasterised page: a resume converted into two flat images scored
@@ -226,10 +250,31 @@ For text-flow documents — whitepapers, papers, reports, resumes — near-perfe
 5. **Gradients, rounded corners and rotated text** have no paragraph-flow
    equivalent and must rasterise.
 
+## Versions
+
+Nothing has been published, so the version numbering is being reset once, now,
+while it is free to do so:
+
+| Version | What it means |
+|---|---|
+| `0.1.0a1` | today — alpha, AGPL (inherited from PyMuPDF), git install only |
+| `0.2.0a1` | the first *published* release, Apache-2.0, after the permissive parser reaches zero parity regressions |
+| `0.x` betas | gated on the holdout number improving, not on the corpus number |
+| `1.0` | not before wild PDFs stop failing on pagination |
+
+No AGPL wheel will ever be published: the licence swap lands before the first
+release, not after it.
+
 ## Documentation
 
+- [STATUS.md](STATUS.md) — the authority on every number, the defect register,
+  and the measurement mistakes that produced confident wrong answers
+- [SESSIONS.md](SESSIONS.md) — the working log: what each session expected to
+  happen before it ran
 - [THEORY.md](THEORY.md) — the fidelity model, what worked, what didn't, and why
-- [FINDINGS.md](FINDINGS.md) — an independent audit of v1.1 with reproductions
+- [FINDINGS.md](FINDINGS.md) — a frozen independent audit with reproductions.
+  Its "v1.1" is a pre-release internal label from before this repo had versioned
+  releases; it does not correspond to any tag or published artifact.
 - [testkit/README.md](testkit/README.md) — the measurement harness and its metrics
 
 ## Contributing
@@ -261,11 +306,20 @@ the vector paths on arXiv papers. pypdfium2 (Apache-2.0) extracts text and
 paths but provides no line/block grouping, so that clustering has to be
 written here.
 
-A pypdfium2 backend is written and selectable (`EXACTDOC_BACKEND=pdfium`), but
-it is **not** the default and the licence has **not** changed. Measured against
-PyMuPDF over the corpus it stands at **9 regressions** on fine placement —
-`within2pt` 0.510 → 0.291, median word drift 0.69pt → 2.02pt. Extraction is at
-parity (text character-identical, paths exact); positional precision is not.
+A pypdfium2 backend is written and selectable (`EXACTDOC_BACKEND=pdfium`,
+requires the `[pdfium]` extra), but it is **not** the default and the licence has
+**not** changed. Measured against PyMuPDF over the corpus it stands at **7
+regressions** on fine placement — `within2pt` 0.510 → 0.291, median word drift
+0.69pt → 2.02pt. Extraction is at parity (text character-identical, paths
+exact); positional precision is not.
+
+The gap is attributed, not guessed. Geometry is ruled out by direct measurement:
+baselines identical on 4,734 of 4,734 matched lines, leadings 99–100%, sizes to
+0.005pt, font names identical. What is left is **grouping** — the two parsers
+put the same lines into different blocks, and grafting PyMuPDF's block
+boundaries onto pdfium's geometry recovers roughly half the failing documents
+outright. The other half is code-heavy and still unexplained; naming a cause for
+it before measuring one is how this project has been wrong before.
 
 Two documents diverge on purpose, both verified by rendering, and on both the
 new backend is the *correct* one: RTL text (PyMuPDF returns visual order, so
