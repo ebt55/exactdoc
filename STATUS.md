@@ -5,7 +5,13 @@ Where something is unknown, it says so; where a measurement is untrustworthy,
 it says why.
 
 Baseline for all figures: 16-document corpus, `--refine` (the CLI default),
-LibreOffice render-back, Windows/PyMuPDF. Reproduce with:
+LibreOffice render-back, PyMuPDF. **CI Linux is the number of record**
+(`.github/workflows/gate.yml`); the Windows column is kept beside it because
+having two independent environments agree is itself evidence. Reproduce with:
+
+```bash
+bash scripts/bootstrap.sh          # Linux: provisions the oracles, reports what it found
+```
 
 ```bash
 python testkit/gen_corpus.py testkit/adv && python corpus/make_corpus.py
@@ -19,13 +25,26 @@ REFINE=lanes python testkit/runall.py testkit/adv corpus/pdfs
 
 ## 1. Where the converter stands
 
-| Metric | no-refine lane | refine lane (shipped) |
-|---|---|---|
-| Gate passed | 12/16 | 13/16 |
-| Page count 1:1 | 13/16 | 15/16 |
-| Live (editable) text | 0.965 | 0.965 |
-| Words within 2pt of source | 0.361 | **0.510** |
-| Median per-word vertical drift | 2.79pt | **0.69pt** |
+| Metric | no-refine lane | refine lane (shipped) | Windows, same day |
+|---|---|---|---|
+| Gate passed | 12/16 | 13/16 | 12 / 13 |
+| Page count 1:1 | 13/16 | 15/16 | 13 / 15 |
+| Live (editable) text | 0.965 | 0.965 | 0.965 |
+| Words within 2pt of source | 0.349 | **0.512** | 0.361 / 0.510 |
+| Median per-word vertical drift | 2.20pt | **0.62pt** | 2.79 / 0.69pt |
+
+Measured on `ubuntu:24.04` provisioned from `scripts/bootstrap.sh`, on a corpus
+regenerated there. Two environments with different fonts, a different
+LibreOffice build and a different Chromium agree to within measurement noise on
+every headline number — the harness is portable, and it was only its
+*provisioning* that was folklore.
+
+The gate is a **regression** gate, not an absolute one: three documents have
+never cleared the thresholds (D3, D4/graphics, and `04_exec_brief`'s live-text
+coverage at 0.941 against 0.95), so `runall.py` used to exit non-zero on every
+run ever made, and the CI step had to ignore its own result. The known-failing
+set is recorded per lane in `testkit/gate_baseline.json`; the run now fails on a
+new failure, a new metric on an already-failing document, or a stale record.
 
 Two lanes are always reported because `refine()` tunes the layout against the
 same renderer the gate measures with. A refined-only number can improve because
@@ -349,6 +368,9 @@ pattern is more useful than the individual fixes.
 | Probes matched non-unique strings | Measured body-text "ByteNet", not the table | Match on text that is unique on both sides |
 | Wrote a hypothesis into D2 as if it were a finding | "Most likely baseline or line-box geometry" survived a full revision of this file; the first direct measurement showed baselines identical on 4,734 of 4,734 lines | A plausible cause in a defect register is read as a known one. Mark it as a guess or measure it |
 | Imported `pypdfium2` without declaring it | `uv sync` evicted it; the parity gate began reporting `ModuleNotFoundError` | A gate that cannot run looks exactly like a gate that passes |
+| Gated on *any* failure, with three documents that had never passed | `runall.py` returned non-zero on every run it ever made, so the CI step was marked `continue-on-error` and nothing was gated at all | A check that always fails carries the same information as one that always passes. Gate on the *delta* against a recorded set |
+| Tokenised words on whitespace, which CJK does not use | A "word" was a whole rendered line; a one-character re-wrap lost it. `c4_i18n` scored `doc_recall` 0.83 on Linux and passed on Windows **with every character present in both** | The unit a metric counts in must be a unit the content actually has |
+| Read golden drift as parser drift | A version-dependent difference (PyMuPDF 1.26 groups `02_research_paper` p2 into 4 blocks, 1.28 into 7) was recorded as cross-platform instability | A frozen artifact without a manifest of what froze it cannot tell you which of the two changed |
 
 Two compensators were built, measured, and **left switched off** because they
 did not pay: the quality ladder (line-locking) and the half-point wrap
