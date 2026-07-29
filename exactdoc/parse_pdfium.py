@@ -326,6 +326,16 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
     for row in vis_rows:
         if any(_is_rtl(c.u[:1] or " ") for c in row):
             row = _reorder_rtl(row)
+        # PDFium synthesises a space at the end of a line, where the producer
+        # merely stopped drawing. It is line-break decoration, not content, and
+        # PyMuPDF does not report it: measured on 01_whitepaper_market, 25% of
+        # lines differed from PyMuPDF's text by exactly one trailing space --
+        # `|Tier·|` against `|Tier|`, `|•·|` against `|•|`. Dropped after any
+        # RTL reordering, so "trailing" means the end of the logical text.
+        while row and row[-1].u.isspace():
+            row = row[:-1]
+        if not row:
+            continue
         spans, cur, cur_key = [], [], None
         for c in row:
             k = _style(c)

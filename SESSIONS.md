@@ -1115,3 +1115,53 @@ branch has twice now seen structurally-correct changes measure flat and then pay
 in combination (M2.b and M2.c both looked disappointing until the metric-box fix
 landed). That is an argument from precedent, not proof, and it is labelled as
 such.
+
+### H2 result — text converged, score flat, and the r1 loss came back
+
+PDFium synthesises a space at the end of a line where the producer merely
+stopped drawing. PyMuPDF does not report it. Dropping it (after RTL reordering,
+so "trailing" means the end of the logical text):
+
+| document | text diff before → after |
+|---|---|
+| `03_tech_report_code` | 33% → **0%** |
+| `01_whitepaper_market` | 29% → **12%** |
+| `02_research_paper` | 36% → **22%** |
+
+Gate: **3 regressions, 13 same** — unchanged again, with
+`r1_reportlab_report` 0.55 → **0.58**, recovering exactly the 0.03 the previous
+commit cost it. So the two commits together are score-neutral and leave four of
+the six documents I have been working with byte-identical to PyMuPDF on lines,
+spans, text, space runs, styles and block boundaries.
+
+### Where M2.e stops
+
+**Gate: 3 regressions, 13 same, 0 better.** Down from 8 at the session's start.
+
+| document | pdfium | pymupdf | structural diff remaining |
+|---|---|---|---|
+| `c7_code` | 0.82 | 0.91 | **none — 0% on every measure** |
+| `01_whitepaper_market` | 0.53 | 0.72 | text 12% |
+| `02_research_paper` | 0.57 | 0.76 | text 22%, 4 lines short (89 vs 93) |
+
+**The plateau is real and worth naming.** `c7_code` is now identical to PyMuPDF
+on every axis every instrument in this repository can measure — 26 lines, 26
+spans, 0% text, 0% space runs, 0% style keys, block boundaries matching — and it
+scores 0.82 against 0.91. Its residual decomposition says the horizontal error is
+already PyMuPDF's (0.27 vs 0.26 raw, 0.04 vs 0.04 after fit) and its *vertical*
+residual is better than PyMuPDF's (0.20 vs 0.35). It is within 0.02 of the
+comparator's tolerance band and I cannot find a structural difference left to
+close.
+
+That is the honest boundary of this approach: **structural convergence on the IR
+is finished, and three documents remain.** What is left is vertical placement
+under `--refine`, which is a writer/refiner interaction rather than a parser
+one — `02_research_paper` carries median |dy| 1.29 against PyMuPDF's 0.04 and
+barely improves under a per-page affine fit, which is the signature of a
+different mechanism entirely, and it is also the document that is 4 lines short.
+
+Per §12.5 this is where I stop rather than try a third parser-side idea: two
+hypotheses (H1 span fragmentation, H2 trailing spaces) were both structurally
+confirmed and both scored flat. The next move needs new attribution, and on the
+evidence it points outside `parse_pdfium.py` — which makes it an M2.d escalation
+packet question, not another parser change.
