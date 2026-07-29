@@ -695,3 +695,131 @@ earned that way is worth keeping, and it is not a regression either way. Net
 across the corpus: +0.17 and +0.03 on two regression documents, −0.14 on a
 non-regression one, thirteen documents pinned exactly, and a whole class of
 coordinate-space confusion removed from the parser.
+
+---
+
+## 2026-07-29 · M2.c — grouping convergence: `c6_long`, `c8_toc_links`
+
+**Goal.** Both documents leave the regression set. The evidence for picking
+these two is `exp_regroup.py`: grafting PyMuPDF's block boundaries onto pdfium's
+geometry recovers `c6_long` 0.23→0.73 and `c8_toc_links` 0.63→1.00, so on these
+the downstream *agrees* with the more faithful answer — unlike `03_tech`, where
+a perfect structural match moved the score by 0.03.
+
+**Gate before** (canonical environment, after M2.b):
+
+| | pdfium | pymupdf | gap |
+|---|---|---|---|
+| `c6_long` | 0.21 | 0.76 | **0.55** |
+| `c8_toc_links` | 0.54 | 1.00 | 0.46 |
+| whole gate | 8 regressions, 8 same, 0 better | | |
+
+Worst first, so `c6_long` leads.
+
+**Method, per §9.A — and no hypothesis yet, deliberately.** The rule change is
+not allowed to precede the pattern. Step 1 is a per-page block-boundary diff
+(which lines each backend starts a block at), step 2 is *naming* what the
+disagreement is, step 3 is the rule and its predicted effect on the other 15
+documents, written before the gate runs. §9.A also bans tuning a threshold
+before plotting the two distributions it separates, and the `local_pitch` dead
+end from the previous session is a standing reminder that a block-split
+estimator must be robust in both directions.
+
+**Files intended.** A block-diff instrument in `testkit/`, then
+`exactdoc/parse_pdfium.py`. **Forbidden:** `parse.py`, `infer.py`, `docxout.py`,
+`dialect.py`. Baselines only in their own commit (law 14); full corpus decides
+(law 16).
+
+### Step 1 — the pattern, named
+
+A block-boundary diff (pair lines across backends, compare which of them each
+backend starts a block at) gives one pattern and only one:
+
+| document | disagreements | direction |
+|---|---|---|
+| `c6_long` | 72 of 201 lines | **pdfium MERGES where PyMuPDF splits** — 72, and 0 the other way |
+| `c8_toc_links` | 3 of 17 lines | same, 3 and 0 |
+
+With the context, the pattern names itself: pdfium fuses *consecutive
+paragraphs and list items*.
+
+```
+pdfium MERGES  p1 gap=23.2  prev |measure only average relevance will not see it.|
+                            this |The mitigation is unglamorous. Chunk boundaries…|
+pdfium MERGES  p1 gap=19.5  prev |Point one for section 1.|
+                            this |Point two for section 1, somewhat longer so that…|
+pdfium MERGES  p1 gap=18.0  prev |1. Motivation|
+                            this |2. Architecture|
+```
+
+Body pitch on these pages is ~15pt, the boundaries are 18.0–23.2pt, and the
+shipped rule allows anything up to `median_pitch × 1.6` ≈ 24pt into the same
+block. So the paragraph boundary falls inside the tolerance.
+
+### Step 2 — the distributions, before any threshold is touched (§12.6)
+
+`testkit/block_gaps.py` (new) labels every consecutive pdfium line pair with
+PyMuPDF's answer — same block or not — and plots `gap / reference` for three
+candidate references.
+
+**Per document, every reference separates perfectly. Corpus-wide, none does**,
+because each document's clean split sits at a *different* ratio:
+
+| document | separable on `p20`? | its own cut |
+|---|---|---|
+| `c6_long` | yes, 0 of 194 wrong | 1.05 |
+| `c8_toc_links` | yes, 0 of 16 | 1.05 |
+| `f1_fpdf_brief` | yes, 0 of 11 | 1.00 |
+| `r1_reportlab_report` | yes, 0 of 23 | 1.00 |
+| `l1_word_native` | yes, 0 of 16 | **1.24** |
+| **corpus (685 pairs)** | **no** | best fixed 1.11, still 135 wrong |
+
+That is the §12.6 answer in full: the decision is well-posed *locally* and the
+global constant is what is wrong. Scoring candidate rules against PyMuPDF's
+labels:
+
+| rule | wrong |
+|---|---|
+| shipped: `gap ≤ median × 1.60` | **355/685 (52%)** |
+| `gap ≤ p20 × 1.60` | 278 (41%) |
+| `gap ≤ p20 × 1.30` | 178 (26%) |
+| **`gap ≤ p20 × 1.15`** | **140 (20%)** |
+| `gap ≤ p20 × 1.05` | 154 (22%) |
+| adaptive: per-page Otsu cut on the page's own gaps | 322 (47%) |
+
+Two things worth stating plainly. The shipped rule is **wrong more often than
+right** on this labelled set. And the *adaptive* estimator — the clever option,
+the one I would have reached for after `local_pitch` — is worse than a fixed
+factor on a better reference. Measuring it cost minutes; implementing it would
+have cost a session.
+
+*(Caveat, stated because the number is startling: this scores the `else`-branch
+condition applied uniformly to every consecutive pair, while the shipped
+`_build_blocks_one` has other branches in front of it — the same-baseline case,
+the size-change split. So 52% overstates the shipped parser's real error rate.
+It is a proxy for ranking rules, not a measurement of the parser. The gate is
+the measurement.)*
+
+**Why `p20` rather than the median, as an argument and not a fit.** The
+reference is supposed to stand for the *intra-paragraph* line pitch. The median
+of all gaps includes the boundary gaps themselves, plus table-row pitches, so it
+is biased upward by exactly the quantity it is trying to exclude. The 20th
+percentile approximates the tightest recurring pitch on the page, which is what
+body text sets. The factor 1.15 sits mid-range of the per-document optima
+(1.00–1.24) observed above.
+
+### Step 3 — the change, and what I expect of it (written before running)
+
+`_build_blocks_one`: reference becomes the 20th-percentile gap instead of the
+median, and `BLOCK_GAP_FACTOR` 1.6 → 1.15.
+
+- **`c6_long`** recovers substantially; `exp_regroup` put full grouping recovery
+  at 0.73, so I predict **≥ 0.50** (from 0.21).
+- **`c8_toc_links`** predict **≥ 0.80** (from 0.54).
+- **`l1_word_native`** is the document I expect to suffer: its own optimum is
+  1.24, above the 1.15 being adopted, so it may over-split. It sits at 0.03
+  against PyMuPDF's 0.01 and is *same*, so there is room, but if anything turns
+  into a new regression I expect it here.
+- **Everything else** should hold. This is a global change to every document's
+  blocking, so "should" is doing real work in that sentence — the full gate
+  decides, and the requirement is unchanged: **count ≤ 8, no new regressions**.
