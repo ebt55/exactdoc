@@ -1349,3 +1349,106 @@ and I have not created the mechanism.
 
 **Remaining: 2.** `01_whitepaper_market` 0.53 vs 0.72, `02_research_paper` 0.57
 vs 0.76. Both are the vertical-placement question — memo §5 item 4.
+
+---
+
+## 2026-07-29 · Decision-memo session 2 — the vertical question (read-only first)
+
+**Gate before.** 2 regressions, 13 same, 1 better. Only `01_whitepaper_market`
+(0.53 vs 0.72) and `02_research_paper` (0.57 vs 0.76) remain, and for the first
+time there is a single open line of attack rather than several.
+
+**Read-only, per memo §5 item 4 and §3.** No parser change is planned before the
+histogram says what the error is shaped like.
+
+**Note on the memo's dissolution route.** §3 offered: *if the dy histogram is
+bimodal with a mode near one leading, the four missing lines are the cause and
+the dy question dissolves into Q3.* That route is closed — the four lines turned
+out to be PyMuPDF fragmenting one justified line, with pdfium the more faithful
+side, so there is nothing to close. The histogram is still the right first
+measurement; it just cannot dissolve into that answer.
+
+**Prediction, written before running.** `02_research_paper`'s median |dy| is
+1.29pt and its post-affine residual is 1.15pt — a per-page affine fit removes
+almost none of it. A missing-line or wrap difference would show as a mode near
+one leading (≈13pt at this document's 9.5pt type). 1.29pt is two orders below
+that. So I predict:
+
+- **unimodal, not bimodal**, centred near 1–1.5pt, with no mass near 13pt;
+- therefore **not** a line-count or wrap problem, but a small per-paragraph
+  anchoring offset — the `para_top = baseline − (leading − 0.21·size)` model or
+  `space_before`, quantised;
+- and because it survives a per-page affine fit, it must vary *between*
+  paragraphs rather than accumulate down the page.
+
+If instead there is a mode near one leading, I am wrong and the cause is
+structural after all.
+
+### Result — prediction confirmed, and the cause located
+
+The histogram is **unimodal with no mass near one leading**, exactly as
+predicted. But the control is what makes it decisive — the two backends produce
+*the same distribution, displaced*:
+
+| bucket | PyMuPDF | | bucket | pdfium |
+|---|---|---|---|---|
+| **+0.0** | **252** | → | **+1.5** | **225** |
+| +1.0 | 35 | → | +2.5 | 47 |
+| **+3.0** | **55** | → | **+4.5** | **55** |
+
+Every cluster displaced by exactly **+1.5pt**, and the 55-word cluster appears
+with *identical count* on both sides. That is a constant offset, not scatter.
+It is also why a per-page affine fit removes so little: a least-squares line
+through a multi-modal distribution sits between the modes.
+
+**Where it enters.** Baselines are identical on every line (`dbase = +0.00`).
+The line *boxes* are not: pdfium's y0 sits 0.57–2.60pt lower, scaling with type
+size. `margin_t` is derived from the topmost line's box top, and comes out
+**63.30 (PyMuPDF) against 64.90 (pdfium)** — a 1.6pt page-wide shift, which is
+the +1.5 mode.
+
+**Why the boxes differ — and why this one cannot simply be "converged".** The
+box is font-dependent in both, from *different metric sources*:
+
+| font | PyMuPDF up/size, down/size | pdfium up/size, down/size |
+|---|---|---|
+| Helvetica | 1.075, 0.299 | 0.905, 0.211 |
+| Helvetica-Bold | 1.070, 0.307 | 0.905, 0.211 |
+| Times-Roman | 1.053, 0.281 | 0.891, 0.215 |
+| Times-Bold | 1.044, 0.341 | 0.891, 0.215 |
+| Symbol | 1.010, 0.293 | **1.010, 0.293** |
+
+pdfium *is* reading font metrics (Helvetica and Times differ), just not the same
+ones — and on Symbol, where both fall back to the embedded metrics, they agree
+exactly. PyMuPDF's numbers are its own built-in base-14 table. Reproducing them
+means vendoring MuPDF's private font metrics, which §13 forbids outright and
+which this branch has already proved is version-dependent.
+
+**Causality tested, not assumed.** A labelled temporary experiment scaled the
+box toward PyMuPDF's ratios (1.188 above the baseline, 1.417 below):
+
+| document | shipped | scaled | pymupdf |
+|---|---|---|---|
+| `02_research_paper` | 0.57 | **0.64** | 0.76 |
+| `01_whitepaper_market` | 0.53 | 0.54 | 0.72 |
+
+So the box convention **is** a real cause, worth +0.07 on the document with the
+worst vertical error — and it is **not the whole gap**: 0.64 is still 0.12 short,
+and `01_whitepaper_market` barely moves, so it has a different problem again.
+The experiment was reverted; a fitted pair of constants that does not even close
+the gap is not something to ship.
+
+**Where this leaves M2.** The remaining two documents are not blocked on
+anything structural in the parser — they are blocked on a design question the
+parser cannot answer alone:
+
+> `margin_t` (and paragraph anchoring) is derived from line-box *tops*, a
+> quantity on which two correct parsers legitimately disagree because it comes
+> from font-metric tables they do not share. Baselines, which both report
+> identically to 4,734 of 4,734, carry the same information without the
+> disagreement.
+
+That is a question about `infer.py`'s derivation, with a valid experiment and a
+measured magnitude behind it — which is the first time on this branch that the
+escalation-packet bar in plan v2 §5.M2.d has actually been met on evidence
+rather than on frustration.

@@ -9,21 +9,33 @@ offset or a steady accumulation, which a second pass can remove, and which means
 convention-matching still pays) or it is irreducible scatter spread over every
 word (which means it cannot be chased document by document).
 
-For a source/render pair this reports, per page and pooled:
+For a source/render pair this reports, pooled over pages:
 
-    med |dx|, |dy|          the raw error
-    resid after fit         what survives removing a per-page affine trend in y
-                            and a per-page constant in x
-    within2pt               as measured
-    CEILING                 within2pt if that systematic part were removed
-                            perfectly -- the best any anchoring fix could do
+    med |dx| A -> B     A = median |dx| as measured
+                        B = median |dx| after removing each page's CONSTANT dx
+    med |dy| A -> B     A = median |dy| as measured
+                        B = median |dy| after removing each page's AFFINE trend
+                            (offset + accumulation down the page)
+    within2pt -> CEILING
+                        within2pt as measured, then what it would be if both
+                        systematic parts were removed perfectly -- the best any
+                        anchoring fix could do
+
+Both arrows are raw -> after-fit, never p50 -> p90. A number that grows across
+the arrow means the fit is fighting the data, not that the error got worse.
+
+    python testkit/residual.py src.pdf rendered.pdf
+    python testkit/residual.py src.pdf rendered.pdf --hist   # per-line dy shape
 
 The ceiling is the number to read. If pdfium's ceiling reaches PyMuPDF's actual
 score, the gap is systematic and the port is a matter of finding the anchor. If
 the ceiling sits well below it, the error is scatter and no amount of
 convention-matching closes it.
 
-    python testkit/residual.py src.pdf rendered.pdf
+--hist answers a question no summary statistic can: is the vertical error a few
+lines displaced by a whole leading (a wrap or line-count difference) or every
+line off by a fraction of a point (an anchoring model difference)? Those have
+opposite fixes and identical medians.
 """
 import os
 import sys
@@ -34,7 +46,7 @@ import _paths  # noqa: F401
 import harness
 
 
-def analyse(src, rendered):
+def analyse(src, rendered, keep=False):
     sw, ow = harness.page_words(src), harness.page_words(rendered)
     rows = []
     for i, sp in enumerate(sw):
@@ -84,20 +96,48 @@ def analyse(src, rendered):
         "ry": float(np.median(np.abs(ry))),
         "within2": float(np.mean(np.hypot(dxs, dys) <= 2.0)),
         "ceiling": float(np.mean(np.hypot(rx, ry) <= 2.0)),
+        "dys": dys if keep else None,
     }
 
 
+def histogram(dys, leading=None, width=52):
+    """Where the vertical error actually sits, in 0.5pt buckets."""
+    import collections
+    buckets = collections.Counter(round(float(d) * 2) / 2.0 for d in dys)
+    if not buckets:
+        return
+    top = max(buckets.values())
+    print("  per-word dy distribution (0.5pt buckets, %d words):" % len(dys))
+    for k in sorted(buckets):
+        if abs(k) > 20:
+            continue
+        n = buckets[k]
+        bar = "#" * max(1, int(width * n / top))
+        note = ""
+        if leading and abs(abs(k) - leading) < 1.0:
+            note = "  <-- one leading (%.1fpt)" % leading
+        print("    %+6.1f %-5d %s%s" % (k, n, bar, note))
+    far = sum(n for k, n in buckets.items() if abs(k) > 20)
+    if far:
+        print("    beyond +-20pt: %d words" % far)
+
+
 def main():
-    r = analyse(sys.argv[1], sys.argv[2])
+    hist = "--hist" in sys.argv
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    r = analyse(args[0], args[1], keep=hist)
     if not r:
         print("too few matched words")
         return 2
-    print("%s  (%d matched words)" % (os.path.basename(sys.argv[1]), r["n"]))
+    print("%s  (%d matched words)" % (os.path.basename(args[0]), r["n"]))
     print("  median |dx| %.2f -> %.2f after removing the per-page constant"
           % (r["dx"], r["rx"]))
     print("  median |dy| %.2f -> %.2f after removing the per-page affine trend"
           % (r["dy"], r["ry"]))
     print("  within2pt   %.3f -> CEILING %.3f" % (r["within2"], r["ceiling"]))
+    if hist:
+        lead = float(os.environ.get("LEADING", "0")) or None
+        histogram(r["dys"], leading=lead)
     return 0
 
 
