@@ -9,7 +9,8 @@ import os, sys, subprocess, textwrap, shutil
 
 OUT = sys.argv[1] if len(sys.argv) > 1 else "adv"
 HTML = os.path.join(OUT, "_html")
-os.makedirs(HTML, exist_ok=True)
+# Directories are created in main(), not at import: importing this module to
+# test its degradation path must not litter the working directory.
 
 LOREM = ("Retrieval quality degrades non-linearly as the corpus grows past the "
          "point where the embedding model was calibrated, and the failure is "
@@ -68,13 +69,24 @@ def html_doc(name, body, extra_css=""):
 
 
 def chrome_pdf(html_path, out_pdf):
+    """Render one HTML file with headless Chromium. Returns (ok, reason)."""
+    if not CHROME:
+        return False, "no Chromium found (set CHROME=/path/to/chrome)"
     url = "file:///" + os.path.abspath(html_path).replace("\\", "/")
     cmd = [CHROME, "--headless=new", "--disable-gpu", "--no-sandbox",
            "--no-pdf-header-footer", "--run-all-compositor-stages-before-draw",
            "--virtual-time-budget=4000",
            "--print-to-pdf=" + os.path.abspath(out_pdf), url]
-    subprocess.run(cmd, capture_output=True, timeout=180)
-    return os.path.exists(out_pdf)
+    try:
+        r = subprocess.run(cmd, capture_output=True, timeout=180)
+    except (OSError, subprocess.SubprocessError) as e:
+        # A CHROME that points at nothing is a broken machine, not a bare one:
+        # report it as a failure with the reason, never as a traceback.
+        return False, "could not run %s: %s" % (CHROME, e)
+    if os.path.exists(out_pdf):
+        return True, ""
+    return False, "chromium exited %d: %s" % (
+        r.returncode, (r.stderr or b"").decode("utf-8", "replace").strip()[-200:])
 
 
 # ------------------------------------------------------------------ documents
@@ -384,7 +396,15 @@ def f1_fpdf():
 
 
 def l1_libreoffice():
-    """Word-native dialect: build a DOCX, let LibreOffice render it to PDF."""
+    """Word-native dialect: build a DOCX, let LibreOffice render it to PDF.
+
+    The profile path must be ABSOLUTE. `-env:UserInstallation` takes a file
+    URL, and `file:///` + a relative path resolves against the filesystem root:
+    soffice then fails to create its profile, exits 1 and writes nothing. This
+    function used to swallow that and return None, so the corpus came back with
+    15 documents instead of 16 and every figure downstream was quietly computed
+    over a different corpus than the one on record.
+    """
     import docx
     from docx.shared import Pt, Inches, RGBColor
     from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -409,39 +429,93 @@ def l1_libreoffice():
             t.cell(i, j).text = c
     d.add_paragraph(LOREM2).alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
     d.save(tmp)
-    prof = os.path.join(OUT, "_loprof2")
-    subprocess.run([SOFFICE, "--headless", "--norestore",
-                    "-env:UserInstallation=file:///" + prof.replace("\\", "/"),
-                    "--convert-to", "pdf", "--outdir", OUT, tmp],
-                   capture_output=True, timeout=300)
+    prof = os.path.abspath(os.path.join(OUT, "_loprof2"))
+    r = subprocess.run([SOFFICE, "--headless", "--norestore",
+                        "-env:UserInstallation=file:///" + prof.replace("\\", "/"),
+                        "--convert-to", "pdf", "--outdir", OUT, tmp],
+                       capture_output=True, timeout=300)
     src = os.path.join(OUT, "_l1.pdf")
     if os.path.exists(src):
         shutil.move(src, out)
-    return out if os.path.exists(out) else None
+    if os.path.exists(out):
+        return out
+    raise RuntimeError("soffice exited %d without writing a PDF: %s" % (
+        r.returncode, (r.stderr or b"").decode("utf-8", "replace").strip()[-200:]))
+
+
+CHROMIUM_DOCS = (c1_whitepaper, c2_paper2col, c3_tables, c4_i18n, c5_graphics,
+                 c6_long, c7_code, c8_toc_links)
+PURE_PYTHON_DOCS = (r1_reportlab, f1_fpdf)      # no external tool needed
+SOFFICE_DOCS = (l1_libreoffice,)
+
+
+def main():
+    """Generate what this machine can, and say plainly what it could not.
+
+    A missing external tool is a SKIP (exit 0, listed): the ReportLab and fpdf2
+    documents need nothing but Python and must still be produced. A tool that
+    is present and fails is an ERROR (exit 1): that is a broken machine, not a
+    thin one. The previous version made no such distinction -- it called
+    subprocess with CHROME=None and died on a bare TypeError before writing a
+    single file, which is the "gate that cannot run" failure mode this
+    repository has already been bitten by once (STATUS.md §5).
+    """
+    os.makedirs(HTML, exist_ok=True)
+    print("capabilities: chromium=%s  soffice=%s" %
+          (CHROME or "MISSING", SOFFICE or "MISSING"))
+    made, skipped, failed = [], [], []
+
+    for fn in CHROMIUM_DOCS:
+        name = fn.__name__
+        if not CHROME:
+            skipped.append((name, "no Chromium (set CHROME=/path/to/chrome)"))
+            continue
+        h = fn()
+        pdf = os.path.join(OUT, os.path.splitext(os.path.basename(h))[0] + ".pdf")
+        ok, why = chrome_pdf(h, pdf)
+        if ok:
+            made.append(pdf); print("  OK   " + name)
+        else:
+            failed.append((name, why)); print("  FAIL " + name)
+
+    for fn in PURE_PYTHON_DOCS + SOFFICE_DOCS:
+        name = fn.__name__
+        if fn in SOFFICE_DOCS and not SOFFICE:
+            skipped.append((name, "no LibreOffice (set SOFFICE=/path/to/soffice)"))
+            continue
+        try:
+            p = fn()
+            made.append(p); print("  OK   " + os.path.basename(p))
+        except Exception as e:
+            failed.append((name, "%s: %s" % (type(e).__name__, e)))
+            print("  FAIL " + name)
+
+    print("\n%d PDFs in %s" % (len(made), os.path.abspath(OUT)))
+    try:
+        import fitz
+        for m in sorted(made):
+            d = fitz.open(m)
+            print("  %-28s %d pages  producer=%s" %
+                  (os.path.basename(m), d.page_count, d.metadata.get("producer")))
+            d.close()
+    except ImportError:
+        pass                              # the listing is a courtesy, not the job
+
+    if skipped:
+        print("\nSKIPPED %d document(s) -- the tool that makes them is not "
+              "installed:" % len(skipped))
+        for name, why in skipped:
+            print("  %-20s %s" % (name, why))
+        print("The corpus is incomplete, so gate numbers from it are NOT "
+              "comparable to the recorded baselines.")
+    if failed:
+        print("\nFAILED %d document(s) -- the tool IS present and did not "
+              "deliver:" % len(failed))
+        for name, why in failed:
+            print("  %-20s %s" % (name, why))
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    made = []
-    for fn in (c1_whitepaper, c2_paper2col, c3_tables, c4_i18n, c5_graphics,
-               c6_long, c7_code, c8_toc_links):
-        h = fn()
-        name = os.path.splitext(os.path.basename(h))[0]
-        pdf = os.path.join(OUT, name + ".pdf")
-        ok = chrome_pdf(h, pdf)
-        print(("  OK " if ok else "FAIL ") + name)
-        if ok:
-            made.append(pdf)
-    for fn in (r1_reportlab, f1_fpdf, l1_libreoffice):
-        try:
-            p = fn()
-            if p and os.path.exists(p):
-                made.append(p); print("  OK " + os.path.basename(p))
-        except Exception as e:
-            print("FAIL %s: %s" % (fn.__name__, e))
-    print("\n%d PDFs" % len(made))
-    import fitz
-    for m in sorted(made):
-        d = fitz.open(m)
-        print("  %-28s %d pages  producer=%s" %
-              (os.path.basename(m), d.page_count, d.metadata.get("producer")))
-        d.close()
+    sys.exit(main())
