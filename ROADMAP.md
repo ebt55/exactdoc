@@ -8,12 +8,16 @@ on numbers and this file gets corrected.
 
 ## The short answer
 
-**The licence swap is no longer blocked.** It was the one thing standing between
-this project and being usable by anyone who cannot accept AGPL, and as of
-2026-07-30 the permissive parser is measured **not worse than the incumbent on
-14 of 16 corpus documents**, with the remaining two attributed to a cause that
-is proven unreachable from a permissive parser and formally accepted as a
-documented divergence.
+**The licence swap is no longer blocked, and the default runtime path is already
+permissive.** The AGPL was the one thing standing between this project and being
+usable by anyone who cannot accept it. As of 2026-07-30 the parity gate passes with
+**0 regressions**: 10 documents the same, 2 where the permissive parser is the
+*correct* one, and 4 attributed to a single cause proven unreachable from a
+permissive parser and formally accepted with numeric floors.
+
+More importantly, `import exactdoc` and a full conversion — including the
+refinement loop — now work with PyMuPDF **physically absent**, which was not true
+a session ago and was the real content of the word "mechanical" in §3.2. §3.2a.
 
 | question | answer |
 |---|---|
@@ -42,10 +46,10 @@ critical path to a release.
 
 | | value |
 |---|---|
-| Parity gate (pdfium vs PyMuPDF) | **2 regressions, 13 same, 1 better** |
+| Parity gate (pdfium vs PyMuPDF) | **0 regressions** — 10 same, 2 expected divergences, 4 accepted under D2 |
 | Started at | 9 regressions, then 8 when first measured on the canonical environment |
-| Mean within-2pt, pdfium | **0.461** against the incumbent's 0.511 |
-| Documents at or above the incumbent | **14 of 16** — four exactly equal, two better |
+| Accepted set | grew 2 → 4 when the loop stopped borrowing the incumbent's parser to measure with. §3.2a |
+| Documents at or above the incumbent | **12 of 16**; the other four are core-14, one attributed cause, floors recorded |
 | Gate lanes (default backend) | 13/16 page match raw, 15/16 product; both lanes gate the exit code |
 | Golden IR | 7/7 |
 | CI | green, and fail-closed — see the three questions in [STATUS §1](STATUS.md#1-where-the-converter-stands) |
@@ -100,28 +104,72 @@ python testkit/backend_superscript.py
 This is the cheaper half of a habit worth keeping — before implementing a
 missing feature in a component, measure whether anything downstream consumes it.
 
-### 3.2 — The flip and the relicence (`M2.f`) · *one session, mechanical*
+### 3.2a — The permissive runtime boundary · **DONE, at zero measured cost**
 
-This is the milestone the whole project has been driving at.
+This step was not in the roadmap, and it should have been: it is what "mechanical"
+was hiding. `fitz` was on the default runtime path in five stages *past* the
+parser, so a wheel installed without PyMuPDF failed while importing the writer,
+before any backend selection could happen. Full account and the site-by-site table
+in [STATUS.md §7](STATUS.md#7-the-permissive-runtime-boundary).
+
+| | |
+|---|---|
+| Writer's cost | **zero.** Both lanes re-measured; not one of 224 values moved (2 lanes × 16 documents × 7 metrics, compared exactly, not within tolerance) |
+| Refiner's cost | **not zero, and the gate caught it.** Reading both sides through the selected backend cost within-2pt 0.46 → 0.31 and 0.60 → 0.32 on two documents. Fixed by anchoring the loop on *baselines* instead of line-box tops — the one vertical quantity the two parsers agree on exactly. The fix came out of D2's existing measurements, not a new hypothesis |
+| Proof | `tests/test_no_pymupdf.py` makes `fitz` *unimportable*, then converts a fixture per capability and runs refinement through the permissive path |
+| Lost | `--ladder` needs the `[mupdf]` extra: predicting a re-wrap means shaping text with no source line to measure, and MuPDF's base-14 tables are not vendored here. Off by default, so nothing shipped changes |
+| Found on the way | PDFium native handles were never closed (16 documents, 18 pages, 9 text pages left open per parity run); every LibreOffice invocation shared one profile machine-wide |
+
+The refiner line is the part worth remembering. It is the second time a change to
+*which parser produces a number* moved fidelity while looking like a refactor. The
+first time — within-2pt 0.510 → 0.291 — went unnoticed for a release because the
+harness did not measure the dimension it moved. This time the gate written the same
+week failed the run and named both documents.
+
+### 3.2b — The default flip and the relicence (`M2.f`) · *one session, now really mechanical*
+
+This is the milestone the whole project has been driving at, and 3.2a is why it is
+now a small change.
 
 1. `pypdfium2` becomes the main dependency; `pymupdf` moves to a `[mupdf]`
    extra. **`parse.py` is not deleted** — it becomes the extra's backend.
 2. Re-freeze the goldens *from the pdfium backend*, with manifest; archive the
    MuPDF goldens for diffing. Its own commit, per law 14.
-3. `LICENSE` → Apache-2.0, add `NOTICE`, classifier swap, README licence
+3. **Re-record every gate number.** The default parser changes, so the baseline
+   describes a different product. This is not a formality: pdfium's mean
+   within-2pt is 0.461 against the incumbent's 0.511, and the record has to say
+   so rather than inherit numbers from a parser that is no longer the default.
+4. `LICENSE` → Apache-2.0, add `NOTICE`, classifier swap, README licence
    section rewritten — including the plain statement that installing the
    `[mupdf]` extra makes the *combination* AGPL-governed for distribution.
-4. Version → `0.2.0a1`.
-5. Re-verify: clean venv *without pymupdf installed* converts a PDF;
-   `import exactdoc.convert` pulls in no `fitz`.
+   **This one needs a licensing review, not an edit.** Everything above is a
+   measurement; this is not, and nothing in the gate can tell you it is right.
+5. Version → `0.2.0a1`.
 
 **Done when:** the parity table from the canonical environment is in the PR
 description, `git grep -il affero` returns only historical narrative and the
 extra's documentation, and the gate is green.
 
-**Acceptance (amended, and this is why it is now reachable):** 0 regressions,
-except `01_whitepaper_market` and `02_research_paper`, attributed in STATUS D2
-to a font-metric convention no permissive parser can reproduce.
+**Acceptance, and it is met — but the number moved, and why it moved matters
+more than the number.** 0 regressions, with **four** documents accepted under
+STATUS D2 rather than two, all bounded by numeric floors in
+`testkit/parity_policy.json` rather than by prose.
+
+The two additions are not new breakage. They are what the old comparison was
+hiding: until 3.2a, the candidate lane read the refinement measurement through
+*PyMuPDF*, because `refine.py` imported `fitz` directly regardless of which
+backend had parsed. So "2 regressions" described a configuration nobody could
+install — pdfium parsing, MuPDF measuring. With the loop reading through the
+backend that parsed, `03_tech_report_code` and `r1_reportlab_report` join the
+accepted set, and the cause is the same proven-unreachable one: all four are
+core-14 documents, where PDFium substitutes a generic ascent for the real font's,
+and every document that embeds its fonts is untouched.
+
+**The honest reading is that the parity gate got harder, not that the backend got
+worse.** A gate that lets the candidate borrow the incumbent's parser halfway
+through the pipeline is measuring the wrong thing, and this is the second time that
+shape of error has been found here — the first was a harness that omitted the
+dimension a swap moved.
 
 ### 3.3 — Ship the alpha (`M3`) · *one session*
 

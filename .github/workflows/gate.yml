@@ -73,6 +73,14 @@ jobs:
           uv run python tests/test_corpus_degradation.py
           uv run python tests/test_gate_mutations.py
 
+      # The permissive runtime boundary, and the reason the licence flip is a
+      # real change rather than a metadata edit. This makes `fitz` unimportable
+      # and then converts the representative fixtures, which is stricter than a
+      # virtualenv without the package: it also catches an import that something
+      # else in the interpreter has already performed.
+      - name: Convert with PyMuPDF made unimportable
+        run: uv run python tests/test_no_pymupdf.py
+
       - name: Golden IR - the parser's output must not drift
         run: uv run python testkit/golden_ir.py verify
 

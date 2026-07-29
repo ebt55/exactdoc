@@ -60,26 +60,38 @@ def _set_gap(el, v):
         el.space_before = max(0.0, v)
 
 
-def _rendered_pages_text(pdf_path):
-    import fitz
-    doc = fitz.open(pdf_path)
-    out = []
-    for p in doc:
-        lines = []
-        for b in p.get_text("dict")["blocks"]:
-            if b.get("type") != 0:
-                continue
-            for ln in b["lines"]:
-                t = "".join(s["text"] for s in ln["spans"])
-                if t.strip():
-                    lines.append((_norm(t), ln["bbox"][1], ln["bbox"][3]))
-        out.append(lines)
-    doc.close()
-    return out
+# Which vertical anchor the offset is measured from. Both are available from
+# `Backend.page_lines`; this is a measured choice, and the measurement contradicts
+# the physics.
+#
+# A baseline is the physically correct anchor -- it is a number in the content
+# stream, so it cancels cleanly when a source y is subtracted from a rendered y
+# over two documents set in different fonts, where a line-box TOP carries a
+# per-font metric convention that does not. The writer's own vertical model is
+# baseline-anchored (THEORY 3.1). And measured on the canonical corpus, switching
+# to it took the incumbent's mean within-2pt from **0.511 to 0.478**.
+#
+# The reason is the same one that reverted the line-box escalation in STATUS D2:
+# `_apply` below feeds the offset into the `space_before` chain, and that chain is
+# calibrated against a box-top origin. Moving the anchor alone desynchronises the
+# correction from the thing it corrects -- it fixed 04_exec_brief (0.22 -> 0.44)
+# and broke 05_memo (0.64 -> 0.48) and r1_reportlab_report (0.60 -> 0.32). Origin,
+# `_para_box` and the spacing chain have to move together, which is a project and
+# not a patch.
+ANCHOR_TOP, ANCHOR_BASELINE = 1, 2
+ANCHOR = ANCHOR_TOP
 
 
-def _source_pages_text(src_pdf):
-    return _rendered_pages_text(src_pdf)
+def _pages_text(pdf_path, backend, anchor=ANCHOR):
+    """[(normalised text, anchor_y, y_bottom), ...] per page, via the backend.
+
+    This read the rendered PDF through `fitz` directly, which put PyMuPDF on the
+    default runtime path of a stage that has nothing to do with parsing: the loop
+    measures a document *it just wrote*, and what it needs is text lines with a
+    vertical anchor, which is now `Backend.page_lines`.
+    """
+    return [[(_norm(ln[0]), ln[anchor], ln[3]) for ln in page]
+            for page in backend.page_lines(pdf_path)]
 
 
 def _map_pages(src_pages, out_pages):
@@ -125,9 +137,9 @@ def _map_pages(src_pages, out_pages):
     return mapping
 
 
-def _measure(src_pdf, rendered_pdf):
-    src = _source_pages_text(src_pdf)
-    out = _rendered_pages_text(rendered_pdf)
+def _measure(src_pdf, rendered_pdf, backend):
+    src = _pages_text(src_pdf, backend)
+    out = _pages_text(rendered_pdf, backend)
     mapping = _map_pages(src, out)
     spill = []          # per source page: rendered pages consumed beyond one
     offset = []         # per source page: median dy of matched lines
@@ -224,7 +236,7 @@ def _apply(lay: DocLayout, m) -> bool:
 
 def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
            rounds: int = 2, verbose: bool = False, render=None,
-           target: str = "libreoffice") -> str:
+           target: str = "libreoffice", backend=None) -> str:
     """Write `lay`, then correct it against real renders. Returns out_path.
 
     `render(docx_path, tmp_dir) -> pdf_path | None` selects the oracle. It
@@ -234,25 +246,35 @@ def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
     Docs adds a one-off gap after the first heading plus roughly 3pt at every
     paragraph boundary, so a layout tuned against LibreOffice is NOT tuned for
     the renderer this project actually targets.
+
+    `backend` reads both the source and the rendered PDF. It is the same backend
+    the parse used, passed down rather than re-chosen, so the loop cannot end up
+    measuring one parser's line grouping against another's and correcting the
+    layout for the difference.
     """
+    from .backend import get_backend
     from .docxout import write_docx
     from .verify import docx_to_pdf, SOFFICE
 
+    if backend is None:
+        backend = get_backend()
     if render is None:
         if SOFFICE is None:
-            return write_docx(lay, out_path, dpi=dpi, target=target)
+            return write_docx(lay, out_path, dpi=dpi, target=target,
+                              backend=backend)
         render = docx_to_pdf
     if rounds <= 0:
-        return write_docx(lay, out_path, dpi=dpi, target=target)
+        return write_docx(lay, out_path, dpi=dpi, target=target, backend=backend)
 
     best_path, best_score = None, None
     with tempfile.TemporaryDirectory() as td:
         for rnd in range(rounds + 1):
-            write_docx(lay, out_path, dpi=dpi, target=target)   # write_docx is pure
+            # write_docx is pure: `lay` survives the round unmodified.
+            write_docx(lay, out_path, dpi=dpi, target=target, backend=backend)
             rendered = render(out_path, td)
             if rendered is None:
                 return out_path
-            m = _measure(src_pdf, rendered)
+            m = _measure(src_pdf, rendered, backend)
             score = (abs(m["out_pages"] - m["src_pages"]),
                      sum(m["spill"]),
                      sum(abs(o) for o in m["offset"]))

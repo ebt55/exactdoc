@@ -5,6 +5,13 @@ calls `exactdoc.infer()` to decide which source text to exclude from its own
 coverage denominator, so anything the converter chooses to rasterise disappears
 from its own score. A converter must not define its own ground truth.
 
+The harness reads PDFs with **PyMuPDF**, and it keeps doing so deliberately now
+that the converter's own default runtime path no longer touches it. Measuring a
+PDFium-parsed conversion with a MuPDF-based harness means the measurement cannot
+inherit the parser's mistakes — if both sides misread the same glyph the same way,
+a shared-parser harness would score it correct. `testkit/` is never shipped, so its
+dependencies carry no licence consequence for the wheel.
+
 ## Quick start
 
 On Linux, one command provisions everything below and prints a capability

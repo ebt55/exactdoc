@@ -6,7 +6,7 @@
    "floors": {
     "live_text_cov": 0.9573,
     "page_err": 0,
-    "within2pt": 0.5333,
+    "within2pt": 0.5444,
     "word_recall": 0.9677
    },
    "reason": "font-metric convention difference: PyMuPDF's base-14 above/below-baseline ratios reach margin_t and displace every word on the page by a constant. Reproducing them means vendoring MuPDF's table into the permissive tree.",
@@ -33,7 +33,39 @@
     "word_recall": 0.9586
    }
   },
-  "_note": "Documents where the candidate is measurably worse and that is RATIFIED, with the cause attributed and proven unreachable from a permissive parser (STATUS D2: infer() derives the page's vertical origin from line-box tops, PyMuPDF reads it from its own base-14 metric table, PDFium exposes one vertical font metric and the parser already uses it). Acceptance is bounded by numeric floors: worsening past them fails, and clearing the divergence entirely fails as stale."
+  "03_tech_report_code.pdf": {
+   "defect": "D2",
+   "floors": {
+    "live_text_cov": 0.976,
+    "page_err": 0,
+    "within2pt": 0.308,
+    "word_recall": 1.0
+   },
+   "reason": "D2's cause reaching the closed loop rather than margin_t. refine() measures rendered_box_top - source_box_top; the render is Liberation (embedded, real ascent) and the source is core-14, where PDFium substitutes a generic ascent for the real one MuPDF reads from its base-14 table. The subtraction carries a systematic ~0.17 x type size bias, about 1.7pt at 10pt, which under-corrects every page against a 2pt threshold. Baseline anchoring cancels it perfectly and costs the INCUMBENT 0.511 -> 0.478 mean within-2pt, because the space_before chain it feeds is calibrated on box tops -- the same result as the line-box escalation closed out in STATUS D2.",
+   "reference_at_record": {
+    "live_text_cov": 0.9827,
+    "page_err": 0,
+    "within2pt": 0.4602,
+    "word_recall": 1.0
+   }
+  },
+  "_note": "Documents where the candidate is measurably worse and that is RATIFIED, with the cause attributed and proven unreachable from a permissive parser. All four are STATUS D2, and all four are core-14 documents: infer() and refine() both work in line-box-top space, PyMuPDF reads that from its own base-14 table (the real font's ascent, which the metric-compatible render font also has), and PDFium substitutes a generic ascent. Documents that embed their fonts are unaffected because both parsers then read the embedded metrics. Acceptance is bounded by numeric floors: worsening past them fails, and clearing the divergence entirely fails as stale.",
+  "r1_reportlab_report.pdf": {
+   "defect": "D2",
+   "floors": {
+    "live_text_cov": 1.0,
+    "page_err": 0,
+    "within2pt": 0.3212,
+    "word_recall": 1.0
+   },
+   "reason": "same cause as 03_tech_report_code: a core-14 document whose placement is otherwise good enough for the 2pt threshold to be sensitive to the refine loop's ~1.7pt box-top bias. All four accepted documents are core-14; every Chromium document embeds its fonts, so PDFium reads the real ascent and none of them is affected.",
+   "reference_at_record": {
+    "live_text_cov": 1.0,
+    "page_err": 0,
+    "within2pt": 0.5959,
+    "word_recall": 1.0
+   }
+  }
  },
  "candidate_backend": "pdfium",
  "expected_divergence": {

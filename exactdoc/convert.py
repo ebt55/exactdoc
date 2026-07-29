@@ -58,7 +58,14 @@ def convert(pdf_path: str, out_path: Optional[str] = None,
     lay = infer(ir)
     if opts.ladder:
         from .ladder import apply_ladder, summarise
-        rep = apply_ladder(lay)
+        from .metrics import get_metrics
+        # The ladder predicts a re-wrap, so it has to shape text, and no
+        # permissive shaper lives in this tree yet. With the `[mupdf]` extra
+        # present it uses MuPDF's base-14 metrics -- the same measurement every
+        # published ladder number was taken with -- and without it every
+        # paragraph is unpredictable and the ladder does nothing. Its report says
+        # which happened rather than looking like a run that found nothing.
+        rep = apply_ladder(lay, metrics=get_metrics("mupdf"))
         lay.ladder_report = rep
         if opts.verbose:
             print("  ladder: " + summarise(rep))
@@ -71,9 +78,13 @@ def convert(pdf_path: str, out_path: Optional[str] = None,
                 print("  refining against: %s" % resolved)
             return refine(lay, pdf_path, out_path, dpi=opts.dpi,
                           rounds=opts.refine_rounds, verbose=opts.verbose,
-                          render=render, target=opts.target)
+                          render=render, target=opts.target, backend=bk)
+        elif opts.verbose:
+            print("  requested target %r is unavailable; converting open-loop"
+                  % opts.target)
     from .docxout import write_docx
-    return write_docx(lay, out_path, dpi=opts.dpi, target=opts.target)
+    return write_docx(lay, out_path, dpi=opts.dpi, target=opts.target,
+                      backend=bk)
 
 
 def main(argv=None):

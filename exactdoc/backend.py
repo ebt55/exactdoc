@@ -66,14 +66,43 @@ A backend must provide:
     render_page(path, page_no, dpi) -> PNG bytes
         Used by the verification loop.
 
+    page_lines(path) -> [[(text, y_top, y_baseline, y_bottom), ...], ...]
+        Text lines with their vertical anchors, per page. What the closed loop needs
+        to map source pages onto rendered ones and measure the offset between them.
+        A distinct operation rather than a full parse on purpose: the loop runs it
+        on every round, over a document it has just written, and it wants none of
+        the drawings, images, links or style flags that `parse_pdf` builds.
+
+        Both anchors are reported because which one the loop should use is a
+        measured question with a counter-intuitive answer, and the measurement is
+        worth keeping available. The loop subtracts a source y from a rendered y
+        over two differently-typeset documents, so a line-box TOP carries a
+        per-font metric convention that does not cancel, while a BASELINE is a
+        number in the content stream and does. Baselines are therefore the
+        physically correct anchor, and the writer's own vertical model is
+        baseline-anchored (THEORY 3.1).
+
+        Measured anyway, on the canonical corpus: switching the loop to baselines
+        took the incumbent's mean within-2pt from **0.511 to 0.478**. It fixed the
+        two documents that the box-top anchor cost under PDFium and broke others
+        -- 05_memo 0.64 -> 0.48, r1_reportlab_report 0.60 -> 0.32, while
+        04_exec_brief gained 0.22 -> 0.44. This is the *same* result as the
+        line-box escalation in STATUS D2, in a second location: the `space_before`
+        chain the offsets are fed into is itself calibrated against a box-top
+        origin, so moving the anchor alone desynchronises the correction from the
+        thing it corrects. Both must move together, which is a project rather than
+        a patch. The loop uses box tops.
+
 The IR contract itself is exactdoc/model.py; this module names the operations
 so a second implementation has somewhere to live.
 """
-from typing import Optional, Protocol, Tuple
+from typing import List, Optional, Protocol, Tuple
 
 from .model import DocIR
 
 BBox = Tuple[float, float, float, float]
+# (text, y_top, y_baseline, y_bottom)
+PageLines = List[List[Tuple[str, float, float, float]]]
 
 
 class Backend(Protocol):
@@ -105,6 +134,9 @@ class Backend(Protocol):
     def render_page(self, path: str, page_no: int, dpi: int = 110) -> Optional[bytes]:
         ...
 
+    def page_lines(self, path: str) -> PageLines:
+        ...
+
 
 class PyMuPDFBackend:
     """The current backend. AGPL-3.0, via PyMuPDF."""
@@ -132,6 +164,29 @@ class PyMuPDFBackend:
         doc = fitz.open(path)
         try:
             return doc[page_no - 1].get_pixmap(dpi=dpi, alpha=False).tobytes("png")
+        finally:
+            doc.close()
+
+    def page_lines(self, path: str) -> PageLines:
+        import fitz
+        doc = fitz.open(path)
+        try:
+            out = []
+            for page in doc:
+                lines = []
+                for b in page.get_text("dict")["blocks"]:
+                    if b.get("type") != 0:
+                        continue
+                    for ln in b["lines"]:
+                        if not ln["spans"]:
+                            continue
+                        t = "".join(s["text"] for s in ln["spans"])
+                        if t.strip():
+                            lines.append((t, ln["bbox"][1],
+                                          ln["spans"][0]["origin"][1],
+                                          ln["bbox"][3]))
+                out.append(lines)
+            return out
         finally:
             doc.close()
 
@@ -183,29 +238,72 @@ class PDFiumBackend:
         from .parse_pdfium import parse_pdf
         return parse_pdf(path, keep_image_data=keep_image_data)
 
+    # Every native handle below is closed on the way out, in reverse order of
+    # acquisition. It was not: a parity run over 16 documents ended with pypdfium2
+    # printing "The following objects are still open and will now be closed" and
+    # listing 16 documents, 18 pages and 9 text pages. The interpreter's exit
+    # happened to collect them, which is not a resource policy -- a long-running
+    # process converting a queue of PDFs would hold every one of them until it
+    # died.
     def render_clip(self, path: str, page_no: int, clip: BBox,
                     dpi: int = 240) -> Optional[bytes]:
         import io
         import pypdfium2 as pdfium
         doc = pdfium.PdfDocument(path)
-        page = doc[page_no - 1]
-        h = page.get_height()
-        scale = dpi / 72.0
-        pil = page.render(scale=scale, crop=(clip[0], h - clip[3],
-                                             page.get_width() - clip[2],
-                                             clip[1])).to_pil()
-        buf = io.BytesIO()
-        pil.save(buf, format="PNG")
-        return buf.getvalue()
+        try:
+            page = doc[page_no - 1]
+            try:
+                h = page.get_height()
+                pil = page.render(scale=dpi / 72.0,
+                                  crop=(clip[0], h - clip[3],
+                                        page.get_width() - clip[2],
+                                        clip[1])).to_pil()
+            finally:
+                page.close()
+            buf = io.BytesIO()
+            pil.save(buf, format="PNG")
+            return buf.getvalue()
+        finally:
+            doc.close()
 
     def render_page(self, path: str, page_no: int, dpi: int = 110) -> Optional[bytes]:
         import io
         import pypdfium2 as pdfium
         doc = pdfium.PdfDocument(path)
-        pil = doc[page_no - 1].render(scale=dpi / 72.0).to_pil()
-        buf = io.BytesIO()
-        pil.save(buf, format="PNG")
-        return buf.getvalue()
+        try:
+            page = doc[page_no - 1]
+            try:
+                pil = page.render(scale=dpi / 72.0).to_pil()
+            finally:
+                page.close()
+            buf = io.BytesIO()
+            pil.save(buf, format="PNG")
+            return buf.getvalue()
+        finally:
+            doc.close()
+
+    def page_lines(self, path: str) -> PageLines:
+        import pypdfium2 as pdfium
+        from .parse_pdfium import _build_lines, _page_chars
+        doc = pdfium.PdfDocument(path)
+        try:
+            out = []
+            for i in range(len(doc)):
+                page = doc[i]
+                try:
+                    textpage = page.get_textpage()
+                    try:
+                        chars = _page_chars(textpage, page.get_height())
+                    finally:
+                        textpage.close()
+                    lines = [(ln.text, ln.bbox[1], ln.baseline, ln.bbox[3])
+                             for ln in _build_lines(chars) if ln.text.strip()]
+                finally:
+                    page.close()
+                out.append(lines)
+            return out
+        finally:
+            doc.close()
 
 
 _IMPLEMENTATIONS = {"pymupdf": PyMuPDFBackend, "pdfium": PDFiumBackend}

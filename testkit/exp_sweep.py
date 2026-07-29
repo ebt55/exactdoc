@@ -14,7 +14,7 @@ ALPHA = 0.0          # extra narrowing as a fraction of wrap width
 QUANT = True         # also apply the size-quantisation correction
 
 
-def patched(container, p, content_w, par=None):
+def patched(container, p, content_w, par=None, ctx=None):
     if p.runs:
         tot = {}
         for r in p.runs:
@@ -26,7 +26,7 @@ def patched(container, p, content_w, par=None):
             wrap_w = max(1.0, content_w - p.left_indent - p.right_indent)
             adj = (1.0 - k) if QUANT else 0.0
             p.right_indent = p.right_indent + wrap_w * (adj + ALPHA)
-    return _orig(container, p, content_w, par)
+    return _orig(container, p, content_w, par, ctx)
 
 
 docxout.write_para = patched

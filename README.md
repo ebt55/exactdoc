@@ -59,11 +59,22 @@ pip install git+https://github.com/ebt55/exactdoc.git
 ```
 
 Optional extras: `[test]` for the measurement harness, `[pdfium]` for the
-experimental permissive parser, `[gdocs]` for the Google Docs oracle. None is
-needed for a plain conversion.
+permissive parser, `[gdocs]` for the Google Docs oracle. None is needed for a
+plain conversion.
 
 `--verify` and `--refine` additionally need LibreOffice on PATH; without it,
 conversion still works and simply skips the feedback loop.
+
+**The default runtime path does not touch PyMuPDF.** Parsing, figure
+rasterisation, table measurement, the refinement loop and the verifier all go
+through the backend seam or the IR's own facts, and
+[`tests/test_no_pymupdf.py`](tests/test_no_pymupdf.py) proves it by making `fitz`
+*unimportable* and then converting a fixture per capability. This is what the
+Apache relicence was actually waiting on — see
+[STATUS.md §7](STATUS.md#7-the-permissive-runtime-boundary). One feature is
+knowingly outside that boundary: `--ladder` predicts a re-wrap, which means
+shaping text that has no source line to measure, so it needs the `[mupdf]` extra
+and reports plainly when it has no shaper. It is off by default.
 
 ## Usage
 
@@ -128,9 +139,13 @@ convert("whitepaper.pdf", "whitepaper.docx")
 
 ## How it works
 
-1. **Parse** (`parse.py`) — PyMuPDF extracts every text span (font, size,
-   weight, color, exact position), vector drawing, image and link into an
-   intermediate model.
+1. **Parse** (`backend.py` → `parse.py` or `parse_pdfium.py`) — the chosen
+   backend extracts every text span (font, size, weight, color, exact position),
+   vector drawing, image and link into an intermediate model. The backend is
+   selected **once per conversion** and carried through writing, refinement and
+   verification, so those stages ask it for a clip render or a page's text lines
+   rather than importing a parser of their own — which is what they used to do,
+   and why the wheel could not run without PyMuPDF.
 1b. **Normalise** (`dialect.py`) — rewrite producer-specific idioms into one
    canonical form, so the heuristics below stop encoding "how ReportLab draws
    things". Drops page-backdrop fills (Chromium paints an opaque white page
@@ -158,7 +173,11 @@ convert("whitepaper.pdf", "whitepaper.docx")
    embedded fonts.
 4. **Verify** (`verify.py`) — text-coverage audit plus an optional render-back
    loop (LibreOffice) that scores per-page visual similarity (SSIM) and emits
-   side-by-side comparison images.
+   side-by-side comparison images. These are *diagnostics about your document*,
+   not release evidence: the audit excludes rasterised regions from its own
+   denominator, which lets the converter grade its own homework.
+   [`testkit/`](testkit/README.md) is the independent measurement and shares no
+   code with any of the above.
 
 ## Fidelity model (the hard-won parts)
 
@@ -345,26 +364,40 @@ written here.
 
 A pypdfium2 backend is written and selectable (`--backend pdfium`, or
 `EXACTDOC_BACKEND=pdfium`; requires the `[pdfium]` extra). It is not the default
-*yet* — but it is no longer the blocker it was.
+*yet* — but it is no longer the blocker it was, and the rest of the pipeline no
+longer needs PyMuPDF either.
 
 Measured against PyMuPDF over the corpus, under the acceptance policy in
-[`testkit/parity_policy.json`](testkit/parity_policy.json):
+[`testkit/parity_policy.json`](testkit/parity_policy.json), with **both** lanes
+reading end-to-end through their own backend — mean within-2pt 0.5118 for PyMuPDF
+against 0.4431 for pdfium:
 
 | verdict | count | which |
 |---|---|---|
 | regression | **0** | — |
-| same | 11 | |
-| better | 1 | `05_memo`, 0.64 → 0.88 within-2pt |
+| same | 10 | |
 | expected divergence | 2 | `c4_i18n`, `c5_graphics` — pdfium is the *correct* one, verified by rendering |
-| accepted shortfall | 2 | `01_whitepaper_market`, `02_research_paper` — D2, bounded by recorded numeric floors |
+| accepted shortfall | 4 | all core-14 documents, all STATUS D2, each bounded by a recorded numeric floor |
 
-Down from 9 regressions. Those last four documents used to be prose: the code
-exited on `regressions == 0` while the docs said two of them were formally
-accepted, so CI marked the step `continue-on-error` to keep the build usable —
-which retired the only gate the whole relicensing effort was aimed at. The policy
-is now data the test executes, the two acceptances carry numeric floors that fail
-when crossed, and an acceptance that stops describing reality fails as stale. The
-step is required.
+Down from 9 regressions. Those six documents used to be prose: the code exited on
+`regressions == 0` while the docs said two of them were formally accepted, so CI
+marked the step `continue-on-error` to keep the build usable — which retired the
+only gate the whole relicensing effort was aimed at. The policy is now data the
+test executes, every acceptance carries a numeric floor that fails when crossed,
+and an acceptance that stops describing reality fails as stale. The step is
+required.
+
+The accepted set grew from two documents to four, and that is worth reading
+carefully, because it is a *measurement* getting more honest rather than a
+converter getting worse. Until the permissive runtime boundary landed, `refine.py`
+read its measurement through PyMuPDF whichever backend had parsed — so the
+candidate lane was pdfium parsing with MuPDF measuring, a configuration nobody
+could install. Reading both through the backend that parsed adds two ReportLab
+documents to the accepted set under the same proven-unreachable cause: on core-14
+fonts PDFium reports a generic ascent where MuPDF reports the real one, and the
+metric-compatible render font agrees with MuPDF. Every document that embeds its
+fonts is unaffected. [STATUS.md §7](STATUS.md#7-the-permissive-runtime-boundary)
+has the arithmetic and the fix that was tried and measured wrong.
 
 The remaining two are attributed, and the attribution is why they are being
 accepted rather than chased: `infer()` derives the page's vertical origin from

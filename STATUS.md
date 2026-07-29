@@ -150,40 +150,52 @@ python testkit/elemheight.py testkit/real/arxiv_transformer.pdf
 **This used to be the only thing keeping exactdoc off Apache-2.0. It is not any
 more.** The licence is inherited, not chosen: PyMuPDF is AGPL-3.0, so exactdoc
 is. A permissive parser (pypdfium2, Apache-2.0) exists in
-`exactdoc/parse_pdfium.py`, and it is now measured **not worse than the
-incumbent on 14 of 16 corpus documents** — four exactly equal, two better. The
-flip is scheduled, not blocked: see [ROADMAP.md](ROADMAP.md) §3.2.
+`exactdoc/parse_pdfium.py`, and it is now measured **not worse than the incumbent
+on 12 of 16 corpus documents**, with the other four attributed to one cause. The
+flip is scheduled, not blocked: see [ROADMAP.md](ROADMAP.md) §3.2b.
 
-The two documents that remain are attributed to a font-metric convention no
-permissive parser can reproduce, and are accepted as a documented divergence
-rather than chased — the reasoning is below, under *The two that remain*.
-
-The gap is **2 regressions**, down from 9 → 8 → 6 → 3 → 2. Fourteen of sixteen
-documents are now at or better than the incumbent, four of them exactly equal
-to it and two above it.
+The gap was 9 → 8 → 6 → 3 → 2 regressions, and is now **0 regressions with four
+accepted divergences**. The accepted set grew from two documents to four, and the
+reason is not that the backend got worse — it is that the comparison stopped
+flattering it. Until §7, `refine.py` read its measurement through PyMuPDF whichever
+backend had parsed, so the candidate lane was *pdfium parsing with MuPDF
+measuring*: a configuration nobody could install. Reading both through the backend
+that parsed added `03_tech_report_code` and `r1_reportlab_report`, under the same
+cause. See §7 for the arithmetic.
 
 | | within-2pt | median dy |
 |---|---|---|
 | PyMuPDF (default) | **0.511** | 0.69pt |
 | pdfium parser, when this was first measured | 0.291 | 2.02pt |
-| **pdfium parser, now** | **0.461** | — |
+| pdfium parser, measured with MuPDF doing the refinement | 0.461 | — |
+| **pdfium parser, measured end-to-end through pdfium** | **0.4431** | — |
+
+That last row is the number a permissive-only install actually gets, and it is the
+one that belongs in a release claim. The row above it describes a hybrid.
 
 **Acceptance for the flip, and it is now executable rather than stated:**
 `testkit/parity_policy.json` carries the rule the test applies — comparison
-margins, the two expected divergences with their rendered evidence, and these two
+margins, the two expected divergences with their rendered evidence, and four
 accepted shortfalls with **numeric floors**, recorded on the canonical
-environment:
+environment. All four are core-14 documents:
 
-| Document | PyMuPDF | pdfium floor | fails if |
+| Document | PyMuPDF | pdfium | cause |
 |---|---|---|---|
-| `01_whitepaper_market` | 0.719 | **0.533** | within-2pt drops below the floor, or the divergence disappears |
-| `02_research_paper` | 0.761 | **0.569** | same |
+| `01_whitepaper_market` | 0.719 | 0.535 | box-top convention reaching `margin_t` |
+| `02_research_paper` | 0.761 | 0.569 | same; measured `margin_t` 63.30 vs 64.90 |
+| `03_tech_report_code` | 0.460 | 0.308 | same convention reaching the **refine loop** (§7) |
+| `r1_reportlab_report` | 0.596 | 0.321 | same |
 
-Both directions matter. An acceptance with no floor is an acceptance of anything,
-and an acceptance that no longer describes reality is a stale record that hides
-the next real regression on that document. The current verdict is **0
-regressions, 11 same, 1 better, 2 expected divergences, 2 accepted** — and the CI
-step is required, not `continue-on-error`.
+Each fails if within-2pt drops below its recorded floor, **and** if the divergence
+disappears. Both directions matter: an acceptance with no floor is an acceptance of
+anything, and an acceptance that no longer describes reality is a stale record that
+hides the next real regression on that document. The current verdict is **0
+regressions, 10 same, 2 expected divergences, 4 accepted** — and the CI step is
+required, not `continue-on-error`.
+
+**Every document that embeds its fonts is unaffected.** That is the shape of the
+cause: both parsers read embedded metrics identically, and they differ only where
+the font is core-14 and each must supply the metrics itself.
 
 #### What it is not
 
@@ -405,14 +417,17 @@ python testkit/runall.py --lane product --absolute
 **Sequence and distance live in [ROADMAP.md](ROADMAP.md).** This table is the
 defect view; the roadmap is the plan view.
 
-**D2 is no longer a blocker.** The permissive parser is at 2 regressions from 9,
-both attributed and accepted as a documented divergence, so the relicence can
-proceed. That was the only thing gating it.
+**D2 is no longer a blocker.** The permissive parser is at 0 regressions from 9,
+with four documents accepted as a documented divergence under one attributed cause
+and bounded by numeric floors, so the relicence can proceed. That was the only
+thing gating it — and §7 removed the thing nobody had noticed was gating it as
+well: PyMuPDF was on the default runtime path in five stages past the parser.
 
 | # | Item | Blocks | Notes |
 |---|---|---|---|
 | ~~1~~ | ~~Superscript in the pdfium backend~~ | — | **Closed by measurement, no code written.** `backend_superscript.py`: the writer never sees the parser's flag — `dialect` and `infer` recover superscript from geometry, and all 16 documents agree at the layout level. ROADMAP §3.1 |
-| 2 | **The flip and the relicence** | **the whole point of the project** | **Not mechanical.** `fitz` is on the default *runtime* path well past the parser: `docxout.py` imports it at module load and uses MuPDF text metrics for table fitting and MuPDF rasterisation for figure clips, `refine.py` extracts text through it, `verify.py` compares images with it, `ladder.py` measures with it. A wheel installed without PyMuPDF fails while importing the writer, before any backend selection happens. The backend has to be chosen once and carried through parse, write, refine and verify first |
+| ~~2a~~ | ~~The permissive runtime boundary~~ | — | **Done and verified.** See §7 |
+| 2b | **The default flip and the relicence** | **the whole point of the project** | Now genuinely mechanical, because 2a is done: `pypdfium2` becomes the runtime dependency, `pymupdf` moves to `[mupdf]`, goldens re-freeze from the pdfium backend with a manifest, and every gate number is re-recorded because the default parser changed. `LICENSE` → Apache-2.0 needs a licensing review, not an edit |
 | 3 | **D8 clean unsupported-input error** | the release | Encrypted/truncated PDFs; both files into CI |
 | 4 | **PyPI release** | adoption | TestPyPI dry run first; release notes lead with the holdout |
 | 5 | **D1 LaTeX pagination** | the holdout, and the core use case | Needs writer-side instrumentation (§5) — per-element emitted-vs-source height accounting inside `docxout` — not another hypothesis. Three attempts have each produced a partly-wrong answer |
@@ -541,6 +556,10 @@ pattern is more useful than the individual fixes.
 | Wrote the oracle paths to a file nobody sourced | `bootstrap.sh` discovers Chromium and writes `scripts/env.sh`, then every subsequent shell — including each CI step — starts without it. CI only ever worked because the GitHub runner image happens to ship `/usr/bin/google-chrome`: provisioning by accident | Discovery has to be readable by the thing that needs it. `_paths.py` now reads the record itself |
 | Let the executable rule and the ratified rule disagree | `backend_parity.py` exited on `regressions == 0` while ROADMAP and this file said two documents were formally accepted. The disagreement was resolved by marking the CI step `continue-on-error`, which retired the one gate the entire relicensing effort was aimed at | A gate whose policy lives in prose will be switched off, not corrected. Put the policy in a file the test reads |
 | Injected a parser by assigning a module global | The instruments set `exactdoc.convert.parse_pdf`. That worked only because `convert` happened to hold the parser as a global; once the backend was selected through the seam, the assignment became a no-op that set an attribute nobody read — and an experiment that silently measures the default still prints a number | An injection point should be declared (`register_backend`), so removing it breaks loudly instead of quietly |
+| Let the candidate lane borrow the incumbent's parser | `refine.py` imported `fitz` directly whichever backend had parsed, so the parity gate compared *pdfium parsing with MuPDF measuring* against MuPDF throughout. "2 regressions" described a configuration nobody could install; measured end-to-end it is 4 accepted, and pdfium's mean within-2pt is 0.4431 rather than 0.461 | A comparison in which the candidate uses the incumbent halfway through the pipeline is not measuring the swap. Isolate the variable at *every* stage, not just the obvious one |
+| Fixed a measured bias with the physically correct anchor | The refine loop's box-top anchor carries a per-font metric bias that a baseline anchor cancels exactly, and the writer's own vertical model is baseline-anchored. Switching cost the **incumbent** mean within-2pt 0.511 → 0.478 — fixing `04_exec_brief` and breaking `05_memo` and `r1_reportlab_report` | Correct-in-isolation is not correct-in-system. The `space_before` chain the offsets feed is calibrated on box tops, so the anchor cannot move alone. The *second* time this exact lesson was paid for (see D2's reverted escalation) — which is why `refine.ANCHOR` now carries the switch and the number side by side |
+| Wrote the environment into the evidence artifact last | The final `evidence.py --out` step, whose only job is to fill in the environment, passed the empty template's `parity: None` over the verdict the previous step had recorded. A fully green run ended with an artifact that had forgotten its own parity result | An artifact that is the single source of a release claim must have no write path that can empty it. `merge` skips `None`, and a test asserts it |
+| Changed a default and assumed callers wanted it | Making the API default 3 refine rounds silently gave `edge_cases.py` and `exp_sweep.py` three rounds and an oracle dependency. One is a fast offline robustness check; the other sweeps a correction the loop would then correct over | A shared default is right for surfaces and wrong for instruments. An instrument should name the profile it means, so it does not change meaning when the product does |
 
 Two compensators were built, measured, and **left switched off** because they
 did not pay: the quality ladder (line-locking) and the half-point wrap
@@ -569,3 +588,119 @@ Stated as limits, not bugs:
 For text-flow documents — whitepapers, papers, reports, resumes — *visually
 indistinguishable at normal zoom and fully editable* is reachable. Everything
 in §2 is a bug, not a limit.
+
+---
+
+## 7. The permissive runtime boundary
+
+**The default runtime path no longer touches PyMuPDF.** This was the milestone the
+licence work actually depended on, and it was not the one the roadmap described.
+
+The roadmap called the flip mechanical — a dependency and default change. The
+built wheel disagreed. `fitz` was on the default execution path in five stages
+past the parser:
+
+| Site | Was | Now |
+|---|---|---|
+| `docxout.py` module scope | `import fitz` | gone — a wheel without PyMuPDF failed while importing the *writer*, before any backend could be selected |
+| `docxout._cell_text_width` | MuPDF base-14 shaping, to fit table columns | `Para.src_widths`, the width `infer` already recorded from the source line's bbox |
+| `docxout.write_figure` | MuPDF pixmap of the clip region | `Backend.render_clip`, which the seam had always declared and the writer reached around |
+| `refine._rendered_pages_text` | `get_text("dict")` on source and render | `Backend.page_lines`, a new seam operation — cheaper than a full parse, and it reads *both* sides through one parser so a grouping difference cannot enter the measurement |
+| `verify._page_arrays` | MuPDF pixmap samples | `Backend.render_page`, decoded with Pillow |
+| `ladder.py` | MuPDF base-14 shaping | the `TextMetrics` seam in `metrics.py` |
+
+**The writer's half cost nothing.** With the first three rows done, both gate
+lanes were re-measured on the canonical environment and **not one of 224 values
+moved** — 2 lanes × 16 documents × 7 gated metrics, compared exactly rather than
+within tolerance. Replacing base-14 shaping with the source's own line widths is
+not an approximation of the old answer; for "is this column too narrow for content
+that occupied one line in the source" it is a better question answered with a fact
+instead of a prediction.
+
+**The refine half did not, and the parity gate is what said so.** Reading the
+source and the render through the selected backend looked like a pure refactor. It
+cost within-2pt **0.46 → 0.31** on `03_tech_report_code` and **0.60 → 0.32** on
+`r1_reportlab_report` under the permissive backend. The gate built the same week
+failed the run and named both documents.
+
+The cause is D2, in a second location. The loop measures
+`rendered_box_top − source_box_top`, over two documents in different fonts:
+
+| | source (core-14 Helvetica/Times) | render (Liberation, embedded) |
+|---|---|---|
+| MuPDF's box top | its own base-14 table — the *real* font's ascent | the embedded font's ascent |
+| PDFium's box top | a **generic** ascent (0.905× size vs MuPDF's 1.075×) | the embedded font's ascent |
+
+Liberation is metric-compatible with Arial and Times, so on the render side both
+parsers read the same real ascent and agree. On the source side PDFium substitutes
+a generic one. The subtraction therefore carries a systematic bias of roughly
+0.17 × type size ≈ **1.7pt at 10pt type** — under-correcting every page — and
+`within2pt` is a 2pt threshold, so a uniform 1.7pt bias is close to the worst
+possible error for it. That is why the two affected documents are ReportLab
+(core-14) and why every Chromium document, which embeds its fonts, is untouched.
+
+**Anchoring on baselines is the obvious fix and it is measurably wrong.** A
+baseline is a content-stream number, so it cancels perfectly, and the writer's own
+vertical model is baseline-anchored (THEORY §3.1). Measured: the incumbent's mean
+within-2pt went **0.511 → 0.478**. It fixed `04_exec_brief` (0.22 → 0.44) and broke
+`05_memo` (0.64 → 0.48) and `r1_reportlab_report` (0.60 → 0.32). This is the *same*
+outcome as the line-box escalation already closed out in D2: `_apply` feeds the
+offset into the `space_before` chain, and that chain is calibrated against a
+box-top origin, so moving the anchor alone desynchronises the correction from what
+it corrects. Origin, `_para_box` and the spacing chain must move together — a
+project, not a patch. `refine.ANCHOR` keeps the switch and the measurement beside
+it so nobody spends another session rediscovering this.
+
+So the two documents are **ratified into `parity_policy.json` under D2**, with
+numeric floors, joining the two already there. All four are core-14 documents and
+all four have one attributed, proven-unreachable cause. That is a bounded
+acceptance of a known divergence, not a weakened gate: worsening past a floor
+fails, and so does the divergence disappearing.
+
+Worth naming plainly: this is the second time a change to *which parser produces a
+number* moved fidelity while looking like a refactor. The first time — within-2pt
+0.510 → 0.291 — went unnoticed for a release because the harness did not measure
+the dimension it moved. This time the gate failed the run the same day.
+
+`tests/test_no_pymupdf.py` is the proof, and it is deliberately hostile: rather
+than trusting the code not to import `fitz`, it installs a `sys.meta_path` finder
+that makes the import *impossible*, evicts anything already loaded, and then
+converts a fixture per capability — text-only, tables, inline image, vector figure
+clip, multi-page with refinement, multi-column, cover band, and the Google-Docs
+static profile. All pass, and refinement runs the closed loop through the
+permissive path. That is stricter than a clean virtualenv, which cannot catch an
+import some other module already performed.
+
+**One capability is genuinely lost, and it is stated rather than hidden.** The
+quality ladder predicts a re-wrap, so it must *shape* text that has no source line
+to measure, and no permissive shaper exists in this tree. MuPDF's base-14 tables
+are not vendored here: they are AGPL, and they are measurably version-dependent
+(§5). So with the permissive backend and no `[mupdf]` extra, `--ladder` reports
+every paragraph unpredictable and changes nothing — which is its default state
+anyway, since it was measured and left switched off. The report names the metrics
+provider it used, so a no-op run cannot be mistaken for a run that found nothing.
+
+Also fixed here, both found by their own noise rather than by review:
+
+- **PDFium native handles were never closed.** A parity run ended with pypdfium2
+  printing "The following objects are still open and will now be closed" and
+  listing 16 documents, 18 pages and 9 text pages. Interpreter exit collected
+  them, which is not a resource policy — a process converting a queue would hold
+  every one until it died. Documents, pages and text pages now close in reverse
+  order of acquisition.
+- **Every LibreOffice invocation shared one profile.** A fixed path under the temp
+  directory, for every conversion in every process on the machine. Two concurrent
+  conversions then contended for it and one exits 0 with no output — which is the
+  exact failure that motivated using a dedicated profile in the first place. The
+  default is now per-process and a caller can name its own.
+
+```bash
+python tests/test_no_pymupdf.py
+```
+
+What remains for the relicence is now genuinely mechanical, plus one thing that is
+not an engineering decision at all: making `pypdfium2` the runtime dependency and
+`pymupdf` an extra, re-freezing the goldens from the pdfium backend, re-recording
+every gate number because the default parser changed — and a licensing review of
+the Apache-2.0 distribution and the `[mupdf]` extra's wording. The last item is
+not something to infer from a measurement.

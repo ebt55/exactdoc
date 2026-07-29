@@ -997,31 +997,51 @@ def _page_links(page, textpage, page_h):
 
 
 def parse_pdf(path: str, keep_image_data: bool = True) -> DocIR:
+    """Parse a PDF into the backend-neutral IR.
+
+    Every native handle is closed on the way out, in reverse order of acquisition.
+    None of them was: a parity run over 16 documents ended with pypdfium2 printing
+    "The following objects are still open and will now be closed" and listing the
+    documents, pages and text pages this function had opened. Interpreter exit
+    collected them, which is not a resource policy -- a worker process converting a
+    queue would hold a native document per job until it died, and PDF documents are
+    not small in MuPDF or PDFium.
+    """
     doc = pdfium.PdfDocument(path)
-    meta = {}
     try:
-        meta = {k.lower(): v for k, v in (doc.get_metadata_dict() or {}).items()}
-    except Exception:
-        pass
-    ir = DocIR(path=path, meta=meta)
-    for pno in range(len(doc)):
-        page = doc[pno]
-        w, h = page.get_width(), page.get_height()
-        pir = PageIR(number=pno + 1, width=w, height=h)
-        tp = page.get_textpage()
-        pir.links = _page_links(page, tp, h)
-        lines = _build_lines(_page_chars(tp, h))
-        for sp in (s for l in lines for s in l.spans):
-            for lk in pir.links:
-                lb = lk["bbox"]
-                ov = (max(0, min(sp.bbox[2], lb[2]) - max(sp.bbox[0], lb[0])) *
-                      max(0, min(sp.bbox[3], lb[3]) - max(sp.bbox[1], lb[1])))
-                if ov > 0.5 * max(1e-6, (sp.bbox[2] - sp.bbox[0]) *
-                                  (sp.bbox[3] - sp.bbox[1])):
-                    sp.link = lk["uri"]
-                    break
-        pir.blocks = _build_blocks(lines, w)
-        pir.drawings = _page_paths(page, h)
-        pir.images = _page_images(page, h, keep_image_data)
-        ir.pages.append(pir)
-    return ir
+        meta = {}
+        try:
+            meta = {k.lower(): v
+                    for k, v in (doc.get_metadata_dict() or {}).items()}
+        except Exception:
+            pass
+        ir = DocIR(path=path, meta=meta)
+        for pno in range(len(doc)):
+            page = doc[pno]
+            try:
+                w, h = page.get_width(), page.get_height()
+                pir = PageIR(number=pno + 1, width=w, height=h)
+                tp = page.get_textpage()
+                try:
+                    pir.links = _page_links(page, tp, h)
+                    lines = _build_lines(_page_chars(tp, h))
+                finally:
+                    tp.close()
+                for sp in (s for l in lines for s in l.spans):
+                    for lk in pir.links:
+                        lb = lk["bbox"]
+                        ov = (max(0, min(sp.bbox[2], lb[2]) - max(sp.bbox[0], lb[0])) *
+                              max(0, min(sp.bbox[3], lb[3]) - max(sp.bbox[1], lb[1])))
+                        if ov > 0.5 * max(1e-6, (sp.bbox[2] - sp.bbox[0]) *
+                                          (sp.bbox[3] - sp.bbox[1])):
+                            sp.link = lk["uri"]
+                            break
+                pir.blocks = _build_blocks(lines, w)
+                pir.drawings = _page_paths(page, h)
+                pir.images = _page_images(page, h, keep_image_data)
+            finally:
+                page.close()
+            ir.pages.append(pir)
+        return ir
+    finally:
+        doc.close()
