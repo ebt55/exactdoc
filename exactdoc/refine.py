@@ -1,4 +1,4 @@
-﻿"""Closed-loop layout correction: write, render, measure, correct, rewrite.
+"""Closed-loop layout correction: write, render, measure, correct, rewrite.
 
 The converter is otherwise open-loop -- it predicts how Word will lay the
 document out and hopes. Two errors survive that prediction and neither is

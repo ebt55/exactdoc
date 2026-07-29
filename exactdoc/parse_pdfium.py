@@ -1,4 +1,4 @@
-﻿"""PDF -> IR parser built on pypdfium2 (Apache-2.0 / BSD-3).
+"""PDF -> IR parser built on pypdfium2 (Apache-2.0 / BSD-3).
 
 The permissive replacement for parse.py. exactdoc is AGPL only because
 PyMuPDF is; this module exists so the project can relicense.

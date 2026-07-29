@@ -1,0 +1,313 @@
+# exactdoc — status, defects, and how it was built
+
+Every number here is measured and reproducible. Commands are given per item.
+Where something is unknown, it says so; where a measurement is untrustworthy,
+it says why.
+
+Baseline for all figures: 16-document corpus, `--refine` (the CLI default),
+LibreOffice render-back, Windows/PyMuPDF. Reproduce with:
+
+```bash
+python testkit/gen_corpus.py testkit/adv && python corpus/make_corpus.py
+```
+
+```bash
+REFINE=lanes python testkit/runall.py testkit/adv corpus/pdfs
+```
+
+---
+
+## 1. Where the converter stands
+
+| Metric | no-refine lane | refine lane (shipped) |
+|---|---|---|
+| Gate passed | 12/16 | 13/16 |
+| Page count 1:1 | 13/16 | 15/16 |
+| Live (editable) text | 0.965 | 0.965 |
+| Words within 2pt of source | 0.361 | **0.510** |
+| Median per-word vertical drift | 2.79pt | **0.69pt** |
+
+Two lanes are always reported because `refine()` tunes the layout against the
+same renderer the gate measures with. A refined-only number can improve because
+the loop memorised the oracle rather than because the converter got better;
+only the pair is meaningful.
+
+**Holdout: 0/4.** Four wild PDFs never used during development
+(`testkit/fetch_holdout.py`). Text survives (94–97% live); pagination does not.
+That is the honest generalisation number and it is worse than the corpus number
+— the corpus has been developed against, the holdout has not.
+
+### By producer dialect
+
+| Dialect | Docs | State |
+|---|---|---|
+| ReportLab | 6 | good — page match, 94–100% live text |
+| Chromium / Skia | 8 | good after the P0 dialect work; was catastrophic |
+| WeasyPrint | 1 | good — 10/10 pages, 98% live |
+| fpdf2 | 1 | good |
+| LibreOffice | 1 | fair |
+| **LaTeX / pdfTeX** | **4** | **worst — see D1** |
+
+---
+
+## 2. Known defects, by measured severity
+
+### D1 — LaTeX/pdfTeX pagination inflation · **severity: high**
+
+Page counts inflate 25–90%. The dominant open defect, and the core use case
+(research papers).
+
+| Document | Source | Rendered | Inflation |
+|---|---|---|---|
+| `arxiv_transformer` | 15 | 18 | +20% |
+| `arxiv_bert` | 16 | 20 | +25% |
+| `arxiv_gpt3` | 75 | 143 | +91% |
+| `nist_ai_rmf` | 48 | 51 | +6% |
+
+Text is recovered (94–97% live), so this is placement, not loss.
+
+**What is known.** Element growth is *not* the cause — paragraphs grow 0.7pt
+each, figures 0pt. Tables did grow 8–23pt each and that is now fixed (see §4).
+Re-wrap is not the cause either: renders carry *fewer* text lines than source
+(1048 → 676 on one paper) while using more pages, and the dominant line pitch
+matches exactly. Height is going into gaps and element heights, not extra lines.
+
+**What is not known.** Which gaps. Three attribution attempts each produced a
+partly-wrong answer, documented in §5.
+
+```bash
+python testkit/elemheight.py testkit/real/arxiv_transformer.pdf
+```
+
+### D2 — pdfium backend: fine-placement gap · **severity: high (blocks relicensing)**
+
+The permissive parser is at parity on extraction and **9 regressions** on
+placement.
+
+| | within-2pt | median dy |
+|---|---|---|
+| PyMuPDF (default) | **0.510** | 0.69pt |
+| PyMuPDF + pdfium clip rendering | 0.476 | 1.31pt |
+| pdfium parser | **0.291** | 2.02pt |
+
+Worst documents: `c8_toc_links` 0.99 → 0.40, `c7_code` 0.89 → 0.34, `c6_long`
+0.78 → 0.23, `f1_fpdf_brief` 0.60 → 0.00.
+
+Words land on the right *pages* (`word_recall` 0.96–1.00), so this is a
+sub-2pt offset error — most likely baseline or line-box geometry feeding
+`space_before`. Ruled out: the loose-vs-ink line box (using the metric box
+alone changed nothing measurable).
+
+**This is what blocks Apache-2.0.** exactdoc is AGPL only because PyMuPDF is.
+
+```bash
+python testkit/backend_parity.py --refine 3
+```
+
+### D3 — Nested tables flatten · **severity: medium**
+
+`c3_tables` renders 3 source pages as 4 on *both* backends. Inner-table borders
+land in the wrong places and cell content merges. Pre-existing, not a swap
+regression.
+
+### D4 — Rounded-corner card rows stack diagonally · **severity: medium**
+
+`border-radius` makes a card's background a curve, and the card-row detector
+requires `shape == "rect"`. A three-card stat row renders as a descending
+staircase (`c1_whitepaper`).
+
+### D5 — Letter-spaced headings lose their spaces · **severity: medium**
+
+"TECHNICAL SKILLS" → "TECHNICALSKILLS". Tracking-spaced text is drawn as
+positioned glyphs; the gap-to-space threshold that is correct for body text is
+too large at heading sizes. Visible on the resume sample.
+
+### D6 — Mixed page geometry discarded · **severity: medium**
+
+`DocLayout` takes `page_w`/`page_h` from page 1 and applies it document-wide.
+A portrait + landscape + A3 document emits **one** section at one page size.
+
+```bash
+python testkit/edge_cases.py
+```
+
+### D7 — Google Docs is a harder target than LibreOffice · **severity: medium**
+
+On the *same* DOCX, with the `--target gdocs` static fix applied:
+
+| | LibreOffice | Google Docs |
+|---|---|---|
+| mean within-2pt | 0.404 | ~0.20 |
+| page match | 17/18 | 11/16 |
+
+Docs has no "exact" line spacing, so its importer mistranslates
+`lineRule="exact"` — error scaling with font size (+45pt at 18pt type, +84pt at
+22pt). `--target gdocs` emits multiples instead, which recovers most of it
+(median drift 23.1pt → 3.4pt), but Docs remains behind.
+
+**Untested and at risk:** the full-bleed cover band depends on a mid-document
+section with different L/R margins, and Docs flattens per-section page
+geometry. Never measured.
+
+### D8 — Encrypted and truncated PDFs raise raw exceptions · **severity: low**
+
+`ValueError: document closed or encrypted` instead of a clean unsupported-input
+error. All other degenerate inputs (empty, image-only, landscape, rotated,
+tiny, dense microtype) convert without crashing.
+
+### D9 — `w:shd` emitted 17,112 times across 18 documents · **severity: low**
+
+Shading applied very aggressively per-run/per-cell. File-size and complexity
+smell, not a correctness bug.
+
+---
+
+## 3. Pending work, in the order I would do it
+
+| # | Item | Blocks | Notes |
+|---|---|---|---|
+| 1 | **D2 fine-placement gap** | Apache-2.0 relicensing | Narrow: sub-2pt offsets, right pages. `backend_parity.py` will catch a regression now |
+| 2 | **D1 LaTeX pagination** | core use case | Needs writer-side instrumentation (§5), not another hypothesis |
+| 3 | **Un-gate the wrap correction** | fidelity | Written and measured (+20pt line agreement); needs predicted `n_lines` in the page-capacity model *before* the first write, or it costs a page |
+| 4 | D4, D5, D6 | — | Bounded, independent |
+| 5 | **Google Docs cover-band check** | a real claim in the README | One oracle run; may invalidate the design |
+| 6 | D3 nested tables | — | |
+| 7 | PyPI release | adoption | After 1 |
+
+Not planned: OCR for scanned PDFs; CJK/RTL shaping beyond the reordering
+already done; forms.
+
+---
+
+## 4. Approaches used in building this
+
+### 4.1 The core architecture
+
+```
+PDF ──parse──▶ IR ──normalise──▶ IR ──infer──▶ Layout ──write──▶ DOCX ──refine──▶ DOCX
+     pypdfium2/     dialect.py       heuristics    OOXML subset    render & correct
+     PyMuPDF
+```
+
+A PDF is a painting: absolutely positioned glyphs and paths with no semantics.
+A DOCX is a program: a flow that a renderer lays out again. Conversion is
+**decompilation** — recovering the program that would repaint the page.
+
+The output is restricted to a **Google-Docs-safe vocabulary**: styled
+paragraphs, fixed-layout tables with per-side borders and shading, section
+geometry, true column sections, inline images, headers/footers with fields,
+tab stops, hyperlinks. Nothing else. Verified by `testkit/ooxml_audit.py`: no
+VML, no text boxes, no floating frames anywhere in the corpus output.
+
+### 4.2 Producer-dialect normalisation
+
+The same visual element is emitted completely differently by different
+generators. A list bullet:
+
+| Generator | How it reaches the PDF |
+|---|---|
+| ReportLab | a text character, same block, gap ≥ 4pt |
+| WeasyPrint | a text character, *separate* block, butted flush |
+| **Chromium** | **not text at all — a filled bezier circle** |
+
+Inference thresholds were originally calibrated on ReportLab, so they encoded
+*"how ReportLab draws things"* rather than *"what a bullet is"*. `dialect.py`
+rewrites producer idioms into one canonical form before inference runs, keyed
+on **evidence in the page, never on the `/Producer` string** — those are absent
+(fpdf2 writes none), rewritten by post-processors, and version-dependent, and a
+metadata switch fails hardest on the first unknown producer.
+
+### 4.3 Closed-loop correction
+
+The converter was open-loop: predict how Word will lay out, and hope.
+`verify.py` already rendered the result and measured the difference — it just
+never fed the answer back. `refine.py` closes it: write → render → measure
+overflow and per-page offset → correct → rewrite, keeping the best round.
+
+Justification: fitting a per-page affine trend to word drift removed **77%** of
+the vertical error (mean |dy| 4.01pt → 0.93pt). Two pages of one paper were
+internally near-perfect (residual 0.03pt) while sitting 12pt too high — one
+anchoring bug, not a layout problem.
+
+### 4.4 Root cause before compensator
+
+Repeatedly, the compensator was the wrong tool and the law was findable:
+
+- Google Docs' "+28pt after the first heading" turned out to be its importer
+  mistranslating `lineRule="exact"`, error scaling with font size. Replacing
+  per-document loop correction with a **static** rule improved Docs within-2pt
+  **10×** at zero conversion cost.
+- Chromium rasterising whole pages traced to an invisible white page-background
+  rect merging every drawing into one cluster, plus bullets-as-beziers.
+
+### 4.5 Verification philosophy
+
+The testkit shares **no code** with the converter. The original `verify.py`
+called `infer()` to decide which source text to exclude from its own coverage
+denominator — so anything the converter rasterised vanished from its own score.
+On the resume it reported `src_chars: 0`. **A converter must not define its own
+ground truth.**
+
+Metrics, and why each exists:
+
+| Metric | Catches |
+|---|---|
+| `page_match` | the loudest failure |
+| `live_text_cov` | **raster-blind** — text baked into an image counts as lost |
+| `doc_recall` | content survived anywhere |
+| `word_recall` | content on the right *page* |
+| `within2pt` | fine placement — the dimension a coarse test misses |
+| `ink_iou`, `ssim` | whole-page sanity |
+
+**SSIM is never the headline.** It is dominated by whitespace and it *rewards*
+a rasterised page: a resume converted to two flat images scored 0.594,
+comparable to genuinely good conversions.
+
+Supporting discipline: two gate lanes (refine on/off) so oracle memorisation is
+visible; a **holdout** set never used during development; golden IR frozen and
+CI-checked; CI on a pinned Linux oracle because local Windows renders with real
+Arial/Times and wraps differently.
+
+---
+
+## 5. Measurement mistakes made, and what they cost
+
+These are recorded because each one produced a confident wrong answer, and the
+pattern is more useful than the individual fixes.
+
+| Mistake | Symptom | Lesson |
+|---|---|---|
+| Parity harness omitted `within2pt` | Reported **0 regressions**; the swap actually cost within-2pt 0.510 → 0.291. The default was flipped and the licence changed before the gate caught it | A test is only as good as the dimensions it measures; the forgotten dimension is where the regression hides |
+| Harness reused stale renders | A real fix looked like a no-op | Never cache on existence alone — require the render to be newer than the input |
+| Bucketed injections by *location* | Reported "65% is space_before" for intervals whose `space_before` was 0–10pt | Naming a location is not naming a cause |
+| Element-gap attribution | Impossible values (130pt between adjacent paragraphs at `sb=0`); aggregate flipped sign between documents | Line-text matching cannot attribute vertical space once content reflows |
+| `spaninflate` on repeated running heads | 46,000pt of "inflation" on one page | Disclosed in the tool rather than silently trusted |
+| Probes matched non-unique strings | Measured body-text "ByteNet", not the table | Match on text that is unique on both sides |
+
+Two compensators were built, measured, and **left switched off** because they
+did not pay: the quality ladder (line-locking) and the half-point wrap
+correction. Both fix something real; neither moved page counts, and shipping a
+measured regression would have been worse than shipping nothing.
+
+---
+
+## 6. What is not achievable
+
+Stated as limits, not bugs:
+
+1. **Pixel-perfect *and* editable is a contradiction.** Text reflowed by a
+   different engine will occasionally break a line differently, and everything
+   below a changed break moves. Rare, not eliminable.
+2. **OOXML quantises font size to 0.5pt.** A 10.1pt source font cannot be
+   emitted at 10.1pt. Compensable via wrap width; not removable.
+3. **Google Docs ignores embedded fonts.** Metric-compatible substitution is
+   the ceiling.
+4. **Docs flattens per-section page geometry**, which puts full-bleed cover
+   bands permanently at risk.
+5. **Gradients, rounded corners and rotated text** have no paragraph-flow
+   equivalent and must rasterise.
+6. **Scanned PDFs** need OCR; out of scope.
+
+For text-flow documents — whitepapers, papers, reports, resumes — *visually
+indistinguishable at normal zoom and fully editable* is reachable. Everything
+in §2 is a bug, not a limit.

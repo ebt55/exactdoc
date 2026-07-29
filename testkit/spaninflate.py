@@ -1,4 +1,4 @@
-﻿"""Per source page: how much taller is its content in the render?
+"""Per source page: how much taller is its content in the render?
 
 No classification, no buckets -- deliberately. Its predecessor, heightdiff's
 --summary, bucketed each injection by whichever construct sat in the interval

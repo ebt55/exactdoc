@@ -1,4 +1,4 @@
-﻿"""Where does the extra vertical height enter, line by line?
+"""Where does the extra vertical height enter, line by line?
 
 Two root-cause attempts on LaTeX pagination started from plausible mechanisms
 (re-wrap; fragment paragraphs) and each fixed something real without moving

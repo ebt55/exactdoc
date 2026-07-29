@@ -186,17 +186,18 @@ it *rewards* a rasterised page: a resume converted into two flat images scored
 
 ## Known-broken
 
-- **Nested tables** flatten, with borders in the wrong places (`c3_tables`).
-- **LaTeX/pdfTeX** papers still inflate their page count substantially. Text is
-  recovered (≈95% live) but pagination is not; the multi-column author block on
-  a paper's first page explodes into a vertical cascade.
-- **Rounded-corner "stat card" rows** stack diagonally instead of forming a row:
-  `border-radius` makes the card a curve, and the card-row detector requires a
-  rect.
-- **Letter-spaced headings** lose their spaces — "TECHNICAL SKILLS" comes out
+Every entry is measured. See [STATUS.md](STATUS.md) for the full register with
+severity, evidence and the reproduction command for each.
+
+- **LaTeX/pdfTeX pagination** — the largest open defect. Text is recovered
+  (94–97% live) but page counts inflate 25–90%; the holdout set is 0/4.
+- **Nested tables** flatten, with borders misplaced (`c3_tables`, 3 → 4 pages).
+- **Rounded-corner "stat card" rows** stack diagonally: `border-radius` makes
+  the card a curve, and the card-row detector requires a rect.
+- **Letter-spaced headings** lose their spaces — "TECHNICAL SKILLS" →
   "TECHNICALSKILLS".
-- **Mixed page geometry** is discarded: page size and orientation come from
-  page 1 and apply to the whole document.
+- **Mixed page geometry** is discarded: page size and orientation are taken
+  from page 1 for the whole document.
 
 ## Limitations
 
@@ -260,11 +261,21 @@ the vector paths on arXiv papers. pypdfium2 (Apache-2.0) extracts text and
 paths but provides no line/block grouping, so that clustering has to be
 written here.
 
-That is the plan, and `testkit/golden_ir.py` makes it tractable: the current
-parser's output is frozen per corpus document and checked in CI, so a
-replacement backend is correct when it reproduces the goldens. The existing
-tuning becomes the specification rather than a casualty. See
-[`exactdoc/backend.py`](exactdoc/backend.py) for the contract.
+A pypdfium2 backend is written and selectable (`EXACTDOC_BACKEND=pdfium`), but
+it is **not** the default and the licence has **not** changed. Measured against
+PyMuPDF over the corpus it stands at **9 regressions** on fine placement —
+`within2pt` 0.510 → 0.291, median word drift 0.69pt → 2.02pt. Extraction is at
+parity (text character-identical, paths exact); positional precision is not.
+
+Two documents diverge on purpose, both verified by rendering, and on both the
+new backend is the *correct* one: RTL text (PyMuPDF returns visual order, so
+its output renders Arabic backwards) and gradient bands (PyMuPDF drops them,
+leaving white text invisible on white).
+
+`testkit/golden_ir.py` freezes the current parser's output per corpus document
+and checks it in CI, so the remaining work is a diff rather than a rewrite. See
+[`exactdoc/backend.py`](exactdoc/backend.py) for the contract and
+[STATUS.md](STATUS.md) for the numbers.
 
 **Until the swap lands, please do not send patches to `parse.py`** —
 relicensing needs every contributor's consent, and the change is confined to
