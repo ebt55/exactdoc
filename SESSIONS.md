@@ -575,3 +575,123 @@ stroke alpha), with the width scaled by the matrix like everything else. Worth
 recording because it is the same class of error as the one being corrected:
 a number read from this API means nothing until you know what it is measured
 in and when it applies.
+
+### The change, and its DrawCmd-level diff
+
+`_page_paths` now applies `FPDFPageObj_GetMatrix` to every segment point before
+the y-flip, derives the path bbox from those transformed points (keeping
+`GetBounds` for curves, whose control points hull wider than the drawn curve,
+and for paths with no points), and scales the stroke width by the matrix too.
+`_classify`, `_rect_pts` and the frame-edge decomposition consume the same
+points, so the mixed-space logic is gone rather than worked around.
+
+Before/after taken from a **git worktree of the pre-change commit**, so both
+sides are real code reading byte-identical PDFs:
+
+| document | draws | shape changes | bboxes moved | worst | stroke there |
+|---|---|---|---|---|---|
+| `01_whitepaper_market` | 41→41 | none | 25 | 3.00pt | 3.00 |
+| `02_research_paper` | 13→13 | none | 9 | 0.90pt | 0.90 |
+| `03_tech_report_code` | 46→46 | none | 35 | 3.00pt | 3.00 |
+| `04_exec_brief` | 18→18 | none | 5 | 3.50pt | 3.50 |
+| `05_memo` | 1→1 | none | 1 | 0.80pt | 0.80 |
+| `c1_whitepaper` | 43→43 | none | 0 | — | — |
+| `c2_paper2col` | 5→5 | none | 0 | — | — |
+| `c3_tables` | 342→342 | none | 0 | — | — |
+| `c5_graphics` | 9→9 | none | 2 | 0.75pt | 1.00 |
+| `c6_long` | 50→50 | none | 0 | — | — |
+| `c7_code` | 4→4 | none | 2 | 0.76pt | 1.00 |
+| `c8_toc_links` | 3→3 | none | 0 | — | — |
+| `f1_fpdf_brief` | 12→12 | none | 12 | 0.57pt | 0.57 |
+| `l1_word_native` | 10→10 | none | 10 | 1.00pt | 1.00 |
+| `r1_reportlab_report` | 14→14 | none | 10 | 0.40pt | 0.40 |
+| **total** | **611→611** | **none** | **111** | | |
+
+**No path changed shape or disappeared**, and every moved bbox shrank by at most
+its own stroke width — which is exactly what removing an ink envelope should
+look like. One exception, checked rather than waved through: a `complex` path in
+`04_exec_brief` moved 2.60pt against a 2.00pt stroke. It is the line chart's
+series polyline, and its new bbox (`x=100.0..470.0`) lands precisely on the
+data-marker centres (markers at 97.4..102.6 → centre 100.0; 467.4..472.6 →
+centre 470.0). The excess over half the stroke width is the **miter join** at
+the sharp vertices, which extends further than the stroke itself. Explained.
+
+The Chromium documents move zero bboxes because Chromium draws its borders as
+*filled* rectangles, where the envelope and the path coincide. Their paths were
+still being classified in the wrong space, which is what the change fixes for
+them.
+
+### H2 — confirmed, exactly
+
+`03_tech_report_code`'s border geometry is now identical to PyMuPDF's, coordinate
+for coordinate:
+
+```
+PyMuPDF   vline x=54.00..54.00  y=354.70..485.70  w=0.00  lw=0.75
+PDFium    vline x=54.00..54.00  y=354.70..485.70  w=0.00  lw=0.75
+PyMuPDF   vline x=57.00..57.00  y=493.70..538.70  w=0.00  lw=3.00
+PDFium    vline x=57.00..57.00  y=493.70..538.70  w=0.00  lw=3.00
+```
+
+and the code box classifies the same way, with the phantom 3.0pt column gone:
+
+```
+PyMuPDF   role=code rows=1 col_widths=[504.0]  leading=11.50 line_breaks=True vis_lines=10 runs=15
+PDFium    role=code rows=1 col_widths=[504.0]  leading=11.50 line_breaks=True vis_lines=10 runs=15
+```
+
+**H6 — confirmed.** Golden IR 7/7, purity 16/16; no shared code was touched.
+
+### The full gate, and the hypothesis I got wrong
+
+`backend_parity.py --refine 3`, canonical environment: **8 regressions, 8 same,
+0 better** — count held, no new regression documents.
+
+| document | before | after | Δ |
+|---|---|---|---|
+| `c7_code` | 0.59 | **0.76** | **+0.17** |
+| `03_tech_report_code` | 0.02 | 0.05 | +0.03 |
+| `04_exec_brief` | 0.34 *(better)* | 0.20 *(same)* | **−0.14** |
+| `01_whitepaper_market` | 0.31 | 0.31 | — |
+| `02_research_paper` | 0.57 | 0.57 | — |
+| `05_memo` | 0.49 | 0.49 | — |
+| `c1_whitepaper` | 0.00 | 0.00 | — |
+| `c2_paper2col` | 0.21 | 0.21 | — |
+| `c3_tables` | 0.00 | 0.00 | — |
+| `c5_graphics` | 0.24 | 0.24 | — |
+| `c6_long` | 0.21 | 0.21 | — |
+| `c8_toc_links` | 0.54 | 0.54 | — |
+| `f1_fpdf_brief` | 0.60 | 0.60 | — |
+| `l1_word_native` | 0.03 | 0.03 | — |
+| `r1_reportlab_report` | 0.57 | 0.57 | — |
+
+**Scorecard against what I wrote before running:**
+
+| | prediction | outcome |
+|---|---|---|
+| H1 | ≥90% non-identity on Chromium; matrix reconstructs, raw does not | ✅ 100% on every Chromium doc; 611/612 vs 34/612 |
+| H2 | border w ≤ 0.1pt, phantom column gone, `role=code` | ✅ exact coordinate match with PyMuPDF |
+| H3 | `03_tech` ≥ 0.23, expect 0.30–0.46 | ❌ **0.05** |
+| H4 | `c7_code` holds ≥ 0.55 | ✅ 0.76 |
+| H5 | count ≤ 8, no new regressions | ✅ 8, none |
+| H6 | golden 7/7, pymupdf lane unmoved | ✅ |
+
+**H3 is the one that matters, and it failed.** The phantom column was fixed —
+H2 proves it structurally and perfectly, the layout dump is now
+indistinguishable from PyMuPDF's — and `03_tech` moved 0.02 → 0.05. So the
+phantom column was *a* cause of that document's drop but not the dominant one.
+The attribution in the previous session was incomplete, and I should not have
+predicted a full recovery from a structural match: **matching the structure of
+one region does not bound the error of the page.** Whatever else is wrong with
+`03_tech` is still unnamed, and naming it is M2.d's job, not a guess here.
+
+**The trade, stated explicitly (law 17).** `04_exec_brief` loses 0.14 and its
+*better* verdict, landing level with PyMuPDF (0.20 against 0.22) instead of
+ahead of it (0.34). That document is the line chart, and its series polyline is
+exactly the path whose bbox shrank by the miter join. The old number came from
+an inflated chart bbox — a figure region larger than the drawing — so the
+document was scoring *better* off a geometric error. I do not think a score
+earned that way is worth keeping, and it is not a regression either way. Net
+across the corpus: +0.17 and +0.03 on two regression documents, −0.14 on a
+non-regression one, thirteen documents pinned exactly, and a whole class of
+coordinate-space confusion removed from the parser.

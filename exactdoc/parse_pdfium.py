@@ -576,6 +576,33 @@ SEG_BEZIERTO = raw.FPDF_SEGMENT_BEZIERTO  # 1
 SEG_MOVETO = raw.FPDF_SEGMENT_MOVETO      # 2
 
 
+def _obj_matrix(obj):
+    """(a, b, c, d, e, f) for a page object, or None when unavailable."""
+    try:
+        m = raw.FS_MATRIX()
+        if raw.FPDFPageObj_GetMatrix(obj.raw, ctypes.byref(m)):
+            return (m.a, m.b, m.c, m.d, m.e, m.f)
+    except Exception:
+        pass
+    return None
+
+
+def _apply_matrix(m, x, y):
+    if m is None:
+        return x, y
+    a, b, c, d, e, f = m
+    return a * x + c * y + e, b * x + d * y + f
+
+
+def _matrix_scale(m):
+    """Uniform scale factor of a matrix, for converting stroke widths."""
+    if m is None:
+        return 1.0
+    a, b, c, d, _, _ = m
+    s = abs(a * d - b * c) ** 0.5
+    return s if s > 1e-9 else 1.0
+
+
 def _classify(pts, w, h) -> str:
     has_curve = any(t == SEG_BEZIERTO for _, _, t in pts)
     # a rectangle arrives as MOVETO + 3-4 LINETO
@@ -588,6 +615,13 @@ def _classify(pts, w, h) -> str:
         # which promotes their cluster straight to "figure": two callout accent
         # bars were enough to rasterise both callouts and 23% of a document's
         # text.
+        #
+        # The points reaching here are in PAGE space. They did not used to be:
+        # PDFium reports segment points in OBJECT space, so this test compared
+        # object-space dx/dy against page-space w/h. On a Chromium document that
+        # is every path on the page -- measured, 578 of the corpus's 612 path
+        # objects carry a non-identity matrix, and raw points miss the true
+        # bounds by up to 5438pt (testkit/backend_paths.py).
         if len(pts) <= 3:
             xs = [x for x, _, _ in pts]
             ys = [y for _, y, _ in pts]
@@ -664,8 +698,15 @@ def _page_paths(page, page_h) -> List[DrawCmd]:
         if not raw.FPDFPageObj_GetBounds(obj.raw, ctypes.byref(l), ctypes.byref(b),
                                          ctypes.byref(r_), ctypes.byref(t)):
             continue
-        bbox = (float(l.value), page_h - float(t.value),
-                float(r_.value), page_h - float(b.value))
+        bounds_bbox = (float(l.value), page_h - float(t.value),
+                       float(r_.value), page_h - float(b.value))
+        # Segment points are in OBJECT space: the path object's own matrix has
+        # to be applied before they mean anything on the page. Skipping it is
+        # not a small error -- measured across the corpus, 578 of 612 path
+        # objects carry a non-identity matrix (every path on every Chromium
+        # document) and untransformed points miss the true bounds by up to
+        # 5438pt. testkit/backend_paths.py measures this and keeps measuring it.
+        mat = _obj_matrix(obj)
         n = raw.FPDFPath_CountSegments(obj.raw)
         pts = []
         for i in range(max(0, n)):
@@ -674,8 +715,8 @@ def _page_paths(page, page_h) -> List[DrawCmd]:
                 continue
             sx = ctypes.c_float(); sy = ctypes.c_float()
             raw.FPDFPathSegment_GetPoint(seg, ctypes.byref(sx), ctypes.byref(sy))
-            pts.append((float(sx.value), page_h - float(sy.value),
-                        raw.FPDFPathSegment_GetType(seg)))
+            px, py = _apply_matrix(mat, float(sx.value), float(sy.value))
+            pts.append((px, page_h - py, raw.FPDFPathSegment_GetType(seg)))
         fillmode = ctypes.c_int(); stroke = ctypes.c_int()
         raw.FPDFPath_GetDrawMode(obj.raw, ctypes.byref(fillmode), ctypes.byref(stroke))
         fr = ctypes.c_uint(); fg = ctypes.c_uint()
@@ -688,10 +729,31 @@ def _page_paths(page, page_h) -> List[DrawCmd]:
                                        ctypes.byref(sb), ctypes.byref(sa))
         sw = ctypes.c_float()
         raw.FPDFPageObj_GetStrokeWidth(obj.raw, ctypes.byref(sw))
+        # ...in object space too, like the points, so it scales with the matrix.
+        stroke_w = float(sw.value) * _matrix_scale(mat)
         has_fill = fillmode.value != 0 and fa.value > 0
         has_stroke = bool(stroke.value) and sa.value > 0
         kind = "fillstroke" if (has_fill and has_stroke) else \
                "stroke" if has_stroke else "fill"
+
+        # GetBounds returns the INK envelope: a stroked path inflated by its
+        # line width in every direction. PyMuPDF returns the geometric path, and
+        # every threshold downstream was tuned against that. The difference
+        # decides structure, not appearance: a 0.75pt box border arrives 1.5pt
+        # wide instead of zero-width, and infer.py's table detector reads that
+        # bar as a column -- measured on 03_tech_report_code, a code listing was
+        # built as a two-column table with a 3.0pt first column and its line
+        # breaks discarded, where PyMuPDF builds role=code with all ten lines.
+        #
+        # Curves keep the envelope: their control points hull wider than the
+        # drawn curve, so for those GetBounds is the better estimate. Paths that
+        # yield no points keep it too.
+        bbox = bounds_bbox
+        if pts and not any(t == SEG_BEZIERTO for _, _, t in pts):
+            xs = [p[0] for p in pts]
+            ys = [p[1] for p in pts]
+            bbox = (min(xs), min(ys), max(xs), max(ys))
+
         w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
         fill = _hexcol(fr.value, fg.value, fb.value) if has_fill else None
         stroke_c = _hexcol(sr.value, sg.value, sb.value) if has_stroke else None
@@ -699,7 +761,7 @@ def _page_paths(page, page_h) -> List[DrawCmd]:
 
         # Producers emit borders twice; keep one. parse.py dedupes the same way.
         sig = (tuple(round(v, 1) for v in bbox), kind, fill, stroke_c,
-               round(float(sw.value), 2), len(pts))
+               round(stroke_w, 2), len(pts))
         if sig in seen:
             continue
         seen.add(sig)
@@ -736,7 +798,7 @@ def _page_paths(page, page_h) -> List[DrawCmd]:
                 shape = "vline"
         out.append(DrawCmd(
             kind=kind, shape=shape, bbox=bbox, fill=fill, stroke=stroke_c,
-            width=float(sw.value), opacity=opacity, n_items=max(1, len(pts))))
+            width=stroke_w, opacity=opacity, n_items=max(1, len(pts))))
     return out
 
 
