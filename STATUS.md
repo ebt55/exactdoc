@@ -165,11 +165,28 @@ a humanist sans. Matching it would mean reproducing a bug.
 
 #### What is left
 
-Converge `_build_blocks` on PyMuPDF's grouping — `testkit/golden_ir.py` is the
-specification. On the evidence above that should clear roughly three more
-documents. `c7_code` and `03_tech_report_code` are explained by neither
-geometry, grouping nor fonts, and still need a cause; both are code-heavy, so
-intra-line span segmentation is the next place to look.
+Converge `_build_blocks` on PyMuPDF's grouping. On the evidence above that
+should clear roughly three more documents.
+
+**The contract is `backend_parity.py`, not the golden IR.** An earlier version
+of this section called `golden_ir.py` "the specification". It is not, and
+saying so was steering the port at the wrong target: this backend already
+refuses to reproduce three PyMuPDF behaviours because they are bugs, and
+PyMuPDF's grouping is not even stable across its own releases (measured: 1.24
+and 1.26 put `02_research_paper` p2 in 4 blocks, 1.28 in 7). The golden is a
+microscope for locating a disagreement; the rendered-output gate decides
+whether it matters.
+
+`c7_code` and `03_tech_report_code` were "explained by neither geometry,
+grouping nor fonts". They are now attributed, and it was none of the four
+suspected causes: **PDFium does not report leading indentation and PyMuPDF
+synthesises it.** For `    def __init__(...)` PDFium's first character is `d`
+at x=93.17 with no space before it; PyMuPDF reports the line starting at
+x=72.25 with four leading spaces. PDFium synthesises spaces *between*
+characters, where there is a gap to measure; at a line start there is nothing
+to the left, so the indent vanishes and every glyph on the line is displaced.
+See SESSIONS.md for the measurement and for what reconstructing it does and
+does not fix.
 
 ```bash
 python testkit/backend_parity.py --refine 3

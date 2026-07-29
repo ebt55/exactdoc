@@ -24,10 +24,28 @@ is already weakest. pypdfium2 (Apache-2.0) extracts text and paths but offers
 no line or block grouping at all, which means writing that clustering here.
 
 That is the actual plan, and it is why this seam exists. Writing the
-clustering ourselves means we *control* the grouping, so the existing tuning
-stops being a liability and becomes the specification: the port is correct
-when it reproduces the frozen golden IR (testkit/golden_ir.py). A verifiable
-port, not a rewrite.
+clustering ourselves means we *control* the grouping.
+
+**What "correct" means here, and what it does not.** The port is correct when
+`testkit/backend_parity.py` finds it no worse than PyMuPDF on the rendered
+output. It is NOT "reproduce the frozen golden IR" -- that was the target for a
+while, and it is the wrong finish line for three measured reasons:
+
+  - This backend deliberately refuses to reproduce three PyMuPDF behaviours
+    because they are bugs: RTL returned in visual order (renders Arabic
+    backwards), gradients dropped (white text left invisible on white), and
+    Calibri reported as serif.
+  - PyMuPDF's grouping is not stable across its own releases. Measured:
+    1.24.14 and 1.26.0 put page 2 of 02_research_paper in 4 blocks, 1.28.0
+    puts it in 7. A target that moves with a dependency version cannot be a
+    specification.
+  - The golden is regenerated from a corpus that is itself regenerated, so it
+    describes an environment as much as a parser (hence the manifest it now
+    carries).
+
+The golden IR is a **microscope**: a fast, oracle-free, per-document diff for
+finding *where* two parsers disagree. The parity gate is the **contract**. When
+they disagree, the parity gate wins.
 
 Until then: **do not accept external contributions to parse.py.** Relicensing
 needs every contributor's consent, and the swap is confined to this one
