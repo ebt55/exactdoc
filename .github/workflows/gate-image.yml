@@ -1,0 +1,98 @@
+# Build and publish the canonical measurement image.
+#
+# Manual only. Publishing a new image is not a routine event: the fidelity
+# numbers are a property of the renderer inside it, so a new digest is a new
+# environment, and adopting one is a deliberate baseline migration -- never a
+# side effect of a push. See docker/gate.Dockerfile and plan §17 rule 2.
+#
+# The output that matters is the DIGEST. Pin it in gate.yml; do not reference the
+# image by tag, because a tag is a moving reference and that is the whole problem
+# this image exists to solve.
+#
+# After publishing, the canonical reference has to be re-recorded INSIDE the new
+# image and the parity floors remeasured against it:
+#
+#   docker run --rm -v "$PWD:/work" -w /work \
+#     -e FONTCONFIG_FILE=/work/scripts/fonts.conf \
+#     ghcr.io/ebt55/exactdoc-gate@sha256:<digest> \
+#     bash -lc 'bash scripts/bootstrap.sh --strict \
+#               && python testkit/evidence.py --record-canonical --force'
+#
+# TODO(CI-01): pin every action by commit SHA rather than by tag, alongside the
+# same change to gate.yml. Tracked in the plan's CI-01, which hardens all
+# workflows together; doing it here alone would leave the repository half-pinned
+# and imply a guarantee the other workflow does not give.
+name: gate-image
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Extra tag to apply alongside the digest (e.g. 2026-07-30)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write        # least privilege: enough to push, nothing more
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/gate.Dockerfile
+          push: true
+          # No `latest`. A floating tag on this image would invite exactly the
+          # drift the image is meant to remove.
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/exactdoc-gate:${{ github.sha }}
+            ${{ inputs.tag != '' && format('ghcr.io/{0}/exactdoc-gate:{1}', github.repository_owner, inputs.tag) || '' }}
+          provenance: true
+          sbom: true
+
+      - name: Report the toolchain this image resolved
+        run: |
+          IMG="ghcr.io/${{ github.repository_owner }}/exactdoc-gate@${{ steps.push.outputs.digest }}"
+          echo "digest: ${{ steps.push.outputs.digest }}"
+          docker run --rm "$IMG" cat /etc/exactdoc-image.txt
+
+      - name: Summary
+        run: |
+          {
+            echo "## Canonical gate image published"
+            echo
+            echo '```'
+            echo "ghcr.io/${{ github.repository_owner }}/exactdoc-gate@${{ steps.push.outputs.digest }}"
+            echo '```'
+            echo
+            echo "Pin this digest in \`.github/workflows/gate.yml\`."
+            echo
+            echo "This is a NEW ENVIRONMENT. Before any number measured in it is"
+            echo "comparable to the record, re-run \`evidence.py --record-canonical"
+            echo "--force\` inside it and remeasure the parity floors. Adopting a"
+            echo "digest without that is how a baseline comes to describe an"
+            echo "environment nobody ran."
+            echo
+            echo "### Toolchain"
+            echo '```'
+            docker run --rm "ghcr.io/${{ github.repository_owner }}/exactdoc-gate@${{ steps.push.outputs.digest }}" \
+              cat /etc/exactdoc-image.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

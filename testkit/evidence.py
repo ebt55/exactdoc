@@ -285,14 +285,21 @@ def _dig(d, dotted):
     return cur
 
 
-def environment_identity(env, ref=None):
+_DEFAULT_REF = object()
+
+
+def environment_identity(env, ref=_DEFAULT_REF):
     """-> (matches_canonical, [mismatch, ...]). What actually differs, named.
 
     Every comparison here is an equality against a *recorded* canonical run. No
     prefixes, no minors, no subsets -- each of those was a way to be a different
     environment and still be called canonical, and each one has a mutation test.
+
+    `ref` omitted loads the recorded reference; `ref=None` states that there is
+    none. Those are different questions and conflating them made a test pass on a
+    machine with no reference file and fail inside the image that had one.
     """
-    if ref is None:
+    if ref is _DEFAULT_REF:
         ref = canonical_reference()
     if not ref:
         return False, ["no canonical environment has been recorded; run "
@@ -581,6 +588,13 @@ if __name__ == "__main__":
                       "old fingerprint. Pass --force only with a deliberate "
                       "baseline migration (see plan §17 rule 2).")
             raise SystemExit(3)
+        # This file IS the definition of canonical, so "does it match canonical?"
+        # is not a question that applies to it. Recording the answer measured
+        # *before* the definition existed would leave `canonical: false` sitting
+        # in the reference, which reads as though the canonical environment were
+        # not canonical.
+        env.pop("canonical", None)
+        env.pop("canonical_mismatches", None)
         env["recorded_by"] = "evidence.py --record-canonical"
         env["recorded_at_commit"] = (git_state() or {}).get("commit")
         with open(CANONICAL_REF, "w") as f:
