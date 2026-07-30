@@ -256,6 +256,35 @@ def test_shipped_default_is_the_measured_default():
 # `backend_parity.adjudicate()` is pure for the same reason `gate.check()` is,
 # and it needs the same treatment: the policy it applies used to live in a
 # docstring while the code exited on a different rule entirely.
+PARITY_FP = "f" * 64          # the environment the fixture's floors were measured under
+
+
+def _binding(**over):
+    """The four fields every floor must name, per DET-02.
+
+    A floor that does not say which environment, corpus and commit produced it
+    cannot be told apart from a regression when one of those changes -- which is
+    not hypothetical: three `c4_i18n` floors survived scripts/fonts.conf pinning
+    the font set and then failed CI as though the backend had moved.
+    """
+    b = {"environment_fingerprint": PARITY_FP,
+         "corpus_manifest_sha256": "c" * 64,
+         "measured_commit": "d" * 40,
+         "profile_id": "parity/refine3"}
+    b.update(over)
+    return b
+
+
+def _ratification(**over):
+    """What makes a shortfall ratified rather than merely visible: a person, a
+    date, an issue, and a condition under which it is revisited."""
+    r = {"ratified_by": "test owner", "ratified_on": "2026-07-30",
+         "issue": "https://example.invalid/1",
+         "review_condition": "revisit at the Google Docs checkpoint"}
+    r.update(over)
+    return r
+
+
 def parity_fixture():
     """Reference and candidate results, plus a policy that waives two docs."""
     # `diverges.pdf` must differ by MORE than the margin, or it is not a
@@ -274,13 +303,18 @@ def parity_fixture():
         "margins": {"page_err": 0, "live_text_cov": 0.05, "doc_recall": 0.05,
                     "word_recall": 0.05, "within2pt": 0.08, "dy_p50": 0.5,
                     "raster_frac": 0.02},
-        "expected_divergence": {"diverges.pdf": {
-            "reason": "verified visually", "verified": "rendered side by side",
-            "floors": dict(bounds)}},
-        "accepted_shortfalls": {"accepted.pdf": {
-            "defect": "D2",
-            "floors": dict(bounds, within2pt=0.53, live_text_cov=0.99,
-                           doc_recall=0.99, word_recall=0.97)}},
+        "expected_divergence": {"diverges.pdf": dict(
+            _binding(),
+            reason="verified visually", verified="rendered side by side",
+            floors=dict(bounds))},
+        # Ratified, not merely "accepted": the fixture's healthy case has to be a
+        # state that can actually authorise a swap, and after DET-02 that means
+        # carrying an owner and an expiry.
+        "ratified_shortfalls": {"accepted.pdf": dict(
+            _binding(), **_ratification(),
+            defect="D2",
+            floors=dict(bounds, within2pt=0.53, live_text_cov=0.99,
+                        doc_recall=0.99, word_recall=0.97))},
     }
     return ref, cand, policy
 
@@ -289,11 +323,13 @@ PARITY_MANIFEST = {"documents": {"good.pdf": {}, "accepted.pdf": {},
                                  "diverges.pdf": {}}}
 
 
-def parity_kinds(ref, cand, policy, subset=False, manifest=PARITY_MANIFEST):
+def parity_kinds(ref, cand, policy, subset=False, manifest=PARITY_MANIFEST,
+                 env_fingerprint=PARITY_FP):
     import backend_parity
     _, summary = backend_parity.adjudicate(
         ref, cand, policy, subset=subset,
-        manifest=None if subset else manifest)
+        manifest=None if subset else manifest,
+        env_fingerprint=env_fingerprint)
     return summary, set(f["kind"] for f in summary["failures"])
 
 
@@ -301,7 +337,9 @@ def test_parity_healthy_passes():
     ref, cand, policy = parity_fixture()
     summary, kinds_ = parity_kinds(ref, cand, policy)
     check("the ratified policy passes", summary["ok"], str(summary["failures"]))
-    check("the accepted shortfall is not counted a regression",
+    check("a ratified policy is release-ready", summary["release_ready"],
+          str(summary))
+    check("the ratified shortfall is not counted a regression",
           summary["regressions"] == 0, str(summary))
     check("the expected divergence is not counted a regression",
           summary["expected_div"] == 1, str(summary))
@@ -312,7 +350,7 @@ def test_parity_accepted_shortfall_worsening():
     ref, cand, policy = parity_fixture()
     cand["accepted.pdf"]["within2pt"] = 0.20
     summary, kinds_ = parity_kinds(ref, cand, policy)
-    check("an accepted shortfall falling past its floor fails",
+    check("a ratified shortfall falling past its floor fails",
           "below-floor" in kinds_, str(summary["failures"]))
 
 
@@ -327,10 +365,79 @@ def test_parity_stale_acceptance():
 
 def test_parity_unbounded_acceptance():
     ref, cand, policy = parity_fixture()
-    policy["accepted_shortfalls"]["accepted.pdf"]["floors"] = None
+    policy["ratified_shortfalls"]["accepted.pdf"]["floors"] = None
     summary, kinds_ = parity_kinds(ref, cand, policy)
     check("an acceptance with no numeric floors fails", "unrecorded" in kinds_,
           str(summary["failures"]))
+
+
+# --- DET-02: the provisional state, and the identity a floor must carry -------
+#
+# Schema 1 had ONE waiver section whose own note called it RATIFIED while every
+# prose document called the same four documents provisional. The executable rule
+# and the written rule disagreed about whether a release was authorised, and the
+# gate could not tell you which it meant. Each mutation below is one way that
+# ambiguity used to pass.
+
+def test_parity_provisional_cannot_authorise():
+    """Rule 4: provisional findings never count as a pass."""
+    ref, cand, policy = parity_fixture()
+    spec = policy["ratified_shortfalls"].pop("accepted.pdf")
+    for k in ("ratified_by", "ratified_on", "issue", "review_condition"):
+        spec.pop(k)
+    policy["provisional_shortfalls"] = {"accepted.pdf": spec}
+    summary, kinds_ = parity_kinds(ref, cand, policy)
+    check("a provisional shortfall is counted provisional",
+          summary["provisional"] == 1, str(summary))
+    check("a provisional shortfall does not pass", not summary["ok"],
+          str(summary["failures"]))
+    check("a provisional shortfall is not release-ready",
+          not summary["release_ready"], str(summary))
+    check("a provisional shortfall is NOT reported as a regression",
+          summary["regressions"] == 0, str(summary))
+    check("the provisional document is named",
+          summary["provisional_documents"] == ["accepted.pdf"], str(summary))
+
+
+def test_parity_ratified_needs_an_owner():
+    """"Ratified" without a person and a date is an unbounded waiver wearing the
+    word. All four fields are required, and each is checked on its own."""
+    for field in ("ratified_by", "ratified_on", "issue", "review_condition"):
+        ref, cand, policy = parity_fixture()
+        del policy["ratified_shortfalls"]["accepted.pdf"][field]
+        summary, kinds_ = parity_kinds(ref, cand, policy)
+        check("a ratification missing %s fails" % field,
+              "unratified" in kinds_, str(summary["failures"]))
+
+
+def test_parity_retired_section_is_refused():
+    """The migration is deliberate, so an unmigrated file is refused rather than
+    silently read as one state or the other."""
+    ref, cand, policy = parity_fixture()
+    policy["accepted_shortfalls"] = {
+        "accepted.pdf": policy.pop("ratified_shortfalls")["accepted.pdf"]}
+    summary, kinds_ = parity_kinds(ref, cand, policy)
+    check("the retired accepted_shortfalls section fails",
+          "policy-unmigrated" in kinds_, str(summary["failures"]))
+
+
+def test_parity_floor_must_name_its_environment():
+    ref, cand, policy = parity_fixture()
+    policy["ratified_shortfalls"]["accepted.pdf"]["environment_fingerprint"] = None
+    summary, kinds_ = parity_kinds(ref, cand, policy)
+    check("a floor naming no environment fails", "unbound" in kinds_,
+          str(summary["failures"]))
+
+
+def test_parity_floor_from_another_environment_is_refused():
+    """The c4_i18n stale-floor failure, stated as logic: floors measured before
+    the font set was pinned describe a different environment, and comparing them
+    reported a regression that had not happened."""
+    ref, cand, policy = parity_fixture()
+    summary, kinds_ = parity_kinds(ref, cand, policy,
+                                   env_fingerprint="9" * 64)
+    check("a floor measured under another environment fails",
+          "environment-mismatch" in kinds_, str(summary["failures"]))
 
 
 def test_parity_new_regression():
@@ -362,23 +469,222 @@ def test_parity_subset_cannot_pass():
           not summary["ok"], str(summary))
 
 
+# --- DET-02: exact environment identity --------------------------------------
+#
+# Schema 1 called an environment "canonical" on a Python *minor*, a LibreOffice
+# version *prefix*, a *subset* of required fonts, and a merely non-empty
+# FONTCONFIG_FILE -- then computed a fingerprint it never compared against
+# anything. Four ways to be a different environment and still report
+# `canonical: true`, and this repository has been burnt by two of them: Chromium
+# 149 vs 150 moved a gated metric 5x, and an unpinned font set moved c4_i18n's
+# within2pt 0.416 -> 0.038. Each mutation below is one of those ways.
+
+def canonical_env_pair():
+    """(recorded reference, live environment) that are the same environment."""
+    import evidence
+    ref = {
+        "os": "linux",
+        "python": "3.12.13",
+        "oracles": {"soffice_version": "LibreOffice 24.2.7.2 420(Build:2)",
+                    "font_families": ["DejaVu Sans", "FreeSerif", "IPAGothic",
+                                      "Liberation Mono", "Liberation Sans",
+                                      "Liberation Serif", "WenQuanYi Zen Hei"]},
+        "fonts_conf": {"repo_sha256": "a" * 64, "active_path": "/w/fonts.conf",
+                       "active_sha256": "a" * 64, "active_is_repo_conf": True},
+        "font_files": {"digest": "b" * 64, "count": 59, "unreadable": []},
+        "dependencies": {"pymupdf": "1.28.0", "pypdfium2": "5.12.0",
+                         "mupdf": "1.28.0", "pdfium": "152.0.7947.0",
+                         "python-docx": "1.1.2", "numpy": "2.1.0",
+                         "pillow": "11.0.0", "lxml": "5.3.0"},
+    }
+    import copy
+    live = copy.deepcopy(ref)
+    fp = evidence.fingerprint(ref)
+    ref["fingerprint"] = fp
+    live["fingerprint"] = fp
+    return ref, live
+
+
+def env_identity(ref, live):
+    import evidence
+    ok, bad = evidence.environment_identity(live, ref=ref)
+    return ok, " | ".join(bad)
+
+
+def test_env_identity_matching_pair_is_canonical():
+    ref, live = canonical_env_pair()
+    ok, why = env_identity(ref, live)
+    check("an identical environment is canonical", ok, why)
+
+
+def test_env_identity_rejects_patch_version_drift():
+    """3.12.3 vs 3.12.13 is a real, metric-moving difference in this repository's
+    history, and a minor-version check cannot see it."""
+    for field, value in (("python", "3.12.3"),):
+        ref, live = canonical_env_pair()
+        live[field] = value
+        live["fingerprint"] = __import__("evidence").fingerprint(live)
+        ok, why = env_identity(ref, live)
+        check("python patch drift is not canonical", not ok, why)
+
+    ref, live = canonical_env_pair()
+    live["oracles"]["soffice_version"] = "LibreOffice 24.2.1.2 420(Build:1)"
+    live["fingerprint"] = __import__("evidence").fingerprint(live)
+    ok, why = env_identity(ref, live)
+    check("a LibreOffice build difference is not canonical", not ok, why)
+
+
+def test_env_identity_rejects_unexpected_fonts():
+    """The half that schema 1 missed. Installing the right fonts is half the job;
+    seeing no others is the other half -- a runner image shipping extra faces
+    moved c4_i18n's dy_p50 0.15pt -> 2.1pt with the corpus already frozen."""
+    ref, live = canonical_env_pair()
+    live["oracles"]["font_families"] = sorted(
+        live["oracles"]["font_families"] + ["Noto Sans CJK JP"])
+    live["fingerprint"] = __import__("evidence").fingerprint(live)
+    ok, why = env_identity(ref, live)
+    check("an EXTRA visible font is not canonical", not ok, why)
+    check("the extra font is named", "Noto Sans CJK JP" in why, why)
+
+
+def test_env_identity_rejects_missing_font():
+    ref, live = canonical_env_pair()
+    live["oracles"]["font_families"] = [
+        f for f in live["oracles"]["font_families"] if f != "IPAGothic"]
+    live["fingerprint"] = __import__("evidence").fingerprint(live)
+    ok, why = env_identity(ref, live)
+    check("a missing visible font is not canonical", not ok, why)
+
+
+def test_env_identity_rejects_changed_fonts_conf():
+    ref, live = canonical_env_pair()
+    live["fonts_conf"]["repo_sha256"] = "9" * 64
+    live["fingerprint"] = __import__("evidence").fingerprint(live)
+    ok, why = env_identity(ref, live)
+    check("a changed scripts/fonts.conf is not canonical", not ok, why)
+
+
+def test_env_identity_rejects_unapplied_fonts_conf():
+    """A config that is merely set is not a config that is applied. Schema 1
+    accepted any non-empty FONTCONFIG_FILE, including one adding the system's
+    fonts back."""
+    ref, live = canonical_env_pair()
+    live["fonts_conf"] = dict(live["fonts_conf"],
+                              active_path="/etc/fonts/fonts.conf",
+                              active_sha256="e" * 64,
+                              active_is_repo_conf=False)
+    ok, why = env_identity(ref, live)
+    check("FONTCONFIG_FILE pointing elsewhere is not canonical", not ok, why)
+
+    ref, live = canonical_env_pair()
+    live["fonts_conf"] = dict(live["fonts_conf"], active_path=None,
+                              active_sha256=None, active_is_repo_conf=False)
+    ok, why = env_identity(ref, live)
+    check("an unset FONTCONFIG_FILE is not canonical", not ok, why)
+
+
+def test_env_identity_rejects_font_file_drift():
+    """Two machines can both report "DejaVu Sans" and resolve it to different
+    builds with different metrics. The family list cannot tell them apart."""
+    ref, live = canonical_env_pair()
+    live["font_files"]["digest"] = "7" * 64
+    live["fingerprint"] = __import__("evidence").fingerprint(live)
+    ok, why = env_identity(ref, live)
+    check("a different font FILE set is not canonical", not ok, why)
+
+
+def test_env_identity_rejects_unhashable_font():
+    ref, live = canonical_env_pair()
+    live["font_files"] = dict(live["font_files"], unreadable=["Broken.ttf"])
+    ok, why = env_identity(ref, live)
+    check("a font file that cannot be hashed is not canonical", not ok, why)
+
+
+def test_env_identity_enforces_the_recorded_fingerprint():
+    """The check schema 1 could never have performed: it set `fingerprint` AFTER
+    calling the identity function, so the value was not there to compare."""
+    ref, live = canonical_env_pair()
+    live["fingerprint"] = "0" * 64
+    ok, why = env_identity(ref, live)
+    check("a fingerprint mismatch is not canonical", not ok, why)
+    check("the mismatch says it is a fingerprint", "fingerprint" in why, why)
+
+
+def test_env_identity_without_a_reference_is_not_canonical():
+    """Fail closed: no recorded canonical environment means nothing can claim to
+    be it. The alternative -- treating "no reference" as "matches" -- is how an
+    unenforced fingerprint behaves."""
+    import evidence
+    _, live = canonical_env_pair()
+    ok, bad = evidence.environment_identity(live, ref=None)
+    check("no recorded reference means not canonical", not ok)
+    check("and it says how to record one",
+          any("record-canonical" in b for b in bad), " | ".join(bad))
+
+
+def test_env_identity_rejects_dependency_drift():
+    import evidence
+    for dep in ("pymupdf", "pypdfium2", "pdfium", "mupdf", "lxml"):
+        ref, live = canonical_env_pair()
+        live["dependencies"][dep] = "0.0.1"
+        live["fingerprint"] = evidence.fingerprint(live)
+        ok, why = env_identity(ref, live)
+        check("%s version drift is not canonical" % dep, not ok, why)
+
+
 def test_committed_parity_policy_is_wellformed():
     import backend_parity
     policy = backend_parity.load_policy()
-    accepted = {k: v for k, v in policy.get("accepted_shortfalls", {}).items()
+
+    def entries(section):
+        return {k: v for k, v in (policy.get(section) or {}).items()
                 if not k.startswith("_")}
+
     check("the policy names its two backends",
           policy.get("reference_backend") and policy.get("candidate_backend"))
-    for doc_id, spec in sorted(accepted.items()):
-        check("accepted %s carries a defect ID" % doc_id, bool(spec.get("defect")))
-        check("accepted %s carries numeric floors" % doc_id,
-              isinstance(spec.get("floors"), dict) and spec["floors"],
+    check("the policy is schema 2 or later", (policy.get("schema") or 0) >= 2,
+          "schema=%r -- the provisional/ratified split is schema 2"
+          % policy.get("schema"))
+    check("the policy has migrated off `accepted_shortfalls`",
+          not entries("accepted_shortfalls"),
+          "still present: %s" % sorted(entries("accepted_shortfalls")))
+
+    provisional = entries("provisional_shortfalls")
+    ratified = entries("ratified_shortfalls")
+    waived = dict(provisional)
+    waived.update(ratified)
+
+    # Rule 5: zero-test execution is a failure. Reading the section and looping
+    # over nothing is how this check would silently stop checking -- which is
+    # exactly what happened to it when `accepted_shortfalls` was renamed and the
+    # loop body simply never ran.
+    check("there is at least one waived document to check", bool(waived),
+          "no provisional or ratified shortfalls found; this test would "
+          "otherwise pass by executing zero assertions")
+
+    for doc_id, spec in sorted(waived.items()):
+        check("waived %s carries a defect ID" % doc_id, bool(spec.get("defect")))
+        check("waived %s carries numeric floors" % doc_id,
+              isinstance(spec.get("floors"), dict) and bool(spec["floors"]),
               "floors=%r -- record them with --update-policy" % spec.get("floors"))
-    for doc_id, spec in sorted(policy.get("expected_divergence", {}).items()):
-        if doc_id.startswith("_"):
-            continue
+
+    for doc_id, spec in sorted(ratified.items()):
+        for field in ("ratified_by", "ratified_on", "issue", "review_condition"):
+            check("ratified %s names %s" % (doc_id, field), bool(spec.get(field)),
+                  "a ratification needs a named owner and a way to expire")
+
+    for doc_id, spec in sorted(entries("expected_divergence").items()):
         check("divergence %s carries rendered evidence" % doc_id,
               bool(spec.get("verified")))
+
+    # The two unwaived regressions are unwaived on purpose. If either appears in
+    # any waiver section, the product decision was made by an edit rather than by
+    # the owner, and that is the thing this policy exists to prevent.
+    for doc_id in ("05_memo.pdf", "f1_fpdf_brief.pdf"):
+        check("%s is in no waiver section" % doc_id,
+              doc_id not in waived and doc_id not in entries("expected_divergence"),
+              "attribution is not authorisation; widening a waiver is a product "
+              "decision scheduled for the Google Docs checkpoint (DEC-D2)")
 
 
 # ------------------------------------------------- value hygiene (audit round 2)

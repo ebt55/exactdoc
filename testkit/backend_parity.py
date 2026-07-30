@@ -167,7 +167,8 @@ def run(backend, srcs, out_root, refine):
     return res
 
 
-def _check_floors(doc_id, cand_result, spec, failures, label, profile_ok=True):
+def _check_floors(doc_id, cand_result, spec, failures, label, profile_ok=True,
+                  env_fingerprint=None):
     """Numeric bounds on a waived document, in both directions.
 
     Applies to expected divergences as well as accepted shortfalls. They were
@@ -193,6 +194,25 @@ def _check_floors(doc_id, cand_result, spec, failures, label, profile_ok=True):
                          "--update-policy on the canonical environment. An "
                          "unbounded waiver is a waiver of anything" % label))
         return
+
+    # A floor that does not name the environment it was measured under cannot be
+    # detected as describing a different one. That is not hypothetical: three
+    # `c4_i18n` floors survived scripts/fonts.conf pinning the visible font set
+    # and then failed CI as though the backend had regressed, because nothing in
+    # the file recorded which font environment produced them.
+    recorded_fp = spec.get("environment_fingerprint")
+    if not recorded_fp:
+        failures.append(("unbound", doc_id,
+                         "%s floors name no environment_fingerprint, so a "
+                         "changed toolchain cannot be told from a regression. "
+                         "Remeasure with --update-policy on the canonical "
+                         "environment" % label))
+    elif env_fingerprint and recorded_fp != env_fingerprint:
+        failures.append(("environment-mismatch", doc_id,
+                         "%s floors were measured under environment %s and this "
+                         "run is %s. These numbers do not describe this "
+                         "environment; remeasure rather than compare"
+                         % (label, recorded_fp[:16], env_fingerprint[:16])))
     cd = dims(cand_result)
     for name, floor in sorted(_clean(floors).items()):
         v = cd.get(name)
@@ -209,7 +229,8 @@ def _check_floors(doc_id, cand_result, spec, failures, label, profile_ok=True):
                              % (name, v, floor)))
 
 
-def adjudicate(ref, cand, policy, subset=False, manifest=None, refine=None):
+def adjudicate(ref, cand, policy, subset=False, manifest=None, refine=None,
+               env_fingerprint=None):
     """Apply the policy. -> (rows, summary dict).
 
     Coverage is anchored on the **manifest**, not on the intersection of what the
@@ -224,13 +245,31 @@ def adjudicate(ref, cand, policy, subset=False, manifest=None, refine=None):
     """
     margins = _clean(policy.get("margins", {}))
     divergence = _clean(policy.get("expected_divergence", {}))
-    accepted = _clean(policy.get("accepted_shortfalls", {}))
+    provisional = _clean(policy.get("provisional_shortfalls", {}))
+    ratified = _clean(policy.get("ratified_shortfalls", {}))
     recorded_refine = policy.get("recorded_refine_rounds")
     profile_ok = (refine is None or recorded_refine is None
                   or refine == recorded_refine)
     rows, failures = [], []
     counts = {"regressions": 0, "same": 0, "better": 0, "expected_div": 0,
-              "accepted": 0, "missing": 0}
+              "provisional": 0, "ratified": 0, "accepted": 0, "missing": 0}
+
+    # The retired section. Schema 1 called all four D2 documents
+    # `accepted_shortfalls`, and its own note called them RATIFIED, while every
+    # prose document called them provisional -- so the executable rule and the
+    # written rule disagreed about whether a release was authorised. Migrating is
+    # a deliberate act, not something to infer, so an unmigrated file is refused
+    # rather than guessed at.
+    retired = _clean(policy.get("accepted_shortfalls", {}))
+    if retired:
+        failures.append(("policy-unmigrated", "-",
+                         "policy still uses the retired `accepted_shortfalls` "
+                         "section for %d document(s): %s. Move each to "
+                         "`provisional_shortfalls` (visible, release-blocking) or "
+                         "`ratified_shortfalls` (named owner, date, issue, review "
+                         "condition). 'Accepted' did not say which, and that "
+                         "ambiguity is what let four documents read as ratified."
+                         % (len(retired), ", ".join(sorted(retired)))))
     if not profile_ok:
         rows.append({"document": "-", "verdict": "NOTE",
                      "detail": "floors not applied: recorded at refine %s, this "
@@ -286,7 +325,8 @@ def adjudicate(ref, cand, policy, subset=False, manifest=None, refine=None):
                 failures.append(("undocumented", doc_id,
                                  "expected divergence with no rendered evidence"))
             _check_floors(doc_id, B, spec, failures, "expected divergence",
-                          profile_ok=profile_ok)
+                          profile_ok=profile_ok,
+                          env_fingerprint=env_fingerprint)
             if not worse and not better:
                 # The waiver says these two backends disagree here on purpose. If
                 # they now agree on every dimension, it describes nothing -- and
@@ -295,21 +335,47 @@ def adjudicate(ref, cand, policy, subset=False, manifest=None, refine=None):
                 failures.append(("stale", doc_id,
                                  "waived as an expected divergence, but the two "
                                  "backends no longer differ on any dimension"))
-        elif doc_id in accepted:
-            spec = accepted[doc_id]
-            row["verdict"] = "accepted"
+        elif doc_id in provisional or doc_id in ratified:
+            is_prov = doc_id in provisional
+            spec = provisional[doc_id] if is_prov else ratified[doc_id]
+            label = "provisional shortfall" if is_prov else "ratified shortfall"
+            row["verdict"] = "provisional" if is_prov else "ratified"
             row["defect"] = spec.get("defect")
-            counts["accepted"] += 1
+            counts["provisional" if is_prov else "ratified"] += 1
+            counts["accepted"] += 1        # the union, for output compatibility
             if not spec.get("defect"):
                 failures.append(("undocumented", doc_id,
-                                 "accepted shortfall with no defect ID"))
-            _check_floors(doc_id, B, spec, failures, "accepted shortfall",
-                          profile_ok=profile_ok)
+                                 "%s with no defect ID" % label))
+            _check_floors(doc_id, B, spec, failures, label,
+                          profile_ok=profile_ok,
+                          env_fingerprint=env_fingerprint)
             if not worse:
                 failures.append(("stale", doc_id,
-                                 "accepted as worse, but no dimension is worse "
-                                 "any more. A stale acceptance hides the next "
-                                 "real regression on this document"))
+                                 "%s recorded as worse, but no dimension is "
+                                 "worse any more. A stale waiver hides the next "
+                                 "real regression on this document" % label))
+            if is_prov:
+                # Rule 4: provisional findings never count as a pass. Visible,
+                # bounded and attributed is not the same as authorised, and the
+                # difference has to be in the exit code or it is not a rule.
+                failures.append(("provisional", doc_id,
+                                 "shortfall is PROVISIONAL and cannot authorise a "
+                                 "backend swap or a release. Fix it, or ratify it "
+                                 "with a named owner, date, issue and review "
+                                 "condition."))
+            else:
+                # A ratification is a person taking responsibility on a date, with
+                # a way to revisit it. Without those it is an unbounded waiver
+                # wearing the word "ratified", which is the exact failure this
+                # section was split to prevent.
+                missing = [k for k in ("ratified_by", "ratified_on", "issue",
+                                       "review_condition")
+                           if not spec.get(k)]
+                if missing:
+                    failures.append(("unratified", doc_id,
+                                     "in `ratified_shortfalls` but missing %s. A "
+                                     "ratification needs a named owner and a way "
+                                     "to expire." % ", ".join(missing)))
         elif worse:
             row["verdict"] = "REGRESSION"
             counts["regressions"] += 1
@@ -329,10 +395,42 @@ def adjudicate(ref, cand, policy, subset=False, manifest=None, refine=None):
 
     ok = not failures and not subset
     summary = dict(counts)
+    kinds = {k for k, _, _ in failures}
     summary.update({"ok": ok, "subset": subset,
+                    # Explicit, not inferred from `ok`. A reader asking "may this
+                    # authorise the licence swap?" should not have to reconstruct
+                    # the answer from a failure list, and a provisional entry is
+                    # exactly the case where "no regressions" and "release-ready"
+                    # come apart.
+                    "release_ready": bool(ok and not counts["provisional"]
+                                          and not subset),
+                    "provisional_documents": sorted(
+                        d for k, d, _ in failures if k == "provisional"),
+                    "failure_kinds": sorted(kinds),
                     "failures": [{"kind": k, "document": d, "detail": v}
                                  for k, d, v in failures]})
     return rows, summary
+
+
+def corpus_identity(manifest):
+    """A digest of WHICH 16 documents these floors were measured over.
+
+    Derived from the per-document input hashes rather than from the manifest
+    file's bytes, so reordering keys or editing a `why` note does not read as a
+    different corpus -- while replacing a single input does. The corpus was never
+    byte-reproducible (ReportLab and Chromium stamp a creation time into every
+    file), so the inputs' own recorded hashes are the only stable identity
+    available.
+    """
+    import hashlib
+    docs = (manifest or {}).get("documents") or {}
+    parts = []
+    for doc_id in sorted(k for k in docs if not k.startswith("_")):
+        entry = docs[doc_id] or {}
+        parts.append("%s:%s" % (doc_id, entry.get("sha256")))
+    if not parts:
+        return None
+    return hashlib.sha256("|".join(parts).encode()).hexdigest()
 
 
 def record_policy(ref, cand, policy, manifest, environment, path=POLICY_PATH):
@@ -367,7 +465,21 @@ def record_policy(ref, cand, policy, manifest, environment, path=POLICY_PATH):
 
     n = 0
     policy["recorded_refine_rounds"] = refine
-    for section in ("accepted_shortfalls", "expected_divergence"):
+    policy["schema"] = 2
+    # Every floor is bound to the exact conditions that produced it. Schema 1
+    # recorded `os: linux` plus three version strings, which is why three stale
+    # `c4_i18n` floors survived a font-environment change and failed CI as though
+    # the backend had regressed: a floor that does not name its environment cannot
+    # be detected as describing a different one.
+    binding = {
+        "profile_id": (policy.get("profile_id")
+                       or "parity/refine%s" % refine),
+        "environment_fingerprint": environment.get("fingerprint"),
+        "corpus_manifest_sha256": corpus_identity(manifest),
+        "measured_commit": (evidence.git_state() or {}).get("commit"),
+    }
+    for section in ("provisional_shortfalls", "ratified_shortfalls",
+                    "expected_divergence"):
         for doc_id, spec in policy.get(section, {}).items():
             if doc_id.startswith("_") or doc_id not in cand:
                 continue
@@ -376,10 +488,16 @@ def record_policy(ref, cand, policy, manifest, environment, path=POLICY_PATH):
                                            for k, v in dims(ref[doc_id]).items()}
             spec["recorded_on"] = {
                 "os": environment.get("os"),
+                "python": environment.get("python"),
                 "soffice": (environment.get("oracles") or {}).get("soffice_version"),
                 "pdfium": (environment.get("dependencies") or {}).get("pdfium"),
                 "pymupdf": (environment.get("dependencies") or {}).get("pymupdf"),
+                "fonts_conf_sha256": (environment.get("fonts_conf") or {})
+                                     .get("repo_sha256"),
+                "font_files_digest": (environment.get("font_files") or {})
+                                     .get("digest"),
             }
+            spec.update(binding)
             n += 1
 
     import tempfile
@@ -463,7 +581,8 @@ def main(argv=None):
 
     rows, summary = adjudicate(ref, cand, policy, subset=subset,
                                manifest=None if subset else manifest,
-                               refine=refine)
+                               refine=refine,
+                               env_fingerprint=env.get("fingerprint"))
     print("\n%-22s %-22s %-22s %s"
           % ("document", ref_name, cand_name, "verdict"))
     for row in rows:

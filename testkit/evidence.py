@@ -22,6 +22,7 @@ release can be checked against exactly one artifact:
     parity                    the backend comparison verdict
     package                   the installed-artifact smoke status
 """
+import hashlib
 import json
 import os
 import platform
@@ -32,7 +33,20 @@ import sys
 import _paths  # noqa: F401
 from _paths import CHROME, PROJECT, SOFFICE
 
-SCHEMA = 1
+# Schema 2: exact environment identity. Schema 1 called an environment
+# "canonical" on a Python *minor*, a LibreOffice version *prefix*, a *subset* of
+# required fonts, and a merely non-empty FONTCONFIG_FILE -- and it computed a
+# fingerprint it then never compared against anything. Four ways to be a
+# different environment and still report `canonical: true`. See CANONICAL_REF.
+SCHEMA = 2
+
+# The recorded canonical environment, written by `evidence.py --record-canonical`
+# from a run that IS canonical. Keeping it as recorded data rather than constants
+# in this file is deliberate: the exact LibreOffice build, the exact font set and
+# the exact dependency versions are *measurements*, and a hand-maintained constant
+# is one edit away from describing an environment nobody ran.
+CANONICAL_REF = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             "canonical_env.json")
 
 
 def _run(cmd, timeout=60):
@@ -126,78 +140,215 @@ def oracle_versions():
             "metric_fonts": sorted(set(re.findall(r"(Liberation \w+)", fonts)))}
 
 
-# The toolchain the recorded numbers were measured on. `canonical` means "this
-# exact combination", not "some Linux".
+def _sha256_file(path):
+    try:
+        h = hashlib.sha256()
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(65536), b""):
+                h.update(chunk)
+        return h.hexdigest()
+    except OSError:
+        return None
+
+
+def fonts_conf_identity():
+    """The font *policy*, hashed -- and whether the renderer is really using it.
+
+    Schema 1 asked only whether FONTCONFIG_FILE was non-empty. That is satisfied
+    by pointing it at any file on the machine, including one that adds the
+    system's fonts back. The variable that moved `c4_i18n`'s within2pt 0.416 ->
+    0.038 was not the presence of a config, it was *which* config: scripts/
+    fonts.conf REPLACES fontconfig's search path rather than extending it.
+
+    So record the repository's own fonts.conf digest, and record whether the
+    environment variable actually resolves to that exact file.
+    """
+    repo_conf = os.path.join(PROJECT, "scripts", "fonts.conf")
+    active = os.environ.get("FONTCONFIG_FILE") or None
+    out = {"repo_path": repo_conf if os.path.exists(repo_conf) else None,
+           "repo_sha256": _sha256_file(repo_conf),
+           "active_path": active,
+           "active_sha256": _sha256_file(active) if active else None}
+    # Same *content* is the test, not the same string: CI passes an absolute
+    # $GITHUB_WORKSPACE path and the container passes /work, and both are correct.
+    out["active_is_repo_conf"] = bool(
+        out["active_sha256"] and out["active_sha256"] == out["repo_sha256"])
+    return out
+
+
+def font_file_inventory():
+    """Every font FILE the renderer can see, by basename and digest.
+
+    Families are not enough. Two machines can both report "DejaVu Sans" and
+    resolve it to different builds with different metrics, and the family list
+    cannot tell them apart. Basenames rather than full paths because the same
+    canonical font set lives at different prefixes in a container and on a
+    runner, and the path is not what moves a metric.
+    """
+    listing = _run(["fc-list", "--format=%{file}\n"])
+    files = sorted({l.strip() for l in listing.splitlines() if l.strip()})
+    entries, unreadable = [], []
+    for p in files:
+        d = _sha256_file(p)
+        if d is None:
+            unreadable.append(os.path.basename(p))
+        else:
+            entries.append({"file": os.path.basename(p), "sha256": d})
+    entries.sort(key=lambda e: (e["file"], e["sha256"]))
+    combined = hashlib.sha256(
+        "|".join("%s:%s" % (e["file"], e["sha256"]) for e in entries).encode()
+    ).hexdigest() if entries else None
+    return {"files": entries, "count": len(entries),
+            "unreadable": unreadable, "digest": combined}
+
+
+def image_identity():
+    """The canonical OCI image this run declares, if any.
+
+    A reviewed image referenced by immutable digest is the only way to make
+    LibreOffice's build a constant instead of whatever the runner image happens
+    to ship this week. Recorded from the environment rather than probed, because
+    a process cannot reliably discover the digest of the image containing it.
+    """
+    return {"ref": os.environ.get("EXACTDOC_GATE_IMAGE") or None,
+            "digest": os.environ.get("EXACTDOC_GATE_IMAGE_DIGEST") or None,
+            "base_digest": os.environ.get("EXACTDOC_BASE_IMAGE_DIGEST") or None}
+
+
+# Exactly what the fingerprint covers, in order. Explicit rather than "everything
+# in the dict" so that adding a provenance-only field (Chromium, paths, machine)
+# cannot silently invalidate every recorded baseline.
 #
-# `os == "linux"` was the whole test, and it is not a test: the baseline was
-# recorded with Chromium 149 and LibreOffice 24.2.7.2 on Python 3.12.3, CI ran
-# Chromium 150 on 3.12.13, both reported `canonical: true`, and one corpus
-# document came out different enough to move a gated metric 5x. An environment
-# check that cannot tell those apart is decoration.
-#
-# Chromium is deliberately NOT in the fingerprint: the corpus is frozen
-# (corpus_manifest.py), so the browser no longer touches any measured number. It
-# is recorded in the artifact for provenance and it does not gate.
-CANONICAL = {
-    "os": "linux",
-    "python_minor": "3.12",
-    "soffice": "LibreOffice 24.2",
-    # Latin metrics AND the scripts the corpus actually contains. `c4_i18n` is
-    # CJK + Arabic + Hebrew, and checking only Liberation let two environments
-    # with completely different coverage of those scripts both report canonical.
-    "fonts": ("Liberation Mono", "Liberation Sans", "Liberation Serif",
-              "DejaVu Sans", "FreeSerif", "WenQuanYi Zen Hei", "IPAGothic"),
-    "pymupdf_minor": "1.28",
-    "pypdfium2_minor": "5.12",
-}
+# Chromium is deliberately absent: the corpus is frozen and pinned by SHA-256
+# (corpus_manifest.py), so the browser no longer touches a measured number. It is
+# recorded for provenance and does not gate.
+def fingerprint(env):
+    """A digest of everything that can move a measured number. Exact, not minor.
 
-
-def _minor(v):
-    return ".".join((v or "").split(".")[:2])
-
-
-def environment_identity(env):
-    """-> (matches_canonical, [mismatch, ...]). What actually differs, named."""
-    bad = []
-    if env.get("os") != CANONICAL["os"]:
-        bad.append("os %s != %s" % (env.get("os"), CANONICAL["os"]))
-    if _minor(env.get("python")) != CANONICAL["python_minor"]:
-        bad.append("python %s not %s.x" % (env.get("python"),
-                                           CANONICAL["python_minor"]))
+    Schema 1 hashed the Python *minor* and no font digests, so 3.12.3 and 3.12.13
+    -- an actual, metric-moving difference in this repository's history -- produced
+    the same fingerprint. It also never compared the result against anything.
+    """
     oracles = env.get("oracles") or {}
-    lo = oracles.get("soffice_version") or ""
-    if not lo.startswith(CANONICAL["soffice"]):
-        bad.append("LibreOffice %r does not start with %r"
-                   % (lo, CANONICAL["soffice"]))
-    seen_fonts = set(oracles.get("font_families") or []) | \
-        set(oracles.get("metric_fonts") or [])
-    missing_fonts = [f for f in CANONICAL["fonts"] if f not in seen_fonts]
-    if missing_fonts:
-        bad.append("fonts missing: %s" % ", ".join(missing_fonts))
-    if not oracles.get("fontconfig_file"):
+    deps = env.get("dependencies") or {}
+    fc = env.get("fonts_conf") or {}
+    fonts = env.get("font_files") or {}
+    img = env.get("image") or {}
+    parts = [
+        env.get("os"),
+        env.get("python"),                       # exact, not minor
+        oracles.get("soffice_version"),          # exact build string
+        fc.get("repo_sha256"),
+        fonts.get("digest"),                     # every visible font file
+        ",".join(sorted(oracles.get("font_families") or [])),
+        img.get("digest"), img.get("base_digest"),
+        deps.get("pymupdf"), deps.get("pypdfium2"), deps.get("mupdf"),
+        deps.get("pdfium"), deps.get("python-docx"), deps.get("numpy"),
+        deps.get("pillow"), deps.get("lxml"),
+    ]
+    return hashlib.sha256("|".join(str(p) for p in parts).encode()).hexdigest()
+
+
+def canonical_reference(path=CANONICAL_REF):
+    """The recorded canonical environment, or None if none has been recorded."""
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+# What must match the recorded reference exactly, as (dotted path, label).
+_EXACT = (
+    ("os", "os"),
+    ("python", "python"),
+    ("oracles.soffice_version", "LibreOffice"),
+    ("fonts_conf.repo_sha256", "scripts/fonts.conf digest"),
+    ("font_files.digest", "visible font files digest"),
+    ("dependencies.pymupdf", "pymupdf"),
+    ("dependencies.pypdfium2", "pypdfium2"),
+    ("dependencies.mupdf", "mupdf"),
+    ("dependencies.pdfium", "pdfium"),
+    ("dependencies.python-docx", "python-docx"),
+    ("dependencies.numpy", "numpy"),
+    ("dependencies.pillow", "pillow"),
+    ("dependencies.lxml", "lxml"),
+)
+
+
+def _dig(d, dotted):
+    cur = d
+    for k in dotted.split("."):
+        if not isinstance(cur, dict):
+            return None
+        cur = cur.get(k)
+    return cur
+
+
+def environment_identity(env, ref=None):
+    """-> (matches_canonical, [mismatch, ...]). What actually differs, named.
+
+    Every comparison here is an equality against a *recorded* canonical run. No
+    prefixes, no minors, no subsets -- each of those was a way to be a different
+    environment and still be called canonical, and each one has a mutation test.
+    """
+    if ref is None:
+        ref = canonical_reference()
+    if not ref:
+        return False, ["no canonical environment has been recorded; run "
+                       "`evidence.py --record-canonical` on a canonical run "
+                       "(see .github/workflows/gate.yml)"]
+
+    bad = []
+    for dotted, label in _EXACT:
+        want, got = _dig(ref, dotted), _dig(env, dotted)
+        if want is None:
+            continue                     # the reference does not pin this field
+        if got != want:
+            bad.append("%s %r != recorded %r" % (label, got, want))
+
+    # The font set must match EXACTLY in both directions. Schema 1 checked only
+    # that the required families were present, so a runner shipping a large font
+    # collection on top of them still read as canonical -- and that is precisely
+    # what moved c4_i18n's dy_p50 from 0.15pt to 2.1pt with the corpus already
+    # frozen byte-for-byte. Installing the right fonts is half the job; seeing no
+    # others is the other half.
+    want_fams = set((_dig(ref, "oracles.font_families") or []))
+    got_fams = set((_dig(env, "oracles.font_families") or []))
+    if want_fams:
+        missing = sorted(want_fams - got_fams)
+        extra = sorted(got_fams - want_fams)
+        if missing:
+            bad.append("font families missing: %s" % ", ".join(missing))
+        if extra:
+            bad.append("UNEXPECTED font families visible (the renderer can "
+                       "resolve runs to faces the record does not describe): %s"
+                       % ", ".join(extra))
+
+    # A config that is merely set is not a config that is applied.
+    fc = env.get("fonts_conf") or {}
+    if not fc.get("active_path"):
         bad.append("FONTCONFIG_FILE is unset, so the renderer can see whatever "
                    "fonts this machine happens to carry (scripts/fonts.conf)")
-    deps = env.get("dependencies") or {}
-    for name, key in (("pymupdf", "pymupdf_minor"),
-                      ("pypdfium2", "pypdfium2_minor")):
-        if _minor(deps.get(name)) != CANONICAL[key]:
-            bad.append("%s %s not %s.x" % (name, deps.get(name), CANONICAL[key]))
+    elif not fc.get("active_is_repo_conf"):
+        bad.append("FONTCONFIG_FILE=%r is not this repository's scripts/fonts.conf "
+                   "(digest %s != %s)" % (fc.get("active_path"),
+                                          fc.get("active_sha256"),
+                                          fc.get("repo_sha256")))
+
+    if env.get("font_files", {}).get("unreadable"):
+        bad.append("font file(s) could not be hashed: %s"
+                   % ", ".join(env["font_files"]["unreadable"][:8]))
+
+    # The reference's own fingerprint is the last word: if every field above
+    # matched and this still differs, the fingerprint covers something the field
+    # list does not, and that is a bug in _EXACT rather than a pass.
+    want_fp = ref.get("fingerprint")
+    got_fp = env.get("fingerprint")
+    if want_fp and got_fp and got_fp != want_fp:
+        bad.append("environment fingerprint %s != recorded %s"
+                   % (got_fp[:16], want_fp[:16]))
     return (not bad), bad
-
-
-def fingerprint(env):
-    """A short stable digest of everything that can move a measured number."""
-    import hashlib
-    oracles = env.get("oracles") or {}
-    deps = env.get("dependencies") or {}
-    # The whole visible font set, not a Latin subset: it is the variable that
-    # survived freezing the corpus and still moved a gated metric 14x.
-    parts = [env.get("os"), _minor(env.get("python")),
-             oracles.get("soffice_version"),
-             ",".join(sorted(oracles.get("font_families") or [])),
-             deps.get("pymupdf"), deps.get("pypdfium2"), deps.get("python-docx"),
-             deps.get("numpy"), deps.get("pillow"), deps.get("lxml")]
-    return hashlib.sha256("|".join(str(p) for p in parts).encode()).hexdigest()[:16]
 
 
 def environment():
@@ -208,11 +359,18 @@ def environment():
         "python": sys.version.split()[0],
         "dependencies": dependency_versions(),
         "oracles": oracle_versions(),
+        "fonts_conf": fonts_conf_identity(),
+        "font_files": font_file_inventory(),
+        "image": image_identity(),
     }
+    # Fingerprint first: identity now *enforces* the recorded fingerprint, and it
+    # cannot compare a field that has not been computed yet. Schema 1 set it after
+    # the check, which is one reason the check could never have used it.
+    env["fingerprint"] = fingerprint(env)
+    env["schema"] = SCHEMA
     ok, mismatches = environment_identity(env)
     env["canonical"] = ok
     env["canonical_mismatches"] = mismatches
-    env["fingerprint"] = fingerprint(env)
     return env
 
 
@@ -328,7 +486,7 @@ def summarise(doc):
     out = ["commit  %s" % commit,
            "env     %s %s, python %s  fp=%s%s" % (
                e.get("os"), e.get("machine"), e.get("python"),
-               e.get("fingerprint", "?"),
+               (e.get("fingerprint") or "?")[:16],
                "" if e.get("canonical") else "  [NOT canonical: %s]"
                % "; ".join(e.get("canonical_mismatches") or [])),
            "oracle  %s" % ((e.get("oracles") or {}).get("soffice_version") or "none")]
@@ -372,7 +530,69 @@ if __name__ == "__main__":
                          "the real checkout so the commit and clean-tree marker "
                          "come from the authority on them, and the measurement "
                          "environment is left untouched.")
+    ap.add_argument("--record-canonical", action="store_true",
+                    help="write this environment to testkit/canonical_env.json "
+                         "as the definition of `canonical`. Refused off Linux, "
+                         "without the repository's fonts.conf applied, or with "
+                         "any oracle or font digest missing.")
+    ap.add_argument("--force", action="store_true",
+                    help="with --record-canonical, replace an existing record. "
+                         "Redefining canonical invalidates every recorded "
+                         "baseline and policy floor bound to the old "
+                         "fingerprint, so it is not the default.")
     a = ap.parse_args()
+
+    if a.record_canonical:
+        env = environment()
+        refuse = []
+        if env["os"] != "linux":
+            refuse.append("os is %r, not linux -- CI Linux is the number of "
+                          "record (Windows renders with real Arial/Times and "
+                          "wraps differently)" % env["os"])
+        if not (env.get("fonts_conf") or {}).get("active_is_repo_conf"):
+            refuse.append("scripts/fonts.conf is not the applied FONTCONFIG_FILE, "
+                          "so the visible font set is not the pinned one")
+        if not (env.get("oracles") or {}).get("soffice_version"):
+            refuse.append("no LibreOffice version -- the renderer decides the "
+                          "numbers and this record would not name it")
+        if not (env.get("font_files") or {}).get("digest"):
+            refuse.append("no font file digest; fc-list returned nothing")
+        if (env.get("font_files") or {}).get("unreadable"):
+            refuse.append("font file(s) could not be hashed: %s"
+                          % ", ".join(env["font_files"]["unreadable"][:8]))
+        for dep in ("pymupdf", "pypdfium2"):
+            if not (env.get("dependencies") or {}).get(dep):
+                refuse.append("no %s version recorded" % dep)
+        if refuse:
+            print("REFUSED -- this is not a canonical environment:")
+            for r in refuse:
+                print("  - %s" % r)
+            raise SystemExit(2)
+        if os.path.exists(CANONICAL_REF) and not a.force:
+            old = canonical_reference() or {}
+            print("REFUSED -- %s already exists." % CANONICAL_REF)
+            print("  recorded fingerprint %s" % (old.get("fingerprint") or "?")[:16])
+            print("  this environment     %s" % env["fingerprint"][:16])
+            if (old.get("fingerprint") or "") == env["fingerprint"]:
+                print("  they match; nothing to do.")
+            else:
+                print("  they differ. Re-recording redefines `canonical` and "
+                      "invalidates every baseline and policy floor bound to the "
+                      "old fingerprint. Pass --force only with a deliberate "
+                      "baseline migration (see plan §17 rule 2).")
+            raise SystemExit(3)
+        env["recorded_by"] = "evidence.py --record-canonical"
+        env["recorded_at_commit"] = (git_state() or {}).get("commit")
+        with open(CANONICAL_REF, "w") as f:
+            json.dump(env, f, indent=1, sort_keys=True)
+        print("recorded %s" % CANONICAL_REF)
+        print("  fingerprint  %s" % env["fingerprint"])
+        print("  LibreOffice  %s" % (env["oracles"] or {}).get("soffice_version"))
+        print("  python       %s" % env["python"])
+        print("  font files   %d (digest %s)"
+              % (env["font_files"]["count"], env["font_files"]["digest"][:16]))
+        print("  families     %d" % len(env["oracles"].get("font_families") or []))
+        raise SystemExit(0)
 
     if a.stamp_git:
         if not a.out:
