@@ -11,7 +11,7 @@
   "python-docx": "1.2.0",
   "reportlab": "5.0.0"
  },
- "fingerprint": "cf51ded391ce5ef7d6cc7711388218e72400679de6ea6234d63cca429c82fdcf",
+ "fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
  "font_files": {
   "count": 35,
   "digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
@@ -162,9 +162,9 @@
  "fonts_conf": {
   "active_is_repo_conf": true,
   "active_path": "/work/scripts/fonts.conf",
-  "active_sha256": "924510e8ab7c983203ccd146faf2750d6cc3076208ce2d84f146e8da52a4f325",
+  "active_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
   "repo_path": "/work/scripts/fonts.conf",
-  "repo_sha256": "924510e8ab7c983203ccd146faf2750d6cc3076208ce2d84f146e8da52a4f325"
+  "repo_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528"
  },
  "image": {
   "base_digest": "sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90",

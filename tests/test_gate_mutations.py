@@ -511,6 +511,41 @@ def env_identity(ref, live):
     return ok, " | ".join(bad)
 
 
+def test_hashed_files_have_one_spelling():
+    """Any file whose BYTES reach the environment fingerprint must be stored with
+    one line ending, or the fingerprint is platform-dependent.
+
+    Measured: `scripts/fonts.conf` is hashed into the fingerprint, `.gitattributes`
+    pinned `*.sh`/`*.yml`/`*.yaml` to LF but not `*.conf`, and a Windows checkout
+    therefore produced CRLF. A canonical reference recorded from that checkout
+    hashed to 924510e8... where every Linux checkout -- CI included -- computes
+    84d4357a..., so the reference was invalid in both places it has to work.
+
+    The file's content was never wrong; only its checkout was. That is exactly the
+    kind of defect a digest is supposed to catch and cannot catch about itself.
+    """
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    hashed = ["scripts/fonts.conf"]
+    for rel in hashed:
+        p = os.path.join(root, rel)
+        if not os.path.exists(p):
+            check("%s exists to be hashed" % rel, False, "missing")
+            continue
+        with open(p, "rb") as fh:
+            raw = fh.read()
+        check("%s is checked out LF-only" % rel, b"\r\n" not in raw,
+              "contains CRLF, so its sha256 differs from the same file on Linux; "
+              "add a `text eol=lf` rule for it in .gitattributes")
+
+    # And the rule that keeps it that way must actually be present, so the check
+    # above cannot start passing by accident on a machine that happens to be Linux.
+    ga = os.path.join(root, ".gitattributes")
+    rules = open(ga).read() if os.path.exists(ga) else ""
+    check(".gitattributes pins *.conf to LF", "*.conf text eol=lf" in rules,
+          "a Linux-only CI would pass the byte check above while a Windows "
+          "contributor kept recording unreproducible digests")
+
+
 def test_env_identity_matching_pair_is_canonical():
     ref, live = canonical_env_pair()
     ok, why = env_identity(ref, live)
