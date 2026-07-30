@@ -8,3 +8,8 @@
 # Same reasoning for anything a Linux runner executes or parses strictly.
 *.yml text eol=lf
 *.yaml text eol=lf
+
+# The frozen corpus fixtures are byte-exact inputs pinned by SHA-256. Any line
+# ending translation would change their hashes and make every gate run fail on a
+# corpus identity check -- which is precisely the check they exist to satisfy.
+testkit/fixtures/*.pdf binary

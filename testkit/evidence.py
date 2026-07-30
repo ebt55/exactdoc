@@ -116,16 +116,84 @@ def oracle_versions():
             "metric_fonts": liberation}
 
 
+# The toolchain the recorded numbers were measured on. `canonical` means "this
+# exact combination", not "some Linux".
+#
+# `os == "linux"` was the whole test, and it is not a test: the baseline was
+# recorded with Chromium 149 and LibreOffice 24.2.7.2 on Python 3.12.3, CI ran
+# Chromium 150 on 3.12.13, both reported `canonical: true`, and one corpus
+# document came out different enough to move a gated metric 5x. An environment
+# check that cannot tell those apart is decoration.
+#
+# Chromium is deliberately NOT in the fingerprint: the corpus is frozen
+# (corpus_manifest.py), so the browser no longer touches any measured number. It
+# is recorded in the artifact for provenance and it does not gate.
+CANONICAL = {
+    "os": "linux",
+    "python_minor": "3.12",
+    "soffice": "LibreOffice 24.2",
+    "fonts": ("Liberation Mono", "Liberation Sans", "Liberation Serif"),
+    "pymupdf_minor": "1.28",
+    "pypdfium2_minor": "5.12",
+}
+
+
+def _minor(v):
+    return ".".join((v or "").split(".")[:2])
+
+
+def environment_identity(env):
+    """-> (matches_canonical, [mismatch, ...]). What actually differs, named."""
+    bad = []
+    if env.get("os") != CANONICAL["os"]:
+        bad.append("os %s != %s" % (env.get("os"), CANONICAL["os"]))
+    if _minor(env.get("python")) != CANONICAL["python_minor"]:
+        bad.append("python %s not %s.x" % (env.get("python"),
+                                           CANONICAL["python_minor"]))
+    oracles = env.get("oracles") or {}
+    lo = oracles.get("soffice_version") or ""
+    if not lo.startswith(CANONICAL["soffice"]):
+        bad.append("LibreOffice %r does not start with %r"
+                   % (lo, CANONICAL["soffice"]))
+    missing_fonts = [f for f in CANONICAL["fonts"]
+                     if f not in (oracles.get("metric_fonts") or [])]
+    if missing_fonts:
+        bad.append("metric fonts missing: %s" % ", ".join(missing_fonts))
+    deps = env.get("dependencies") or {}
+    for name, key in (("pymupdf", "pymupdf_minor"),
+                      ("pypdfium2", "pypdfium2_minor")):
+        if _minor(deps.get(name)) != CANONICAL[key]:
+            bad.append("%s %s not %s.x" % (name, deps.get(name), CANONICAL[key]))
+    return (not bad), bad
+
+
+def fingerprint(env):
+    """A short stable digest of everything that can move a measured number."""
+    import hashlib
+    oracles = env.get("oracles") or {}
+    deps = env.get("dependencies") or {}
+    parts = [env.get("os"), _minor(env.get("python")),
+             oracles.get("soffice_version"),
+             ",".join(sorted(oracles.get("metric_fonts") or [])),
+             deps.get("pymupdf"), deps.get("pypdfium2"), deps.get("python-docx"),
+             deps.get("numpy"), deps.get("pillow"), deps.get("lxml")]
+    return hashlib.sha256("|".join(str(p) for p in parts).encode()).hexdigest()[:16]
+
+
 def environment():
-    return {
+    env = {
         "os": platform.system().lower(),
         "os_release": platform.release(),
         "machine": platform.machine(),
         "python": sys.version.split()[0],
         "dependencies": dependency_versions(),
         "oracles": oracle_versions(),
-        "canonical": platform.system().lower() == "linux",
     }
+    ok, mismatches = environment_identity(env)
+    env["canonical"] = ok
+    env["canonical_mismatches"] = mismatches
+    env["fingerprint"] = fingerprint(env)
+    return env
 
 
 def new(profile=None):
@@ -193,8 +261,8 @@ def validate(doc, expect_documents=None):
                    % len(g.get("dirty_paths") or []))
     env = doc.get("environment") or {}
     if not env.get("canonical"):
-        out.append("not measured on the canonical environment (os=%s)"
-                   % env.get("os"))
+        out.append("not the canonical environment: %s"
+                   % "; ".join(env.get("canonical_mismatches") or ["unknown"]))
     if not (env.get("oracles") or {}).get("soffice_version"):
         out.append("no LibreOffice version recorded")
     deps = env.get("dependencies") or {}
@@ -238,9 +306,11 @@ def summarise(doc):
                                  "" if g.get("clean") else " (DIRTY TREE)",
                                  g.get("branch"))
     out = ["commit  %s" % commit,
-           "env     %s %s, python %s%s" % (
+           "env     %s %s, python %s  fp=%s%s" % (
                e.get("os"), e.get("machine"), e.get("python"),
-               "" if e.get("canonical") else "  [NOT the canonical environment]"),
+               e.get("fingerprint", "?"),
+               "" if e.get("canonical") else "  [NOT canonical: %s]"
+               % "; ".join(e.get("canonical_mismatches") or [])),
            "oracle  %s" % ((e.get("oracles") or {}).get("soffice_version") or "none")]
     if doc.get("profile"):
         out.append("profile %s" % doc["profile"].get("profile_id", "?"))

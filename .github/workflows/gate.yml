@@ -1,11 +1,21 @@
 # The fidelity gate, run on a pinned Linux oracle.
 #
+# Determinism has two halves and this workflow needed both:
+#
+#   inputs       16 PDFs frozen in testkit/fixtures/, pinned by SHA-256. They
+#                used to be regenerated here, so a Chromium update on the runner
+#                silently changed a corpus document and moved a gated metric 5x.
+#   environment  the renderer decides the numbers. `evidence.environment()`
+#                fingerprints OS, Python minor, LibreOffice, the metric fonts and
+#                every measurement dependency, and `canonical` means that exact
+#                combination -- it used to mean `os == "linux"`, which cannot
+#                tell Chromium 149 from 150 or Python 3.12.3 from 3.12.13.
+#
 # Why Linux is canonical: the fidelity numbers depend on the renderer's fonts.
-# Local Windows runs render with real Arial/Times New Roman; this container
-# renders with Liberation metrics-compatible substitutes. Same code, different
-# wraps. One environment has to be the reference, and it must be the one
-# everyone can reproduce -- so CI is the number of record and local runs are
-# indicative.
+# Local Windows runs render with real Arial/Times New Roman; this runner renders
+# with Liberation metrics-compatible substitutes. Same code, different wraps. One
+# environment has to be the reference, and it must be the one everyone can
+# reproduce -- so CI is the number of record and local runs are indicative.
 #
 # Two lanes (testkit/runall.py): `raw` is the uncontaminated converter number,
 # `product` is exactdoc.options.PRODUCT -- the profile the API, the CLI and every
@@ -55,17 +65,21 @@ jobs:
       - name: Provision the oracles (LibreOffice, Chromium, fonts) + deps
         run: bash scripts/bootstrap.sh --strict
 
-      # --strict here too: this printed "SKIPPED 8 document(s)" and "gate numbers
-      # are NOT comparable", then exited 0, and the next step scored the 8 that
-      # existed against a 16-document baseline. Prose the next step ignores is
-      # not a safeguard.
-      - name: Generate the corpus (16 documents, or fail)
-        run: |
-          uv run python testkit/gen_corpus.py testkit/adv --strict
-          uv run python corpus/make_corpus.py
-
-      - name: Corpus manifest - is this the corpus the baseline describes?
+      # The metric corpus is 16 PDFs frozen in testkit/fixtures/ and pinned by
+      # SHA-256. It is NOT regenerated here, and that is the fix for the failure
+      # this workflow actually had: the baseline was recorded against a corpus
+      # built with Chromium 149, this runner ships Chromium 150, `c4_i18n` came
+      # out a different document, and its vertical drift moved 0.15pt -> 0.7pt.
+      # A gated metric moved 5x because of a browser update. A generated corpus
+      # cannot be a measurement baseline.
+      - name: Corpus fixtures - byte-identical to the record?
         run: uv run python testkit/corpus_manifest.py verify
+
+      # The generators still run, and no longer gate a measured number. Drift
+      # between a fresh generation and the frozen bytes is reported: it says the
+      # toolchain moved, which is worth knowing and is not a regression here.
+      - name: Corpus generators still work (drift reported, not gated)
+        run: uv run python tests/test_corpus_generation.py
 
       - name: Unit tests (write purity, corpus degradation, gate mutations)
         run: |

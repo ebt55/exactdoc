@@ -1,182 +1,151 @@
 {
- "_note": "The exact corpus the gate baseline was recorded against. Written and verified by testkit/corpus_manifest.py; regenerate the measured fields with `python testkit/corpus_manifest.py update` on the canonical environment. `src_pages` is an identity check, not a metric: the corpus is regenerated from scripts, so a generator change that alters a document silently re-bases every number measured from it. The PDFs are NOT byte-stable (ReportLab and Chromium both embed timestamps), so a content hash would fail on every run -- page count plus generator identity is what can honestly be pinned.",
+ "_note": "The 16 frozen corpus fixtures, pinned by SHA-256 over the file bytes. The corpus used to be REGENERATED before every gate run, and that is why the numbers were not reproducible: the baseline was recorded against a corpus built with Chromium 149, GitHub Actions ships Chromium 150, and c4_i18n came out a different document whose vertical drift went 0.15pt to 0.7pt -- a 5x move in a gated metric caused by nothing in this repository. The bytes now live in testkit/fixtures/ and the numbers describe them exactly. Re-freeze deliberately with corpus_manifest.py update, and re-record the gate baseline in the same commit. The generators are still exercised by tests/test_corpus_generation.py, which reports drift without gating on it.",
  "documents": {
   "01_whitepaper_market.pdf": {
+   "bytes": 9118,
+   "content": "8e3853306a85d0c5317d55f6016e8f24",
    "dialect": "reportlab",
-   "fingerprints": {
-    "pdfium": "8e3853306a85d0c5317d55f6016e8f24",
-    "pymupdf": "8e3853306a85d0c5317d55f6016e8f24"
-   },
    "generator": "corpus/make_corpus.py",
-   "path": "corpus/pdfs",
+   "sha256": "fc5b85dc4fd37c9e25a8e5e09d8e5acbeb09504aa6575be4acbf3b379362ca28",
    "src_pages": 3,
    "why": "cover band, callouts, bar chart, ruled tables -- the Claude-style whitepaper this project started from"
   },
   "02_research_paper.pdf": {
+   "bytes": 6029,
+   "content": "ef181ce9c7c5d93a648ba4a6c6331960",
    "dialect": "reportlab",
-   "fingerprints": {
-    "pdfium": "ef181ce9c7c5d93a648ba4a6c6331960",
-    "pymupdf": "ef181ce9c7c5d93a648ba4a6c6331960"
-   },
    "generator": "corpus/make_corpus.py",
-   "path": "corpus/pdfs",
+   "sha256": "1ce31db462ef003e439b85ab2f3ed529c2283bf8bfc018a1ab8706660b654fa7",
    "src_pages": 2,
    "why": "two-column academic layout with figures and a references list"
   },
   "03_tech_report_code.pdf": {
+   "bytes": 5582,
+   "content": "a2d00c8074f75fb5df557d00d4949b67",
    "dialect": "reportlab",
-   "fingerprints": {
-    "pdfium": "a2d00c8074f75fb5df557d00d4949b67",
-    "pymupdf": "a2d00c8074f75fb5df557d00d4949b67"
-   },
    "generator": "corpus/make_corpus.py",
-   "path": "corpus/pdfs",
+   "sha256": "aa0089dbacab72e857e766c273556f5970b7be1cb90c9967303f7600228a6835",
    "src_pages": 2,
    "why": "monospace code blocks inside flowing prose"
   },
   "04_exec_brief.pdf": {
+   "bytes": 5604,
+   "content": "40b9549a4c0b0f402a2dfad7995e8b48",
    "dialect": "reportlab",
-   "fingerprints": {
-    "pdfium": "40b9549a4c0b0f402a2dfad7995e8b48",
-    "pymupdf": "40b9549a4c0b0f402a2dfad7995e8b48"
-   },
    "generator": "corpus/make_corpus.py",
-   "path": "corpus/pdfs",
+   "sha256": "dcf3139a3be159ccba0a2499ad999c222283f5a6510a397872d0b45a00aed047",
    "src_pages": 2,
    "why": "dense one-page brief; its live-text coverage is a recorded shortfall"
   },
   "05_memo.pdf": {
+   "bytes": 2167,
+   "content": "7b16b4ca7c4449ebf8c61596da2aeace",
    "dialect": "reportlab",
-   "fingerprints": {
-    "pdfium": "7b16b4ca7c4449ebf8c61596da2aeace",
-    "pymupdf": "7b16b4ca7c4449ebf8c61596da2aeace"
-   },
    "generator": "corpus/make_corpus.py",
-   "path": "corpus/pdfs",
+   "sha256": "3fcb84a09d1c2124f26c2f55c755e971b2167b5cf25b6b1cbda28c458a67c5b4",
    "src_pages": 1,
    "why": "the minimal case -- if this one moves, something fundamental moved"
   },
   "c1_whitepaper.pdf": {
+   "bytes": 70751,
+   "content": "bbb4cd16b17fbc4d2d22704c8fdb894d",
    "dialect": "chromium",
-   "fingerprints": {
-    "pdfium": "bbb4cd16b17fbc4d2d22704c8fdb894d",
-    "pymupdf": "bbb4cd16b17fbc4d2d22704c8fdb894d"
-   },
    "generator": "testkit/gen_corpus.py",
-   "path": "testkit/adv",
+   "sha256": "ff0d011623f4a8354cff706a6a4704bcc50194404a5c7276d1fca3f296bc806b",
    "src_pages": 2,
    "why": "rounded-corner stat cards (D4) and a full-bleed cover band"
   },
   "c2_paper2col.pdf": {
+   "bytes": 51598,
+   "content": "bf83836b31eab3858a333f282823aa00",
    "dialect": "chromium",
-   "fingerprints": {
-    "pdfium": "bf83836b31eab3858a333f282823aa00",
-    "pymupdf": "7773b03e59779743e13a872dd46d4841"
-   },
    "generator": "testkit/gen_corpus.py",
-   "path": "testkit/adv",
+   "sha256": "c4eaa6c035c44c71265a132a4481a9a4ee289464202287c9f1c6a4b024e14b4e",
    "src_pages": 1,
    "why": "true multi-column sections, the case a naive reading order destroys"
   },
   "c3_tables.pdf": {
+   "bytes": 115085,
+   "content": "62c82f6daec13e6aa2cb8bfd8fa91250",
    "dialect": "chromium",
-   "fingerprints": {
-    "pdfium": "62c82f6daec13e6aa2cb8bfd8fa91250",
-    "pymupdf": "62c82f6daec13e6aa2cb8bfd8fa91250"
-   },
    "generator": "testkit/gen_corpus.py",
-   "path": "testkit/adv",
+   "sha256": "0ab88f4324bcde0db3f3222e296008a9385899e21367ab778ff5c7c75cc4e6c3",
    "src_pages": 3,
    "why": "nested tables (D3) -- a recorded shortfall on both backends"
   },
   "c4_i18n.pdf": {
+   "bytes": 68860,
+   "content": "ccf7f6cdc0821d42c8925abc4ddab24f",
    "dialect": "chromium",
-   "fingerprints": {
-    "pdfium": "ccf7f6cdc0821d42c8925abc4ddab24f",
-    "pymupdf": "43d237fccf205a687279cd74e636a508"
-   },
    "generator": "testkit/gen_corpus.py",
-   "path": "testkit/adv",
+   "sha256": "0b89269febb2710e3b1d5fd5b2f0c510d7cc73ab7f57677295be148b37154afb",
    "src_pages": 1,
    "why": "CJK, Arabic and Hebrew: script continua and RTL reordering"
   },
   "c5_graphics.pdf": {
+   "bytes": 51921,
+   "content": "33b131294190490865de843c035895aa",
    "dialect": "chromium",
-   "fingerprints": {
-    "pdfium": "33b131294190490865de843c035895aa",
-    "pymupdf": "33b131294190490865de843c035895aa"
-   },
    "generator": "testkit/gen_corpus.py",
-   "path": "testkit/adv",
+   "sha256": "2a1da4f71ddcd2e5d7d9be02bb763ba648a3e02ac5bc00469d4782fead73f192",
    "src_pages": 1,
    "why": "gradient band with knocked-out white text; rasterised SVG chart"
   },
   "c6_long.pdf": {
+   "bytes": 80341,
+   "content": "0d98cb3e6a82c702378547fe6270fea7",
    "dialect": "chromium",
-   "fingerprints": {
-    "pdfium": "0d98cb3e6a82c702378547fe6270fea7",
-    "pymupdf": "0d98cb3e6a82c702378547fe6270fea7"
-   },
    "generator": "testkit/gen_corpus.py",
-   "path": "testkit/adv",
+   "sha256": "69912bd6fe9b3c1ba6da7a56b850f3f0f4f13a8f4586b54091d885e35d8f37ae",
    "src_pages": 7,
    "why": "long enough that a per-page offset compounds into a page count error"
   },
   "c7_code.pdf": {
+   "bytes": 32320,
+   "content": "0d6cfa1545efda7bbe3113b3a1fbbf47",
    "dialect": "chromium",
-   "fingerprints": {
-    "pdfium": "0d6cfa1545efda7bbe3113b3a1fbbf47",
-    "pymupdf": "0d6cfa1545efda7bbe3113b3a1fbbf47"
-   },
    "generator": "testkit/gen_corpus.py",
-   "path": "testkit/adv",
+   "sha256": "ce5f6ad129772f432734174095ec367ec840f681f16d2ab9d78f1a0f45512f4c",
    "src_pages": 1,
    "why": "leading indentation, which PDFium does not report and PyMuPDF synthesises"
   },
   "c8_toc_links.pdf": {
+   "bytes": 28420,
+   "content": "c9a5b3e701a3f02d63ad68b9120d7208",
    "dialect": "chromium",
-   "fingerprints": {
-    "pdfium": "c9a5b3e701a3f02d63ad68b9120d7208",
-    "pymupdf": "c9a5b3e701a3f02d63ad68b9120d7208"
-   },
    "generator": "testkit/gen_corpus.py",
-   "path": "testkit/adv",
+   "sha256": "c072d949ec4cc5e0e566c047496307d3c6100e7fe0c359b1ce731b2a22daf9c4",
    "src_pages": 1,
    "why": "table of contents with tab leaders and internal hyperlinks"
   },
   "f1_fpdf_brief.pdf": {
+   "bytes": 1807,
+   "content": "5c56e647e92590c770b34f4a929da5eb",
    "dialect": "fpdf2",
-   "fingerprints": {
-    "pdfium": "5c56e647e92590c770b34f4a929da5eb",
-    "pymupdf": "5c56e647e92590c770b34f4a929da5eb"
-   },
    "generator": "testkit/gen_corpus.py",
-   "path": "testkit/adv",
+   "sha256": "fba5082d43c296309e3a055106d8265d8216ccc4cebab15681f217c62120fa2a",
    "src_pages": 1,
    "why": "core-14 fonts with no FontDescriptor -- the serif-flag case"
   },
   "l1_word_native.pdf": {
+   "bytes": 44035,
+   "content": "28c27dbb8e31db7c965a678ee4ae2c67",
    "dialect": "libreoffice",
-   "fingerprints": {
-    "pdfium": "28c27dbb8e31db7c965a678ee4ae2c67",
-    "pymupdf": "28c27dbb8e31db7c965a678ee4ae2c67"
-   },
    "generator": "testkit/gen_corpus.py",
-   "path": "testkit/adv",
+   "sha256": "fa9e0742c95ef5b8d603360f3fd0f0b65a989c9fcbf25d2ab9fcfae6f63f739e",
    "src_pages": 1,
    "why": "a PDF printed from a word processor: the round trip back to its own kind"
   },
   "r1_reportlab_report.pdf": {
+   "bytes": 2899,
+   "content": "5cf03e4c7318fc0e06e001dc8dacc20d",
    "dialect": "reportlab",
-   "fingerprints": {
-    "pdfium": "5cf03e4c7318fc0e06e001dc8dacc20d",
-    "pymupdf": "5cf03e4c7318fc0e06e001dc8dacc20d"
-   },
    "generator": "testkit/gen_corpus.py",
-   "path": "testkit/adv",
+   "sha256": "15ed315aadf1bea5e7d4cdd3d5796d4d8f83fccca0bd802bed51b645f3dd0836",
    "src_pages": 1,
    "why": "a second ReportLab dialect written by a different generator than corpus/"
   }
  },
- "schema": 1
+ "fixtures_dir": "testkit/fixtures",
+ "schema": 2
 }

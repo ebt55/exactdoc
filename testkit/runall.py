@@ -44,34 +44,28 @@ EVIDENCE = os.path.join(OUT, "evidence.json")
 
 # ------------------------------------------------------------------- the corpus
 def resolve_corpus(manifest, dirs=None):
-    """-> (paths, problems). Manifest-driven, with the directories cross-checked.
+    """-> (paths, problems). The frozen fixtures, verified byte-for-byte.
 
-    Globbing a directory answers "what is here", which is not the question. The
-    question is "is this the corpus the baseline was recorded against", and only
-    a manifest can answer it. The glob is still run, to catch a document that is
-    present but unexpected.
+    The corpus is 16 committed PDFs pinned by SHA-256, not a directory that a
+    generator refilled before the run. It was the latter, and the numbers were
+    not reproducible because of it: the baseline was recorded against a corpus
+    built with Chromium 149, CI runs a runner that ships Chromium 150, and
+    `c4_i18n` came out a different file with 5x the vertical drift. See
+    `corpus_manifest.py` for the full account.
+
+    Identity is checked here rather than trusted, so a run cannot proceed on
+    inputs that are not the inputs the baseline describes.
     """
-    problems, paths, seen = [], [], {}
-    for doc_id, spec in sorted(manifest.get("documents", {}).items()):
-        p = os.path.join(PROJECT, spec["path"], doc_id)
-        if not os.path.exists(p):
-            problems.append(("missing", doc_id,
-                             "expected at %s -- run the generator named in the "
-                             "manifest (%s)" % (spec["path"], spec.get("generator", "?"))))
+    import corpus_manifest
+    problems, paths = [], []
+    for kind, doc, why in corpus_manifest.verify(manifest):
+        problems.append((kind, doc, why))
+    bad = set(d for k, d, _ in problems if k in ("missing", "identity",
+                                                 "unmeasured", "duplicate"))
+    for doc_id in sorted(manifest.get("documents", {})):
+        if doc_id in bad:
             continue
-        if doc_id in seen:
-            problems.append(("duplicate", doc_id,
-                             "two manifest entries share a basename; outputs "
-                             "and result rows would overwrite each other"))
-            continue
-        seen[doc_id] = p
-        paths.append(p)
-    for d in sorted(set(s["path"] for s in manifest.get("documents", {}).values())
-                    if not dirs else dirs):
-        for p in sorted(glob.glob(os.path.join(PROJECT, d, "*.pdf"))):
-            if os.path.basename(p) not in seen:
-                problems.append(("unexpected", os.path.basename(p),
-                                 "present in %s but not in the manifest" % d))
+        paths.append(corpus_manifest.fixture_path(doc_id, manifest))
     return paths, problems
 
 

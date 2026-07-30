@@ -249,8 +249,18 @@ fully attributed, and left failing.
 The incumbent's own numbers are unchanged (both gate lanes reproduce the recorded
 baseline exactly). What changed is that the comparison stopped hiding things.
 
-Measured on the canonical Linux environment from local commits; **GitHub Actions
-has not yet run them.**
+### What the first CI run actually said
+
+The three pull requests went red, and **not for this reason**. They failed on
+`c4_i18n`, because the corpus was regenerated on the runner with a different
+Chromium than the baseline was recorded with (§5). That is now fixed by freezing
+the inputs, and it is worth separating carefully:
+
+| | |
+|---|---|
+| Why CI was red | a Chromium version difference changing one input document |
+| Why parity is red | the two unwaived `dy_p50` regressions above |
+| Related? | no. The first was an environment defect and is fixed; the second is a real measured finding and is unresolved |
 
 **Every document that embeds its fonts is unaffected.** That is the shape of the
 cause: both parsers read embedded metrics identically, and they differ only where
@@ -611,6 +621,8 @@ pattern is more useful than the individual fixes.
 | Read golden drift as parser drift | A version-dependent difference (PyMuPDF 1.26 groups `02_research_paper` p2 into 4 blocks, 1.28 into 7) was recorded as cross-platform instability | A frozen artifact without a manifest of what froze it cannot tell you which of the two changed |
 | Recorded the *names* of failing metrics, not their values | `04_exec_brief`'s live-text coverage was on record as "known failing" at 0.941. It could have fallen to 0.10 and stayed exactly as green. Same hole in `page_match`, a boolean that cannot tell one page over from forty | A known failure needs a *bound*, not a label. Record the number |
 | Treated a missing measurement as a skip | `harness.evaluate()` returns `{"error": ...}` when the render fails and nothing read the key; absent metrics hit `if v is None: continue`. A renderer dying on all 16 documents scored zero failures | Fail closed. A metric that could not be computed is a failure, never a row to pass over |
+| Measured against a corpus that was rebuilt before every run | The gate regenerated its 16 inputs from `gen_corpus.py` each time, so the corpus was whatever Chromium, ReportLab and fpdf2 happened to be installed. The baseline was recorded with Chromium 149; GitHub's `ubuntu-24.04` runner ships Chromium 150; `c4_i18n` — the CJK/RTL page, exactly where a browser's font fallback moves — came out a **different document**, and its vertical drift went 0.15pt → 0.7pt. A gated metric moved 5x with no change in this repository, and it failed three pull requests | **A generated corpus cannot be a measurement baseline.** The inputs are now 16 PDFs frozen in `testkit/fixtures/` and pinned by SHA-256 — 563 KB, in the repository, checkable by anyone. The generators still run and no longer gate a number |
+| Called an environment "canonical" if it was Linux | `evidence.environment()` set `canonical: os == "linux"`. That is true of the recorded baseline's machine *and* of the runner that disagreed with it on a gated metric — same flag, different Chromium, different Python patch, different answer | An environment check that cannot distinguish the environments you actually have is decoration. `canonical` is now an exact fingerprint over OS, Python minor, LibreOffice, the metric fonts and every measurement dependency, and it names what differs |
 | Never checked the corpus against a manifest | Measured in a bare container: the generator produced 3 of 16 documents, printed "the corpus is incomplete, numbers are NOT comparable", exited 0 — and the gate scored those 3 against a 16-document baseline and reported a pass | Prose that the next step ignores is not a safeguard. `--strict`, and a manifest the gate compares against in both directions |
 | Wrote the oracle paths to a file nobody sourced | `bootstrap.sh` discovers Chromium and writes `scripts/env.sh`, then every subsequent shell — including each CI step — starts without it. CI only ever worked because the GitHub runner image happens to ship `/usr/bin/google-chrome`: provisioning by accident | Discovery has to be readable by the thing that needs it. `_paths.py` now reads the record itself |
 | Let the executable rule and the ratified rule disagree | `backend_parity.py` exited on `regressions == 0` while ROADMAP and this file said two documents were formally accepted. The disagreement was resolved by marking the CI step `continue-on-error`, which retired the one gate the entire relicensing effort was aimed at | A gate whose policy lives in prose will be switched off, not corrected. Put the policy in a file the test reads |
