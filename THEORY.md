@@ -19,6 +19,53 @@ No fix below was accepted on theory alone; each one moved a measured number.
 
 ---
 
+## Addition, 2026-07-30 — two things the permissive-parser port taught
+
+Both were learned the expensive way during the pdfium convergence work, and both
+generalise beyond it. Recorded here so a future session does not re-derive them.
+
+### The renderer normalises whatever it is free to normalise
+
+Three separate changes made the pdfium IR structurally identical to PyMuPDF's —
+span boundaries, injected whitespace, trailing spaces — and **all three moved
+`within2pt` by exactly zero.** The third explained the other two: in justified
+text the renderer redistributes inter-word space to fill the measure, so the
+*number of spaces in the source has no bearing on where words land*.
+
+The general form: **a difference the renderer is free to normalise cannot show
+up in a placement metric, however wrong it looks in the IR.** Whitespace,
+run-splitting and span segmentation are all in that category for justified text.
+This is not a reason to leave them wrong — the DOCX carries the text a user will
+read and edit, and `live_text_cov` strips whitespace so it cannot see the
+difference — but it *is* a reason not to expect them to move the gate, and a
+reason to check which category a defect is in before spending a session on it.
+
+### Anchor everything on baselines, including the page origin
+
+§3.1 established that vertical placement is anchored on baselines because line
+boxes are unreliable. That principle was applied to paragraphs and not to the
+page: `infer()` still derives `margin_t` from the topmost line's box *top*.
+
+Line-box height turns out to be the single least portable quantity in the whole
+model. Two correct parsers disagree about it because each reads it from font
+metric tables the other does not have — PyMuPDF puts Helvetica's box 1.075× the
+type size above the baseline, pdfium 0.905×, and on Symbol, where both fall back
+to the *embedded* font's metrics, they agree to three decimals. That difference
+propagates into the page origin and displaces every word on the page by a
+constant.
+
+Completing the principle — deriving the origin from
+`baseline − (leading − 0.21·size)` like everything else — was tried and
+**reverted**. It reached exact backend agreement on 14 of 16 documents and still
+made the *default* backend worse, because `space_before` is computed against the
+running position and is therefore calibrated on the old origin. The lesson is
+not "baselines were the wrong idea"; it is that **the vertical model is a chain,
+and half-converting a chain desynchronises it.** Doing it properly means moving
+the origin, `_para_box` and the spacing chain in one change — recorded in
+[ROADMAP.md](ROADMAP.md) as the open item it is.
+
+---
+
 ## 1. The problem
 
 A PDF is a *painting*: absolutely positioned glyphs, paths and images with no

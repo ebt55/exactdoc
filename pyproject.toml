@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "exactdoc"
-version = "0.2.0"
+version = "0.1.0a1"
 description = "High-fidelity PDF to DOCX that survives Google Docs, with a render-back diff that proves it"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -16,7 +16,7 @@ keywords = [
     "whitepaper", "research-paper",
 ]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
     "Programming Language :: Python :: 3",

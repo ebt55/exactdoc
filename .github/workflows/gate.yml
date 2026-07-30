@@ -11,9 +11,15 @@
 # converter number; refine ON is the product default. refine() tunes against
 # the same renderer the gate measures with, so only the pair is meaningful.
 #
-# The purity test is a hard failure. The gate lanes are reporting-only until
-# the first Linux run establishes the baseline (thresholds so far were
-# calibrated on Windows fonts); once pinned, drop the continue-on-error.
+# Provisioning is scripts/bootstrap.sh, the same command a contributor runs, so
+# CI cannot drift away from the documented setup without going red. --strict
+# makes a missing oracle a failure here: an incomplete corpus silently produces
+# numbers for a different corpus than the one on record.
+#
+# The dependency versions come from uv.lock (--frozen). The goldens are pinned
+# to the PyMuPDF version -- measured: 1.26 and 1.24 both put 02_research_paper
+# p2 at 4 blocks where 1.28 puts 7 -- so an unpinned resolve would fail the
+# golden step for a reason that has nothing to do with this repository's code.
 name: gate
 
 on:
@@ -24,7 +30,7 @@ on:
 jobs:
   gate:
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -32,35 +38,40 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install LibreOffice + fonts (the pinned oracle)
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends libreoffice-writer fonts-liberation
-          soffice --version
+      - name: Install uv (uv.lock is the pinned truth)
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
 
-      - name: Install package + test deps
-        run: |
-          python -m pip install -q -e .[test]
-          python -m pip install -q pytest
+      - name: Provision the oracles (LibreOffice, Chromium, fonts) + deps
+        run: bash scripts/bootstrap.sh --strict
 
-      - name: Generate corpora (ReportLab + Chromium/WeasyPrint-class dialects)
+      - name: Generate the 16-document corpus
         run: |
-          python corpus/make_corpus.py
-          python testkit/gen_corpus.py testkit/adv
+          uv run python testkit/gen_corpus.py testkit/adv
+          uv run python corpus/make_corpus.py
 
-      - name: Purity - writing the same layout twice must be byte-identical
-        run: python tests/test_purity.py
+      - name: Unit tests (write purity, corpus degradation)
+        run: |
+          uv run python tests/test_purity.py
+          uv run python tests/test_corpus_degradation.py
 
       - name: Golden IR - the parser's output must not drift
-        # Also the acceptance test for any future permissive-parser backend:
-        # a replacement is correct when it reproduces these.
-        run: python testkit/golden_ir.py verify
+        run: uv run python testkit/golden_ir.py verify
 
       - name: Fidelity gate, both lanes
-        continue-on-error: true   # reporting until the Linux baseline is pinned
         env:
           REFINE: lanes
-        run: python testkit/runall.py testkit/adv corpus/pdfs
+        run: uv run python testkit/runall.py testkit/adv corpus/pdfs
+
+      - name: Backend parity - the licence-swap verdict
+        # Reporting-only by design until the swap lands: this is the number M2
+        # is driving to zero, so a non-zero count is the expected state, not a
+        # broken build. It runs in CI because it once lost the ability to run
+        # at all (an undeclared pypdfium2) and nobody noticed for weeks -- a
+        # gate that cannot run looks exactly like a gate that passes.
+        continue-on-error: true
+        run: uv run python testkit/backend_parity.py --refine 3
 
       - name: Upload lane results
         if: always()

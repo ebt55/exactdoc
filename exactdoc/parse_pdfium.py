@@ -41,7 +41,9 @@ LINE_SPLIT_EM = 1.10      # gap that ends the LINE, not merely the span:
                           # cells and the two halves of a two-column page do
                           # exactly that, and merging them fused rows into
                           # single lines (measured: 0.60x PyMuPDF's count).
-BLOCK_GAP_FACTOR = 1.6    # line pitch multiple that ends a block
+BLOCK_GAP_FACTOR = 1.15   # multiple of the BODY pitch that ends a block. See
+                          # _body_pitch: the reference is the 20th-percentile
+                          # gap, not the median, so the factor is close to 1.
 # Horizontal reach for joining lines that share a baseline. Deliberately
 # SHORT: it now only has to catch genuinely adjacent text, such as a list
 # marker and its item. Table rows are joined later by dialect._join_ruled_rows,
@@ -49,6 +51,8 @@ BLOCK_GAP_FACTOR = 1.6    # line pitch multiple that ends a block
 # something no width threshold here can do, since the two have identical gap
 # distributions (median 4.7em each).
 BLOCK_SAME_ROW_EM = 1.2
+MONO_ADV_EM = 0.6         # advance of a monospaced glyph, as a fraction of size
+SPACE_ADV_EM = 0.28       # advance of a space in a proportional face
 
 
 def _line_size(ln) -> float:
@@ -61,7 +65,7 @@ def _hexcol(r, g, b):
 
 class _Char:
     __slots__ = ("u", "x0", "y0", "x1", "y1", "ox", "oy", "size", "font",
-                 "flags", "color")
+                 "flags", "color", "gen")
 
     @property
     def mono_hint(self) -> bool:
@@ -115,16 +119,33 @@ def _page_chars(textpage, page_h) -> List[_Char]:
         # ink here made every line box start below the true ascent and shifted
         # the inferred top margin (measured 71.8pt against 67.8pt) and with it
         # every space_before on the page.
+        # ...and the same is true HORIZONTALLY, which this used to get wrong.
+        # PyMuPDF reports a line box that starts at the pen origin, so every
+        # line of a left-aligned page starts at exactly the same x. The ink box
+        # starts at the first glyph's ink, which moves with whichever letter
+        # happens to begin the line: measured on c6_long, 'L' +1.694pt,
+        # '1' +1.106, 'R' +0.504, 'T' +0.074, 'w' -0.011 against PyMuPDF's
+        # constant 61.500. That is the left side bearing, a different number
+        # per line, and it is unfixable downstream -- no per-page correction
+        # removes a per-character error. It is why c6_long could reach an IR
+        # identical to PyMuPDF's on lines, spans, text, spaces, styles and block
+        # boundaries and still score 0.46 against 0.76.
+        #
+        # Probed before being relied on (§12 law 15): loose.left equals
+        # FPDFText_GetCharOrigin's x to 0.000 on every character sampled, and
+        # equals PyMuPDF's line x0 exactly.
         lr = raw.FS_RECTF()
         if raw.FPDFText_GetLooseCharBox(textpage.raw, i, ctypes.byref(lr)):
             ly0, ly1 = float(lr.bottom), float(lr.top)
+            lx0, lx1 = float(lr.left), float(lr.right)
         else:
             ly0, ly1 = float(b.value), float(t.value)
+            lx0, lx1 = float(l.value), float(r_.value)
 
         c = _Char()
         c.u = chr(u)
         # flip y: PDFium is bottom-left origin, the IR is top-left
-        c.x0, c.x1 = float(l.value), float(r_.value)
+        c.x0, c.x1 = lx0, max(lx1, lx0)
         c.y0, c.y1 = page_h - max(ly1, float(t.value)), page_h - min(ly0, float(b.value))
         c.ox, c.oy = float(ox.value), page_h - float(oy.value)
         # FPDFText_GetFontSize reports the size BEFORE the text matrix. Chromium
@@ -142,6 +163,7 @@ def _page_chars(textpage, page_h) -> List[_Char]:
                     size *= vs
         except Exception:
             pass
+        c.gen = generated
         # a generated space has no font of its own; inherit the run it joins
         if generated and out:
             prev = out[-1]
@@ -156,6 +178,31 @@ def _page_chars(textpage, page_h) -> List[_Char]:
         c.flags = int(flags.value)
         c.color = _hexcol(cr.value, cg.value, cb.value)
         out.append(c)
+
+    # A generated space carries no box of its own worth the name: PDFium
+    # reports it degenerate, `x..x` at a single coordinate, so the branch above
+    # ends up giving it [previous character's end, that coordinate] -- 1.70pt
+    # wide on c7_code where the real advance is 5.10pt. The remaining 3.401pt
+    # surfaces as a gap to the next character, and downstream that gap is
+    # indistinguishable from a producer who positioned words instead of emitting
+    # a space: a SECOND space gets synthesised on top of the one already there,
+    # giving `def··rerank` where PyMuPDF has `def·rerank`.
+    #
+    # It is worth exactly ONE space, though, and no more. Running it all the way
+    # to the next character also closes the gap between two table cells that
+    # happen to have a generated space in it, and _build_lines splits a row into
+    # visual lines on precisely that gap (LINE_SPLIT_EM): measured, that fused
+    # cells back into single lines and cost 01_whitepaper_market 130 lines -> 105
+    # and 03_tech_report_code 73 -> 53. So the space is given one space advance,
+    # capped at wherever the next character actually starts.
+    for i, c in enumerate(out[:-1]):
+        if not c.gen:
+            continue
+        nxt = out[i + 1]
+        if abs(nxt.oy - c.oy) >= 0.5 or nxt.x0 <= c.x1:
+            continue
+        adv = (MONO_ADV_EM if c.mono_hint else SPACE_ADV_EM) * max(c.size, 1.0)
+        c.x1 = min(nxt.x0, max(c.x1, c.x0 + adv))
     return out
 
 
@@ -279,11 +326,36 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
     for row in vis_rows:
         if any(_is_rtl(c.u[:1] or " ") for c in row):
             row = _reorder_rtl(row)
+        # PDFium synthesises a space at the end of a line, where the producer
+        # merely stopped drawing. It is line-break decoration, not content, and
+        # PyMuPDF does not report it: measured on 01_whitepaper_market, 25% of
+        # lines differed from PyMuPDF's text by exactly one trailing space --
+        # `|Tier·|` against `|Tier|`, `|•·|` against `|•|`. Dropped after any
+        # RTL reordering, so "trailing" means the end of the logical text.
+        while row and row[-1].u.isspace():
+            row = row[:-1]
+        if not row:
+            continue
         spans, cur, cur_key = [], [], None
         for c in row:
             k = _style(c)
             gap = (c.x0 - cur[-1].x1) if cur else 0.0
-            if cur and (k != cur_key or gap > SPAN_GAP_EM * max(c.size, 1.0)):
+            # A span ends where the STYLE ends. A gap does not end it: a gap
+            # with the same style on both sides is a space the producer drew by
+            # positioning, and the branch below turns it into one.
+            #
+            # This condition used to also split on `gap > SPAN_GAP_EM`, which
+            # ran BEFORE the space-insertion branch and so consumed the gap
+            # instead of bridging it. Measured on c7_code: 79 of 79 intra-line
+            # span boundaries sat between spans of identical style, every one at
+            # a 3.401pt gap -- exactly one space at that size -- giving 105 spans
+            # for 26 lines where PyMuPDF gives 26. The text came out right and
+            # reached the writer as four runs per line instead of one.
+            #
+            # Nothing is left unbounded by dropping it: _build_lines has already
+            # split the LINE at LINE_SPLIT_EM (1.10em) further up, so every gap
+            # still under consideration here is small enough for spaces to span.
+            if cur and k != cur_key:
                 spans.append((cur, cur_key))
                 cur, cur_key = [], None
             if not cur:
@@ -296,10 +368,21 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
                 # drift on a listing. Monospace advances are ~0.6em, so the
                 # count is recoverable from the gap; proportional text is
                 # ~0.28em and rarely runs more than one.
-                adv = (0.6 if cur[-1].mono_hint else 0.28) * max(c.size, 1.0)
+                adv = (MONO_ADV_EM if cur[-1].mono_hint else SPACE_ADV_EM) * max(c.size, 1.0)
                 n_sp = int(round(gap / adv)) if adv > 0 else 1
                 if cur[-1].u.isspace() or c.u.isspace():
-                    n_sp = min(n_sp, 1) if not cur[-1].mono_hint else n_sp
+                    # A space is already there, and in proportional text that is
+                    # the whole answer however far the gap has been stretched.
+                    # Justified text pulls its word gaps to 7.84pt at 9.5pt type
+                    # on 02_research_paper and PyMuPDF still reports ONE space;
+                    # adding to it gave `Speculative··decoding` on 22% of that
+                    # document's lines and 12% of 01_whitepaper_market's,
+                    # displacing every word after it along the line.
+                    #
+                    # Monospace keeps counting: there a run length is code
+                    # indentation, and collapsing it once cost 19 unmatched
+                    # words and 40pt of horizontal drift on a listing.
+                    n_sp = n_sp if cur[-1].mono_hint else 0
                 if n_sp >= 1:
                     cur[-1].u += " " * min(n_sp, 24)
             cur.append(c)
@@ -326,7 +409,90 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
               max(s.bbox[2] for s in sp_objs), max(s.bbox[3] for s in sp_objs))
         lines.append(Line(spans=sp_objs, bbox=lb))
     lines.sort(key=lambda l: (round(l.bbox[1], 1), l.bbox[0]))
+    _reconstruct_indents(lines)
     return lines
+
+
+def _reconstruct_indents(lines: List[Line]) -> None:
+    """Put back the leading indentation PDFium does not report.
+
+    PDFium synthesises the spaces a producer drew by positioning -- but only
+    BETWEEN two characters, because that is the only place a gap exists to
+    measure. At the start of a line there is nothing to the left, so the indent
+    is simply absent: measured on c7_code, the raw character stream for
+    `    def __init__(...)` begins with 'd' at x=93.17 and contains no space at
+    all, while PyMuPDF reports the same line starting at x=72.25 with four
+    leading spaces.
+
+    Downstream that is not a cosmetic difference. The line box starts at the
+    first ink instead of at the code block's left edge, so the paragraph is
+    written at the wrong x and every glyph on the line is displaced by the
+    indent. It is the whole of the code-heavy gap the defect register left
+    unattributed: c7_code within-2pt 0.91 -> 0.16 with 16 of its 26 lines
+    failing to pair with their PyMuPDF counterparts at all.
+
+    Reconstruction needs a left edge to measure from, and the block's own
+    minimum will not do -- a block whose every line is indented (a continuation
+    inside a function body) would measure zero indent. The reference is the
+    leftmost line of the surrounding *monospace run*: consecutive mono lines,
+    which is exactly the extent of one code listing, ended by the first
+    proportional line. On c7_code that yields 72.25 for both listings, and the
+    two are separated by their heading.
+
+    Restricted to monospace deliberately. Indentation is load-bearing in code
+    and decorative almost everywhere else, a proportional font has no single
+    advance width to divide by, and the measured defect is entirely in code
+    blocks. A proportional first-line indent stays where it is: expressed by
+    the line box, as it already was.
+
+    Lines that SHARE a baseline are excluded, and that exclusion is not a
+    detail. A configuration table whose cells are set in a monospace face puts
+    three of them on one baseline at x=61, 153 and 223; read as a listing, the
+    second and third are "indented" by 18 and 32 spaces and get dragged back to
+    the left margin. Measured, when this function did that:
+    03_tech_report_code within-2pt 0.23 -> 0.03. A line alone on its baseline is
+    a line of a listing; several lines on one baseline are the cells of a row,
+    and their x is a column position rather than an indent.
+    """
+    # A baseline carrying more than one line is a row of cells, not a listing.
+    rows = {}
+    for ln in lines:
+        rows.setdefault(round(ln.baseline, 1), []).append(ln)
+    solo = {id(ln) for group in rows.values() if len(group) == 1 for ln in group}
+
+    def flush(run):
+        if len(run) < 2:
+            return
+        left = min(l.bbox[0] for l in run)
+        for ln in run:
+            size = max((s.size for s in ln.spans), default=10.0)
+            adv = MONO_ADV_EM * max(size, 1.0)
+            n = int(round((ln.bbox[0] - left) / adv)) if adv > 0 else 0
+            if n < 1:
+                continue
+            first = ln.spans[0]
+            first.text = " " * min(n, 40) + first.text
+            first.bbox = (left, first.bbox[1], first.bbox[2], first.bbox[3])
+            first.origin = (left, first.origin[1])
+            ln.bbox = (left, ln.bbox[1], ln.bbox[2], ln.bbox[3])
+
+    run = []
+    for ln in lines:
+        inked = [s for s in ln.spans if s.text.strip()]
+        mono = bool(inked) and all(s.mono for s in inked) and id(ln) in solo
+        # A listing is contiguous. Two listings separated by other content share
+        # no left edge, and the run must not straddle the gap between them.
+        if mono and run:
+            pitch = max(_line_size(ln), _line_size(run[-1]), 1.0)
+            if ln.baseline - run[-1].baseline > 3.0 * pitch:
+                flush(run)
+                run = []
+        if mono:
+            run.append(ln)
+        else:
+            flush(run)
+            run = []
+    flush(run)
 
 
 def _column_split(lines: List[Line]) -> Optional[float]:
@@ -405,16 +571,80 @@ def _build_blocks(lines: List[Line], page_w: float = 612.0) -> List[TextBlock]:
     return _build_blocks_one(lines, col_x)
 
 
+def _body_pitch(lines: List[Line]) -> float:
+    """The pitch of ordinary body text: the 20th-percentile line gap.
+
+    This is the reference the block-split test multiplies, and it used to be the
+    MEDIAN gap. The median is biased upward by exactly the thing it is meant to
+    exclude -- the gaps *between* blocks are in the sample, and so are a table's
+    row pitches -- so on a page of paragraphs the tolerance grew until the
+    paragraph boundary fitted inside it. Measured on c6_long: body pitch 15pt,
+    paragraph boundaries 19.5-23.2pt, and median x 1.6 admitted anything up to
+    ~24pt, fusing 72 of 201 lines into the wrong block.
+
+    The 20th percentile approximates the tightest recurring pitch on the page,
+    which is what body text sets, and is unmoved by however many wide gaps sit
+    above it.
+
+    Evidence for the choice, and for the factor (testkit/block_gaps.py, which
+    labels 685 consecutive line pairs with PyMuPDF's own answer):
+
+        gap <= median * 1.60   355/685 wrong     <- shipped before this
+        gap <= p20    * 1.30   178/685
+        gap <= p20    * 1.15   140/685           <- this
+        gap <= p20    * 1.05   154/685
+        per-page adaptive cut  322/682
+
+    Note what that table also says: no fixed factor is *right*. Every document
+    separates cleanly on its own, at its own ratio (1.00 to 1.24 across the
+    corpus), and no single value serves all of them -- 140 of 685 stay wrong.
+    A per-page adaptive cut was measured before being written and is worse.
+    """
+    gaps = sorted(b.baseline - a.baseline for a, b in zip(lines, lines[1:])
+                  if 0 < b.baseline - a.baseline < 60)
+    if not gaps:
+        return 12.0
+    return gaps[max(0, int(0.2 * len(gaps)) - 1)]
+
+
+def _pitch_by_size(lines: List[Line]) -> dict:
+    """Body pitch per type size, because a page can set more than one.
+
+    The page-wide 20th percentile fixed the median's upward bias but inherited
+    the same shape of error in the other direction: on c7_code the code
+    listings run at an 11.25pt pitch, which drags the page percentile below the
+    15.0pt pitch of the body text, and body paragraphs then split into one block
+    per line. Measured, that is the whole of that document's remaining gap --
+    3 boundary disagreements, all `pdfium SPLITS where PyMuPDF merges` at
+    exactly gap=15.0.
+
+    Text of one size shares one leading, so the reference is computed within
+    each size and only falls back to the page when a size has too few samples
+    to be worth trusting. This is not the sliding window that was tried and
+    reverted (SESSIONS.md, `local_pitch`): a window has no idea what it is
+    averaging over and cut 02_research_paper's paragraphs in half, whereas a
+    size bucket is a property of the text itself.
+    """
+    buckets = {}
+    for a, b in zip(lines, lines[1:]):
+        d = b.baseline - a.baseline
+        if not (0 < d < 60):
+            continue
+        buckets.setdefault(round(_line_size(a), 1), []).append(d)
+    out = {}
+    for size, gaps in buckets.items():
+        if len(gaps) < 3:
+            continue
+        gaps.sort()
+        out[size] = gaps[max(0, int(0.2 * len(gaps)) - 1)]
+    return out
+
+
 def _build_blocks_one(lines: List[Line], col_x) -> List[TextBlock]:
     if not lines:
         return []
-    pitches = []
-    for a, b in zip(lines, lines[1:]):
-        d = b.baseline - a.baseline
-        if 0 < d < 60:
-            pitches.append(d)
-    pitches.sort()
-    typical = pitches[len(pitches) // 2] if pitches else 12.0
+    typical = _body_pitch(lines)
+    by_size = _pitch_by_size(lines)
 
     blocks, cur = [], [lines[0]]
     for prev, ln in zip(lines, lines[1:]):
@@ -456,7 +686,8 @@ def _build_blocks_one(lines: List[Line], col_x) -> List[TextBlock]:
                 same = not (min(prev.bbox[2], ln.bbox[2]) <= col_x <=
                             max(prev.bbox[0], ln.bbox[0]))
         else:
-            same = (0 < gap <= typical * BLOCK_GAP_FACTOR) and overlap > 0
+            ref = by_size.get(round(_line_size(prev), 1), typical)
+            same = (0 < gap <= ref * BLOCK_GAP_FACTOR) and overlap > 0
         if same:
             cur.append(ln)
         else:
@@ -482,6 +713,33 @@ SEG_BEZIERTO = raw.FPDF_SEGMENT_BEZIERTO  # 1
 SEG_MOVETO = raw.FPDF_SEGMENT_MOVETO      # 2
 
 
+def _obj_matrix(obj):
+    """(a, b, c, d, e, f) for a page object, or None when unavailable."""
+    try:
+        m = raw.FS_MATRIX()
+        if raw.FPDFPageObj_GetMatrix(obj.raw, ctypes.byref(m)):
+            return (m.a, m.b, m.c, m.d, m.e, m.f)
+    except Exception:
+        pass
+    return None
+
+
+def _apply_matrix(m, x, y):
+    if m is None:
+        return x, y
+    a, b, c, d, e, f = m
+    return a * x + c * y + e, b * x + d * y + f
+
+
+def _matrix_scale(m):
+    """Uniform scale factor of a matrix, for converting stroke widths."""
+    if m is None:
+        return 1.0
+    a, b, c, d, _, _ = m
+    s = abs(a * d - b * c) ** 0.5
+    return s if s > 1e-9 else 1.0
+
+
 def _classify(pts, w, h) -> str:
     has_curve = any(t == SEG_BEZIERTO for _, _, t in pts)
     # a rectangle arrives as MOVETO + 3-4 LINETO
@@ -494,6 +752,13 @@ def _classify(pts, w, h) -> str:
         # which promotes their cluster straight to "figure": two callout accent
         # bars were enough to rasterise both callouts and 23% of a document's
         # text.
+        #
+        # The points reaching here are in PAGE space. They did not used to be:
+        # PDFium reports segment points in OBJECT space, so this test compared
+        # object-space dx/dy against page-space w/h. On a Chromium document that
+        # is every path on the page -- measured, 578 of the corpus's 612 path
+        # objects carry a non-identity matrix, and raw points miss the true
+        # bounds by up to 5438pt (testkit/backend_paths.py).
         if len(pts) <= 3:
             xs = [x for x, _, _ in pts]
             ys = [y for _, y, _ in pts]
@@ -570,8 +835,15 @@ def _page_paths(page, page_h) -> List[DrawCmd]:
         if not raw.FPDFPageObj_GetBounds(obj.raw, ctypes.byref(l), ctypes.byref(b),
                                          ctypes.byref(r_), ctypes.byref(t)):
             continue
-        bbox = (float(l.value), page_h - float(t.value),
-                float(r_.value), page_h - float(b.value))
+        bounds_bbox = (float(l.value), page_h - float(t.value),
+                       float(r_.value), page_h - float(b.value))
+        # Segment points are in OBJECT space: the path object's own matrix has
+        # to be applied before they mean anything on the page. Skipping it is
+        # not a small error -- measured across the corpus, 578 of 612 path
+        # objects carry a non-identity matrix (every path on every Chromium
+        # document) and untransformed points miss the true bounds by up to
+        # 5438pt. testkit/backend_paths.py measures this and keeps measuring it.
+        mat = _obj_matrix(obj)
         n = raw.FPDFPath_CountSegments(obj.raw)
         pts = []
         for i in range(max(0, n)):
@@ -580,8 +852,8 @@ def _page_paths(page, page_h) -> List[DrawCmd]:
                 continue
             sx = ctypes.c_float(); sy = ctypes.c_float()
             raw.FPDFPathSegment_GetPoint(seg, ctypes.byref(sx), ctypes.byref(sy))
-            pts.append((float(sx.value), page_h - float(sy.value),
-                        raw.FPDFPathSegment_GetType(seg)))
+            px, py = _apply_matrix(mat, float(sx.value), float(sy.value))
+            pts.append((px, page_h - py, raw.FPDFPathSegment_GetType(seg)))
         fillmode = ctypes.c_int(); stroke = ctypes.c_int()
         raw.FPDFPath_GetDrawMode(obj.raw, ctypes.byref(fillmode), ctypes.byref(stroke))
         fr = ctypes.c_uint(); fg = ctypes.c_uint()
@@ -594,10 +866,31 @@ def _page_paths(page, page_h) -> List[DrawCmd]:
                                        ctypes.byref(sb), ctypes.byref(sa))
         sw = ctypes.c_float()
         raw.FPDFPageObj_GetStrokeWidth(obj.raw, ctypes.byref(sw))
+        # ...in object space too, like the points, so it scales with the matrix.
+        stroke_w = float(sw.value) * _matrix_scale(mat)
         has_fill = fillmode.value != 0 and fa.value > 0
         has_stroke = bool(stroke.value) and sa.value > 0
         kind = "fillstroke" if (has_fill and has_stroke) else \
                "stroke" if has_stroke else "fill"
+
+        # GetBounds returns the INK envelope: a stroked path inflated by its
+        # line width in every direction. PyMuPDF returns the geometric path, and
+        # every threshold downstream was tuned against that. The difference
+        # decides structure, not appearance: a 0.75pt box border arrives 1.5pt
+        # wide instead of zero-width, and infer.py's table detector reads that
+        # bar as a column -- measured on 03_tech_report_code, a code listing was
+        # built as a two-column table with a 3.0pt first column and its line
+        # breaks discarded, where PyMuPDF builds role=code with all ten lines.
+        #
+        # Curves keep the envelope: their control points hull wider than the
+        # drawn curve, so for those GetBounds is the better estimate. Paths that
+        # yield no points keep it too.
+        bbox = bounds_bbox
+        if pts and not any(t == SEG_BEZIERTO for _, _, t in pts):
+            xs = [p[0] for p in pts]
+            ys = [p[1] for p in pts]
+            bbox = (min(xs), min(ys), max(xs), max(ys))
+
         w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
         fill = _hexcol(fr.value, fg.value, fb.value) if has_fill else None
         stroke_c = _hexcol(sr.value, sg.value, sb.value) if has_stroke else None
@@ -605,7 +898,7 @@ def _page_paths(page, page_h) -> List[DrawCmd]:
 
         # Producers emit borders twice; keep one. parse.py dedupes the same way.
         sig = (tuple(round(v, 1) for v in bbox), kind, fill, stroke_c,
-               round(float(sw.value), 2), len(pts))
+               round(stroke_w, 2), len(pts))
         if sig in seen:
             continue
         seen.add(sig)
@@ -642,7 +935,7 @@ def _page_paths(page, page_h) -> List[DrawCmd]:
                 shape = "vline"
         out.append(DrawCmd(
             kind=kind, shape=shape, bbox=bbox, fill=fill, stroke=stroke_c,
-            width=float(sw.value), opacity=opacity, n_items=max(1, len(pts))))
+            width=stroke_w, opacity=opacity, n_items=max(1, len(pts))))
     return out
 
 

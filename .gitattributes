@@ -1,0 +1,10 @@
+# Shell scripts must keep LF endings even when checked out on Windows: a CRLF
+# shebang line makes the kernel look for an interpreter named "bash\r", and the
+# error it produces ("bad interpreter: No such file or directory") points at
+# the interpreter rather than at the line ending. scripts/bootstrap.sh is
+# authored on Windows here and run on Linux, so this is not hypothetical.
+*.sh text eol=lf
+
+# Same reasoning for anything a Linux runner executes or parses strictly.
+*.yml text eol=lf
+*.yaml text eol=lf

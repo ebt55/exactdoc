@@ -5,7 +5,13 @@ Where something is unknown, it says so; where a measurement is untrustworthy,
 it says why.
 
 Baseline for all figures: 16-document corpus, `--refine` (the CLI default),
-LibreOffice render-back, Windows/PyMuPDF. Reproduce with:
+LibreOffice render-back, PyMuPDF. **CI Linux is the number of record**
+(`.github/workflows/gate.yml`); the Windows column is kept beside it because
+having two independent environments agree is itself evidence. Reproduce with:
+
+```bash
+bash scripts/bootstrap.sh          # Linux: provisions the oracles, reports what it found
+```
 
 ```bash
 python testkit/gen_corpus.py testkit/adv && python corpus/make_corpus.py
@@ -19,13 +25,30 @@ REFINE=lanes python testkit/runall.py testkit/adv corpus/pdfs
 
 ## 1. Where the converter stands
 
-| Metric | no-refine lane | refine lane (shipped) |
-|---|---|---|
-| Gate passed | 12/16 | 13/16 |
-| Page count 1:1 | 13/16 | 15/16 |
-| Live (editable) text | 0.965 | 0.965 |
-| Words within 2pt of source | 0.361 | **0.510** |
-| Median per-word vertical drift | 2.79pt | **0.69pt** |
+| Metric | no-refine lane | refine lane (shipped) | local container | Windows |
+|---|---|---|---|---|
+| Gate passed | 12/16 | 13/16 | 12 / 13 | 12 / 13 |
+| Page count 1:1 | 13/16 | 15/16 | 13 / 15 | 13 / 15 |
+| Live (editable) text | 0.965 | 0.965 | 0.965 | 0.965 |
+| Words within 2pt of source | 0.366 | **0.529** | 0.349 / 0.512 | 0.361 / 0.510 |
+| Median per-word vertical drift | 2.20pt | **0.68pt** | 2.20 / 0.62pt | 2.79 / 0.69pt |
+
+The first two columns are the CI run
+([#30455217670](https://github.com/ebt55/exactdoc/actions/runs/30455217670)) and
+are the number of record. Beside them, the same measurement on a local
+`ubuntu:24.04` container and on Windows.
+
+**Three environments** — different fonts, three LibreOffice builds, three
+Chromium builds — agree on every structural number (which documents pass, page
+counts, live text, drift) and differ only in the third decimal of `within2pt`.
+The harness is portable; it was only its *provisioning* that was folklore.
+
+The gate is a **regression** gate, not an absolute one: three documents have
+never cleared the thresholds (D3, D4/graphics, and `04_exec_brief`'s live-text
+coverage at 0.941 against 0.95), so `runall.py` used to exit non-zero on every
+run ever made, and the CI step had to ignore its own result. The known-failing
+set is recorded per lane in `testkit/gate_baseline.json`; the run now fails on a
+new failure, a new metric on an already-failing document, or a stale record.
 
 Two lanes are always reported because `refine()` tunes the layout against the
 same renderer the gate measures with. A refined-only number can improve because
@@ -79,21 +102,32 @@ partly-wrong answer, documented in §5.
 python testkit/elemheight.py testkit/real/arxiv_transformer.pdf
 ```
 
-### D2 — pdfium backend: fine-placement gap · **severity: high (blocks relicensing)**
+### D2 — pdfium backend: fine-placement gap · **severity: low (no longer blocks relicensing)**
 
-**This is the only thing keeping exactdoc off Apache-2.0.** The licence is
-inherited, not chosen: PyMuPDF is AGPL-3.0, so exactdoc is. A permissive parser
-(pypdfium2, Apache-2.0) exists in `exactdoc/parse_pdfium.py` and is selectable,
-but it places text worse, so it is not the default.
+**This used to be the only thing keeping exactdoc off Apache-2.0. It is not any
+more.** The licence is inherited, not chosen: PyMuPDF is AGPL-3.0, so exactdoc
+is. A permissive parser (pypdfium2, Apache-2.0) exists in
+`exactdoc/parse_pdfium.py`, and it is now measured **not worse than the
+incumbent on 14 of 16 corpus documents** — four exactly equal, two better. The
+flip is scheduled, not blocked: see [ROADMAP.md](ROADMAP.md) §3.2.
 
-The gap is **7 regressions**, down from 9. Words land on the right *pages*
-(`word_recall` 0.96–1.00); they land a couple of points off within them.
+The two documents that remain are attributed to a font-metric convention no
+permissive parser can reproduce, and are accepted as a documented divergence
+rather than chased — the reasoning is below, under *The two that remain*.
+
+The gap is **2 regressions**, down from 9 → 8 → 6 → 3 → 2. Fourteen of sixteen
+documents are now at or better than the incumbent, four of them exactly equal
+to it and two above it.
 
 | | within-2pt | median dy |
 |---|---|---|
-| PyMuPDF (default) | **0.510** | 0.69pt |
-| PyMuPDF + pdfium clip rendering | 0.476 | 1.31pt |
-| pdfium parser | 0.291 | 2.02pt |
+| PyMuPDF (default) | **0.511** | 0.69pt |
+| pdfium parser, when this was first measured | 0.291 | 2.02pt |
+| **pdfium parser, now** | **0.461** | — |
+
+**Acceptance for the flip:** 0 regressions, except `01_whitepaper_market` and
+`02_research_paper`, attributed below to a font-metric convention difference
+that no permissive parser can reproduce.
 
 #### What it is not
 
@@ -146,11 +180,65 @@ a humanist sans. Matching it would mean reproducing a bug.
 
 #### What is left
 
-Converge `_build_blocks` on PyMuPDF's grouping — `testkit/golden_ir.py` is the
-specification. On the evidence above that should clear roughly three more
-documents. `c7_code` and `03_tech_report_code` are explained by neither
-geometry, grouping nor fonts, and still need a cause; both are code-heavy, so
-intra-line span segmentation is the next place to look.
+Converge `_build_blocks` on PyMuPDF's grouping. On the evidence above that
+should clear roughly three more documents.
+
+**The contract is `backend_parity.py`, not the golden IR.** An earlier version
+of this section called `golden_ir.py` "the specification". It is not, and
+saying so was steering the port at the wrong target: this backend already
+refuses to reproduce three PyMuPDF behaviours because they are bugs, and
+PyMuPDF's grouping is not even stable across its own releases (measured: 1.24
+and 1.26 put `02_research_paper` p2 in 4 blocks, 1.28 in 7). The golden is a
+microscope for locating a disagreement; the rendered-output gate decides
+whether it matters.
+
+`c7_code` and `03_tech_report_code` were "explained by neither geometry,
+grouping nor fonts". They are now attributed, and it was none of the four
+suspected causes: **PDFium does not report leading indentation and PyMuPDF
+synthesises it.** For `    def __init__(...)` PDFium's first character is `d`
+at x=93.17 with no space before it; PyMuPDF reports the line starting at
+x=72.25 with four leading spaces. PDFium synthesises spaces *between*
+characters, where there is a gap to measure; at a line start there is nothing
+to the left, so the indent vanishes and every glyph on the line is displaced.
+Both documents now sit at or above the incumbent.
+
+#### The two that remain, and why
+
+`01_whitepaper_market` (0.53 against 0.72) and `02_research_paper` (0.57
+against 0.76) are attributed to a **font-metric convention difference that no
+permissive parser can reproduce.**
+
+`infer()` derives the page's vertical origin from line-box *tops*. That is the
+one vertical quantity two correct parsers legitimately disagree about, because
+each reads it from font-metric tables the other does not have:
+
+| font | PyMuPDF above/below baseline, per size | pdfium |
+|---|---|---|
+| Helvetica | 1.075 / 0.299 | 0.905 / 0.211 |
+| Times-Roman | 1.053 / 0.281 | 0.891 / 0.215 |
+| **Symbol** | **1.010 / 0.293** | **1.010 / 0.293** |
+
+Symbol is the control: where both fall back to the *embedded* font's metrics
+they agree to three decimals. Everywhere else PyMuPDF is using its own base-14
+table. The difference reaches `margin_t` (63.30 against 64.90 on
+`02_research_paper`) and displaces every word on the page by a constant 1.5pt —
+visible as two identical dy distributions offset by exactly that.
+
+**Parser-side exhaustion is proven, not assumed.** `FPDFFont_GetAscent` and
+`FPDFFont_GetDescent` return exactly the ratios the loose box already uses;
+pdfium exposes one vertical font metric and the parser is already using it.
+Reproducing PyMuPDF's numbers would mean vendoring MuPDF's base-14 table into
+the permissive tree, which the licence plan forbids and which is measurably
+version-dependent.
+
+A shared-pipeline fix was granted, built and **reverted**: anchoring the origin
+on baselines instead reached 0.000pt backend agreement on 14 of 16 documents,
+but cost the *incumbent* `c6_long` 0.76 → 0.45, because the `space_before`
+chain downstream is itself calibrated against a box-top origin. Making the
+vertical model baseline-consistent means moving the origin, `_para_box` and the
+spacing chain together — a larger change than this defect justifies on its own.
+Evidence: `testkit/margin_probe.py`, and the escalation packet in the project's
+planning documents.
 
 ```bash
 python testkit/backend_parity.py --refine 3
@@ -196,6 +284,11 @@ On the *same* DOCX, with the `--target gdocs` static fix applied:
 | mean within-2pt | 0.404 | ~0.20 |
 | page match | 17/18 | 11/16 |
 
+The LibreOffice column is from the 18-document corpus of the time and the Docs
+column from the current 16; the two are not directly comparable and the
+comparison has not been rerun on one corpus. The *direction* is the finding —
+Docs is the harder target — not the ratio.
+
 Docs has no "exact" line spacing, so its importer mistranslates
 `lineRule="exact"` — error scaling with font size (+45pt at 18pt type, +84pt at
 22pt). `--target gdocs` emits multiples instead, which recovers most of it
@@ -213,6 +306,9 @@ tiny, dense microtype) convert without crashing.
 
 ### D9 — `w:shd` emitted 17,112 times across 18 documents · **severity: low**
 
+*(Counted on the 18-document corpus of the time; not recounted on the current
+16. The order of magnitude is the point.)*
+
 Shading applied very aggressively per-run/per-cell. File-size and complexity
 smell, not a correctness bug.
 
@@ -220,15 +316,24 @@ smell, not a correctness bug.
 
 ## 3. Pending work, in the order I would do it
 
+**Sequence and distance live in [ROADMAP.md](ROADMAP.md).** This table is the
+defect view; the roadmap is the plan view.
+
+**D2 is no longer a blocker.** The permissive parser is at 2 regressions from 9,
+both attributed and accepted as a documented divergence, so the relicence can
+proceed. That was the only thing gating it.
+
 | # | Item | Blocks | Notes |
 |---|---|---|---|
-| 1 | **D2 fine-placement gap** | Apache-2.0 relicensing | Now attributed, not guessed: converge `_build_blocks` against the golden IR (≈3 documents), then find what ails the code-heavy pair |
-| 2 | **D1 LaTeX pagination** | core use case | Needs writer-side instrumentation (§5), not another hypothesis |
-| 3 | **Un-gate the wrap correction** | fidelity | Written and measured (+20pt line agreement); needs predicted `n_lines` in the page-capacity model *before* the first write, or it costs a page |
-| 4 | D4, D5, D6 | — | Bounded, independent |
-| 5 | **Google Docs cover-band check** | a real claim in the README | One oracle run; may invalidate the design |
-| 6 | D3 nested tables | — | |
-| 7 | PyPI release | adoption | After 1 |
+| 1 | **Superscript in the pdfium backend** | nothing — queued ahead of the flip by choice | Hardcoded `False`; the detection already exists in `infer._merge_row_lines`. Read it, or prove inference recovers it |
+| 2 | **The flip and the relicence** | **the whole point of the project** | Mechanical: default backend, `[mupdf]` extra, golden re-freeze, Apache-2.0 + NOTICE, version `0.2.0a1`. `parse.py` is kept, not deleted |
+| 3 | **D8 clean unsupported-input error** | the release | Encrypted/truncated PDFs; both files into CI |
+| 4 | **PyPI release** | adoption | TestPyPI dry run first; release notes lead with the holdout |
+| 5 | **D1 LaTeX pagination** | the holdout, and the core use case | Needs writer-side instrumentation (§5) — per-element emitted-vs-source height accounting inside `docxout` — not another hypothesis. Three attempts have each produced a partly-wrong answer |
+| 6 | **The baseline-consistent vertical model** | the last 2 parity regressions, and probably much else | Move `margin_t`, `_para_box` and the `space_before` chain together. A partial version was granted, built and reverted (D2) — the origin alone desynchronises from the spacing calibrated against it |
+| 7 | **Google Docs cover-band check** | a real claim in the README | One oracle run; may invalidate the design. The least-measured part of the stated product goal |
+| 8 | Un-gate the wrap correction | fidelity | Needs predicted `n_lines` in the page-capacity model *before* the first write, or it costs a page |
+| 9 | D3, D4, D5, D6, D9 | — | Bounded, independent |
 
 Not planned: OCR for scanned PDFs; CJK/RTL shaping beyond the reordering
 already done; forms.
@@ -341,6 +446,9 @@ pattern is more useful than the individual fixes.
 | Probes matched non-unique strings | Measured body-text "ByteNet", not the table | Match on text that is unique on both sides |
 | Wrote a hypothesis into D2 as if it were a finding | "Most likely baseline or line-box geometry" survived a full revision of this file; the first direct measurement showed baselines identical on 4,734 of 4,734 lines | A plausible cause in a defect register is read as a known one. Mark it as a guess or measure it |
 | Imported `pypdfium2` without declaring it | `uv sync` evicted it; the parity gate began reporting `ModuleNotFoundError` | A gate that cannot run looks exactly like a gate that passes |
+| Gated on *any* failure, with three documents that had never passed | `runall.py` returned non-zero on every run it ever made, so the CI step was marked `continue-on-error` and nothing was gated at all | A check that always fails carries the same information as one that always passes. Gate on the *delta* against a recorded set |
+| Tokenised words on whitespace, which CJK does not use | A "word" was a whole rendered line; a one-character re-wrap lost it. `c4_i18n` scored `doc_recall` 0.83 on Linux and passed on Windows **with every character present in both** | The unit a metric counts in must be a unit the content actually has |
+| Read golden drift as parser drift | A version-dependent difference (PyMuPDF 1.26 groups `02_research_paper` p2 into 4 blocks, 1.28 into 7) was recorded as cross-platform instability | A frozen artifact without a manifest of what froze it cannot tell you which of the two changed |
 
 Two compensators were built, measured, and **left switched off** because they
 did not pay: the quality ladder (line-locking) and the half-point wrap

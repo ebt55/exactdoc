@@ -11,6 +11,14 @@ Exit code is non-zero only if a document is worse under pdfium.
 
     python testkit/backend_parity.py
     python testkit/backend_parity.py --refine 3
+    python testkit/backend_parity.py --refine 3 --only c7_code
+
+--only takes substrings and narrows the run to the matching documents. The full
+run converts 16 documents twice and renders both, which is minutes; a single
+document is seconds. It exists so that a hypothesis about one document can be
+tested at the cost of that document, and only the verdict costs the whole
+corpus. Note that --only cannot report the swap as acceptable: the exit code
+is still the count of regressions AMONG WHAT IT RAN.
 """
 import argparse
 import glob
@@ -86,6 +94,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--refine", type=int, default=0)
     ap.add_argument("--out", default=None)
+    ap.add_argument("--only", nargs="+", default=None,
+                    help="substrings; run only the matching documents")
     a = ap.parse_args()
 
     srcs = sorted(glob.glob(os.path.join(ROOT, "corpus", "pdfs", "*.pdf")))
@@ -93,6 +103,14 @@ def main():
     if not srcs:
         print("no corpus; run the generators first")
         return 2
+    if a.only:
+        srcs = [s for s in srcs
+                if any(k in os.path.basename(s) for k in a.only)]
+        if not srcs:
+            print("--only matched no document")
+            return 2
+        print("subset run: %s -- this cannot report the swap as acceptable, "
+              "only the full corpus can" % ", ".join(os.path.basename(s) for s in srcs))
     out_root = a.out or os.path.join(ROOT, "testkit", "parity")
 
     mu = run("pymupdf", srcs, out_root, a.refine)

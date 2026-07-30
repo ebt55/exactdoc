@@ -1,0 +1,44 @@
+{
+ "_note": "Documents known to miss the gate, per lane, measured on the canonical Linux environment (see gate.yml). A new entry needs a defect ID in STATUS.md; a removed one means something got fixed. Regenerate deliberately with GATE_BASELINE=update, never to silence a failure.",
+ "lanes": {
+  "lane_norefine": {
+   "04_exec_brief.pdf": [
+    "doc_recall",
+    "live_text_cov"
+   ],
+   "c1_whitepaper.pdf": [
+    "page_match",
+    "word_recall"
+   ],
+   "c3_tables.pdf": [
+    "doc_recall",
+    "live_text_cov",
+    "page_match",
+    "word_recall"
+   ],
+   "c5_graphics.pdf": [
+    "doc_recall",
+    "live_text_cov",
+    "page_match",
+    "word_recall"
+   ]
+  },
+  "lane_refine": {
+   "04_exec_brief.pdf": [
+    "doc_recall",
+    "live_text_cov"
+   ],
+   "c3_tables.pdf": [
+    "doc_recall",
+    "live_text_cov",
+    "page_match",
+    "word_recall"
+   ],
+   "c5_graphics.pdf": [
+    "doc_recall",
+    "live_text_cov",
+    "word_recall"
+   ]
+  }
+ }
+}

@@ -12,6 +12,11 @@ dist/
 .vscode/
 .idea/
 
+# Written by scripts/bootstrap.sh: discovered oracle paths, and any tool it had
+# to fetch because the distribution does not package it.
+scripts/env.sh
+.tools/
+
 # Generated test corpora and conversion outputs (all reproducible)
 testkit/adv/
 testkit/real/
@@ -44,5 +49,11 @@ client_secret*
 # personal test inputs -- never publish
 my_samples/
 
-# private working notes -- not for publication
+# Private working notes -- not for publication. The planning and review
+# documents all share the form "exactdoc — <something>.md" and live in the repo
+# root beside the tracked docs, which is one `git add -A` away from publishing
+# them. The tracked docs (README, STATUS, THEORY, FINDINGS) do not carry the
+# prefix, so this pattern cannot catch them by accident.
 Executor Advisory.md
+exactdoc — *.md
+*Execution Plan*.md
