@@ -258,9 +258,14 @@ the inputs, and it is worth separating carefully:
 
 | | |
 |---|---|
-| Why CI was red | a Chromium version difference changing one input document |
+| Why CI was red | the measurement environment moved: first a Chromium difference changing one input document, then the runner's font collection changing how that same document rendered |
 | Why parity is red | the two unwaived `dy_p50` regressions above |
-| Related? | no. The first was an environment defect and is fixed; the second is a real measured finding and is unresolved |
+| Related? | no. The first was an environment defect and is **fixed and confirmed on Actions**; the second is a real measured finding and is unresolved |
+
+Confirmed live: every CI step now passes except parity, and both lanes reproduce
+the recorded baseline **bit-identically** — `product` 15/16, within-2pt 0.4981,
+dy₅₀ 0.675pt; `raw` 13/16, 0.3349, 2.20pt. Parity fails on `05_memo` and
+`f1_fpdf_brief` and nothing else.
 
 **Every document that embeds its fonts is unaffected.** That is the shape of the
 cause: both parsers read embedded metrics identically, and they differ only where

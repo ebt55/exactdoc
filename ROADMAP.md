@@ -28,16 +28,31 @@ with PyMuPDF **physically absent**, which was not true a session ago and was the
 real content of the word "mechanical" in §3.2. `pymupdf` remains the default
 backend and a hard runtime dependency until §3.2b. See §3.2a.
 
-**CI status.** Actions has now run these commits, and the first attempt went red
-for a reason that had nothing to do with the converter: the gate *regenerated* its
-16 input documents on the runner, which ships a different Chromium than the
-baseline was recorded with, so `c4_i18n` was literally a different file and its
-vertical drift moved 0.15pt → 0.7pt. The inputs are now frozen in
-`testkit/fixtures/` and pinned by SHA-256, and `canonical` is an exact environment
-fingerprint rather than `os == "linux"`. See STATUS §5.
+**CI status, confirmed on GitHub Actions.** Every step passes except the parity
+gate, which fails on exactly the two unwaived regressions and nothing else:
 
-Keep the two red states apart: **CI red from a moving corpus was a defect and is
-fixed; parity red from the two unwaived `dy_p50` regressions is a finding and is
+```
+gate PASS (product)   pagematch 15/16  <2pt 0.4981  live 0.9652  dy50 0.675
+gate PASS (raw)       pagematch 13/16  <2pt 0.3349  live 0.9652  dy50 2.2
+parity FAIL           05_memo dy_p50 0.59 -> 1.89 · f1_fpdf_brief dy_p50 0 -> 1.2
+```
+
+Those lane numbers are **bit-identical to the recorded baseline**, which took two
+determinism fixes to achieve. The first CI attempt went red for reasons that had
+nothing to do with the converter:
+
+1. the gate *regenerated* its 16 inputs on the runner, which ships a different
+   Chromium, so `c4_i18n` was literally a different file (drift 0.15pt → 0.7pt);
+2. with the inputs then frozen byte-for-byte, the same document still moved
+   0.15pt → 2.1pt, because the runner's font collection gave LibreOffice
+   different faces for its CJK and RTL runs.
+
+Inputs are now frozen in `testkit/fixtures/` and pinned by SHA-256; fonts are
+pinned by `scripts/fonts.conf` via `FONTCONFIG_FILE`; and `canonical` is an exact
+toolchain match rather than `os == "linux"`. STATUS §5 has both entries.
+
+Keep the two red states apart: **CI red from a moving environment was a defect and
+is fixed; parity red from the two unwaived `dy_p50` regressions is a finding and is
 open.**
 
 | question | answer |
