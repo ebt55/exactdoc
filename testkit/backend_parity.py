@@ -433,7 +433,8 @@ def corpus_identity(manifest):
     return hashlib.sha256("|".join(parts).encode()).hexdigest()
 
 
-def record_policy(ref, cand, policy, manifest, environment, path=POLICY_PATH):
+def record_policy(ref, cand, policy, manifest, environment, refine=None,
+                  path=POLICY_PATH):
     """Write measured floors for every waived document. Full corpus only.
 
     Same preconditions as the gate baseline, for the same reason: this file
@@ -573,7 +574,7 @@ def main(argv=None):
 
     if a.update_policy:
         try:
-            record_policy(ref, cand, policy, manifest, env)
+            record_policy(ref, cand, policy, manifest, env, refine=refine)
         except gate.RecordRefused as e:
             print("\nPOLICY NOT RECORDED\n  %s" % e)
             return 2

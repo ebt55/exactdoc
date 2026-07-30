@@ -632,6 +632,54 @@ def test_env_identity_rejects_dependency_drift():
         check("%s version drift is not canonical" % dep, not ok, why)
 
 
+def test_parity_policy_can_actually_be_recorded():
+    """`--update-policy` is the documented way to record floors, and it raised
+    NameError before writing anything: `record_policy` referenced `refine`, which
+    exists only as a local in `main`. So the one command the policy file tells you
+    to run could never have run.
+
+    That is why the stale `c4_i18n` floors were never remeasured after the font
+    set was pinned -- not because nobody tried, but because trying crashed. A
+    recording path with no test is a recording path nobody has executed.
+    """
+    import json
+    import tempfile
+    import backend_parity
+    ref, cand, policy = parity_fixture()
+    env = {"os": "linux", "canonical": True, "fingerprint": PARITY_FP,
+           "python": "3.12.3",
+           "oracles": {"soffice_version": "LibreOffice 24.2.7.2 420(Build:2)"},
+           "dependencies": {"pymupdf": "1.28.0", "pdfium": "152.0.7947.0"},
+           "fonts_conf": {"repo_sha256": "a" * 64},
+           "font_files": {"digest": "b" * 64}}
+    manifest = {"documents": {k: {"sha256": "a" * 64} for k in PARITY_MANIFEST["documents"]}}
+    with tempfile.TemporaryDirectory() as td:
+        path = os.path.join(td, "parity_policy.json")
+        try:
+            backend_parity.record_policy(ref, cand, policy, manifest, env,
+                                         refine=3, path=path)
+            wrote = os.path.exists(path)
+            err = ""
+        except Exception as e:
+            wrote, err = False, "%s: %s" % (type(e).__name__, e)
+        check("the documented --update-policy path runs at all", wrote, err)
+        if not wrote:
+            return
+        written = json.load(open(path))
+        spec = (written.get("ratified_shortfalls") or {}).get("accepted.pdf") or {}
+        check("a recorded floor names its environment",
+              spec.get("environment_fingerprint") == PARITY_FP,
+              repr(spec.get("environment_fingerprint")))
+        check("a recorded floor names its corpus",
+              bool(spec.get("corpus_manifest_sha256")),
+              repr(spec.get("corpus_manifest_sha256")))
+        check("a recorded floor names its profile",
+              bool(spec.get("profile_id")), repr(spec.get("profile_id")))
+        check("the recorded refine profile is the one measured",
+              written.get("recorded_refine_rounds") == 3,
+              repr(written.get("recorded_refine_rounds")))
+
+
 def test_committed_parity_policy_is_wellformed():
     import backend_parity
     policy = backend_parity.load_policy()
