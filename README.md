@@ -253,9 +253,9 @@ the control lane could regress freely.
 Run it yourself (needs the `[test]` extra, LibreOffice for the render-back, and
 Chrome to generate the Chromium half of the corpus):
 
-```bash
-python testkit/gen_corpus.py testkit/adv --strict && python corpus/make_corpus.py
-```
+The 16 inputs are frozen in `testkit/fixtures/` and pinned by SHA-256, so no
+browser is involved in reproducing a number — a regenerated corpus is not the same
+corpus, and proving that cost three red CI runs:
 
 ```bash
 python testkit/corpus_manifest.py verify && python testkit/runall.py

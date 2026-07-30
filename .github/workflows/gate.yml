@@ -65,6 +65,19 @@ jobs:
       - name: Provision the oracles (LibreOffice, Chromium, fonts) + deps
         run: bash scripts/bootstrap.sh --strict
 
+      # Restrict the renderer to the pinned font set for every later step. A
+      # runner image ships a large font collection; with the corpus already
+      # frozen byte-for-byte, that alone still moved c4_i18n's dy_p50 from
+      # 0.15pt to 2.1pt, because LibreOffice resolved its CJK and RTL runs to
+      # faces the measurement environment does not have. See scripts/fonts.conf.
+      - name: Pin the font environment
+        run: |
+          mkdir -p /tmp/exactdoc-fontconfig
+          echo "FONTCONFIG_FILE=$GITHUB_WORKSPACE/scripts/fonts.conf" >> "$GITHUB_ENV"
+          FONTCONFIG_FILE="$GITHUB_WORKSPACE/scripts/fonts.conf" fc-list : family \
+            | tr ',' '\n' | sort -u
+
+
       # The metric corpus is 16 PDFs frozen in testkit/fixtures/ and pinned by
       # SHA-256. It is NOT regenerated here, and that is the fix for the failure
       # this workflow actually had: the baseline was recorded against a corpus

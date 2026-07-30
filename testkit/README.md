@@ -118,6 +118,20 @@ python testkit/corpus_manifest.py update          # after a generator change
 Say so in the commit message. A re-record is a claim that the new numbers are
 *better evidence*, not a way to make a failure disappear.
 
+### Determinism: frozen inputs, pinned fonts
+
+Two variables decide whether a number is reproducible, and both had to be nailed
+down before CI agreed with the recorded baseline:
+
+| | |
+|---|---|
+| **inputs** | 16 PDFs frozen in `testkit/fixtures/`, pinned by SHA-256. They used to be regenerated per run, so a Chromium 149 → 150 difference on the runner made `c4_i18n` a different document and moved its drift 0.15pt → 0.7pt |
+| **fonts** | `scripts/fonts.conf`, applied via `FONTCONFIG_FILE`. With the corpus already frozen byte-for-byte, the same document still moved 0.15pt → 2.1pt, because a runner image ships a large font collection and LibreOffice resolved its CJK and RTL runs to faces the measurement environment lacks. Liberation covers Latin only |
+
+The second one is the subtler lesson: installing the right fonts is half the job,
+and **seeing no others is the other half**. `fonts.conf` replaces fontconfig's
+search path rather than adding to it.
+
 ### External tools
 
 | Tool | Needed for | Override |

@@ -78,15 +78,27 @@ fi
 # LibreOffice renders the DOCX we measure. Without metric-compatible families
 # it substitutes something else, every line wraps differently, and the fidelity
 # numbers move for a reason that has nothing to do with the converter.
-say "fonts (Liberation + DejaVu -- metric-compatible with Arial/Times/Courier)"
-if have fc-list && [ -n "$(fc-list 2>/dev/null | grep -i liberation | head -1)" ]; then
+# Latin metric compatibility is not enough: the corpus contains a CJK + Arabic +
+# Hebrew document, and Liberation covers none of those scripts. Measured, after
+# the corpus was already frozen byte-for-byte, c4_i18n still moved dy_p50
+# 0.15pt -> 2.1pt between the measurement container and a GitHub runner, purely
+# because the runner's larger font collection gave LibreOffice different faces to
+# resolve those runs to. scripts/fonts.conf then restricts the renderer to
+# exactly this set -- installing the right fonts is half the job, seeing no
+# others is the other half.
+say "fonts (Latin metrics + the CJK/RTL faces the i18n document needs)"
+if have fc-list && [ -n "$(fc-list 2>/dev/null | grep -i 'wqy\|ipafont' | head -1)" ]; then
   echo "already present"
 else
   case "$PKG" in
-    apt) pkg_install fontconfig fonts-liberation fonts-dejavu-core ;;
-    dnf) pkg_install fontconfig liberation-fonts dejavu-sans-fonts dejavu-serif-fonts ;;
-    apk) pkg_install fontconfig font-liberation font-dejavu ;;
-    *)   echo "no known package manager -- install Liberation and DejaVu by hand" ;;
+    apt) pkg_install fontconfig fonts-liberation fonts-dejavu-core \
+           fonts-freefont-ttf fonts-wqy-zenhei fonts-ipafont-gothic ;;
+    dnf) pkg_install fontconfig liberation-fonts dejavu-sans-fonts \
+           dejavu-serif-fonts gnu-free-fonts-common wqy-zenhei-fonts \
+           ipa-gothic-fonts ;;
+    apk) pkg_install fontconfig font-liberation font-dejavu font-wqy-zenhei \
+           font-ipa ;;
+    *)   echo "no known package manager -- install Liberation, DejaVu, FreeFont, WenQuanYi and IPA by hand" ;;
   esac
   have fc-cache && [ "$REPORT_ONLY" -eq 0 ] && $SUDO fc-cache -f >/dev/null 2>&1
 fi
@@ -233,10 +245,13 @@ mark "pypdfium2"      "$PDFIUM_OK"
 mark "reportlab/fpdf2" "$RL_OK"
 
 if [ "$REPORT_ONLY" -eq 0 ]; then
+  mkdir -p /tmp/exactdoc-fontconfig
   {
     echo "# Written by scripts/bootstrap.sh -- source this before running the harness."
     [ -n "$SOFFICE_PATH" ] && echo "export SOFFICE=\"$SOFFICE_PATH\""
     [ -n "$CHROME_PATH" ]  && echo "export CHROME=\"$CHROME_PATH\""
+    # The renderer must see exactly the pinned font set, wherever it runs.
+    echo "export FONTCONFIG_FILE=\"$HERE/fonts.conf\""
   } > "$HERE/env.sh"
   status "wrote" "scripts/env.sh"
 fi

@@ -108,12 +108,22 @@ def oracle_versions():
     """The renderers. Their build decides the fidelity numbers, so name it."""
     lo = _run([SOFFICE, "--version"]) if SOFFICE else ""
     ch = _run([CHROME, "--version"]) if CHROME else ""
-    fonts = _run(["fc-list"])
-    liberation = sorted(set(
-        re.findall(r"(Liberation \w+)", fonts)))[:6] if fonts else []
-    return {"soffice_path": SOFFICE, "soffice_version": lo.splitlines()[0] if lo else None,
-            "chrome_path": CHROME, "chrome_version": ch.splitlines()[0] if ch else None,
-            "metric_fonts": liberation}
+    # Every family the renderer can see, not just the Latin ones. Recording only
+    # `Liberation \w+` was why two environments with wildly different CJK and RTL
+    # coverage both looked identical here -- and c4_i18n is a CJK + Arabic +
+    # Hebrew document whose numbers moved 14x between them.
+    fonts = _run(["fc-list", ":", "family"])
+    families = sorted(set(
+        f.strip() for line in fonts.splitlines() for f in line.split(",")
+        if f.strip() and f.strip().isascii())) if fonts else []
+    return {"soffice_path": SOFFICE,
+            "soffice_version": lo.splitlines()[0] if lo else None,
+            "chrome_path": CHROME,
+            "chrome_version": ch.splitlines()[0] if ch else None,
+            "fontconfig_file": os.environ.get("FONTCONFIG_FILE"),
+            "font_families": families,
+            "font_count": len(families),
+            "metric_fonts": sorted(set(re.findall(r"(Liberation \w+)", fonts)))}
 
 
 # The toolchain the recorded numbers were measured on. `canonical` means "this
@@ -132,7 +142,11 @@ CANONICAL = {
     "os": "linux",
     "python_minor": "3.12",
     "soffice": "LibreOffice 24.2",
-    "fonts": ("Liberation Mono", "Liberation Sans", "Liberation Serif"),
+    # Latin metrics AND the scripts the corpus actually contains. `c4_i18n` is
+    # CJK + Arabic + Hebrew, and checking only Liberation let two environments
+    # with completely different coverage of those scripts both report canonical.
+    "fonts": ("Liberation Mono", "Liberation Sans", "Liberation Serif",
+              "DejaVu Sans", "FreeSerif", "WenQuanYi Zen Hei", "IPAGothic"),
     "pymupdf_minor": "1.28",
     "pypdfium2_minor": "5.12",
 }
@@ -155,10 +169,14 @@ def environment_identity(env):
     if not lo.startswith(CANONICAL["soffice"]):
         bad.append("LibreOffice %r does not start with %r"
                    % (lo, CANONICAL["soffice"]))
-    missing_fonts = [f for f in CANONICAL["fonts"]
-                     if f not in (oracles.get("metric_fonts") or [])]
+    seen_fonts = set(oracles.get("font_families") or []) | \
+        set(oracles.get("metric_fonts") or [])
+    missing_fonts = [f for f in CANONICAL["fonts"] if f not in seen_fonts]
     if missing_fonts:
-        bad.append("metric fonts missing: %s" % ", ".join(missing_fonts))
+        bad.append("fonts missing: %s" % ", ".join(missing_fonts))
+    if not oracles.get("fontconfig_file"):
+        bad.append("FONTCONFIG_FILE is unset, so the renderer can see whatever "
+                   "fonts this machine happens to carry (scripts/fonts.conf)")
     deps = env.get("dependencies") or {}
     for name, key in (("pymupdf", "pymupdf_minor"),
                       ("pypdfium2", "pypdfium2_minor")):
@@ -172,9 +190,11 @@ def fingerprint(env):
     import hashlib
     oracles = env.get("oracles") or {}
     deps = env.get("dependencies") or {}
+    # The whole visible font set, not a Latin subset: it is the variable that
+    # survived freezing the corpus and still moved a gated metric 14x.
     parts = [env.get("os"), _minor(env.get("python")),
              oracles.get("soffice_version"),
-             ",".join(sorted(oracles.get("metric_fonts") or [])),
+             ",".join(sorted(oracles.get("font_families") or [])),
              deps.get("pymupdf"), deps.get("pypdfium2"), deps.get("python-docx"),
              deps.get("numpy"), deps.get("pillow"), deps.get("lxml")]
     return hashlib.sha256("|".join(str(p) for p in parts).encode()).hexdigest()[:16]

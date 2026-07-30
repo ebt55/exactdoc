@@ -1,12 +1,12 @@
 {
- "_note": "Numeric per-document baseline for every gated metric, per lane, measured on the canonical environment (see .github/workflows/gate.yml). The gate asks three questions of it: nothing worse than these numbers beyond tolerance (regression), everything clears its threshold unless recorded below it (absolute), and nothing recorded below a threshold now passes (stale). Regenerate deliberately with GATE_BASELINE=update, never to silence a failure, and say so in the commit message.",
+ "_note": "Numeric per-document baseline for every gated metric, per lane, measured on the canonical environment (see .github/workflows/gate.yml). The gate asks three questions of it: nothing worse than these numbers beyond tolerance (regression), everything clears its threshold unless recorded below it (absolute), and nothing recorded below a threshold now passes (stale). Regenerate deliberately with GATE_BASELINE=update, never to silence a failure, and say so in the commit message. Recording is refused off the canonical environment or over an incomplete corpus.",
  "lanes": {
   "product": {
    "aggregate": {
     "gate_pass_count": 13,
     "mean_live_text": 0.9652,
-    "mean_within2pt": 0.5118,
-    "median_dy_p50": 0.62,
+    "mean_within2pt": 0.4981,
+    "median_dy_p50": 0.675,
     "n": 16,
     "page_match_count": 15
    },
@@ -84,13 +84,13 @@
      "word_recall": 0.331
     },
     "c4_i18n.pdf": {
-     "doc_recall": 1.0,
-     "dy_p50": 0.15,
+     "doc_recall": 0.9832,
+     "dy_p50": 0.87,
      "live_text_cov": 1.0,
      "page_err": 0,
      "raster_frac": 0.0,
-     "within2pt": 0.416,
-     "word_recall": 1.0
+     "within2pt": 0.1966,
+     "word_recall": 0.9832
     },
     "c5_graphics.pdf": {
      "doc_recall": 0.6778,
@@ -158,6 +158,7 @@
    },
    "environment": {
     "canonical": true,
+    "canonical_mismatches": [],
     "dependencies": {
      "fpdf2": "2.8.7",
      "lxml": "6.1.1",
@@ -170,10 +171,29 @@
      "python-docx": "1.2.0",
      "reportlab": "5.0.0"
     },
+    "fingerprint": "7b5ff7bbcb2ad00f",
     "machine": "x86_64",
     "oracles": {
      "chrome_path": "/root/.cache/ms-playwright/chromium_headless_shell-1228/chrome-headless-shell-linux64/chrome-headless-shell",
      "chrome_version": "Google Chrome for Testing 149.0.7827.55",
+     "font_count": 14,
+     "font_families": [
+      "DejaVu Sans",
+      "DejaVu Sans Mono",
+      "DejaVu Serif",
+      "FreeMono",
+      "FreeSans",
+      "FreeSerif",
+      "IPAGothic",
+      "IPAPGothic",
+      "Liberation Mono",
+      "Liberation Sans",
+      "Liberation Serif",
+      "WenQuanYi Zen Hei",
+      "WenQuanYi Zen Hei Mono",
+      "WenQuanYi Zen Hei Sharp"
+     ],
+     "fontconfig_file": "/work/scripts/fonts.conf",
      "metric_fonts": [
       "Liberation Mono",
       "Liberation Sans",
@@ -196,7 +216,7 @@
    "aggregate": {
     "gate_pass_count": 12,
     "mean_live_text": 0.9652,
-    "mean_within2pt": 0.3486,
+    "mean_within2pt": 0.3349,
     "median_dy_p50": 2.2,
     "n": 16,
     "page_match_count": 13
@@ -275,13 +295,13 @@
      "word_recall": 0.3137
     },
     "c4_i18n.pdf": {
-     "doc_recall": 1.0,
-     "dy_p50": 0.15,
+     "doc_recall": 0.9832,
+     "dy_p50": 0.87,
      "live_text_cov": 1.0,
      "page_err": 0,
      "raster_frac": 0.0,
-     "within2pt": 0.416,
-     "word_recall": 1.0
+     "within2pt": 0.1966,
+     "word_recall": 0.9832
     },
     "c5_graphics.pdf": {
      "doc_recall": 0.6778,
@@ -349,6 +369,7 @@
    },
    "environment": {
     "canonical": true,
+    "canonical_mismatches": [],
     "dependencies": {
      "fpdf2": "2.8.7",
      "lxml": "6.1.1",
@@ -361,10 +382,29 @@
      "python-docx": "1.2.0",
      "reportlab": "5.0.0"
     },
+    "fingerprint": "7b5ff7bbcb2ad00f",
     "machine": "x86_64",
     "oracles": {
      "chrome_path": "/root/.cache/ms-playwright/chromium_headless_shell-1228/chrome-headless-shell-linux64/chrome-headless-shell",
      "chrome_version": "Google Chrome for Testing 149.0.7827.55",
+     "font_count": 14,
+     "font_families": [
+      "DejaVu Sans",
+      "DejaVu Sans Mono",
+      "DejaVu Serif",
+      "FreeMono",
+      "FreeSans",
+      "FreeSerif",
+      "IPAGothic",
+      "IPAPGothic",
+      "Liberation Mono",
+      "Liberation Sans",
+      "Liberation Serif",
+      "WenQuanYi Zen Hei",
+      "WenQuanYi Zen Hei Mono",
+      "WenQuanYi Zen Hei Sharp"
+     ],
+     "fontconfig_file": "/work/scripts/fonts.conf",
      "metric_fonts": [
       "Liberation Mono",
       "Liberation Sans",

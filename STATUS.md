@@ -13,9 +13,9 @@ having two independent environments agree is itself evidence. Reproduce with:
 bash scripts/bootstrap.sh          # Linux: provisions the oracles, reports what it found
 ```
 
-```bash
-python testkit/gen_corpus.py testkit/adv --strict && python corpus/make_corpus.py
-```
+The corpus is **not generated** to reproduce a number — it is 16 PDFs frozen in
+`testkit/fixtures/` and pinned by SHA-256, because a regenerated corpus is not the
+same corpus (§5):
 
 ```bash
 python testkit/corpus_manifest.py verify && python testkit/runall.py
