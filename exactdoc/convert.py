@@ -29,6 +29,9 @@ def convert(pdf_path: str, out_path: Optional[str] = None,
             dpi: Optional[int] = None, refine_rounds: Optional[int] = None,
             target: Optional[str] = None, backend: Optional[str] = None,
             ladder: Optional[bool] = None, verbose: Optional[bool] = None,
+            output_profile: Optional[str] = None,
+            oracle: Optional[str] = None,
+            allow_cloud_upload: Optional[bool] = None,
             options: Optional[ConversionOptions] = None) -> str:
     """Convert a PDF to DOCX. Returns the output path.
 
@@ -48,15 +51,30 @@ def convert(pdf_path: str, out_path: Optional[str] = None,
     `refine_rounds` > 0 enables the closed-loop pass: render the DOCX back and
     correct page overflow and per-page offsets against what actually rendered.
 
-    `target` chooses which renderer that loop optimises for -- "gdocs",
-    "libreoffice" or "none". This is a real choice, not a detail: a layout
-    tuned for LibreOffice is measurably not tuned for Google Docs. If the
-    chosen oracle is unavailable the conversion still succeeds, open-loop.
+    `output_profile` and `oracle` are independent, and used to be one field.
+    `output_profile` decides how the OOXML is written -- "gdocs" emits line
+    heights Google Docs does not mistranslate, entirely offline. `oracle`
+    decides what renders the result during refinement, and only matters when
+    `refine_rounds > 0`. A layout tuned for LibreOffice is measurably not tuned
+    for Google Docs, so the pair is a real choice rather than a detail.
+
+    **A requested oracle that is unavailable is now an error.** It used to fall
+    through to an open-loop conversion, printing a line only under `verbose`, so
+    a caller who asked for refinement could receive an unrefined document and a
+    success exit code.
+
+    `target=` is accepted for one alpha cycle and maps onto the pair. Note that
+    `target="gdocs"` now selects the Google-safe *profile* without authorising
+    an upload; the cloud oracle needs `allow_cloud_upload=True`.
     """
     if backend is None and options is None:
         backend = os.environ.get("EXACTDOC_BACKEND", "").strip() or None
+    # Consent is never read from the environment. An exported variable must not
+    # be able to authorise sending somebody's document to a third party.
     opts = resolve(options, backend=backend, target=target, dpi=dpi,
-                   refine_rounds=refine_rounds, ladder=ladder, verbose=verbose)
+                   refine_rounds=refine_rounds, ladder=ladder, verbose=verbose,
+                   output_profile=output_profile, oracle=oracle,
+                   allow_cloud_upload=allow_cloud_upload)
     if out_path is None:
         out_path = os.path.splitext(pdf_path)[0] + ".docx"
 
@@ -79,19 +97,20 @@ def convert(pdf_path: str, out_path: Optional[str] = None,
     if opts.refine_rounds > 0:
         from .refine import refine
         from .targets import get_renderer
-        render, resolved = get_renderer(opts.target)
-        if render is not None:
-            if opts.verbose:
-                print("  refining against: %s" % resolved)
-            return refine(lay, pdf_path, out_path, dpi=opts.dpi,
-                          rounds=opts.refine_rounds, verbose=opts.verbose,
-                          render=render, target=opts.target, backend=bk)
-        elif opts.verbose:
-            print("  requested target %r is unavailable; converting open-loop"
-                  % opts.target)
-    from .docxout import write_docx
-    return write_docx(lay, out_path, dpi=opts.dpi, target=opts.target,
+        # Raises OracleUnavailableError if the named renderer is absent. There
+        # is deliberately no `else` falling through to an open-loop write: that
+        # branch is what turned "refine against LibreOffice" into "do not
+        # refine" without changing the exit code.
+        render, resolved = get_renderer(opts.oracle)
+        if opts.verbose:
+            print("  refining against: %s" % resolved)
+        return refine(lay, pdf_path, out_path, dpi=opts.dpi,
+                      rounds=opts.refine_rounds, verbose=opts.verbose,
+                      render=render, output_profile=opts.output_profile,
                       backend=bk)
+    from .docxout import write_docx
+    return write_docx(lay, out_path, dpi=opts.dpi,
+                      output_profile=opts.output_profile, backend=bk)
 
 
 def main(argv=None):

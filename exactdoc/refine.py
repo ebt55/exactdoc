@@ -236,7 +236,7 @@ def _apply(lay: DocLayout, m) -> bool:
 
 def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
            rounds: int = 2, verbose: bool = False, render=None,
-           target: str = "libreoffice", backend=None) -> str:
+           output_profile: str = "standard", backend=None) -> str:
     """Write `lay`, then correct it against real renders. Returns out_path.
 
     `render(docx_path, tmp_dir) -> pdf_path | None` selects the oracle. It
@@ -260,17 +260,27 @@ def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
         backend = get_backend()
     if render is None:
         if SOFFICE is None:
-            return write_docx(lay, out_path, dpi=dpi, target=target,
-                              backend=backend)
+            # Refinement was requested and there is nothing to refine against.
+            # This used to return an unrefined DOCX -- a different product under
+            # the same exit code, and the specific mechanism by which a published
+            # fidelity number came to describe a profile no surface had run.
+            from .errors import OracleUnavailableError
+            raise OracleUnavailableError(
+                "refinement was requested but LibreOffice was not found, so "
+                "there is no renderer to correct against. Install it, choose "
+                "another oracle, or set refine_rounds=0 to convert open-loop "
+                "deliberately.")
         render = docx_to_pdf
     if rounds <= 0:
-        return write_docx(lay, out_path, dpi=dpi, target=target, backend=backend)
+        return write_docx(lay, out_path, dpi=dpi,
+                          output_profile=output_profile, backend=backend)
 
     best_path, best_score = None, None
     with tempfile.TemporaryDirectory() as td:
         for rnd in range(rounds + 1):
             # write_docx is pure: `lay` survives the round unmodified.
-            write_docx(lay, out_path, dpi=dpi, target=target, backend=backend)
+            write_docx(lay, out_path, dpi=dpi, output_profile=output_profile,
+                       backend=backend)
             rendered = render(out_path, td)
             if rendered is None:
                 return out_path

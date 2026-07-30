@@ -21,9 +21,10 @@ in refine.py measures against the chosen renderer and corrects for it.
 import os
 from typing import Callable, Optional
 
-from .options import DEFAULT_TARGET, TARGETS, canonical_target
+from .errors import OracleUnavailableError
+from .options import DEFAULT_ORACLE, ORACLES, canonical_oracle
 
-DEFAULT = DEFAULT_TARGET
+DEFAULT = DEFAULT_ORACLE
 
 
 def _libreoffice_render(docx_path: str, tmp_dir: str) -> Optional[str]:
@@ -53,21 +54,35 @@ def _gdocs_render_factory() -> Callable[[str, str], Optional[str]]:
     return render
 
 
-def get_renderer(target: str):
-    """-> (render_callable | None, resolved_target_name).
+def get_renderer(oracle: str):
+    """-> (render_callable | None, resolved_oracle_name).
 
-    A resolved name that differs from the requested one is a *fallback*, and
-    the caller has to be able to see it: 'libreoffice' resolving to 'none'
-    means the conversion ran open-loop, which is a different product than the
-    one the user asked for. Reporting that explicitly is REL-01's job; this
-    function's contract is to name the target it actually resolved to.
+    Raises OracleUnavailableError when a renderer is named and absent. It used
+    to return `(None, "none")`, and the caller then converted open-loop -- so
+    'libreoffice' silently resolved to 'no feedback loop at all', which is a
+    different product delivered under the same exit code. That is the mechanism
+    behind a published fidelity number describing a profile no surface ran, and
+    a fallback nobody can see is indistinguishable from a lie.
+
+    `none` is not a failure: it is a legitimate, explicit request for no
+    feedback loop, and returns `(None, "none")`.
     """
-    t = canonical_target(target or DEFAULT)
+    t = canonical_oracle(oracle or DEFAULT)
     if t == "none":
         return None, "none"
     if t == "gdocs":
-        return _gdocs_render_factory(), "gdocs"
+        try:
+            return _gdocs_render_factory(), "gdocs"
+        except Exception as e:
+            raise OracleUnavailableError(
+                "the Google Docs oracle was requested but could not be "
+                "initialised. It needs the [gdocs] extra and an authorised "
+                "token (`exactdoc gdocs auth`).",
+                detail="%s: %s" % (type(e).__name__, e))
     from .verify import SOFFICE
     if SOFFICE is None:
-        return None, "none"
+        raise OracleUnavailableError(
+            "the LibreOffice oracle was requested but soffice was not found. "
+            "Install LibreOffice, choose another oracle, or set refine_rounds=0 "
+            "to convert open-loop deliberately.")
     return _libreoffice_render, "libreoffice"

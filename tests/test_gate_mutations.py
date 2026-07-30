@@ -244,12 +244,28 @@ def test_shipped_default_is_the_measured_default():
     check("CLI refine default == PRODUCT",
           defaults["refine"] == PRODUCT.refine_rounds,
           "CLI %r vs profile %r" % (defaults["refine"], PRODUCT.refine_rounds))
-    check("CLI target default == PRODUCT", defaults["target"] == PRODUCT.target)
+    check("CLI output_profile default == PRODUCT",
+          defaults["output_profile"] == PRODUCT.output_profile,
+          "CLI %r vs profile %r" % (defaults.get("output_profile"),
+                                    PRODUCT.output_profile))
+    check("CLI oracle default == PRODUCT",
+          defaults["oracle"] == PRODUCT.oracle,
+          "CLI %r vs profile %r" % (defaults.get("oracle"), PRODUCT.oracle))
     check("CLI backend default == PRODUCT", defaults["backend"] == PRODUCT.backend)
     check("CLI dpi default == PRODUCT", defaults["dpi"] == PRODUCT.dpi)
+    # Consent is off unless asked for, and cannot be defaulted on by a profile.
+    check("CLI does not default to allowing a cloud upload",
+          defaults["allow_cloud_upload"] is False,
+          repr(defaults.get("allow_cloud_upload")))
+    # The deprecated flag must default to "unset" rather than to a real value,
+    # or it would silently outrank the new pair on every invocation.
+    check("CLI --target defaults to unset", defaults["target"] is None,
+          repr(defaults.get("target")))
     check("the product lane is the shipped profile",
           LANES["product"] is PRODUCT)
     check("the raw lane is refine-free", LANES["raw"].refine_rounds == 0)
+    check("the raw lane names no oracle it will not call",
+          LANES["raw"].oracle == "none", LANES["raw"].oracle)
 
 
 # ------------------------------------------------------- the parity policy

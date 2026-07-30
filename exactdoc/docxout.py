@@ -194,9 +194,16 @@ NATURAL_DEFAULT = 1.144
 LINE_MODES = ("exact", "multiple")
 
 
-def line_mode_for(target: str) -> str:
-    """Word and LibreOffice honour lineRule="exact"; Google Docs mistranslates it."""
-    return "multiple" if target == "gdocs" else "exact"
+def line_mode_for(output_profile: str) -> str:
+    """Word and LibreOffice honour lineRule="exact"; Google Docs mistranslates it.
+
+    Keyed on the OUTPUT PROFILE, not on which renderer the refinement loop talks
+    to. Those were one field, so "write OOXML that survives Google Docs" was
+    inseparable from "upload this document to Google" -- and the offline
+    Docs-safe profile, which is what this project intends to ship, could not be
+    expressed at all.
+    """
+    return "multiple" if output_profile == "gdocs" else "exact"
 
 # Floor on compressing a table row's leading to make it fit its source height.
 # Below this the text starts to collide with its neighbours, and an honestly
@@ -773,15 +780,19 @@ def _fill_hf(hf_obj, part: Optional[HFPart], lay: DocLayout, ctx=None):
 
 # ------------------------------------------------------------------ main
 def write_docx(lay: DocLayout, out_path: str, dpi: int = 240,
-               target: str = "libreoffice", backend=None, ctx=None) -> str:
+               output_profile: str = "standard", backend=None, ctx=None) -> str:
     """Render a DocLayout to a .docx. Pure: `lay` is never modified.
 
-    `target` selects the line-height encoding: Word and LibreOffice honour
-    lineRule="exact", Google Docs mistranslates it in a way that scales with font
-    size, so the gdocs target emits the same intent as a multiple instead. That
-    choice now travels in a `WriteCtx` rather than in a module global that this
-    function set and restored -- two concurrent conversions with different targets
-    could each observe the other's encoding.
+    `output_profile` selects the line-height encoding: Word and LibreOffice
+    honour lineRule="exact", Google Docs mistranslates it in a way that scales
+    with font size, so the gdocs profile emits the same intent as a multiple
+    instead. That choice now travels in a `WriteCtx` rather than in a module
+    global that this function set and restored -- two concurrent conversions with
+    different profiles could each observe the other's encoding.
+
+    This is a pure serialisation setting. It writes different bytes; it does not
+    contact anything. Choosing the Google-safe profile costs no network, no
+    credentials and no upload.
 
     `backend` supplies figure rasterisation. Pass the same backend the parse used;
     without one, figure regions are omitted rather than rendered through a parser
@@ -806,7 +817,7 @@ def write_docx(lay: DocLayout, out_path: str, dpi: int = 240,
                     return _bk.render_clip(_p, page_no, clip, dpi=at_dpi)
                 except Exception:
                     return None
-        ctx = WriteCtx(line_mode=line_mode_for(target), dpi=dpi,
+        ctx = WriteCtx(line_mode=line_mode_for(output_profile), dpi=dpi,
                        render_clip=render_clip)
     return _write_docx(lay, out_path, ctx)
 

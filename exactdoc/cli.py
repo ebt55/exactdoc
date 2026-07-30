@@ -6,7 +6,7 @@ the CI product lane all run the same configuration. They used to run three.
 """
 import argparse
 
-from .options import BACKENDS, PRODUCT, TARGETS
+from .options import BACKENDS, ORACLES, OUTPUT_PROFILES, PRODUCT, TARGETS
 
 
 def build_parser():
@@ -18,12 +18,27 @@ def build_parser():
     ap.add_argument("-o", "--out", help="output .docx path (single input only)")
     ap.add_argument("--dpi", type=int, default=PRODUCT.dpi,
                     help="raster DPI for vector figure regions (default %(default)s)")
-    ap.add_argument("--target", default=PRODUCT.target, choices=list(TARGETS),
-                    help="which program the output should look right in. The "
-                         "closed loop optimises for this renderer, and the "
-                         "choice matters: a layout tuned for LibreOffice is "
-                         "measurably not tuned for Google Docs. 'gdocs' needs "
-                         "Drive credentials (default: %(default)s)")
+    ap.add_argument("--output-profile", default=PRODUCT.output_profile,
+                    choices=list(OUTPUT_PROFILES),
+                    help="how the DOCX is written. 'gdocs' emits line heights "
+                         "Google Docs does not mistranslate. This is pure "
+                         "serialisation: offline, deterministic, no network and "
+                         "no credentials (default: %(default)s)")
+    ap.add_argument("--oracle", default=PRODUCT.oracle, choices=list(ORACLES),
+                    help="what renders the DOCX during refinement, and only "
+                         "used when --refine > 0. A layout tuned for "
+                         "LibreOffice is measurably not tuned for Google Docs. "
+                         "'gdocs' uploads to Drive and needs "
+                         "--allow-cloud-upload (default: %(default)s)")
+    ap.add_argument("--allow-cloud-upload", action="store_true",
+                    help="permit an oracle that sends the document to a third "
+                         "party. Required for --oracle gdocs, which uploads the "
+                         "DOCX to Google Drive, converts it, exports a PDF and "
+                         "deletes the temporary copy. Never implied by "
+                         "--output-profile gdocs, and no environment variable "
+                         "can grant it")
+    ap.add_argument("--target", default=None, choices=list(TARGETS),
+                    help=argparse.SUPPRESS)      # deprecated; see options.py
     ap.add_argument("--backend", default=PRODUCT.backend, choices=list(BACKENDS),
                     help="PDF parser (default: %(default)s). Overrides "
                          "EXACTDOC_BACKEND")
@@ -51,9 +66,15 @@ def main(argv=None):
 
     from .convert import convert
     for p in args.pdf:
+        # A legacy --target wins over the new pair only when the new pair was
+        # left at its default, so `--target gdocs --oracle none` is a conflict
+        # rather than a silent override. options.replace() raises on that.
+        legacy = {"target": args.target} if args.target else {
+            "output_profile": args.output_profile, "oracle": args.oracle}
         out = convert(p, args.out, dpi=args.dpi, refine_rounds=args.refine,
-                      target=args.target, backend=args.backend,
-                      verbose=args.verbose)
+                      backend=args.backend, verbose=args.verbose,
+                      allow_cloud_upload=args.allow_cloud_upload or None,
+                      **legacy)
         print("wrote", out)
         if args.verify:
             from .verify import verify, audit
