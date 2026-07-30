@@ -68,16 +68,34 @@ MANIFEST_PATH = os.path.join(HERE, "corpus_manifest.json")
 # max(tol, rel x recorded), so the absolute floor governs the small numbers and
 # the proportional term governs the large ones.
 HIGHER, LOWER, BOOL = "higher", "lower", "bool"
+# `range` is the semantic domain of the metric, and it is checked rather than
+# assumed. A fraction outside [0, 1] is not a bad score, it is a broken
+# measurement, and the two must not be confused: a `live_text_cov` of 1.7 would
+# have sailed past every threshold in this file while meaning the harness had
+# lost track of its own denominator.
 METRICS = {
-    "page_err":      {"dir": LOWER,  "threshold": 0,    "tol": 0},
-    "live_text_cov": {"dir": HIGHER, "threshold": 0.95, "tol": 0.010},
-    "doc_recall":    {"dir": HIGHER, "threshold": 0.95, "tol": 0.010},
-    "word_recall":   {"dir": HIGHER, "threshold": 0.90, "tol": 0.020},
-    "within2pt":     {"dir": HIGHER, "threshold": None, "tol": 0.050},
+    "page_err":      {"dir": LOWER,  "threshold": 0,    "tol": 0,
+                      "range": (0, None)},
+    "live_text_cov": {"dir": HIGHER, "threshold": 0.95, "tol": 0.010,
+                      "range": (0.0, 1.0)},
+    "doc_recall":    {"dir": HIGHER, "threshold": 0.95, "tol": 0.010,
+                      "range": (0.0, 1.0)},
+    "word_recall":   {"dir": HIGHER, "threshold": 0.90, "tol": 0.020,
+                      "range": (0.0, 1.0)},
+    "within2pt":     {"dir": HIGHER, "threshold": None, "tol": 0.050,
+                      "range": (0.0, 1.0)},
     "dy_p50":        {"dir": LOWER,  "threshold": None, "tol": 0.500,
-                      "rel": 0.10},
-    "raster_frac":   {"dir": LOWER,  "threshold": None, "tol": 0.020},
+                      "rel": 0.10, "range": (0.0, None)},
+    "raster_frac":   {"dir": LOWER,  "threshold": None, "tol": 0.020,
+                      "range": (0.0, 1.0)},
 }
+
+# The renderer a result must have been produced by. `harness.evaluate()` records
+# "libreoffice" or "supplied"; a lane scored against a *different* oracle than the
+# baseline is not comparable to it, and nothing checked. A missing key is a
+# failure too -- it means the result predates the field or came from somewhere
+# that does not identify itself.
+EXPECTED_RENDERER = "libreoffice"
 
 
 def tolerance(spec, reference):
@@ -148,9 +166,30 @@ class Verdict(object):
                 "notes": list(self.notes)}
 
 
-# --------------------------------------------------------------- derived facts
+# --------------------------------------------------------------- value hygiene
+def is_number(v):
+    """A real, finite number. `True` is not one, and neither is NaN.
+
+    `isinstance(True, int)` is True in Python, so a metric that arrived as a
+    boolean would be silently scored as 1.0 or 0.0 -- and `page_match` *is* a
+    boolean living next to these, so a one-key slip produces a perfect score
+    rather than an error. NaN is worse than either: every comparison against it
+    is False, so a NaN metric passes its threshold, passes its regression check,
+    and passes its stale check, all by failing to be greater or less than
+    anything.
+    """
+    import math
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        return False
+    return math.isfinite(v)
+
+
 def metric_values(result):
     """The gated metrics of one harness result, including derived ones.
+
+    Only well-formed values are returned. A malformed one is *omitted*, which
+    makes it a missing metric, which `check()` fails on -- rather than being
+    coerced and scored.
 
     `page_err` is derived rather than read: `page_match` is a boolean, and a
     boolean cannot record that a document went from one page over to forty. The
@@ -159,12 +198,64 @@ def metric_values(result):
     vals = {}
     for k in METRICS:
         if k == "page_err":
-            if "src_pages" in result and "out_pages" in result:
-                vals[k] = abs(int(result["out_pages"]) - int(result["src_pages"]))
+            a, b = result.get("src_pages"), result.get("out_pages")
+            if is_number(a) and is_number(b):
+                vals[k] = abs(int(b) - int(a))
             continue
-        if k in result and isinstance(result[k], (int, float)):
-            vals[k] = float(result[k])
+        v = result.get(k)
+        if is_number(v):
+            vals[k] = float(v)
     return vals
+
+
+def validate_result(doc_id, result, expected_renderer=EXPECTED_RENDERER):
+    """-> [(kind, detail)] structural problems with one measured result.
+
+    Separate from thresholds on purpose. A threshold answers "is this good
+    enough"; this answers "is this a measurement at all". The gate was asking
+    only the first question, so a `live_text_cov` of `None`, `True`, `NaN` or
+    `1.7` reached the comparison operators and was scored.
+    """
+    bad = []
+    for key in ("src_pages", "out_pages"):
+        v = result.get(key)
+        if not is_number(v) or int(v) != v or int(v) < 1:
+            bad.append(("malformed", "%s is %r; expected a positive integer"
+                        % (key, v)))
+    if is_number(result.get("src_pages")) and is_number(result.get("out_pages")):
+        match = result.get("page_match")
+        if not isinstance(match, bool):
+            bad.append(("malformed", "page_match is %r; expected a bool" % (match,)))
+        elif match != (int(result["src_pages"]) == int(result["out_pages"])):
+            bad.append(("inconsistent",
+                        "page_match=%s contradicts %s source vs %s rendered pages"
+                        % (match, result["src_pages"], result["out_pages"])))
+
+    renderer = result.get("renderer")
+    if not renderer:
+        bad.append(("no-oracle", "the result does not say which renderer produced "
+                                 "it, so it cannot be compared to a baseline"))
+    elif expected_renderer and renderer != expected_renderer:
+        bad.append(("wrong-oracle",
+                    "scored against %r, baseline recorded against %r"
+                    % (renderer, expected_renderer)))
+
+    for name, spec in sorted(METRICS.items()):
+        if name == "page_err":
+            continue
+        if name not in result:
+            continue                      # absence is `check()`'s no-metric case
+        v = result[name]
+        if not is_number(v):
+            bad.append(("malformed", "%s is %r; expected a finite number"
+                        % (name, v)))
+            continue
+        lo, hi = spec.get("range", (None, None))
+        if (lo is not None and v < lo) or (hi is not None and v > hi):
+            bad.append(("out-of-range",
+                        "%s=%r outside its domain [%s, %s] -- a broken "
+                        "measurement, not a bad score" % (name, v, lo, hi)))
+    return bad
 
 
 def worse(direction, value, reference, tol=0.0):
@@ -192,10 +283,15 @@ def aggregates(results):
     ok = [r for r in results if not any(k in r for k in FATAL_KEYS)]
     if not ok:
         return {}
+    # Same well-formedness rule as everywhere else: a boolean or a NaN must not
+    # be averaged into a headline number. A single NaN would make every mean NaN,
+    # and NaN compares False against its own tolerance, so the aggregate gate
+    # would pass while reporting nothing.
     def mean(key):
-        vals = [r[key] for r in ok if isinstance(r.get(key), (int, float))]
+        vals = [r[key] for r in ok if is_number(r.get(key))]
         return round(st.mean(vals), 4) if vals else None
-    dys = [r["dy_p50"] for r in ok if isinstance(r.get("dy_p50"), (int, float))]
+    dys = [r["dy_p50"] for r in ok if is_number(r.get("dy_p50"))]
+    per_doc = [(r, metric_values(r)) for r in ok]
     return {
         "n": len(ok),
         "page_match_count": sum(1 for r in ok if r.get("page_match") is True),
@@ -203,10 +299,10 @@ def aggregates(results):
         # rather than from a reader counting rows. It is not in AGGREGATES: it is
         # a function of the per-document thresholds, every one of which is
         # already gated, so gating it again would only double-report.
-        "gate_pass_count": sum(1 for r in ok if all(
-            clears(spec["dir"], v, spec["threshold"])
-            for name, spec in METRICS.items()
-            for v in [metric_values(r).get(name)] if v is not None)),
+        "gate_pass_count": sum(
+            1 for _, vals in per_doc
+            if all(clears(spec["dir"], vals[name], spec["threshold"])
+                   for name, spec in METRICS.items() if name in vals)),
         "mean_within2pt": mean("within2pt"),
         "mean_live_text": mean("live_text_cov"),
         "median_dy_p50": round(st.median(dys), 3) if dys else None,
@@ -262,6 +358,7 @@ def check(lane, results, manifest=None, baseline=None, absolute=False):
 
     # 2. integrity. A result that carries an error key is a failure, not a row
     #    to be skipped: the renderer dying on every document used to score zero.
+    #    Then the values themselves: present is not the same as well-formed.
     for doc_id, r in sorted(by_id.items()):
         fatal = [k for k in FATAL_KEYS if k in r]
         if fatal:
@@ -272,6 +369,8 @@ def check(lane, results, manifest=None, baseline=None, absolute=False):
                 v.fail("no-metric", doc_id,
                        "required metric %r absent -- a metric that cannot be "
                        "computed is a failure, not a skip" % k)
+        for kind, detail in validate_result(doc_id, r):
+            v.fail(kind, doc_id, detail)
 
     # 3. per-document thresholds and floors.
     for doc_id, r in sorted(by_id.items()):
@@ -377,8 +476,61 @@ def load_manifest(path=MANIFEST_PATH):
         return json.load(f)
 
 
-def save_lane(lane, data, path=BASELINE_PATH, environment=None):
-    """Write one lane's record, preserving the others and the defect IDs."""
+class RecordRefused(Exception):
+    """A baseline write that would have produced a record nobody can trust."""
+
+
+def check_recordable(records, manifest, environment):
+    """Raise unless this run is fit to become the number of record.
+
+    A baseline is the thing every later run is judged against, so recording one
+    is the single most consequential write in the repository -- and it had no
+    preconditions at all. `GATE_BASELINE=update` on a laptop, over a subset of the
+    corpus, with a renderer failure in the middle, would happily overwrite the
+    canonical record with numbers describing none of it, and every subsequent run
+    would then agree with it.
+
+    Three preconditions, all fail-closed:
+
+      canonical    Linux, matching .github/workflows/gate.yml. Local Windows
+                   renders with real Arial and wraps differently; those are
+                   legitimate numbers and they are not *the* numbers.
+      complete     every manifest document, in every lane. A subset record is
+                   worse than no record: it looks authoritative and covers a
+                   corpus that was never measured.
+      clean        no result carrying a conversion or evaluation error. Half a
+                   lane is not a lane.
+    """
+    if not environment.get("canonical"):
+        raise RecordRefused(
+            "refusing to record on %s: the baseline is the number of record and "
+            "is measured on Linux (see .github/workflows/gate.yml). Local runs "
+            "render with different fonts and are indicative, not authoritative."
+            % environment.get("os", "this platform"))
+    expected = set(manifest.get("documents", {}))
+    for lane, rec in sorted(records.items()):
+        got = set(rec.get("documents", {}))
+        missing, extra = expected - got, got - expected
+        if missing or extra:
+            raise RecordRefused(
+                "refusing to record lane %r over %d of %d manifest documents "
+                "(missing %s; unexpected %s). A partial baseline looks "
+                "authoritative and describes a corpus nobody measured."
+                % (lane, len(got), len(expected),
+                   sorted(missing) or "none", sorted(extra) or "none"))
+    return True
+
+
+def save_lanes(records, path=BASELINE_PATH, environment=None):
+    """Write every lane at once, or write nothing.
+
+    Transactional because a baseline half-written is a baseline that disagrees
+    with itself: the two lanes would describe different code, and the raw lane
+    exists precisely to be compared against the product one. Serialised in full,
+    then moved into place with `os.replace`, so an interrupted write cannot leave
+    a truncated JSON file where the record used to be.
+    """
+    import tempfile
     doc = load(path) or {}
     doc["schema"] = 2
     doc["_note"] = (
@@ -388,15 +540,26 @@ def save_lane(lane, data, path=BASELINE_PATH, environment=None):
         "beyond tolerance (regression), everything clears its threshold unless "
         "recorded below it (absolute), and nothing recorded below a threshold "
         "now passes (stale). Regenerate deliberately with GATE_BASELINE=update, "
-        "never to silence a failure, and say so in the commit message.")
+        "never to silence a failure, and say so in the commit message. Recording "
+        "is refused off the canonical environment or over an incomplete corpus.")
     lanes = doc.setdefault("lanes", {})
-    prev = lanes.get(lane, {})
-    entry = {"documents": data["documents"], "aggregate": data["aggregate"]}
-    # Defect IDs are human knowledge and survive a re-record; the numbers do not.
-    entry["shortfall_defects"] = prev.get("shortfall_defects", {})
-    if environment:
-        entry["environment"] = environment
-    lanes[lane] = entry
-    with open(path, "w") as f:
-        json.dump(doc, f, indent=1, sort_keys=True)
+    for lane, data in sorted(records.items()):
+        prev = lanes.get(lane, {})
+        entry = {"documents": data["documents"], "aggregate": data["aggregate"]}
+        # Defect IDs are human knowledge and survive a re-record; numbers do not.
+        entry["shortfall_defects"] = prev.get("shortfall_defects", {})
+        if environment:
+            entry["environment"] = environment
+        lanes[lane] = entry
+
+    d = os.path.dirname(os.path.abspath(path)) or "."
+    fd, tmp = tempfile.mkstemp(dir=d, prefix=".gate_baseline.", suffix=".json")
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(doc, f, indent=1, sort_keys=True)
+        os.replace(tmp, path)             # same filesystem: atomic
+    except BaseException:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+        raise
     return path

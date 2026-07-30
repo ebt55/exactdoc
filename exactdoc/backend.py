@@ -245,40 +245,49 @@ class PDFiumBackend:
     # happened to collect them, which is not a resource policy -- a long-running
     # process converting a queue of PDFs would hold every one of them until it
     # died.
+    @staticmethod
+    def _png(bitmap) -> bytes:
+        """PIL image -> PNG bytes, releasing the native bitmap.
+
+        `PdfBitmap.to_pil()` returns a view backed by the bitmap's buffer, so the
+        bitmap must outlive the encode and must then be closed. Neither happened:
+        the bitmap was a temporary whose handle nothing released, one per rendered
+        page and per figure clip.
+        """
+        import io
+        try:
+            buf = io.BytesIO()
+            bitmap.to_pil().save(buf, format="PNG")
+            return buf.getvalue()
+        finally:
+            bitmap.close()
+
     def render_clip(self, path: str, page_no: int, clip: BBox,
                     dpi: int = 240) -> Optional[bytes]:
-        import io
         import pypdfium2 as pdfium
         doc = pdfium.PdfDocument(path)
         try:
             page = doc[page_no - 1]
             try:
                 h = page.get_height()
-                pil = page.render(scale=dpi / 72.0,
-                                  crop=(clip[0], h - clip[3],
-                                        page.get_width() - clip[2],
-                                        clip[1])).to_pil()
+                return self._png(page.render(
+                    scale=dpi / 72.0,
+                    crop=(clip[0], h - clip[3],
+                          page.get_width() - clip[2], clip[1])))
             finally:
                 page.close()
-            buf = io.BytesIO()
-            pil.save(buf, format="PNG")
-            return buf.getvalue()
         finally:
             doc.close()
 
     def render_page(self, path: str, page_no: int, dpi: int = 110) -> Optional[bytes]:
-        import io
         import pypdfium2 as pdfium
         doc = pdfium.PdfDocument(path)
         try:
             page = doc[page_no - 1]
             try:
-                pil = page.render(scale=dpi / 72.0).to_pil()
+                return self._png(page.render(scale=dpi / 72.0))
             finally:
                 page.close()
-            buf = io.BytesIO()
-            pil.save(buf, format="PNG")
-            return buf.getvalue()
         finally:
             doc.close()
 

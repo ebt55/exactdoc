@@ -8,16 +8,30 @@ on numbers and this file gets corrected.
 
 ## The short answer
 
-**The licence swap is no longer blocked, and the default runtime path is already
-permissive.** The AGPL was the one thing standing between this project and being
-usable by anyone who cannot accept it. As of 2026-07-30 the parity gate passes with
-**0 regressions**: 10 documents the same, 2 where the permissive parser is the
-*correct* one, and 4 attributed to a single cause proven unreachable from a
-permissive parser and formally accepted with numeric floors.
+**Every code path can now run without PyMuPDF — the shipped default still uses it,
+and the parity gate is red.** The AGPL was the one thing standing between this
+project and being usable by anyone who cannot accept it. As of 2026-07-30 the
+parity gate **fails on 2 unwaived regressions**, alongside 4 documents
+**provisionally waived** against a single cause proven unreachable from a
+permissive parser and bounded by numeric floors.
 
-More importantly, `import exactdoc` and a full conversion — including the
-refinement loop — now work with PyMuPDF **physically absent**, which was not true
-a session ago and was the real content of the word "mechanical" in §3.2. §3.2a.
+Both numbers went the wrong way for the right reason. The comparison used to stop
+at the first dimension outside its margin — so an improvement suppressed every
+regression after it — and it never compared vertical drift at all. Fixing that
+turned "2 regressions, 13 same, 1 better" into a picture with more in it. Nothing
+got worse; the gate got honest. "Provisional" is likewise deliberate: expanding a
+waiver from two documents to four is a product decision awaiting ratification, not
+a measurement.
+
+`import exactdoc` and a full conversion — including the refinement loop — now work
+with PyMuPDF **physically absent**, which was not true a session ago and was the
+real content of the word "mechanical" in §3.2. `pymupdf` remains the default
+backend and a hard runtime dependency until §3.2b. See §3.2a.
+
+**CI status: these are local commits. GitHub Actions has not run them.** Every
+number below was measured on a canonical `ubuntu:24.04` environment that
+reproduces the recorded baseline, which is evidence and is not the same thing as
+a green check on the branch.
 
 | question | answer |
 |---|---|
@@ -46,10 +60,11 @@ critical path to a release.
 
 | | value |
 |---|---|
-| Parity gate (pdfium vs PyMuPDF) | **0 regressions** — 10 same, 2 expected divergences, 4 accepted under D2 |
+| Parity gate (pdfium vs PyMuPDF) | **FAILS: 2 unwaived regressions** — 5 same, 3 better, 2 expected divergences, 4 provisional accepted shortfalls under D2 |
 | Started at | 9 regressions, then 8 when first measured on the canonical environment |
-| Accepted set | grew 2 → 4 when the loop stopped borrowing the incumbent's parser to measure with. §3.2a |
-| Documents at or above the incumbent | **12 of 16**; the other four are core-14, one attributed cause, floors recorded |
+| Why it went up, not down | the comparison stopped at the first dimension outside its margin and never looked at vertical drift. `05_memo` and `f1_fpdf_brief` were drifting >1pt while it reported "same" |
+| Waived set | grew 2 → 4 when the loop stopped borrowing the incumbent's parser to measure with (§3.2a). **Awaiting ratification**, and the 2 new regressions are deliberately *not* added to it |
+| Shipped default backend | still `pymupdf`, still a hard runtime dependency — §3.2b |
 | Gate lanes (default backend) | 13/16 page match raw, 15/16 product; both lanes gate the exit code |
 | Golden IR | 7/7 |
 | CI | green, and fail-closed — see the three questions in [STATUS §1](STATUS.md#1-where-the-converter-stands) |

@@ -257,29 +257,43 @@ def test_shipped_default_is_the_measured_default():
 # and it needs the same treatment: the policy it applies used to live in a
 # docstring while the code exited on a different rule entirely.
 def parity_fixture():
-    """Reference and candidate results, plus a policy that accepts one doc."""
+    """Reference and candidate results, plus a policy that waives two docs."""
+    # `diverges.pdf` must differ by MORE than the margin, or it is not a
+    # divergence at all -- which the stale check now says out loud.
     ref = {"good.pdf": result("good.pdf", w2=0.60),
            "accepted.pdf": result("accepted.pdf", w2=0.72),
-           "diverges.pdf": result("diverges.pdf", live=0.71)}
+           "diverges.pdf": result("diverges.pdf", live=0.71, doc=0.71)}
     cand = {"good.pdf": result("good.pdf", w2=0.60),
             "accepted.pdf": result("accepted.pdf", w2=0.53),
-            "diverges.pdf": result("diverges.pdf", live=0.68)}
+            "diverges.pdf": result("diverges.pdf", live=0.60, doc=0.60)}
+    bounds = {"page_err": 0, "live_text_cov": 0.55, "doc_recall": 0.55,
+              "word_recall": 0.60, "within2pt": 0.10, "dy_p50": 1.0,
+              "raster_frac": 0.40}
     policy = {
         "reference_backend": "pymupdf", "candidate_backend": "pdfium",
-        "margins": {"page_err": 0, "live_text_cov": 0.05,
-                    "word_recall": 0.05, "within2pt": 0.08},
-        "expected_divergence": {"diverges.pdf": {"reason": "verified visually"}},
+        "margins": {"page_err": 0, "live_text_cov": 0.05, "doc_recall": 0.05,
+                    "word_recall": 0.05, "within2pt": 0.08, "dy_p50": 0.5,
+                    "raster_frac": 0.02},
+        "expected_divergence": {"diverges.pdf": {
+            "reason": "verified visually", "verified": "rendered side by side",
+            "floors": dict(bounds)}},
         "accepted_shortfalls": {"accepted.pdf": {
             "defect": "D2",
-            "floors": {"within2pt": 0.53, "page_err": 0, "live_text_cov": 0.99,
-                       "word_recall": 0.97}}},
+            "floors": dict(bounds, within2pt=0.53, live_text_cov=0.99,
+                           doc_recall=0.99, word_recall=0.97)}},
     }
     return ref, cand, policy
 
 
-def parity_kinds(ref, cand, policy, subset=False):
+PARITY_MANIFEST = {"documents": {"good.pdf": {}, "accepted.pdf": {},
+                                 "diverges.pdf": {}}}
+
+
+def parity_kinds(ref, cand, policy, subset=False, manifest=PARITY_MANIFEST):
     import backend_parity
-    _, summary = backend_parity.adjudicate(ref, cand, policy, subset=subset)
+    _, summary = backend_parity.adjudicate(
+        ref, cand, policy, subset=subset,
+        manifest=None if subset else manifest)
     return summary, set(f["kind"] for f in summary["failures"])
 
 
@@ -328,11 +342,17 @@ def test_parity_new_regression():
 
 
 def test_parity_missing_document():
+    """One-sided absence. Reported as `unmeasurable`, which names the asymmetry;
+    absence from *both* sides is `missing`, and the two are worth telling apart."""
     ref, cand, policy = parity_fixture()
     del cand["good.pdf"]
     summary, kinds_ = parity_kinds(ref, cand, policy)
     check("a document scored under one backend only fails",
-          "missing" in kinds_, str(summary["failures"]))
+          not summary["ok"] and kinds_ & {"unmeasurable", "missing"},
+          str(summary["failures"]))
+    check("the failure names the document",
+          any(f["document"] == "good.pdf" for f in summary["failures"]),
+          str(summary["failures"]))
 
 
 def test_parity_subset_cannot_pass():
@@ -359,6 +379,254 @@ def test_committed_parity_policy_is_wellformed():
             continue
         check("divergence %s carries rendered evidence" % doc_id,
               bool(spec.get("verified")))
+
+
+# ------------------------------------------------- value hygiene (audit round 2)
+# "Present" is not "well-formed". Every case below reached a comparison operator
+# and was scored, because the gate only ever asked whether a number cleared a
+# threshold -- never whether it was a number.
+def test_none_metric_fails():
+    r = healthy()
+    r[0]["within2pt"] = None
+    v = verdict(r)
+    check("a None metric fails", not v.ok, v.report())
+
+
+def test_boolean_metric_fails():
+    """isinstance(True, int) is True, and page_match is a bool living next door."""
+    r = healthy()
+    r[0]["live_text_cov"] = True
+    v = verdict(r)
+    check("a boolean metric fails", "malformed" in kinds(v), v.report())
+
+
+def test_nan_metric_fails():
+    """Every comparison against NaN is False, so NaN passes every check."""
+    r = healthy()
+    r[0]["within2pt"] = float("nan")
+    v = verdict(r)
+    check("a NaN metric fails", not v.ok, v.report())
+    check("NaN is not treated as a number", not gate.is_number(float("nan")))
+
+
+def test_infinite_metric_fails():
+    r = healthy()
+    r[0]["dy_p50"] = float("inf")
+    v = verdict(r)
+    check("an infinite metric fails", not v.ok, v.report())
+
+
+def test_out_of_range_metric_fails():
+    """A coverage of 1.7 clears every threshold and means the harness is broken."""
+    r = healthy()
+    r[0]["live_text_cov"] = 1.7
+    v = verdict(r)
+    check("a fraction above 1.0 fails", "out-of-range" in kinds(v), v.report())
+    r2 = healthy()
+    r2[0]["doc_recall"] = -0.2
+    check("a negative fraction fails", "out-of-range" in kinds(verdict(r2)))
+
+
+def test_page_count_inconsistency_fails():
+    r = healthy()
+    r[0]["page_match"] = True
+    r[0]["out_pages"] = 5                      # contradicts src_pages=3
+    v = verdict(r)
+    check("page_match contradicting the page counts fails",
+          "inconsistent" in kinds(v), v.report())
+
+
+def test_nonsense_page_count_fails():
+    for bad in (0, -1, 2.5, None, True):
+        r = healthy()
+        r[0]["out_pages"] = bad
+        v = verdict(r)
+        check("out_pages=%r fails" % (bad,), not v.ok, v.report())
+
+
+def test_missing_or_wrong_renderer_fails():
+    r = healthy()
+    del r[0]["renderer"]
+    check("a result that does not name its renderer fails",
+          "no-oracle" in kinds(verdict(r)) or "no-metric" in kinds(verdict(r)))
+    r2 = healthy()
+    r2[0]["renderer"] = "some-other-oracle"
+    check("a result scored against a different oracle fails",
+          "wrong-oracle" in kinds(verdict(r2)), verdict(r2).report())
+
+
+# ------------------------------------------------ parity coverage and dimensions
+def test_parity_document_failing_under_both_backends_fails():
+    """The hole an intersection cannot see: dropped on both sides, so sets match."""
+    ref, cand, policy = parity_fixture()
+    del ref["good.pdf"]
+    del cand["good.pdf"]
+    summary, kinds_ = parity_kinds(ref, cand, policy)
+    check("a document missing from BOTH backends fails",
+          "missing" in kinds_, str(summary["failures"]))
+
+
+def test_parity_structured_failure_is_not_a_silent_drop():
+    ref, cand, policy = parity_fixture()
+    cand["good.pdf"] = {"src": "good.pdf", "convert_error": "ValueError: boom"}
+    summary, kinds_ = parity_kinds(ref, cand, policy)
+    check("a recorded conversion failure fails", "unmeasurable" in kinds_,
+          str(summary["failures"]))
+
+
+def test_parity_improvement_cannot_hide_a_regression():
+    """The short-circuit: one gain suppressed every loss ordered after it."""
+    ref, cand, policy = parity_fixture()
+    cand["good.pdf"]["page_err"] = 0
+    cand["good.pdf"]["src_pages"] = 3
+    cand["good.pdf"]["out_pages"] = 3
+    ref["good.pdf"]["src_pages"] = 3
+    ref["good.pdf"]["out_pages"] = 4          # reference is a page out, candidate is not
+    ref["good.pdf"]["page_match"] = False
+    cand["good.pdf"]["within2pt"] = 0.10      # ... and candidate placement collapsed
+    summary, kinds_ = parity_kinds(ref, cand, policy)
+    check("a gain on one dimension does not mask a loss on another",
+          "regression" in kinds_, str(summary["failures"]))
+    check("both directions are reported",
+          summary["regressions"] == 1, str(summary))
+
+
+def test_parity_every_gated_dimension_is_compared():
+    import backend_parity
+    missing = [m for m in gate.METRICS if m not in backend_parity.DIMENSIONS]
+    check("parity compares every metric the gate gates", not missing,
+          "not compared: %s" % missing)
+
+
+def test_parity_expected_divergence_is_bounded():
+    """A waiver names a known difference; it is not a licence for unknown ones.
+
+    `c5_graphics` is waived because PDFium keeps a gradient band PyMuPDF drops.
+    Unbounded, that waiver also excused every *other* metric on the document,
+    forever.
+    """
+    ref, cand, policy = parity_fixture()
+    cand["diverges.pdf"]["within2pt"] = 0.01
+    summary, kinds_ = parity_kinds(ref, cand, policy)
+    check("an expected divergence falling past its floor fails",
+          "below-floor" in kinds_, str(summary["failures"]))
+
+
+def test_parity_unbounded_expected_divergence_fails():
+    ref, cand, policy = parity_fixture()
+    policy["expected_divergence"]["diverges.pdf"]["floors"] = None
+    summary, kinds_ = parity_kinds(ref, cand, policy)
+    check("an expected divergence with no floors fails", "unrecorded" in kinds_,
+          str(summary["failures"]))
+
+
+def test_parity_stale_expected_divergence_fails():
+    """A waiver for a difference that no longer exists still excuses the document."""
+    ref, cand, policy = parity_fixture()
+    cand["diverges.pdf"] = copy.deepcopy(ref["diverges.pdf"])   # identical now
+    policy["expected_divergence"]["diverges.pdf"]["floors"]["live_text_cov"] = 0.70
+    policy["expected_divergence"]["diverges.pdf"]["floors"]["doc_recall"] = 0.70
+    summary, kinds_ = parity_kinds(ref, cand, policy)
+    check("an expected divergence that no longer diverges fails",
+          "stale" in kinds_, str(summary["failures"]))
+
+
+def test_parity_divergence_needs_rendered_evidence():
+    ref, cand, policy = parity_fixture()
+    del policy["expected_divergence"]["diverges.pdf"]["verified"]
+    summary, kinds_ = parity_kinds(ref, cand, policy)
+    check("an expected divergence with no rendered evidence fails",
+          "undocumented" in kinds_, str(summary["failures"]))
+
+
+# ------------------------------------------------------- recording preconditions
+def test_baseline_recording_refused_off_canonical():
+    rec = {"raw": gate.record("raw", healthy()),
+           "product": gate.record("product", healthy())}
+    try:
+        gate.check_recordable(rec, MANIFEST, {"canonical": False, "os": "windows"})
+        check("recording off the canonical environment is refused", False)
+    except gate.RecordRefused:
+        check("recording off the canonical environment is refused", True)
+
+
+def test_baseline_recording_refused_on_partial_corpus():
+    rec = {"raw": gate.record("raw", [healthy()[0]]),
+           "product": gate.record("product", healthy())}
+    try:
+        gate.check_recordable(rec, MANIFEST, {"canonical": True, "os": "linux"})
+        check("recording a partial corpus is refused", False)
+    except gate.RecordRefused:
+        check("recording a partial corpus is refused", True)
+
+
+def test_baseline_recording_allowed_when_complete_and_canonical():
+    rec = {"raw": gate.record("raw", healthy()),
+           "product": gate.record("product", healthy())}
+    try:
+        gate.check_recordable(rec, MANIFEST, {"canonical": True, "os": "linux"})
+        check("a complete canonical run may be recorded", True)
+    except gate.RecordRefused as e:
+        check("a complete canonical run may be recorded", False, str(e))
+
+
+def test_runner_refuses_single_lane_recording():
+    import runall
+    src = open(runall.__file__).read()
+    check("the runner refuses to record one lane alone",
+          "refusing to record a baseline for one lane" in src)
+
+
+def test_parity_forbids_subset_policy_update():
+    import backend_parity
+    src = open(backend_parity.__file__).read()
+    check("--only cannot record floors",
+          "--only cannot be combined with --update-policy" in src)
+
+
+# ---------------------------------------------------------- backend precedence
+def test_backend_precedence():
+    """explicit keyword > supplied options > environment > PRODUCT."""
+    import os as _os
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from exactdoc.options import PRODUCT, resolve
+
+    prev = _os.environ.get("EXACTDOC_BACKEND")
+    _os.environ["EXACTDOC_BACKEND"] = "pdfium"
+    try:
+        # Mirrors convert()'s resolution exactly; asserting on the rule itself.
+        def resolved(backend=None, options=None):
+            if backend is None and options is None:
+                backend = _os.environ.get("EXACTDOC_BACKEND", "").strip() or None
+            return resolve(options, backend=backend).backend
+
+        check("environment is used when nothing else is given",
+              resolved() == "pdfium")
+        check("an explicit keyword beats the environment",
+              resolved(backend="pymupdf") == "pymupdf")
+        check("a supplied profile beats the environment",
+              resolved(options=PRODUCT.replace(backend="pymupdf")) == "pymupdf")
+        check("an explicit keyword beats a supplied profile",
+              resolved(backend="pdfium",
+                       options=PRODUCT.replace(backend="pymupdf")) == "pdfium")
+    finally:
+        if prev is None:
+            _os.environ.pop("EXACTDOC_BACKEND", None)
+        else:
+            _os.environ["EXACTDOC_BACKEND"] = prev
+
+
+def test_parity_lanes_cannot_be_redirected_by_environment():
+    """The gate that compares two backends must not be steerable by a variable."""
+    import backend_parity
+    src = open(backend_parity.__file__).read()
+    check("parity passes an explicit profile to convert()",
+          "convert(s, dx, options=options)" in src)
+    import inspect
+    from exactdoc import convert as convert_mod
+    body = inspect.getsource(convert_mod.convert)
+    check("convert() consults the environment only when nothing was supplied",
+          "if backend is None and options is None:" in body, body[:400])
 
 
 def test_evidence_merge_never_empties_a_section():

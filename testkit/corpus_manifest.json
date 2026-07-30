@@ -3,6 +3,10 @@
  "documents": {
   "01_whitepaper_market.pdf": {
    "dialect": "reportlab",
+   "fingerprints": {
+    "pdfium": "8e3853306a85d0c5317d55f6016e8f24",
+    "pymupdf": "8e3853306a85d0c5317d55f6016e8f24"
+   },
    "generator": "corpus/make_corpus.py",
    "path": "corpus/pdfs",
    "src_pages": 3,
@@ -10,6 +14,10 @@
   },
   "02_research_paper.pdf": {
    "dialect": "reportlab",
+   "fingerprints": {
+    "pdfium": "ef181ce9c7c5d93a648ba4a6c6331960",
+    "pymupdf": "ef181ce9c7c5d93a648ba4a6c6331960"
+   },
    "generator": "corpus/make_corpus.py",
    "path": "corpus/pdfs",
    "src_pages": 2,
@@ -17,6 +25,10 @@
   },
   "03_tech_report_code.pdf": {
    "dialect": "reportlab",
+   "fingerprints": {
+    "pdfium": "a2d00c8074f75fb5df557d00d4949b67",
+    "pymupdf": "a2d00c8074f75fb5df557d00d4949b67"
+   },
    "generator": "corpus/make_corpus.py",
    "path": "corpus/pdfs",
    "src_pages": 2,
@@ -24,6 +36,10 @@
   },
   "04_exec_brief.pdf": {
    "dialect": "reportlab",
+   "fingerprints": {
+    "pdfium": "40b9549a4c0b0f402a2dfad7995e8b48",
+    "pymupdf": "40b9549a4c0b0f402a2dfad7995e8b48"
+   },
    "generator": "corpus/make_corpus.py",
    "path": "corpus/pdfs",
    "src_pages": 2,
@@ -31,6 +47,10 @@
   },
   "05_memo.pdf": {
    "dialect": "reportlab",
+   "fingerprints": {
+    "pdfium": "7b16b4ca7c4449ebf8c61596da2aeace",
+    "pymupdf": "7b16b4ca7c4449ebf8c61596da2aeace"
+   },
    "generator": "corpus/make_corpus.py",
    "path": "corpus/pdfs",
    "src_pages": 1,
@@ -38,6 +58,10 @@
   },
   "c1_whitepaper.pdf": {
    "dialect": "chromium",
+   "fingerprints": {
+    "pdfium": "bbb4cd16b17fbc4d2d22704c8fdb894d",
+    "pymupdf": "bbb4cd16b17fbc4d2d22704c8fdb894d"
+   },
    "generator": "testkit/gen_corpus.py",
    "path": "testkit/adv",
    "src_pages": 2,
@@ -45,6 +69,10 @@
   },
   "c2_paper2col.pdf": {
    "dialect": "chromium",
+   "fingerprints": {
+    "pdfium": "bf83836b31eab3858a333f282823aa00",
+    "pymupdf": "7773b03e59779743e13a872dd46d4841"
+   },
    "generator": "testkit/gen_corpus.py",
    "path": "testkit/adv",
    "src_pages": 1,
@@ -52,6 +80,10 @@
   },
   "c3_tables.pdf": {
    "dialect": "chromium",
+   "fingerprints": {
+    "pdfium": "62c82f6daec13e6aa2cb8bfd8fa91250",
+    "pymupdf": "62c82f6daec13e6aa2cb8bfd8fa91250"
+   },
    "generator": "testkit/gen_corpus.py",
    "path": "testkit/adv",
    "src_pages": 3,
@@ -59,6 +91,10 @@
   },
   "c4_i18n.pdf": {
    "dialect": "chromium",
+   "fingerprints": {
+    "pdfium": "ccf7f6cdc0821d42c8925abc4ddab24f",
+    "pymupdf": "43d237fccf205a687279cd74e636a508"
+   },
    "generator": "testkit/gen_corpus.py",
    "path": "testkit/adv",
    "src_pages": 1,
@@ -66,6 +102,10 @@
   },
   "c5_graphics.pdf": {
    "dialect": "chromium",
+   "fingerprints": {
+    "pdfium": "33b131294190490865de843c035895aa",
+    "pymupdf": "33b131294190490865de843c035895aa"
+   },
    "generator": "testkit/gen_corpus.py",
    "path": "testkit/adv",
    "src_pages": 1,
@@ -73,6 +113,10 @@
   },
   "c6_long.pdf": {
    "dialect": "chromium",
+   "fingerprints": {
+    "pdfium": "0d98cb3e6a82c702378547fe6270fea7",
+    "pymupdf": "0d98cb3e6a82c702378547fe6270fea7"
+   },
    "generator": "testkit/gen_corpus.py",
    "path": "testkit/adv",
    "src_pages": 7,
@@ -80,6 +124,10 @@
   },
   "c7_code.pdf": {
    "dialect": "chromium",
+   "fingerprints": {
+    "pdfium": "0d6cfa1545efda7bbe3113b3a1fbbf47",
+    "pymupdf": "0d6cfa1545efda7bbe3113b3a1fbbf47"
+   },
    "generator": "testkit/gen_corpus.py",
    "path": "testkit/adv",
    "src_pages": 1,
@@ -87,6 +135,10 @@
   },
   "c8_toc_links.pdf": {
    "dialect": "chromium",
+   "fingerprints": {
+    "pdfium": "c9a5b3e701a3f02d63ad68b9120d7208",
+    "pymupdf": "c9a5b3e701a3f02d63ad68b9120d7208"
+   },
    "generator": "testkit/gen_corpus.py",
    "path": "testkit/adv",
    "src_pages": 1,
@@ -94,6 +146,10 @@
   },
   "f1_fpdf_brief.pdf": {
    "dialect": "fpdf2",
+   "fingerprints": {
+    "pdfium": "5c56e647e92590c770b34f4a929da5eb",
+    "pymupdf": "5c56e647e92590c770b34f4a929da5eb"
+   },
    "generator": "testkit/gen_corpus.py",
    "path": "testkit/adv",
    "src_pages": 1,
@@ -101,6 +157,10 @@
   },
   "l1_word_native.pdf": {
    "dialect": "libreoffice",
+   "fingerprints": {
+    "pdfium": "28c27dbb8e31db7c965a678ee4ae2c67",
+    "pymupdf": "28c27dbb8e31db7c965a678ee4ae2c67"
+   },
    "generator": "testkit/gen_corpus.py",
    "path": "testkit/adv",
    "src_pages": 1,
@@ -108,6 +168,10 @@
   },
   "r1_reportlab_report.pdf": {
    "dialect": "reportlab",
+   "fingerprints": {
+    "pdfium": "5cf03e4c7318fc0e06e001dc8dacc20d",
+    "pymupdf": "5cf03e4c7318fc0e06e001dc8dacc20d"
+   },
    "generator": "testkit/gen_corpus.py",
    "path": "testkit/adv",
    "src_pages": 1,

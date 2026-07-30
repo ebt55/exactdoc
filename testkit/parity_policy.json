@@ -4,15 +4,27 @@
   "01_whitepaper_market.pdf": {
    "defect": "D2",
    "floors": {
+    "doc_recall": 0.9677,
+    "dy_p50": 1.39,
     "live_text_cov": 0.9573,
     "page_err": 0,
+    "raster_frac": 0.0427,
     "within2pt": 0.5444,
     "word_recall": 0.9677
    },
    "reason": "font-metric convention difference: PyMuPDF's base-14 above/below-baseline ratios reach margin_t and displace every word on the page by a constant. Reproducing them means vendoring MuPDF's table into the permissive tree.",
+   "recorded_on": {
+    "os": "linux",
+    "pdfium": "152.0.7947.0",
+    "pymupdf": "1.28.0",
+    "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+   },
    "reference_at_record": {
+    "doc_recall": 0.9677,
+    "dy_p50": 0.5,
     "live_text_cov": 0.9595,
     "page_err": 0,
+    "raster_frac": 0.0405,
     "within2pt": 0.7194,
     "word_recall": 0.9677
    }
@@ -20,15 +32,27 @@
   "02_research_paper.pdf": {
    "defect": "D2",
    "floors": {
+    "doc_recall": 0.9586,
+    "dy_p50": 1.29,
     "live_text_cov": 0.9736,
     "page_err": 0,
+    "raster_frac": 0.0264,
     "within2pt": 0.5685,
     "word_recall": 0.9586
    },
    "reason": "same cause as 01_whitepaper_market: measured margin_t 63.30 (PyMuPDF) against 64.90 (PDFium), a constant 1.5pt displacement visible as two identical dy distributions offset by exactly that.",
+   "recorded_on": {
+    "os": "linux",
+    "pdfium": "152.0.7947.0",
+    "pymupdf": "1.28.0",
+    "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+   },
    "reference_at_record": {
+    "doc_recall": 0.9586,
+    "dy_p50": 0.04,
     "live_text_cov": 0.9736,
     "page_err": 0,
+    "raster_frac": 0.0264,
     "within2pt": 0.7614,
     "word_recall": 0.9586
    }
@@ -36,15 +60,27 @@
   "03_tech_report_code.pdf": {
    "defect": "D2",
    "floors": {
+    "doc_recall": 1.0,
+    "dy_p50": 1.43,
     "live_text_cov": 0.976,
     "page_err": 0,
+    "raster_frac": 0.024,
     "within2pt": 0.308,
     "word_recall": 1.0
    },
    "reason": "D2's cause reaching the closed loop rather than margin_t. refine() measures rendered_box_top - source_box_top; the render is Liberation (embedded, real ascent) and the source is core-14, where PDFium substitutes a generic ascent for the real one MuPDF reads from its base-14 table. The subtraction carries a systematic ~0.17 x type size bias, about 1.7pt at 10pt, which under-corrects every page against a 2pt threshold. Baseline anchoring cancels it perfectly and costs the INCUMBENT 0.511 -> 0.478 mean within-2pt, because the space_before chain it feeds is calibrated on box tops -- the same result as the line-box escalation closed out in STATUS D2.",
+   "recorded_on": {
+    "os": "linux",
+    "pdfium": "152.0.7947.0",
+    "pymupdf": "1.28.0",
+    "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+   },
    "reference_at_record": {
+    "doc_recall": 1.0,
+    "dy_p50": 0.54,
     "live_text_cov": 0.9827,
     "page_err": 0,
+    "raster_frac": 0.0173,
     "within2pt": 0.4602,
     "word_recall": 1.0
    }
@@ -53,15 +89,27 @@
   "r1_reportlab_report.pdf": {
    "defect": "D2",
    "floors": {
+    "doc_recall": 1.0,
+    "dy_p50": 1.1,
     "live_text_cov": 1.0,
     "page_err": 0,
+    "raster_frac": 0.0,
     "within2pt": 0.3212,
     "word_recall": 1.0
    },
    "reason": "same cause as 03_tech_report_code: a core-14 document whose placement is otherwise good enough for the 2pt threshold to be sensitive to the refine loop's ~1.7pt box-top bias. All four accepted documents are core-14; every Chromium document embeds its fonts, so PDFium reads the real ascent and none of them is affected.",
+   "recorded_on": {
+    "os": "linux",
+    "pdfium": "152.0.7947.0",
+    "pymupdf": "1.28.0",
+    "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+   },
    "reference_at_record": {
+    "doc_recall": 1.0,
+    "dy_p50": 1.5,
     "live_text_cov": 1.0,
     "page_err": 0,
+    "raster_frac": 0.0,
     "within2pt": 0.5959,
     "word_recall": 1.0
    }
@@ -71,19 +119,70 @@
  "expected_divergence": {
   "_note": "Documents where the two backends disagree about what CORRECT means and the candidate was verified to be the right one. Nothing goes in here without rendered evidence, because the harness measures agreement with the incumbent and would otherwise demand that a bug be reproduced.",
   "c4_i18n.pdf": {
+   "floors": {
+    "doc_recall": 0.9874,
+    "dy_p50": 0.15,
+    "live_text_cov": 0.9091,
+    "page_err": 0,
+    "raster_frac": 0.0909,
+    "within2pt": 0.5745,
+    "word_recall": 0.9874
+   },
    "reason": "RTL: PDFium reports glyphs in visual order and this backend reorders them to logical, which is what a DOCX must carry. PyMuPDF returns visual order, so its DOCX renders Arabic backwards.",
+   "recorded_on": {
+    "os": "linux",
+    "pdfium": "152.0.7947.0",
+    "pymupdf": "1.28.0",
+    "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+   },
+   "reference_at_record": {
+    "doc_recall": 1.0,
+    "dy_p50": 0.15,
+    "live_text_cov": 1.0,
+    "page_err": 0,
+    "raster_frac": 0.0,
+    "within2pt": 0.416,
+    "word_recall": 1.0
+   },
    "verified": "rendered source and both outputs side by side; the PyMuPDF output reads the same words in reverse"
   },
   "c5_graphics.pdf": {
+   "floors": {
+    "doc_recall": 0.6556,
+    "dy_p50": 0.0,
+    "live_text_cov": 0.6778,
+    "page_err": 0,
+    "raster_frac": 0.3222,
+    "within2pt": 0.2373,
+    "word_recall": 0.6556
+   },
    "metric_caveat": "live_text_cov scored PyMuPDF higher (0.71 vs 0.68) because invisible white text still counts as live. Text coverage cannot see contrast.",
    "reason": "The page opens with a gradient band carrying white text. PyMuPDF does not report the gradient, so the band's text is emitted white on white and is invisible. PDFium reports the pattern flattened to grey, so the band survives and its text is legible.",
+   "recorded_on": {
+    "os": "linux",
+    "pdfium": "152.0.7947.0",
+    "pymupdf": "1.28.0",
+    "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+   },
+   "reference_at_record": {
+    "doc_recall": 0.6778,
+    "dy_p50": 0.5,
+    "live_text_cov": 0.7067,
+    "page_err": 0,
+    "raster_frac": 0.2933,
+    "within2pt": 0.6885,
+    "word_recall": 0.6778
+   },
    "verified": "rendered: PyMuPDF's output has no band, PDFium's has a grey one with the heading readable"
   }
  },
  "margins": {
-  "_note": "How much worse the candidate may be on a dimension before the document counts as a regression. Compared in priority order -- page error, then live text, then page-level placement, then fine placement -- because that is the order in which a reader notices, and a flat 'any drop is a regression' rule once called c5_graphics worse for a 0.03 live-text dip while it gained a correct page count and 0.45 of placement.",
+  "_note": "How much worse the candidate may be on a dimension before the document counts as a regression. Every gated dimension appears here, and each is judged INDEPENDENTLY -- the comparison used to stop at the first dimension outside its margin, so one improvement suppressed every regression ordered after it. Sizing: these are deliberately looser than testkit/gate.py's run-to-run tolerances, because two correct parsers legitimately differ by more than one parser differs from itself; the ratio is about 2.5-5x on the fraction metrics. They are NOT tuned to make the current corpus pass -- a margin chosen to clear a failure is the failure, silenced. dy_p50 additionally carries gate.py's 10% relative term, since it is the one dimension that is not a fraction and runs from 0.04pt to 101pt across this corpus.",
+  "doc_recall": 0.05,
+  "dy_p50": 0.5,
   "live_text_cov": 0.05,
   "page_err": 0,
+  "raster_frac": 0.02,
   "within2pt": 0.08,
   "word_recall": 0.05
  },

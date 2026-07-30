@@ -6,10 +6,15 @@
 > documents it was developed against and it fails on pagination for PDFs it has
 > never seen. Both numbers are below, in the same table, on purpose.
 >
-> **Next: the permissive relicence.** The AGPL is inherited from PyMuPDF, and the
-> replacement parser now passes the parity gate with zero regressions under a
-> ratified, executable policy. The flip to Apache-2.0 is the next milestone —
-> [ROADMAP.md](ROADMAP.md) has the sequence and the distance.
+> **Next: the permissive relicence.** The AGPL is inherited from PyMuPDF. Every
+> stage of the pipeline can now run without it — but the shipped default still
+> uses it, and the parity gate currently **fails on 2 unwaived regressions** that
+> a weaker comparison had been reporting as "same". The flip to Apache-2.0 is the
+> next milestone; [ROADMAP.md](ROADMAP.md) has the sequence and the distance.
+>
+> Numbers below were measured on the canonical Linux environment and recorded in
+> `testkit/gate_baseline.json`. Where they come from local commits that GitHub
+> Actions has not yet run, that is stated rather than implied.
 
 Most PDF-to-Word converters either redesign your page (Word's reflow), turn every
 line into a floating frame that Google Docs then mangles (LibreOffice import), or
@@ -65,16 +70,24 @@ plain conversion.
 `--verify` and `--refine` additionally need LibreOffice on PATH; without it,
 conversion still works and simply skips the feedback loop.
 
-**The default runtime path does not touch PyMuPDF.** Parsing, figure
-rasterisation, table measurement, the refinement loop and the verifier all go
-through the backend seam or the IR's own facts, and
+**`--backend pdfium` needs no PyMuPDF at any stage. The shipped default still
+does.** Those are two different statements and only the first is finished. The
+*code paths* — parsing, figure rasterisation, table measurement, the refinement
+loop, the verifier — now go through the backend seam or the IR's own facts, and
 [`tests/test_no_pymupdf.py`](tests/test_no_pymupdf.py) proves it by making `fitz`
-*unimportable* and then converting a fixture per capability. This is what the
-Apache relicence was actually waiting on — see
-[STATUS.md §7](STATUS.md#7-the-permissive-runtime-boundary). One feature is
-knowingly outside that boundary: `--ladder` predicts a re-wrap, which means
-shaping text that has no source line to measure, so it needs the `[mupdf]` extra
-and reports plainly when it has no shaper. It is off by default.
+*unimportable* and then converting a fixture per capability. But `pymupdf` is
+still the default backend and still a hard runtime dependency in
+`pyproject.toml`, so `pip install exactdoc` installs it and an unmodified
+conversion uses it.
+
+What changed is that the licence flip is now a dependency-and-default change
+rather than a rewrite, which is what it had been described as while five stages
+past the parser still imported `fitz` directly. See
+[STATUS.md §7](STATUS.md#7-the-permissive-runtime-boundary).
+
+One feature is knowingly outside the boundary: `--ladder` predicts a re-wrap,
+which means shaping text that has no source line to measure, so it needs the
+`[mupdf]` extra and reports plainly when it has no shaper. It is off by default.
 
 ## Usage
 
@@ -374,10 +387,23 @@ against 0.4431 for pdfium:
 
 | verdict | count | which |
 |---|---|---|
-| regression | **0** | — |
-| same | 10 | |
+| **unwaived regression** | **2** | `05_memo`, `f1_fpdf_brief` — both vertical drift |
+| same | 5 | |
+| better | 3 | incl. `04_exec_brief`, `l1_word_native` |
 | expected divergence | 2 | `c4_i18n`, `c5_graphics` — pdfium is the *correct* one, verified by rendering |
-| accepted shortfall | 4 | all core-14 documents, all STATUS D2, each bounded by a recorded numeric floor |
+| **provisional** accepted shortfall | 4 | all core-14, all STATUS D2, each bounded by a recorded numeric floor |
+
+**The parity gate fails today, and that is the honest state.** It reported "0
+regressions" until the comparison was fixed to judge every dimension
+independently — it had been stopping at the first dimension outside its margin, so
+one improvement suppressed every regression after it, and vertical drift was not
+among the dimensions at all. Two documents were drifting by more than a point
+while the gate said "same".
+
+The four accepted shortfalls are **provisional**: waiving four of sixteen
+documents rather than two is a product decision awaiting the maintainer, not a
+measurement. The two new regressions are the same core-14 population and are
+deliberately *not* waived. [STATUS.md D2](STATUS.md) has the table.
 
 Down from 9 regressions. Those six documents used to be prose: the code exited on
 `regressions == 0` while the docs said two of them were formally accepted, so CI

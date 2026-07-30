@@ -169,7 +169,12 @@ def main(argv=None):
               "legitimately differ inside tolerance." % env["os"])
 
     lanes = sorted(LANES) if a.lane == "both" else [a.lane]
-    verdicts, lane_evidence = {}, {}
+    if updating and a.lane != "both":
+        print("refusing to record a baseline for one lane: the raw lane exists to "
+              "be compared against the product lane, and two lanes recorded from "
+              "different runs describe different code.")
+        return 2
+    verdicts, lane_evidence, records = {}, {}, {}
     for lane in lanes:
         options = LANES[lane]
         if a.backend:
@@ -181,15 +186,23 @@ def main(argv=None):
             absolute=a.absolute, save_images=not a.no_images)
         verdicts[lane] = verdict
         rec = gate.record(lane, results)
+        records[lane] = rec
         lane_evidence[lane] = {"profile": options.as_dict(),
                                "profile_id": options.profile_id(),
                                "documents": rec["documents"],
                                "aggregate": rec["aggregate"],
                                "verdict": verdict.as_dict(),
                                "results": results}
-        if updating:
-            gate.save_lane(lane, rec, environment=env)
-            print("recorded numeric baseline for lane %r" % lane)
+
+    # One write, after every lane has run, or none at all.
+    if updating:
+        try:
+            gate.check_recordable(records, manifest, env)
+        except gate.RecordRefused as e:
+            print("\nBASELINE NOT RECORDED\n  %s" % e)
+            return 2
+        gate.save_lanes(records, environment=env)
+        print("\nrecorded numeric baseline for %s" % ", ".join(sorted(records)))
 
     ev_path = a.evidence or os.path.join(a.out, "evidence.json")
     shipped = LANES.get("product")

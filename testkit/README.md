@@ -85,20 +85,38 @@ project has actually shipped.
 
 | File | What it pins |
 |---|---|
-| `corpus_manifest.json` | the exact 16 documents, their generator, dialect and source page count. Not a content hash — both generators embed timestamps, so the bytes differ every run and a hash would fail every run |
+| `corpus_manifest.json` | the exact 16 documents, their generator, dialect, source page count **and a content fingerprint**. Not a hash of the file bytes — both generators embed timestamps, so a byte hash would fail every run; the fingerprint covers page geometry and normalised text, which carry no timestamp. Recorded per extractor, because the two parsers genuinely disagree on some documents, and an extractor with no recorded fingerprint fails rather than skips |
 | `gate_baseline.json` | every gated metric of every document, per lane, numerically, plus the environment it was measured on and the defect ID each shortfall answers to |
-| `parity_policy.json` | the backend-swap acceptance rule: comparison margins, the two expected divergences with their rendered evidence, and the two accepted shortfalls with numeric floors |
+| `parity_policy.json` | the backend-swap acceptance rule: per-dimension comparison margins, the expected divergences with their rendered evidence, and the accepted shortfalls — **all six bounded by numeric floors in both directions** |
 
-Re-record deliberately, on the canonical environment, and say so in the commit
-message:
+### Recording is refused unless the run deserves to be believed
+
+A baseline is what every later run is judged against, so writing one is the most
+consequential operation here — and it used to have no preconditions at all.
+`GATE_BASELINE=update` on a laptop, over a subset of the corpus, with a renderer
+failure in the middle, would overwrite the canonical record with numbers
+describing none of it, and every subsequent run would then agree with it.
+
+Now refused unless the run is on the **canonical environment**, covers the **whole
+manifest**, and produced a result for **every lane**; `--only` may not record
+parity floors at all. The write itself goes through a temporary file and
+`os.replace`, so an interrupted record cannot leave a truncated file where the
+baseline used to be.
 
 ```bash
-GATE_BASELINE=update python testkit/runall.py     # after a ratified change
+GATE_BASELINE=update python testkit/runall.py     # both lanes, whole corpus
+```
+
+```bash
+python testkit/backend_parity.py --update-policy  # whole corpus, no --only
 ```
 
 ```bash
 python testkit/corpus_manifest.py update          # after a generator change
 ```
+
+Say so in the commit message. A re-record is a claim that the new numbers are
+*better evidence*, not a way to make a failure disappear.
 
 ### External tools
 

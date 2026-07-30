@@ -185,10 +185,17 @@ def main():
                   "%s: %s" % (type(e).__name__, e))
 
     check("fitz still absent after converting", "fitz" not in sys.modules)
-    print("\n%s" % ("all clear -- the default runtime path is permissive"
-                    if not FAILED else
-                    "%d FAILED: %s" % (len(FAILED), ", ".join(FAILED))))
-    return 1 if FAILED else 0
+    if FAILED:
+        print("\n%d FAILED: %s" % (len(FAILED), ", ".join(FAILED)))
+        return 1
+    from exactdoc.options import PRODUCT
+    print("\nall clear -- every code path runs without PyMuPDF.\n"
+          "NOTE: the shipped default backend is still %r and `pymupdf` is still a\n"
+          "hard runtime dependency in pyproject.toml. What this test proves is\n"
+          "that the licence flip is now a dependency-and-default change rather\n"
+          "than a rewrite -- not that the default artifact is already permissive."
+          % PRODUCT.backend)
+    return 0
 
 
 if __name__ == "__main__":

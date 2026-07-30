@@ -972,7 +972,15 @@ def _page_images(page, page_h, keep_data) -> List[ImageObj]:
 
 
 def _page_links(page, textpage, page_h):
+    """Web-link rectangles for a page.
+
+    `FPDFLink_LoadWebLinks` returns a native handle that the caller owns, and it
+    was never released -- one leaked page-link set per page, invisible because
+    pypdfium2's exit-time warning only names the objects it wraps. The
+    close is in a `finally` so an exception mid-iteration cannot skip it.
+    """
     links = []
+    wl = None
     try:
         wl = raw.FPDFLink_LoadWebLinks(textpage.raw)
         if wl:
@@ -993,6 +1001,12 @@ def _page_links(page, textpage, page_h):
                                   "uri": uri})
     except Exception:
         pass
+    finally:
+        if wl:
+            try:
+                raw.FPDFLink_CloseWebLinks(wl)
+            except Exception:
+                pass
     return links
 
 

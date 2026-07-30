@@ -143,7 +143,11 @@ fi
 say "Python packages (converter + test harness + permissive backend)"
 if [ "$REPORT_ONLY" -eq 0 ]; then
   if have uv; then
-    uv sync --extra test --extra pdfium
+    # --frozen: uv.lock is the pinned truth, and gate.yml has said so in a comment
+    # since before the flag was actually passed. Without it a resolve can move a
+    # dependency out from under the recorded baseline -- the goldens are pinned to
+    # a PyMuPDF version because 1.26 and 1.28 group the same page differently.
+    uv sync --frozen --extra test --extra pdfium
   else
     [ -d "$VENV" ] || python3 -m venv "$VENV"
     "$VENV/bin/pip" install --quiet --upgrade pip

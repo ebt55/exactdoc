@@ -186,12 +186,44 @@ environment. All four are core-14 documents:
 | `03_tech_report_code` | 0.460 | 0.308 | same convention reaching the **refine loop** (§7) |
 | `r1_reportlab_report` | 0.596 | 0.321 | same |
 
-Each fails if within-2pt drops below its recorded floor, **and** if the divergence
-disappears. Both directions matter: an acceptance with no floor is an acceptance of
-anything, and an acceptance that no longer describes reality is a stale record that
-hides the next real regression on that document. The current verdict is **0
-regressions, 10 same, 2 expected divergences, 4 accepted** — and the CI step is
-required, not `continue-on-error`.
+Each fails if any bounded dimension drops below its recorded floor, **and** if the
+divergence disappears. Both directions matter: a waiver with no floor is a waiver
+of anything, and a waiver that no longer describes reality is a stale record that
+hides the next real regression on that document. The same bounds now apply to the
+two *expected divergences*, which were previously excused from the comparison
+entirely and forever.
+
+### The parity gate currently FAILS, and that is the correct state
+
+Comparing every dimension **independently** — and including vertical drift, which
+was never compared at all — turned "0 regressions" into this:
+
+| verdict | n | documents |
+|---|---:|---|
+| **unwaived regression** | **2** | `05_memo` (dy₅₀ 0.59 → 1.89pt), `f1_fpdf_brief` (dy₅₀ 0 → 1.20pt) |
+| same | 5 | |
+| better | 3 | incl. `04_exec_brief` and `l1_word_native`, both better on dy₅₀ |
+| expected divergence | 2 | `c4_i18n`, `c5_graphics` — now bounded, and now visibly worse on `raster_frac` too |
+| provisional accepted | 4 | D2 core-14 set |
+
+Neither regression is new breakage. Both were present and unmeasured: the old
+comparison looked at four dimensions, stopped at the first one outside its margin,
+and did not include `dy_p50` among them. Two documents were drifting by more than
+a point and the gate said "same".
+
+Both are **core-14 documents** — `05_memo` is ReportLab, `f1_fpdf_brief` is fpdf2
+with no FontDescriptor — which is the same population as the four D2 waivers and
+the same suspected cause. That makes them *candidates* for the same waiver and it
+does not make them waived: five of sixteen documents excused under one defect is a
+materially different product claim from two, and no measurement can authorise it.
+They are recorded, attributed as far as the evidence goes, and left failing.
+
+**Do not read this as a regression introduced by the permissive boundary work.**
+The incumbent's own numbers are unchanged (both gate lanes reproduce the recorded
+baseline exactly). What changed is that the comparison stopped hiding things.
+
+Measured on the canonical Linux environment from local commits; **GitHub Actions
+has not yet run them.**
 
 **Every document that embeds its fonts is unaffected.** That is the shape of the
 cause: both parsers read embedded metrics identically, and they differ only where
@@ -557,6 +589,8 @@ pattern is more useful than the individual fixes.
 | Let the executable rule and the ratified rule disagree | `backend_parity.py` exited on `regressions == 0` while ROADMAP and this file said two documents were formally accepted. The disagreement was resolved by marking the CI step `continue-on-error`, which retired the one gate the entire relicensing effort was aimed at | A gate whose policy lives in prose will be switched off, not corrected. Put the policy in a file the test reads |
 | Injected a parser by assigning a module global | The instruments set `exactdoc.convert.parse_pdf`. That worked only because `convert` happened to hold the parser as a global; once the backend was selected through the seam, the assignment became a no-op that set an attribute nobody read — and an experiment that silently measures the default still prints a number | An injection point should be declared (`register_backend`), so removing it breaks loudly instead of quietly |
 | Let the candidate lane borrow the incumbent's parser | `refine.py` imported `fitz` directly whichever backend had parsed, so the parity gate compared *pdfium parsing with MuPDF measuring* against MuPDF throughout. "2 regressions" described a configuration nobody could install; measured end-to-end it is 4 accepted, and pdfium's mean within-2pt is 0.4431 rather than 0.461 | A comparison in which the candidate uses the incumbent halfway through the pipeline is not measuring the swap. Isolate the variable at *every* stage, not just the obvious one |
+| Compared four dimensions and stopped at the first one that moved | The parity comparison returned on the first dimension outside its margin, so an improvement suppressed every regression ordered after it — and `dy_p50`, `doc_recall` and `raster_frac` were not in the list at all. Judging every dimension independently turned "0 regressions" into 2 unwaived ones, both drifting more than a point vertically while the gate reported "same" | Priority order is how you *describe* a result, not how you decide one. A regression is a regression whatever improved next to it, and a dimension you do not compare is a dimension you have no opinion about |
+| Waived documents from the comparison without bounding them | `c4_i18n` and `c5_graphics` were listed as expected divergences and thereby excused from every dimension, permanently. Either could have lost everything else it had and still reported "expected-div" | A waiver names a *known* difference. It must carry the numbers that make it that difference, and it must fail when it stops describing reality |
 | Fixed a measured bias with the physically correct anchor | The refine loop's box-top anchor carries a per-font metric bias that a baseline anchor cancels exactly, and the writer's own vertical model is baseline-anchored. Switching cost the **incumbent** mean within-2pt 0.511 → 0.478 — fixing `04_exec_brief` and breaking `05_memo` and `r1_reportlab_report` | Correct-in-isolation is not correct-in-system. The `space_before` chain the offsets feed is calibrated on box tops, so the anchor cannot move alone. The *second* time this exact lesson was paid for (see D2's reverted escalation) — which is why `refine.ANCHOR` now carries the switch and the number side by side |
 | Wrote the environment into the evidence artifact last | The final `evidence.py --out` step, whose only job is to fill in the environment, passed the empty template's `parity: None` over the verdict the previous step had recorded. A fully green run ended with an artifact that had forgotten its own parity result | An artifact that is the single source of a release claim must have no write path that can empty it. `merge` skips `None`, and a test asserts it |
 | Changed a default and assumed callers wanted it | Making the API default 3 refine rounds silently gave `edge_cases.py` and `exp_sweep.py` three rounds and an oracle dependency. One is a fast offline robustness check; the other sweeps a correction the loop would then correct over | A shared default is right for surfaces and wrong for instruments. An instrument should name the profile it means, so it does not change meaning when the product does |
@@ -593,8 +627,15 @@ in §2 is a bug, not a limit.
 
 ## 7. The permissive runtime boundary
 
-**The default runtime path no longer touches PyMuPDF.** This was the milestone the
-licence work actually depended on, and it was not the one the roadmap described.
+**`--backend pdfium` needs no PyMuPDF at any stage. The shipped default still
+requires it**, and both halves of that sentence matter. The *code paths* are
+permissive; `pymupdf` is still `PRODUCT.backend` and still a hard runtime
+dependency in `pyproject.toml`, so `pip install exactdoc` installs it and an
+unmodified conversion uses it. What is finished is the work that made the licence
+flip a dependency-and-default change instead of a rewrite.
+
+This was the milestone the licence work actually depended on, and it was not the
+one the roadmap described.
 
 The roadmap called the flip mechanical — a dependency and default change. The
 built wheel disagreed. `fitz` was on the default execution path in five stages
@@ -651,11 +692,18 @@ it corrects. Origin, `_para_box` and the spacing chain must move together — a
 project, not a patch. `refine.ANCHOR` keeps the switch and the measurement beside
 it so nobody spends another session rediscovering this.
 
-So the two documents are **ratified into `parity_policy.json` under D2**, with
-numeric floors, joining the two already there. All four are core-14 documents and
-all four have one attributed, proven-unreachable cause. That is a bounded
-acceptance of a known divergence, not a weakened gate: worsening past a floor
-fails, and so does the divergence disappearing.
+So the two documents are **provisionally waived in `parity_policy.json` under
+D2**, with numeric floors, joining the two already there. All four are core-14
+documents and all four have one attributed, proven-unreachable cause. That is a
+bounded acceptance of a known divergence, not a weakened gate: worsening past a
+floor fails, and so does the divergence disappearing.
+
+**Provisional, and the word is load-bearing.** ROADMAP §3.2b's amended acceptance
+named *two* documents. Expanding a waiver from two to four of sixteen is a product
+decision about what the swap is allowed to cost, and no measurement can make it.
+It stands as recorded, bounded and reversible until the maintainer ratifies it;
+until then the honest phrasing is **0 unwaived regressions with 4 provisional
+accepted shortfalls**, never "0 regressions".
 
 Worth naming plainly: this is the second time a change to *which parser produces a
 number* moved fidelity while looking like a refactor. The first time — within-2pt

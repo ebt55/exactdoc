@@ -51,19 +51,25 @@ def docx_to_pdf(docx_path: str, out_dir: str, profile: Optional[str] = None
     successive starts against a shared default profile and exits 0 without
     writing anything, which looks exactly like a silent conversion failure.
 
-    The profile was a single fixed path under the temp directory, shared by every
-    conversion in every process on the machine. Two concurrent conversions then
-    contended for one profile, which is the same failure that motivated having a
-    profile at all -- one of them exits 0 with no output. `profile=` lets a caller
-    name its own; the default is derived per process so that two processes cannot
-    collide by construction.
+    It was a single fixed path under the temp directory, shared by every
+    conversion in every process on the machine, so two concurrent conversions
+    contended for one profile and reproduced the very failure the profile
+    existed to prevent. Each invocation now gets a **fresh** directory and
+    removes it afterwards, so concurrency is safe by construction and no state
+    survives from one render to influence the next.
+
+    `profile=` overrides that for a caller who wants one profile across a batch.
+    `testkit/harness.py` deliberately does exactly that: soffice also refuses
+    *rapid* restarts against differing profiles, so a tight batch loop wants one
+    warm profile, while a product conversion wants isolation. Those are different
+    trade-offs and both are now expressible.
     """
     if SOFFICE is None:
         return None
     env = dict(os.environ)
     env.setdefault("HOME", tempfile.gettempdir())
-    prof = profile or os.path.join(
-        tempfile.gettempdir(), "exactdoc_soffice_profile_%d" % os.getpid())
+    owned = profile is None
+    prof = profile or tempfile.mkdtemp(prefix="exactdoc_soffice_")
     out = os.path.join(out_dir, os.path.splitext(os.path.basename(docx_path))[0] + ".pdf")
     if os.path.exists(out):
         os.remove(out)
@@ -74,6 +80,10 @@ def docx_to_pdf(docx_path: str, out_dir: str, profile: Optional[str] = None
         subprocess.run(cmd, capture_output=True, timeout=300, env=env)
     except (subprocess.TimeoutExpired, OSError):
         return None
+    finally:
+        if owned:
+            import shutil
+            shutil.rmtree(prof, ignore_errors=True)
     return out if os.path.exists(out) else None
 
 

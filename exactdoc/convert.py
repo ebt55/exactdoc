@@ -32,10 +32,18 @@ def convert(pdf_path: str, out_path: Optional[str] = None,
             options: Optional[ConversionOptions] = None) -> str:
     """Convert a PDF to DOCX. Returns the output path.
 
-    Defaults come from `options.PRODUCT`: the pdfium/PyMuPDF backend it names,
-    the LibreOffice target, and its refine round count. Pass `options=` to
-    supply a whole profile, or individual keywords to override parts of it. A
-    `None` keyword means "take the profile's value", never "zero".
+    Defaults come from `options.PRODUCT`: the backend it names, the LibreOffice
+    target, and its refine round count. Pass `options=` to supply a whole
+    profile, or individual keywords to override parts of it. A `None` keyword
+    means "take the profile's value", never "zero".
+
+    **Backend precedence is explicit keyword > supplied `options` > environment >
+    PRODUCT**, and the middle two used to be the wrong way round. `EXACTDOC_BACKEND`
+    outranked an explicitly-passed profile, which meant an exported variable could
+    silently redirect a caller that had named its backend in code -- including the
+    parity gate, whose entire job is to run one named backend against another. A
+    gate that an environment variable can redirect is not a gate. The environment
+    is now consulted only when the caller expressed no preference at all.
 
     `refine_rounds` > 0 enables the closed-loop pass: render the DOCX back and
     correct page overflow and per-page offsets against what actually rendered.
@@ -45,9 +53,8 @@ def convert(pdf_path: str, out_path: Optional[str] = None,
     tuned for LibreOffice is measurably not tuned for Google Docs. If the
     chosen oracle is unavailable the conversion still succeeds, open-loop.
     """
-    if backend is None:
-        env = os.environ.get("EXACTDOC_BACKEND", "").strip()
-        backend = env or None
+    if backend is None and options is None:
+        backend = os.environ.get("EXACTDOC_BACKEND", "").strip() or None
     opts = resolve(options, backend=backend, target=target, dpi=dpi,
                    refine_rounds=refine_rounds, ladder=ladder, verbose=verbose)
     if out_path is None:

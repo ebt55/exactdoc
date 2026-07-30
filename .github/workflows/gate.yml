@@ -87,12 +87,24 @@ jobs:
       - name: Fidelity gate, both lanes, fail closed
         run: uv run python testkit/runall.py
 
-      # No longer continue-on-error. It was reporting-only "until the swap
-      # lands", which made the number it exists to drive the one number nothing
-      # depended on. The policy the two accepted shortfalls were ratified under
-      # now lives in testkit/parity_policy.json with numeric floors, so the
-      # executable rule and the ratified rule are the same rule and the step can
-      # be required.
+      # No longer continue-on-error, and it is EXPECTED TO FAIL right now. That
+      # combination is deliberate.
+      #
+      # It was reporting-only "until the swap lands", which made the number it
+      # exists to drive the one number nothing depended on. The policy now lives
+      # in testkit/parity_policy.json with numeric floors, so the executable rule
+      # and the ratified rule are the same rule.
+      #
+      # Applying that rule to every dimension independently -- including vertical
+      # drift, which the old comparison never looked at -- found 2 unwaived
+      # regressions (05_memo and f1_fpdf_brief, both dy_p50) that had been
+      # reported as "same". They are attributed to the same core-14 font-metric
+      # cause as the four D2 waivers and are NOT waived, because widening a
+      # waiver from four documents to six is a product decision.
+      #
+      # Do not re-add continue-on-error to make this green. Red is the correct
+      # state until the shortfalls are ratified or fixed; going green by ignoring
+      # the result is precisely how this step stopped working the first time.
       - name: Backend parity - the licence-swap verdict
         run: uv run python testkit/backend_parity.py
 
