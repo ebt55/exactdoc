@@ -186,6 +186,7 @@
   "within2pt": 0.08,
   "word_recall": 0.05
  },
+ "recorded_refine_rounds": 3,
  "reference_backend": "pymupdf",
  "schema": 1
 }

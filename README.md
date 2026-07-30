@@ -402,8 +402,12 @@ while the gate said "same".
 
 The four accepted shortfalls are **provisional**: waiving four of sixteen
 documents rather than two is a product decision awaiting the maintainer, not a
-measurement. The two new regressions are the same core-14 population and are
-deliberately *not* waived. [STATUS.md D2](STATUS.md) has the table.
+measurement. The two new regressions are fully attributed — both are D2, in its
+two known locations, confirmed by re-running with refinement off — and are
+deliberately *not* waived. [STATUS.md D2](STATUS.md) has the measurements,
+including the cleanest statement of D2 in the repository: on `05_memo` the two
+parsers agree on every baseline to 0.00pt and disagree on every line-box top by
+1.5pt, which is exactly the page-origin shift.
 
 Down from 9 regressions. Those six documents used to be prose: the code exited on
 `regressions == 0` while the docs said two of them were formally accepted, so CI

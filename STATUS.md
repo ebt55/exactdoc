@@ -211,12 +211,39 @@ comparison looked at four dimensions, stopped at the first one outside its margi
 and did not include `dy_p50` among them. Two documents were drifting by more than
 a point and the gate said "same".
 
-Both are **core-14 documents** — `05_memo` is ReportLab, `f1_fpdf_brief` is fpdf2
-with no FontDescriptor — which is the same population as the four D2 waivers and
-the same suspected cause. That makes them *candidates* for the same waiver and it
-does not make them waived: five of sixteen documents excused under one defect is a
-materially different product claim from two, and no measurement can authorise it.
-They are recorded, attributed as far as the evidence goes, and left failing.
+#### Both attributed, and they are not the same failure
+
+Re-running parity with **refinement off** separates them, and the answers differ:
+
+| Document | at refine 3 | at refine 0 | therefore |
+|---|---|---|---|
+| `f1_fpdf_brief` | REGRESSION, dy₅₀ 0 → 1.20 | **same** | caused *entirely by the closed loop* — D2's box-top bias inside `refine`, as in §7 |
+| `05_memo` | REGRESSION, dy₅₀ 0.59 → 1.89 | **still worse** | caused *upstream of the loop*, at parse |
+
+Probing `05_memo` directly gives the cleanest statement of D2 in the repository,
+because it is the minimal document and nothing else is happening on the page:
+
+| | PyMuPDF | PDFium | delta |
+|---|---:|---:|---:|
+| first 7 **baselines** | 92.0, 116.0, 133.0, 150.0, 191.3, 206.3, 229.3 | identical | **0.00pt** |
+| first line-**box top** | 77.02 | 78.53 | +1.51pt |
+| derived **`margin_t`** | 77.0 | 78.5 | **+1.50pt** |
+
+Baselines agree exactly; box tops do not; and because `infer()` derives the page
+origin from box tops, the whole page shifts by 1.5pt. That is the same constant
+already recorded for `02_research_paper` (`margin_t` 63.30 against 64.90), arrived
+at independently on a different document. `05_memo` also groups into 12 blocks
+against PyMuPDF's 10 — the known grouping divergence — but the drift signal is the
+origin shift.
+
+So **both are D2**, in its two known locations: one at `margin_t`, one in the
+refine loop. All six affected documents are core-14; every document that embeds
+its fonts is untouched.
+
+That makes them *candidates* for the same waiver and does not make them waived.
+Six of sixteen documents excused under one defect is a materially different
+product claim from two, and no measurement can authorise it. They are recorded,
+fully attributed, and left failing.
 
 **Do not read this as a regression introduced by the permissive boundary work.**
 The incumbent's own numbers are unchanged (both gate lanes reproduce the recorded
@@ -590,6 +617,7 @@ pattern is more useful than the individual fixes.
 | Injected a parser by assigning a module global | The instruments set `exactdoc.convert.parse_pdf`. That worked only because `convert` happened to hold the parser as a global; once the backend was selected through the seam, the assignment became a no-op that set an attribute nobody read — and an experiment that silently measures the default still prints a number | An injection point should be declared (`register_backend`), so removing it breaks loudly instead of quietly |
 | Let the candidate lane borrow the incumbent's parser | `refine.py` imported `fitz` directly whichever backend had parsed, so the parity gate compared *pdfium parsing with MuPDF measuring* against MuPDF throughout. "2 regressions" described a configuration nobody could install; measured end-to-end it is 4 accepted, and pdfium's mean within-2pt is 0.4431 rather than 0.461 | A comparison in which the candidate uses the incumbent halfway through the pipeline is not measuring the swap. Isolate the variable at *every* stage, not just the obvious one |
 | Compared four dimensions and stopped at the first one that moved | The parity comparison returned on the first dimension outside its margin, so an improvement suppressed every regression ordered after it — and `dy_p50`, `doc_recall` and `raster_frac` were not in the list at all. Judging every dimension independently turned "0 regressions" into 2 unwaived ones, both drifting more than a point vertically while the gate reported "same" | Priority order is how you *describe* a result, not how you decide one. A regression is a regression whatever improved next to it, and a dimension you do not compare is a dimension you have no opinion about |
+| Compared floors across profiles | Parity floors are measured at the product profile, and `--refine 0` compared against them anyway: `01_whitepaper_market` reports dy₅₀ 1.39 at refine 3 and 7.89 at refine 0, so four "below-floor" failures appeared that meant only "these two runs are not comparable" | A recorded bound belongs to the configuration it was measured in. Store the profile beside the numbers and refuse to apply them across it — this landed as a false red, and the same mechanism inverted is a false green |
 | Waived documents from the comparison without bounding them | `c4_i18n` and `c5_graphics` were listed as expected divergences and thereby excused from every dimension, permanently. Either could have lost everything else it had and still reported "expected-div" | A waiver names a *known* difference. It must carry the numbers that make it that difference, and it must fail when it stops describing reality |
 | Fixed a measured bias with the physically correct anchor | The refine loop's box-top anchor carries a per-font metric bias that a baseline anchor cancels exactly, and the writer's own vertical model is baseline-anchored. Switching cost the **incumbent** mean within-2pt 0.511 → 0.478 — fixing `04_exec_brief` and breaking `05_memo` and `r1_reportlab_report` | Correct-in-isolation is not correct-in-system. The `space_before` chain the offsets feed is calibrated on box tops, so the anchor cannot move alone. The *second* time this exact lesson was paid for (see D2's reverted escalation) — which is why `refine.ANCHOR` now carries the switch and the number side by side |
 | Wrote the environment into the evidence artifact last | The final `evidence.py --out` step, whose only job is to fill in the environment, passed the empty template's `parity: None` over the verdict the previous step had recorded. A fully green run ended with an artifact that had forgotten its own parity result | An artifact that is the single source of a release claim must have no write path that can empty it. `merge` skips `None`, and a test asserts it |

@@ -520,6 +520,38 @@ def test_parity_unbounded_expected_divergence_fails():
           str(summary["failures"]))
 
 
+def test_parity_floors_are_profile_scoped():
+    """Floors measured at one refine profile say nothing about another.
+
+    Measured: `01_whitepaper_market` reports dy_p50 1.39 at refine 3 and 7.89 at
+    refine 0. Applying the refine-3 floor to a refine-0 run produced four
+    "below-floor" failures that meant only "these runs are not comparable". A
+    false red here, but the same mechanism in the other direction is a false green.
+    """
+    import backend_parity
+    ref, cand, policy = parity_fixture()
+    policy["recorded_refine_rounds"] = 3
+    cand["accepted.pdf"]["within2pt"] = 0.01          # far below its floor
+    _, at_recorded = backend_parity.adjudicate(
+        ref, cand, policy, manifest=PARITY_MANIFEST, refine=3)
+    _, at_other = backend_parity.adjudicate(
+        ref, cand, policy, manifest=PARITY_MANIFEST, refine=0)
+    kinds_recorded = set(f["kind"] for f in at_recorded["failures"])
+    kinds_other = set(f["kind"] for f in at_other["failures"])
+    check("floors apply at the profile they were recorded at",
+          "below-floor" in kinds_recorded, str(at_recorded["failures"]))
+    check("floors do NOT apply at a different profile",
+          "below-floor" not in kinds_other, str(at_other["failures"]))
+
+
+def test_committed_policy_records_its_profile():
+    import backend_parity
+    policy = backend_parity.load_policy()
+    check("the policy records the refine profile its floors were measured at",
+          isinstance(policy.get("recorded_refine_rounds"), int),
+          repr(policy.get("recorded_refine_rounds")))
+
+
 def test_parity_stale_expected_divergence_fails():
     """A waiver for a difference that no longer exists still excuses the document."""
     ref, cand, policy = parity_fixture()

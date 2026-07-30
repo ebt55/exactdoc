@@ -167,7 +167,7 @@ def run(backend, srcs, out_root, refine):
     return res
 
 
-def _check_floors(doc_id, cand_result, spec, failures, label):
+def _check_floors(doc_id, cand_result, spec, failures, label, profile_ok=True):
     """Numeric bounds on a waived document, in both directions.
 
     Applies to expected divergences as well as accepted shortfalls. They were
@@ -175,7 +175,17 @@ def _check_floors(doc_id, cand_result, spec, failures, label):
     comparison entirely and forever, so `c5_graphics` could have lost every
     remaining metric and still reported "expected-div". A waiver names a *known*
     difference; it cannot also be a licence for unknown ones.
+
+    `profile_ok` is False when this run used a different refine profile than the
+    one the floors were recorded at, and then the floors are not applied. They are
+    profile-specific quantities: measured at `--refine 0`, `01_whitepaper_market`
+    reports dy_p50 7.89 against a floor of 1.39 recorded at refine 3 -- four
+    "below-floor" failures that say nothing except that the two runs are not
+    comparable. Silently comparing them produced a false red here; the same
+    mechanism in the other direction is a false green.
     """
+    if not profile_ok:
+        return
     floors = spec.get("floors")
     if floors is None:
         failures.append(("unrecorded", doc_id,
@@ -199,20 +209,33 @@ def _check_floors(doc_id, cand_result, spec, failures, label):
                              % (name, v, floor)))
 
 
-def adjudicate(ref, cand, policy, subset=False, manifest=None):
+def adjudicate(ref, cand, policy, subset=False, manifest=None, refine=None):
     """Apply the policy. -> (rows, summary dict).
 
     Coverage is anchored on the **manifest**, not on the intersection of what the
     two runs happened to produce. Comparing `set(ref)` with `set(cand)` alone is
     satisfied by two runs that both dropped the same document -- which is exactly
     what happened when a conversion failed under both backends.
+
+    `refine` is the profile this run used. Floors are only applied when it matches
+    the profile they were recorded at, because they are profile-specific: the same
+    document reports dy_p50 1.39 at refine 3 and 7.89 at refine 0, and comparing
+    across the two is meaningless in whichever direction it happens to fall.
     """
     margins = _clean(policy.get("margins", {}))
     divergence = _clean(policy.get("expected_divergence", {}))
     accepted = _clean(policy.get("accepted_shortfalls", {}))
+    recorded_refine = policy.get("recorded_refine_rounds")
+    profile_ok = (refine is None or recorded_refine is None
+                  or refine == recorded_refine)
     rows, failures = [], []
     counts = {"regressions": 0, "same": 0, "better": 0, "expected_div": 0,
               "accepted": 0, "missing": 0}
+    if not profile_ok:
+        rows.append({"document": "-", "verdict": "NOTE",
+                     "detail": "floors not applied: recorded at refine %s, this "
+                               "run used refine %s"
+                               % (recorded_refine, refine)})
 
     expected_ids = set(manifest.get("documents", {})) if manifest else None
     universe = set(ref) | set(cand)
@@ -262,7 +285,8 @@ def adjudicate(ref, cand, policy, subset=False, manifest=None):
             if not spec.get("verified"):
                 failures.append(("undocumented", doc_id,
                                  "expected divergence with no rendered evidence"))
-            _check_floors(doc_id, B, spec, failures, "expected divergence")
+            _check_floors(doc_id, B, spec, failures, "expected divergence",
+                          profile_ok=profile_ok)
             if not worse and not better:
                 # The waiver says these two backends disagree here on purpose. If
                 # they now agree on every dimension, it describes nothing -- and
@@ -279,7 +303,8 @@ def adjudicate(ref, cand, policy, subset=False, manifest=None):
             if not spec.get("defect"):
                 failures.append(("undocumented", doc_id,
                                  "accepted shortfall with no defect ID"))
-            _check_floors(doc_id, B, spec, failures, "accepted shortfall")
+            _check_floors(doc_id, B, spec, failures, "accepted shortfall",
+                          profile_ok=profile_ok)
             if not worse:
                 failures.append(("stale", doc_id,
                                  "accepted as worse, but no dimension is worse "
@@ -341,6 +366,7 @@ def record_policy(ref, cand, policy, manifest, environment, path=POLICY_PATH):
                 "is not a run." % (side, ", ".join(broken)))
 
     n = 0
+    policy["recorded_refine_rounds"] = refine
     for section in ("accepted_shortfalls", "expected_divergence"):
         for doc_id, spec in policy.get(section, {}).items():
             if doc_id.startswith("_") or doc_id not in cand:
@@ -436,7 +462,8 @@ def main(argv=None):
         policy = load_policy()
 
     rows, summary = adjudicate(ref, cand, policy, subset=subset,
-                               manifest=None if subset else manifest)
+                               manifest=None if subset else manifest,
+                               refine=refine)
     print("\n%-22s %-22s %-22s %s"
           % ("document", ref_name, cand_name, "verdict"))
     for row in rows:
