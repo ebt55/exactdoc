@@ -4,41 +4,45 @@
  "expected_divergence": {
   "_note": "Documents where the two backends disagree about what CORRECT means and the candidate was verified to be the right one. Nothing goes in here without rendered evidence, because the harness measures agreement with the incumbent and would otherwise demand that a bug be reproduced.",
   "c4_i18n.pdf": {
-   "corpus_manifest_sha256": null,
-   "environment_fingerprint": null,
+   "corpus_manifest_sha256": "e6e4a15986bd5ba002e31a64c5366144245d1146bd464551295b06dd9310e539",
+   "environment_fingerprint": "cf51ded391ce5ef7d6cc7711388218e72400679de6ea6234d63cca429c82fdcf",
    "floors": {
-    "doc_recall": 0.9874,
-    "dy_p50": 0.15,
+    "doc_recall": 0.9748,
+    "dy_p50": 0.8,
     "live_text_cov": 0.9091,
     "page_err": 0,
     "raster_frac": 0.0909,
-    "within2pt": 0.5745,
-    "word_recall": 0.9874
+    "within2pt": 0.3017,
+    "word_recall": 0.9748
    },
-   "measured_commit": null,
-   "profile_id": null,
+   "floors_remeasured": "Remeasured 2026-07-30 in the canonical image (fingerprint cf51ded391ce5ef7...) after scripts/fonts.conf pinned the visible font set. The previous floors were recorded before that pinning and had been failing CI as though the backend had regressed: doc_recall 0.9874 -> 0.9748, dy_p50 0.15 -> 0.8, within2pt 0.5745 -> 0.3017, word_recall 0.9874 -> 0.9748. c4_i18n is the CJK + Arabic + Hebrew document and was the ONLY document in the corpus whose floors moved -- the other five waived documents came out bit-identical, which is what makes the font environment the attributed cause rather than a hypothesis.",
+   "measured_commit": "ecbdcc4165f62671a9e4dff331b7b31e8ad57444",
+   "measured_commit_source": "stamped from the checkout: the canonical image held a copy of the tree with no git repository. The authoritative re-record comes from CI once gate.yml runs inside the published image.",
+   "profile_id": "parity/refine3",
    "reason": "RTL: PDFium reports glyphs in visual order and this backend reorders them to logical, which is what a DOCX must carry. PyMuPDF returns visual order, so its DOCX renders Arabic backwards.",
    "recorded_on": {
+    "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+    "fonts_conf_sha256": "924510e8ab7c983203ccd146faf2750d6cc3076208ce2d84f146e8da52a4f325",
     "os": "linux",
     "pdfium": "152.0.7947.0",
     "pymupdf": "1.28.0",
+    "python": "3.12.3",
     "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
    },
    "reference_at_record": {
-    "doc_recall": 1.0,
-    "dy_p50": 0.15,
+    "doc_recall": 0.9832,
+    "dy_p50": 0.87,
     "live_text_cov": 1.0,
     "page_err": 0,
     "raster_frac": 0.0,
-    "within2pt": 0.416,
-    "word_recall": 1.0
+    "within2pt": 0.1966,
+    "word_recall": 0.9832
    },
-   "stale_floors": "These three dimensions -- doc_recall, dy_p50, within2pt -- were recorded BEFORE scripts/fonts.conf pinned the visible font set, and they now fail: doc_recall 0.9748 against 0.9874, dy_p50 0.8 against 0.15, within2pt 0.3017 against 0.5745. c4_i18n is the CJK + Arabic + Hebrew document, so it is precisely the document a font environment moves; Liberation covers none of those scripts. These are to be REMEASURED under the pinned environment, not waived. Remeasuring requires the canonical environment, because recording is refused anywhere else.",
    "verified": "rendered source and both outputs side by side; the PyMuPDF output reads the same words in reverse"
   },
   "c5_graphics.pdf": {
-   "corpus_manifest_sha256": null,
-   "environment_fingerprint": null,
+   "corpus_manifest_sha256": "e6e4a15986bd5ba002e31a64c5366144245d1146bd464551295b06dd9310e539",
+   "environment_fingerprint": "cf51ded391ce5ef7d6cc7711388218e72400679de6ea6234d63cca429c82fdcf",
    "floors": {
     "doc_recall": 0.6556,
     "dy_p50": 0.0,
@@ -48,14 +52,18 @@
     "within2pt": 0.2373,
     "word_recall": 0.6556
    },
-   "measured_commit": null,
+   "measured_commit": "ecbdcc4165f62671a9e4dff331b7b31e8ad57444",
+   "measured_commit_source": "stamped from the checkout: the canonical image held a copy of the tree with no git repository. The authoritative re-record comes from CI once gate.yml runs inside the published image.",
    "metric_caveat": "live_text_cov scored PyMuPDF higher (0.71 vs 0.68) because invisible white text still counts as live. Text coverage cannot see contrast.",
-   "profile_id": null,
+   "profile_id": "parity/refine3",
    "reason": "The page opens with a gradient band carrying white text. PyMuPDF does not report the gradient, so the band's text is emitted white on white and is invisible. PDFium reports the pattern flattened to grey, so the band survives and its text is legible.",
    "recorded_on": {
+    "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+    "fonts_conf_sha256": "924510e8ab7c983203ccd146faf2750d6cc3076208ce2d84f146e8da52a4f325",
     "os": "linux",
     "pdfium": "152.0.7947.0",
     "pymupdf": "1.28.0",
+    "python": "3.12.3",
     "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
    },
    "reference_at_record": {
@@ -82,9 +90,9 @@
  },
  "provisional_shortfalls": {
   "01_whitepaper_market.pdf": {
-   "corpus_manifest_sha256": null,
+   "corpus_manifest_sha256": "e6e4a15986bd5ba002e31a64c5366144245d1146bd464551295b06dd9310e539",
    "defect": "D2",
-   "environment_fingerprint": null,
+   "environment_fingerprint": "cf51ded391ce5ef7d6cc7711388218e72400679de6ea6234d63cca429c82fdcf",
    "floors": {
     "doc_recall": 0.9677,
     "dy_p50": 1.39,
@@ -94,13 +102,17 @@
     "within2pt": 0.5444,
     "word_recall": 0.9677
    },
-   "measured_commit": null,
-   "profile_id": null,
+   "measured_commit": "ecbdcc4165f62671a9e4dff331b7b31e8ad57444",
+   "measured_commit_source": "stamped from the checkout: the canonical image held a copy of the tree with no git repository. The authoritative re-record comes from CI once gate.yml runs inside the published image.",
+   "profile_id": "parity/refine3",
    "reason": "font-metric convention difference: PyMuPDF's base-14 above/below-baseline ratios reach margin_t and displace every word on the page by a constant. Reproducing them means vendoring MuPDF's table into the permissive tree.",
    "recorded_on": {
+    "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+    "fonts_conf_sha256": "924510e8ab7c983203ccd146faf2750d6cc3076208ce2d84f146e8da52a4f325",
     "os": "linux",
     "pdfium": "152.0.7947.0",
     "pymupdf": "1.28.0",
+    "python": "3.12.3",
     "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
    },
    "reference_at_record": {
@@ -114,9 +126,9 @@
    }
   },
   "02_research_paper.pdf": {
-   "corpus_manifest_sha256": null,
+   "corpus_manifest_sha256": "e6e4a15986bd5ba002e31a64c5366144245d1146bd464551295b06dd9310e539",
    "defect": "D2",
-   "environment_fingerprint": null,
+   "environment_fingerprint": "cf51ded391ce5ef7d6cc7711388218e72400679de6ea6234d63cca429c82fdcf",
    "floors": {
     "doc_recall": 0.9586,
     "dy_p50": 1.29,
@@ -126,13 +138,17 @@
     "within2pt": 0.5685,
     "word_recall": 0.9586
    },
-   "measured_commit": null,
-   "profile_id": null,
+   "measured_commit": "ecbdcc4165f62671a9e4dff331b7b31e8ad57444",
+   "measured_commit_source": "stamped from the checkout: the canonical image held a copy of the tree with no git repository. The authoritative re-record comes from CI once gate.yml runs inside the published image.",
+   "profile_id": "parity/refine3",
    "reason": "same cause as 01_whitepaper_market: measured margin_t 63.30 (PyMuPDF) against 64.90 (PDFium), a constant 1.5pt displacement visible as two identical dy distributions offset by exactly that.",
    "recorded_on": {
+    "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+    "fonts_conf_sha256": "924510e8ab7c983203ccd146faf2750d6cc3076208ce2d84f146e8da52a4f325",
     "os": "linux",
     "pdfium": "152.0.7947.0",
     "pymupdf": "1.28.0",
+    "python": "3.12.3",
     "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
    },
    "reference_at_record": {
@@ -146,9 +162,9 @@
    }
   },
   "03_tech_report_code.pdf": {
-   "corpus_manifest_sha256": null,
+   "corpus_manifest_sha256": "e6e4a15986bd5ba002e31a64c5366144245d1146bd464551295b06dd9310e539",
    "defect": "D2",
-   "environment_fingerprint": null,
+   "environment_fingerprint": "cf51ded391ce5ef7d6cc7711388218e72400679de6ea6234d63cca429c82fdcf",
    "floors": {
     "doc_recall": 1.0,
     "dy_p50": 1.43,
@@ -158,13 +174,17 @@
     "within2pt": 0.308,
     "word_recall": 1.0
    },
-   "measured_commit": null,
-   "profile_id": null,
+   "measured_commit": "ecbdcc4165f62671a9e4dff331b7b31e8ad57444",
+   "measured_commit_source": "stamped from the checkout: the canonical image held a copy of the tree with no git repository. The authoritative re-record comes from CI once gate.yml runs inside the published image.",
+   "profile_id": "parity/refine3",
    "reason": "D2's cause reaching the closed loop rather than margin_t. refine() measures rendered_box_top - source_box_top; the render is Liberation (embedded, real ascent) and the source is core-14, where PDFium substitutes a generic ascent for the real one MuPDF reads from its base-14 table. The subtraction carries a systematic ~0.17 x type size bias, about 1.7pt at 10pt, which under-corrects every page against a 2pt threshold. Baseline anchoring cancels it perfectly and costs the INCUMBENT 0.511 -> 0.478 mean within-2pt, because the space_before chain it feeds is calibrated on box tops -- the same result as the line-box escalation closed out in STATUS D2.",
    "recorded_on": {
+    "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+    "fonts_conf_sha256": "924510e8ab7c983203ccd146faf2750d6cc3076208ce2d84f146e8da52a4f325",
     "os": "linux",
     "pdfium": "152.0.7947.0",
     "pymupdf": "1.28.0",
+    "python": "3.12.3",
     "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
    },
    "reference_at_record": {
@@ -177,11 +197,11 @@
     "word_recall": 1.0
    }
   },
-  "_note": "Documents where the candidate is measurably worse, the cause is attributed, and the shortfall is PROVISIONAL: visible and bounded, but it may NOT authorise a backend swap or a release (plan §17 rule 4). All four are STATUS D2 and all four are core-14 documents: infer() and refine() both work in line-box-top space, PyMuPDF reads that from its own base-14 table (the real font's ascent, which the metric-compatible render font also has), and PDFium substitutes a generic ascent. Documents that embed their fonts are unaffected because both parsers then read the embedded metrics. Acceptance is bounded by numeric floors: worsening past them fails, and clearing the divergence entirely fails as stale. These four grew from two when the refinement loop stopped reading its measurements through PyMuPDF regardless of which backend had parsed -- so 'two regressions' had described a configuration nobody could install. Widening a waiver from two documents to four is a product decision, and moving them here records that it has not been made. Ratifying one means moving it to `ratified_shortfalls` with ratified_by, ratified_on, issue and review_condition. The decision is scheduled for the Google Docs checkpoint (DEC-D2), because Google Docs is the renderer this project actually targets and LibreOffice is a proxy for it.",
+  "_note": "Documents where the candidate is measurably worse, the cause is attributed, and the shortfall is PROVISIONAL: visible and bounded, but it may NOT authorise a backend swap or a release (plan \u00a717 rule 4). All four are STATUS D2 and all four are core-14 documents: infer() and refine() both work in line-box-top space, PyMuPDF reads that from its own base-14 table (the real font's ascent, which the metric-compatible render font also has), and PDFium substitutes a generic ascent. Documents that embed their fonts are unaffected because both parsers then read the embedded metrics. Acceptance is bounded by numeric floors: worsening past them fails, and clearing the divergence entirely fails as stale. These four grew from two when the refinement loop stopped reading its measurements through PyMuPDF regardless of which backend had parsed -- so 'two regressions' had described a configuration nobody could install. Widening a waiver from two documents to four is a product decision, and moving them here records that it has not been made. Ratifying one means moving it to `ratified_shortfalls` with ratified_by, ratified_on, issue and review_condition. The decision is scheduled for the Google Docs checkpoint (DEC-D2), because Google Docs is the renderer this project actually targets and LibreOffice is a proxy for it.",
   "r1_reportlab_report.pdf": {
-   "corpus_manifest_sha256": null,
+   "corpus_manifest_sha256": "e6e4a15986bd5ba002e31a64c5366144245d1146bd464551295b06dd9310e539",
    "defect": "D2",
-   "environment_fingerprint": null,
+   "environment_fingerprint": "cf51ded391ce5ef7d6cc7711388218e72400679de6ea6234d63cca429c82fdcf",
    "floors": {
     "doc_recall": 1.0,
     "dy_p50": 1.1,
@@ -191,13 +211,17 @@
     "within2pt": 0.3212,
     "word_recall": 1.0
    },
-   "measured_commit": null,
-   "profile_id": null,
+   "measured_commit": "ecbdcc4165f62671a9e4dff331b7b31e8ad57444",
+   "measured_commit_source": "stamped from the checkout: the canonical image held a copy of the tree with no git repository. The authoritative re-record comes from CI once gate.yml runs inside the published image.",
+   "profile_id": "parity/refine3",
    "reason": "same cause as 03_tech_report_code: a core-14 document whose placement is otherwise good enough for the 2pt threshold to be sensitive to the refine loop's ~1.7pt box-top bias. All four provisional documents are core-14; every Chromium document embeds its fonts, so PDFium reads the real ascent and none of them is affected.",
    "recorded_on": {
+    "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+    "fonts_conf_sha256": "924510e8ab7c983203ccd146faf2750d6cc3076208ce2d84f146e8da52a4f325",
     "os": "linux",
     "pdfium": "152.0.7947.0",
     "pymupdf": "1.28.0",
+    "python": "3.12.3",
     "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
    },
    "reference_at_record": {

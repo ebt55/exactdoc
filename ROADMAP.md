@@ -29,13 +29,60 @@ real content of the word "mechanical" in §3.2. `pymupdf` remains the default
 backend and a hard runtime dependency until §3.2b. See §3.2a.
 
 **CI status, confirmed on GitHub Actions.** Every step passes except the parity
-gate, which fails on exactly the two unwaived regressions and nothing else:
+gate:
 
 ```
 gate PASS (product)   pagematch 15/16  <2pt 0.4981  live 0.9652  dy50 0.675
 gate PASS (raw)       pagematch 13/16  <2pt 0.3349  live 0.9652  dy50 2.2
-parity FAIL           05_memo dy_p50 0.59 -> 1.89 · f1_fpdf_brief dy_p50 0 -> 1.2
+parity FAIL           2 regressions + 4 provisional shortfalls (6 failures)
+                      05_memo dy_p50 0.59 -> 1.89 · f1_fpdf_brief dy_p50 0 -> 1.2
 ```
+
+**This file previously said the parity gate fails "on exactly the two unwaived
+regressions and nothing else". That was wrong, and its own CI run disproved it.**
+Three `c4_i18n` floors were also below their recorded values. The error was reading
+the per-document verdict tally — `2 regressions, 5 same, 3 better, 2 expected
+divergences, 4 accepted` — as if it were the failure count. It is not: a floor
+breach is a separate failure class, and a document can hold verdict
+`expected-divergence` while failing three of them.
+
+Those three floors are now **remeasured**, not waived, and the reason they were
+stale is settled rather than asserted. They had been recorded before
+`scripts/fonts.conf` pinned the visible font set:
+
+| `c4_i18n` floor | was | now |
+|---|---:|---:|
+| `doc_recall` | 0.9874 | 0.9748 |
+| `dy_p50` | 0.15pt | 0.8pt |
+| `within2pt` | 0.5745 | 0.3017 |
+| `word_recall` | 0.9874 | 0.9748 |
+
+**`c4_i18n` was the only document in the corpus whose floors moved.** The other
+five waived documents came out bit-identical on every dimension. That is what
+makes the font environment the *attributed* cause rather than a plausible one:
+`c4_i18n` is the CJK + Arabic + Hebrew page, Liberation covers none of those
+scripts, and a change confined to exactly the document that depends on the
+variable is not a coincidence.
+
+Remeasuring also required fixing the command that does it. `backend_parity.py
+--update-policy` raised `NameError` before writing anything, so the stale floors
+were not neglected — the documented way to refresh them crashed.
+
+Failures went 5 → 15 → 6 across this work, and none of that was the converter
+moving. 5 understated the truth; 15 was the honest count once floors had to name
+their environment; 6 is what remains after the environment debt was paid:
+
+| failures | why |
+|---:|---|
+| 2 | the unwaived `dy_p50` regressions — unchanged throughout |
+| 4 | the D2 documents, now explicitly `provisional_shortfall`: attributed and bounded, but not authorising a swap or a release |
+
+Both remaining classes are product decisions, not environment debt. The four are
+scheduled for the Google Docs checkpoint, because Docs is the renderer this
+project targets and LibreOffice is a proxy for it.
+
+The lesson is the one this project keeps relearning: **the exit code is the number
+of record, and prose that summarises it drifts.** See STATUS §1.
 
 Those lane numbers are **bit-identical to the recorded baseline**, which took two
 determinism fixes to achieve. The first CI attempt went red for reasons that had
