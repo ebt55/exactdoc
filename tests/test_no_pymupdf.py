@@ -65,10 +65,32 @@ def block_pymupdf():
     sys.meta_path.insert(0, _Blocker())
 
 
+# One document per capability that has to survive the permissive path. Every one
+# of these is a COMMITTED fixture in testkit/fixtures/, so "absent" means the
+# checkout is broken, not that the machine lacks generators.
+CAPABILITIES = {
+    "05_memo.pdf": "text only",
+    "c3_tables.pdf": "grid and ruled tables",
+    "04_exec_brief.pdf": "inline image",
+    "c5_graphics.pdf": "vector region rasterised as a figure clip",
+    "c6_long.pdf": "multi-page, exercises refinement",
+    "c2_paper2col.pdf": "multi-column sections",
+    "c4_i18n.pdf": "CJK, Arabic and Hebrew",
+    "01_whitepaper_market.pdf": "cover band, callouts, charts",
+}
+
+
 def _fixture_dirs():
-    """Whatever corpus this machine has. The fixtures are not regenerated here."""
+    """Where the committed corpus lives, most authoritative first.
+
+    `testkit/fixtures/` was missing from this list, and that was the whole bug:
+    it is the only directory that exists in a clean checkout. `testkit/adv/` and
+    `corpus/pdfs/` are *generated* and are both gitignored, so on CI and on any
+    fresh clone this function returned an empty list -- and the caller then
+    reported success having converted nothing.
+    """
     out = []
-    for d in ("testkit/adv", "corpus/pdfs"):
+    for d in ("testkit/fixtures", "testkit/adv", "corpus/pdfs"):
         p = os.path.join(ROOT, d)
         if os.path.isdir(p):
             out.append(p)
@@ -76,28 +98,23 @@ def _fixture_dirs():
 
 
 def representative_fixtures():
-    """One document per capability the plan names, when the corpus has it.
+    """One document per capability, resolved against the committed fixtures.
 
-    Skipping absent documents rather than failing: this test can run on a clean
-    machine with no generators installed, and its subject is the import boundary,
-    not the corpus. The corpus manifest is what makes corpus completeness a
-    failure, in the gate where that belongs.
+    Deduplicated by filename with the earliest directory winning, so a stale
+    generated copy in `testkit/adv/` cannot shadow the frozen, SHA-256-pinned
+    input the manifest describes.
     """
-    want = {
-        "05_memo.pdf": "text only",
-        "c3_tables.pdf": "grid and ruled tables",
-        "04_exec_brief.pdf": "inline image",
-        "c5_graphics.pdf": "vector region rasterised as a figure clip",
-        "c6_long.pdf": "multi-page, exercises refinement",
-        "c2_paper2col.pdf": "multi-column sections",
-        "01_whitepaper_market.pdf": "cover band, callouts, charts",
-    }
-    found = []
+    found, seen = [], set()
     for d in _fixture_dirs():
         for name in sorted(os.listdir(d)):
-            if name in want:
-                found.append((name, want[name], os.path.join(d, name)))
-    return found
+            if name in CAPABILITIES and name not in seen:
+                seen.add(name)
+                found.append((name, CAPABILITIES[name], os.path.join(d, name)))
+    return sorted(found)
+
+
+def missing_capabilities(found):
+    return sorted(set(CAPABILITIES) - {name for name, _, _ in found})
 
 
 def main():
@@ -140,11 +157,31 @@ def main():
     # 3. real conversions through the permissive path
     from exactdoc.options import PRODUCT, RAW
     fixtures = representative_fixtures()
-    if not fixtures:
-        print("\nno corpus documents found -- generate them to exercise "
-              "conversion. The import boundary above still held.")
-        return 1 if FAILED else 0
 
+    # Zero inputs is a FAILURE, not a skip. This returned 0 having converted
+    # nothing: it searched only `testkit/adv/` and `corpus/pdfs/`, which are both
+    # generated and both gitignored, so on CI and on any clean clone it found no
+    # documents, printed a note, and reported the permissive runtime boundary as
+    # proven. The one claim the Apache alpha rests on was being made by a test
+    # that had run no conversions.
+    #
+    # The fixtures are committed and pinned by SHA-256, so absence means a broken
+    # checkout. There is no legitimate configuration in which this test has
+    # nothing to convert.
+    check("committed fixtures were found", bool(fixtures),
+          "searched %s -- testkit/fixtures/ holds the 16 frozen inputs and is the "
+          "only corpus directory present in a clean checkout"
+          % (", ".join(os.path.relpath(d, ROOT) for d in _fixture_dirs())
+             or "no corpus directory at all"))
+    absent = missing_capabilities(fixtures)
+    check("every capability category is present", not absent,
+          "missing %s -- a capability this test cannot exercise is a capability "
+          "nobody has shown survives without PyMuPDF" % ", ".join(absent))
+    if not fixtures:
+        print("\n%d FAILED: %s" % (len(FAILED), ", ".join(FAILED)))
+        return 1
+
+    converted = 0
     opts = RAW.replace(backend="pdfium", target="none")
     with tempfile.TemporaryDirectory() as td:
         for name, why, path in fixtures:
@@ -154,6 +191,7 @@ def main():
                 ok = os.path.exists(out) and os.path.getsize(out) > 1000
                 check("convert %-26s (%s)" % (name, why), ok,
                       "no output" if not ok else "")
+                converted += ok
             except Exception as e:
                 check("convert %-26s (%s)" % (name, why), False,
                       "%s: %s" % (type(e).__name__, e))
@@ -185,6 +223,12 @@ def main():
                   "%s: %s" % (type(e).__name__, e))
 
     check("fitz still absent after converting", "fitz" not in sys.modules)
+    # The count, asserted rather than assumed. A loop over an empty list is a
+    # loop that reports nothing wrong, and that is precisely how this test used
+    # to pass.
+    check("every capability fixture actually converted",
+          converted == len(CAPABILITIES),
+          "%d of %d converted" % (converted, len(CAPABILITIES)))
     if FAILED:
         print("\n%d FAILED: %s" % (len(FAILED), ", ".join(FAILED)))
         return 1
