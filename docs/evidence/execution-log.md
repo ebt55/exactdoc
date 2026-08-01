@@ -35,7 +35,9 @@ inconvenient:
 
 | ID | What | Evidence |
 |---|---|---|
-| INT-00 | PR graph consolidated; #1 merged with a merge commit preserving `0cd7d11`; #4 retargeted to `main`, 7→14 commits, still draft; #2/#3 closed, branches kept | `docs/evidence/pr-transition.md` |
+| INT-00 | PR graph consolidated; #1 merged with a merge commit preserving `0cd7d11`; #2/#3 closed as superseded | `docs/evidence/pr-transition.md` |
+| **Consolidation** | **PR #4 merged to `main` (`ef653c9`) with 19 commits, deliberately red.** All five feature branches deleted after verifying every commit was reachable from `main`; remote is now `main` alone. No open PRs, no open issues | `git log --first-parent main` |
+| REL-01A | Typed error hierarchy, `ConversionResult`, atomic DOCX publication, and `target` split into `output_profile` + `oracle`. A missing oracle and refinement-without-a-renderer are now errors rather than silent open-loop conversions | `exactdoc/errors.py`, `io.py`, `result.py`; 224/224 values unmoved |
 | DET-02a | Environment identity made exact and enforced. Recorded reference, both-direction font matching, `fonts.conf` verified by content, fingerprint enforced | `testkit/canonical_env.json`, fp `3ca438f1…` |
 | DET-02b | `accepted_shortfalls` split into `provisional_shortfalls` (cannot authorise) and `ratified_shortfalls` (owner/date/issue/review). Four D2 docs provisional; nothing ratified | `testkit/parity_policy.json` schema 2 |
 | DET-02c | Two false-green tests repaired: the PyMuPDF-free proof searched only gitignored dirs and returned 0 having converted nothing; the generator test discarded both exit codes and required 3 of 16 documents | `tests/test_no_pymupdf.py`, `tests/test_corpus_generation.py` |
