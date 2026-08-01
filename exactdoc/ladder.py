@@ -81,9 +81,23 @@ def _predictable(p: Para) -> bool:
     return True
 
 
-def predict_lines(p: Para, avail: float) -> Optional[int]:
-    """Greedy first-fit, the way Word breaks. None if not predictable."""
-    import fitz
+def predict_lines(p: Para, avail: float, metrics=None) -> Optional[int]:
+    """Greedy first-fit, the way Word breaks. None if not predictable.
+
+    This is the one caller in the tree that genuinely needs to *shape* text: it
+    predicts a re-wrap, so by definition there is no source line to measure and
+    `Para.src_widths` cannot answer. `metrics` is therefore a real capability
+    requirement, and `NullMetrics` -- the permissive default -- makes every
+    paragraph unpredictable, which is the same answer a non-base-14 font has
+    always produced and which turns the ladder into a no-op.
+
+    That is a stated limit, not a silent one: with the permissive backend and no
+    `[mupdf]` extra, `--ladder` does nothing. It is off by default and has been
+    since it was measured and left switched off, so nothing shipped changes.
+    """
+    if metrics is None:
+        from .metrics import NullMetrics
+        metrics = NullMetrics()
     words = []
     for r in p.runs:
         if r.is_tab or not r.text:
@@ -94,54 +108,62 @@ def predict_lines(p: Para, avail: float) -> Optional[int]:
             return None
         for w in r.text.replace("\n", " ").split(" "):
             if w:
-                words.append((w, fn, r.size))
+                words.append((w, fam, r.size, r.bold, r.italic))
     if not words:
         return 1
     cache = {}
+    unmeasurable = []
 
-    def wid(t, fn, sz):
-        key = (t, fn, sz)
+    def wid(t, fam, sz, bold, italic):
+        key = (t, fam, sz, bold, italic)
         if key not in cache:
-            try:
-                cache[key] = fitz.get_text_length(t, fontname=fn, fontsize=sz)
-            except Exception:
-                cache[key] = len(t) * sz * 0.5
+            w = metrics.text_width(t, fam, sz, bold=bold, italic=italic)
+            if w is None:
+                unmeasurable.append(key)
+                w = 0.0
+            cache[key] = w
         return cache[key]
 
     n, cur, first = 1, 0.0, True
     room0 = avail - max(0.0, p.first_indent)
-    for w, fn, sz in words:
-        ww = wid(w, fn, sz)
+    for w, fam, sz, bold, italic in words:
+        ww = wid(w, fam, sz, bold, italic)
         room = room0 if n == 1 else avail
         if first:
             cur = ww
             first = False
             continue
-        add = wid(" ", fn, sz) + ww
+        add = wid(" ", fam, sz, bold, italic) + ww
         if cur + add > room + SLACK_PT:
             n += 1
             cur = ww
         else:
             cur += add
+    # An unmeasurable word made every width beyond it meaningless, so the count
+    # is not a prediction. Say "unpredictable" rather than return a number
+    # computed partly from zeros -- the caller's whole contract is that it acts
+    # only on a prediction it trusts.
+    if unmeasurable:
+        return None
     return n
 
 
-def _seg_width(seg_runs, cache) -> float:
-    import fitz
+def _seg_width(seg_runs, cache, metrics) -> float:
+    """Width of one locked line's runs. -1.0 when unmeasurable."""
     w = 0.0
     for r in seg_runs:
         if r.is_tab or not r.text:
             continue
         fam = map_font(r.font, mono=r.mono, serif=r.serif)
-        fn = _b14(fam, r.bold, r.italic)
-        if fn is None:
+        if _b14(fam, r.bold, r.italic) is None:
             return -1.0
-        key = (r.text, fn, r.size)
+        key = (r.text, fam, r.size, r.bold, r.italic)
         if key not in cache:
-            try:
-                cache[key] = fitz.get_text_length(r.text, fontname=fn, fontsize=r.size)
-            except Exception:
+            got = metrics.text_width(r.text, fam, r.size, bold=r.bold,
+                                     italic=r.italic)
+            if got is None:
                 return -1.0
+            cache[key] = got
         w += cache[key]
     return w
 
@@ -164,7 +186,7 @@ def _slice_runs(runs: List[Run], a: int, b: int) -> List[Run]:
     return out
 
 
-def _lock(p: Para, avail: float) -> bool:
+def _lock(p: Para, avail: float, metrics) -> bool:
     """Pin the source line breaks -- and make each pinned line actually fit.
 
     A soft break alone is not enough. TeX fits a line by *shrinking* inter-word
@@ -216,7 +238,7 @@ def _lock(p: Para, avail: float) -> bool:
         seg = _slice_runs(p.runs, a, b)
         if not seg:
             return False
-        w = _seg_width(seg, cache)
+        w = _seg_width(seg, cache, metrics)
         if w < 0:
             return False
         room = avail - (max(0.0, p.first_indent) if i == 0 else 0.0)
@@ -243,10 +265,19 @@ def _lock(p: Para, avail: float) -> bool:
     return True
 
 
-def apply_ladder(lay: DocLayout, enabled: bool = True) -> dict:
-    """Decide flow vs line-locked for every paragraph. Returns a report."""
+def apply_ladder(lay: DocLayout, enabled: bool = True, metrics=None) -> dict:
+    """Decide flow vs line-locked for every paragraph. Returns a report.
+
+    `metrics` must be able to shape text (see `predict_lines`). Without it every
+    paragraph counts as unpredictable and the ladder changes nothing, which the
+    report says in the clear -- `text_metrics` names what was used.
+    """
     rep = {"flow": 0, "line-locked": 0, "unpredictable": 0, "short": 0,
            "lock_failed": 0}
+    if metrics is None:
+        from .metrics import NullMetrics
+        metrics = NullMetrics()
+    rep["text_metrics"] = getattr(metrics, "name", "?")
     if not enabled:
         return rep
 
@@ -257,14 +288,14 @@ def apply_ladder(lay: DocLayout, enabled: bool = True) -> dict:
         if not _predictable(p):
             rep["unpredictable"] += 1
             return
-        pred = predict_lines(p, avail)
+        pred = predict_lines(p, avail, metrics)
         if pred is None:
             rep["unpredictable"] += 1
             return
         if pred == p.src_lines:
             rep["flow"] += 1
             return
-        if _lock(p, avail):
+        if _lock(p, avail, metrics):
             rep["line-locked"] += 1
         else:
             rep["lock_failed"] += 1
@@ -289,10 +320,14 @@ def apply_ladder(lay: DocLayout, enabled: bool = True) -> dict:
 
 
 def summarise(rep: dict) -> str:
-    total = sum(rep.values()) or 1
+    total = sum(v for v in rep.values() if isinstance(v, int)) or 1
     locked = rep.get("line-locked", 0)
+    metrics = rep.get("text_metrics", "?")
+    note = ("  [text metrics: none -- the ladder cannot shape text without the "
+            "[mupdf] extra, so every paragraph is unpredictable]"
+            if metrics == "none" else "  [text metrics: %s]" % metrics)
     return ("%d paragraphs: %d flow, %d line-locked (%.0f%%), "
-            "%d single-line, %d unpredictable font, %d lock failed"
+            "%d single-line, %d unpredictable font, %d lock failed%s"
             % (total, rep.get("flow", 0), locked, 100.0 * locked / total,
                rep.get("short", 0), rep.get("unpredictable", 0),
-               rep.get("lock_failed", 0)))
+               rep.get("lock_failed", 0), note))

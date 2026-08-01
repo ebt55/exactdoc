@@ -66,18 +66,61 @@ A backend must provide:
     render_page(path, page_no, dpi) -> PNG bytes
         Used by the verification loop.
 
+    page_lines(path) -> [[(text, y_top, y_baseline, y_bottom), ...], ...]
+        Text lines with their vertical anchors, per page. What the closed loop needs
+        to map source pages onto rendered ones and measure the offset between them.
+        A distinct operation rather than a full parse on purpose: the loop runs it
+        on every round, over a document it has just written, and it wants none of
+        the drawings, images, links or style flags that `parse_pdf` builds.
+
+        Both anchors are reported because which one the loop should use is a
+        measured question with a counter-intuitive answer, and the measurement is
+        worth keeping available. The loop subtracts a source y from a rendered y
+        over two differently-typeset documents, so a line-box TOP carries a
+        per-font metric convention that does not cancel, while a BASELINE is a
+        number in the content stream and does. Baselines are therefore the
+        physically correct anchor, and the writer's own vertical model is
+        baseline-anchored (THEORY 3.1).
+
+        Measured anyway, on the canonical corpus: switching the loop to baselines
+        took the incumbent's mean within-2pt from **0.511 to 0.478**. It fixed the
+        two documents that the box-top anchor cost under PDFium and broke others
+        -- 05_memo 0.64 -> 0.48, r1_reportlab_report 0.60 -> 0.32, while
+        04_exec_brief gained 0.22 -> 0.44. This is the *same* result as the
+        line-box escalation in STATUS D2, in a second location: the `space_before`
+        chain the offsets are fed into is itself calibrated against a box-top
+        origin, so moving the anchor alone desynchronises the correction from the
+        thing it corrects. Both must move together, which is a project rather than
+        a patch. The loop uses box tops.
+
 The IR contract itself is exactdoc/model.py; this module names the operations
 so a second implementation has somewhere to live.
 """
-from typing import Optional, Protocol, Tuple
+from typing import List, Optional, Protocol, Tuple
 
 from .model import DocIR
 
 BBox = Tuple[float, float, float, float]
+# (text, y_top, y_baseline, y_bottom)
+PageLines = List[List[Tuple[str, float, float, float]]]
 
 
 class Backend(Protocol):
-    """Structural interface. PyMuPDF is the only implementation today."""
+    """Structural interface. Two shipped implementations, plus registrations.
+
+    Selected once per conversion, by name, from `ConversionOptions.backend` --
+    not by an environment variable read at an arbitrary depth, and not by
+    assigning over a module global. `EXACTDOC_BACKEND` still works and is now the
+    lowest-priority source.
+
+    The seam stops at parsing and rendering, and that is the honest description
+    of where it stops being enough: the writer, the refiner and the verifier all
+    still reach for `fitz` directly, so a wheel installed without PyMuPDF fails
+    while importing `exactdoc.docxout`, before any of this gets a chance to
+    choose. Carrying the chosen backend through those three stages is the next
+    milestone (STATUS §3 item 2), and it is the real content of "the licence
+    flip", which was previously described as mechanical.
+    """
 
     name: str
 
@@ -89,6 +132,9 @@ class Backend(Protocol):
         ...
 
     def render_page(self, path: str, page_no: int, dpi: int = 110) -> Optional[bytes]:
+        ...
+
+    def page_lines(self, path: str) -> PageLines:
         ...
 
 
@@ -121,6 +167,29 @@ class PyMuPDFBackend:
         finally:
             doc.close()
 
+    def page_lines(self, path: str) -> PageLines:
+        import fitz
+        doc = fitz.open(path)
+        try:
+            out = []
+            for page in doc:
+                lines = []
+                for b in page.get_text("dict")["blocks"]:
+                    if b.get("type") != 0:
+                        continue
+                    for ln in b["lines"]:
+                        if not ln["spans"]:
+                            continue
+                        t = "".join(s["text"] for s in ln["spans"])
+                        if t.strip():
+                            lines.append((t, ln["bbox"][1],
+                                          ln["spans"][0]["origin"][1],
+                                          ln["bbox"][3]))
+                out.append(lines)
+            return out
+        finally:
+            doc.close()
+
 
 class PDFiumBackend:
     """Permissive backend, EXPERIMENTAL -- selectable, but not the default.
@@ -143,20 +212,22 @@ class PDFiumBackend:
     paragraph assembly, and line boundaries decide which text a figure or table
     region absorbs. A cluster classified differently rasterises a page.
 
-    End-to-end that costs **7 regressions** on the parity gate (was 9 before the
-    serif-flag fix, and 15 before block convergence). testkit/exp_regroup.py
-    grafts PyMuPDF's block boundaries onto this backend's geometry and shows the
-    cost is bimodal: grouping is the entire cause on c6_long (0.23 -> 0.73) and
-    c8_toc_links (0.63 -> 1.00), and none of it on c7_code or
-    r1_reportlab_report, which do not move.
+    End-to-end that cost 15 regressions before block convergence, then 9 before
+    the serif-flag fix, then 7, and it is now **0** against the ratified policy in
+    testkit/parity_policy.json: 11 same, 1 better, 2 expected divergences where
+    this backend is the correct one, and 2 accepted shortfalls bounded by recorded
+    numeric floors. testkit/exp_regroup.py grafts PyMuPDF's block boundaries onto
+    this backend's geometry and showed the cost was bimodal: grouping was the
+    entire cause on c6_long (0.23 -> 0.73) and c8_toc_links (0.63 -> 1.00), and
+    none of it on c7_code or r1_reportlab_report, which did not move.
 
-    So the remaining work is reproducing PyMuPDF's grouping decisions closely
-    enough that the downstream tuning still applies -- testkit/golden_ir.py is
-    the specification -- plus a cause for the code-heavy documents that grouping
-    does not explain. Superscript is still hardcoded False.
+    `superscript` is still hardcoded False, and measurement says leave it that
+    way: testkit/backend_superscript.py shows the writer never sees this flag --
+    `dialect` and `infer` recover superscript from geometry, and all 16 corpus
+    documents agree at the layout level, including the one that has any.
 
-    This is the measured cost of relicensing. It is a re-tune, not a rewrite,
-    and it is bounded -- but it is not free, and it buys no fidelity.
+    This was the measured cost of relicensing. It was a re-tune, not a rewrite,
+    and it bought no fidelity -- it bought a licence.
     """
 
     name = "pdfium"
@@ -167,35 +238,142 @@ class PDFiumBackend:
         from .parse_pdfium import parse_pdf
         return parse_pdf(path, keep_image_data=keep_image_data)
 
+    # Every native handle below is closed on the way out, in reverse order of
+    # acquisition. It was not: a parity run over 16 documents ended with pypdfium2
+    # printing "The following objects are still open and will now be closed" and
+    # listing 16 documents, 18 pages and 9 text pages. The interpreter's exit
+    # happened to collect them, which is not a resource policy -- a long-running
+    # process converting a queue of PDFs would hold every one of them until it
+    # died.
+    @staticmethod
+    def _png(bitmap) -> bytes:
+        """PIL image -> PNG bytes, releasing the native bitmap.
+
+        `PdfBitmap.to_pil()` returns a view backed by the bitmap's buffer, so the
+        bitmap must outlive the encode and must then be closed. Neither happened:
+        the bitmap was a temporary whose handle nothing released, one per rendered
+        page and per figure clip.
+        """
+        import io
+        try:
+            buf = io.BytesIO()
+            bitmap.to_pil().save(buf, format="PNG")
+            return buf.getvalue()
+        finally:
+            bitmap.close()
+
     def render_clip(self, path: str, page_no: int, clip: BBox,
                     dpi: int = 240) -> Optional[bytes]:
-        import io
         import pypdfium2 as pdfium
         doc = pdfium.PdfDocument(path)
-        page = doc[page_no - 1]
-        h = page.get_height()
-        scale = dpi / 72.0
-        pil = page.render(scale=scale, crop=(clip[0], h - clip[3],
-                                             page.get_width() - clip[2],
-                                             clip[1])).to_pil()
-        buf = io.BytesIO()
-        pil.save(buf, format="PNG")
-        return buf.getvalue()
+        try:
+            page = doc[page_no - 1]
+            try:
+                h = page.get_height()
+                return self._png(page.render(
+                    scale=dpi / 72.0,
+                    crop=(clip[0], h - clip[3],
+                          page.get_width() - clip[2], clip[1])))
+            finally:
+                page.close()
+        finally:
+            doc.close()
 
     def render_page(self, path: str, page_no: int, dpi: int = 110) -> Optional[bytes]:
-        import io
         import pypdfium2 as pdfium
         doc = pdfium.PdfDocument(path)
-        pil = doc[page_no - 1].render(scale=dpi / 72.0).to_pil()
-        buf = io.BytesIO()
-        pil.save(buf, format="PNG")
-        return buf.getvalue()
+        try:
+            page = doc[page_no - 1]
+            try:
+                return self._png(page.render(scale=dpi / 72.0))
+            finally:
+                page.close()
+        finally:
+            doc.close()
+
+    def page_lines(self, path: str) -> PageLines:
+        import pypdfium2 as pdfium
+        from .parse_pdfium import _build_lines, _page_chars
+        doc = pdfium.PdfDocument(path)
+        try:
+            out = []
+            for i in range(len(doc)):
+                page = doc[i]
+                try:
+                    textpage = page.get_textpage()
+                    try:
+                        chars = _page_chars(textpage, page.get_height())
+                    finally:
+                        textpage.close()
+                    lines = [(ln.text, ln.bbox[1], ln.baseline, ln.bbox[3])
+                             for ln in _build_lines(chars) if ln.text.strip()]
+                finally:
+                    page.close()
+                out.append(lines)
+            return out
+        finally:
+            doc.close()
 
 
-def get_backend(name: str = "pymupdf") -> Backend:
-    if name in ("pymupdf", "fitz", "default"):
-        return PyMuPDFBackend()
-    if name in ("pdfium", "pypdfium2"):
-        return PDFiumBackend()
-    raise ValueError("unknown backend %r (choose 'pymupdf' or the experimental "
-                     "'pdfium'; see the module docstring)" % name)
+_IMPLEMENTATIONS = {"pymupdf": PyMuPDFBackend, "pdfium": PDFiumBackend}
+_EXPERIMENTAL = {}
+
+
+class FunctionBackend:
+    """A backend built from a `parse_pdf` callable, for experiments.
+
+    The instruments in `testkit/` need to convert the corpus through a parse
+    function that is neither shipped backend -- PDFium geometry with PyMuPDF's
+    block boundaries grafted on (`exp_regroup.py`), or PyMuPDF with the Chromium
+    bullet fix applied (`exp_chromefix.py`). They did it by assigning
+    `exactdoc.convert.parse_pdf`, which worked only because `convert` happened to
+    hold the parser as a module global. The moment the backend was selected
+    through the seam instead, that assignment became a no-op that set an
+    attribute nobody read -- and an experiment that silently measures the default
+    is worse than one that crashes, because it produces a number.
+
+    So the seam takes registrations. Rendering falls through to a real backend,
+    because an experiment on grouping has no opinion about rasterising a clip.
+    """
+
+    experimental = True
+
+    def __init__(self, name, parse, renderer=None, license=None):
+        self.name = name
+        self._parse = parse
+        self._renderer = renderer or PyMuPDFBackend()
+        self.license = license
+
+    def parse_pdf(self, path: str, keep_image_data: bool = True) -> DocIR:
+        return self._parse(path, keep_image_data=keep_image_data)
+
+    def render_clip(self, path, page_no, clip, dpi: int = 240):
+        return self._renderer.render_clip(path, page_no, clip, dpi=dpi)
+
+    def render_page(self, path, page_no, dpi: int = 110):
+        return self._renderer.render_page(path, page_no, dpi=dpi)
+
+
+def register_backend(name: str, parse, renderer=None) -> str:
+    """Make `parse` selectable as `backend=name`. Returns the name.
+
+    For instruments and experiments only. Nothing in the package registers
+    anything, and a registered name is never a default.
+    """
+    if name in _IMPLEMENTATIONS:
+        raise ValueError("%r is a shipped backend; pick another name" % name)
+    _EXPERIMENTAL[name] = FunctionBackend(name, parse, renderer=renderer)
+    return name
+
+
+def get_backend(name: str = None) -> Backend:
+    """Instantiate a backend by name. Aliases resolve in options.py.
+
+    Name resolution lives in one place on purpose: an unrecognised backend name
+    that quietly fell back to the default would report numbers for a parser
+    nobody selected.
+    """
+    from .options import DEFAULT_BACKEND, canonical_backend
+    if name in _EXPERIMENTAL:
+        return _EXPERIMENTAL[name]
+    return _IMPLEMENTATIONS[canonical_backend(name or DEFAULT_BACKEND)]()

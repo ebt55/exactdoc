@@ -621,9 +621,10 @@ def _pitch_by_size(lines: List[Line]) -> dict:
     Text of one size shares one leading, so the reference is computed within
     each size and only falls back to the page when a size has too few samples
     to be worth trusting. This is not the sliding window that was tried and
-    reverted (SESSIONS.md, `local_pitch`): a window has no idea what it is
-    averaging over and cut 02_research_paper's paragraphs in half, whereas a
-    size bucket is a property of the text itself.
+    reverted: a window averages over whatever happens to be nearby, has no idea
+    what it is averaging over, and cut `02_research_paper`'s paragraphs in half
+    by mixing body text with heading leading. A size bucket is a property of the
+    text itself rather than of the window, which is why it survives.
     """
     buckets = {}
     for a, b in zip(lines, lines[1:]):
@@ -972,7 +973,15 @@ def _page_images(page, page_h, keep_data) -> List[ImageObj]:
 
 
 def _page_links(page, textpage, page_h):
+    """Web-link rectangles for a page.
+
+    `FPDFLink_LoadWebLinks` returns a native handle that the caller owns, and it
+    was never released -- one leaked page-link set per page, invisible because
+    pypdfium2's exit-time warning only names the objects it wraps. The
+    close is in a `finally` so an exception mid-iteration cannot skip it.
+    """
     links = []
+    wl = None
     try:
         wl = raw.FPDFLink_LoadWebLinks(textpage.raw)
         if wl:
@@ -993,35 +1002,61 @@ def _page_links(page, textpage, page_h):
                                   "uri": uri})
     except Exception:
         pass
+    finally:
+        if wl:
+            try:
+                raw.FPDFLink_CloseWebLinks(wl)
+            except Exception:
+                pass
     return links
 
 
 def parse_pdf(path: str, keep_image_data: bool = True) -> DocIR:
+    """Parse a PDF into the backend-neutral IR.
+
+    Every native handle is closed on the way out, in reverse order of acquisition.
+    None of them was: a parity run over 16 documents ended with pypdfium2 printing
+    "The following objects are still open and will now be closed" and listing the
+    documents, pages and text pages this function had opened. Interpreter exit
+    collected them, which is not a resource policy -- a worker process converting a
+    queue would hold a native document per job until it died, and PDF documents are
+    not small in MuPDF or PDFium.
+    """
     doc = pdfium.PdfDocument(path)
-    meta = {}
     try:
-        meta = {k.lower(): v for k, v in (doc.get_metadata_dict() or {}).items()}
-    except Exception:
-        pass
-    ir = DocIR(path=path, meta=meta)
-    for pno in range(len(doc)):
-        page = doc[pno]
-        w, h = page.get_width(), page.get_height()
-        pir = PageIR(number=pno + 1, width=w, height=h)
-        tp = page.get_textpage()
-        pir.links = _page_links(page, tp, h)
-        lines = _build_lines(_page_chars(tp, h))
-        for sp in (s for l in lines for s in l.spans):
-            for lk in pir.links:
-                lb = lk["bbox"]
-                ov = (max(0, min(sp.bbox[2], lb[2]) - max(sp.bbox[0], lb[0])) *
-                      max(0, min(sp.bbox[3], lb[3]) - max(sp.bbox[1], lb[1])))
-                if ov > 0.5 * max(1e-6, (sp.bbox[2] - sp.bbox[0]) *
-                                  (sp.bbox[3] - sp.bbox[1])):
-                    sp.link = lk["uri"]
-                    break
-        pir.blocks = _build_blocks(lines, w)
-        pir.drawings = _page_paths(page, h)
-        pir.images = _page_images(page, h, keep_image_data)
-        ir.pages.append(pir)
-    return ir
+        meta = {}
+        try:
+            meta = {k.lower(): v
+                    for k, v in (doc.get_metadata_dict() or {}).items()}
+        except Exception:
+            pass
+        ir = DocIR(path=path, meta=meta)
+        for pno in range(len(doc)):
+            page = doc[pno]
+            try:
+                w, h = page.get_width(), page.get_height()
+                pir = PageIR(number=pno + 1, width=w, height=h)
+                tp = page.get_textpage()
+                try:
+                    pir.links = _page_links(page, tp, h)
+                    lines = _build_lines(_page_chars(tp, h))
+                finally:
+                    tp.close()
+                for sp in (s for l in lines for s in l.spans):
+                    for lk in pir.links:
+                        lb = lk["bbox"]
+                        ov = (max(0, min(sp.bbox[2], lb[2]) - max(sp.bbox[0], lb[0])) *
+                              max(0, min(sp.bbox[3], lb[3]) - max(sp.bbox[1], lb[1])))
+                        if ov > 0.5 * max(1e-6, (sp.bbox[2] - sp.bbox[0]) *
+                                          (sp.bbox[3] - sp.bbox[1])):
+                            sp.link = lk["uri"]
+                            break
+                pir.blocks = _build_blocks(lines, w)
+                pir.drawings = _page_paths(page, h)
+                pir.images = _page_images(page, h, keep_image_data)
+            finally:
+                page.close()
+            ir.pages.append(pir)
+        return ir
+    finally:
+        doc.close()

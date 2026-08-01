@@ -1,85 +1,90 @@
-"""Convert every PDF in the given directories and score with the harness.
+"""Convert the manifest corpus, score it with the harness, and gate on it.
 
-    python testkit/runall.py testkit/adv corpus/pdfs
-    REFINE=lanes python testkit/runall.py testkit/adv corpus/pdfs
+    python testkit/runall.py                        # both lanes, the default
+    python testkit/runall.py --lane product         # one lane
+    python testkit/runall.py --absolute             # release-qualification gate
+    GATE_BASELINE=update python testkit/runall.py   # re-record the numbers
 
-Writes batch/results.json plus side-by-side comparison PNGs per document.
+Two lanes always run, because `refine()` tunes the layout against the same
+renderer the gate then measures with: a refined-only number can improve because
+the loop memorised the oracle rather than because the converter got better. The
+`raw` lane is the uncontaminated control, the `product` lane is what ships
+(`exactdoc.options.PRODUCT`), and **the exit code gates on both**. It used to
+gate on the refined lane alone, so a raw-lane regression could not fail the
+build -- which meant the control lane, the one whose whole purpose is to be
+untainted, was the one nobody had to answer for.
 
-Exit code is non-zero on a NEW failure, so this doubles as a CI check. Not on
-any failure: three corpus documents have never cleared the thresholds (D3
-nested tables, D4 rounded cards, and the exec brief's live-text coverage), so
-"exit 1 if anything fails" meant the gate returned 1 on every run it had ever
-made. A check that always fails carries the same information as one that always
-passes, and it is why the CI step had to be marked continue-on-error to keep
-the build usable -- which in turn meant nothing was actually gated.
+The decision itself is `testkit/gate.py`, tested independently in
+`tests/test_gate_mutations.py`. This file's job is to produce numbers and hand
+them over; it makes no policy of its own.
 
-So the known-failing set is recorded per lane in gate_baseline.json, measured
-on the canonical Linux environment, and this exits non-zero when a document
-fails that the record says should pass, or fails on a metric the record does
-not list for it. A document that PASSES while the record says it fails is also
-an error: the record is then stale, and a stale record silently re-admits the
-regression it was meant to catch. Re-record deliberately:
-
-    GATE_BASELINE=update REFINE=lanes python testkit/runall.py ...
+Writes, per lane, into testkit/batch/lane_<name>/:
+    results.json    every harness result
+    verdict.json    what the gate decided and why
+and folds both, plus the environment, into testkit/batch/evidence.json.
 """
-import os, sys, json, time, glob, traceback
+import argparse
+import glob
+import json
+import os
+import sys
+import time
+import traceback
 
 import _paths  # noqa: F401
+import evidence
+import gate
 import harness
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
+PROJECT = os.path.dirname(ROOT)
 OUT = os.path.join(ROOT, "batch")
-BASELINE = os.path.join(ROOT, "gate_baseline.json")
-
-# CI gate: a conversion must clear all of these.
-GATE = {"page_match": True, "live_text_cov": 0.95, "doc_recall": 0.95,
-        "word_recall": 0.90}
+EVIDENCE = os.path.join(OUT, "evidence.json")
 
 
-def _load_baseline(lane):
-    """{document: [failing metric, ...]} for this lane; empty if unrecorded."""
-    if not os.path.exists(BASELINE):
-        return {}
-    with open(BASELINE) as f:
-        return json.load(f).get("lanes", {}).get(lane, {})
+# ------------------------------------------------------------------- the corpus
+def resolve_corpus(manifest, dirs=None):
+    """-> (paths, problems). The frozen fixtures, verified byte-for-byte.
+
+    The corpus is 16 committed PDFs pinned by SHA-256, not a directory that a
+    generator refilled before the run. It was the latter, and the numbers were
+    not reproducible because of it: the baseline was recorded against a corpus
+    built with Chromium 149, CI runs a runner that ships Chromium 150, and
+    `c4_i18n` came out a different file with 5x the vertical drift. See
+    `corpus_manifest.py` for the full account.
+
+    Identity is checked here rather than trusted, so a run cannot proceed on
+    inputs that are not the inputs the baseline describes.
+    """
+    import corpus_manifest
+    problems, paths = [], []
+    for kind, doc, why in corpus_manifest.verify(manifest):
+        problems.append((kind, doc, why))
+    bad = set(d for k, d, _ in problems if k in ("missing", "identity",
+                                                 "unmeasured", "duplicate"))
+    for doc_id in sorted(manifest.get("documents", {})):
+        if doc_id in bad:
+            continue
+        paths.append(corpus_manifest.fixture_path(doc_id, manifest))
+    return paths, problems
 
 
-def _save_baseline(lane, failing):
-    data = {"lanes": {}}
-    if os.path.exists(BASELINE):
-        with open(BASELINE) as f:
-            data = json.load(f)
-    data.setdefault("lanes", {})[lane] = {k: sorted(v) for k, v in failing.items()}
-    data["_note"] = ("Documents known to miss the gate, per lane, measured on "
-                     "the canonical Linux environment (see gate.yml). A new "
-                     "entry needs a defect ID in STATUS.md; a removed one "
-                     "means something got fixed. Regenerate deliberately with "
-                     "GATE_BASELINE=update, never to silence a failure.")
-    with open(BASELINE, "w") as f:
-        json.dump(data, f, indent=1, sort_keys=True)
-    print("recorded baseline for lane '%s' in %s" % (lane, BASELINE))
-
-
-def main(dirs, out=OUT, gate=True, refine_rounds=None):
-    if refine_rounds is None:
-        env = os.environ.get("REFINE", "0")
-        refine_rounds = int(env) if env.isdigit() else 0
-    os.makedirs(out, exist_ok=True)
-    pdfs = []
-    for d in dirs:
-        pdfs += sorted(glob.glob(os.path.join(d, "*.pdf")))
-    if not pdfs:
-        print("no PDFs found in", dirs)
-        return 2
-
+# ------------------------------------------------------------------- one lane
+def run_lane(lane, paths, options, out_dir, baseline=None, manifest=None,
+             absolute=False, save_images=True):
+    """Convert + score + gate one lane. Returns (results, verdict)."""
     from exactdoc.convert import convert
+
+    os.makedirs(out_dir, exist_ok=True)
     results, converted = [], []
-    for p in pdfs:
+    print("\n================ lane: %s (%s) ================"
+          % (lane, options.profile_id()))
+    for p in paths:
         name = os.path.splitext(os.path.basename(p))[0]
-        docx = os.path.join(out, name + ".docx")
+        docx = os.path.join(out_dir, name + ".docx")
         t0 = time.time()
         try:
-            convert(p, docx, refine_rounds=refine_rounds)
+            convert(p, docx, options=options)
             converted.append((p, docx, round(time.time() - t0, 2)))
         except Exception as e:
             results.append({"src": os.path.basename(p),
@@ -89,16 +94,16 @@ def main(dirs, out=OUT, gate=True, refine_rounds=None):
 
     print("\n-- LibreOffice batch render --")
     rmap = harness.batch_docx_to_pdf([d for _, d, _ in converted],
-                                     os.path.join(out, "rendered"))
+                                     os.path.join(out_dir, "rendered"))
     print("rendered %d/%d" % (sum(1 for v in rmap.values() if v), len(rmap)))
 
     print("\n-- scoring --")
     for p, docx, secs in converted:
         name = os.path.splitext(os.path.basename(p))[0]
         try:
-            r = harness.evaluate(p, docx, os.path.join(out, "rendered"),
-                                 save_images=True,
-                                 img_dir=os.path.join(out, "cmp_" + name))
+            r = harness.evaluate(p, docx, os.path.join(out_dir, "rendered"),
+                                 save_images=save_images,
+                                 img_dir=os.path.join(out_dir, "cmp_" + name))
             r["convert_s"] = secs
             results.append(r)
             print(harness.brief(r))
@@ -107,109 +112,116 @@ def main(dirs, out=OUT, gate=True, refine_rounds=None):
                             "eval_error": "%s: %s" % (type(e).__name__, e)})
             print("EVAL FAIL    %-28s %s" % (name, e))
 
-    with open(os.path.join(out, "results.json"), "w") as f:
+    with open(os.path.join(out_dir, "results.json"), "w") as f:
         json.dump(results, f, indent=1)
+    verdict = gate.check(lane, results, manifest=manifest, baseline=baseline,
+                         absolute=absolute)
+    with open(os.path.join(out_dir, "verdict.json"), "w") as f:
+        json.dump(verdict.as_dict(), f, indent=1)
+    print("\n" + verdict.report())
+    return results, verdict
 
-    fails = []
-    failing = {}                    # {document: {metric, ...}} for the baseline
-    for r in results:
-        if "convert_error" in r or "eval_error" in r:
-            fails.append((r["src"], "did not convert/score"))
-            failing.setdefault(r["src"], set()).add("convert_or_eval")
-            continue
-        for k, thr in GATE.items():
-            v = r.get(k)
-            if v is None:
-                continue
-            if (thr is True and v is not True) or (thr is not True and v < thr):
-                fails.append((r["src"], "%s=%s (want %s)" % (k, v, thr)))
-                failing.setdefault(r["src"], set()).add(k)
-    print("\n%d/%d documents pass the gate" % (len(results) - len(failing),
-                                               len(results)))
-    for s, why in fails:
-        print("  FAIL %-34s %s" % (s[:34], why))
-    print("\nwrote", os.path.join(out, "results.json"))
-    if not gate:
+
+# ----------------------------------------------------------------------- main
+def main(argv=None):
+    from exactdoc.options import LANES
+
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("dirs", nargs="*", default=None,
+                    help="(compatibility) extra directories to cross-check for "
+                         "unexpected documents; the corpus itself comes from "
+                         "the manifest")
+    ap.add_argument("--lane", choices=sorted(LANES) + ["both"], default="both")
+    ap.add_argument("--absolute", action="store_true",
+                    help="also apply the release-qualification thresholds")
+    ap.add_argument("--backend", default=None,
+                    help="override the profile's backend for every lane")
+    ap.add_argument("--no-images", action="store_true",
+                    help="skip the side-by-side comparison PNGs")
+    ap.add_argument("--out", default=OUT)
+    ap.add_argument("--evidence", default=None,
+                    help="evidence JSON to merge into (default <out>/evidence.json)")
+    a = ap.parse_args(argv)
+    updating = os.environ.get("GATE_BASELINE") == "update"
+
+    manifest = gate.load_manifest()
+    if manifest is None:
+        print("no corpus manifest at %s -- the gate cannot know which documents "
+              "it is supposed to have measured." % gate.MANIFEST_PATH)
+        return 2
+    paths, problems = resolve_corpus(manifest, a.dirs or None)
+    for kind, doc, why in problems:
+        print("CORPUS %-11s %-28s %s" % (kind, doc[:28], why))
+    if not paths:
+        print("no corpus documents resolved; run the generators first")
+        return 2
+
+    env = evidence.environment()
+    if not env["canonical"]:
+        print("\nNOTE: %s is not the canonical environment. CI Linux is the "
+              "number of record; local runs render with different fonts and may "
+              "legitimately differ inside tolerance." % env["os"])
+
+    lanes = sorted(LANES) if a.lane == "both" else [a.lane]
+    if updating and a.lane != "both":
+        print("refusing to record a baseline for one lane: the raw lane exists to "
+              "be compared against the product lane, and two lanes recorded from "
+              "different runs describe different code.")
+        return 2
+    verdicts, lane_evidence, records = {}, {}, {}
+    for lane in lanes:
+        options = LANES[lane]
+        if a.backend:
+            options = options.replace(backend=a.backend)
+        out_dir = os.path.join(a.out, "lane_" + lane)
+        baseline = None if updating else gate.load_lane(lane)
+        results, verdict = run_lane(
+            lane, paths, options, out_dir, baseline=baseline, manifest=manifest,
+            absolute=a.absolute, save_images=not a.no_images)
+        verdicts[lane] = verdict
+        rec = gate.record(lane, results)
+        records[lane] = rec
+        lane_evidence[lane] = {"profile": options.as_dict(),
+                               "profile_id": options.profile_id(),
+                               "documents": rec["documents"],
+                               "aggregate": rec["aggregate"],
+                               "verdict": verdict.as_dict(),
+                               "results": results}
+
+    # One write, after every lane has run, or none at all.
+    if updating:
+        try:
+            gate.check_recordable(records, manifest, env)
+        except gate.RecordRefused as e:
+            print("\nBASELINE NOT RECORDED\n  %s" % e)
+            return 2
+        gate.save_lanes(records, environment=env)
+        print("\nrecorded numeric baseline for %s" % ", ".join(sorted(records)))
+
+    ev_path = a.evidence or os.path.join(a.out, "evidence.json")
+    shipped = LANES.get("product")
+    profile = dict(shipped.as_dict(), profile_id=shipped.profile_id()) \
+        if "product" in lanes else None
+    evidence.merge(ev_path, git=evidence.git_state(), environment=env,
+                   profile=profile,
+                   corpus={"manifest_documents": len(manifest.get("documents", {})),
+                           "resolved": len(paths),
+                           "problems": [{"kind": k, "document": d, "detail": w}
+                                        for k, d, w in problems]},
+                   lanes=lane_evidence)
+    print("\n-- evidence --\n%s" % evidence.summarise(
+        json.load(open(ev_path))))
+    print("\nwrote %s" % ev_path)
+
+    if problems:
+        print("\nThe corpus did not match the manifest. Numbers from an "
+              "incomplete or unexpected corpus are not comparable to the "
+              "baseline, so this is a failure and not a warning.")
+        return 1
+    if updating:
         return 0
-
-    lane = os.path.basename(out)
-    if os.environ.get("GATE_BASELINE") == "update":
-        _save_baseline(lane, failing)
-        return 0
-
-    known = _load_baseline(lane)
-    novel, stale = [], []
-    for doc, metrics in sorted(failing.items()):
-        allowed = set(known.get(doc, []))
-        for m in sorted(metrics - allowed):
-            novel.append((doc, m))
-    for doc, metrics in sorted(known.items()):
-        now = failing.get(doc, set())
-        if not now:
-            stale.append((doc, "passes now; recorded as failing"))
-        else:
-            for m in sorted(set(metrics) - now):
-                stale.append((doc, "%s passes now; recorded as failing" % m))
-
-    if not known:
-        print("\nno recorded baseline for lane '%s' -- gating on any failure."
-              "\nRecord one with GATE_BASELINE=update once the run is trusted."
-              % lane)
-        return 1 if fails else 0
-    print("\n%d known failure(s) in the record, %d new, %d stale"
-          % (sum(len(v) for v in known.values()), len(novel), len(stale)))
-    for doc, m in novel:
-        print("  NEW FAILURE  %-30s %s" % (doc[:30], m))
-    for doc, why in stale:
-        print("  STALE RECORD %-30s %s" % (doc[:30], why))
-    if novel or stale:
-        print("\nThe record is measured on CI Linux, which is the number of "
-              "record;\nlocal runs render with different fonts and may "
-              "legitimately differ.")
-    if stale:
-        print("A stale record silently re-admits the regression it was meant "
-              "to catch.\nRe-record with GATE_BASELINE=update and say so in the "
-              "commit message.")
-    return 1 if (novel or stale) else 0
-
-
-def lanes(dirs):
-    """Run the gate twice -- refine OFF and refine ON -- and report both.
-
-    refine() tunes the layout against the same renderer the gate then measures
-    with, so a refined-only number can improve because the loop memorised the
-    oracle rather than because the converter got better. The no-refine lane is
-    the uncontaminated number; the refined lane is the product default. Both
-    are always printed side by side, and the exit code gates on the refined
-    lane (what users get) while regressions in the raw lane stay visible.
-    """
-    import statistics as st
-    results = {}
-    for tag, rr in (("norefine", 0), ("refine", 3)):
-        print("\n================ lane: %s ================" % tag)
-        out = os.path.join(OUT, "lane_" + tag)
-        code = main(dirs, out=out, gate=True, refine_rounds=rr)
-        with open(os.path.join(out, "results.json")) as f:
-            results[tag] = (code, json.load(f))
-    print("\n================ lane comparison ================")
-    print("%-10s %-9s %-11s %-9s %-9s" %
-          ("lane", "pagematch", "within2pt", "livetext", "dy50med"))
-    for tag in ("norefine", "refine"):
-        _, rows = results[tag]
-        ok = [r for r in rows if "convert_error" not in r and "eval_error" not in r]
-        if not ok:
-            print("%-10s (no results)" % tag)
-            continue
-        print("%-10s %d/%-7d %-11.3f %-9.4f %-9.2f" % (
-            tag, sum(1 for r in ok if r.get("page_match")), len(ok),
-            st.mean(r.get("within2pt", 0) for r in ok),
-            st.mean(r.get("live_text_cov", 0) for r in ok),
-            st.median([r.get("dy_p50", 0) for r in ok])))
-    return results["refine"][0]
+    return 0 if all(v.ok for v in verdicts.values()) else 1
 
 
 if __name__ == "__main__":
-    args = sys.argv[1:] or [os.path.join(ROOT, "adv")]
-    if os.environ.get("REFINE", "") == "lanes":
-        sys.exit(lanes(args))
-    sys.exit(main(args))
+    sys.exit(main())

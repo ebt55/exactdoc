@@ -449,7 +449,7 @@ PURE_PYTHON_DOCS = (r1_reportlab, f1_fpdf)      # no external tool needed
 SOFFICE_DOCS = (l1_libreoffice,)
 
 
-def main():
+def main(strict=None):
     """Generate what this machine can, and say plainly what it could not.
 
     A missing external tool is a SKIP (exit 0, listed): the ReportLab and fpdf2
@@ -459,7 +459,16 @@ def main():
     subprocess with CHROME=None and died on a bare TypeError before writing a
     single file, which is the "gate that cannot run" failure mode this
     repository has already been bitten by once (STATUS.md §5).
+
+    `--strict` makes a skip fatal too, and CI passes it. The distinction is
+    right for a contributor on a thin machine and wrong for the environment of
+    record: measured in a bare container, this printed "SKIPPED 8 document(s)"
+    and "gate numbers are NOT comparable", then exited 0, and the gate went on
+    to score the 8 documents that did exist against a 16-document baseline.
+    Prose that the next step ignores is not a safeguard.
     """
+    if strict is None:
+        strict = "--strict" in sys.argv[1:]
     os.makedirs(HTML, exist_ok=True)
     print("capabilities: chromium=%s  soffice=%s" %
           (CHROME or "MISSING", SOFFICE or "MISSING"))
@@ -513,6 +522,11 @@ def main():
               "deliver:" % len(failed))
         for name, why in failed:
             print("  %-20s %s" % (name, why))
+        return 1
+    if skipped and strict:
+        print("\n--strict: an incomplete corpus is a failure here. Provision "
+              "the missing tool (scripts/bootstrap.sh) or drop --strict and "
+              "accept that the numbers describe a different corpus.")
         return 1
     return 0
 

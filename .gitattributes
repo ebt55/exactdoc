@@ -8,3 +8,17 @@
 # Same reasoning for anything a Linux runner executes or parses strictly.
 *.yml text eol=lf
 *.yaml text eol=lf
+
+# scripts/fonts.conf is HASHED into the canonical environment fingerprint
+# (testkit/evidence.py), so its bytes are a gated value rather than just
+# configuration. Authored on Windows it got CRLF, and the recorded digest
+# 924510e8... was then unreproducible on any Linux checkout, which computes
+# 84d4357a... -- so the canonical reference was invalid on CI and on a fresh
+# clone, the two places it has to work. Anything whose bytes reach a fingerprint
+# must have exactly one spelling.
+*.conf text eol=lf
+
+# The frozen corpus fixtures are byte-exact inputs pinned by SHA-256. Any line
+# ending translation would change their hashes and make every gate run fail on a
+# corpus identity check -- which is precisely the check they exist to satisfy.
+testkit/fixtures/*.pdf binary

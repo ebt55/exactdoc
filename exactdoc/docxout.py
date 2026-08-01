@@ -6,11 +6,11 @@ headers/footers with PAGE/NUMPAGES fields, hyperlinks, tab stops.
 No floating text boxes, no embedded fonts, no VML.
 """
 import copy
+import dataclasses
 import io
 import re
-from typing import Optional, List
+from typing import Callable, Optional, List
 
-import fitz
 from docx import Document
 from docx.shared import Pt, Emu, RGBColor, Twips
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING, WD_TAB_ALIGNMENT, WD_BREAK
@@ -23,6 +23,32 @@ from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from .layout import (DocLayout, Para, Run, Cell, TableEl, FigureEl, ImageEl,
                      RuleEl, ColBreak, HFPart)
 from .fonts import map_font
+from .metrics import source_line_width
+
+
+@dataclasses.dataclass(frozen=True)
+class WriteCtx:
+    """Everything a write needs to know that is not in the DocLayout.
+
+    This replaces a module global. `LINE_MODE` was set by `write_docx` and
+    restored in a `finally`, so two conversions running concurrently with
+    different targets could each observe the other's line-height encoding --
+    silently, and only in the overlap. A frozen object passed down the call tree
+    cannot do that.
+
+    `render_clip(page_no, clip, dpi) -> png bytes | None` is how a figure region
+    reaches the writer. It used to be an open MuPDF document handed down five
+    call levels, which is what put `import fitz` at the top of this module and
+    made a wheel without PyMuPDF fail while *importing the writer* -- before any
+    backend selection could happen.
+    """
+
+    line_mode: str = "exact"
+    dpi: int = 240
+    render_clip: Optional[Callable] = None
+
+
+_DEFAULT_CTX = WriteCtx()
 
 ALIGN = {
     "left": WD_ALIGN_PARAGRAPH.LEFT, "center": WD_ALIGN_PARAGRAPH.CENTER,
@@ -163,7 +189,21 @@ NATURAL_FACTORS = {
     "georgia": 1.130, "roboto": 1.194,
 }
 NATURAL_DEFAULT = 1.144
-LINE_MODE = "exact"          # set to "multiple" for the gdocs target
+# The two encodings. Which one is used is a per-write decision carried in
+# WriteCtx.line_mode, not a module global -- see WriteCtx.
+LINE_MODES = ("exact", "multiple")
+
+
+def line_mode_for(output_profile: str) -> str:
+    """Word and LibreOffice honour lineRule="exact"; Google Docs mistranslates it.
+
+    Keyed on the OUTPUT PROFILE, not on which renderer the refinement loop talks
+    to. Those were one field, so "write OOXML that survives Google Docs" was
+    inseparable from "upload this document to Google" -- and the offline
+    Docs-safe profile, which is what this project intends to ship, could not be
+    expressed at all.
+    """
+    return "multiple" if output_profile == "gdocs" else "exact"
 
 # Floor on compressing a table row's leading to make it fit its source height.
 # Below this the text starts to collide with its neighbours, and an honestly
@@ -175,10 +215,9 @@ def _natural_factor(family: str) -> float:
     return NATURAL_FACTORS.get((family or "").lower(), NATURAL_DEFAULT)
 
 
-def _apply_leading(pf, leading: float, size: float, mode: str = None,
+def _apply_leading(pf, leading: float, size: float, mode: str = "exact",
                    family: str = ""):
-    """Encode a line height the way the current target actually honours."""
-    mode = mode or LINE_MODE
+    """Encode a line height the way the chosen target actually honours."""
     if mode == "multiple" and size and size > 0.5 and leading > 1.0:
         natural = size * _natural_factor(family)
         pf.line_spacing = max(0.06, leading / natural)   # w:line as a multiple
@@ -236,8 +275,9 @@ def _wrap_correction(p: Para, content_w: float) -> float:
     return wrap_w * (1.0 - k)
 
 
-def write_para(container, p: Para, content_w: float, par=None):
+def write_para(container, p: Para, content_w: float, par=None, ctx=None):
     """Write a Para into container (doc/cell/header). Returns the paragraph."""
+    ctx = ctx or _DEFAULT_CTX
     if par is None:
         par = container.add_paragraph()
     # NB: local, not `p.right_indent +=`. The refine loop writes the same
@@ -261,7 +301,7 @@ def write_para(container, p: Para, content_w: float, par=None):
                     w[key] = w.get(key, 0) + len(r.text)
             if w:
                 dom, fam = max(w, key=w.get)
-        _apply_leading(pf, p.leading, dom, family=fam)
+        _apply_leading(pf, p.leading, dom, mode=ctx.line_mode, family=fam)
     if p.left_indent > 0.05:
         pf.left_indent = Pt(round(p.left_indent, 1))
     if abs(p.first_indent) > 0.05:
@@ -338,29 +378,31 @@ def _spacer(container, height_pt: float):
 
 
 def _cell_text_width(cell) -> float:
-    """Widest single source line in the cell, in pt, via base-14 metrics.
+    """Widest single source line in the cell, in pt. 0 when unmeasurable.
 
-    Returns 0 when any run's font has no metric-compatible base-14 equivalent
-    -- an unmeasurable requirement must not force a resize."""
-    import fitz
-    from .ladder import _b14
+    This used to re-shape the text through MuPDF's base-14 metric tables, and
+    that was both the writer's only hard dependency on PyMuPDF and a worse answer
+    than the one already in the IR. `infer` records the width of every source line
+    from its bbox, so for the question this function exists to answer -- is this
+    column too narrow for content that occupied exactly one line in the source? --
+    the source's own measurement is what actually happened rather than a
+    prediction of what will happen. The font mapping is metric-compatible by
+    design (Helvetica->Arial, Times->Times New Roman) precisely so the two agree.
+
+    Unmeasurable still returns 0, and the caller still declines to resize on 0. It
+    is reached differently now: not "this font has no base-14 equivalent" but
+    "this paragraph wrapped in the source, so its width is the column's and says
+    nothing about what the content needs", or "the cell was built by a path that
+    records no line widths". An absent fact must not be read as a width of zero,
+    which is why `source_line_width` returns None and this converts it here.
+    """
     widest = 0.0
     for p in cell.paras:
-        if p.src_lines > 1 or "\n" in p.text:
+        if "\n" in p.text:
             continue                     # multi-line in source: allowed to wrap
-        w = 0.0
-        for r in p.runs:
-            if r.is_tab or not r.text:
-                continue
-            fn = _b14(map_font(r.font, mono=r.mono, serif=r.serif),
-                      r.bold, r.italic)
-            if fn is None:
-                return 0.0
-            try:
-                w += fitz.get_text_length(r.text, fontname=fn, fontsize=r.size)
-            except Exception:
-                return 0.0
-        widest = max(widest, w)
+        w = source_line_width(p)
+        if w is not None:
+            widest = max(widest, w)
     return widest
 
 
@@ -430,7 +472,8 @@ def _fit_col_widths(t: TableEl, content_w: float = 0.0) -> List[float]:
     return widths
 
 
-def write_table(container, t: TableEl, content_w: float):
+def write_table(container, t: TableEl, content_w: float, ctx=None):
+    ctx = ctx or _DEFAULT_CTX
     n_rows = len(t.rows)
     n_cols = len(t.col_widths)
     if n_rows == 0 or n_cols == 0:
@@ -565,9 +608,9 @@ def write_table(container, t: TableEl, content_w: float):
                     return q
                 first = cell.paragraphs[0]
                 write_para(cell, _depadded(spec.paras[0]), t.col_widths[ci],
-                           par=first)
+                           par=first, ctx=ctx)
                 for p in spec.paras[1:]:
-                    write_para(cell, _depadded(p), t.col_widths[ci])
+                    write_para(cell, _depadded(p), t.col_widths[ci], ctx=ctx)
             else:
                 _blank_cell(cell)
     return tbl
@@ -584,11 +627,24 @@ def _blank_cell(cell):
     r.font.size = Pt(1)
 
 
-def write_figure(container, fig: FigureEl, src_doc, dpi: int = 240):
-    page = src_doc[fig.page_no - 1]
-    clip = fitz.Rect(*fig.clip)
-    pix = page.get_pixmap(clip=clip, dpi=dpi, alpha=False)
-    data = pix.tobytes("png")
+def write_figure(container, fig: FigureEl, ctx=None, dpi: int = None):
+    """Rasterise a figure region through the conversion's backend.
+
+    `ctx.render_clip` replaces an open MuPDF document that used to be threaded
+    down from `_write_docx`. A figure clip is a *rendering* operation, which the
+    backend seam has always declared (`Backend.render_clip`) and which this writer
+    was reaching around.
+
+    Returns None if there is no renderer, and the caller then omits the figure --
+    an honest empty space rather than a crash, and a warning once REL-01 lands.
+    """
+    ctx = ctx or _DEFAULT_CTX
+    dpi = ctx.dpi if dpi is None else dpi
+    if ctx.render_clip is None:
+        return None
+    data = ctx.render_clip(fig.page_no, fig.clip, dpi)
+    if not data:
+        return None
     par = container.add_paragraph()
     pf = par.paragraph_format
     pf.space_before = Pt(round(max(0.0, fig.space_before), 1))
@@ -687,8 +743,9 @@ def _shifted_part(part: Optional[HFPart], dl: float, dr: float) -> Optional[HFPa
     return np
 
 
-def _fill_hf(hf_obj, part: Optional[HFPart], lay: DocLayout):
+def _fill_hf(hf_obj, part: Optional[HFPart], lay: DocLayout, ctx=None):
     """Fill a python-docx header/footer object with an HFPart."""
+    ctx = ctx or _DEFAULT_CTX
     hf_obj.is_linked_to_previous = False
     # clear default paragraph content
     first = hf_obj.paragraphs[0]
@@ -703,13 +760,13 @@ def _fill_hf(hf_obj, part: Optional[HFPart], lay: DocLayout):
     used_first = False
     for el in part.elements:
         if isinstance(el, TableEl):
-            write_table(hf_obj, el, lay.content_w)
+            write_table(hf_obj, el, lay.content_w, ctx=ctx)
         elif isinstance(el, Para):
             if not used_first:
-                write_para(hf_obj, el, lay.content_w, par=first)
+                write_para(hf_obj, el, lay.content_w, par=first, ctx=ctx)
                 used_first = True
             else:
-                write_para(hf_obj, el, lay.content_w)
+                write_para(hf_obj, el, lay.content_w, ctx=ctx)
         elif isinstance(el, RuleEl):
             write_rule(hf_obj, el, lay.content_w)
     if not used_first:
@@ -723,12 +780,25 @@ def _fill_hf(hf_obj, part: Optional[HFPart], lay: DocLayout):
 
 # ------------------------------------------------------------------ main
 def write_docx(lay: DocLayout, out_path: str, dpi: int = 240,
-               target: str = "libreoffice") -> str:
+               output_profile: str = "standard", backend=None, ctx=None) -> str:
     """Render a DocLayout to a .docx. Pure: `lay` is never modified.
 
-    `target` selects the line-height encoding (see LINE_MODE above): Word and
-    LibreOffice honour lineRule="exact", Google Docs mistranslates it, so the
-    gdocs target emits the same intent as a multiple instead.
+    `output_profile` selects the line-height encoding: Word and LibreOffice
+    honour lineRule="exact", Google Docs mistranslates it in a way that scales
+    with font size, so the gdocs profile emits the same intent as a multiple
+    instead. That choice now travels in a `WriteCtx` rather than in a module
+    global that this function set and restored -- two concurrent conversions with
+    different profiles could each observe the other's encoding.
+
+    This is a pure serialisation setting. It writes different bytes; it does not
+    contact anything. Choosing the Google-safe profile costs no network, no
+    credentials and no upload.
+
+    `backend` supplies figure rasterisation. Pass the same backend the parse used;
+    without one, figure regions are omitted rather than rendered through a parser
+    nobody selected. This is what removed `import fitz` from the top of this
+    module, and with it the reason a wheel installed without PyMuPDF could not
+    write a DOCX at all.
 
     The cover-band path shifts every page-1 element by the bleed delta, and
     those shifts are *accumulating* assignments (`el.left_indent + delta_l`,
@@ -739,19 +809,23 @@ def write_docx(lay: DocLayout, out_path: str, dpi: int = 240,
     copy lives here and purity is part of the contract, verified by
     tests/test_purity.py.
     """
-    global LINE_MODE
-    prev_mode = LINE_MODE
-    LINE_MODE = "multiple" if target == "gdocs" else "exact"
-    try:
-        return _write_docx(lay, out_path, dpi)
-    finally:
-        LINE_MODE = prev_mode
+    if ctx is None:
+        render_clip = None
+        if backend is not None and lay.src_path:
+            def render_clip(page_no, clip, at_dpi, _bk=backend, _p=lay.src_path):
+                try:
+                    return _bk.render_clip(_p, page_no, clip, dpi=at_dpi)
+                except Exception:
+                    return None
+        ctx = WriteCtx(line_mode=line_mode_for(output_profile), dpi=dpi,
+                       render_clip=render_clip)
+    return _write_docx(lay, out_path, ctx)
 
 
-def _write_docx(lay: DocLayout, out_path: str, dpi: int = 240) -> str:
+def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
     lay = copy.deepcopy(lay)
     doc = Document()
-    src_doc = fitz.open(lay.src_path) if lay.src_path else None
+    dpi = ctx.dpi
     content_w = lay.content_w
 
     # neutralize the template's Normal style (1.08 line, 8pt after) so nothing
@@ -787,20 +861,22 @@ def _write_docx(lay: DocLayout, out_path: str, dpi: int = 240) -> str:
         dl = lay.margin_l - band_bleed
         dr = lay.margin_r - band_bleed
         if lay.header_first is not None:
-            _fill_hf(sec.header, _shifted_part(lay.header_first, dl, dr), lay)
+            _fill_hf(sec.header, _shifted_part(lay.header_first, dl, dr), lay,
+                     ctx=ctx)
         if (lay.footer_first or lay.footer_default) is not None:
             _fill_hf(sec.footer,
-                     _shifted_part(lay.footer_first or lay.footer_default, dl, dr), lay)
+                     _shifted_part(lay.footer_first or lay.footer_default, dl, dr),
+                     lay, ctx=ctx)
     else:
         if lay.header_default is not None:
-            _fill_hf(sec.header, lay.header_default, lay)
+            _fill_hf(sec.header, lay.header_default, lay, ctx=ctx)
         if lay.footer_default is not None:
-            _fill_hf(sec.footer, lay.footer_default, lay)
+            _fill_hf(sec.footer, lay.footer_default, lay, ctx=ctx)
         if lay.different_first:
             sec.different_first_page_header_footer = True
-            _fill_hf(sec.first_page_header, lay.header_first, lay)
+            _fill_hf(sec.first_page_header, lay.header_first, lay, ctx=ctx)
             _fill_hf(sec.first_page_footer,
-                     lay.footer_first or lay.footer_default, lay)
+                     lay.footer_first or lay.footer_default, lay, ctx=ctx)
 
     cur_cols = 1
     # config of the currently-open section; re-applied after each break because
@@ -864,7 +940,7 @@ def _write_docx(lay: DocLayout, out_path: str, dpi: int = 240) -> str:
                         el.left_indent = round(el.left_indent + delta_l, 1)
                 elif isinstance(el, RuleEl):
                     el.left_indent = round(el.left_indent + delta_l, 1)
-        write_table(doc, band, lay.page_w - 2 * band_bleed)
+        write_table(doc, band, lay.page_w - 2 * band_bleed, ctx=ctx)
 
     last_el_par = None
     for pi, pg in enumerate(lay.pages):
@@ -878,8 +954,8 @@ def _write_docx(lay: DocLayout, out_path: str, dpi: int = 240) -> str:
                 mt = (lay.margin_t + pre) if (next_cols > 1 and pre > 0.5) else None
                 s = new_section(WD_SECTION.NEW_PAGE, next_cols, gap, margin_t=mt)
                 if after_cover:
-                    _fill_hf(s.header, lay.header_default, lay)
-                    _fill_hf(s.footer, lay.footer_default, lay)
+                    _fill_hf(s.header, lay.header_default, lay, ctx=ctx)
+                    _fill_hf(s.footer, lay.footer_default, lay, ctx=ctx)
             else:
                 par = doc.add_paragraph()
                 pf = par.paragraph_format
@@ -904,11 +980,11 @@ def _write_docx(lay: DocLayout, out_path: str, dpi: int = 240) -> str:
                     pf.line_spacing = Pt(1)
                     par.add_run().add_break(WD_BREAK.COLUMN)
                 elif isinstance(el, Para):
-                    write_para(doc, el, cw_ctx)
+                    write_para(doc, el, cw_ctx, ctx=ctx)
                 elif isinstance(el, TableEl):
-                    write_table(doc, el, cw_ctx)
+                    write_table(doc, el, cw_ctx, ctx=ctx)
                 elif isinstance(el, FigureEl):
-                    write_figure(doc, el, src_doc, dpi=dpi)
+                    write_figure(doc, el, ctx=ctx)
                 elif isinstance(el, ImageEl):
                     write_image(doc, el)
                 elif isinstance(el, RuleEl):
@@ -927,7 +1003,5 @@ def _write_docx(lay: DocLayout, out_path: str, dpi: int = 240) -> str:
         if not has_content and not has_sectpr and len(list(body)) > 2:
             body.remove(p0)
 
-    if src_doc is not None:
-        src_doc.close()
     doc.save(out_path)
     return out_path

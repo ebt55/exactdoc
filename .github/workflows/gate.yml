@@ -1,20 +1,39 @@
 # The fidelity gate, run on a pinned Linux oracle.
 #
-# Why Linux is canonical: the fidelity numbers depend on the renderer's fonts.
-# Local Windows runs render with real Arial/Times New Roman; this container
-# renders with Liberation metrics-compatible substitutes. Same code, different
-# wraps. One environment has to be the reference, and it must be the one
-# everyone can reproduce -- so CI is the number of record and local runs are
-# indicative.
+# Determinism has two halves and this workflow needed both:
 #
-# Two lanes (testkit/runall.py lanes): refine OFF is the uncontaminated
-# converter number; refine ON is the product default. refine() tunes against
-# the same renderer the gate measures with, so only the pair is meaningful.
+#   inputs       16 PDFs frozen in testkit/fixtures/, pinned by SHA-256. They
+#                used to be regenerated here, so a Chromium update on the runner
+#                silently changed a corpus document and moved a gated metric 5x.
+#   environment  the renderer decides the numbers. `evidence.environment()`
+#                fingerprints OS, Python minor, LibreOffice, the metric fonts and
+#                every measurement dependency, and `canonical` means that exact
+#                combination -- it used to mean `os == "linux"`, which cannot
+#                tell Chromium 149 from 150 or Python 3.12.3 from 3.12.13.
+#
+# Why Linux is canonical: the fidelity numbers depend on the renderer's fonts.
+# Local Windows runs render with real Arial/Times New Roman; this runner renders
+# with Liberation metrics-compatible substitutes. Same code, different wraps. One
+# environment has to be the reference, and it must be the one everyone can
+# reproduce -- so CI is the number of record and local runs are indicative.
+#
+# Two lanes (testkit/runall.py): `raw` is the uncontaminated converter number,
+# `product` is exactdoc.options.PRODUCT -- the profile the API, the CLI and every
+# published number all share. refine() tunes against the same renderer the gate
+# measures with, so only the pair is meaningful, and **both** lanes gate the exit
+# code. Gating on the refined lane alone meant the control lane, whose entire
+# purpose is to be untainted, was the one nobody had to answer for.
+#
+# Every step here is fail-closed. That is the whole design: a green check must
+# mean that all 16 manifest documents existed, the renderer answered, every
+# required metric was computed, nothing regressed past its recorded number, and
+# the backend policy still describes reality. It previously could mean none of
+# those things -- see the docstrings in testkit/gate.py for the list, each entry
+# of which is now a test in tests/test_gate_mutations.py.
 #
 # Provisioning is scripts/bootstrap.sh, the same command a contributor runs, so
 # CI cannot drift away from the documented setup without going red. --strict
-# makes a missing oracle a failure here: an incomplete corpus silently produces
-# numbers for a different corpus than the one on record.
+# makes a missing oracle a failure.
 #
 # The dependency versions come from uv.lock (--frozen). The goldens are pinned
 # to the PyMuPDF version -- measured: 1.26 and 1.24 both put 02_research_paper
@@ -30,7 +49,7 @@ on:
 jobs:
   gate:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
 
@@ -46,39 +65,89 @@ jobs:
       - name: Provision the oracles (LibreOffice, Chromium, fonts) + deps
         run: bash scripts/bootstrap.sh --strict
 
-      - name: Generate the 16-document corpus
+      # Restrict the renderer to the pinned font set for every later step. A
+      # runner image ships a large font collection; with the corpus already
+      # frozen byte-for-byte, that alone still moved c4_i18n's dy_p50 from
+      # 0.15pt to 2.1pt, because LibreOffice resolved its CJK and RTL runs to
+      # faces the measurement environment does not have. See scripts/fonts.conf.
+      - name: Pin the font environment
         run: |
-          uv run python testkit/gen_corpus.py testkit/adv
-          uv run python corpus/make_corpus.py
+          mkdir -p /tmp/exactdoc-fontconfig
+          echo "FONTCONFIG_FILE=$GITHUB_WORKSPACE/scripts/fonts.conf" >> "$GITHUB_ENV"
+          FONTCONFIG_FILE="$GITHUB_WORKSPACE/scripts/fonts.conf" fc-list : family \
+            | tr ',' '\n' | sort -u
 
-      - name: Unit tests (write purity, corpus degradation)
+
+      # The metric corpus is 16 PDFs frozen in testkit/fixtures/ and pinned by
+      # SHA-256. It is NOT regenerated here, and that is the fix for the failure
+      # this workflow actually had: the baseline was recorded against a corpus
+      # built with Chromium 149, this runner ships Chromium 150, `c4_i18n` came
+      # out a different document, and its vertical drift moved 0.15pt -> 0.7pt.
+      # A gated metric moved 5x because of a browser update. A generated corpus
+      # cannot be a measurement baseline.
+      - name: Corpus fixtures - byte-identical to the record?
+        run: uv run python testkit/corpus_manifest.py verify
+
+      # The generators still run, and no longer gate a measured number. Drift
+      # between a fresh generation and the frozen bytes is reported: it says the
+      # toolchain moved, which is worth knowing and is not a regression here.
+      - name: Corpus generators still work (drift reported, not gated)
+        run: uv run python tests/test_corpus_generation.py
+
+      - name: Unit tests (write purity, corpus degradation, gate mutations)
         run: |
           uv run python tests/test_purity.py
           uv run python tests/test_corpus_degradation.py
+          uv run python tests/test_gate_mutations.py
+
+      # The permissive runtime boundary, and the reason the licence flip is a
+      # real change rather than a metadata edit. This makes `fitz` unimportable
+      # and then converts the representative fixtures, which is stricter than a
+      # virtualenv without the package: it also catches an import that something
+      # else in the interpreter has already performed.
+      - name: Convert with PyMuPDF made unimportable
+        run: uv run python tests/test_no_pymupdf.py
 
       - name: Golden IR - the parser's output must not drift
         run: uv run python testkit/golden_ir.py verify
 
-      - name: Fidelity gate, both lanes
-        env:
-          REFINE: lanes
-        run: uv run python testkit/runall.py testkit/adv corpus/pdfs
+      - name: Fidelity gate, both lanes, fail closed
+        run: uv run python testkit/runall.py
 
+      # No longer continue-on-error, and it is EXPECTED TO FAIL right now. That
+      # combination is deliberate.
+      #
+      # It was reporting-only "until the swap lands", which made the number it
+      # exists to drive the one number nothing depended on. The policy now lives
+      # in testkit/parity_policy.json with numeric floors, so the executable rule
+      # and the ratified rule are the same rule.
+      #
+      # Applying that rule to every dimension independently -- including vertical
+      # drift, which the old comparison never looked at -- found 2 unwaived
+      # regressions (05_memo and f1_fpdf_brief, both dy_p50) that had been
+      # reported as "same". They are attributed to the same core-14 font-metric
+      # cause as the four D2 waivers and are NOT waived, because widening a
+      # waiver from four documents to six is a product decision.
+      #
+      # Do not re-add continue-on-error to make this green. Red is the correct
+      # state until the shortfalls are ratified or fixed; going green by ignoring
+      # the result is precisely how this step stopped working the first time.
       - name: Backend parity - the licence-swap verdict
-        # Reporting-only by design until the swap lands: this is the number M2
-        # is driving to zero, so a non-zero count is the expected state, not a
-        # broken build. It runs in CI because it once lost the ability to run
-        # at all (an undeclared pypdfium2) and nobody noticed for weeks -- a
-        # gate that cannot run looks exactly like a gate that passes.
-        continue-on-error: true
-        run: uv run python testkit/backend_parity.py --refine 3
+        run: uv run python testkit/backend_parity.py
 
-      - name: Upload lane results
+      - name: Evidence - one artifact every published number traces to
+        if: always()
+        run: uv run python testkit/evidence.py --out testkit/batch/evidence.json
+
+      - name: Upload lane results and evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: gate-results
           path: |
-            testkit/batch/lane_norefine/results.json
-            testkit/batch/lane_refine/results.json
-          if-no-files-found: warn
+            testkit/batch/evidence.json
+            testkit/batch/lane_raw/results.json
+            testkit/batch/lane_raw/verdict.json
+            testkit/batch/lane_product/results.json
+            testkit/batch/lane_product/verdict.json
+          if-no-files-found: error

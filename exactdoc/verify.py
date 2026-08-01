@@ -1,12 +1,22 @@
-"""Fidelity verification: DOCX -> PDF (LibreOffice) -> image diff vs source."""
+"""Fidelity verification: DOCX -> PDF (LibreOffice) -> image diff vs source.
+
+Product diagnostics, not release evidence: `testkit/` is the independent harness
+and deliberately shares no code with the converter. This module exists so that
+`--verify` can tell a user something about their own document.
+
+Page rasterisation goes through the backend seam (`Backend.render_page`) rather
+than through `fitz` directly. The import used to be at module scope, which put
+PyMuPDF on the default runtime path of a stage that only wants pixels.
+"""
+import io
 import os
 import re
 import subprocess
 import tempfile
 from typing import List, Optional
 
-import fitz
 import numpy as np
+
 
 def _find_soffice():
     """Locate LibreOffice on any platform.
@@ -33,18 +43,33 @@ def _find_soffice():
 SOFFICE = _find_soffice()
 
 
-def docx_to_pdf(docx_path: str, out_dir: str) -> Optional[str]:
+def docx_to_pdf(docx_path: str, out_dir: str, profile: Optional[str] = None
+                ) -> Optional[str]:
     """Render a DOCX to PDF. Returns None if LibreOffice is unavailable.
 
-    Uses a dedicated user profile: soffice refuses rapid successive starts
-    against a shared default profile and exits 0 without writing anything,
-    which looks exactly like a silent conversion failure.
+    A dedicated user profile is required, not a nicety: soffice refuses rapid
+    successive starts against a shared default profile and exits 0 without
+    writing anything, which looks exactly like a silent conversion failure.
+
+    It was a single fixed path under the temp directory, shared by every
+    conversion in every process on the machine, so two concurrent conversions
+    contended for one profile and reproduced the very failure the profile
+    existed to prevent. Each invocation now gets a **fresh** directory and
+    removes it afterwards, so concurrency is safe by construction and no state
+    survives from one render to influence the next.
+
+    `profile=` overrides that for a caller who wants one profile across a batch.
+    `testkit/harness.py` deliberately does exactly that: soffice also refuses
+    *rapid* restarts against differing profiles, so a tight batch loop wants one
+    warm profile, while a product conversion wants isolation. Those are different
+    trade-offs and both are now expressible.
     """
     if SOFFICE is None:
         return None
     env = dict(os.environ)
     env.setdefault("HOME", tempfile.gettempdir())
-    prof = os.path.join(tempfile.gettempdir(), "exactdoc_soffice_profile")
+    owned = profile is None
+    prof = profile or tempfile.mkdtemp(prefix="exactdoc_soffice_")
     out = os.path.join(out_dir, os.path.splitext(os.path.basename(docx_path))[0] + ".pdf")
     if os.path.exists(out):
         os.remove(out)
@@ -55,19 +80,42 @@ def docx_to_pdf(docx_path: str, out_dir: str) -> Optional[str]:
         subprocess.run(cmd, capture_output=True, timeout=300, env=env)
     except (subprocess.TimeoutExpired, OSError):
         return None
+    finally:
+        if owned:
+            import shutil
+            shutil.rmtree(prof, ignore_errors=True)
     return out if os.path.exists(out) else None
 
 
-def _page_arrays(pdf_path: str, dpi: int = 96) -> List[np.ndarray]:
-    doc = fitz.open(pdf_path)
+def _page_count(pdf_path: str, backend) -> int:
+    """Page count via the seam. `page_lines` returns one entry per page, text or
+    not, so its length is the count -- extracting text to count pages is wasteful,
+    but this is a diagnostic that goes on to rasterise every page, and a fourth
+    seam operation for it would be a worse trade than the wasted extraction."""
+    return len(backend.page_lines(pdf_path))
+
+
+def _page_arrays(pdf_path: str, dpi: int = 96, backend=None) -> List[np.ndarray]:
+    """Rasterise every page to an RGB array, through the backend.
+
+    Decoding the backend's PNG with Pillow costs one encode/decode per page that
+    reading a MuPDF pixmap's raw samples did not. That is the price of the seam
+    being a byte format both backends can honestly produce, and it is paid by a
+    diagnostic path, not by conversion. The independent harness in `testkit/` is
+    where render performance would matter, and it is free to use whatever it likes
+    -- it is not shipped.
+    """
+    if backend is None:
+        from .backend import get_backend
+        backend = get_backend()
+    import PIL.Image as Image
     out = []
-    for page in doc:
-        pix = page.get_pixmap(dpi=dpi, alpha=False)
-        arr = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
-        if pix.n > 3:
-            arr = arr[:, :, :3]
+    for i in range(_page_count(pdf_path, backend)):
+        data = backend.render_page(pdf_path, i + 1, dpi=dpi)
+        if not data:
+            break
+        arr = np.asarray(Image.open(io.BytesIO(data)).convert("RGB"))
         out.append(arr.astype(np.float64))
-    doc.close()
     return out
 
 
@@ -98,9 +146,9 @@ def ssim(a: np.ndarray, b: np.ndarray) -> float:
 
 
 def compare(src_pdf: str, converted_pdf: str, out_dir: Optional[str] = None,
-            dpi: int = 96):
-    A = _page_arrays(src_pdf, dpi)
-    B = _page_arrays(converted_pdf, dpi)
+            dpi: int = 96, backend=None):
+    A = _page_arrays(src_pdf, dpi, backend=backend)
+    B = _page_arrays(converted_pdf, dpi, backend=backend)
     n = max(len(A), len(B))
     rows = []
     for i in range(n):
@@ -127,20 +175,26 @@ def compare(src_pdf: str, converted_pdf: str, out_dir: Optional[str] = None,
     return rows
 
 
-def audit(src_pdf: str, docx_path: str):
+def audit(src_pdf: str, docx_path: str, backend=None):
     """Text-coverage audit: is every source character present in the DOCX?
 
     Rasterized figure regions (charts) legitimately carry their labels as
-    pixels, so their text is excluded from the source side.
+    pixels, so their text is excluded from the source side. That exclusion is
+    exactly why this is a *diagnostic* and not evidence: it lets the converter
+    define its own denominator, and the original `verify.py` scored the résumé at
+    `src_chars: 0` because everything it rasterised vanished from its own score.
+    `testkit/harness.py` is raster-blind on purpose and shares no code with this.
     """
-    from .parse import parse_pdf
     from .infer import infer
     from .layout import FigureEl
     from .model import bbox_overlap, bbox_area
     import docx as _docx
     from collections import Counter
 
-    ir = parse_pdf(src_pdf, keep_image_data=False)
+    if backend is None:
+        from .backend import get_backend
+        backend = get_backend()
+    ir = backend.parse_pdf(src_pdf, keep_image_data=False)
     lay = infer(ir)
     fig_clips = {}
     for pg in lay.pages:
@@ -190,12 +244,13 @@ def audit(src_pdf: str, docx_path: str):
             "text_coverage": round(cov, 4)}
 
 
-def verify(src_pdf: str, docx_path: str, out_dir: Optional[str] = None):
+def verify(src_pdf: str, docx_path: str, out_dir: Optional[str] = None,
+           backend=None):
     with tempfile.TemporaryDirectory() as td:
         pdf2 = docx_to_pdf(docx_path, td)
         if pdf2 is None:
             return {"available": False, "rows": []}
-        rows = compare(src_pdf, pdf2, out_dir=out_dir)
+        rows = compare(src_pdf, pdf2, out_dir=out_dir, backend=backend)
         keep = os.path.join(out_dir, "converted.pdf") if out_dir else None
         if keep:
             import shutil

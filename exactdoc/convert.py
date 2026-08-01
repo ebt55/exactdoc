@@ -1,68 +1,122 @@
-"""End-to-end conversion API + CLI."""
-import os
-import sys
-import argparse
+"""End-to-end conversion API.
 
-from .parse import parse_pdf
+One entry point, one profile. Every default this function applies comes from
+`exactdoc.options.PRODUCT`, so the API, the CLI, the CI lanes and the published
+numbers cannot describe three different configurations again (see
+options.py for what that cost).
+"""
+import os
+from typing import Optional
+
 from .dialect import normalize
 from .infer import infer
-from .docxout import write_docx
+from .options import ConversionOptions, resolve
 
 
-def convert(pdf_path: str, out_path: str = None, dpi: int = 240,
-            refine_rounds: int = 0, target: str = "libreoffice",
-            ladder: bool = False, verbose: bool = False) -> str:
-    """Convert a PDF to DOCX.
+def _select_backend(name: str):
+    """The backend, chosen once per conversion.
+
+    `EXACTDOC_BACKEND` still works, but it is now the lowest-priority source:
+    an explicit `backend=` argument wins, because a gate that selects a parser
+    has to be able to say so in its own call rather than by mutating the
+    environment of the process it shares with everything else.
+    """
+    from .backend import get_backend
+    return get_backend(name)
+
+
+def convert(pdf_path: str, out_path: Optional[str] = None,
+            dpi: Optional[int] = None, refine_rounds: Optional[int] = None,
+            target: Optional[str] = None, backend: Optional[str] = None,
+            ladder: Optional[bool] = None, verbose: Optional[bool] = None,
+            output_profile: Optional[str] = None,
+            oracle: Optional[str] = None,
+            allow_cloud_upload: Optional[bool] = None,
+            options: Optional[ConversionOptions] = None) -> str:
+    """Convert a PDF to DOCX. Returns the output path.
+
+    Defaults come from `options.PRODUCT`: the backend it names, the LibreOffice
+    target, and its refine round count. Pass `options=` to supply a whole
+    profile, or individual keywords to override parts of it. A `None` keyword
+    means "take the profile's value", never "zero".
+
+    **Backend precedence is explicit keyword > supplied `options` > environment >
+    PRODUCT**, and the middle two used to be the wrong way round. `EXACTDOC_BACKEND`
+    outranked an explicitly-passed profile, which meant an exported variable could
+    silently redirect a caller that had named its backend in code -- including the
+    parity gate, whose entire job is to run one named backend against another. A
+    gate that an environment variable can redirect is not a gate. The environment
+    is now consulted only when the caller expressed no preference at all.
 
     `refine_rounds` > 0 enables the closed-loop pass: render the DOCX back and
     correct page overflow and per-page offsets against what actually rendered.
 
-    `target` chooses which renderer that loop optimises for -- "gdocs",
-    "libreoffice" or "none". This is a real choice, not a detail: a layout
-    tuned for LibreOffice is measurably not tuned for Google Docs. If the
-    chosen oracle is unavailable the conversion still succeeds, open-loop.
+    `output_profile` and `oracle` are independent, and used to be one field.
+    `output_profile` decides how the OOXML is written -- "gdocs" emits line
+    heights Google Docs does not mistranslate, entirely offline. `oracle`
+    decides what renders the result during refinement, and only matters when
+    `refine_rounds > 0`. A layout tuned for LibreOffice is measurably not tuned
+    for Google Docs, so the pair is a real choice rather than a detail.
+
+    **A requested oracle that is unavailable is now an error.** It used to fall
+    through to an open-loop conversion, printing a line only under `verbose`, so
+    a caller who asked for refinement could receive an unrefined document and a
+    success exit code.
+
+    `target=` is accepted for one alpha cycle and maps onto the pair. Note that
+    `target="gdocs"` now selects the Google-safe *profile* without authorising
+    an upload; the cloud oracle needs `allow_cloud_upload=True`.
     """
+    if backend is None and options is None:
+        backend = os.environ.get("EXACTDOC_BACKEND", "").strip() or None
+    # Consent is never read from the environment. An exported variable must not
+    # be able to authorise sending somebody's document to a third party.
+    opts = resolve(options, backend=backend, target=target, dpi=dpi,
+                   refine_rounds=refine_rounds, ladder=ladder, verbose=verbose,
+                   output_profile=output_profile, oracle=oracle,
+                   allow_cloud_upload=allow_cloud_upload)
     if out_path is None:
         out_path = os.path.splitext(pdf_path)[0] + ".docx"
-    _bk = os.environ.get("EXACTDOC_BACKEND", "").strip().lower()
-    if _bk and _bk not in ("pymupdf", "fitz", "default"):
-        from .backend import get_backend
-        ir = normalize(get_backend(_bk).parse_pdf(pdf_path))
-    else:
-        ir = normalize(parse_pdf(pdf_path))
+
+    bk = _select_backend(opts.backend)
+    ir = normalize(bk.parse_pdf(pdf_path))
     lay = infer(ir)
-    if ladder:
+    if opts.ladder:
         from .ladder import apply_ladder, summarise
-        rep = apply_ladder(lay)
+        from .metrics import get_metrics
+        # The ladder predicts a re-wrap, so it has to shape text, and no
+        # permissive shaper lives in this tree yet. With the `[mupdf]` extra
+        # present it uses MuPDF's base-14 metrics -- the same measurement every
+        # published ladder number was taken with -- and without it every
+        # paragraph is unpredictable and the ladder does nothing. Its report says
+        # which happened rather than looking like a run that found nothing.
+        rep = apply_ladder(lay, metrics=get_metrics("mupdf"))
         lay.ladder_report = rep
-        if verbose:
+        if opts.verbose:
             print("  ladder: " + summarise(rep))
-    if refine_rounds > 0:
+    if opts.refine_rounds > 0:
         from .refine import refine
         from .targets import get_renderer
-        render, resolved = get_renderer(target)
-        if render is not None:
-            if verbose:
-                print("  refining against: %s" % resolved)
-            return refine(lay, pdf_path, out_path, dpi=dpi, rounds=refine_rounds,
-                          verbose=verbose, render=render, target=target)
-    return write_docx(lay, out_path, dpi=dpi, target=target)
+        # Raises OracleUnavailableError if the named renderer is absent. There
+        # is deliberately no `else` falling through to an open-loop write: that
+        # branch is what turned "refine against LibreOffice" into "do not
+        # refine" without changing the exit code.
+        render, resolved = get_renderer(opts.oracle)
+        if opts.verbose:
+            print("  refining against: %s" % resolved)
+        return refine(lay, pdf_path, out_path, dpi=opts.dpi,
+                      rounds=opts.refine_rounds, verbose=opts.verbose,
+                      render=render, output_profile=opts.output_profile,
+                      backend=bk)
+    from .docxout import write_docx
+    return write_docx(lay, out_path, dpi=opts.dpi,
+                      output_profile=opts.output_profile, backend=bk)
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(
-        prog="exactdoc",
-        description="High-fidelity PDF -> DOCX converter (Google Docs-safe output)")
-    ap.add_argument("pdf", nargs="+", help="input PDF file(s)")
-    ap.add_argument("-o", "--out", help="output .docx (single input only)")
-    ap.add_argument("--dpi", type=int, default=240,
-                    help="raster DPI for vector figure regions (default 240)")
-    args = ap.parse_args(argv)
-    if args.out and len(args.pdf) > 1:
-        ap.error("-o works with a single input")
-    for p in args.pdf:
-        out = convert(p, args.out, dpi=args.dpi)
-        print("wrote", out)
+    """Deprecated alias. The console entry point is `exactdoc.cli:main`."""
+    from .cli import main as _main
+    return _main(argv)
 
 
 if __name__ == "__main__":

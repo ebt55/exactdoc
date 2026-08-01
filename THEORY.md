@@ -8,8 +8,7 @@ original — what worked, what didn't, and where the ceiling is.
 > defect register, what is pending — see **[STATUS.md](STATUS.md)**, which is
 > the authority on numbers. Several claims below were later falsified by
 > measurement; each is marked inline rather than deleted, because the wrong
-> turn is part of the record. **[FINDINGS.md](FINDINGS.md)** is a frozen
-> point-in-time audit of v1.1 and is not maintained.
+> turn is part of the record.
 
 Everything here was established empirically with a **render-back verification
 loop**: convert the DOCX back to PDF (LibreOffice headless), image-diff every
@@ -419,10 +418,17 @@ here measured editability at all. And the corpus behind those numbers was one
 self-authored dialect, so it measured tuning, not generalisation — the current
 holdout figure on wild PDFs is **0/4**.
 
-Corpus scores are reported in two lanes (refine on and off) for the same
+Corpus scores are reported in two lanes (`product` and `raw`) for the same
 reason: `refine()` tunes against the same renderer the gate measures with, so a
 refined-only number can improve because the loop memorised the oracle. Only the
-pair means anything.
+pair means anything — and both now gate the exit code, because for a while only
+the refined lane did, which left the control lane free to regress unanswered.
+
+One more failure of the same shape, and it is the reason `exactdoc/options.py`
+exists: the numbers above were measured on a profile no shipping surface ran. The
+API refined 0 times, the CLI 2, the quoted lane 3. A measurement that describes no
+shipping configuration is a coincidence, however carefully it was taken. There is
+one profile now, and every surface reads its defaults from it.
 
 ## 9. Is Python the limitation?
 

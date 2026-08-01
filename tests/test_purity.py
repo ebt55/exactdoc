@@ -33,8 +33,22 @@ def _xml_digest(path):
 
 
 def corpus():
-    pdfs = sorted(glob.glob(os.path.join(ROOT, "corpus", "pdfs", "*.pdf")))
-    pdfs += sorted(glob.glob(os.path.join(ROOT, "testkit", "adv", "*.pdf")))
+    """The frozen fixtures first, then whatever this machine happens to have.
+
+    `testkit/fixtures/` was missing from this list and it is the only corpus
+    directory that exists in a clean checkout -- `corpus/pdfs/` and
+    `testkit/adv/` are both generated and both gitignored. So on a fresh clone
+    this returned nothing, and the __main__ path below then reported success
+    having tested zero documents. Deduplicated with the frozen copy winning, so
+    a stale generated file cannot shadow the SHA-256-pinned input.
+    """
+    seen, pdfs = set(), []
+    for d in ("testkit/fixtures", "corpus/pdfs", "testkit/adv"):
+        for p in sorted(glob.glob(os.path.join(ROOT, d, "*.pdf"))):
+            name = os.path.basename(p)
+            if name not in seen:
+                seen.add(name)
+                pdfs.append(p)
     return pdfs
 
 
@@ -60,6 +74,16 @@ if __name__ == "__main__":
     import tempfile
     td = tempfile.mkdtemp()
     pdfs = corpus()
+    # Zero documents is a FAILURE, not a quiet pass. This is the path CI runs
+    # (`uv run python tests/test_purity.py`), and with no documents it printed
+    # "0/0 documents reproducible" and exited 0 -- a purity proof that had
+    # written nothing twice. The pytest entry point above asserted; this one did
+    # not, and CI uses this one.
+    if not pdfs:
+        print("no corpus PDFs found. testkit/fixtures/ holds the 16 frozen "
+              "inputs and is the only corpus directory present in a clean "
+              "checkout; a run with nothing to write proves nothing.")
+        sys.exit(1)
     bad = []
     for p in pdfs:
         ok = check(p, td)

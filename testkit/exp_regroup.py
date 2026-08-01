@@ -95,10 +95,25 @@ def hybrid_parse(path, keep_image_data=True):
 
 
 def run(lane, srcs, out_root, refine):
-    import exactdoc.convert as C
-    from exactdoc.parse import parse_pdf as mu
-    from exactdoc.parse_pdfium import parse_pdf as px
-    C.parse_pdf = {"pymupdf": mu, "pdfium": px, "hybrid": hybrid_parse}[lane]
+    # The hybrid lane is registered on the backend seam rather than assigned over
+    # `exactdoc.convert.parse_pdf`. That assignment only ever worked because
+    # `convert` held the parser as a module global; once the backend is selected
+    # through the seam it is a no-op that sets an attribute nobody reads, and the
+    # lane would silently measure the default parser while reporting itself as
+    # the hybrid.
+    from exactdoc.backend import register_backend
+    from exactdoc.convert import convert
+    from exactdoc.options import PRODUCT
+
+    if lane == "hybrid":
+        try:
+            register_backend("hybrid-regroup", hybrid_parse)
+        except ValueError:
+            pass
+        backend = "hybrid-regroup"
+    else:
+        backend = lane
+    options = PRODUCT.replace(backend=backend, refine_rounds=refine)
     out = os.path.join(out_root, lane)
     os.makedirs(out, exist_ok=True)
     pairs = []
@@ -106,7 +121,7 @@ def run(lane, srcs, out_root, refine):
         n = os.path.splitext(os.path.basename(s))[0]
         dx = os.path.join(out, n + ".docx")
         try:
-            C.convert(s, dx, refine_rounds=refine)
+            convert(s, dx, options=options)
             pairs.append((s, dx, n))
         except Exception as e:                                   # noqa: BLE001
             print("  CONVERT FAIL [%s] %-20s %s" % (lane, n[:20], str(e)[:44]))

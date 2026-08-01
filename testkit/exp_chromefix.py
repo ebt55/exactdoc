@@ -82,8 +82,16 @@ def patched_parse(path, keep_image_data=True):
 
 
 P.parse_pdf = patched_parse
-import exactdoc.convert as C
-C.parse_pdf = patched_parse
+# Registered on the backend seam, not assigned over `exactdoc.convert.parse_pdf`:
+# that assignment stopped having any effect once the backend was selected through
+# the seam, and an experiment that quietly measures the unpatched parser still
+# prints a number.
+from exactdoc.backend import register_backend       # noqa: E402
+from exactdoc.convert import convert                # noqa: E402
+from exactdoc.options import PRODUCT                # noqa: E402
+
+_OPTIONS = PRODUCT.replace(
+    backend=register_backend("chromefix", patched_parse), refine_rounds=0)
 
 
 if __name__ == "__main__":
@@ -100,7 +108,7 @@ if __name__ == "__main__":
     for s in srcs:
         n = os.path.splitext(os.path.basename(s))[0]
         dx = os.path.join(out, n + ".docx")
-        C.convert(s, dx)
+        convert(s, dx, options=_OPTIONS)
         pairs.append((s, dx))
     harness.batch_docx_to_pdf([d for _, d in pairs], os.path.join(out, "r"))
     rows = []
