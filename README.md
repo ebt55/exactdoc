@@ -29,6 +29,53 @@ images that happens to look correct.
 
 ---
 
+## Why CI is red, on purpose
+
+**The badge is red and that is the intended state.** Not a broken build, not a
+build nobody has looked at. Every step of the gate passes except one — the
+backend parity check — and it fails in exactly 12 places, all of them known,
+attributed and deliberate.
+
+The project's rule is that a green check must mean something. When a gate cannot
+honestly report green, it reports red rather than being made to pass; `gate.yml`
+carries an explicit instruction not to re-add `continue-on-error` to silence it.
+Going green by ignoring the result is precisely how this gate stopped working
+once before.
+
+The 12 split into two halves, and they are different in kind:
+
+### 6 are decisions nobody has made yet
+
+| n | What | Why it is open |
+|---:|---|---|
+| 2 | unwaived regressions on `05_memo` and `f1_fpdf_brief` (vertical drift 0.59→1.89pt and 0→1.2pt) | Both attributed to one cause: PDFium substitutes a generic font ascent where PyMuPDF reads the real one from its base-14 table. Reproducing it means vendoring an AGPL table, which defeats the point |
+| 4 | provisional shortfalls on the core-14 documents | Same cause. Widening a waiver from two documents to six is a **product decision**, and the gate refuses to let an executor make it by editing a file |
+
+These are held as `provisional_shortfall` — visible, bounded by numeric floors,
+and explicitly **not authorising a release**. They get decided against Google
+Docs evidence rather than LibreOffice's, because Docs is the target.
+
+### 6 are the CI runner not being the reference environment
+
+Every fidelity floor now records the exact environment that produced it. The
+reference is a digest-pinned container; GitHub's runner is not that container —
+different Python patch level, and it ships four extra DejaVu font variants. So
+the gate refuses to compare its numbers against floors that describe somewhere
+else, and says so.
+
+That is the fail-closed behaviour working. It disappears when CI runs inside the
+published image, which is pending. **Nothing about these six reflects converter
+quality.**
+
+### What green would prove
+
+Both fidelity lanes already pass, with every recorded value reproduced *exactly*
+— 224 of 224 across 2 lanes × 16 documents × 7 metrics. The converter is not
+regressing. The gate is waiting on a decision and an environment, and it is
+being honest about which.
+
+---
+
 ## Install
 
 ```bash
