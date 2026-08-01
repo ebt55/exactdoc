@@ -1,461 +1,277 @@
 # exactdoc
 
-**PDF → DOCX that keeps the design, survives Google Docs, and measures whether it worked.**
+**PDF → DOCX that still looks right after you open it in Google Docs.**
 
-> **Status: alpha (0.1.0a1). Nothing has been released yet.** It works well on the
-> documents it was developed against and it fails on pagination for PDFs it has
-> never seen. Both numbers are below, in the same table, on purpose.
+Most converters optimise for Word or LibreOffice and treat Google Docs as
+"close enough". It is not close enough: on a document where LibreOffice places
+99% of words within 2pt of the source, Google Docs places 1% — because Docs adds
+a one-off gap after the first heading, roughly 3pt at every paragraph boundary,
+and has no "exact" line spacing at all. A layout tuned for one is measurably not
+tuned for the other.
+
+So the target is a decision this project makes explicitly, and the output stays
+**editable** — live text, real paragraphs, real tables — rather than a page of
+images that happens to look correct.
+
+> ### Status: alpha, not published, and honest about it
 >
-> **Next: the permissive relicence.** The AGPL is inherited from PyMuPDF. Every
-> stage of the pipeline can now run without it — but the shipped default still
-> uses it, and the parity gate currently **fails on 2 unwaived regressions** that
-> a weaker comparison had been reporting as "same". The flip to Apache-2.0 is the
-> next milestone; [ROADMAP.md](ROADMAP.md) has the sequence and the distance.
+> `0.1.0a1` · **AGPL-3.0-or-later today, Apache-2.0 next** (see
+> [Licensing](#licensing)) · install from git only.
 >
-> Numbers below were measured on the canonical Linux environment and recorded in
-> `testkit/gate_baseline.json`. Where they come from local commits that GitHub
-> Actions has not yet run, that is stated rather than implied.
+> The number that matters most has **not been measured yet**. Every fidelity
+> figure below comes from LibreOffice standing in for Google Docs, because the
+> Docs measurement harness is still being built. Google Docs is the target and
+> the least-measured surface — including the full-bleed cover band, the
+> headline layout feature, which has never been verified in Docs at all.
+>
+> Do not use this in production. Do use it on your own documents and
+> [tell us what broke](#contributing).
 
-Most PDF-to-Word converters either redesign your page (Word's reflow), turn every
-line into a floating frame that Google Docs then mangles (LibreOffice import), or
-throw the design away entirely and emit Markdown (Docling, Marker, MinerU).
-[`pdf2docx`](https://pypi.org/project/pdf2docx/), the usual Python answer, is no
-longer actively maintained by Artifex.
-
-exactdoc decompiles the page instead: it recovers paragraphs, tables, callouts,
-columns and rules as real editable Word constructs, restricted to the subset
-Google Docs imports faithfully — no text boxes, no VML, no embedded fonts.
-
-Then it checks its own work. Every claim below is a number produced by
-[`testkit/`](testkit/README.md), which shares no code with the converter, and
-every one of them traces to a single machine-readable artifact —
-`testkit/batch/evidence.json`, keyed to the commit, the dependency versions and
-the LibreOffice build that produced it. [STATUS.md](STATUS.md) is the authority
-on what they mean:
-
-| | 16-document corpus | 4 wild PDFs (holdout) |
-|---|---|---|
-| gate passed | 13/16 | **0/4** |
-| page count 1:1 | 15/16 | fails |
-| live (editable) text recovered | 96.5% | 94–97% |
-| words within 2pt of source | 51.2% | — |
-| median per-word vertical drift | 0.62pt | — |
-
-The corpus has been developed against; the [holdout](testkit/fetch_holdout.py)
-never has. The gap between those two columns is the honest measure of how far
-along this is: **the text survives, the pagination does not.**
-
-The corpus column is the `product` lane — the profile a bare `exactdoc file.pdf`
-or `convert(file)` actually runs, which is now the same profile the numbers are
-measured on. It was not: the API ran 0 refine rounds, the CLI ran 2, and these
-figures came from a CI lane that ran 3, so "reproduce it with `convert()`"
-produced the raw number with nothing anywhere to say why. There is one profile
-now ([`exactdoc/options.py`](exactdoc/options.py)), and the uncontaminated
-zero-refine `raw` lane is reported beside it always, because the refine loop
-tunes against the same renderer the gate measures with.
+---
 
 ## Install
 
-Not on PyPI yet — the first published release will be the Apache-2.0 one (see
-[Versions](#versions)). Until then:
-
 ```bash
-pip install git+https://github.com/ebt55/exactdoc.git
+git clone https://github.com/ebt55/exactdoc && cd exactdoc
+pip install -e ".[test,pdfium]"
 ```
 
-Optional extras: `[test]` for the measurement harness, `[pdfium]` for the
-permissive parser, `[gdocs]` for the Google Docs oracle. None is needed for a
-plain conversion.
-
-`--verify` and `--refine` additionally need LibreOffice on PATH; without it,
-conversion still works and simply skips the feedback loop.
-
-**`--backend pdfium` needs no PyMuPDF at any stage. The shipped default still
-does.** Those are two different statements and only the first is finished. The
-*code paths* — parsing, figure rasterisation, table measurement, the refinement
-loop, the verifier — now go through the backend seam or the IR's own facts, and
-[`tests/test_no_pymupdf.py`](tests/test_no_pymupdf.py) proves it by making `fitz`
-*unimportable* and then converting a fixture per capability. But `pymupdf` is
-still the default backend and still a hard runtime dependency in
-`pyproject.toml`, so `pip install exactdoc` installs it and an unmodified
-conversion uses it.
-
-What changed is that the licence flip is now a dependency-and-default change
-rather than a rewrite, which is what it had been described as while five stages
-past the parser still imported `fitz` directly. See
-[STATUS.md §7](STATUS.md#7-the-permissive-runtime-boundary).
-
-One feature is knowingly outside the boundary: `--ladder` predicts a re-wrap,
-which means shaping text that has no source line to measure, so it needs the
-`[mupdf]` extra and reports plainly when it has no shaper. It is off by default.
+LibreOffice is needed only for the optional closed-loop correction and for the
+measurement harness. Conversion itself is offline and needs neither it nor a
+network.
 
 ## Usage
 
 ```bash
-exactdoc input.pdf                       # writes input.docx
+exactdoc report.pdf -o report.docx
 ```
 
-```bash
-exactdoc input.pdf --target gdocs        # tune for Google Docs specifically
-```
+Two settings decide almost everything, and they are **independent** — which is
+the design point, not a detail:
 
 ```bash
-exactdoc *.pdf --dpi 300 --verify        # batch, high-res figures, with a report
+exactdoc report.pdf --output-profile gdocs --oracle none --refine 0
 ```
+
+| Setting | What it decides | Cost |
+|---|---|---|
+| `--output-profile` | how the OOXML is *written*. `gdocs` emits line heights Docs does not mistranslate | none — offline, deterministic, no network, no credentials |
+| `--oracle` | what *renders* the result during closed-loop correction. `none`, `libreoffice`, `gdocs` | a subprocess, or a network round trip |
+
+These used to be one field called `--target`, and the consequence was not
+cosmetic: **there was no way to ask for Google-Docs-safe output produced
+offline** — wanting Docs-shaped formatting implied uploading your document to
+Google. Now it does not. `--oracle gdocs` requires `--allow-cloud-upload` per
+invocation, and no environment variable can grant it.
 
 ```python
 from exactdoc import convert
-convert("whitepaper.pdf", "whitepaper.docx", target="gdocs")
+
+convert("report.pdf", "report.docx",
+        output_profile="gdocs", oracle="none", refine_rounds=0)
 ```
 
-## Why a "target" matters
-
-There is no single correct DOCX. The *same file* lays out differently in Word,
-LibreOffice and Google Docs, and the gap is not cosmetic — on a document where
-LibreOffice places 99% of words within 2pt of the source, **Google Docs places
-1%**. Docs adds a one-off gap after the first heading plus roughly 3pt at every
-paragraph boundary, and it accumulates down the page.
-
-Most converters are tuned against one renderer and silently assume it
-generalises. It does not. exactdoc makes the target an explicit choice, so
-`--target` chooses which program the output should look right in, and the
-closed-loop pass (below) optimises for that renderer:
-
-| `--target` | Oracle | Notes |
-|---|---|---|
-| `libreoffice` | LibreOffice headless | default; fast, offline, a good proxy for Word |
-| `gdocs` | Google Docs via the Drive API | needs credentials; slowest; the only oracle that answers the question this project asks |
-| `none` | — | no feedback loop, deterministic, no dependencies |
-
-Measured, opening the result in Google Docs: tuning for `gdocs` instead of
-`libreoffice` moved `c8_toc_links` from dy₅₀ 41.4pt to 4.6pt, and
-`02_research_paper` from 3 pages to the correct 2.
+`target=` still works for one alpha cycle and warns.
 
 ### Closed-loop correction
 
-`--refine N` writes the DOCX, renders it back through the chosen target, measures
-page overflow and per-page offsets, corrects the layout and rewrites — keeping the
-best round. Without an oracle available it degrades to a single ordinary write, so
-conversion never depends on it.
+With `--refine N` and an oracle, the converter renders its own output back to
+PDF, measures per-page drift against the source, and corrects. It is off the
+critical path by design: `--oracle none` is a first-class answer, and a
+requested oracle that is missing is now an **error** rather than a silent
+downgrade to open-loop.
 
-The default is 3, and it is 3 everywhere: the CLI, the Python API and the lane
-every published number is measured on all read it from one place
-([`exactdoc/options.py`](exactdoc/options.py)). `--refine 0` is the deliberate
-open-loop control.
+---
 
-Python API — same profile, no arguments needed:
+## What is actually measured
 
-```python
-from exactdoc import convert
-convert("whitepaper.pdf", "whitepaper.docx")
-```
+Two things are true at once and the distinction is the whole point of this
+section.
+
+### LibreOffice — the numbers of record
+
+16 frozen fixture PDFs, pinned by SHA-256, measured in a digest-pinned container
+so the renderer's fonts cannot drift. `product` is the shipped profile;
+`raw` is the same converter with the feedback loop off, kept as a control
+because a refined-only figure can improve by memorising the oracle.
+
+| Lane | Page match | Mean within-2pt | Live text | Median vertical drift |
+|---|---:|---:|---:|---:|
+| product | 15/16 | 0.4981 | 0.9652 | 0.675 pt |
+| raw | 13/16 | 0.3349 | 0.9652 | 2.2 pt |
+
+### Google Docs — the actual target, barely measured
+
+| | LibreOffice | Google Docs |
+|---|---:|---:|
+| mean within-2pt | 0.404 | ~0.20 |
+| page match | 17/18 | 11/16 |
+
+**Treat that column as exploratory, not as a baseline.** The two figures come
+from different corpora and were not produced by a manifest-bound, same-run gate.
+They are enough to establish the *direction* — Docs is the harder target — and
+nothing more. Building the gate that can make a real claim here is the current
+work.
+
+### Generalisation: 0 out of 4
+
+Four wild PDFs the converter has never been tuned against: **0/4 exact page
+counts.** That number is published deliberately. Corpus figures measure a corpus;
+this measures whether any of it generalises, and today it does not.
+
+---
+
+## Licensing
+
+**[AGPL-3.0-or-later](LICENSE) today. Apache-2.0 planned, and not yet done.**
+
+The copyleft is inherited, not chosen. exactdoc parses PDFs with PyMuPDF, which
+is AGPL-3.0, so exactdoc must be too — and that single dependency blocks adoption
+by everyone who cannot accept AGPL, which is most companies.
+
+The fix is a permissive parser, and it is built: `pypdfium2` (PDFium, BSD-3).
+Every code path already runs with PyMuPDF **physically absent** — proved by a
+test that makes `fitz` unimportable and then converts real documents — so the
+relicence is now a dependency-and-default change rather than a rewrite.
+
+What is left is not code:
+
+1. the permissive parser must show no unwaived fidelity regression against the
+   incumbent (currently **2 unwaived**, both attributed to one font-metric cause,
+   plus 4 more shortfalls held as explicitly *provisional*);
+2. that decision should be made on **Google Docs** evidence rather than
+   LibreOffice's, because Docs is the target;
+3. a provenance and dependency review, which is a legal question and not a
+   measurement.
+
+**No AGPL wheel will ever be published.** The flip lands before the first
+release, not after it. Until then this is a git-install project.
+
+---
+
+## Known limits
+
+Three different kinds of problem, deliberately separated — because "we will fix
+this", "this is physically impossible" and "this is possible but not worth it"
+deserve different answers.
+
+### 1. Open defects, on the roadmap
+
+Measured, attributed, and expected to improve. Full register with severity and
+reproduction commands in [STATUS.md](STATUS.md).
+
+- **LaTeX/pdfTeX pagination** — the largest open defect. Text survives (94–97%
+  live) but page counts inflate 25–90%. It is the reason the holdout is 0/4.
+- **Nested tables** flatten and borders misplace.
+- **Letter-spaced headings** lose their spaces: `TECHNICAL SKILLS` →
+  `TECHNICALSKILLS`.
+- **Mixed page geometry** is discarded — size and orientation come from page 1.
+- **Rounded-corner stat cards** stack diagonally; the detector requires a rect.
+
+### 2. Hard limits — these will not be fixed, because they cannot be
+
+- **Pixel-perfect and editable is a contradiction.** Text reflowed by a
+  different engine will sometimes break a line differently, and everything below
+  a changed break moves. You can make it rare. You cannot make it impossible.
+- **OOXML quantises font size to 0.5pt.** A 10.1pt source font cannot be emitted
+  at 10.1pt. Compensable via wrap width; not removable.
+- **Google Docs ignores embedded fonts.** Metric-compatible substitution is the
+  ceiling, so exotic type will never land exactly.
+- **Google Docs flattens per-section page geometry**, which puts full-bleed
+  cover bands permanently at risk.
+- **Gradients, rounded corners and rotated text** have no paragraph-flow
+  equivalent in OOXML.
+
+### 3. Dialects that will stay hard — where a fallback beats a fix
+
+This is the honest one, and it is a scoping decision rather than a defect.
+
+Some document classes are not "not yet supported" — they are structurally
+expensive to support, and the effort is better spent elsewhere. Chiefly:
+
+- **Heavy LaTeX/pdfTeX**, where the vertical model is built on TeX's glue and
+  penalties rather than on anything OOXML can express, and small per-element
+  errors accumulate into whole-page drift;
+- **Highly designed pages** — magazine-style layouts, overlapping decorative
+  elements, text on curves, dense infographics — where the source was never a
+  flow document to begin with.
+
+Chasing these to pixel fidelity means reimplementing a typesetting engine, and
+the return curve is bad: three separate attribution attempts on the LaTeX
+pagination defect each produced a partly-wrong answer.
+
+**The pragmatic answer is a fallback, not a fix: rasterise the problematic
+region and keep the surrounding text live.** A page that is 90% editable text
+with one faithful image of an un-modellable figure is far more useful than a
+page that is 100% "editable" and visibly wrong — and it is much more useful than
+a whole page rasterised, which is what most converters do when they give up.
+
+The converter already does this for gradients and vector artwork. Extending it
+to *choose* rasterisation deliberately for these dialects — with a reported
+budget, so you can see exactly how much of a page went to images and why — is
+the intended treatment. Tracked as D10 in [STATUS.md](STATUS.md).
+
+If your documents are mostly LaTeX papers or design-led pages, this tool is
+probably the wrong choice today, and saying so is cheaper for both of us than
+letting you find out.
+
+### Also out of scope
+
+- **Scanned/OCR-only PDFs** — no OCR pass, and none planned.
+- **Encrypted and form/annotation-heavy PDFs.**
+- Chart labels live inside the rasterised figure image, by design.
+
+---
 
 ## How it works
 
-1. **Parse** (`backend.py` → `parse.py` or `parse_pdfium.py`) — the chosen
-   backend extracts every text span (font, size, weight, color, exact position),
-   vector drawing, image and link into an intermediate model. The backend is
-   selected **once per conversion** and carried through writing, refinement and
-   verification, so those stages ask it for a clip render or a page's text lines
-   rather than importing a parser of their own — which is what they used to do,
-   and why the wheel could not run without PyMuPDF.
-1b. **Normalise** (`dialect.py`) — rewrite producer-specific idioms into one
-   canonical form, so the heuristics below stop encoding "how ReportLab draws
-   things". Drops page-backdrop fills (Chromium paints an opaque white page
-   rect that otherwise merges every drawing into one region), rewrites vector
-   list markers as text markers (a CSS `disc` bullet reaches the PDF as a 3×3pt
-   bezier circle, not a character), and moves rotated text out of the flow.
-   Driven by evidence in the page, never by the `/Producer` string — those are
-   absent, rewritten by post-processors, and version-dependent.
-2. **Infer** (`infer.py`) — heuristics reconstruct semantics:
-   - repeating headers/footers, with page numbers converted to live
-     `PAGE`/`NUMPAGES` fields (verified across pages so "v3.2" never becomes a
-     field)
-   - full-width cover bands and continuation strips
-   - grid tables, booktabs (ruled) tables, zebra striping, stat-card rows
-   - callout boxes (left-accent), warning boxes, quote bars, code blocks
-     (blank lines reconstructed from baseline gaps)
-   - bullet/numbered lists, headings (outline levels), hyperlinks, underlines
-   - multi-column layouts with true section columns + column breaks
-   - chart/diagram regions -> rasterized at high DPI with overlap-aware text
-     absorption (axis labels ride along in the image)
-3. **Write** (`docxout.py`) — python-docx + raw OOXML emits a DOCX using only
-   the Google-Docs-safe vocabulary: styled paragraphs, fixed-layout tables
-   with per-side borders/shading, section geometry & columns, inline images,
-   headers/footers, tab stops, fields. No floating text boxes, no VML, no
-   embedded fonts.
-4. **Verify** (`verify.py`) — text-coverage audit plus an optional render-back
-   loop (LibreOffice) that scores per-page visual similarity (SSIM) and emits
-   side-by-side comparison images. These are *diagnostics about your document*,
-   not release evidence: the audit excludes rasterised regions from its own
-   denominator, which lets the converter grade its own homework.
-   [`testkit/`](testkit/README.md) is the independent measurement and shares no
-   code with any of the above.
+1. **Parse** — glyphs, spans, lines, drawings, images, with positions.
+   Two interchangeable backends: PyMuPDF (default today) and PDFium (permissive,
+   the future default).
+2. **Normalise** — detect the producer dialect and repair its known quirks
+   before any layout decision is made.
+3. **Infer** — reconstruct the page model: columns, headings, lists, tables,
+   figure regions, headers/footers, cover bands.
+4. **Write** — emit OOXML using only constructs Google Docs imports faithfully,
+   with the line-height encoding chosen by the output profile.
+5. **Refine** *(optional)* — render back, measure drift, correct, repeat.
 
-## Fidelity model (the hard-won parts)
-
-- **Baseline anchoring.** Word bottom-aligns glyphs inside "exact" line boxes
-  and PDF line bboxes are taller than Word's natural line. All vertical
-  spacing is therefore anchored on *baselines*:
-  `para_top = baseline − (leading − 0.21·size)`, paragraph height =
-  `n_lines × leading` (exact line rule).
-- **Content-driven table heights.** LibreOffice adds cell margins *on top of*
-  `trHeight atLeast`, Word doesn't. Rows carry no explicit height when they
-  contain text; padding + exact-leading paragraphs sum to the source height,
-  which renders identically everywhere.
-- **Page-break discipline.** Every source page ends with an explicit break, so
-  pagination cannot drift. Section-break paragraphs are crushed to 1pt (a
-  default-styled one can silently spill a blank page).
-- **Column sections.** Space-before on the first paragraph after a continuous
-  break pushes the whole column block down in some renderers — the shared gap
-  is hoisted into a spacer *before* the break, and original column
-  distribution is enforced with explicit column breaks.
-- **Full-bleed cover pages.** The cover lives in its own near-zero-margin
-  section; every non-band element is shifted back into place with indents
-  (mid-page L/R margin changes via continuous breaks are not honored by all
-  renderers).
-- **Font mapping** targets Google-Docs-available, metric-compatible families:
-  Helvetica→Arial, Times→Times New Roman, Courier→Courier New; Roboto, Lato,
-  Montserrat, Merriweather, Source Code Pro etc. pass through (`fonts.py`).
-
-## Verified corpus results
-
-16 generated documents across four producer dialects — Chromium/Skia (8),
-ReportLab (6), fpdf2 (1), LibreOffice/Word-native (1) — measured by `testkit/`,
-which shares no code with this package. WeasyPrint and LaTeX/pdfTeX are covered
-by real documents outside the gate corpus; LaTeX is the worst case and the
-largest open defect (see below).
-
-Both lanes, because only the pair is meaningful:
-
-| | `raw` (0 refine rounds) | `product` (shipped) |
-|---|---|---|
-| gate passed | 12/16 | 13/16 |
-| page count 1:1 | 13/16 | 15/16 |
-| live (editable) text | 96.5% | 96.5% |
-| words within 2pt of source | 34.9% | **51.2%** |
-| median per-word vertical drift | 2.20pt | **0.62pt** |
-
-Every figure comes from `testkit/gate_baseline.json`, which records the numeric
-value of every gated metric for every document in both lanes, together with the
-environment that produced it — Linux, LibreOffice 24.2.7.2, the Liberation metric
-fonts, and the exact dependency versions. Three environments (CI Linux, a local
-`ubuntu:24.04` container, Windows) agree on every structural number and differ in
-the third decimal of `within2pt`; the gate's tolerances are sized from that
-spread.
-
-`refine()` optimises against the same renderer the gate scores with, so a
-refined-only number can improve because the loop memorised the oracle rather
-than because the converter got better. Reporting one lane would hide that — and
-until recently the exit code did exactly that, gating on the refined lane while
-the control lane could regress freely.
-
-Run it yourself (needs the `[test]` extra, LibreOffice for the render-back, and
-Chrome to generate the Chromium half of the corpus):
-
-The 16 inputs are frozen in `testkit/fixtures/` and pinned by SHA-256, so no
-browser is involved in reproducing a number — a regenerated corpus is not the same
-corpus, and proving that cost three red CI runs:
-
-```bash
-python testkit/corpus_manifest.py verify && python testkit/runall.py
-```
-
-Both lanes gate the exit code, so it doubles as CI. Add `--absolute` for the
-release-qualification gate, which **fails today** — D3 and D10 sit below
-threshold, and the point of a separate absolute gate is that it says so instead
-of being folded into "nothing got worse".
-
-**Do not use SSIM as the headline number.** It is dominated by whitespace and
-it *rewards* a rasterised page: a resume converted into two flat images scored
-0.594, comparable to genuinely good conversions. `live_text_cov` and
-`within2pt` are what distinguish a document from a photograph of one.
-
-## Known-broken
-
-Every entry is measured. See [STATUS.md](STATUS.md) for the full register with
-severity, evidence and the reproduction command for each.
-
-- **LaTeX/pdfTeX pagination** — the largest open defect. Text is recovered
-  (94–97% live) but page counts inflate 25–90%; the holdout set is 0/4.
-- **Nested tables** flatten, with borders misplaced (`c3_tables`, 3 → 4 pages).
-- **Rounded-corner "stat card" rows** stack diagonally: `border-radius` makes
-  the card a curve, and the card-row detector requires a rect.
-- **Letter-spaced headings** lose their spaces — "TECHNICAL SKILLS" →
-  "TECHNICALSKILLS".
-- **Mixed page geometry** is discarded: page size and orientation are taken
-  from page 1 for the whole document.
-
-## Limitations
-
-- Word/Docs cannot bleed content into side margins from a normal section;
-  cover bands bleed via a dedicated section, continuation strip headers span
-  content width.
-- Chart labels live inside the rasterized figure image (by design).
-- Line-break-exact justification depends on metric-compatible fonts; exotic
-  embedded fonts fall back to the closest safe family.
-- Scanned/OCR PDFs are out of scope (no OCR pass).
-
-## Is a pixel-perfect result possible?
-
-For text-flow documents — whitepapers, papers, reports, resumes — near-perfect
-*and editable* is reachable. These are hard limits, not bugs:
-
-1. **Pixel-perfect and editable is a contradiction.** Text re-flowed by a
-   different engine will occasionally break a line differently, and everything
-   below a changed break moves. You can make it rare, not impossible.
-2. **OOXML quantises font size to 0.5pt.** A 10.1pt source font cannot be
-   emitted at 10.1pt. Compensable via wrap width; not removable.
-3. **Google Docs ignores embedded fonts.** Metric-compatible substitution is
-   the ceiling.
-4. **Google Docs flattens per-section page geometry**, which puts full-bleed
-   cover bands permanently at risk.
-5. **Gradients, rounded corners and rotated text** have no paragraph-flow
-   equivalent and must rasterise.
+The reasoning behind each stage, including the approaches that were tried and
+measured worse, is in [THEORY.md](THEORY.md).
 
 ## Versions
-
-Nothing has been published, so the version numbering is being reset once, now,
-while it is free to do so:
 
 | Version | What it means |
 |---|---|
 | `0.1.0a1` | today — alpha, AGPL (inherited from PyMuPDF), git install only |
-| `0.2.0a1` | the first *published* release, Apache-2.0, after the permissive parser reaches zero parity regressions |
+| `0.2.0a1` | first *published* release: Apache-2.0, after the permissive parser is qualified against Google Docs |
 | `0.x` betas | gated on the holdout number improving, not on the corpus number |
 | `1.0` | not before wild PDFs stop failing on pagination |
 
-No AGPL wheel will ever be published: the licence swap lands before the first
-release, not after it.
-
 ## Documentation
 
-- [ROADMAP.md](ROADMAP.md) — what is done, what is left, and how far. Start here
-  if you want to know where this is going
-- [STATUS.md](STATUS.md) — the authority on every number, the defect register,
-  and the measurement mistakes that produced confident wrong answers
-- [SESSIONS.md](SESSIONS.md) — the working log: what each session expected to
-  happen before it ran
-- [THEORY.md](THEORY.md) — the fidelity model, what worked, what didn't, and why
-- [FINDINGS.md](FINDINGS.md) — a frozen independent audit with reproductions.
-  Its "v1.1" is a pre-release internal label from before this repo had versioned
-  releases; it does not correspond to any tag or published artifact.
-- [testkit/README.md](testkit/README.md) — the measurement harness and its metrics
+- [ROADMAP.md](ROADMAP.md) — what is done, what is left, how far. Start here.
+- [STATUS.md](STATUS.md) — the authority on every number, plus the defect
+  register and the measurement mistakes that produced confident wrong answers.
+- [THEORY.md](THEORY.md) — the fidelity model: what worked, what didn't, why.
+- [testkit/README.md](testkit/README.md) — the measurement harness and its metrics.
+- [docs/evidence/](docs/evidence/) — execution log and transition records.
 
 ## Contributing
 
-The fastest way to help is a PDF that breaks it. Producer dialects differ far
-more than content does, and the corpus is thin on LaTeX, Typst, InDesign and
-Quartz. Run `python testkit/runall.py` — both lanes gate the exit code, so it
-doubles as CI, and `python tests/test_gate_mutations.py` checks the gate itself
-in about a second without needing a corpus or an oracle.
+**The most useful contribution is a PDF that breaks it.** Producer dialects
+differ far more than content does, and the corpus is thin on LaTeX, Typst,
+InDesign and Quartz.
+
+```bash
+python tests/test_gate_mutations.py
+```
+
+That checks the gate itself in about a second, with no corpus and no renderer.
+For the full fidelity run — which needs the container — see
+[testkit/README.md](testkit/README.md).
 
 ## License
 
-[AGPL-3.0-or-later](LICENSE) **today, Apache-2.0 next.** exactdoc links PyMuPDF,
-which is AGPL-3.0; the copyleft is inherited, not chosen — and the permissive
-replacement parser is now measured good enough to take over. The flip is the
-next milestone, and no AGPL wheel will ever be published: see
-[ROADMAP.md](ROADMAP.md).
-
-Relicensing means replacing the parser, and the obstacle is not the API — it
-is that every threshold downstream was tuned against the *shape* of PyMuPDF's
-output, especially its grouping of glyphs into lines and blocks. Measured over
-20 documents (`testkit/backend_probe.py`, ratio to PyMuPDF):
-
-| axis | median | range |
-|---|---|---|
-| chars | 1.00 | 0.84 – 1.00 |
-| lines | 0.98 | 0.73 – 1.79 |
-| blocks | **1.39** | 0.55 – **3.67** |
-| drawings | 1.00 | **0.04** – 1.12 |
-
-So pdfminer.six is not a drop-in — it loses up to 16% of text and sees 4% of
-the vector paths on arXiv papers. pypdfium2 (Apache-2.0) extracts text and
-paths but provides no line/block grouping, so that clustering has to be
-written here.
-
-A pypdfium2 backend is written and selectable (`--backend pdfium`, or
-`EXACTDOC_BACKEND=pdfium`; requires the `[pdfium]` extra). It is not the default
-*yet* — but it is no longer the blocker it was, and the rest of the pipeline no
-longer needs PyMuPDF either.
-
-Measured against PyMuPDF over the corpus, under the acceptance policy in
-[`testkit/parity_policy.json`](testkit/parity_policy.json), with **both** lanes
-reading end-to-end through their own backend — mean within-2pt 0.5118 for PyMuPDF
-against 0.4431 for pdfium:
-
-| verdict | count | which |
-|---|---|---|
-| **unwaived regression** | **2** | `05_memo`, `f1_fpdf_brief` — both vertical drift |
-| same | 5 | |
-| better | 3 | incl. `04_exec_brief`, `l1_word_native` |
-| expected divergence | 2 | `c4_i18n`, `c5_graphics` — pdfium is the *correct* one, verified by rendering |
-| **provisional** accepted shortfall | 4 | all core-14, all STATUS D2, each bounded by a recorded numeric floor |
-
-**The parity gate fails today, and that is the honest state.** It reported "0
-regressions" until the comparison was fixed to judge every dimension
-independently — it had been stopping at the first dimension outside its margin, so
-one improvement suppressed every regression after it, and vertical drift was not
-among the dimensions at all. Two documents were drifting by more than a point
-while the gate said "same".
-
-The four accepted shortfalls are **provisional**: waiving four of sixteen
-documents rather than two is a product decision awaiting the maintainer, not a
-measurement. The two new regressions are fully attributed — both are D2, in its
-two known locations, confirmed by re-running with refinement off — and are
-deliberately *not* waived. [STATUS.md D2](STATUS.md) has the measurements,
-including the cleanest statement of D2 in the repository: on `05_memo` the two
-parsers agree on every baseline to 0.00pt and disagree on every line-box top by
-1.5pt, which is exactly the page-origin shift.
-
-Down from 9 regressions. Those six documents used to be prose: the code exited on
-`regressions == 0` while the docs said two of them were formally accepted, so CI
-marked the step `continue-on-error` to keep the build usable — which retired the
-only gate the whole relicensing effort was aimed at. The policy is now data the
-test executes, every acceptance carries a numeric floor that fails when crossed,
-and an acceptance that stops describing reality fails as stale. The step is
-required.
-
-The accepted set grew from two documents to four, and that is worth reading
-carefully, because it is a *measurement* getting more honest rather than a
-converter getting worse. Until the permissive runtime boundary landed, `refine.py`
-read its measurement through PyMuPDF whichever backend had parsed — so the
-candidate lane was pdfium parsing with MuPDF measuring, a configuration nobody
-could install. Reading both through the backend that parsed adds two ReportLab
-documents to the accepted set under the same proven-unreachable cause: on core-14
-fonts PDFium reports a generic ascent where MuPDF reports the real one, and the
-metric-compatible render font agrees with MuPDF. Every document that embeds its
-fonts is unaffected. [STATUS.md §7](STATUS.md#7-the-permissive-runtime-boundary)
-has the arithmetic and the fix that was tried and measured wrong.
-
-The remaining two are attributed, and the attribution is why they are being
-accepted rather than chased: `infer()` derives the page's vertical origin from
-line-box *tops*, which is the one vertical quantity two correct parsers
-legitimately disagree about, because each reads it from font-metric tables the
-other does not have. PyMuPDF puts Helvetica's box 1.075× the type size above the
-baseline; pdfium says 0.905×. On Symbol, where both fall back to the *embedded*
-font's metrics, they agree to three decimals — which is how we know it is the
-tables and not the code. pdfium exposes exactly one vertical font metric and the
-parser already uses it, so matching PyMuPDF would mean vendoring MuPDF's own
-base-14 table into a permissive tree. That is not something this project will
-do. See [STATUS.md](STATUS.md) D2 and [ROADMAP.md](ROADMAP.md) §4.
-
-Everything else that separated the two parsers has been closed: extraction was
-always at parity (text character-identical, baselines identical on 4,734 of
-4,734 lines, paths exact), and grouping, path geometry, span segmentation and
-whitespace now match the incumbent exactly on every document where they can.
-
-Two documents diverge on purpose, both verified by rendering, and on both the
-new backend is the *correct* one: RTL text (PyMuPDF returns visual order, so
-its output renders Arabic backwards) and gradient bands (PyMuPDF drops them,
-leaving white text invisible on white).
-
-`testkit/golden_ir.py` freezes the current parser's output per corpus document
-and checks it in CI, so the remaining work is a diff rather than a rewrite. See
-[`exactdoc/backend.py`](exactdoc/backend.py) for the contract and
-[STATUS.md](STATUS.md) for the numbers.
-
-**Until the swap lands, please do not send patches to `parse.py`** —
-relicensing needs every contributor's consent, and the change is confined to
-that one module. Contributions anywhere else cost nothing.
+[AGPL-3.0-or-later](LICENSE), inherited from PyMuPDF. See
+[Licensing](#licensing) for why, and what replaces it.

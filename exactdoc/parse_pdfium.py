@@ -621,9 +621,10 @@ def _pitch_by_size(lines: List[Line]) -> dict:
     Text of one size shares one leading, so the reference is computed within
     each size and only falls back to the page when a size has too few samples
     to be worth trusting. This is not the sliding window that was tried and
-    reverted (SESSIONS.md, `local_pitch`): a window has no idea what it is
-    averaging over and cut 02_research_paper's paragraphs in half, whereas a
-    size bucket is a property of the text itself.
+    reverted: a window averages over whatever happens to be nearby, has no idea
+    what it is averaging over, and cut `02_research_paper`'s paragraphs in half
+    by mixing body text with heading leading. A size bucket is a property of the
+    text itself rather than of the window, which is why it survives.
     """
     buckets = {}
     for a, b in zip(lines, lines[1:]):

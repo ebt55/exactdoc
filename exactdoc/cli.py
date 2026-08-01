@@ -5,8 +5,34 @@ from `exactdoc.options.PRODUCT`, so `exactdoc file.pdf`, `convert(file)` and
 the CI product lane all run the same configuration. They used to run three.
 """
 import argparse
+import sys
 
+from .errors import ExactdocError
 from .options import BACKENDS, ORACLES, OUTPUT_PROFILES, PRODUCT, TARGETS
+
+# Stable, documented exit codes. A script that branches on exit status is an API
+# whether or not anyone called it one, so these are part of the contract and do
+# not get renumbered casually.
+#
+# 0  success
+# 1  an unclassified exactdoc failure
+# 2  argparse usage error (argparse's own convention; not ours to change)
+EXIT_CODES = {
+    "config": 3,
+    "cloud-consent-required": 4,
+    "unsupported-input": 5,
+    "parse": 6,
+    "backend-unavailable": 7,
+    "output-write": 8,
+    "resource-limit": 9,
+    "oracle": 10,
+    "oracle-unavailable": 11,
+    "oracle-auth": 12,
+    "oracle-upload": 13,
+    "oracle-import": 14,
+    "oracle-export": 15,
+    "oracle-cleanup": 16,
+}
 
 
 def build_parser():
@@ -59,7 +85,27 @@ def build_parser():
 
 
 def main(argv=None):
-    ap = build_parser()
+    """Entry point. Turns a typed failure into a message and an exit code.
+
+    An uncaught ExactdocError used to reach the user as a traceback, which is
+    the right output for a bug and the wrong one for "you asked for refinement
+    without a renderer" -- an ordinary, recoverable, user-fixable situation. A
+    traceback also buries the actionable sentence under a stack.
+    """
+    try:
+        return _run(build_parser(), argv)
+    except ExactdocError as e:
+        code = EXIT_CODES.get(e.code, 1)
+        print("error: %s" % e.message, file=sys.stderr)
+        if e.detail:
+            print("  %s" % e.detail, file=sys.stderr)
+        return code
+    except KeyboardInterrupt:
+        print("interrupted", file=sys.stderr)
+        return 130
+
+
+def _run(ap, argv):
     args = ap.parse_args(argv)
     if args.out and len(args.pdf) > 1:
         ap.error("-o works with a single input")
@@ -92,4 +138,4 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

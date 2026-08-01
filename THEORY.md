@@ -8,8 +8,7 @@ original — what worked, what didn't, and where the ceiling is.
 > defect register, what is pending — see **[STATUS.md](STATUS.md)**, which is
 > the authority on numbers. Several claims below were later falsified by
 > measurement; each is marked inline rather than deleted, because the wrong
-> turn is part of the record. **[FINDINGS.md](FINDINGS.md)** is a frozen
-> point-in-time audit of v1.1 and is not maintained.
+> turn is part of the record.
 
 Everything here was established empirically with a **render-back verification
 loop**: convert the DOCX back to PDF (LibreOffice headless), image-diff every
