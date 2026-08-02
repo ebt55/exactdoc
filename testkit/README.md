@@ -50,29 +50,54 @@ explicit non-shipping candidate; it is not part of the local `runall.py` gate:
 ```bash
 python testkit/gdocs_oracle.py prepare <dir>
 python testkit/gdocs_oracle.py run <dir> --allow-cloud-upload
+python testkit/gdocs_oracle.py assess <gdocs_qualification.json>
 ```
 
 `prepare` is offline and hash-binds the candidate. `run` may upload and reports
-operational and quality verdicts independently. The final live run on 2026-08-02
-for `pdfium/gdocs/none/refine0@240dpi` was operationally successful: all 16
-documents were attempted and succeeded, zero failed, and no
-`.gdocs_orphans.json` remained after cleanup. Targeted fixes improved page
-match 12/16 to 14/16, median dy50 6.07pt to 4.98pt, word recall 0.8356 to
-0.8745, SSIM 0.7475 to 0.7767, and ink IoU 0.1814 to 0.2108; mean within-2pt
-was essentially flat (0.1391 to 0.1378) and live text remained 0.9568.
-`01_whitepaper_market` and `04_exec_brief` now retain their source page counts.
+operational and quality verdicts independently. The latest live run on 2026-08-02
+for `pdfium/gdocs/none/refine0@240dpi` was operationally successful: 16
+attempted, 16 succeeded, zero failed, and no `.gdocs_orphans.json` remained
+after cleanup. Against the prior live candidate, page match improved 14/16→15/16,
+mean within-2pt 0.1378→0.1443, mean word recall 0.8745→0.9064, SSIM
+0.7767→0.7878, and IoU 0.2108→0.2138; live text remained 0.9568. Median dy50
+rose 4.98→6.68pt because `c3_tables` now matches many more words and changes
+median ordering, not because of a broad regression. Only `c5_graphics` remains
+a page mismatch (1→2).
 
-The remaining page-count misses are `c3_tables`, which needs a general
-cross-page table assembler rather than a Google-only workaround, and
-`c5_graphics`, a deferred gradient/rounded/rotated designed-page limitation.
-PDFium preserves stretched literal interword spaces, removing the
+The candidate adds a
+conservative striped-table assembler: `c3_tables` is one editable 46-row ×
+4-column DOCX table, IDs 1–45 exactly once, naturally paginated without an
+invented repeating header. It also consolidates `c1_whitepaper`'s 5-row
+comparison table. The detector rejects ambiguous multiline/cards/callouts and
+coalesces only page-edge segments with matching geometry; it does not claim to
+solve complex/nested regional tables. Local LibreOffice review was indicative
+only; live Google review now shows `c3_tables` 3→3 (rather than 3→4), live
+0.9226/doc recall 0.9359 unchanged, word recall 0.3120→0.8215, within-2pt
+0→0.1076, SSIM 0.5785→0.7573, and IoU 0.0973→0.1448. Its dy50/dy90 are
+2.94→7.85pt and 80.52→103.34pt because many more words match. All 45 rows are
+present in an editable continuous three-page table, although row distribution
+differs from source. `c1_whitepaper` remains 2→2 with live/document/word recall
+0.9654/0.9697/0.9697 and dy50/dy90 9.30/54.79pt unchanged; within-2pt, SSIM,
+and IoU have tiny 0.0719→0.0688, 0.8006→0.7993, and 0.1568→0.1563 tradeoffs.
+`c5_graphics` remains a deferred gradient/rounded/rotated designed-page
+limitation. PDFium
+preserves stretched literal interword spaces, removing the
 `01_whitepaper_market` word staircase; shipping PyMuPDF is unaffected.
 
-This is operational success only: quality is currently unqualified and
-unacceptable for release. `testkit/gdocs_quality_policy.json` is absent, so the
-recorded `quality_pass` and `overall_pass` are false. Review this evidence before
-defining a quality policy; do not relax one merely to declare the candidate
-releasable.
+This is operational success only. The strict draft v2 policy has blocking
+`ordinary_digital`, tracked/nonblocking `designed_stress`, and unsupported-input
+refusal tiers plus explicit owner ratification. `assess` is offline, constructs
+no Drive service, hash-binds the source evidence, writes a separate atomic
+assessment, and returns 1 while a valid assessment fails quality.
+
+The latest evidence has 9/13 ordinary fixtures within every draft threshold.
+Seven blocking findings remain across `01_whitepaper_market` (SSIM),
+`c2_paper2col` (dx/dy/SSIM), `c7_code` (dx), and `l1_word_native` (dx/dy).
+The policy is intentionally still unratified, so `quality_pass=false` and
+`overall_pass=false`. Do not ratify or weaken it merely to declare the candidate
+releasable. Expand the corpus to 40–60 PDFs and review the thresholds after the
+blocking layout issues are fixed; the current 16 fixtures are regression
+evidence, not market coverage.
 
 ## The gate, and what it refuses to let through
 

@@ -1,0 +1,11 @@
+{
+  "schema": "exactdoc.gdocs-quality-policy.v2",
+  "candidate_profile": "pdfium/gdocs/none/refine0@240dpi",
+  "manifest": {"name": "corpus_manifest.json", "sha256": "cc4dd4c1c449ddabe85d7538454ed4a3d6163d762f68d2e59d97801e11c3c7da"},
+  "review": {"status": "draft", "rationale": "Ordinary digital documents are blocking; designed stress documents are tracked. Scans and heavy unsupported inputs are excluded before qualification. Thresholds are draft pending owner review and an expanded corpus.", "approved_by": null, "approved_on": null},
+  "tiers": {
+    "ordinary_digital": {"blocking": true, "documents": ["01_whitepaper_market.pdf", "02_research_paper.pdf", "03_tech_report_code.pdf", "04_exec_brief.pdf", "05_memo.pdf", "c1_whitepaper.pdf", "c2_paper2col.pdf", "c6_long.pdf", "c7_code.pdf", "c8_toc_links.pdf", "f1_fpdf_brief.pdf", "l1_word_native.pdf", "r1_reportlab_report.pdf"], "per_document": {"page_match": {"equals": true}, "live_text_cov": {"min": 0.9}, "doc_recall": {"min": 0.9}, "word_recall": {"min": 0.9}, "mean_ssim": {"min": 0.7}, "dx_p50": {"max": 10.0}, "dy_p50": {"max": 10.0}}},
+    "designed_stress": {"blocking": false, "documents": ["c3_tables.pdf", "c4_i18n.pdf", "c5_graphics.pdf"], "per_document": {"page_match": {"equals": true}, "live_text_cov": {"min": 0.9}, "doc_recall": {"min": 0.9}, "word_recall": {"min": 0.9}, "mean_ssim": {"min": 0.7}, "dx_p50": {"max": 10.0}, "dy_p50": {"max": 10.0}}},
+    "unsupported": {"blocking": false, "expected": "reject-before-qualification", "documents": []}
+  }
+}

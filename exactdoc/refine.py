@@ -24,7 +24,7 @@ write, so conversion never depends on it being installed.
 import copy
 import os
 import re
-import tempfile
+import shutil
 from typing import List, Optional
 
 from .layout import DocLayout, Para, TableEl, FigureEl, ImageEl, RuleEl
@@ -254,6 +254,8 @@ def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
     """
     from .backend import get_backend
     from .docxout import write_docx
+    from .errors import OracleError, OutputWriteError
+    from .io import Workspace, publish
     from .verify import docx_to_pdf, SOFFICE
 
     if backend is None:
@@ -272,18 +274,29 @@ def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
                 "deliberately.")
         render = docx_to_pdf
     if rounds <= 0:
-        return write_docx(lay, out_path, dpi=dpi,
-                          output_profile=output_profile, backend=backend)
+        publish(lambda tmp: write_docx(lay, tmp, dpi=dpi,
+                                       output_profile=output_profile,
+                                       backend=backend), out_path)
+        return out_path
 
     best_path, best_score = None, None
-    with tempfile.TemporaryDirectory() as td:
+    # Render-feedback candidates are deliberately private.  In particular, do
+    # not use ``<out_path>.best``: that predictable public-side artifact races
+    # with another conversion and survives a failed run looking deliverable.
+    # The final candidate alone is copied through ``publish`` once all renderer
+    # work has succeeded, so failures in a round cannot touch ``out_path``.
+    with Workspace() as workspace:
+        td = workspace.path
         for rnd in range(rounds + 1):
             # write_docx is pure: `lay` survives the round unmodified.
-            write_docx(lay, out_path, dpi=dpi, output_profile=output_profile,
+            candidate = workspace.file("candidate-%d.docx" % rnd)
+            write_docx(lay, candidate, dpi=dpi, output_profile=output_profile,
                        backend=backend)
-            rendered = render(out_path, td)
+            rendered = render(candidate, td)
             if rendered is None:
-                return out_path
+                raise OracleError(
+                    "the render oracle produced no output; %s is unchanged"
+                    % os.path.basename(out_path))
             m = _measure(src_pdf, rendered, backend)
             score = (abs(m["out_pages"] - m["src_pages"]),
                      sum(m["spill"]),
@@ -294,20 +307,16 @@ def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
                          score[2]))
             if best_score is None or score < best_score:
                 best_score = score
-                best_path = out_path + ".best"
-                try:
-                    import shutil
-                    shutil.copy(out_path, best_path)
-                except OSError:
-                    best_path = None
+                best_path = workspace.file("best.docx")
+                shutil.copyfile(candidate, best_path)
             if score[0] == 0 and score[1] == 0 and score[2] < 1.0:
                 break
             if rnd == rounds or not _apply(lay, m):
                 break
         # keep the best round, not merely the last
-        if best_path and os.path.exists(best_path):
-            try:
-                os.replace(best_path, out_path)
-            except OSError:
-                pass
+        if not best_path or not os.path.exists(best_path):
+            raise OutputWriteError(
+                "refinement did not produce a final DOCX; %s is unchanged"
+                % os.path.basename(out_path))
+        publish(lambda tmp, src=best_path: shutil.copyfile(src, tmp), out_path)
     return out_path

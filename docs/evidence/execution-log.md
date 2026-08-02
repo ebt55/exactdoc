@@ -37,7 +37,9 @@ inconvenient:
 |---|---|---|
 | INT-00 | PR graph consolidated; #1 merged with a merge commit preserving `0cd7d11`; #2/#3 closed as superseded | `docs/evidence/pr-transition.md` |
 | **Consolidation** | **PR #4 merged to `main` (`ef653c9`) with 19 commits, deliberately red.** All five feature branches deleted after verifying every commit was reachable from `main`; remote is now `main` alone. No open PRs, no open issues | `git log --first-parent main` |
-| REL-01A | Typed error hierarchy, `ConversionResult`, atomic DOCX publication, and `target` split into `output_profile` + `oracle`. A missing oracle and refinement-without-a-renderer are now errors rather than silent open-loop conversions | `exactdoc/errors.py`, `io.py`, `result.py`; 224/224 values unmoved |
+| REL-01A (partial) | Conversion/refinement DOCX publication is now genuinely transactional: private candidates are structurally validated before atomic replacement; failures preserve existing bytes and leave no predictable `.best` artifact. This does **not** mark the wider offline-boundary work or `ConversionResult` complete. | Atomic-output checks; 224/224 values unmoved |
+| GDOCS-04 table tranche | Consented Google qualification of `pdfium/gdocs/none/refine0@240dpi`: operational pass, 16/16 succeeded, zero orphan ledger. Page match 14/16→15/16; c3 is now an editable continuous 3-page table with all 45 rows. The overall run remains false solely because `quality.status=missing` (`failure_stage=quality-policy`), not because operational work failed. | `testkit/batch/gdocs_candidate_tables2.gdocs-qualification/gdocs_qualification.json` |
+| GDOCS-04B policy v2 | Strict tiered draft policy and offline evidence reassessment implemented. Existing evidence remains operationally valid; 9/13 ordinary fixtures clear every draft threshold, with seven blocking findings across four documents. The policy is unratified and therefore cannot pass by construction. | `testkit/gdocs_quality_policy.json`; `docs/evidence/gdocs-candidate-tables2-assessment.json` |
 | DET-02a | Environment identity made exact and enforced. Recorded reference, both-direction font matching, `fonts.conf` verified by content, fingerprint enforced | `testkit/canonical_env.json`, fp `3ca438f1…` |
 | DET-02b | `accepted_shortfalls` split into `provisional_shortfalls` (cannot authorise) and `ratified_shortfalls` (owner/date/issue/review). Four D2 docs provisional; nothing ratified | `testkit/parity_policy.json` schema 2 |
 | DET-02c | Two false-green tests repaired: the PyMuPDF-free proof searched only gitignored dirs and returned 0 having converted nothing; the generator test discarded both exit codes and required 3 of 16 documents | `tests/test_no_pymupdf.py`, `tests/test_corpus_generation.py` |
@@ -102,7 +104,7 @@ answer invalidates the whole relicence.
 
 ## Next, in order
 
-### REL-01A — offline conversion boundary · *in progress*
+### REL-01A — offline conversion boundary · *partially complete*
 
 Split `target` into `output_profile` (how the DOCX is serialised) and `oracle`
 (what renders it during refinement). Today one field means both, so
@@ -111,19 +113,27 @@ the shipping profile.
 
 - [ ] `exactdoc/errors.py` — typed hierarchy
 - [ ] `exactdoc/result.py` — `ConversionResult`, requested vs resolved options
-- [ ] `exactdoc/io.py` — atomic DOCX publication
+- [x] transactional DOCX publication for writer/refinement candidates; structural
+  validation before atomic replacement, with failure preservation
 - [ ] `exactdoc/profiles.py` — the two axes, legacy `target=` migration
 - [ ] CLI exit codes + `--json`
 - [ ] failure-injection and concurrency tests
 
 **Invariant: G1 must move zero recorded fidelity values.** It changes contracts
-and safety, not layout. Prove it by re-running both lanes and diffing exactly.
+and safety, not layout. The transactional-publication slice has passed its
+atomic-output checks; the remaining boundary work still needs the full proof.
 
 ### Then
 
-`GDOCS-01` packaged oracle → `GDOCS-02` visual+semantic gate → `GDOCS-03` first
-real Google measurement → `DEC-D2` → `GDOCS-04` fixes → `GDOCS-05` default flip
-→ `LIC-03` → `PKG` → `CI-01` → `RELEASE-01`.
+Next quality work is the four ordinary-document blockers identified by policy
+v2, followed by a broader 40–60-PDF frozen corpus and owner policy review.
+Annotation/internal-TOC preservation and heading/list semantics follow without
+displacing those release blockers. Google full-corpus qualification happens
+only after explicit upload consent, followed by a second clean release pass.
+`GDOCS-01` packaged oracle →
+`GDOCS-02` visual+semantic gate → `GDOCS-03` first real Google measurement →
+`DEC-D2` → `GDOCS-04` fixes → `GDOCS-05` default flip → `LIC-03` → `PKG` →
+`CI-01` → `RELEASE-01` remains the release sequence.
 
 Do not start Google fidelity tuning before GDOCS-03 produces a complete
 discovery artifact. Optimising against LibreOffice for a Google target is the

@@ -129,6 +129,16 @@ class ResourceLimitError(ExactdocError):
     code = "resource-limit"
 
 
+class OcrRequiredError(UnsupportedInputError):
+    """The PDF appears to be an image-only scan and needs an OCR stage.
+
+    This is deliberately a high-confidence refusal, not a promise that an OCR
+    engine is available.  Exactdoc currently preserves digital-PDF text; it
+    does not invent text for a scan.
+    """
+    code = "ocr-required"
+
+
 # --- oracles -----------------------------------------------------------------
 
 class OracleError(ExactdocError):

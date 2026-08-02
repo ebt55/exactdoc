@@ -551,6 +551,13 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
     first_cover_text = True
     for ri, rowspec in enumerate(t.rows):
         row = tbl.rows[ri]
+        if ri < t.repeat_header_rows:
+            # Only inference backed by a repeated source row may request a
+            # Word repeating header.  Inventing one changes ordinary PDFs.
+            trPr = row._tr.get_or_add_trPr()
+            hdr = OxmlElement("w:tblHeader")
+            hdr.set(qn("w:val"), "true")
+            trPr.append(hdr)
         h = t.row_heights[ri] if ri < len(t.row_heights) else None
         # Only pin height on rows with no text: text rows are content-driven
         # (cell pads + exact-leading paragraphs sum to the source height,
@@ -998,7 +1005,7 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
 
     last_el_par = None
     for pi, pg in enumerate(lay.pages):
-        if pi > 0:
+        if pi > 0 and not pg.continuation_only:
             # page boundary
             after_cover = has_cover and pi == 1
             next_cols = pg.chunks[0].n_cols if pg.chunks else 1

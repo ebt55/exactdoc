@@ -23,10 +23,11 @@ PDFium is optional through `[pdfium]`.
 
 Known product limitations remain:
 
-- `c3_tables`: nested-table reconstruction and page fragmentation.
+- Complex/nested table layouts remain deferred. The ordinary striped long table
+  in `c3_tables` is now assembled as one editable table.
 - D10 rasterised text regions in `c5_graphics` and `04_exec_brief`.
-- Heavy LaTeX, highly designed/vector pages, and nested tables are deferred;
-  scan/OCR PDFs are unsupported.
+- Heavy LaTeX and highly designed/vector pages are deferred; image-only scan/OCR
+  PDFs are explicitly rejected as OCR-required rather than silently converted.
 
 The project prioritises ordinary digital text, multi-column pages, common
 tables, and i18n. A rasterised figure can be the honest fallback for a designed
@@ -51,9 +52,8 @@ The candidate is not adopted and is not releasable.
 
 A general bottom-margin relief fixed the candidate's `c1_whitepaper` and
 `c2_paper2col` overflow while preserving the other 12 page-matching fixtures.
-It intentionally does not treat `c3_tables` (nested table) or `c5_graphics`
-(designed graphics) as a margin problem; they remain explicit candidate
-limitations.
+It intentionally does not treat `c5_graphics` (designed graphics) as a margin
+problem. Complex/nested tables remain an explicit candidate limitation.
 
 ## Google Docs qualification
 
@@ -71,34 +71,75 @@ python testkit/gdocs_oracle.py run <dir> --allow-cloud-upload
 operation and separately reports operational success and quality success. Drive
 objects are always cleanup-attempted; an orphan ledger blocks continued work.
 
-The final 2026-08-02 live run for `pdfium/gdocs/none/refine0@240dpi` is
-operationally successful: all 16 documents were attempted and succeeded, with
-zero failures, and no `.gdocs_orphans.json` remained after the run. Targeted
-fixes improved page match 12/16 to 14/16, median dy50 6.07pt to 4.98pt, word
-recall 0.8356 to 0.8745, SSIM 0.7475 to 0.7767, and ink IoU 0.1814 to 0.2108.
-Mean within-2pt was effectively flat (0.1391 to 0.1378) and live text stayed
-0.9568. `01_whitepaper_market` is now 3→3 and `04_exec_brief` 2→2.
+The latest 2026-08-02 live run for `pdfium/gdocs/none/refine0@240dpi` is
+operationally successful: 16 attempted, 16 succeeded, zero failed, and no
+`.gdocs_orphans.json` remained. Compared with the prior live candidate,
+page-count match improved 14/16→15/16; mean within-2pt 0.1378→0.1443; mean live
+text stayed 0.9568; mean word recall 0.8745→0.9064; mean SSIM 0.7767→0.7878;
+and mean IoU 0.2108→0.2138. Median dy50 is 4.98→6.68pt because `c3_tables` now
+matches many more words and changes median ordering, not because of a broad
+regression. Only `c5_graphics` remains a page-count mismatch (1→2).
 
-Remaining page-count misses are `c3_tables` and `c5_graphics`. The former is
-ordinary-document work: inference fragments its alternating-fill, multi-page
-table into 1x1/1x4 tables and paragraphs, requiring a general cross-page table
-assembler. The latter depends on gradient and rounded/rotated complex graphics
-and remains a designed-page limitation. PDFium now preserves stretched literal
-interword spaces, removing the `01_whitepaper_market` word staircase; PyMuPDF
-shipping output is unaffected. `05_memo` geometry improved (dy50 22.67pt to
-5.59pt), with a small tradeoff in word recall (0.9639 to 0.9398) and SSIM
-(0.9167 to 0.9105).
+The qualified conservative striped-table assembler makes
+the `c3_tables` long table one editable 46-row × 4-column DOCX table, IDs 1–45
+exactly once, and paginates it naturally without inventing a repeating header.
+It also consolidates the 5-row `c1_whitepaper` comparison table. It rejects
+ambiguous multiline content, cards, and callouts and coalesces pages only at an
+edge with matching geometry; it does not claim to solve complex/nested regional
+tables. Local LibreOffice review was indicative only; live Google evidence now
+shows `c3_tables` 3→3 rather than 3→4, live 0.9226/doc recall 0.9359 unchanged,
+word recall 0.3120→0.8215, within-2pt 0→0.1076, SSIM 0.5785→0.7573, and IoU
+0.0973→0.1448. dy50/dy90 are 2.94→7.85pt and 80.52→103.34pt because the table
+now matches many more words. Visual review found all 45 rows in an editable
+continuous three-page table; row distribution differs from the source.
+`c1_whitepaper` remains 2→2 with live/document/word recall
+0.9654/0.9697/0.9697 and dy50/dy90 9.30/54.79pt unchanged; within-2pt,
+SSIM, and IoU have tiny 0.0719→0.0688, 0.8006→0.7993, and 0.1568→0.1563
+tradeoffs. PDFium preserves stretched literal interword spaces, removing the
+`01_whitepaper_market` word staircase; shipping PyMuPDF output is unaffected.
 
-That operational result leaves quality currently unqualified and unacceptable
-for release. No reviewed `testkit/gdocs_quality_policy.json` exists, so the
-recorded `quality_pass` and `overall_pass` are false. Review the evidence before
-defining a quality policy; do not treat an operational pass as release approval.
+That operational result remains unacceptable for release. A strict draft
+`testkit/gdocs_quality_policy.json` now defines blocking ordinary documents,
+tracked designed-stress documents, unsupported-input refusal, exact metrics,
+and explicit owner ratification. The offline `assess` command hash-binds its
+source evidence and never performs a cloud operation.
 
-## Input hardening
+Applied to the latest Google evidence, operational pass remains true but quality
+and overall pass remain false: the policy is unratified and 9/13 ordinary
+fixtures meet every threshold. Seven blocking findings span four fixtures:
+`01_whitepaper_market` SSIM; `c2_paper2col` dx/dy/SSIM; `c7_code` dx; and
+`l1_word_native` dx/dy. The three stress fixtures produce nine additional
+nonblocking findings. This is an actionable gap report, not release approval.
+
+## Conversion safety, batch, and scan handling
 
 Encrypted PDFs map to an unsupported-input error. Malformed or truncated PDFs
-map to parse errors. These failures preserve an existing destination atomically;
-they are no longer raw backend exceptions.
+map to parse errors. Writer and refinement candidates remain private until DOCX
+structural validation succeeds; only then is an existing destination replaced
+atomically. Failures preserve existing bytes and do not leave predictable
+adjacent `.best` artifacts.
+
+The CLI keeps positional single-file conversion and adds deterministic serial
+batch conversion: `exactdoc --input-dir pdfs --out-dir docx --recursive
+--result-json batch.json`. It discovers PDFs case-insensitively, preserves
+relative paths, avoids symlinks/output subtree, requires `--overwrite` for
+existing outputs, and atomically publishes a privacy-safe result JSON. It caps
+files at 500 documents, 250 pages/document, 2,000 pages/run, and 250 MiB/file.
+`--workers` currently accepts only `1`; it does not pretend to parallelise.
+Google cloud qualification is rejected for batches.
+
+`--scan-only` and normal conversion use a conservative local detector. Only
+high-confidence image-only scans are rejected as OCR-required; mixed documents
+proceed and blank/digital/mixed are distinguished. No OCR engine is included.
+All 16 frozen fixtures avoid false OCR-required classification.
+
+## Verified local checks
+
+The current working tree passes 67 native `unittest` tests (2 platform skips),
+the batch suite (14 pass, 1 Windows symlink skip), corpus purity (16/16), the
+no-PyMuPDF PDFium smoke check, atomic-output checks, and the 16-entry corpus
+manifest check. These are local verification results, not canonical LibreOffice
+or Google qualification evidence.
 
 ## Licensing and release strategy
 
@@ -107,9 +148,11 @@ licensing blocker. PDFium is optional and is the migration path, not proof that
 the switch is ready.
 
 Apache-2.0 is the preferred future target because its patent grant and
-business-friendly terms better suit the intended distribution. It is contingent
-on same-profile PDFium parity and reviewed real Google Docs quality evidence,
-plus the appropriate legal review. This is project strategy, not legal advice.
+business-friendly terms better suit the intended distribution. It remains
+contingent on removing PyMuPDF from the core/default path, expanded PDFium
+parity and two clean Google passes, plus dependency/provenance/license audit
+(including bundled PDFium dependencies) and appropriate legal review. This is
+project strategy, not legal advice.
 
 ## Reproduce safely
 

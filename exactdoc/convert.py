@@ -12,6 +12,8 @@ from .dialect import normalize
 from .infer import infer
 from .input import parse as parse_input
 from .options import ConversionOptions, resolve
+from .errors import OcrRequiredError
+from .scan import classify_ir
 
 
 def _select_backend(name: str):
@@ -84,7 +86,13 @@ def convert(pdf_path: str, out_path: Optional[str] = None,
     # Keep the backend-native reader boundary here.  Known password and format
     # statuses become stable public errors before any output can be published;
     # unrelated exceptions deliberately propagate as bugs.
-    ir = normalize(parse_input(bk, pdf_path))
+    ir = parse_input(bk, pdf_path)
+    # ``parse_input`` always returns a DocIR in production.  The attribute
+    # guard keeps the historical lightweight writer-test seam usable: those
+    # tests deliberately substitute an opaque layout sentinel, not a parser IR.
+    if hasattr(ir, "pages") and classify_ir(ir).classification == "ocr_required":
+        raise OcrRequiredError("this PDF appears to require OCR before conversion")
+    ir = normalize(ir)
     lay = infer(ir)
     if opts.ladder:
         from .ladder import apply_ladder, summarise
@@ -112,8 +120,16 @@ def convert(pdf_path: str, out_path: Optional[str] = None,
                       render=render, output_profile=opts.output_profile,
                       backend=bk)
     from .docxout import write_docx
-    return write_docx(lay, out_path, dpi=opts.dpi,
-                      output_profile=opts.output_profile, backend=bk)
+    # The writer serialises a ZIP incrementally.  Never point it at the public
+    # destination: if an image, disk, or Python failure interrupts it, preserve
+    # the caller's existing document byte-for-byte and publish only a validated
+    # complete result.  ``publish`` deliberately writes beside ``out_path`` so
+    # its final replacement is an atomic same-filesystem operation.
+    from .io import publish
+    publish(lambda tmp: write_docx(lay, tmp, dpi=opts.dpi,
+                                   output_profile=opts.output_profile,
+                                   backend=bk), out_path)
+    return out_path
 
 
 def main(argv=None):

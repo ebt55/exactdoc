@@ -7,6 +7,7 @@ needs per-run affirmative cloud-upload consent::
 
     python testkit/gdocs_oracle.py prepare testkit/batch
     python testkit/gdocs_oracle.py run testkit/batch --allow-cloud-upload
+    python testkit/gdocs_oracle.py assess testkit/batch.gdocs-qualification/gdocs_qualification.json
 
 The resulting ``gdocs_qualification.json`` deliberately contains only safe
 basenames and measurements.  In particular it never records local paths,
@@ -14,6 +15,7 @@ source text, credentials, or Drive file IDs.  ``explore`` is separately named
 for ad-hoc work and must not be used as qualification evidence.
 """
 import argparse
+import datetime
 import functools
 import hashlib
 import json
@@ -38,7 +40,7 @@ DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.docu
 EVIDENCE_NAME = "gdocs_qualification.json"
 PREPARATION_NAME = ".exactdoc-gdocs-preparation.json"
 PREPARATION_SCHEMA = "exactdoc.gdocs-preparation.v1"
-QUALITY_POLICY_SCHEMA = "exactdoc.gdocs-quality-policy.v1"
+QUALITY_POLICY_SCHEMA = "exactdoc.gdocs-quality-policy.v2"
 DEFAULT_QUALITY_POLICY = os.path.join(HERE, "gdocs_quality_policy.json")
 # This is intentionally a qualification candidate, not the shipping PRODUCT.
 # ``prepare`` verifies the runtime's named options object resolves to this ID.
@@ -444,7 +446,8 @@ _NUMBER_METRICS = {
     "doc_recall", "dx_p50", "dx_p90", "dy_p50", "dy_p90", "within2pt",
     "within5pt", "mean_ssim", "mean_iou",
 }
-_QUALITY_METRICS = {"page_match", "live_text_cov", "doc_recall", "word_recall", "within2pt"}
+_QUALITY_METRICS = {"page_match", "live_text_cov", "doc_recall", "word_recall",
+                    "mean_ssim", "dx_p50", "dy_p50"}
 
 
 def qualification_output_dir(docx_dir):
@@ -507,69 +510,118 @@ def _policy_identity(path):
     return {"name": _safe_basename(os.path.basename(path)), "sha256": _sha256(path)}
 
 
-def _load_quality_policy(path, manifest_identity):
-    """Return a valid policy or a safe failure status; never block collection."""
-    if not os.path.isfile(path):
-        return None, {"status": "missing", "passed": False, "findings": []}
-    try:
-        identity = _policy_identity(path)
-    except OSError:
-        return None, {"status": "malformed", "passed": False, "findings": []}
-    try:
-        with open(path, encoding="utf-8") as fh:
-            policy = json.load(fh)
-    except (OSError, ValueError):
-        return None, {"status": "malformed", "policy": identity,
-                      "passed": False, "findings": []}
-    if (not isinstance(policy, dict) or policy.get("schema") != QUALITY_POLICY_SCHEMA or
-            policy.get("candidate_profile") != CANDIDATE_PROFILE_ID or
-            policy.get("manifest") != manifest_identity):
-        return None, {"status": "mismatch", "policy": identity,
-                      "passed": False, "findings": []}
-    checks = policy.get("per_document")
+def _policy_state(status, identity=None):
+    state = {"status": status, "passed": False, "findings": [], "tiers": {}}
+    if identity is not None:
+        state["policy"] = identity
+    return state
+
+
+def _valid_checks(checks):
     if not isinstance(checks, dict) or set(checks) != _QUALITY_METRICS:
-        return None, {"status": "malformed", "policy": identity,
-                      "passed": False, "findings": []}
+        return None
     normalised = {}
     for metric, rule in checks.items():
         if metric == "page_match":
             if not isinstance(rule, dict) or rule != {"equals": True}:
-                return None, {"status": "malformed", "policy": identity,
-                              "passed": False, "findings": []}
-            normalised[metric] = rule
-            continue
-        if not isinstance(rule, dict) or set(rule) != {"min"}:
-            return None, {"status": "malformed", "policy": identity,
-                          "passed": False, "findings": []}
-        if not _finite_number(rule["min"]) or not 0 <= rule["min"] <= 1:
-            return None, {"status": "malformed", "policy": identity,
-                          "passed": False, "findings": []}
-        normalised[metric] = rule
-    return normalised, {"status": "valid", "policy": identity, "passed": False, "findings": []}
+                return None
+        elif metric in {"dx_p50", "dy_p50"}:
+            if (not isinstance(rule, dict) or set(rule) != {"max"} or
+                    not _finite_number(rule["max"]) or rule["max"] < 0):
+                return None
+        elif (not isinstance(rule, dict) or set(rule) != {"min"} or
+              not _finite_number(rule["min"]) or not 0 <= rule["min"] <= 1):
+            return None
+        normalised[metric] = dict(rule)
+    return normalised
 
 
-def _evaluate_quality(rows, checks, state):
-    """Evaluate every prepared document and required metric without leaking data."""
-    findings = []
-    for row in rows:
-        metrics = row.get("metrics", {})
-        for metric, rule in checks.items():
-            value = metrics.get(metric)
-            reason = None
-            if metric == "page_match":
-                if not isinstance(value, bool):
+def _load_quality_policy(path, manifest_identity, plan):
+    """Strict v2 policy parser.  Invalid policy never prevents collection."""
+    if not os.path.isfile(path):
+        return None, _policy_state("missing")
+    try:
+        identity = _policy_identity(path)
+    except OSError:
+        return None, _policy_state("malformed")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            policy = json.load(fh)
+    except (OSError, ValueError):
+        return None, _policy_state("malformed", identity)
+    if (not isinstance(policy, dict) or policy.get("schema") != QUALITY_POLICY_SCHEMA or
+            policy.get("candidate_profile") != CANDIDATE_PROFILE_ID or
+            policy.get("manifest") != manifest_identity):
+        return None, _policy_state("mismatch", identity)
+    if set(policy) != {"schema", "candidate_profile", "manifest", "review", "tiers"}:
+        return None, _policy_state("malformed", identity)
+    review = policy["review"]
+    if not isinstance(review, dict) or set(review) != {"status", "rationale", "approved_by", "approved_on"} or not isinstance(review["rationale"], str) or not review["rationale"].strip():
+        return None, _policy_state("malformed", identity)
+    ratified = review["status"] == "ratified"
+    try:
+        valid_date = isinstance(review.get("approved_on"), str) and bool(datetime.date.fromisoformat(review["approved_on"]))
+    except ValueError:
+        valid_date = False
+    if review["status"] not in {"draft", "ratified"} or (ratified and (not isinstance(review["approved_by"], str) or not review["approved_by"].strip() or not valid_date)) or (not ratified and (review["approved_by"] is not None or review["approved_on"] is not None)):
+        return None, _policy_state("malformed", identity)
+    tiers = policy["tiers"]
+    if not isinstance(tiers, dict) or set(tiers) != {"ordinary_digital", "designed_stress", "unsupported"}:
+        return None, _policy_state("malformed", identity)
+    expected = {item["source_name"] for item in plan}
+    assigned, parsed = set(), {}
+    for name, blocking in (("ordinary_digital", True), ("designed_stress", False)):
+        tier = tiers[name]
+        if not isinstance(tier, dict) or set(tier) != {"blocking", "documents", "per_document"} or tier["blocking"] is not blocking or not isinstance(tier["documents"], list) or (name == "ordinary_digital" and not tier["documents"]):
+            return None, _policy_state("malformed", identity)
+        docs = tier["documents"]
+        if any(not isinstance(doc, str) or not doc or os.path.basename(doc) != doc for doc in docs) or len(set(docs)) != len(docs) or not set(docs) <= expected or assigned.intersection(docs):
+            return None, _policy_state("malformed", identity)
+        checks = _valid_checks(tier["per_document"])
+        if checks is None:
+            return None, _policy_state("malformed", identity)
+        assigned.update(docs)
+        parsed[name] = {"blocking": blocking, "documents": set(docs), "checks": checks}
+    unsupported = tiers["unsupported"]
+    if (not isinstance(unsupported, dict) or set(unsupported) != {"blocking", "expected", "documents"} or unsupported["blocking"] is not False or unsupported["expected"] != "reject-before-qualification" or unsupported["documents"] != [] or assigned != expected):
+        return None, _policy_state("malformed", identity)
+    return parsed, _policy_state("valid", identity) | {"review": {"status": review["status"]}}
+
+
+def _evaluate_quality(rows, tiers, state):
+    """Evaluate tiered checks while retaining only safe names and reasons."""
+    findings, summaries = [], {}
+    by_source = {row["source"]: row for row in rows}
+    for tier_name, tier in tiers.items():
+        tier_findings = []
+        for source in sorted(tier["documents"]):
+            row = by_source[source]
+            metrics = row.get("metrics", {})
+            for metric, rule in tier["checks"].items():
+                value = metrics.get(metric)
+                reason = None
+                if metric == "page_match":
+                    if not isinstance(value, bool):
+                        reason = "missing"
+                    elif value != rule["equals"]:
+                        reason = "mismatch"
+                elif not _finite_number(value):
                     reason = "missing"
-                elif value != rule["equals"]:
-                    reason = "mismatch"
-            elif not _finite_number(value):
-                reason = "missing"
-            elif value < rule["min"]:
-                reason = "out-of-bounds"
-            if reason:
-                findings.append({"docx": row["docx"], "metric": metric, "reason": reason})
+                elif ("min" in rule and value < rule["min"]) or ("max" in rule and value > rule["max"]):
+                    reason = "out-of-bounds"
+                if reason:
+                    finding = {"docx": row["docx"], "metric": metric, "reason": reason,
+                               "tier": tier_name, "blocking": tier["blocking"]}
+                    findings.append(finding); tier_findings.append(finding)
+        summaries[tier_name] = {"document_count": len(tier["documents"]),
+                                "finding_count": len(tier_findings),
+                                "passed": not tier_findings}
     state = dict(state)
     state["findings"] = findings
-    state["passed"] = not findings
+    state["tiers"] = summaries
+    if state.get("review", {}).get("status") != "ratified":
+        state["reason"] = "policy-not-ratified"
+    state["passed"] = state.get("review", {}).get("status") == "ratified" and not any(f["blocking"] for f in findings)
     return state
 
 
@@ -640,7 +692,7 @@ def run_qualification(docx_dir, out_dir, manifest_path=DEFAULT_MANIFEST,
         return False, evidence
 
     rows = [_document_record(item) for item in plan]
-    checks, quality = _load_quality_policy(quality_policy_path, identity)
+    checks, quality = _load_quality_policy(quality_policy_path, identity, plan)
     try:
         svc = service_factory(interactive=False)
     except Exception:
@@ -709,6 +761,79 @@ def run_qualification(docx_dir, out_dir, manifest_path=DEFAULT_MANIFEST,
     return overall, evidence
 
 
+@_preflight_io
+def assess(evidence_path, manifest_path=DEFAULT_MANIFEST,
+           quality_policy_path=DEFAULT_QUALITY_POLICY, out_path=None):
+    """Reassess immutable, already-collected evidence without Drive or consent."""
+    if not os.path.isfile(evidence_path):
+        raise QualificationError("qualification evidence is missing")
+    target = out_path or os.path.join(os.path.dirname(os.path.abspath(evidence_path)),
+                                      os.path.basename(evidence_path) + ".assessment.json")
+    normalise = lambda value: os.path.normcase(os.path.abspath(value))
+    if normalise(target) in {normalise(evidence_path), normalise(manifest_path),
+                             normalise(quality_policy_path)}:
+        raise QualificationError("assessment output must not overwrite an input")
+    if not os.path.isdir(os.path.dirname(os.path.abspath(target))):
+        raise QualificationError("assessment output parent is missing")
+    identity, plan = _source_plan(manifest_path)
+    try:
+        evidence_hash = _sha256(evidence_path)
+        with open(evidence_path, encoding="utf-8") as fh:
+            evidence = json.load(fh)
+    except (OSError, ValueError) as exc:
+        raise QualificationError("qualification evidence is unreadable") from exc
+    required = {"schema", "mode", "candidate_profile", "manifest", "preparation", "quality",
+                "documents", "operational_pass", "quality_pass", "overall_pass", "failure_stage"}
+    if (not isinstance(evidence, dict) or set(evidence) != required or
+            evidence["schema"] != "exactdoc.gdocs-qualification.v1" or
+            evidence["mode"] != "qualification" or evidence["candidate_profile"] != CANDIDATE_PROFILE_ID or
+            evidence["manifest"] != identity or not isinstance(evidence["documents"], list) or
+            not isinstance(evidence["operational_pass"], bool)):
+        raise QualificationError("qualification evidence does not bind this candidate and manifest")
+    expected = {(item["source_name"], item["docx_name"]) for item in plan}
+    safe_stages = {"service", "upload", "export", "cleanup", "evaluation", "preflight"}
+    actual = set()
+    for row in evidence["documents"]:
+        if not isinstance(row, dict) or not {"source", "docx", "attempted", "succeeded", "failed", "timing_s", "failure_stage"} <= set(row):
+            raise QualificationError("qualification evidence has unsafe document records")
+        pair = (row["source"], row["docx"])
+        if pair in actual or pair not in expected or ("metrics" in row and not isinstance(row["metrics"], dict)):
+            raise QualificationError("qualification evidence does not cover the exact document set")
+        if (not all(isinstance(row[key], bool) for key in ("attempted", "succeeded", "failed")) or
+                (row["timing_s"] is not None and (not _finite_number(row["timing_s"]) or row["timing_s"] < 0)) or
+                (row["failure_stage"] is not None and (not isinstance(row["failure_stage"], str) or row["failure_stage"] not in safe_stages))):
+            raise QualificationError("qualification evidence has unsafe operational records")
+        if (row["succeeded"] and (not row["attempted"] or row["failed"] or row["failure_stage"] is not None)) or \
+                (row["failed"] and row["succeeded"]) or \
+                (not row["failed"] and not row["succeeded"]):
+            raise QualificationError("qualification evidence has incoherent operational records")
+        for key, value in row.get("metrics", {}).items():
+            if key not in _NUMBER_METRICS | {"page_match", "renderer", "src_pagesize", "out_pagesize", "page_dy_p90", "pages"}:
+                raise QualificationError("qualification evidence has unsafe metrics")
+            if key in _NUMBER_METRICS and not _finite_number(value):
+                raise QualificationError("qualification evidence has unsafe metrics")
+        actual.add(pair)
+    if actual != expected:
+        raise QualificationError("qualification evidence does not cover the exact document set")
+    tiers, quality = _load_quality_policy(quality_policy_path, identity, plan)
+    rows = evidence["documents"]
+    if tiers is not None:
+        quality = _evaluate_quality(rows, tiers, quality)
+    successful_rows = all(row["attempted"] is True and row["succeeded"] is True and
+                          row["failed"] is False and row["failure_stage"] is None for row in rows)
+    if evidence["operational_pass"] != successful_rows:
+        raise QualificationError("qualification evidence has incoherent operational records")
+    operational = successful_rows
+    overall = operational and quality["passed"]
+    assessment = {"schema": "exactdoc.gdocs-assessment.v1", "source_evidence": {
+        "name": _safe_basename(os.path.basename(evidence_path)), "sha256": evidence_hash},
+        "candidate_profile": CANDIDATE_PROFILE_ID, "manifest": identity, "operational_pass": operational,
+        "quality": quality, "quality_pass": bool(quality["passed"]), "overall_pass": overall,
+        "failure_stage": None if overall else ("quality-policy" if operational else "operational")}
+    _atomic_json(target, assessment)
+    return overall, assessment
+
+
 def run_exploration(docx_dir, source_dirs, out_dir, limit=0, allow_cloud_upload=False):
     """Ad-hoc uploader, intentionally separate from manifest qualification."""
     if not allow_cloud_upload:
@@ -745,8 +870,8 @@ def run_exploration(docx_dir, source_dirs, out_dir, limit=0, allow_cloud_upload=
 
 def main(argv=None):
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["auth", "prepare", "run", "explore"])
-    ap.add_argument("docx_dir", nargs="?", help="directory of DOCX files")
+    ap.add_argument("cmd", choices=["auth", "prepare", "run", "explore", "assess"])
+    ap.add_argument("docx_dir", nargs="?", help="DOCX directory (or qualification evidence for assess)")
     ap.add_argument("--allow-cloud-upload", action="store_true",
                     help="explicitly authorise this run to upload DOCX files to Drive")
     ap.add_argument("--manifest", default=DEFAULT_MANIFEST,
@@ -755,7 +880,7 @@ def main(argv=None):
                     help="source PDF directories (exploration only)")
     ap.add_argument("--out", default=None)
     ap.add_argument("--quality-policy", default=DEFAULT_QUALITY_POLICY,
-                    help="Google Docs quality policy JSON (run only)")
+                    help="Google Docs quality policy JSON (run and assess only)")
     ap.add_argument("--limit", type=int, default=0,
                     help="exploration only; qualification always runs the full manifest")
     a = ap.parse_args(argv)
@@ -774,6 +899,13 @@ def _run_main(a, ap):
         return 0
     if not a.docx_dir:
         ap.error("docx_dir is required")
+    if a.cmd == "assess":
+        if a.allow_cloud_upload:
+            ap.error("--allow-cloud-upload is not valid for assess")
+        if a.sources or a.limit:
+            ap.error("--sources and --limit are not valid for assess")
+        passed, _ = assess(a.docx_dir, a.manifest, a.quality_policy, a.out)
+        return 0 if passed else 1
     if a.cmd == "prepare":
         if a.sources or a.limit or a.out:
             ap.error("--sources, --limit and --out are not valid for prepare")

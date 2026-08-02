@@ -7,7 +7,7 @@ the CI product lane all run the same configuration. They used to run three.
 import argparse
 import sys
 
-from .errors import ExactdocError
+from .errors import ExactdocError, OcrRequiredError
 from .options import BACKENDS, ORACLES, OUTPUT_PROFILES, PRODUCT, TARGETS
 
 # Stable, documented exit codes. A script that branches on exit status is an API
@@ -32,6 +32,8 @@ EXIT_CODES = {
     "oracle-import": 14,
     "oracle-export": 15,
     "oracle-cleanup": 16,
+    "ocr-required": 17,
+    "batch-partial": 18,
 }
 
 
@@ -40,7 +42,7 @@ def build_parser():
         prog="exactdoc",
         description="High-fidelity PDF -> DOCX converter. Output uses only "
                     "Google Docs-safe constructs.")
-    ap.add_argument("pdf", nargs="+", help="input PDF file(s)")
+    ap.add_argument("pdf", nargs="*", help="input PDF file(s)")
     ap.add_argument("-o", "--out", help="output .docx path (single input only)")
     ap.add_argument("--dpi", type=int, default=PRODUCT.dpi,
                     help="raster DPI for vector figure regions (default %(default)s)")
@@ -81,6 +83,15 @@ def build_parser():
     ap.add_argument("--report-dir", default=None,
                     help="directory for side-by-side comparison images")
     ap.add_argument("-v", "--verbose", action="store_true")
+    ap.add_argument("--input-dir", help="directory of PDFs to convert")
+    ap.add_argument("--out-dir", help="batch output directory")
+    ap.add_argument("--recursive", action="store_true", help="discover PDFs recursively")
+    ap.add_argument("--workers", type=int, default=None,
+                    help="batch workers (currently 1; reserved range 1-4)")
+    ap.add_argument("--continue-on-error", action="store_true")
+    ap.add_argument("--overwrite", action="store_true")
+    ap.add_argument("--result-json", help="write a privacy-safe batch result report")
+    ap.add_argument("--scan-only", action="store_true", help="classify PDFs without writing DOCX")
     return ap
 
 
@@ -107,6 +118,44 @@ def main(argv=None):
 
 def _run(ap, argv):
     args = ap.parse_args(argv)
+    if args.input_dir:
+        if args.pdf:
+            ap.error("--input-dir cannot be combined with PDF arguments")
+        if not args.out_dir:
+            ap.error("--input-dir requires --out-dir")
+        if args.target:
+            ap.error("--target is not supported for batch conversion")
+        if args.out or args.verify or args.report_dir:
+            ap.error("-o, --verify, and --report-dir are not supported for batch conversion")
+        from .batch import make_items, run
+        items = make_items(args.input_dir, args.out_dir, recursive=args.recursive)
+        report = run(items, backend=args.backend, dpi=args.dpi,
+                     refine_rounds=args.refine, output_profile=args.output_profile,
+                     oracle=args.oracle, allow_cloud_upload=args.allow_cloud_upload,
+                     workers=1 if args.workers is None else args.workers,
+                     continue_on_error=args.continue_on_error,
+                     overwrite=args.overwrite, scan_only=args.scan_only,
+                     verbose=args.verbose, result_json=args.result_json,
+                     recursive=args.recursive)
+        for item in report["items"]:
+            print("%s %s" % (item["status"], item["input"]))
+        return 18 if report["counts"]["failed"] or report["counts"]["ocr_required"] else 0
+    if not args.pdf:
+        ap.error("provide a PDF or --input-dir")
+    batch_only = (args.out_dir, args.recursive, args.workers is not None,
+                  args.continue_on_error, args.overwrite, args.result_json)
+    if any(batch_only):
+        ap.error("batch options require --input-dir")
+    if args.scan_only:
+        if len(args.pdf) != 1:
+            ap.error("--scan-only accepts one PDF or --input-dir")
+        from .convert import _select_backend
+        from .scan import inspect_pdf
+        report = inspect_pdf(_select_backend(args.backend), args.pdf[0])
+        print(report.classification)
+        if report.classification == "ocr_required":
+            raise OcrRequiredError("this PDF appears to require OCR before conversion")
+        return 0
     if args.out and len(args.pdf) > 1:
         ap.error("-o works with a single input")
 

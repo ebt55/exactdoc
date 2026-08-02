@@ -97,12 +97,20 @@ class GDocsQualificationTests(unittest.TestCase):
         policy = {"schema": oracle.QUALITY_POLICY_SCHEMA,
                   "candidate_profile": oracle.CANDIDATE_PROFILE_ID,
                   "manifest": identity,
-                  "per_document": {
+                  "review": {"status": "ratified", "rationale": "owner reviewed",
+                             "approved_by": "owner", "approved_on": "2026-08-02"},
+                  "tiers": {"ordinary_digital": {"blocking": True, "documents": ["case.pdf"], "per_document": {
                       "page_match": {"equals": True},
                       "live_text_cov": {"min": 0.90},
                       "doc_recall": {"min": 0.90},
                       "word_recall": {"min": 0.90},
-                      "within2pt": {"min": 0.50}}}
+                      "mean_ssim": {"min": 0.70}, "dx_p50": {"max": 10.0},
+                      "dy_p50": {"max": 10.0}}},
+                  "designed_stress": {"blocking": False, "documents": [], "per_document": {
+                      "page_match": {"equals": True}, "live_text_cov": {"min": .9},
+                      "doc_recall": {"min": .9}, "word_recall": {"min": .9},
+                      "mean_ssim": {"min": .7}, "dx_p50": {"max": 10.}, "dy_p50": {"max": 10.}}},
+                  "unsupported": {"blocking": False, "expected": "reject-before-qualification", "documents": []}}}
         path = os.path.join(root, "quality-policy.json")
         oracle._atomic_json(path, policy)
         return path
@@ -215,7 +223,8 @@ class GDocsQualificationTests(unittest.TestCase):
             passed, evidence = oracle.run_qualification(
                 docxs, out, manifest, service_factory=service_factory,
                 roundtrip_fn=fake_roundtrip, evaluator=evaluator,
-                allow_cloud_upload=True)
+                allow_cloud_upload=True,
+                quality_policy_path=os.path.join(work, "missing-policy.json"))
             self.assertFalse(passed)
             self.assertFalse(evidence["overall_pass"])
             self.assertTrue(evidence["operational_pass"])
@@ -330,7 +339,7 @@ class GDocsQualificationTests(unittest.TestCase):
                 roundtrip_fn=lambda svc, path, out: oracle.roundtrip(svc, path, out, media_factory=_media),
                 evaluator=lambda *_args, **_kw: {"page_match": True, "live_text_cov": 1.0,
                                                   "doc_recall": 1.0, "word_recall": 1.0,
-                                                  "within2pt": 1.0},
+                                                  "mean_ssim": 1.0, "dx_p50": 0., "dy_p50": 0.},
                 allow_cloud_upload=True, quality_policy_path=policy)
             self.assertTrue(passed)
 
@@ -345,7 +354,7 @@ class GDocsQualificationTests(unittest.TestCase):
                 roundtrip_fn=lambda svc, path, out: oracle.roundtrip(svc, path, out, media_factory=_media),
                 evaluator=lambda *_args, **_kw: {"page_match": False, "live_text_cov": 0.1,
                                                   "doc_recall": 0.1, "word_recall": 0.1,
-                                                  "within2pt": 0.1},
+                                                  "mean_ssim": 0.1, "dx_p50": 20., "dy_p50": 20.},
                 allow_cloud_upload=True, quality_policy_path=policy)
             self.assertFalse(passed)
             self.assertTrue(evidence["operational_pass"])
@@ -353,6 +362,132 @@ class GDocsQualificationTests(unittest.TestCase):
             self.assertEqual(evidence["failure_stage"], "quality-policy")
             self.assertEqual({finding["reason"] for finding in evidence["quality"]["findings"]},
                              {"mismatch", "out-of-bounds"})
+
+    def test_draft_evaluates_but_never_passes(self):
+        with tempfile.TemporaryDirectory() as work:
+            manifest, docxs = self.make_corpus(work)
+            policy = self.make_quality_policy(work, manifest)
+            with open(policy, encoding="utf-8") as fh:
+                payload = json.load(fh)
+            payload["review"].update({"status": "draft", "approved_by": None, "approved_on": None})
+            oracle._atomic_json(policy, payload)
+            passed, evidence = oracle.run_qualification(
+                docxs, os.path.join(work, "out"), manifest, service_factory=lambda **_k: _Service(),
+                roundtrip_fn=lambda svc, path, out: oracle.roundtrip(svc, path, out, media_factory=_media),
+                evaluator=lambda *_a, **_k: {"page_match": True, "live_text_cov": 1., "doc_recall": 1.,
+                                              "word_recall": 1., "mean_ssim": 1., "dx_p50": 0., "dy_p50": 0.},
+                allow_cloud_upload=True, quality_policy_path=policy)
+            self.assertFalse(passed)
+            self.assertEqual(evidence["quality"]["status"], "valid")
+            self.assertEqual(evidence["quality"]["reason"], "policy-not-ratified")
+
+    def test_stress_only_finding_is_reported_nonblocking(self):
+        checks = {"page_match": {"equals": True}, "live_text_cov": {"min": .9},
+                  "doc_recall": {"min": .9}, "word_recall": {"min": .9},
+                  "mean_ssim": {"min": .7}, "dx_p50": {"max": 10.}, "dy_p50": {"max": 10.}}
+        rows = [{"source": "ordinary.pdf", "docx": "ordinary.docx", "metrics": dict(
+            page_match=True, live_text_cov=1., doc_recall=1., word_recall=1., mean_ssim=1., dx_p50=0., dy_p50=0.)},
+                {"source": "stress.pdf", "docx": "stress.docx", "metrics": dict(
+            page_match=True, live_text_cov=.1, doc_recall=1., word_recall=1., mean_ssim=1., dx_p50=0., dy_p50=0.)}]
+        quality = oracle._evaluate_quality(rows, {"ordinary_digital": {"blocking": True,
+            "documents": {"ordinary.pdf"}, "checks": checks}, "designed_stress": {"blocking": False,
+            "documents": {"stress.pdf"}, "checks": checks}}, {"status": "valid", "review": {"status": "ratified"}})
+        self.assertTrue(quality["passed"])
+        self.assertFalse(quality["tiers"]["designed_stress"]["passed"])
+        self.assertFalse(quality["findings"][0]["blocking"])
+
+    def test_v2_policy_rejects_tier_and_review_misuse(self):
+        with tempfile.TemporaryDirectory() as work:
+            manifest, _ = self.make_corpus(work)
+            path = self.make_quality_policy(work, manifest)
+            identity, plan = oracle._source_plan(manifest)
+            cases = []
+            with open(path, encoding="utf-8") as fh:
+                base = json.load(fh)
+            altered = json.loads(json.dumps(base)); altered["schema"] = "exactdoc.gdocs-quality-policy.v1"; cases.append(altered)
+            altered = json.loads(json.dumps(base)); del altered["tiers"]["designed_stress"]; cases.append(altered)
+            altered = json.loads(json.dumps(base)); altered["tiers"]["designed_stress"]["documents"] = ["case.pdf"]; cases.append(altered)
+            altered = json.loads(json.dumps(base)); altered["tiers"]["ordinary_digital"]["documents"] = ["unknown.pdf"]; cases.append(altered)
+            altered = json.loads(json.dumps(base)); altered["tiers"]["unsupported"]["documents"] = ["case.pdf"]; cases.append(altered)
+            altered = json.loads(json.dumps(base)); altered["review"]["status"] = "draft"; cases.append(altered)
+            altered = json.loads(json.dumps(base)); altered["review"] = {"status": "ratified", "rationale": "x", "approved_by": None, "approved_on": None}; cases.append(altered)
+            for payload in cases:
+                oracle._atomic_json(path, payload)
+                self.assertIn(oracle._load_quality_policy(path, identity, plan)[1]["status"], {"mismatch", "malformed"})
+
+    def test_v2_policy_rejects_bad_max_rules(self):
+        with tempfile.TemporaryDirectory() as work:
+            manifest, _ = self.make_corpus(work)
+            path = self.make_quality_policy(work, manifest)
+            identity, plan = oracle._source_plan(manifest)
+            for metric, rule in (("dx_p50", {"max": -1}), ("dy_p50", {"max": float("inf")} ),
+                                 ("dx_p50", {"max": float("nan")} ), ("dy_p50", {"max": 1, "min": 0})):
+                with open(path, encoding="utf-8") as fh:
+                    payload = json.load(fh)
+                payload["tiers"]["ordinary_digital"]["per_document"][metric] = rule
+                oracle._atomic_json(path, payload)
+                self.assertEqual(oracle._load_quality_policy(path, identity, plan)[1]["status"], "malformed")
+                self.make_quality_policy(work, manifest)
+
+    def test_assess_is_offline_hash_bound_and_nonmutating(self):
+        with tempfile.TemporaryDirectory() as work:
+            manifest, docxs = self.make_corpus(work)
+            policy = self.make_quality_policy(work, manifest)
+            _, evidence = oracle.run_qualification(
+                docxs, os.path.join(work, "out"), manifest, service_factory=lambda **_k: _Service(),
+                roundtrip_fn=lambda svc, path, out: oracle.roundtrip(svc, path, out, media_factory=_media),
+                evaluator=lambda *_a, **_k: {"page_match": True, "live_text_cov": 1., "doc_recall": 1.,
+                                              "word_recall": 1., "mean_ssim": 1., "dx_p50": 0., "dy_p50": 0.},
+                allow_cloud_upload=True, quality_policy_path=policy)
+            path = os.path.join(work, "out", oracle.EVIDENCE_NAME)
+            with open(path, "rb") as fh:
+                before = fh.read()
+            with mock.patch.object(oracle, "_service", side_effect=AssertionError("offline")):
+                passed, assessment = oracle.assess(path, manifest, policy)
+            self.assertTrue(passed)
+            with open(path, "rb") as fh:
+                self.assertEqual(before, fh.read())
+            self.assertEqual(assessment["source_evidence"]["sha256"], hashlib.sha256(before).hexdigest())
+            with mock.patch.object(oracle, "_service", side_effect=AssertionError("offline")):
+                self.assertEqual(oracle.main(["assess", path, "--manifest", manifest,
+                                              "--quality-policy", policy]), 0)
+            with self.assertRaises(SystemExit):
+                oracle.main(["assess", path, "--manifest", manifest,
+                             "--quality-policy", policy, "--allow-cloud-upload"])
+            with open(policy, encoding="utf-8") as fh:
+                draft = json.load(fh)
+            draft["review"].update({"status": "draft", "approved_by": None, "approved_on": None})
+            oracle._atomic_json(policy, draft)
+            self.assertEqual(oracle.main(["assess", path, "--manifest", manifest,
+                                          "--quality-policy", policy]), 1)
+            with open(path, encoding="utf-8") as fh:
+                tampered = json.load(fh)
+            tampered["candidate_profile"] = "wrong"
+            oracle._atomic_json(path, tampered)
+            with self.assertRaises(oracle.QualificationError):
+                oracle.assess(path, manifest, policy)
+            self.assertEqual(oracle.main(["assess", path, "--manifest", manifest,
+                                          "--quality-policy", policy]), 2)
+
+    def test_assess_rejects_collisions_and_bad_operational_records(self):
+        with tempfile.TemporaryDirectory() as work:
+            manifest, docxs = self.make_corpus(work)
+            policy = self.make_quality_policy(work, manifest)
+            _, _ = oracle.run_qualification(docxs, os.path.join(work, "out"), manifest,
+                service_factory=lambda **_k: _Service(), roundtrip_fn=lambda svc, path, out: oracle.roundtrip(svc, path, out, media_factory=_media),
+                evaluator=lambda *_a, **_k: {"page_match": True, "live_text_cov": 1., "doc_recall": 1., "word_recall": 1., "mean_ssim": 1., "dx_p50": 0., "dy_p50": 0.},
+                allow_cloud_upload=True, quality_policy_path=policy)
+            evidence = os.path.join(work, "out", oracle.EVIDENCE_NAME)
+            with open(evidence, "rb") as fh: before = fh.read()
+            for collision in (evidence, manifest, policy):
+                with self.assertRaises(oracle.QualificationError): oracle.assess(evidence, manifest, policy, collision)
+            with open(evidence, "rb") as fh:
+                self.assertEqual(before, fh.read())
+            with self.assertRaises(oracle.QualificationError): oracle.assess(evidence, manifest, policy, os.path.join(work, "absent", "x.json"))
+            with open(evidence, encoding="utf-8") as fh: payload = json.load(fh)
+            payload["documents"][0]["attempted"] = "yes"
+            oracle._atomic_json(evidence, payload)
+            with self.assertRaises(oracle.QualificationError): oracle.assess(evidence, manifest, policy)
 
     def test_policy_mismatch_and_missing_required_metrics_cannot_pass(self):
         with tempfile.TemporaryDirectory() as work:
@@ -393,10 +528,10 @@ class GDocsQualificationTests(unittest.TestCase):
                                  ("live_text_cov", {"max": 1.0}),
                                  ("doc_recall", {"min": -0.1}),
                                  ("word_recall", {"min": 1.1}),
-                                 ("within2pt", {"min": 0.2, "max": 1.0})):
+                                 ("mean_ssim", {"min": 0.2, "max": 1.0})):
                 with open(policy, encoding="utf-8") as fh:
                     payload = json.load(fh)
-                payload["per_document"][metric] = rule
+                payload["tiers"]["ordinary_digital"]["per_document"][metric] = rule
                 oracle._atomic_json(policy, payload)
                 passed, evidence = oracle.run_qualification(
                     docxs, os.path.join(work, "out_" + metric), manifest,
@@ -404,7 +539,7 @@ class GDocsQualificationTests(unittest.TestCase):
                     roundtrip_fn=lambda svc, path, out: oracle.roundtrip(svc, path, out, media_factory=_media),
                     evaluator=lambda *_args, **_kw: {"page_match": True, "live_text_cov": 1.0,
                                                       "doc_recall": 1.0, "word_recall": 1.0,
-                                                      "within2pt": 1.0},
+                                                      "mean_ssim": 1.0, "dx_p50": 0., "dy_p50": 0.},
                     allow_cloud_upload=True, quality_policy_path=policy)
                 self.assertFalse(passed)
                 self.assertEqual(evidence["quality"]["status"], "malformed")

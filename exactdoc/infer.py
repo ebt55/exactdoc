@@ -1,6 +1,7 @@
 """Structure inference: PageIR -> DocLayout (semantic, writer-ready)."""
 import re
 from collections import Counter, defaultdict
+from statistics import median
 from typing import List, Optional, Tuple, Dict, Any
 
 from .model import (DocIR, PageIR, TextBlock, Line, Span, DrawCmd, ImageObj,
@@ -872,6 +873,255 @@ def _cell_from_lines(lines: List[Line], rect: BBox, pad_extra=(2.0, 2.0)) -> Cel
     return cell
 
 
+def _striped_row_tiles(draws: List[Tuple[int, DrawCmd]]):
+    """Return full-width filled row candidates without claiming any content.
+
+    A regular table often paints only alternating rows.  Its fill is therefore
+    represented as several adjacent rectangles, not one large rectangle.  This
+    collector is intentionally stricter than the old ``stripes`` cluster: all
+    tiles in a row must share top/bottom edges and be contiguous.
+    """
+    by_y = defaultdict(list)
+    for di, d in draws:
+        if not (d.fill and d.shape == "rect"):
+            continue
+        if d.bbox[2] - d.bbox[0] < 12 or d.bbox[3] - d.bbox[1] < 8:
+            continue
+        by_y[(round(d.bbox[1] * 2), round(d.bbox[3] * 2))].append((di, d))
+    out = []
+    for group in by_y.values():
+        group.sort(key=lambda item: item[1].bbox[0])
+        # A row may be emitted as two adjacent rectangles due to a merged
+        # producer path, but it must still form a contiguous tiled band.
+        runs, run = [], [group[0]]
+        for item in group[1:]:
+            if item[1].bbox[0] - run[-1][1].bbox[2] <= 1.25:
+                run.append(item)
+            else:
+                runs.append(run)
+                run = [item]
+        runs.append(run)
+        for run in runs:
+            if len(run) < 2:
+                continue
+            x0, x1 = run[0][1].bbox[0], run[-1][1].bbox[2]
+            if x1 - x0 < 80:
+                continue
+            bounds = [x0] + [d.bbox[2] for _, d in run]
+            out.append((run, bounds))
+    return out
+
+
+def _regular_striped_table_segment(draws: List[Tuple[int, DrawCmd]], blocks,
+                                   consumed: set) -> Optional[Tuple[TableEl, set]]:
+    """Recognise a conservative, row-regular striped table on one page.
+
+    This is intentionally a *segment* detector.  It validates all geometry
+    and text ownership using a probe set before it consumes lines/drawings, so
+    cards, callouts, mixed dashboard regions, and wrapped cells retain the
+    established inference path.
+    """
+    tile_rows = _striped_row_tiles(draws)
+    if len(tile_rows) < 3:
+        return None
+
+    # Find a repeated column signature among the painted row bands.  Rounded
+    # half-point coordinates survive both PyMuPDF and PDFium extraction.
+    signatures = defaultdict(list)
+    for run, bounds in tile_rows:
+        sig = tuple(round(v / 2.0) * 2.0 for v in bounds)
+        if len(sig) >= 3:
+            signatures[sig].append((run, bounds))
+    ranked = sorted(signatures.values(), key=len, reverse=True)
+    if not ranked or len(ranked[0]) < 3:
+        return None
+    rows = ranked[0]
+    sample_bounds = rows[0][1]
+    n_cols = len(sample_bounds) - 1
+    if n_cols < 2 or n_cols > 8:
+        return None
+    x0, x1 = sample_bounds[0], sample_bounds[-1]
+    if any(abs(a - b) > 2.0 for _, bounds in rows for a, b in zip(bounds, sample_bounds)):
+        return None
+
+    # Boundaries are supplied by the alternating fill rectangles and by the
+    # horizontal rules on unfilled rows.  A usable rule must tile the same
+    # width, not merely cross one card.
+    y_boundaries = []
+    for run, _ in rows:
+        y_boundaries.extend((run[0][1].bbox[1], run[0][1].bbox[3]))
+    hgroups = defaultdict(list)
+    for di, d in draws:
+        if d.shape != "hline" or d.bbox[2] - d.bbox[0] < 12:
+            continue
+        cy = (d.bbox[1] + d.bbox[3]) / 2
+        hgroups[round(cy * 2)].append((di, d))
+    boundary_draws_by_y = {}
+    for group in hgroups.values():
+        group.sort(key=lambda item: item[1].bbox[0])
+        cursor = x0
+        used = []
+        for item in group:
+            d = item[1]
+            if d.bbox[2] < cursor - 1.5 or d.bbox[0] > x1 + 1.5:
+                continue
+            if d.bbox[0] > cursor + 1.5:
+                break
+            cursor = max(cursor, d.bbox[2])
+            used.append(item[0])
+        if cursor >= x1 - 1.5:
+            y = sum((d.bbox[1] + d.bbox[3]) / 2 for di, d in group
+                    if di in used) / max(1, len(used))
+            y_boundaries.append(y)
+            boundary_draws_by_y[y] = set(used)
+    ys = _cluster(y_boundaries, 1.5)
+    if len(ys) < 4:
+        return None
+    # Split unrelated regions at gaps larger than a regular row plus a small
+    # tolerance.  Choose the largest valid run, never bridge dashboard bands.
+    intervals = [b - a for a, b in zip(ys, ys[1:])]
+    pitches = [v for v in intervals if 10.0 <= v <= 40.0]
+    if len(pitches) < 3:
+        return None
+    pitch = median(pitches)
+    runs, current = [], [ys[0]]
+    for a, b in zip(ys, ys[1:]):
+        if abs((b - a) - pitch) <= 2.25:
+            current.append(b)
+        else:
+            if len(current) >= 4:
+                runs.append(current)
+            current = [b]
+    if len(current) >= 4:
+        runs.append(current)
+    if not runs:
+        return None
+    row_ys = max(runs, key=len)
+    if len(row_ys) - 1 < 3:
+        return None
+
+    # At least three alternating bands must lie within this exact regular run;
+    # this prevents a short striped note above an unrelated table from winning.
+    full_fills = 0
+    draw_ids = set()
+    for y, ids in boundary_draws_by_y.items():
+        if any(abs(y - ry) <= 1.5 for ry in row_ys):
+            draw_ids.update(ids)
+    for run, bounds in rows:
+        top, bot = run[0][1].bbox[1], run[0][1].bbox[3]
+        if any(abs(top - row_ys[i]) <= 1.5 and abs(bot - row_ys[i + 1]) <= 1.5
+               for i in range(len(row_ys) - 1)):
+            full_fills += 1
+            draw_ids.update(di for di, _ in run)
+    if full_fills < 3:
+        return None
+
+    probe = set(consumed)
+    cell_lines = defaultdict(list)
+    all_candidate = []
+    for ln in _all_lines(blocks):
+        if id(ln) in probe or not ln.horizontal:
+            continue
+        cx, cy = (ln.bbox[0] + ln.bbox[2]) / 2, (ln.bbox[1] + ln.bbox[3]) / 2
+        if not (x0 - 1 <= cx <= x1 + 1 and row_ys[0] - 1 <= cy <= row_ys[-1] + 1):
+            continue
+        ri = next((i for i in range(len(row_ys) - 1)
+                   if row_ys[i] - 1 <= cy <= row_ys[i + 1] + 1), None)
+        ci = next((j for j in range(n_cols)
+                   if sample_bounds[j] - 1 <= cx <= sample_bounds[j + 1] + 1), None)
+        if ri is None or ci is None:
+            return None                    # text straddles/escapes a cell
+        cell_lines[(ri, ci)].append(ln)
+        all_candidate.append(ln)
+    expected = (len(row_ys) - 1) * n_cols
+    occupied = sum(1 for vals in cell_lines.values() if len(vals) == 1)
+    if occupied < 0.80 * expected or len(all_candidate) != occupied:
+        return None                        # missing or wrapped/multiline cells
+    if any(sum(1 for ci in range(n_cols) if (ri, ci) in cell_lines) < n_cols
+           for ri in range(len(row_ys) - 1)):
+        return None
+
+    tbl = TableEl(role="striped-table", bbox=(x0, row_ys[0], x1, row_ys[-1]))
+    tbl.col_widths = [sample_bounds[i + 1] - sample_bounds[i] for i in range(n_cols)]
+    tbl.row_heights = [row_ys[i + 1] - row_ys[i] for i in range(len(row_ys) - 1)]
+    for ri, (top, bot) in enumerate(zip(row_ys, row_ys[1:])):
+        row = []
+        for ci in range(n_cols):
+            rect = (sample_bounds[ci], top, sample_bounds[ci + 1], bot)
+            ln = cell_lines[(ri, ci)][0]
+            cell = _cell_from_lines([ln], rect, pad_extra=(1.5, 1.5))
+            # Preserve the source's row band and each horizontal rule.  There
+            # are no vertical strokes in this ordinary striped-table dialect.
+            fill = next((d.fill for _, d in draws if d.fill and d.shape == "rect" and
+                         bbox_overlap(d.bbox, rect) > 0.85 * bbox_area(rect)), None)
+            if fill:
+                cell.shading = fill
+            cell.borders = {"top": (0.5, "#d8dee5"), "bottom": (0.5, "#d8dee5")}
+            row.append(cell)
+        tbl.rows.append(row)
+    # All probes succeeded.  This is the sole point at which this detector is
+    # allowed to claim text; failures above leave the normal flow untouched.
+    consumed.update(id(ln) for ln in all_candidate)
+    return tbl, draw_ids
+
+
+def _row_signature(row: List[Optional[Cell]]):
+    """Text/style evidence used only for repeated source table headers."""
+    return tuple((_norm_text(" ".join(p.text for p in c.paras)),
+                  tuple((round(r.size, 1), r.bold, r.italic)
+                        for p in c.paras for r in p.runs))
+                 if c else ("", ()) for c in row)
+
+
+def _coalesce_striped_table_segments(lay: DocLayout):
+    """Merge only adjacent continuation-only striped-table page segments."""
+    leader = None
+    header = None
+    previous = None
+    previous_is_final = False
+    for pi, page in enumerate(lay.pages):
+        elements = [el for chunk in page.chunks for el in chunk.elements]
+        segments = [el for el in elements if isinstance(el, TableEl) and
+                    el.role == "striped-table"]
+        if len(segments) != 1:
+            leader = header = previous = None
+            previous_is_final = False
+            continue
+        segment = segments[0]
+        if leader is None:
+            leader, header, previous = segment, segment.rows[0] if segment.rows else None, segment
+            previous_is_final = bool(elements and elements[-1] is segment)
+            continue
+        # A continuation page must contain *only* this verified table.  This
+        # is what makes dropping its explicit source-page break safe.
+        # PDF body baselines routinely stop 8--14pt above the nominal bottom
+        # margin; use the conventional 72pt reserve as a floor rather than
+        # requiring the last painted rule to touch it.
+        if len(elements) != 1 or len(segment.col_widths) != len(leader.col_widths) or \
+                any(abs(a - b) > 2.0 for a, b in zip(segment.col_widths, leader.col_widths)) or \
+                previous is None or previous.bbox is None or segment.bbox is None or \
+                not previous_is_final or \
+                abs(previous.bbox[0] - segment.bbox[0]) > 2.0 or \
+                abs(previous.bbox[2] - segment.bbox[2]) > 2.0 or \
+                previous.bbox[3] < lay.page_h - max(72.0, lay.margin_b) - 8.0 or \
+                segment.bbox[1] > lay.margin_t + 12.0:
+            leader, header, previous = segment, segment.rows[0] if segment.rows else None, segment
+            previous_is_final = bool(elements and elements[-1] is segment)
+            continue
+        if header and segment.rows and _row_signature(segment.rows[0]) == _row_signature(header):
+            segment.rows.pop(0)
+            if segment.row_heights:
+                segment.row_heights.pop(0)
+            leader.repeat_header_rows = max(leader.repeat_header_rows, 1)
+        leader.rows.extend(segment.rows)
+        leader.row_heights.extend(segment.row_heights)
+        for chunk in page.chunks:
+            chunk.elements = [el for el in chunk.elements if el is not segment]
+        page.continuation_only = True
+        previous = segment
+        previous_is_final = True
+
+
 def build_grid_table(cl, blocks, consumed) -> Optional[TableEl]:
     ds = [d for _, d in cl]
     hs, vs = [], []
@@ -1345,6 +1595,15 @@ def infer(ir: DocIR) -> DocLayout:
         elements: List[Any] = []
         draws = [(i, d) for i, d in enumerate(p.drawings)
                  if i not in cd and d.opacity > 0.05]
+        # This runs before drawing clustering because a row-regular table is
+        # otherwise split into alternating filled-card clusters and bare flow
+        # paragraphs.  It has no side effects until the entire segment passes.
+        striped = _regular_striped_table_segment(draws, blocks, consumed)
+        if striped is not None:
+            striped_table, striped_draws = striped
+            elements.append(striped_table)
+            cd.update(striped_draws)
+            draws = [(i, d) for i, d in draws if i not in striped_draws]
         leftover = []
         page_text_area = sum(bbox_area(l.bbox) for l in _all_lines(blocks)) or 1.0
         for cl in _clusters(draws):
@@ -1471,6 +1730,7 @@ def infer(ir: DocIR) -> DocLayout:
         pl.chunks = _assemble_chunks(elements, flow_blocks, lay, p, page_top)
         lay.pages.append(pl)
 
+    _coalesce_striped_table_segments(lay)
     _mark_headings(lay, body_size)
     if _can_relax_bottom_margin(lay):
         # DOCX flow has no equivalent of PDF's last-baseline fit.  With a hard

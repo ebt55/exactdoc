@@ -79,6 +79,10 @@ class TableEl:
     space_after: float = 0.0
     bbox: Optional[BBox] = None
     role: str = "table"          # table|box|code|band|cards|quote
+    # Number of leading rows that were actually repeated in the source.  This
+    # is deliberately evidence, not a writer preference: most PDF tables do
+    # not repeat their headers on continuation pages.
+    repeat_header_rows: int = 0
 
 
 @dataclass
@@ -137,6 +141,10 @@ class Chunk:
 class PageLayout:
     number: int
     chunks: List[Chunk] = field(default_factory=list)
+    # Set only after adjacent, verified table segments have been coalesced.
+    # The writer may then omit this source-page break and let Word paginate the
+    # one logical table naturally.
+    continuation_only: bool = False
 
 
 @dataclass

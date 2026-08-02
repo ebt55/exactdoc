@@ -17,8 +17,8 @@ mean live text, and 0.675pt median dy50. The PyMuPDF/standard open-loop `raw`
 control is 13/16, 0.3349, 0.9652, and 2.2pt respectively.
 
 These are regression records, not an absolute release-quality declaration.
-`c3_tables` nested tables and D10 rasterised-text regions in `c5_graphics` and
-`04_exec_brief` remain known shipping limitations.
+Complex/nested table layouts and D10 rasterised-text regions in `c5_graphics`
+and `04_exec_brief` remain known shipping limitations.
 
 ## First: qualify Google Docs honestly
 
@@ -35,26 +35,48 @@ python testkit/gdocs_oracle.py run <dir> --allow-cloud-upload
 `prepare` is offline and hash-binds the exact candidate; `run` requires explicit
 upload consent. It reports operational and quality pass independently.
 
-The final live run on 2026-08-02 completed the operational gate for
+The latest live run on 2026-08-02 completed the operational gate for
 `pdfium/gdocs/none/refine0@240dpi`: all 16 documents were attempted and
-succeeded, zero failed, and cleanup left no `.gdocs_orphans.json`. Targeted
-fixes improved its Google-Docs result from 12/16 to 14/16 page match, 6.07pt to
-4.98pt median dy50, 0.8356 to 0.8745 word recall, 0.7475 to 0.7767 SSIM, and
-0.1814 to 0.2108 ink IoU. Mean within-2pt was essentially flat (0.1391 to
-0.1378) and mean live text remained 0.9568. `01_whitepaper_market` and
-`04_exec_brief` now retain their source page counts.
+succeeded, zero failed, and cleanup left no `.gdocs_orphans.json`. Against the
+prior live candidate, page-count match improved 14/16→15/16, mean within-2pt
+0.1378→0.1443, mean word recall 0.8745→0.9064, SSIM 0.7767→0.7878, and IoU
+0.2108→0.2138; mean live text stayed 0.9568. Median dy50 rose 4.98→6.68pt
+because `c3_tables` now matches many more words and changes median ordering,
+not because of a broad regression. Only deferred `c5_graphics` remains 1→2.
 
-The quality gate is still unqualified and unacceptable for release:
-`testkit/gdocs_quality_policy.json` is missing, which makes `quality_pass` and
-`overall_pass` false. The next action is review of this evidence and a genuine
-quality policy, not a permissive policy written to turn the candidate green.
+The strict quality-policy v2 design is now implemented. It has a blocking
+`ordinary_digital` tier, a tracked/nonblocking `designed_stress` tier, and a
+clear pre-qualification refusal contract for `unsupported` inputs. Policy
+ratification is explicit and fail-closed, and collected evidence can be
+reassessed offline without a new Google upload.
 
-Next ordinary-document priority is a general cross-page table assembler for
-`c3_tables`, whose alternating-fill multi-page table is currently fragmented by
-inference into 1x1/1x4 tables and paragraphs. `c5_graphics` depends on gradient
-and rounded/rotated complex graphics and remains deferred as a designed-page
-limitation. The parser now preserves stretched literal interword spaces, fixing
-the `01_whitepaper_market` word staircase without changing shipping PyMuPDF.
+The committed policy remains a draft. Applied to the latest evidence, 9/13
+ordinary fixtures meet every threshold; seven blocking findings remain across
+four documents: `01_whitepaper_market` SSIM; `c2_paper2col` dx/dy/SSIM;
+`c7_code` dx; and `l1_word_native` dx/dy. The highest-value next fixes are the
+large Word-native displacement, multi-column displacement, code indentation,
+and then whitepaper visual similarity. Fix these as general layout rules, not
+fixture exceptions. Afterward expand to roughly 40–60 frozen real/generated
+PDFs from common producers, review/ratify the policy, and perform the second
+consented full Google pass. The current 16 fixtures are regression evidence,
+not market coverage.
+
+The long ordinary striped table in `c3_tables` is now one editable 46-row ×
+4-column table with IDs 1–45 exactly once; it naturally spans pages and has no
+invented repeating header. Its conservative detector rejects ambiguous
+multiline/cards/callouts and coalesces only page-edge segments with matching
+geometry. It also consolidates `c1_whitepaper`'s 5-row comparison table.
+Only c1/c3 `document.xml` changed in the structural corpus diff; the other 14
+candidates are byte-identical by OOXML part. The candidate is now live-Google
+qualified operationally: c3 is 3→3 with all 45 rows in an editable continuous
+table, though row distribution differs from source. Its word recall improved
+0.3120→0.8215, SSIM 0.5785→0.7573, and IoU 0.0973→0.1448; live 0.9226 and
+document recall 0.9359 were unchanged. dy50/dy90 rose 2.94→7.85pt and
+80.52→103.34pt because many more words now match. `c1_whitepaper` remains 2→2
+with unchanged content/layout metrics and only tiny visual tradeoffs
+(within-2pt 0.0719→0.0688, SSIM 0.8006→0.7993, IoU 0.1568→0.1563).
+`c5_graphics` remains a deliberately deferred gradient/rounded/rotated
+designed-page limitation.
 
 ## Second: prove or reject the PDFium migration
 
@@ -72,35 +94,42 @@ scripts, and graphics. It is not adopted and not releasable.
 
 The bounded bottom-margin relief is useful evidence, not a declaration of
 victory: it fixed candidate `c1_whitepaper` and `c2_paper2col` overflow while
-preserving the other 12 page-matching fixtures. Candidate `c3_tables` nested
-tables and `c5_graphics` designed graphics remain explicit limitations.
+preserving the other 12 page-matching fixtures. Complex/nested tables and
+`c5_graphics` designed graphics remain explicit limitations.
 
-The next migration decision requires both:
+The next migration decision requires all of:
 
-1. same-profile parity that clears the agreed quality bar; and
-2. reviewed real Google Docs quality evidence for the exact candidate.
+1. expanded same-profile parity with no unratified regressions;
+2. two clean full-corpus Google Docs passes for the exact candidate, each after
+   explicit upload consent;
+3. a no-PyMuPDF/base-wheel proof; and
+4. a dependency, provenance, and license audit.
 
 Do not replace the shipping profile, regenerate golden/numeric evidence, or
 change licensing before those gates pass.
 
 ## Third: release only after quality gates
 
-Input handling is already hardened: encrypted PDFs produce unsupported-input
-errors; malformed/truncated PDFs produce parse errors; failed conversions keep
-an existing destination atomic. This is not a remaining release blocker.
+Conversion/refinement publication is transactional: candidates remain private
+until structural validation succeeds, then replace the public destination
+atomically. Batch conversion now has deterministic serial discovery, caps, safe
+machine-readable results, and explicit scan/OCR-required rejection. This is
+not a remaining release blocker, but is deliberately not a cloud batch feature.
 
-The deferred engineering scope is deliberately narrow: ordinary digital text,
-multi-column documents, common tables, and i18n come first. Heavy LaTeX,
-highly designed/vector pages, and nested tables are future work. Scan/OCR PDFs
-are unsupported rather than silently mishandled.
+The next feature tranche preserves proven PDF URI and internal-TOC navigation
+(`c8` has three URI and three GoTo annotations; the current PDFium path sees
+only a mailto heuristic), then adds heading/list semantics. RTL follows only
+after a logical-Unicode-ordering contract. Heavy LaTeX, highly designed/vector
+pages, complex/nested tables, and a full OCR engine remain future work. Scan/OCR
+PDFs are explicitly unsupported rather than silently mishandled.
 
 ## Licensing strategy
 
 exactdoc remains AGPL-3.0-or-later today because PyMuPDF is core. Apache-2.0 is
-the preferred future target for its patent grant and business-friendly terms,
-but PDFium being optional does not unblock that change. It requires the candidate
-quality gates above and appropriate legal review. This roadmap is project
-strategy, not legal advice.
+the preferred future target, but PDFium being optional does not unblock it.
+PyMuPDF must leave the core/default path; pypdfium2/PDFium and every bundled
+dependency need provenance and license audit; and the migration gates above
+must pass. This roadmap is project strategy, not legal advice.
 
 ## Reproducible checks
 
