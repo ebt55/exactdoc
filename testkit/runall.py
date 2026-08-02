@@ -5,14 +5,11 @@
     python testkit/runall.py --absolute             # release-qualification gate
     GATE_BASELINE=update python testkit/runall.py   # re-record the numbers
 
-Two lanes always run, because `refine()` tunes the layout against the same
-renderer the gate then measures with: a refined-only number can improve because
-the loop memorised the oracle rather than because the converter got better. The
-`raw` lane is the uncontaminated control, the `product` lane is what ships
-(`exactdoc.options.PRODUCT`), and **the exit code gates on both**. It used to
-gate on the refined lane alone, so a raw-lane regression could not fail the
-build -- which meant the control lane, the one whose whole purpose is to be
-untainted, was the one nobody had to answer for.
+Two distinct lanes always run. `raw` is the open-loop control
+(`exactdoc.options.RAW`); `product` is exactly what ships and includes the
+LibreOffice correction loop. A product-only number can improve because the loop
+memorised its oracle rather than because the converter got better, so **the exit
+code gates on both**.
 
 The decision itself is `testkit/gate.py`, tested independently in
 `tests/test_gate_mutations.py`. This file's job is to produce numbers and hand
@@ -124,7 +121,13 @@ def run_lane(lane, paths, options, out_dir, baseline=None, manifest=None,
 
 # ----------------------------------------------------------------------- main
 def main(argv=None):
-    from exactdoc.options import LANES
+    from exactdoc.options import LANES, validate_lanes
+
+    try:
+        validate_lanes()
+    except Exception as e:
+        print("invalid gate lane contract: %s" % e)
+        return 2
 
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("dirs", nargs="*", default=None,
@@ -164,9 +167,8 @@ def main(argv=None):
 
     lanes = sorted(LANES) if a.lane == "both" else [a.lane]
     if updating and a.lane != "both":
-        print("refusing to record a baseline for one lane: the raw lane exists to "
-              "be compared against the product lane, and two lanes recorded from "
-              "different runs describe different code.")
+        print("refusing to record a baseline for one lane: raw and product "
+              "must be measured together from the same code.")
         return 2
     verdicts, lane_evidence, records = {}, {}, {}
     for lane in lanes:
@@ -174,7 +176,11 @@ def main(argv=None):
         if a.backend:
             options = options.replace(backend=a.backend)
         out_dir = os.path.join(a.out, "lane_" + lane)
-        baseline = None if updating else gate.load_lane(lane)
+        try:
+            baseline = None if updating else gate.load_lane(lane)
+        except gate.BaselineInvalid as e:
+            print("\nBASELINE INVALID\n  %s" % e)
+            return 2
         results, verdict = run_lane(
             lane, paths, options, out_dir, baseline=baseline, manifest=manifest,
             absolute=a.absolute, save_images=not a.no_images)

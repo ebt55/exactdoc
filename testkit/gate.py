@@ -22,8 +22,8 @@ What the previous gate could not see, all of it measured or read off the code:
     one page over to forty and register no change.
   * Nothing checked that the 16 expected documents were the 16 documents
     measured. The corpus generator exits 0 after skipping 8 of them.
-  * `REFINE=lanes` returned only the refined lane's status, so a raw-lane
-    regression could not fail the build.
+  * The two-lane runner once allowed a diagnostic regression to evade the
+    build because only one lane's status controlled the exit code.
 
 The rule set below is deliberately three separate questions, because they have
 different answers:
@@ -61,7 +61,7 @@ MANIFEST_PATH = os.path.join(HERE, "corpus_manifest.json")
 #
 # `rel` adds a proportional term, and `dy_p50` needs one. It is the only gated
 # metric that is not a fraction in [0, 1]: it runs from 0.04pt on
-# `02_research_paper` to 101pt on `c1_whitepaper` in the raw lane. A flat 0.5pt
+# `02_research_paper` to 101pt on `c1_whitepaper`. A flat 0.5pt
 # slack is generous at the bottom of that range and absurdly tight at the top,
 # where two LibreOffice builds can disagree by more than that on a drift already
 # two orders of magnitude past the threshold anyone cares about. The tolerance is
@@ -465,8 +465,44 @@ def load(path=BASELINE_PATH):
         return json.load(f)
 
 
+class BaselineInvalid(Exception):
+    """A committed baseline cannot describe the active lane contract."""
+
+
+def baseline_contract_errors(doc):
+    """Return fail-closed reasons a baseline cannot be compared safely."""
+    from exactdoc.options import LANES, validate_lanes
+
+    try:
+        validate_lanes()
+    except Exception as e:
+        return ["active lane contract is invalid: %s" % e]
+    if doc.get("schema") != 3:
+        return ["baseline schema %r is obsolete; expected schema 3 for the "
+                "raw/product lane contract" % doc.get("schema")]
+    stored = doc.get("lanes")
+    if not isinstance(stored, dict) or set(stored) != set(LANES):
+        return ["baseline lanes %s do not match required lanes %s"
+                % (sorted(stored or {}), sorted(LANES))]
+    errors = []
+    for lane, options in sorted(LANES.items()):
+        actual = (stored.get(lane) or {}).get("profile_id")
+        expected = options.profile_id()
+        if actual != expected:
+            errors.append("baseline lane %r is %r, active profile is %r"
+                          % (lane, actual, expected))
+    return errors
+
+
 def load_lane(lane, path=BASELINE_PATH):
-    return load(path).get("lanes", {}).get(lane, {})
+    doc = load(path)
+    errors = baseline_contract_errors(doc)
+    if errors:
+        raise BaselineInvalid(
+            "invalid gate baseline: %s. Re-record both lanes on canonical Linux "
+            "with GATE_BASELINE=update uv run python testkit/runall.py"
+            % "; ".join(errors))
+    return doc["lanes"][lane]
 
 
 def load_manifest(path=MANIFEST_PATH):
@@ -501,6 +537,16 @@ def check_recordable(records, manifest, environment):
       clean        no result carrying a conversion or evaluation error. Half a
                    lane is not a lane.
     """
+    from exactdoc.options import LANES, validate_lanes
+
+    try:
+        validate_lanes()
+    except Exception as e:
+        raise RecordRefused("refusing to record invalid lane contract: %s" % e)
+    if set(records) != set(LANES):
+        raise RecordRefused(
+            "refusing to record lanes %s; must record raw and product "
+            "together" % sorted(records))
     if not environment.get("canonical"):
         raise RecordRefused(
             "refusing to record on %s: the baseline is the number of record and "
@@ -525,14 +571,19 @@ def save_lanes(records, path=BASELINE_PATH, environment=None):
     """Write every lane at once, or write nothing.
 
     Transactional because a baseline half-written is a baseline that disagrees
-    with itself: the two lanes would describe different code, and the raw lane
-    exists precisely to be compared against the product one. Serialised in full,
-    then moved into place with `os.replace`, so an interrupted write cannot leave
-    a truncated JSON file where the record used to be.
+    with itself: product and the correction-loop diagnostic must describe the
+    same code. Serialised in full, then moved into place with `os.replace`, so
+    an interrupted write cannot leave a truncated JSON file where the record
+    used to be.
     """
     import tempfile
+    from exactdoc.options import LANES, validate_lanes
+
+    validate_lanes()
+    if set(records) != set(LANES):
+        raise RecordRefused("refusing to save partial lane set %s" % sorted(records))
     doc = load(path) or {}
-    doc["schema"] = 2
+    doc["schema"] = 3
     doc["_note"] = (
         "Numeric per-document baseline for every gated metric, per lane, "
         "measured on the canonical environment (see .github/workflows/gate.yml). "
@@ -542,15 +593,17 @@ def save_lanes(records, path=BASELINE_PATH, environment=None):
         "now passes (stale). Regenerate deliberately with GATE_BASELINE=update, "
         "never to silence a failure, and say so in the commit message. Recording "
         "is refused off the canonical environment or over an incomplete corpus.")
-    lanes = doc.setdefault("lanes", {})
+    lanes = {}
     for lane, data in sorted(records.items()):
-        prev = lanes.get(lane, {})
-        entry = {"documents": data["documents"], "aggregate": data["aggregate"]}
+        prev = (doc.get("lanes") or {}).get(lane, {})
+        entry = {"documents": data["documents"], "aggregate": data["aggregate"],
+                 "profile_id": LANES[lane].profile_id()}
         # Defect IDs are human knowledge and survive a re-record; numbers do not.
         entry["shortfall_defects"] = prev.get("shortfall_defects", {})
         if environment:
             entry["environment"] = environment
         lanes[lane] = entry
+    doc["lanes"] = lanes
 
     d = os.path.dirname(os.path.abspath(path)) or "."
     fd, tmp = tempfile.mkstemp(dir=d, prefix=".gate_baseline.", suffix=".json")

@@ -388,6 +388,12 @@ def new(profile=None):
             "package": None}
 
 
+def active_lane_contract():
+    """The complete lane-name set, imported lazily to keep this module light."""
+    from exactdoc.options import LANES
+    return frozenset(LANES)
+
+
 def merge(path, **sections):
     """Fold sections into the evidence file at `path`, creating it if absent.
 
@@ -417,7 +423,17 @@ def merge(path, **sections):
         if v is None:
             continue
         if k == "lanes" and isinstance(v, dict):
-            doc.setdefault("lanes", {}).update(v)
+            if not v:
+                continue
+            if set(v) == active_lane_contract():
+                # A complete run is a snapshot of the current contract. Replace
+                # the section so lanes from an older contract cannot survive a
+                # transition and make otherwise-current evidence invalid.
+                doc["lanes"] = v
+            else:
+                # A single-lane/partial producer is incremental. Preserve the
+                # other current evidence until a complete snapshot arrives.
+                doc.setdefault("lanes", {}).update(v)
         else:
             doc[k] = v
     d = os.path.dirname(os.path.abspath(path))
@@ -467,11 +483,15 @@ def validate(doc, expect_documents=None):
         out.append("corpus had %d problem(s)" % len(corpus["problems"]))
 
     lanes = doc.get("lanes") or {}
-    for lane in ("raw", "product"):
+    expected_lanes = {"raw", "product"}
+    for lane in sorted(expected_lanes):
         if lane not in lanes:
             out.append("lane %r missing" % lane)
         elif not (lanes[lane].get("verdict") or {}).get("ok"):
             out.append("lane %r did not pass" % lane)
+    for lane in sorted(set(lanes) - expected_lanes):
+        out.append("unexpected lane %r; release evidence requires exactly "
+                   "raw and product" % lane)
     p = doc.get("parity")
     if not p:
         out.append("no parity section -- absent and failed look the same")

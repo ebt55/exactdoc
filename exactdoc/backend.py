@@ -1,9 +1,8 @@
 """The parser seam: what exactdoc requires of a PDF backend.
 
-exactdoc links PyMuPDF, which is AGPL-3.0, so exactdoc is AGPL-3.0 too. That
-is inherited, not chosen, and it costs adoption -- many organisations refuse
-AGPL dependencies outright, and a permissive project cannot embed an AGPL one.
-Moving to a permissive parser would allow relicensing.
+exactdoc's declared project license remains AGPL-3.0-or-later. PyMuPDF is the
+measured shipping parser; pypdfium2 is an optional candidate evaluated through
+this seam. Licensing is decided separately from this code path.
 
 The obstacle is not the API surface -- that is about eighteen calls. It is
 that every threshold downstream was calibrated against the *shape* of what
@@ -47,9 +46,8 @@ The golden IR is a **microscope**: a fast, oracle-free, per-document diff for
 finding *where* two parsers disagree. The parity gate is the **contract**. When
 they disagree, the parity gate wins.
 
-Until then: **do not accept external contributions to parse.py.** Relicensing
-needs every contributor's consent, and the swap is confined to this one
-module -- contributions anywhere else cost nothing.
+Candidate changes remain isolated behind this seam so their parity can be
+measured without altering the shipping parser.
 
 A backend must provide:
 
@@ -106,20 +104,16 @@ PageLines = List[List[Tuple[str, float, float, float]]]
 
 
 class Backend(Protocol):
-    """Structural interface. Two shipped implementations, plus registrations.
+    """Structural interface. One shipping and one candidate implementation.
 
     Selected once per conversion, by name, from `ConversionOptions.backend` --
     not by an environment variable read at an arbitrary depth, and not by
     assigning over a module global. `EXACTDOC_BACKEND` still works and is now the
     lowest-priority source.
 
-    The seam stops at parsing and rendering, and that is the honest description
-    of where it stops being enough: the writer, the refiner and the verifier all
-    still reach for `fitz` directly, so a wheel installed without PyMuPDF fails
-    while importing `exactdoc.docxout`, before any of this gets a chance to
-    choose. Carrying the chosen backend through those three stages is the next
-    milestone (STATUS §3 item 2), and it is the real content of "the licence
-    flip", which was previously described as mechanical.
+    The seam covers parsing and rendering. The writer, refiner and verifier
+    receive the selected backend instead of importing `fitz` themselves, so the
+    PDFium candidate can run without importing the PyMuPDF shipping backend.
     """
 
     name: str
@@ -139,7 +133,7 @@ class Backend(Protocol):
 
 
 class PyMuPDFBackend:
-    """The current backend. AGPL-3.0, via PyMuPDF."""
+    """Measured shipping backend, provided by the core PyMuPDF dependency."""
 
     name = "pymupdf"
     license = "AGPL-3.0"
@@ -192,10 +186,11 @@ class PyMuPDFBackend:
 
 
 class PDFiumBackend:
-    """Permissive backend, EXPERIMENTAL -- selectable, but not the default.
+    """Explicit PDFium candidate, provided by the optional ``pdfium`` extra.
 
-    Apache-2.0/BSD-3, via pypdfium2. Requires the `pdfium` extra. Extraction
-    reached parity long ago; placement has not, and that is the whole story.
+    pypdfium2 is Apache-2.0/BSD-3. Selecting this candidate does not by itself
+    change exactdoc's project license. Extraction and placement remain measured
+    compatibility concerns.
 
     Extraction, vs PyMuPDF (testkit/backend_geom.py, 8 documents, 4734
     matched lines):
@@ -213,10 +208,9 @@ class PDFiumBackend:
     region absorbs. A cluster classified differently rasterises a page.
 
     End-to-end that cost 15 regressions before block convergence, then 9 before
-    the serif-flag fix, then 7, and it is now **0** against the ratified policy in
-    testkit/parity_policy.json: 11 same, 1 better, 2 expected divergences where
-    this backend is the correct one, and 2 accepted shortfalls bounded by recorded
-    numeric floors. testkit/exp_regroup.py grafts PyMuPDF's block boundaries onto
+    the serif-flag fix, then 7. Any current verdict comes from a parity policy
+    bound to the selected full profile; legacy measurements cannot authorize a
+    swap. testkit/exp_regroup.py grafts PyMuPDF's block boundaries onto
     this backend's geometry and showed the cost was bimodal: grouping was the
     entire cause on c6_long (0.23 -> 0.73) and c8_toc_links (0.63 -> 1.00), and
     none of it on c7_code or r1_reportlab_report, which did not move.
@@ -226,8 +220,7 @@ class PDFiumBackend:
     `dialect` and `infer` recover superscript from geometry, and all 16 corpus
     documents agree at the layout level, including the one that has any.
 
-    This was the measured cost of relicensing. It was a re-tune, not a rewrite,
-    and it bought no fidelity -- it bought a licence.
+    This remains candidate work until its full profile is measured and reviewed.
     """
 
     name = "pdfium"
@@ -323,7 +316,7 @@ class FunctionBackend:
     """A backend built from a `parse_pdf` callable, for experiments.
 
     The instruments in `testkit/` need to convert the corpus through a parse
-    function that is neither shipped backend -- PDFium geometry with PyMuPDF's
+    function that is neither named backend -- PDFium geometry with PyMuPDF's
     block boundaries grafted on (`exp_regroup.py`), or PyMuPDF with the Chromium
     bullet fix applied (`exp_chromefix.py`). They did it by assigning
     `exactdoc.convert.parse_pdf`, which worked only because `convert` happened to
@@ -361,7 +354,7 @@ def register_backend(name: str, parse, renderer=None) -> str:
     anything, and a registered name is never a default.
     """
     if name in _IMPLEMENTATIONS:
-        raise ValueError("%r is a shipped backend; pick another name" % name)
+        raise ValueError("%r is a named backend; pick another name" % name)
     _EXPERIMENTAL[name] = FunctionBackend(name, parse, renderer=renderer)
     return name
 

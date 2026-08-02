@@ -10,6 +10,7 @@ from typing import Optional
 
 from .dialect import normalize
 from .infer import infer
+from .input import parse as parse_input
 from .options import ConversionOptions, resolve
 
 
@@ -35,10 +36,11 @@ def convert(pdf_path: str, out_path: Optional[str] = None,
             options: Optional[ConversionOptions] = None) -> str:
     """Convert a PDF to DOCX. Returns the output path.
 
-    Defaults come from `options.PRODUCT`: the backend it names, the LibreOffice
-    target, and its refine round count. Pass `options=` to supply a whole
-    profile, or individual keywords to override parts of it. A `None` keyword
-    means "take the profile's value", never "zero".
+    Defaults come from `options.PRODUCT`: its PyMuPDF backend, standard output
+    profile, and three-round LibreOffice refinement loop. Pass
+    `options=` to supply a whole profile, or individual keywords to override
+    parts of it. A `None` keyword means "take the profile's value", never
+    "zero".
 
     **Backend precedence is explicit keyword > supplied `options` > environment >
     PRODUCT**, and the middle two used to be the wrong way round. `EXACTDOC_BACKEND`
@@ -79,17 +81,18 @@ def convert(pdf_path: str, out_path: Optional[str] = None,
         out_path = os.path.splitext(pdf_path)[0] + ".docx"
 
     bk = _select_backend(opts.backend)
-    ir = normalize(bk.parse_pdf(pdf_path))
+    # Keep the backend-native reader boundary here.  Known password and format
+    # statuses become stable public errors before any output can be published;
+    # unrelated exceptions deliberately propagate as bugs.
+    ir = normalize(parse_input(bk, pdf_path))
     lay = infer(ir)
     if opts.ladder:
         from .ladder import apply_ladder, summarise
         from .metrics import get_metrics
-        # The ladder predicts a re-wrap, so it has to shape text, and no
-        # permissive shaper lives in this tree yet. With the `[mupdf]` extra
-        # present it uses MuPDF's base-14 metrics -- the same measurement every
-        # published ladder number was taken with -- and without it every
-        # paragraph is unpredictable and the ladder does nothing. Its report says
-        # which happened rather than looking like a run that found nothing.
+        # The ladder predicts a re-wrap, so it has to shape text. The core
+        # PyMuPDF dependency supplies the base-14 metrics used by the measured
+        # shipping profile; an explicitly isolated candidate degrades to the
+        # null metrics implementation and reports that fact.
         rep = apply_ladder(lay, metrics=get_metrics("mupdf"))
         lay.ladder_report = rep
         if opts.verbose:

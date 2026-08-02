@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 # Provision a Linux machine to run exactdoc's measurement harness.
 #
 # The harness is this project's real product, and until now its dependencies
@@ -152,13 +152,16 @@ fi
 #
 # This runs BEFORE Chromium on purpose: the no-root fallback for Chromium is a
 # Playwright download, and Playwright needs somewhere to be installed.
-say "Python packages (converter + test harness + permissive backend)"
+say "Python packages (converter + test harness + PDFium candidate backend)"
 if [ "$REPORT_ONLY" -eq 0 ]; then
   if have uv; then
     # --frozen: uv.lock is the pinned truth, and gate.yml has said so in a comment
     # since before the flag was actually passed. Without it a resolve can move a
-    # dependency out from under the recorded baseline -- the goldens are pinned to
-    # a PyMuPDF version because 1.26 and 1.28 group the same page differently.
+    # parser out from under backend-specific goldens and parity evidence; parser
+    # versions are part of those records because their grouping can differ.
+    # PyMuPDF ships in the core runtime. The canonical gate, evidence capture and
+    # backend-parity comparison additionally need the optional PDFium candidate;
+    # the cloud Google Docs oracle is provisioned separately when requested.
     uv sync --frozen --extra test --extra pdfium
   else
     [ -d "$VENV" ] || python3 -m venv "$VENV"
@@ -262,8 +265,9 @@ next:
   source scripts/env.sh
   python testkit/gen_corpus.py testkit/adv && python corpus/make_corpus.py
   python testkit/golden_ir.py verify            # parser gate, needs no oracle
-  REFINE=lanes python testkit/runall.py testkit/adv corpus/pdfs
-  python testkit/backend_parity.py --refine 3   # the licence-swap verdict
+  python testkit/runall.py
+  python testkit/backend_parity.py --profile candidate --measure          # unadjudicated discovery
+  python testkit/backend_parity.py --profile candidate-refined --measure  # loop diagnostic
 EOF
 
 if [ "$MISSING" -gt 0 ]; then

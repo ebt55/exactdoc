@@ -226,7 +226,7 @@ def test_absolute_mode_flags_known_shortfall():
 
 
 def test_both_lanes_gate():
-    """`REFINE=lanes` returned only the refined lane's status."""
+    """The runner exit code must require both current named lanes."""
     import runall
     src = open(runall.__file__).read()
     check("the runner gates on every lane it ran",
@@ -239,7 +239,7 @@ def test_shipped_default_is_the_measured_default():
     sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(
         os.path.abspath(__file__)))))
     from exactdoc.cli import build_parser
-    from exactdoc.options import LANES, PRODUCT
+    from exactdoc.options import LANES, PRODUCT, RAW, validate_lanes
     defaults = {a.dest: a.default for a in build_parser()._actions}
     check("CLI refine default == PRODUCT",
           defaults["refine"] == PRODUCT.refine_rounds,
@@ -263,9 +263,26 @@ def test_shipped_default_is_the_measured_default():
           repr(defaults.get("target")))
     check("the product lane is the shipped profile",
           LANES["product"] is PRODUCT)
-    check("the raw lane is refine-free", LANES["raw"].refine_rounds == 0)
-    check("the raw lane names no oracle it will not call",
-          LANES["raw"].oracle == "none", LANES["raw"].oracle)
+    check("the shipping profile is the measured quality-first profile",
+          PRODUCT.profile_id()
+          == "pymupdf/standard/libreoffice/refine3@240dpi")
+    check("the gate exposes exactly raw and product",
+          set(LANES) == {"raw", "product"}, repr(LANES))
+    check("lane profile IDs are unique",
+          len({p.profile_id() for p in LANES.values()}) == len(LANES),
+          repr({name: p.profile_id() for name, p in LANES.items()}))
+    check("raw is the open-loop control for the shipping profile",
+          LANES["raw"] is RAW
+          and RAW.backend == PRODUCT.backend
+          and RAW.output_profile == PRODUCT.output_profile
+          and RAW.oracle == "none"
+          and RAW.refine_rounds == 0)
+    check("the active lane contract validates", validate_lanes() is True)
+    try:
+        validate_lanes({"raw": PRODUCT, "product": PRODUCT})
+        check("collapsed lane profiles are rejected", False)
+    except Exception:
+        check("collapsed lane profiles are rejected", True)
 
 
 # ------------------------------------------------------- the parity policy
@@ -273,6 +290,7 @@ def test_shipped_default_is_the_measured_default():
 # and it needs the same treatment: the policy it applies used to live in a
 # docstring while the code exited on a different rule entirely.
 PARITY_FP = "f" * 64          # the environment the fixture's floors were measured under
+PARITY_PROFILE_ID = "pdfium/gdocs/libreoffice/refine3@240dpi"
 
 
 def _binding(**over):
@@ -286,7 +304,7 @@ def _binding(**over):
     b = {"environment_fingerprint": PARITY_FP,
          "corpus_manifest_sha256": "c" * 64,
          "measured_commit": "d" * 40,
-         "profile_id": "parity/refine3"}
+         "profile_id": PARITY_PROFILE_ID}
     b.update(over)
     return b
 
@@ -316,6 +334,7 @@ def parity_fixture():
               "raster_frac": 0.40}
     policy = {
         "reference_backend": "pymupdf", "candidate_backend": "pdfium",
+        "profile_id": PARITY_PROFILE_ID,
         "margins": {"page_err": 0, "live_text_cov": 0.05, "doc_recall": 0.05,
                     "word_recall": 0.05, "within2pt": 0.08, "dy_p50": 0.5,
                     "raster_frac": 0.02},
@@ -345,8 +364,29 @@ def parity_kinds(ref, cand, policy, subset=False, manifest=PARITY_MANIFEST,
     _, summary = backend_parity.adjudicate(
         ref, cand, policy, subset=subset,
         manifest=None if subset else manifest,
+        profile_id=PARITY_PROFILE_ID,
         env_fingerprint=env_fingerprint)
     return summary, set(f["kind"] for f in summary["failures"])
+
+
+def test_parity_uses_named_complete_profiles():
+    import backend_parity
+    import inspect
+    from exactdoc.options import (PDFIUM_GDOCS_CANDIDATE,
+                                  PDFIUM_GDOCS_CANDIDATE_REFINED, PRODUCT)
+    parser = backend_parity.build_parser()
+    check("parity defaults to the candidate profile",
+          parser.parse_args([]).profile == "candidate")
+    check("the parity names resolve to canonical full profiles",
+          backend_parity.conversion_profile("product") is PRODUCT
+          and backend_parity.conversion_profile("candidate")
+          is PDFIUM_GDOCS_CANDIDATE
+          and backend_parity.conversion_profile("candidate-refined")
+          is PDFIUM_GDOCS_CANDIDATE_REFINED)
+    body = inspect.getsource(backend_parity.run)
+    check("parity changes only backend on the selected profile",
+          "profile.replace(backend=backend)" in body
+          and "refine_rounds=" not in body, body[:600])
 
 
 def test_parity_healthy_passes():
@@ -707,8 +747,9 @@ def test_parity_policy_can_actually_be_recorded():
     with tempfile.TemporaryDirectory() as td:
         path = os.path.join(td, "parity_policy.json")
         try:
-            backend_parity.record_policy(ref, cand, policy, manifest, env,
-                                         refine=3, path=path)
+            backend_parity.record_policy(
+                ref, cand, policy, manifest, env,
+                profile_id=PARITY_PROFILE_ID, path=path)
             wrote = os.path.exists(path)
             err = ""
         except Exception as e:
@@ -726,9 +767,99 @@ def test_parity_policy_can_actually_be_recorded():
               repr(spec.get("corpus_manifest_sha256")))
         check("a recorded floor names its profile",
               bool(spec.get("profile_id")), repr(spec.get("profile_id")))
-        check("the recorded refine profile is the one measured",
-              written.get("recorded_refine_rounds") == 3,
+        check("the policy records the full profile measured",
+              written.get("profile_id") == PARITY_PROFILE_ID,
+              repr(written.get("profile_id")))
+        check("the refine-only legacy binding is removed",
+              "recorded_refine_rounds" not in written,
               repr(written.get("recorded_refine_rounds")))
+
+
+def test_policy_update_refuses_profile_migration_without_writing():
+    import backend_parity
+    import tempfile
+    _, _, policy = parity_fixture()
+    policy.pop("profile_id")
+    policy["recorded_refine_rounds"] = 3
+    with tempfile.TemporaryDirectory() as td:
+        path = os.path.join(td, "parity_policy.json")
+        before = (json.dumps(policy, indent=1, sort_keys=True) + "\n").encode()
+        with open(path, "wb") as f:
+            f.write(before)
+        rc = backend_parity.main([
+            "--profile", "candidate-refined", "--update-policy", "--policy", path])
+        with open(path, "rb") as f:
+            after = f.read()
+    check("profile-mismatched update is refused", rc == 2, repr(rc))
+    check("refused update preserves policy bytes", after == before)
+
+
+def test_measurement_mode_is_read_only_and_cannot_pass():
+    import backend_parity
+    import tempfile
+    ref, cand, policy = parity_fixture()
+    policy.pop("profile_id")
+    policy["recorded_refine_rounds"] = 3
+    captured, writes = {}, []
+
+    old_manifest = backend_parity.gate.load_manifest
+    old_resolve = backend_parity.runall.resolve_corpus
+    old_run = backend_parity.run
+    old_environment = backend_parity.evidence.environment
+    old_merge = backend_parity.evidence.merge
+    old_record = backend_parity.record_policy
+    try:
+        backend_parity.gate.load_manifest = lambda: PARITY_MANIFEST
+        backend_parity.runall.resolve_corpus = lambda manifest: (
+            [os.path.join("fixtures", name)
+             for name in PARITY_MANIFEST["documents"]], [])
+        backend_parity.run = lambda backend, srcs, out, profile: \
+            copy.deepcopy(ref if backend == "pymupdf" else cand)
+        backend_parity.evidence.environment = lambda: {"fingerprint": PARITY_FP}
+        backend_parity.evidence.merge = lambda path, **sections: \
+            captured.update(sections) or path
+        backend_parity.record_policy = lambda *a, **kw: writes.append((a, kw))
+
+        with tempfile.TemporaryDirectory() as td:
+            path = os.path.join(td, "parity_policy.json")
+            before = (json.dumps(policy, indent=1, sort_keys=True) + "\n").encode()
+            with open(path, "wb") as f:
+                f.write(before)
+            rc = backend_parity.main([
+                "--measure", "--profile", "candidate-refined", "--policy", path,
+                "--out", td, "--evidence", os.path.join(td, "evidence.json")])
+            with open(path, "rb") as f:
+                after = f.read()
+    finally:
+        backend_parity.gate.load_manifest = old_manifest
+        backend_parity.runall.resolve_corpus = old_resolve
+        backend_parity.run = old_run
+        backend_parity.evidence.environment = old_environment
+        backend_parity.evidence.merge = old_merge
+        backend_parity.record_policy = old_record
+
+    summary = captured.get("parity") or {}
+    check("measurement mode always exits nonzero", rc == 2, repr(rc))
+    check("measurement mode cannot claim success",
+          summary.get("ok") is False
+          and summary.get("release_ready") is False
+          and summary.get("measurement_only") is True, repr(summary))
+    check("measurement reports unadjudicated profile mismatch",
+          {"unadjudicated", "profile-mismatch"}
+          <= set(summary.get("failure_kinds") or []), repr(summary))
+    check("measurement never calls the policy writer", not writes, repr(writes))
+    check("measurement preserves policy bytes", after == before)
+
+
+def test_measure_and_update_are_mutually_exclusive():
+    import backend_parity
+    try:
+        backend_parity.build_parser().parse_args(
+            ["--measure", "--update-policy"])
+        code = None
+    except SystemExit as e:
+        code = e.code
+    check("measure and update cannot be combined", code == 2, repr(code))
 
 
 def test_committed_parity_policy_is_wellformed():
@@ -926,35 +1057,51 @@ def test_parity_unbounded_expected_divergence_fails():
 
 
 def test_parity_floors_are_profile_scoped():
-    """Floors measured at one refine profile say nothing about another.
+    """Floors measured at one full profile say nothing about another.
 
-    Measured: `01_whitepaper_market` reports dy_p50 1.39 at refine 3 and 7.89 at
-    refine 0. Applying the refine-3 floor to a refine-0 run produced four
-    "below-floor" failures that meant only "these runs are not comparable". A
-    false red here, but the same mechanism in the other direction is a false green.
+    Backend, output profile, oracle, refinement and DPI can all move the result.
+    A mismatch must reject the policy before any waiver or floor is applied.
     """
     import backend_parity
     ref, cand, policy = parity_fixture()
-    policy["recorded_refine_rounds"] = 3
     cand["accepted.pdf"]["within2pt"] = 0.01          # far below its floor
     _, at_recorded = backend_parity.adjudicate(
-        ref, cand, policy, manifest=PARITY_MANIFEST, refine=3)
+        ref, cand, policy, manifest=PARITY_MANIFEST,
+        profile_id=PARITY_PROFILE_ID)
     _, at_other = backend_parity.adjudicate(
-        ref, cand, policy, manifest=PARITY_MANIFEST, refine=0)
+        ref, cand, policy, manifest=PARITY_MANIFEST,
+        profile_id="pdfium/gdocs/none/refine0@240dpi")
     kinds_recorded = set(f["kind"] for f in at_recorded["failures"])
     kinds_other = set(f["kind"] for f in at_other["failures"])
     check("floors apply at the profile they were recorded at",
           "below-floor" in kinds_recorded, str(at_recorded["failures"]))
-    check("floors do NOT apply at a different profile",
-          "below-floor" not in kinds_other, str(at_other["failures"]))
+    check("a different full profile fails closed before floor comparison",
+          kinds_other == {"profile-mismatch"}, str(at_other["failures"]))
+    check("a profile mismatch cannot be release-ready",
+          not at_other["ok"] and not at_other["release_ready"], str(at_other))
 
 
-def test_committed_policy_records_its_profile():
+def test_parity_rejects_mismatched_per_document_floor_binding():
+    import backend_parity
+    ref, cand, policy = parity_fixture()
+    policy["ratified_shortfalls"]["accepted.pdf"]["profile_id"] = \
+        "pdfium/gdocs/none/refine0@240dpi"
+    rows, summary = backend_parity.adjudicate(
+        ref, cand, policy, manifest=PARITY_MANIFEST,
+        profile_id=PARITY_PROFILE_ID)
+    check("a mismatched floor binding stops adjudication",
+          not rows and summary["failure_kinds"] == ["profile-mismatch"],
+          repr(summary))
+
+
+def test_committed_policy_cannot_govern_product_without_full_profile():
     import backend_parity
     policy = backend_parity.load_policy()
-    check("the policy records the refine profile its floors were measured at",
-          isinstance(policy.get("recorded_refine_rounds"), int),
-          repr(policy.get("recorded_refine_rounds")))
+    from exactdoc.options import PRODUCT
+    errors = backend_parity._policy_profile_errors(
+        policy, PRODUCT.profile_id())
+    check("the legacy policy cannot govern the shipping product profile",
+          bool(errors) and "profile_id" in errors[0], repr(errors))
 
 
 def test_parity_stale_expected_divergence_fails():
@@ -988,8 +1135,8 @@ def test_baseline_recording_refused_off_canonical():
 
 
 def test_baseline_recording_refused_on_partial_corpus():
-    rec = {"raw": gate.record("raw", [healthy()[0]]),
-           "product": gate.record("product", healthy())}
+    rec = {"raw": gate.record("raw", healthy()),
+           "product": gate.record("product", [healthy()[0]])}
     try:
         gate.check_recordable(rec, MANIFEST, {"canonical": True, "os": "linux"})
         check("recording a partial corpus is refused", False)
@@ -1066,6 +1213,53 @@ def test_parity_lanes_cannot_be_redirected_by_environment():
           "if backend is None and options is None:" in body, body[:400])
 
 
+def _release_evidence(lanes):
+    return {
+        "git": {"available": True, "clean": True},
+        "environment": {
+            "canonical": True,
+            "oracles": {"soffice_version": "LibreOffice test"},
+            "dependencies": {"pymupdf": "1", "pypdfium2": "1"},
+        },
+        "corpus": {"resolved": 2, "manifest_documents": 2, "problems": []},
+        "lanes": lanes,
+        "parity": {"ok": True, "regressions": 0},
+    }
+
+
+def test_evidence_requires_each_named_lane():
+    import evidence
+    passed = {"verdict": {"ok": True}}
+    for missing, present in (("product", "raw"),
+                             ("raw", "product")):
+        problems = evidence.validate(_release_evidence({present: passed}))
+        check("missing %s lane is reported" % missing,
+              "lane %r missing" % missing in problems, repr(problems))
+
+
+def test_evidence_reports_failure_in_each_named_lane():
+    import evidence
+    for failed in ("raw", "product"):
+        lanes = {name: {"verdict": {"ok": name != failed}}
+                 for name in ("raw", "product")}
+        problems = evidence.validate(_release_evidence(lanes))
+        check("failing %s lane is reported" % failed,
+              "lane %r did not pass" % failed in problems, repr(problems))
+
+
+def test_evidence_diagnostic_lanes_cannot_substitute_for_raw():
+    import evidence
+    passed = {"verdict": {"ok": True}}
+    for extra in ("candidate", "refined"):
+        problems = evidence.validate(_release_evidence(
+            {"product": passed, extra: passed}))
+        check("%s does not satisfy the raw requirement" % extra,
+              "lane 'raw' missing" in problems, repr(problems))
+        check("%s is rejected as an unexpected release lane" % extra,
+              any("unexpected lane %r" % extra in p for p in problems),
+              repr(problems))
+
+
 def test_evidence_merge_never_empties_a_section():
     """The artifact is the single source of a release claim. Nothing may blank it.
 
@@ -1093,6 +1287,38 @@ def test_evidence_merge_never_empties_a_section():
     check("a later section still merges in", doc["environment"]["os"] == "linux")
 
 
+def test_complete_lane_snapshot_replaces_stale_contract_only():
+    import tempfile
+    import evidence
+    passed = {"verdict": {"ok": True}}
+    with tempfile.TemporaryDirectory() as td:
+        p = os.path.join(td, "evidence.json")
+        with open(p, "w") as f:
+            json.dump({"schema": evidence.SCHEMA,
+                       "lanes": {"raw": {"generation": 1},
+                                 "product": {"generation": 1},
+                                 "refined": passed,
+                                 "candidate": passed}}, f)
+        evidence.merge(p, lanes={"raw": {"generation": 2},
+                                 "product": {"generation": 2}})
+        with open(p) as f:
+            complete = json.load(f)
+        evidence.merge(p, lanes={"product": {"generation": 3}})
+        evidence.merge(p, lanes={})
+        with open(p) as f:
+            incremental = json.load(f)
+    check("a complete current snapshot drops stale diagnostic lanes",
+          set(complete["lanes"]) == {"raw", "product"},
+          repr(complete["lanes"]))
+    check("a partial update preserves the other current lane",
+          incremental["lanes"]["raw"]["generation"] == 2
+          and incremental["lanes"]["product"]["generation"] == 3,
+          repr(incremental["lanes"]))
+    check("empty lane update preserves current evidence",
+          set(incremental["lanes"]) == {"raw", "product"},
+          repr(incremental["lanes"]))
+
+
 def test_relative_tolerance():
     """dy_p50 spans 0.04pt to 101pt; one absolute slack cannot serve both."""
     small = gate.tolerance(gate.METRICS["dy_p50"], 0.6)
@@ -1110,7 +1336,16 @@ def test_committed_baseline_is_wellformed():
     if not doc:
         check("a baseline is committed", False, "no gate_baseline.json")
         return
-    check("baseline is schema 2", doc.get("schema") == 2, str(doc.get("schema")))
+    errors = gate.baseline_contract_errors(doc)
+    # This checkout intentionally preserves pre-transition numbers rather than
+    # relabelling them as the restored raw/product contract. Until canonical Linux
+    # re-records both profiles, runall must reject it loudly.
+    if errors:
+        check("stale baseline is rejected clearly",
+              any("raw/product" in error or "baseline lanes" in error
+                  for error in errors), repr(errors))
+        return
+    check("baseline is schema 3", doc.get("schema") == 3, str(doc.get("schema")))
     from exactdoc.options import LANES
     for lane in LANES:
         entry = doc.get("lanes", {}).get(lane)

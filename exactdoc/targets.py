@@ -38,19 +38,11 @@ def _gdocs_render_factory() -> Callable[[str, str], Optional[str]]:
     Imported lazily and kept out of the default path: it needs credentials and
     network, neither of which a conversion should require.
     """
-    import sys
-    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    tk = os.path.join(root, "testkit")
-    if tk not in sys.path:
-        sys.path.insert(0, tk)
-    import gdocs_oracle as G           # noqa: E402
-    svc = G._service(interactive=False)
+    from . import gdocs
+    svc = gdocs.service(interactive=False)
 
     def render(docx_path, tmp_dir):
-        try:
-            return G.roundtrip(svc, docx_path, os.path.join(tmp_dir, "gd.pdf"))
-        except Exception:
-            return None
+        return gdocs.roundtrip(svc, docx_path, os.path.join(tmp_dir, "gd.pdf"))
     return render
 
 
@@ -71,14 +63,7 @@ def get_renderer(oracle: str):
     if t == "none":
         return None, "none"
     if t == "gdocs":
-        try:
-            return _gdocs_render_factory(), "gdocs"
-        except Exception as e:
-            raise OracleUnavailableError(
-                "the Google Docs oracle was requested but could not be "
-                "initialised. It needs the [gdocs] extra and an authorised "
-                "token (`exactdoc gdocs auth`).",
-                detail="%s: %s" % (type(e).__name__, e))
+        return _gdocs_render_factory(), "gdocs"
     from .verify import SOFFICE
     if SOFFICE is None:
         raise OracleUnavailableError(

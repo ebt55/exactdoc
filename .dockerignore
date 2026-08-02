@@ -1,0 +1,70 @@
+# Docker receives only the reproducible source and canonical gate inputs.
+# Never send local credentials, personal PDFs, generated output, or host tools
+# to a build daemon (including a remote daemon).
+
+# Repository / local environments / Python build products
+.git/
+.venv/
+.venv*/
+venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+**/*.egg-info/
+build/
+dist/
+.uv-cache/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local editor, agent, and downloaded-tool state
+.claude/
+.codex/
+.agents/
+.vscode/
+.idea/
+.cursor/
+.tools/
+scripts/env.sh
+
+# Reproducible generated corpora and test outputs (fixtures stay included)
+testkit/adv/
+testkit/real/
+testkit/batch/
+testkit/edge/
+testkit/sweep/
+testkit/chromefix_off/
+testkit/chromefix_on/
+testkit/quirks/
+testkit/holdout/
+testkit/hdiff/
+testkit/parity/
+testkit/regroup/
+testkit/exp_off/
+testkit/exp_on/
+corpus/pdfs/
+
+# Credentials and cloud-oracle state. Keep these out even when ignored by Git.
+credentials.json
+token.json
+.gdocs_orphans.json
+client_secret*
+*client_secret*
+*apps.googleusercontent.com.json
+*.pem
+.env
+.env.*
+
+# Personal inputs and private planning material
+my_samples/
+Executor Advisory.md
+ESCALATION_*.md
+exactdoc — *.md
+*Execution Plan*.md
+*-plan.md

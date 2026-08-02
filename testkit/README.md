@@ -5,12 +5,10 @@ calls `exactdoc.infer()` to decide which source text to exclude from its own
 coverage denominator, so anything the converter chooses to rasterise disappears
 from its own score. A converter must not define its own ground truth.
 
-The harness reads PDFs with **PyMuPDF**, and it keeps doing so deliberately now
-that the converter's own default runtime path no longer touches it. Measuring a
-PDFium-parsed conversion with a MuPDF-based harness means the measurement cannot
-inherit the parser's mistakes — if both sides misread the same glyph the same way,
-a shared-parser harness would score it correct. `testkit/` is never shipped, so its
-dependencies carry no licence consequence for the wheel.
+The harness reads PDFs with **PyMuPDF**, matching the quality-first shipping
+profile. Backend parity separately converts
+through the explicit PDFium candidate while retaining an independent reference
+arm.
 
 ## Quick start
 
@@ -28,12 +26,10 @@ By hand, or on Windows/macOS:
 pip install -e ".[test,pdfium]"
 ```
 
-`pypdfium2` is in that list deliberately. It is not needed to convert a PDF,
-but `backend_parity.py` — the acceptance test for the whole licence swap —
-cannot run without it, and it was once omitted here: a `uv sync` evicted it and
-the parity gate spent an unknown number of runs reporting `ModuleNotFoundError`
-instead of regressions. A gate that cannot run looks exactly like a gate that
-passes.
+PyMuPDF is a core runtime dependency. The `pdfium` extra is deliberate because
+`backend_parity.py` compares the explicit PDFium candidate with the shipping
+PyMuPDF reference. The cloud Google Docs oracle is not part of this local gate
+environment and is installed separately when qualification needs it.
 
 ```bash
 python testkit/gen_corpus.py testkit/adv --strict && python corpus/make_corpus.py
@@ -45,6 +41,38 @@ python testkit/corpus_manifest.py verify && python testkit/runall.py
 
 `runall.py` runs both lanes and exits non-zero if either fails, so it works as
 the CI check.
+
+## Google Docs qualification evidence
+
+Google Docs qualification is a separate, consented cloud operation for the
+explicit non-shipping candidate; it is not part of the local `runall.py` gate:
+
+```bash
+python testkit/gdocs_oracle.py prepare <dir>
+python testkit/gdocs_oracle.py run <dir> --allow-cloud-upload
+```
+
+`prepare` is offline and hash-binds the candidate. `run` may upload and reports
+operational and quality verdicts independently. The final live run on 2026-08-02
+for `pdfium/gdocs/none/refine0@240dpi` was operationally successful: all 16
+documents were attempted and succeeded, zero failed, and no
+`.gdocs_orphans.json` remained after cleanup. Targeted fixes improved page
+match 12/16 to 14/16, median dy50 6.07pt to 4.98pt, word recall 0.8356 to
+0.8745, SSIM 0.7475 to 0.7767, and ink IoU 0.1814 to 0.2108; mean within-2pt
+was essentially flat (0.1391 to 0.1378) and live text remained 0.9568.
+`01_whitepaper_market` and `04_exec_brief` now retain their source page counts.
+
+The remaining page-count misses are `c3_tables`, which needs a general
+cross-page table assembler rather than a Google-only workaround, and
+`c5_graphics`, a deferred gradient/rounded/rotated designed-page limitation.
+PDFium preserves stretched literal interword spaces, removing the
+`01_whitepaper_market` word staircase; shipping PyMuPDF is unaffected.
+
+This is operational success only: quality is currently unqualified and
+unacceptable for release. `testkit/gdocs_quality_policy.json` is absent, so the
+recorded `quality_pass` and `overall_pass` are false. Review this evidence before
+defining a quality policy; do not relax one merely to declare the candidate
+releasable.
 
 ## The gate, and what it refuses to let through
 
@@ -63,7 +91,7 @@ was making falsely, each now a test:
 | a page count went from 1 over to 40 over | `page_match` is a boolean and cannot record magnitude; `page_err` is now derived and gated |
 | 8 of 16 corpus documents did not exist | nothing compared the run to a manifest; the generator exits 0 after skipping |
 | two documents shared a basename | the second silently overwrote the first's DOCX *and* its result row |
-| the raw lane regressed | `REFINE=lanes` returned only the refined lane's status |
+| either named lane regressed | the runner returned only one lane's status instead of requiring both raw and product |
 | the parity policy contradicted itself | the code exited on `regressions == 0` while the docs said two documents were accepted divergences, so CI marked the step `continue-on-error` |
 
 Three separate questions, because they have different answers:
@@ -87,7 +115,7 @@ project has actually shipped.
 |---|---|
 | `corpus_manifest.json` | the exact 16 documents, their generator, dialect, source page count **and a content fingerprint**. Not a hash of the file bytes — both generators embed timestamps, so a byte hash would fail every run; the fingerprint covers page geometry and normalised text, which carry no timestamp. Recorded per extractor, because the two parsers genuinely disagree on some documents, and an extractor with no recorded fingerprint fails rather than skips |
 | `gate_baseline.json` | every gated metric of every document, per lane, numerically, plus the environment it was measured on and the defect ID each shortfall answers to |
-| `parity_policy.json` | the backend-swap acceptance rule: per-dimension comparison margins, the expected divergences with their rendered evidence, and the accepted shortfalls — **all six bounded by numeric floors in both directions** |
+| `parity_policy.json` | the backend-swap acceptance rule: the complete conversion profile ID, per-dimension comparison margins, expected divergences with rendered evidence, and shortfalls bounded by numeric floors in both directions. A policy/profile mismatch fails before any floor is applied |
 
 ### Recording is refused unless the run deserves to be believed
 
@@ -98,8 +126,8 @@ failure in the middle, would overwrite the canonical record with numbers
 describing none of it, and every subsequent run would then agree with it.
 
 Now refused unless the run is on the **canonical environment**, covers the **whole
-manifest**, and produced a result for **every lane**; `--only` may not record
-parity floors at all. The write itself goes through a temporary file and
+manifest**, and produced a result for both **raw and product**; `--only` may
+not record parity floors at all. The write itself goes through a temporary file and
 `os.replace`, so an interrupted record cannot leave a truncated file where the
 baseline used to be.
 
@@ -108,7 +136,9 @@ GATE_BASELINE=update python testkit/runall.py     # both lanes, whole corpus
 ```
 
 ```bash
-python testkit/backend_parity.py --update-policy  # whole corpus, no --only
+python testkit/backend_parity.py --profile candidate --measure  # discover; always nonzero
+# After review, create a policy bound to that exact full profile; then re-record:
+python testkit/backend_parity.py --profile candidate --update-policy
 ```
 
 ```bash
@@ -205,13 +235,13 @@ distinguish a document from a photograph of a document.
 
 ### Backend-comparison instruments
 
-Built during the permissive-parser port, each because a question could not
+Built during the candidate-parser port, each because a question could not
 otherwise be answered. They compare the two backends on the same document and
 need no oracle, so they run in seconds.
 
 | File | Answers |
 |---|---|
-| `backend_parity.py` | **the swap's verdict**, against `parity_policy.json`. Marks each document REGRESSION / same / BETTER / expected-div / accepted. `--only <doc>` for one document; `--update-policy` to re-record the accepted floors |
+| `backend_parity.py` | **the swap's verdict**, against `parity_policy.json`. `--profile product|candidate|candidate-refined` selects a complete profile; the policy must match its full profile ID. `--measure` reports raw differences but is always unadjudicated/nonzero and never writes policy. `--only <doc>` narrows diagnosis; `--update-policy` only re-records a policy already bound to the selected full profile |
 | `backend_geom.py` | is the *geometry* the same? (baselines, leadings, sizes, fonts) |
 | `backend_spans.py` | is the *line content* the same? span boundaries, text, injected space runs, mono flags, style keys |
 | `backend_paths.py` | which coordinate space are path points in? Answer: object space — 578 of 612 corpus paths carry a non-identity matrix, and untransformed points miss by up to 5438pt |

@@ -287,6 +287,28 @@ def _style(c: _Char):
     return (c.font, round(c.size, 2), c.color, bold, italic, mono, serif)
 
 
+def _wide_gap_starts_visual_line(prev: _Char, current: _Char,
+                                 fragment: List[_Char]) -> bool:
+    """Whether a same-baseline gap is a new visual line rather than justification.
+
+    PDFium exposes literal spaces as ordinary characters.  A producer can then
+    justify that same interword space by placing the following glyph far away.
+    The wide-gap rule must not turn that one line into a staircase of one-word
+    lines.  Generated spaces are different: PDFium inserts them at structural
+    gaps too, including table cells, so they keep the ordinary split behaviour.
+
+    A literal leading space has no preceding text in ``fragment`` and remains a
+    split.  That preserves the existing indentation/table-cell behaviour rather
+    than treating every whitespace-prefixed fragment as justified prose.
+    """
+    gap = current.x0 - prev.x1
+    if gap <= LINE_SPLIT_EM * max(prev.size, current.size, 1.0):
+        return False
+    explicit_interword_space = not prev.gen and prev.u == " "
+    fragment_has_text = any(not char.u.isspace() for char in fragment)
+    return not (explicit_interword_space and fragment_has_text)
+
+
 def _build_lines(chars: List[_Char]) -> List[Line]:
     """chars -> spans -> lines, by baseline then x.
 
@@ -315,7 +337,7 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
         row.sort(key=lambda c: c.x0)
         part = [row[0]]
         for prev, c in zip(row, row[1:]):
-            if c.x0 - prev.x1 > LINE_SPLIT_EM * max(prev.size, c.size, 1.0):
+            if _wide_gap_starts_visual_line(prev, c, part):
                 vis_rows.append(part)
                 part = [c]
             else:

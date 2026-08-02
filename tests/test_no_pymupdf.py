@@ -1,6 +1,6 @@
-"""The permissive runtime boundary: convert with PyMuPDF physically absent.
+"""The explicit PDFium candidate works with PyMuPDF physically absent.
 
-This is the test the Apache alpha rests on, and it is deliberately hostile: it
+This candidate-isolation test is deliberately hostile: it
 does not check that `fitz` *is not used*, it makes importing it **impossible** and
 then converts real documents. A check that trusts the code to avoid an import is a
 check that passes the moment someone adds one back.
@@ -10,12 +10,9 @@ The mechanism is a `sys.meta_path` finder that raises ImportError for `fitz` and
 clean virtualenv without the package, because it also catches a module that has
 already been imported by something else in the same interpreter.
 
-Why this test exists at all: the wheel was described as one dependency-metadata
-change away from Apache-2.0. It was not. `docxout` imported `fitz` at module
-scope, so a wheel installed without PyMuPDF failed while importing the *writer* --
-before any backend selection could happen -- and MuPDF was additionally reached
-for table text metrics, figure rasterisation, refinement text extraction, verifier
-rasterisation and the quality ladder. "Mechanical" was five stages out of date.
+It guards the backend seam end to end: writer imports, text metrics, figure
+rasterisation, refinement text extraction, verifier rasterisation and the quality
+ladder must all honor the explicitly selected PDFium candidate.
 
     python tests/test_no_pymupdf.py                # needs pypdfium2
 """
@@ -40,7 +37,7 @@ class _Blocker:
         if self._blocked(name):
             raise ImportError(
                 "PyMuPDF is deliberately unavailable in this test: %r must not be "
-                "on the default runtime path (tests/test_no_pymupdf.py)" % name)
+                "on the explicit candidate path (tests/test_no_pymupdf.py)" % name)
         return None
 
     @staticmethod
@@ -65,7 +62,7 @@ def block_pymupdf():
     sys.meta_path.insert(0, _Blocker())
 
 
-# One document per capability that has to survive the permissive path. Every one
+# One document per capability that has to survive the candidate path. Every one
 # of these is a COMMITTED fixture in testkit/fixtures/, so "absent" means the
 # checkout is broken, not that the machine lacks generators.
 CAPABILITIES = {
@@ -118,7 +115,7 @@ def missing_capabilities(found):
 
 
 def main():
-    print("permissive runtime boundary: PyMuPDF made unimportable\n")
+    print("explicit PDFium candidate: PyMuPDF made unimportable\n")
     block_pymupdf()
 
     try:
@@ -131,8 +128,8 @@ def main():
     try:
         import pypdfium2       # noqa: F401
     except ImportError:
-        print("\npypdfium2 is not installed -- this test needs the permissive "
-              "backend it is about. Install the [pdfium] extra.")
+        print("\npypdfium2 is not installed -- install the optional pdfium "
+              "extra for this candidate test.")
         return 2
 
     # 1. import surface
@@ -150,20 +147,42 @@ def main():
 
     # 2. the writer must not be carrying a MuPDF text-metric dependency
     from exactdoc.metrics import NullMetrics, get_metrics
-    check("metrics default is permissive", get_metrics().name == "none")
+    check("metrics default is backend-neutral", get_metrics().name == "none")
     check("mupdf metrics degrade rather than raise",
           isinstance(get_metrics("mupdf"), NullMetrics))
 
-    # 3. real conversions through the permissive path
-    from exactdoc.options import PRODUCT, RAW
+    # 3. Shipping defaults stay quality-first; the candidate is independently named.
+    from exactdoc.cli import build_parser
+    from exactdoc.options import (ConversionOptions, PDFIUM_GDOCS_CANDIDATE,
+                                  PDFIUM_GDOCS_CANDIDATE_REFINED, PRODUCT, RAW,
+                                  canonical_backend)
+    defaults = {a.dest: a.default for a in build_parser()._actions}
+    expected = {"backend": "pymupdf", "output_profile": "standard",
+                "oracle": "libreoffice", "refine_rounds": 3}
+    actual = {name: getattr(PRODUCT, name) for name in expected}
+    check("default API profile is pymupdf/standard/libreoffice/refine3",
+          actual == expected,
+          repr(actual))
+    check("bare ConversionOptions validates as PRODUCT", ConversionOptions() == PRODUCT)
+    check("backend='default' resolves to the shipped backend",
+          canonical_backend("default") == PRODUCT.backend)
+    check("CLI and API defaults share the exact profile",
+          all(defaults[{"refine_rounds": "refine"}.get(name, name)] == value
+              for name, value in expected.items()), repr(defaults))
+    check("raw is the shipping open-loop control",
+          RAW == PRODUCT.replace(oracle="none", refine_rounds=0))
+    check("PDFium candidate is independently named",
+          PDFIUM_GDOCS_CANDIDATE.profile_id()
+          == "pdfium/gdocs/none/refine0@240dpi")
+
+    # 4. real conversions through the explicitly selected candidate path
     fixtures = representative_fixtures()
 
     # Zero inputs is a FAILURE, not a skip. This returned 0 having converted
     # nothing: it searched only `testkit/adv/` and `corpus/pdfs/`, which are both
     # generated and both gitignored, so on CI and on any clean clone it found no
-    # documents, printed a note, and reported the permissive runtime boundary as
-    # proven. The one claim the Apache alpha rests on was being made by a test
-    # that had run no conversions.
+    # documents, printed a note, and reported candidate isolation as proven
+    # without running a conversion.
     #
     # The fixtures are committed and pinned by SHA-256, so absence means a broken
     # checkout. There is no legitimate configuration in which this test has
@@ -182,12 +201,11 @@ def main():
         return 1
 
     converted = 0
-    opts = RAW.replace(backend="pdfium", target="none")
     with tempfile.TemporaryDirectory() as td:
         for name, why, path in fixtures:
             out = os.path.join(td, name.replace(".pdf", ".docx"))
             try:
-                convert(path, out, options=opts)
+                convert(path, out, options=PDFIUM_GDOCS_CANDIDATE)
                 ok = os.path.exists(out) and os.path.getsize(out) > 1000
                 check("convert %-26s (%s)" % (name, why), ok,
                       "no output" if not ok else "")
@@ -196,27 +214,28 @@ def main():
                 check("convert %-26s (%s)" % (name, why), False,
                       "%s: %s" % (type(e).__name__, e))
 
-        # 4. refinement through the permissive path, if an oracle is present
+        # 5. candidate refinement, if an oracle is present
         from exactdoc.verify import SOFFICE
         multi = [f for f in fixtures if f[0] == "c6_long.pdf"] or fixtures[:1]
         if SOFFICE and multi:
             name, _, path = multi[0]
             out = os.path.join(td, "refined.docx")
             try:
-                convert(path, out, options=PRODUCT.replace(backend="pdfium"))
-                check("refine %s through the permissive path" % name,
+                convert(path, out, options=PDFIUM_GDOCS_CANDIDATE_REFINED.replace(
+                    refine_rounds=1))
+                check("refine %s through the PDFium candidate" % name,
                       os.path.exists(out) and os.path.getsize(out) > 1000)
             except Exception as e:
-                check("refine %s through the permissive path" % name, False,
+                check("refine %s through the PDFium candidate" % name, False,
                       "%s: %s" % (type(e).__name__, e))
         else:
             print("  --   refinement skipped: no LibreOffice on this machine")
 
-        # 5. the Google-Docs-safe static profile is a writer path, not an oracle
+        # 6. the Google-Docs-safe static profile is a writer path, not an oracle
         name, _, path = fixtures[0]
         try:
             convert(path, os.path.join(td, "gdocs.docx"),
-                    options=RAW.replace(backend="pdfium", target="gdocs"))
+                    options=PDFIUM_GDOCS_CANDIDATE)
             check("gdocs static profile writes", True)
         except Exception as e:
             check("gdocs static profile writes", False,
@@ -232,13 +251,9 @@ def main():
     if FAILED:
         print("\n%d FAILED: %s" % (len(FAILED), ", ".join(FAILED)))
         return 1
-    from exactdoc.options import PRODUCT
-    print("\nall clear -- every code path runs without PyMuPDF.\n"
-          "NOTE: the shipped default backend is still %r and `pymupdf` is still a\n"
-          "hard runtime dependency in pyproject.toml. What this test proves is\n"
-          "that the licence flip is now a dependency-and-default change rather\n"
-          "than a rewrite -- not that the default artifact is already permissive."
-          % PRODUCT.backend)
+    print("\nall clear -- the explicit %s candidate runs without PyMuPDF.\n"
+          "The shipping default remains %s."
+          % (PDFIUM_GDOCS_CANDIDATE.profile_id(), PRODUCT.profile_id()))
     return 0
 
 

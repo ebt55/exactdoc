@@ -4,6 +4,7 @@ from typing import List, Optional
 
 import fitz
 
+from .errors import UnsupportedInputError
 from .model import DocIR, PageIR, TextBlock, Line, Span, DrawCmd, ImageObj
 
 _SUBSET_RE = re.compile(r"^[A-Z]{6}\+")
@@ -83,6 +84,13 @@ def _classify_path(d) -> str:
 
 def parse_pdf(path: str, keep_image_data: bool = True) -> DocIR:
     doc = fitz.open(path)
+    # PyMuPDF opens an encrypted document successfully but rejects every
+    # operation on it with a generic ValueError.  Check its documented status
+    # while the cause is still unambiguous and before reader diagnostics can
+    # escape through the public API.
+    if doc.needs_pass:
+        doc.close()
+        raise UnsupportedInputError("password-protected PDFs are not supported")
     ir = DocIR(path=path, meta=dict(doc.metadata or {}))
     tflags = (fitz.TEXT_PRESERVE_WHITESPACE | fitz.TEXT_MEDIABOX_CLIP)
 

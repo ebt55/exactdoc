@@ -13,23 +13,22 @@ and "reproduce it with `convert()`" produced 0.366 -- the raw number -- with no
 error anywhere to say why. A measurement that describes no shipping
 configuration is not evidence, it is a coincidence.
 
-`PRODUCT` below is that one configuration. Every surface resolves its defaults
-from it; the gate measures it by name; the docs quote its numbers. `RAW` is the
-deliberate zero-refine sibling, kept because `refine()` tunes against the same
-renderer the gate then measures with, so a refined-only figure can improve
-because the loop memorised the oracle rather than because the converter got
-better. Only the pair is meaningful, which is why both are named here rather
-than passed as a number at three call sites.
+`PRODUCT` below is that one configuration. Every shipping surface resolves its
+defaults from it and the gate measures it by name; published evidence must
+identify the same profile. The gate compares its open-loop `RAW` control with
+the refined shipping product. PDFium/Google-safe output remains explicitly
+named candidate work and is not silently substituted for either gate lane.
 
-Changing `PRODUCT.refine_rounds` changes what users get AND what the published
-numbers mean. Re-record the gate baseline in the same commit.
+Changing `PRODUCT` changes what users get AND what the published numbers mean.
+Re-record the gate baseline in the canonical environment before publishing new
+numbers.
 
 ## Two axes, because `target` was answering two questions
 
 `target` meant both "how is this DOCX serialised?" and "which program renders it
 during the feedback loop?", and those are independent. The consequence was not
 cosmetic: there was no way to ask for **Google-Docs-safe OOXML produced
-offline**, which is the configuration this project intends to ship. Wanting
+offline**, which is an explicit candidate configuration. Wanting
 Docs-shaped output implied wanting to upload the document to Google.
 
     output_profile   how the OOXML is written. Pure serialisation, offline,
@@ -51,11 +50,9 @@ from typing import Optional
 
 from .errors import CloudConsentRequiredError, ConfigurationError
 
-# Every backend name the seam accepts, and the one that ships. `pdfium` becomes
-# the default in the permissive-runtime phase; it is a real option today so that
-# the parity gate can select it without monkey-patching `convert.parse_pdf`,
-# which it used to do -- and which meant the gate measured a module it had
-# mutated rather than the product.
+# Every backend name the seam accepts. PyMuPDF is the measured shipping backend;
+# PDFium remains an explicit candidate for parity comparison without
+# monkey-patching `convert.parse_pdf`.
 BACKENDS = ("pymupdf", "pdfium")
 
 # How the OOXML is written. `standard` is the Office/LibreOffice-oriented output
@@ -67,7 +64,7 @@ OUTPUT_PROFILES = ("standard", "gdocs")
 
 # What renders the DOCX during refinement. `none` means no feedback loop and no
 # external process at all -- the fastest, most deterministic, most private
-# option, and the one the intended shipping profile uses.
+# option, used by RAW and the explicit PDFium candidate.
 ORACLES = ("none", "libreoffice", "gdocs")
 
 # Retained so `TARGETS` importers keep working during the deprecation window.
@@ -240,22 +237,25 @@ class ConversionOptions:
         return d
 
 
-# The shipped configuration. This is the profile the README's numbers describe,
-# the profile the CI "product" lane measures, and the profile a bare
-# `convert(pdf)` or `exactdoc file.pdf` runs.
-#
-# `standard` + `libreoffice` is exactly what `target="libreoffice"` meant, so
-# splitting the field moved nothing. The intended shipping profile --
-# pdfium/gdocs/none/refine0 -- is a CANDIDATE and is not adopted until the
-# protected Google Docs qualification gate passes (plan GDOCS-05).
+# The measured shipping configuration. This is the profile a bare `convert(pdf)`
+# or `exactdoc file.pdf` runs.
 PRODUCT = ConversionOptions()
 
-# The uncontaminated comparison lane: no closed loop, so no chance of the
-# oracle being memorised. Not a fallback and not a fast mode -- a control.
-#
-# `oracle="none"` as well as `refine_rounds=0`: naming a renderer it will never
-# call made the raw lane look like it had one.
-RAW = PRODUCT.replace(refine_rounds=0, oracle="none")
+# The open-loop control for the product gate. Only feedback is removed; parser,
+# serialisation profile and DPI stay identical to PRODUCT.
+RAW = PRODUCT.replace(oracle="none", refine_rounds=0)
+
+# Explicit non-shipping candidates. The refined form is diagnostic and keeps
+# every candidate axis fixed except the local correction loop.
+PDFIUM_GDOCS_CANDIDATE = ConversionOptions(
+    backend="pdfium", output_profile="gdocs", oracle="none",
+    refine_rounds=0, dpi=PRODUCT.dpi)
+PDFIUM_GDOCS_CANDIDATE_REFINED = PDFIUM_GDOCS_CANDIDATE.replace(
+    oracle="libreoffice", refine_rounds=3)
+
+# Compatibility name for callers of the brief diagnostic-profile API. It is
+# deliberately not an active gate lane.
+REFINED = PDFIUM_GDOCS_CANDIDATE_REFINED
 
 # Kept for callers that want the name rather than the object.
 DEFAULT_OPTIONS = PRODUCT
@@ -268,8 +268,27 @@ DEFAULT_DPI = PRODUCT.dpi
 
 # Lane names. The gate, the baseline file and the evidence artifact all key on
 # these, so they live with the profiles they describe rather than being spelled
-# out as string literals in three files.
+# out as string literals in three files. These are deliberately distinct
+# profiles: `raw` is the open-loop control and `product` is what ships.
 LANES = {"raw": RAW, "product": PRODUCT}
+
+
+def validate_lanes(lanes=None):
+    """Raise when the two gate lanes no longer mean two different things."""
+    lanes = LANES if lanes is None else lanes
+    if set(lanes) != {"raw", "product"}:
+        raise ConfigurationError(
+            "gate lanes must be exactly raw and product, got %s"
+            % sorted(lanes))
+    if lanes["raw"] is not RAW:
+        raise ConfigurationError("the raw gate lane must be RAW")
+    if lanes["product"] is not PRODUCT:
+        raise ConfigurationError("the product gate lane must be PRODUCT")
+    profile_ids = [profile.profile_id() for profile in lanes.values()]
+    if len(set(profile_ids)) != len(profile_ids):
+        raise ConfigurationError(
+            "gate lanes collapse onto the same profile_id: %s" % profile_ids)
+    return True
 
 
 def resolve(options: Optional[ConversionOptions] = None, **overrides

@@ -305,6 +305,22 @@ def para_from_lines(lines: List[Line], col_l: float, col_r: float) -> Para:
         p.runs.extend(runs_from_spans(ln.spans))
         if i < len(lines) - 1:
             _soft_join(p.runs, lines[i + 1].text)
+    # ``right_flush`` deliberately ignores the final source line: that is how
+    # a normal justified paragraph has a ragged last line.  A short metadata
+    # block can look the same to that heuristic, except its final row is wider
+    # than the inferred inset.  Serialising that as one justified paragraph
+    # gives it an impossible wrap width (the memo's Date row then wraps in
+    # Google Docs).  Record its source rows only when the geometry proves the
+    # inset cannot contain the longest row.  Ordinary narrow justified prose
+    # still has a longest source row that fits its inferred width and remains
+    # reflowable.
+    inferred_w = col_r - col_l - p.left_indent - p.right_indent
+    if p.align == "justify" and p.right_indent > 0.05 and len(lines) >= 2 and \
+            p.src_widths and max(p.src_widths) > inferred_w + 1.0:
+        # This is deliberately not a global layout mutation: standard DOCX
+        # preserves its long-standing flowing paragraph, while the Google Docs
+        # writer consumes these rows as soft breaks at a usable width.
+        p.gdocs_rows = [runs_from_spans(ln.spans) for ln in lines]
     # bullet / numbered list detection
     spans0 = lines[0].spans
     if len(spans0) >= 2:
@@ -1456,6 +1472,14 @@ def infer(ir: DocIR) -> DocLayout:
         lay.pages.append(pl)
 
     _mark_headings(lay, body_size)
+    if _can_relax_bottom_margin(lay):
+        # DOCX flow has no equivalent of PDF's last-baseline fit.  With a hard
+        # source-page break, LibreOffice moving even one final line below the
+        # inferred bottom reserve produces a mostly empty extra page. Give plain
+        # flow documents the conventional 0.2in minimum reserve instead. This
+        # is deliberately withheld when a header/footer, cover section, or a
+        # figure-flow overlay could occupy the same physical bottom area.
+        lay.margin_b = min(lay.margin_b, 14.0)
     return lay
 
 
@@ -1464,6 +1488,41 @@ def _mk_block(lines):
     for l in lines:
         bb = bbox_union(bb, l.bbox)
     return TextBlock(lines=list(lines), bbox=bb)
+
+
+def _can_relax_bottom_margin(lay: DocLayout) -> bool:
+    """Whether a document can safely use the ordinary 14pt bottom reserve.
+
+    A footer or cover has its own vertical coordinate system, and graphic text
+    that overlaps a figure cannot be represented as overlapping DOCX flow. Both
+    make a global bottom-margin change an unsafe way to recover ordinary text
+    overflow. The check is geometric and deliberately says nothing about fixture
+    names or parser backends.
+    """
+    if lay.cover_band is not None:
+        return False
+    if any((lay.header_default, lay.footer_default, lay.header_first,
+            lay.footer_first)):
+        return False
+    for page in lay.pages:
+        elements = [el for chunk in page.chunks for el in chunk.elements]
+        figures = [el for el in elements if isinstance(el, FigureEl)]
+        for figure in figures:
+            for element in elements:
+                if element is figure or not isinstance(
+                        element, (Para, TableEl, ImageEl, RuleEl)):
+                    continue
+                bbox = _el_bbox(element)
+                if bbox is None:
+                    continue
+                # Include nearby axis labels: they can sit just outside a chart
+                # while sharing its vertical band, and DOCX cannot overlap them
+                # with an inline image the way the PDF does.
+                if bbox[1] < figure.clip[3] and bbox[3] > figure.clip[1] and \
+                        bbox[0] < figure.clip[2] + 36 and \
+                        bbox[2] > figure.clip[0] - 36:
+                    return False
+    return True
 
 
 def _merge_figures(elements):

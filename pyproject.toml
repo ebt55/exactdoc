@@ -34,11 +34,7 @@ dependencies = [
 [project.optional-dependencies]
 # Test harness: adversarial corpus generation + measurement.
 test = ["reportlab>=4.0", "fpdf2>=2.7"]
-# The experimental permissive backend (exactdoc/parse_pdfium.py). Not a runtime
-# dependency -- pymupdf is still the default parser -- but the backend and its
-# parity gate are unrunnable without it, and an undeclared import is one
-# `uv sync` away from vanishing. It did: the gate started reporting
-# ModuleNotFoundError instead of regressions.
+# Optional candidate parser. Selecting `backend="pdfium"` requires this extra.
 pdfium = ["pypdfium2>=4.25"]
 # Google Docs oracle -- measure fidelity in the renderer actually targeted.
 gdocs = [
@@ -53,6 +49,7 @@ Issues = "https://github.com/ebt55/exactdoc/issues"
 
 [project.scripts]
 exactdoc = "exactdoc.cli:main"
+exactdoc-gdocs = "exactdoc.gdocs:main"
 
 [tool.setuptools]
 packages = ["exactdoc"]

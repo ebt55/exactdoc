@@ -9,9 +9,10 @@ So this converts both backends over the manifest corpus with the same profile
 and marks each document REGRESSION / same / BETTER / expected-div / accepted.
 
     python testkit/backend_parity.py
-    python testkit/backend_parity.py --refine 3
-    python testkit/backend_parity.py --refine 3 --only c7_code
-    python testkit/backend_parity.py --update-policy   # record the floors
+    python testkit/backend_parity.py --profile candidate --measure
+    python testkit/backend_parity.py --profile candidate-refined --measure
+    python testkit/backend_parity.py --profile candidate-refined --measure --only c7_code
+    python testkit/backend_parity.py --profile product --update-policy  # matching policy only
 
 **The policy is `parity_policy.json`, not this docstring.** It used to be the
 other way round: the code exited on `regressions == 0` while ROADMAP §3.2 and
@@ -32,6 +33,7 @@ says so.
 import argparse
 import json
 import os
+import re
 import sys
 
 import _paths  # noqa: F401
@@ -60,9 +62,21 @@ POLICY_PATH = os.path.join(ROOT, "parity_policy.json")
 DIMENSIONS = ("page_err", "live_text_cov", "doc_recall", "word_recall",
               "within2pt", "dy_p50", "raster_frac")
 LOWER_IS_BETTER = ("page_err", "dy_p50", "raster_frac")
+PROFILE_NAMES = ("product", "candidate", "candidate-refined")
+PROFILE_ID_RE = re.compile(r"^[^/]+/[^/]+/[^/]+/refine\d+@\d+dpi$")
 
 
-def load_policy(path=POLICY_PATH):
+def conversion_profile(name):
+    """The complete, validated profile selected by the parity CLI."""
+    from exactdoc.options import (PDFIUM_GDOCS_CANDIDATE,
+                                  PDFIUM_GDOCS_CANDIDATE_REFINED, PRODUCT)
+    return {"product": PRODUCT,
+            "candidate": PDFIUM_GDOCS_CANDIDATE,
+            "candidate-refined": PDFIUM_GDOCS_CANDIDATE_REFINED}[name]
+
+
+def load_policy(path=None):
+    path = path or POLICY_PATH
     with open(path) as f:
         return json.load(f)
 
@@ -117,7 +131,7 @@ def compare(a, b, margins):
     return worse, better
 
 
-def run(backend, srcs, out_root, refine):
+def run(backend, srcs, out_root, profile):
     """Convert the corpus with one backend. No monkey-patching, nothing dropped.
 
     This used to reassign `exactdoc.convert.parse_pdf`, so the gate measured a
@@ -136,10 +150,12 @@ def run(backend, srcs, out_root, refine):
     profile above the environment, an exported `EXACTDOC_BACKEND` can no longer
     redirect either lane of the gate that exists to compare them.
     """
-    from exactdoc.options import PRODUCT
     from exactdoc.convert import convert
 
-    options = PRODUCT.replace(backend=backend, refine_rounds=refine)
+    # The two comparison arms differ on exactly one axis. In particular, never
+    # mutate refine_rounds independently: its valid oracle and output profile
+    # come from the selected named profile as one validated unit.
+    options = profile.replace(backend=backend)
     out = os.path.join(out_root, backend)
     os.makedirs(out, exist_ok=True)
     pairs, res = [], {}
@@ -167,7 +183,7 @@ def run(backend, srcs, out_root, refine):
     return res
 
 
-def _check_floors(doc_id, cand_result, spec, failures, label, profile_ok=True,
+def _check_floors(doc_id, cand_result, spec, failures, label,
                   env_fingerprint=None):
     """Numeric bounds on a waived document, in both directions.
 
@@ -177,16 +193,10 @@ def _check_floors(doc_id, cand_result, spec, failures, label, profile_ok=True,
     remaining metric and still reported "expected-div". A waiver names a *known*
     difference; it cannot also be a licence for unknown ones.
 
-    `profile_ok` is False when this run used a different refine profile than the
-    one the floors were recorded at, and then the floors are not applied. They are
-    profile-specific quantities: measured at `--refine 0`, `01_whitepaper_market`
-    reports dy_p50 7.89 against a floor of 1.39 recorded at refine 3 -- four
-    "below-floor" failures that say nothing except that the two runs are not
-    comparable. Silently comparing them produced a false red here; the same
-    mechanism in the other direction is a false green.
+    Full-profile binding is checked before adjudication starts. A mismatch is a
+    hard failure, so this function never receives floors measured for a different
+    backend/output-profile/oracle/refinement/DPI combination.
     """
-    if not profile_ok:
-        return
     floors = spec.get("floors")
     if floors is None:
         failures.append(("unrecorded", doc_id,
@@ -225,11 +235,79 @@ def _check_floors(doc_id, cand_result, spec, failures, label, profile_ok=True,
         bad = (v > floor + tol) if name in LOWER_IS_BETTER else (v < floor - tol)
         if bad:
             failures.append(("below-floor", doc_id,
-                             "%s %.4g against a ratified floor of %.4g"
-                             % (name, v, floor)))
+                             "%s %.4g against the %s floor of %.4g"
+                             % (name, v, label, floor)))
 
 
-def adjudicate(ref, cand, policy, subset=False, manifest=None, refine=None,
+def _policy_profile_errors(policy, profile_id):
+    """Why `policy` cannot govern `profile_id`; empty means fully bound."""
+    if not isinstance(profile_id, str) or not PROFILE_ID_RE.match(profile_id):
+        return ["selected conversion profile has no full profile ID: %r"
+                % profile_id]
+    recorded = policy.get("profile_id")
+    if not recorded:
+        legacy = policy.get("recorded_refine_rounds")
+        return [
+            "policy has no full profile_id%s; refine rounds alone do not bind "
+            "backend, output profile, oracle and DPI. Use --measure to collect "
+            "raw differences, then create and review a policy explicitly bound "
+            "to this named profile; --update-policy does not migrate findings"
+            % (" (legacy recorded_refine_rounds=%r)" % legacy
+               if legacy is not None else "")]
+    if recorded != profile_id:
+        return [
+            "policy was recorded for %r but this run selected %r. Use --measure "
+            "for raw differences, then create and review a separately bound "
+            "policy; --update-policy does not migrate findings"
+            % (recorded, profile_id)]
+
+    errors = []
+    for section in ("provisional_shortfalls", "ratified_shortfalls",
+                    "expected_divergence"):
+        for doc_id, spec in _clean(policy.get(section, {})).items():
+            bound = spec.get("profile_id")
+            if bound != profile_id:
+                errors.append(
+                    "%s/%s floors are bound to %r, expected %r"
+                    % (section, doc_id, bound, profile_id))
+    return errors
+
+
+def _profile_failure_summary(errors, subset=False):
+    counts = {"regressions": 0, "same": 0, "better": 0,
+              "expected_div": 0, "provisional": 0, "ratified": 0,
+              "accepted": 0, "missing": 0}
+    failures = [{"kind": "profile-mismatch", "document": "-", "detail": e}
+                for e in errors]
+    return dict(counts, ok=False, subset=subset, release_ready=False,
+                provisional_documents=[], failure_kinds=["profile-mismatch"],
+                failures=failures)
+
+
+def _measurement_summary(summary, profile_errors):
+    """Mark raw comparison output as diagnostic and never authoritative."""
+    summary = dict(summary)
+    failures = list(summary.get("failures") or [])
+    failures.extend({"kind": "profile-mismatch", "document": "-",
+                     "detail": error}
+                    for error in profile_errors)
+    failures.append({
+        "kind": "unadjudicated", "document": "-",
+        "detail": "measurement mode did not apply policy waivers or floors; "
+                  "these raw differences cannot authorise a release"})
+    summary.update({
+        "ok": False,
+        "release_ready": False,
+        "measurement_only": True,
+        "policy_profile_errors": list(profile_errors),
+        "failure_kinds": sorted(set(summary.get("failure_kinds") or [])
+                                | {f["kind"] for f in failures}),
+        "failures": failures,
+    })
+    return summary
+
+
+def adjudicate(ref, cand, policy, subset=False, manifest=None, profile_id=None,
                env_fingerprint=None):
     """Apply the policy. -> (rows, summary dict).
 
@@ -238,18 +316,18 @@ def adjudicate(ref, cand, policy, subset=False, manifest=None, refine=None,
     satisfied by two runs that both dropped the same document -- which is exactly
     what happened when a conversion failed under both backends.
 
-    `refine` is the profile this run used. Floors are only applied when it matches
-    the profile they were recorded at, because they are profile-specific: the same
-    document reports dy_p50 1.39 at refine 3 and 7.89 at refine 0, and comparing
-    across the two is meaningless in whichever direction it happens to fall.
+    `profile_id` is the complete named conversion profile used by both runs before
+    their backend field is replaced. A missing or different policy binding returns
+    immediately with `profile-mismatch`; no profile-specific waiver is applied.
     """
+    profile_errors = _policy_profile_errors(policy, profile_id)
+    if profile_errors:
+        return [], _profile_failure_summary(profile_errors, subset=subset)
+
     margins = _clean(policy.get("margins", {}))
     divergence = _clean(policy.get("expected_divergence", {}))
     provisional = _clean(policy.get("provisional_shortfalls", {}))
     ratified = _clean(policy.get("ratified_shortfalls", {}))
-    recorded_refine = policy.get("recorded_refine_rounds")
-    profile_ok = (refine is None or recorded_refine is None
-                  or refine == recorded_refine)
     rows, failures = [], []
     counts = {"regressions": 0, "same": 0, "better": 0, "expected_div": 0,
               "provisional": 0, "ratified": 0, "accepted": 0, "missing": 0}
@@ -270,12 +348,6 @@ def adjudicate(ref, cand, policy, subset=False, manifest=None, refine=None,
                          "condition). 'Accepted' did not say which, and that "
                          "ambiguity is what let four documents read as ratified."
                          % (len(retired), ", ".join(sorted(retired)))))
-    if not profile_ok:
-        rows.append({"document": "-", "verdict": "NOTE",
-                     "detail": "floors not applied: recorded at refine %s, this "
-                               "run used refine %s"
-                               % (recorded_refine, refine)})
-
     expected_ids = set(manifest.get("documents", {})) if manifest else None
     universe = set(ref) | set(cand)
     if expected_ids is not None:
@@ -325,7 +397,6 @@ def adjudicate(ref, cand, policy, subset=False, manifest=None, refine=None,
                 failures.append(("undocumented", doc_id,
                                  "expected divergence with no rendered evidence"))
             _check_floors(doc_id, B, spec, failures, "expected divergence",
-                          profile_ok=profile_ok,
                           env_fingerprint=env_fingerprint)
             if not worse and not better:
                 # The waiver says these two backends disagree here on purpose. If
@@ -347,7 +418,6 @@ def adjudicate(ref, cand, policy, subset=False, manifest=None, refine=None,
                 failures.append(("undocumented", doc_id,
                                  "%s with no defect ID" % label))
             _check_floors(doc_id, B, spec, failures, label,
-                          profile_ok=profile_ok,
                           env_fingerprint=env_fingerprint)
             if not worse:
                 failures.append(("stale", doc_id,
@@ -433,7 +503,7 @@ def corpus_identity(manifest):
     return hashlib.sha256("|".join(parts).encode()).hexdigest()
 
 
-def record_policy(ref, cand, policy, manifest, environment, refine=None,
+def record_policy(ref, cand, policy, manifest, environment, profile_id,
                   path=POLICY_PATH):
     """Write measured floors for every waived document. Full corpus only.
 
@@ -443,6 +513,17 @@ def record_policy(ref, cand, policy, manifest, environment, refine=None,
     documents it happened to touch using numbers from a corpus of one. Refused
     rather than warned about.
     """
+    if not isinstance(profile_id, str) or not PROFILE_ID_RE.match(profile_id):
+        raise gate.RecordRefused(
+            "refusing to record parity floors without a full conversion "
+            "profile ID, got %r" % profile_id)
+    profile_errors = _policy_profile_errors(policy, profile_id)
+    if profile_errors:
+        raise gate.RecordRefused(
+            "refusing to migrate parity findings between profiles: %s. "
+            "Measure the selected profile first, then create or review a "
+            "policy already bound to that exact profile before recording."
+            % " | ".join(profile_errors))
     if not environment.get("canonical"):
         raise gate.RecordRefused(
             "refusing to record parity floors on %s: the policy is the swap's "
@@ -465,16 +546,16 @@ def record_policy(ref, cand, policy, manifest, environment, refine=None,
                 "is not a run." % (side, ", ".join(broken)))
 
     n = 0
-    policy["recorded_refine_rounds"] = refine
-    policy["schema"] = 2
+    policy.pop("recorded_refine_rounds", None)
+    policy["profile_id"] = profile_id
+    policy["schema"] = 3
     # Every floor is bound to the exact conditions that produced it. Schema 1
     # recorded `os: linux` plus three version strings, which is why three stale
     # `c4_i18n` floors survived a font-environment change and failed CI as though
     # the backend had regressed: a floor that does not name its environment cannot
     # be detected as describing a different one.
     binding = {
-        "profile_id": (policy.get("profile_id")
-                       or "parity/refine%s" % refine),
+        "profile_id": profile_id,
         "environment_fingerprint": environment.get("fingerprint"),
         "corpus_manifest_sha256": corpus_identity(manifest),
         "measured_commit": (evidence.git_state() or {}).get("commit"),
@@ -516,22 +597,48 @@ def record_policy(ref, cand, policy, manifest, environment, refine=None,
     print("recorded floors for %d waived document(s) in %s" % (n, path))
 
 
-def main(argv=None):
+def build_parser():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--refine", type=int, default=None,
-                    help="refine rounds for both backends (default: the product "
-                         "profile's)")
+    ap.add_argument("--profile", choices=PROFILE_NAMES,
+                    default="candidate",
+                    help="complete conversion profile used by both backends "
+                         "(default: %(default)s)")
     ap.add_argument("--out", default=None)
     ap.add_argument("--only", nargs="+", default=None,
                     help="substrings; run only the matching documents")
-    ap.add_argument("--update-policy", action="store_true",
-                    help="record the accepted shortfalls' numeric floors")
+    mode = ap.add_mutually_exclusive_group()
+    mode.add_argument("--update-policy", action="store_true",
+                      help="re-record a policy already bound to the selected "
+                           "full profile")
+    mode.add_argument("--measure", action="store_true",
+                      help="compare both backends without applying or writing "
+                           "policy; always unadjudicated and nonzero")
+    ap.add_argument("--policy", default=POLICY_PATH,
+                    help="policy JSON to read or update (default: %(default)s)")
     ap.add_argument("--evidence", default=None,
                     help="evidence JSON to merge the parity verdict into")
-    a = ap.parse_args(argv)
+    return ap
 
-    from exactdoc.options import PRODUCT
-    refine = PRODUCT.refine_rounds if a.refine is None else a.refine
+
+def main(argv=None):
+    a = build_parser().parse_args(argv)
+
+    profile = conversion_profile(a.profile)
+    profile_id = profile.profile_id()
+    policy = load_policy(a.policy)
+    profile_errors = _policy_profile_errors(policy, profile_id)
+    if profile_errors and not a.measure:
+        heading = "POLICY NOT RECORDED" if a.update_policy \
+            else "POLICY PROFILE MISMATCH"
+        print(heading)
+        for error in profile_errors:
+            print("  - %s" % error)
+        if a.update_policy:
+            print("Refusing to migrate existing findings to another profile.")
+        else:
+            print("Refusing to compare or apply floors from another profile. "
+                  "Use --measure for a non-authoritative raw comparison.")
+        return 2
 
     manifest = gate.load_manifest()
     if manifest is None:
@@ -561,29 +668,37 @@ def main(argv=None):
               "only the full corpus can"
               % ", ".join(os.path.basename(s) for s in srcs))
 
-    policy = load_policy()
-    out_root = a.out or os.path.join(ROOT, "parity")
+    out_root = os.path.join(a.out or os.path.join(ROOT, "parity"), a.profile)
     ref_name = policy.get("reference_backend", "pymupdf")
     cand_name = policy.get("candidate_backend", "pdfium")
-    print("reference %s vs candidate %s, refine %d, %d document(s)"
-          % (ref_name, cand_name, refine, len(srcs)))
+    print("reference %s vs candidate %s, profile %s, %d document(s)"
+          % (ref_name, cand_name, profile_id, len(srcs)))
 
     env = evidence.environment()
-    ref = run(ref_name, srcs, out_root, refine)
-    cand = run(cand_name, srcs, out_root, refine)
+    ref = run(ref_name, srcs, out_root, profile)
+    cand = run(cand_name, srcs, out_root, profile)
 
     if a.update_policy:
         try:
-            record_policy(ref, cand, policy, manifest, env, refine=refine)
+            record_policy(ref, cand, policy, manifest, env,
+                          profile_id=profile_id, path=a.policy)
         except gate.RecordRefused as e:
             print("\nPOLICY NOT RECORDED\n  %s" % e)
             return 2
-        policy = load_policy()
+        policy = load_policy(a.policy)
 
-    rows, summary = adjudicate(ref, cand, policy, subset=subset,
+    comparison_policy = policy
+    if a.measure:
+        # No inherited waivers, provisional findings or floors. Empty margins
+        # make every raw movement visible; the summary is forcibly marked
+        # unadjudicated below even when no regression is observed.
+        comparison_policy = {"profile_id": profile_id, "margins": {}}
+    rows, summary = adjudicate(ref, cand, comparison_policy, subset=subset,
                                manifest=None if subset else manifest,
-                               refine=refine,
+                               profile_id=profile_id,
                                env_fingerprint=env.get("fingerprint"))
+    if a.measure:
+        summary = _measurement_summary(summary, profile_errors)
     print("\n%-22s %-22s %-22s %s"
           % ("document", ref_name, cand_name, "verdict"))
     for row in rows:
@@ -616,17 +731,23 @@ def main(argv=None):
     if subset:
         print("subset run: exit code reports findings among what it ran, and "
               "cannot report the swap as acceptable")
-    print("PASS" if summary["ok"] else "FAIL")
+    if a.measure:
+        print("UNADJUDICATED MEASUREMENT -- never release-ready")
+    else:
+        print("PASS" if summary["ok"] else "FAIL")
 
     ev_path = a.evidence or os.path.join(ROOT, "batch", "evidence.json")
     parity = dict(summary)
     parity.update({"reference_backend": ref_name, "candidate_backend": cand_name,
-                   "refine_rounds": refine, "documents": rows,
+                   "profile": a.profile, "profile_id": profile_id,
+                   "documents": rows,
                    "manifest_documents": len(manifest.get("documents", {}))})
     evidence.merge(ev_path, parity=parity)
 
     if a.update_policy:
         return 0
+    if a.measure:
+        return 2
     return 0 if summary["ok"] else 1
 
 

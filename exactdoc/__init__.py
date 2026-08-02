@@ -8,10 +8,8 @@ supplies its defaults, and `__version__`. Everything else is internal and may
 move between alpha releases.
 
 Names resolve lazily (PEP 562) so that `import exactdoc` costs nothing but this
-docstring. That matters beyond startup time: the permissive-runtime work needs
-`import exactdoc` to succeed on an installation with no PyMuPDF present, and an
-eager re-export of the writer would defeat that before the backend seam ever
-got a chance to choose.
+docstring. It also lets an explicitly selected candidate reach the backend seam
+before importing the shipping parser.
 """
 __all__ = ["convert", "ConversionOptions", "PRODUCT", "RAW", "__version__"]
 

@@ -46,6 +46,11 @@ class WriteCtx:
     line_mode: str = "exact"
     dpi: int = 240
     render_clip: Optional[Callable] = None
+    # Keep the output profile as an explicit writer concern.  `line_mode` is
+    # intentionally a lossy rendering choice (another profile may choose the
+    # same encoding), while a handful of Google Docs workarounds really are
+    # profile-specific.  It comes last to preserve the old positional shape.
+    output_profile: str = "standard"
 
 
 _DEFAULT_CTX = WriteCtx()
@@ -283,9 +288,10 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None):
     # NB: local, not `p.right_indent +=`. The refine loop writes the same
     # layout more than once, and mutating it here would compound the
     # correction on every pass.
-    right_indent = p.right_indent + _wrap_correction(p, content_w)
+    gdocs_rows = p.gdocs_rows if ctx.output_profile == "gdocs" else []
+    right_indent = 0.0 if gdocs_rows else p.right_indent + _wrap_correction(p, content_w)
     pf = par.paragraph_format
-    par.alignment = ALIGN.get(p.align, WD_ALIGN_PARAGRAPH.LEFT)
+    par.alignment = ALIGN.get("left" if gdocs_rows else p.align, WD_ALIGN_PARAGRAPH.LEFT)
     if p.space_before > 0.05:
         pf.space_before = Pt(round(p.space_before, 1))
     else:
@@ -330,7 +336,18 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None):
         _set_borders(ppr, bd, "w:pBdr")
 
     i = 0
-    runs = p.runs
+    if gdocs_rows:
+        runs = []
+        for row_i, row in enumerate(gdocs_rows):
+            runs.extend(row)
+            if row_i < len(gdocs_rows) - 1:
+                style = row[0] if row else Run(text="", font="Helvetica", size=10,
+                                               color="#000000")
+                runs.append(Run(text="\n", font=style.font, size=style.size,
+                                color=style.color, bold=style.bold, italic=style.italic,
+                                mono=style.mono, serif=style.serif))
+    else:
+        runs = p.runs
     while i < len(runs):
         run = runs[i]
         if run.link:
@@ -472,8 +489,16 @@ def _fit_col_widths(t: TableEl, content_w: float = 0.0) -> List[float]:
     return widths
 
 
-def write_table(container, t: TableEl, content_w: float, ctx=None):
+_GDOCS_COVER_BEFORE_COMP_TWIPS = 290  # Google adds about 14.5pt above a band.
+
+
+def write_table(container, t: TableEl, content_w: float, ctx=None,
+                cover_band: bool = False):
     ctx = ctx or _DEFAULT_CTX
+    # A coloured page-one cover band is the one table Google Docs treats
+    # differently.  Do not infer this from ``role == 'band'``: header bands
+    # share that role and must retain their ordinary table treatment.
+    gdocs_cover = cover_band and ctx.output_profile == "gdocs"
     n_rows = len(t.rows)
     n_cols = len(t.col_widths)
     if n_rows == 0 or n_cols == 0:
@@ -523,6 +548,7 @@ def write_table(container, t: TableEl, content_w: float, ctx=None):
     for gc, wpt in zip(grid.findall(qn("w:gridCol")), t.col_widths):
         gc.set(qn("w:w"), str(int(round(wpt * 20))))
 
+    first_cover_text = True
     for ri, rowspec in enumerate(t.rows):
         row = tbl.rows[ri]
         h = t.row_heights[ri] if ri < len(t.row_heights) else None
@@ -580,8 +606,12 @@ def write_table(container, t: TableEl, content_w: float, ctx=None):
             _set_borders(tcPr, spec.borders, "w:tcBorders")
             tmar = OxmlElement("w:tcMar")
             pads = spec.pad  # (top, left, bottom, right)
+            # Google ignores tcMar/left on a bleed cover table.  Move (rather
+            # than duplicate) that left padding to its paragraph below, so a
+            # future importer which starts honouring tcMar does not double it.
+            emitted_pads = (pads[0], 0.0, pads[2], pads[3]) if gdocs_cover else pads
             for side, val in zip(("top", "left", "bottom", "right"),
-                                 (pads[0], pads[1], pads[2], pads[3])):
+                                  emitted_pads):
                 m = OxmlElement("w:" + side)
                 m.set(qn("w:w"), str(max(0, int(round(val * 20)))))
                 m.set(qn("w:type"), "dxa")
@@ -601,16 +631,32 @@ def write_table(container, t: TableEl, content_w: float, ctx=None):
                 # measured from the tcMar edge; make the paragraphs agree.
                 def _depadded(p, _s=row_shrink):
                     q = copy.copy(p)
-                    q.left_indent = max(0.0, p.left_indent - pads[1])
+                    if gdocs_cover:
+                        # Standard rendering lands at max(source indent,
+                        # tcMar left).  With tcMar moved to zero, carry that
+                        # effective position exactly; adding would double the
+                        # common case where inference already included the pad.
+                        q.left_indent = max(0.0, p.left_indent, pads[1])
+                    else:
+                        q.left_indent = max(0.0, p.left_indent - pads[1])
                     q.right_indent = max(0.0, p.right_indent - pads[3])
                     if _s < 0.999 and p.leading:
                         q.leading = max(2.0, p.leading * _s)
                     return q
                 first = cell.paragraphs[0]
-                write_para(cell, _depadded(spec.paras[0]), t.col_widths[ci],
-                           par=first, ctx=ctx)
-                for p in spec.paras[1:]:
-                    write_para(cell, _depadded(p), t.col_widths[ci], ctx=ctx)
+                for pi, p in enumerate(spec.paras):
+                    q = _depadded(p)
+                    if gdocs_cover and first_cover_text and p.text.strip():
+                        # The extra space is a direct paragraph before-spacing
+                        # translation in Google Docs.  Preserve all other
+                        # paragraph properties and floor at zero for short bands.
+                        q = copy.copy(q)
+                        before = max(0, int(round(p.space_before * 20)) -
+                                     _GDOCS_COVER_BEFORE_COMP_TWIPS)
+                        q.space_before = before / 20.0
+                        first_cover_text = False
+                    write_para(cell, q, t.col_widths[ci],
+                               par=first if pi == 0 else None, ctx=ctx)
             else:
                 _blank_cell(cell)
     return tbl
@@ -649,8 +695,12 @@ def write_figure(container, fig: FigureEl, ctx=None, dpi: int = None):
     pf = par.paragraph_format
     pf.space_before = Pt(round(max(0.0, fig.space_before), 1))
     pf.space_after = Pt(0)
-    pf.line_spacing_rule = WD_LINE_SPACING.AT_LEAST
-    pf.line_spacing = Pt(round(fig.height, 1))
+    if ctx.output_profile != "gdocs":
+        # Word/LibreOffice need this guard for a paragraph containing only an
+        # inline drawing.  Google Docs reserves the inline drawing itself and
+        # treats the duplicate atLeast height as extra page-flow pressure.
+        pf.line_spacing_rule = WD_LINE_SPACING.AT_LEAST
+        pf.line_spacing = Pt(round(fig.height, 1))
     par.alignment = ALIGN.get(fig.align, WD_ALIGN_PARAGRAPH.CENTER)
     if fig.align == "left" and fig.left_indent > 0.5:
         pf.left_indent = Pt(round(fig.left_indent, 1))
@@ -660,13 +710,15 @@ def write_figure(container, fig: FigureEl, ctx=None, dpi: int = None):
     return par
 
 
-def write_image(container, im: ImageEl):
+def write_image(container, im: ImageEl, ctx=None):
+    ctx = ctx or _DEFAULT_CTX
     par = container.add_paragraph()
     pf = par.paragraph_format
     pf.space_before = Pt(round(max(0.0, im.space_before), 1))
     pf.space_after = Pt(0)
-    pf.line_spacing_rule = WD_LINE_SPACING.AT_LEAST
-    pf.line_spacing = Pt(round(im.height, 1))
+    if ctx.output_profile != "gdocs":
+        pf.line_spacing_rule = WD_LINE_SPACING.AT_LEAST
+        pf.line_spacing = Pt(round(im.height, 1))
     par.alignment = ALIGN.get(im.align, WD_ALIGN_PARAGRAPH.CENTER)
     if im.align == "left" and im.left_indent > 0.5:
         pf.left_indent = Pt(round(im.left_indent, 1))
@@ -817,7 +869,8 @@ def write_docx(lay: DocLayout, out_path: str, dpi: int = 240,
                     return _bk.render_clip(_p, page_no, clip, dpi=at_dpi)
                 except Exception:
                     return None
-        ctx = WriteCtx(line_mode=line_mode_for(output_profile), dpi=dpi,
+        ctx = WriteCtx(output_profile=output_profile,
+                       line_mode=line_mode_for(output_profile), dpi=dpi,
                        render_clip=render_clip)
     return _write_docx(lay, out_path, ctx)
 
@@ -940,7 +993,8 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                         el.left_indent = round(el.left_indent + delta_l, 1)
                 elif isinstance(el, RuleEl):
                     el.left_indent = round(el.left_indent + delta_l, 1)
-        write_table(doc, band, lay.page_w - 2 * band_bleed, ctx=ctx)
+        write_table(doc, band, lay.page_w - 2 * band_bleed, ctx=ctx,
+                    cover_band=True)
 
     last_el_par = None
     for pi, pg in enumerate(lay.pages):
@@ -986,7 +1040,7 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                 elif isinstance(el, FigureEl):
                     write_figure(doc, el, ctx=ctx)
                 elif isinstance(el, ImageEl):
-                    write_image(doc, el)
+                    write_image(doc, el, ctx=ctx)
                 elif isinstance(el, RuleEl):
                     write_rule(doc, el, cw_ctx)
 

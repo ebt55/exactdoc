@@ -47,6 +47,11 @@ class Para:
     src_lines: int = 0
     src_widths: List[float] = field(default_factory=list)
     fidelity: str = "flow"       # 'flow' | 'line-locked' (see ladder.py)
+    # A rare row-like group can be indistinguishable from a justified paragraph
+    # until its inferred inset is narrower than a source row.  Keep the source
+    # rows as an alternate, target-specific serialization; standard DOCX keeps
+    # its existing flow form while the Google Docs profile can preserve them.
+    gdocs_rows: List[List[Run]] = field(default_factory=list)
 
     @property
     def text(self) -> str:

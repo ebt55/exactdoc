@@ -40,6 +40,7 @@ corpus/pdfs/
 # silently fails to match, leaving the secret staged by `git add -A`.
 credentials.json
 token.json
+.gdocs_orphans.json
 client_secret*
 *client_secret*
 *apps.googleusercontent.com.json
