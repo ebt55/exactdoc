@@ -53,12 +53,20 @@ reassessed offline without a new Google upload.
 The committed policy remains a draft. Applied to the latest evidence, 9/13
 ordinary fixtures meet every threshold; seven blocking findings remain across
 four documents: `01_whitepaper_market` SSIM; `c2_paper2col` dx/dy/SSIM;
-`c7_code` dx; and `l1_word_native` dx/dy. The highest-value next fixes are the
-large Word-native displacement, multi-column displacement, code indentation,
-and then whitepaper visual similarity. Fix these as general layout rules, not
-fixture exceptions. Afterward expand to roughly 40–60 frozen real/generated
-PDFs from common producers, review/ratify the policy, and perform the second
-consented full Google pass. The current 16 fixtures are regression evidence,
+`c7_code` dx; and `l1_word_native` dx/dy. The Word-native tranche is now
+implemented locally as a general symbol-font list-marker normalizer: l1 becomes
+three editable list items, and only its `document.xml` changes across the full
+prepared corpus. Local proxy metrics improve, but the live blocker remains until
+fresh Google qualification.
+
+The next engineering target is `c2_paper2col`. Its right column ends near
+551pt, while margin inference trusts an inset abstract ending near 509pt; that
+narrows content by about 42pt and shifts column two left by about 21pt, matching
+the measured 20.09pt error. Correct this from verified two-column geometry, then
+address code indentation and whitepaper visual similarity. Fix these as general
+layout rules, not fixture exceptions. Afterward expand to roughly 40–60 frozen
+real/generated PDFs from common producers, review/ratify the policy, and perform
+the second consented full Google pass. The current 16 fixtures are regression evidence,
 not market coverage.
 
 The long ordinary striped table in `c3_tables` is now one editable 46-row ×

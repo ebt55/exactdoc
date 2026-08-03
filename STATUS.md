@@ -111,6 +111,15 @@ fixtures meet every threshold. Seven blocking findings span four fixtures:
 `l1_word_native` dx/dy. The three stress fixtures produce nine additional
 nonblocking findings. This is an actionable gap report, not release approval.
 
+Local follow-up now canonicalises only corroborated leading OpenSymbol private-use
+bullets into safe Unicode list markers. `l1_word_native` becomes three separate
+editable hanging-indent items; no other prepared DOCX part changes anywhere in
+the 16-document corpus. LibreOffice proxy recall/drift/SSIM improve, but the
+committed assessment remains the last live Google truth until fresh consent.
+The next diagnosed blocker is `c2_paper2col`: an inset abstract currently wins
+right-margin inference over the verified right-column edge, narrowing the content
+area by about 42pt and shifting the second column left by about 21pt.
+
 ## Conversion safety, batch, and scan handling
 
 Encrypted PDFs map to an unsupported-input error. Malformed or truncated PDFs
@@ -135,7 +144,7 @@ All 16 frozen fixtures avoid false OCR-required classification.
 
 ## Verified local checks
 
-The current working tree passes 67 native `unittest` tests (2 platform skips),
+The current working tree passes 72 native `unittest` tests (2 platform skips),
 the batch suite (14 pass, 1 Windows symlink skip), corpus purity (16/16), the
 no-PyMuPDF PDFium smoke check, atomic-output checks, and the 16-entry corpus
 manifest check. These are local verification results, not canonical LibreOffice

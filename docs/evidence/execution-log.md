@@ -40,6 +40,7 @@ inconvenient:
 | REL-01A (partial) | Conversion/refinement DOCX publication is now genuinely transactional: private candidates are structurally validated before atomic replacement; failures preserve existing bytes and leave no predictable `.best` artifact. This does **not** mark the wider offline-boundary work or `ConversionResult` complete. | Atomic-output checks; 224/224 values unmoved |
 | GDOCS-04 table tranche | Consented Google qualification of `pdfium/gdocs/none/refine0@240dpi`: operational pass, 16/16 succeeded, zero orphan ledger. Page match 14/16→15/16; c3 is now an editable continuous 3-page table with all 45 rows. The overall run remains false solely because `quality.status=missing` (`failure_stage=quality-policy`), not because operational work failed. | `testkit/batch/gdocs_candidate_tables2.gdocs-qualification/gdocs_qualification.json` |
 | GDOCS-04B policy v2 | Strict tiered draft policy and offline evidence reassessment implemented. Existing evidence remains operationally valid; 9/13 ordinary fixtures clear every draft threshold, with seven blocking findings across four documents. The policy is unratified and therefore cannot pass by construction. | `testkit/gdocs_quality_policy.json`; `docs/evidence/gdocs-candidate-tables2-assessment.json` |
+| GDOCS-04C symbol lists (local) | Corroborated leading OpenSymbol `U+F0B7` markers canonicalised to Unicode bullets. l1 is now three editable hanging-indent items; only l1 `document.xml` changes across the 16 prepared packages. Local proxy doc/word recall 0.9583→0.9792, dx50 90.29→64.93pt, dy50 12.79→10.39pt, SSIM 0.7887→0.7946. Fresh Google evidence still required. | `exactdoc/dialect.py`; `tests/test_symbol_list_markers.py` |
 | DET-02a | Environment identity made exact and enforced. Recorded reference, both-direction font matching, `fonts.conf` verified by content, fingerprint enforced | `testkit/canonical_env.json`, fp `3ca438f1…` |
 | DET-02b | `accepted_shortfalls` split into `provisional_shortfalls` (cannot authorise) and `ratified_shortfalls` (owner/date/issue/review). Four D2 docs provisional; nothing ratified | `testkit/parity_policy.json` schema 2 |
 | DET-02c | Two false-green tests repaired: the PyMuPDF-free proof searched only gitignored dirs and returned 0 having converted nothing; the generator test discarded both exit codes and required 3 of 16 documents | `tests/test_no_pymupdf.py`, `tests/test_corpus_generation.py` |
@@ -125,8 +126,10 @@ atomic-output checks; the remaining boundary work still needs the full proof.
 
 ### Then
 
-Next quality work is the four ordinary-document blockers identified by policy
-v2, followed by a broader 40–60-PDF frozen corpus and owner policy review.
+Next quality work is the diagnosed c2 two-column right-edge/margin defect, then
+the remaining ordinary-document blockers, followed by a broader 40–60-PDF frozen
+corpus and owner policy review. The l1 symbol-list fix remains locally verified
+but live-Google pending.
 Annotation/internal-TOC preservation and heading/list semantics follow without
 displacing those release blockers. Google full-corpus qualification happens
 only after explicit upload consent, followed by a second clean release pass.

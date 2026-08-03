@@ -40,6 +40,11 @@ BACKDROP_LUMA = 245       # min channel value for "invisible" light backdrop
 # many. Measured on a two-column paper, 1.6em cost five extra pages.
 MAX_FRAGMENT_GAP = 0.55
 
+# These are intentionally pairs, not a general PUA decoder.  A PUA value has
+# no portable meaning on its own; it is only safe to translate where a known
+# symbol face assigns it to a conventional list marker.
+_SYMBOL_LIST_MARKERS = {("opensymbol", "\uf0b7"): "\u2022"}
+
 
 def _luma_ok(hexcol: Optional[str]) -> bool:
     if not hexcol or len(hexcol) != 7:
@@ -136,6 +141,80 @@ def _markers_to_text(page: PageIR) -> int:
         page.blocks.append(TextBlock(lines=[Line(spans=[sp], bbox=bb)], bbox=bb))
     page.blocks.sort(key=lambda b: (round(b.bbox[1], 1), b.bbox[0]))
     return len(hits)
+
+
+def _symbol_list_marker_candidates(page: PageIR):
+    """Find known PUA bullets that have the geometry of an inline marker.
+
+    The font/codepoint pair supplies the semantic evidence; being the first
+    ink on a horizontal row, immediately followed by body text, and having a
+    small glyph box supplies the layout evidence.  Both are needed: symbol
+    fonts also contain decorative glyphs, and PUA text in an ordinary font is
+    not portable enough to guess at.
+    """
+    out = []
+    for block in page.blocks:
+        for line in block.lines:
+            if not line.horizontal or not line.spans:
+                continue
+            first = next((i for i, span in enumerate(line.spans)
+                          if span.text.strip()), None)
+            if first is None:
+                continue
+            marker = line.spans[first]
+            key = ("".join(marker.font.lower().split()), marker.text.strip())
+            bullet = _SYMBOL_LIST_MARKERS.get(key)
+            if bullet is None:
+                continue
+            body = next((span for span in line.spans[first + 1:]
+                         if span.text.strip()), None)
+            if body is None or body.bbox[0] < marker.bbox[2] - 0.5:
+                continue
+            mw, mh = marker.bbox[2] - marker.bbox[0], marker.bbox[3] - marker.bbox[1]
+            # A genuine marker is no wider than roughly one em and no taller
+            # than its adjacent body run.  This admits OpenSymbol's 11pt
+            # bullet while rejecting display-size symbol artwork.
+            if mw <= 0.4 or mw > max(2.0, 1.05 * body.size) or \
+                    mh <= 0.4 or mh > 1.5 * body.size or \
+                    marker.size > 1.2 * body.size:
+                continue
+            if body.bbox[0] - marker.bbox[2] > BULLET_GAP:
+                continue
+            out.append((line, marker, body, bullet))
+    return out
+
+
+def _normalize_symbol_list_markers(page: PageIR) -> int:
+    """Canonicalise corroborated leading symbol-font PUA list markers."""
+    candidates = _symbol_list_marker_candidates(page)
+    if len(candidates) < 2:
+        return 0
+
+    # A list repeats both its marker edge and its item-text edge.  Requiring a
+    # two-row cluster prevents unrelated symbol glyphs elsewhere on the page
+    # from gaining list semantics merely because they share a font/codepoint.
+    accepted = set()
+    for _, marker, body, bullet in candidates:
+        x_tol = max(2.0, 0.25 * body.size)
+        group = [(ln, m, b, canon) for ln, m, b, canon in candidates
+                 if canon == bullet and abs(m.bbox[0] - marker.bbox[0]) <= x_tol
+                 and abs(b.bbox[0] - body.bbox[0]) <= x_tol]
+        if len(group) >= 2:
+            accepted.update(id(m) for _, m, _, _ in group)
+
+    changed = 0
+    for _, marker, body, bullet in candidates:
+        if id(marker) not in accepted:
+            continue
+        # Keep any source separator in this span: infer's marker splitter uses
+        # it when the text box is flush.  Arial is safe in Google Docs and the
+        # following body span remains untouched.
+        suffix = marker.text[len(marker.text.rstrip()):]
+        marker.text = bullet + suffix
+        marker.font = "Arial"
+        marker.serif = False
+        changed += 1
+    return changed
 
 
 def _split_rotated(page: PageIR) -> int:
@@ -405,14 +484,15 @@ def fingerprint(ir: DocIR) -> dict:
 
 def normalize(ir: DocIR) -> DocIR:
     """Rewrite producer idioms into canonical form. Mutates and returns `ir`."""
-    stats = {"backdrops": 0, "vector_markers": 0, "rotated": 0, "row_joins": 0,
-             "ruled_rows": 0}
+    stats = {"backdrops": 0, "vector_markers": 0, "symbol_markers": 0,
+             "rotated": 0, "row_joins": 0, "ruled_rows": 0}
     for p in ir.pages:
         if not hasattr(p, "rotated"):
             p.rotated = []
         stats["backdrops"] += _drop_backdrops(p)
         stats["rotated"] += _split_rotated(p)
         stats["vector_markers"] += _markers_to_text(p)
+        stats["symbol_markers"] += _normalize_symbol_list_markers(p)
         stats["row_joins"] += _coalesce_row_fragments(p)
         stats["ruled_rows"] += _join_ruled_rows(p)
     ir.meta = dict(ir.meta or {})

@@ -99,6 +99,13 @@ releasable. Expand the corpus to 40–60 PDFs and review the thresholds after th
 blocking layout issues are fixed; the current 16 fixtures are regression
 evidence, not market coverage.
 
+The next prepared local candidate fixes l1's repeated OpenSymbol `U+F0B7` list
+markers conservatively. It emits three safe Unicode bullet paragraphs with
+hanging indents, and an OOXML-part comparison shows only
+`l1_word_native.docx/word/document.xml` differs from the last qualified set.
+Local LibreOffice metrics improve, but do not replace the live Google assessment.
+Run another full qualification only after fresh `--allow-cloud-upload` consent.
+
 ## The gate, and what it refuses to let through
 
 `runall.py` produces numbers; **`gate.py` decides**, and it is a pure function

@@ -162,6 +162,16 @@ and `l1_word_native` horizontal/vertical drift. The candidate therefore remains
 non-shipping and non-releasable; the policy must not be ratified merely to turn
 the gate green.
 
+A subsequent local-only candidate addresses the Word-native list failure without
+guessing from producer metadata: repeated leading OpenSymbol `U+F0B7` markers
+are canonicalised to safe Unicode bullets only when matching list geometry
+corroborates them. `l1_word_native` now has three separate editable hanging-indent
+items instead of one paragraph with replacement glyphs. Across the 16 prepared
+DOCX packages, only l1's `word/document.xml` changes. LibreOffice proxy metrics
+improve (doc/word recall 0.9583→0.9792, dx50 90.29→64.93pt, dy50
+12.79→10.39pt, SSIM 0.7887→0.7946), but this is not yet fresh Google evidence;
+the recorded live blocker remains until another explicitly consented run.
+
 ## Scope and limits
 
 Priorities are ordinary digital text, multi-column documents, common tables, and
