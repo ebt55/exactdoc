@@ -258,6 +258,64 @@
     }
   },
 
+  "band_gap_claim": {
+    "id": "band-to-body-gap",
+    "status": "ledger balanced; probe built and controlled; awaiting its live run in pass 5",
+    "measured_by": "testkit/probe_band_gap.py",
+
+    "measurement_note": "Everything below is measured on BASELINES, not glyph tops. PyMuPDF derives a span's bbox top from the font's own reported ascender, and 01's source Helvetica reports 1.070-1.075 em where Docs' ArialMT reports 0.905. That is 0.17 x size of apparent drift with the baseline identical -- 1.8pt at 10.5pt and 4.1pt at 25pt. It is why my earlier 'uniform +6.30pt offset' was too large: the true baseline displacement is +3.43 to +5.76, and roughly 1.8pt of 01's dy_p50 8.18 is font metadata rather than misplaced text.",
+
+    "page1_ledger_01_whitepaper": {
+      "basis": "baseline displacement, pass 3 and pass 4 (identical), against testkit/fixtures/01_whitepaper_market.pdf",
+      "inside_the_band": {"title": -0.6, "subtitle": -0.32, "date_line": -0.28,
+                          "reading": "the band's own content is within 0.6pt; the 14.8pt top compensation and the exact->multiple translation are both working"},
+      "step_at_the_lower_boundary": 3.71,
+      "accumulation_below_it": {"executive_summary": 3.43, "modern_inference": 3.59,
+                                "the_remainder": 4.24, "key_insight": 5.76,
+                                "reading": "a further +2.33 accrues down the page, which is the known small line-height residual and not this claim"},
+      "step_decomposed": {
+        "below_the_band_last_line": {
+          "source": 26.0, "docs": 27.33,
+          "requested": "tcMar bottom 24.0 + that line's own descent 2.09",
+          "unexplained_pt": 1.12
+        },
+        "band_bottom_to_body_baseline": {
+          "source": 52.0, "docs": 54.38,
+          "requested": "space_before 36.8 + that line's own ascent 14.81",
+          "unexplained_pt": 2.77
+        },
+        "model_accuracy": "The same line-box model predicts the band title's baseline to 0.31pt (91.09 predicted against 91.40 measured), so 1.12 and 2.77 are real and not modelling slack.",
+        "balances": "1.12 + 2.77 = 3.89 against the 3.71 measured step, closing to 0.18pt."
+      }
+    },
+
+    "probe_design": {
+      "families": {
+        "tcmar": "band cell tcMar bottom in {0, 12, 24}pt with space_before fixed -- isolates the 1.12",
+        "space": "following paragraph space_before in {0, 18, 36}pt with tcMar fixed -- isolates the 2.77",
+        "extra": "a spacer paragraph, and a bottom border on the band cell -- the other constructs a cover band can carry",
+        "plain": "no table at all, paragraph to paragraph across the same gap -- the control that says whether the table is implicated"
+      },
+      "reads": "band rectangle, the last baseline inside the band, the first baseline after it, and each line's own reported ascent/descent, so a residual is what Docs added beyond what the OOXML asked for"
+    },
+
+    "libreoffice_control": {
+      "resid_bottom": "flat at -0.05 across tcMar 0/12/24 -- honoured exactly, and flat means a renderer that adds nothing",
+      "resid_gap": "flat at +0.62 across space_before 0/18/36 -- honoured exactly",
+      "table_versus_no_table": "+0.62 with a table, +0.57 without: LibreOffice adds nothing at a table boundary",
+      "deliberate_perturbations_detected": "the 6pt spacer variant moved the gap by exactly +6.00, and the 1pt bottom border by +1.00",
+      "reading": "every requested quantity is recovered exactly, so any non-flat residual in a Google export is Docs' doing and not the probe's"
+    },
+
+    "pass5_must_grade": {
+      "resid_bottom_flat": "If the tcMar family's residual is flat and near +1.1, Docs adds a constant below a band cell regardless of tcMar, and that constant is compensable in the writer.",
+      "resid_gap_flat": "If the space family's residual is flat and near +2.8, Docs adds a constant at the boundary; if it scales with the request, it is a proportion and needs a different rule.",
+      "table_attribution": "The plain (no-table) control decides whether either constant belongs to the table boundary or to ordinary paragraph spacing. If the no-table residual matches the banded one, the cover band is not implicated at all and the writer should not gain a band-specific constant.",
+      "falsification": "If every residual comes back flat near zero -- as LibreOffice's does -- then Docs is honouring the OOXML and the 3.89pt is on the writer's side of the boundary, which would send this back to inference rather than to a gdocs constant.",
+      "no_constant_yet": "No writer change was made in this chunk. The offline evidence alone does not justify one: it says where the space is, not who adds it."
+    }
+  },
+
   "l1_pass4_expectation": {
     "packing_ratio": {"predicted": 1.0004, "was": 1.0637,
                       "falsified_above": 1.02},
