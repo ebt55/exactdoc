@@ -21,7 +21,7 @@ import pypdfium2 as pdfium
 import pypdfium2.raw as raw
 
 from .model import (DocIR, PageIR, TextBlock, Line, Span, DrawCmd, ImageObj,
-                    LinkDest)
+                    LinkDest, xml_safe_text, xml_safe_uri)
 
 _SUBSET_RE = re.compile(r"^[A-Z]{6}\+")
 
@@ -89,6 +89,27 @@ class _Char:
 
 
 def _page_chars(textpage, page_h) -> List[_Char]:
+    """Characters with geometry, in content-stream order.
+
+    A note on unmapped glyphs, because one of them crashed every conversion of
+    the real-world corpus. When a font gives PDFium no usable ToUnicode entry,
+    FPDFText_GetUnicode returns the raw CHARACTER CODE, which for these files is
+    a C0 control code -- and lxml refuses to put one in a w:t node, so the whole
+    document failed to serialise. model.xml_safe_text now removes them.
+
+    What is lost with them is measurable and worth stating. On Adobe PDFMaker
+    output the code is U+0002 and the glyph is the end-of-line hyphen: measured
+    on y10_nist_fips180, PDFium reports `...SHA-384, SHA\\x02` where PyMuPDF
+    reports `...SHA-384, SHA-`. Dropping it leaves `SHA`, so infer._soft_join
+    sees no trailing hyphen and joins the wrapped word with a space -- `SHA 512`
+    against the reference's `SHA-512`.
+
+    Mapping U+0002 to a hyphen would fix those documents and be a guess about
+    content everywhere else: the code point says nothing about what was drawn,
+    and the same code is a different glyph in a different font. So the crash is
+    fixed here and the recovery is left as its own problem, with the evidence
+    written down rather than encoded as a constant.
+    """
     n = raw.FPDFText_CountChars(textpage.raw)
     out = []
     buf = ctypes.create_string_buffer(128)
@@ -513,7 +534,11 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
             if not cs:
                 continue
             font, size, color, bold, italic, mono, serif, sup = key
-            text = "".join(c.u for c in cs)
+            # Sanitised here rather than in _page_chars: the glyph occupies real
+            # advance width on the page, so it stays in the line's geometry even
+            # though it carries no text. See model.xml_safe_text for why the
+            # contract lives at the parser and not at the writer.
+            text = xml_safe_text("".join(c.u for c in cs))
             if not text.strip() and not sp_objs:
                 continue
             bb = (min(c.x0 for c in cs), min(c.y0 for c in cs),
@@ -1106,7 +1131,7 @@ def _link_uri(doc, link) -> Optional[str]:
         return None
     buf = ctypes.create_string_buffer(need)
     raw.FPDFAction_GetURIPath(doc.raw, act, buf, need)
-    return buf.raw[:max(0, need - 1)].decode("utf-8", "replace") or None
+    return xml_safe_uri(buf.raw[:max(0, need - 1)].decode("utf-8", "replace"))
 
 
 def _link_dest(doc, link) -> Optional[LinkDest]:

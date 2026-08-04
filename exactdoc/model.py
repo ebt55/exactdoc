@@ -2,10 +2,71 @@
 
 Everything is measured in PDF points (72/inch), origin top-left of page.
 """
+import re
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple, Dict, Any
 
 BBox = Tuple[float, float, float, float]  # x0, y0, x1, y1 (top-left origin)
+
+# XML 1.0 (§2.2) permits #x9, #xA, #xD and #x20-and-up in a text node, and
+# nothing else below #x20. Probed rather than assumed: lxml refuses exactly
+# 0x0-0x8, 0xb-0xc, 0xe-0x1f and 0xfffe-0xffff, and ACCEPTS 0x7f-0x9f -- so
+# stripping the C1 block as well would delete characters the format allows.
+# Lone surrogates are added because they are legal in a Python str and cannot
+# be encoded to UTF-8 at save time.
+_XML_ILLEGAL_RE = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ud800-\udfff"
+                             "￾￿]")
+
+
+def xml_safe_text(text: str) -> str:
+    """Text with the characters XML cannot carry removed.
+
+    THE CONTRACT: every `Span.text` in the IR is serialisable. This is enforced
+    where Spans are built -- in the two parsers -- and not in the writer, and
+    that choice is deliberate:
+
+      * the characters are an extraction artifact of one backend, not content.
+        PDFium returns the raw character code for a glyph whose font gives it no
+        usable ToUnicode mapping; PyMuPDF resolves the same glyph. Measured over
+        the 45-document corpus, PyMuPDF produces ZERO such characters and PDFium
+        produces them in 13 documents.
+      * they are overwhelmingly NOT in link text. On y01, 31 spans carry one and
+        only 3 of those are links; y10, y13 and y03 have affected spans and no
+        affected links at all. Sanitising inside the writer's hyperlink helper
+        -- where the crash surfaced -- would leave the same ValueError waiting
+        at `par.add_run()` for eight of the thirteen documents.
+      * the writer has six text-assignment sites and every one of them takes
+        text that came from a Span. One normalisation point covers all six; six
+        sanitisers would be six chances to miss one.
+      * scoring reads `Span.text` too. Sanitising only on the way out would
+        leave the IR carrying characters the DOCX does not, so live-text and
+        word-recall would be measured against text that was never written.
+
+    Removal, not substitution: what the glyph depicted is not recoverable from
+    the code point, and inventing a character would be a guess about content.
+    See parse_pdfium._page_chars for the measured consequence (end-of-line
+    hyphens on Adobe PDFMaker output arrive as U+0002 and are lost with it).
+    """
+    if not text:
+        return text
+    return _XML_ILLEGAL_RE.sub("", text)
+
+
+def xml_safe_uri(uri: Optional[str]) -> Optional[str]:
+    """A URI usable as an OOXML relationship target, or None.
+
+    Relationship targets end up in document.xml.rels, so the same XML rule
+    applies -- but a URI is defined over octets (RFC 3986 §2.1), and the
+    spelling for an octet that cannot appear literally is percent-encoding, not
+    deletion. Returns None when nothing usable is left, so the caller writes
+    plain text rather than a broken relationship.
+    """
+    if not uri:
+        return None
+    safe = _XML_ILLEGAL_RE.sub(
+        lambda m: "".join("%%%02X" % b for b in m.group(0).encode("utf-8")),
+        uri)
+    return safe or None
 
 
 def bbox_union(a: Optional[BBox], b: Optional[BBox]) -> Optional[BBox]:
@@ -62,6 +123,7 @@ class LinkDest:
 
 @dataclass
 class Span:
+    # Always XML-serialisable: the parsers pass it through xml_safe_text.
     text: str
     font: str            # raw PDF font name, subset prefix stripped
     size: float

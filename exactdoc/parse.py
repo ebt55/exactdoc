@@ -6,7 +6,7 @@ import fitz
 
 from .errors import UnsupportedInputError
 from .model import (DocIR, PageIR, TextBlock, Line, Span, DrawCmd, ImageObj,
-                    LinkDest)
+                    LinkDest, xml_safe_text, xml_safe_uri)
 
 _SUBSET_RE = re.compile(r"^[A-Z]{6}\+")
 
@@ -37,9 +37,20 @@ def _goto_dest(doc, lk) -> Optional[LinkDest]:
     kind = lk.get("kind")
     if kind not in (getattr(fitz, "LINK_GOTO", 1), getattr(fitz, "LINK_NAMED", 4)):
         return None
-    page = lk.get("page", -1)
     to = lk.get("to")
-    if page is None or page < 0 or to is None:
+    if to is None or not hasattr(to, "y"):
+        return None
+    # `page` is not always an int. A named destination PyMuPDF could only
+    # half-resolve arrives with the page as a STRING and no point at all:
+    # measured on y03_nist_fips197, `{'kind': 4, 'page': '44', 'view': 'Fit'}`.
+    # Comparing that to 0 raised TypeError and took the whole conversion with
+    # it -- on the shipping backend, for a document that had never been run
+    # through this code before the real-world corpus arrived.
+    try:
+        page = int(lk.get("page", -1))
+    except (TypeError, ValueError):
+        return None
+    if page < 0:
         return None
     try:
         height = doc[page].rect.height
@@ -144,7 +155,9 @@ def parse_pdf(path: str, keep_image_data: bool = True) -> DocIR:
             r = lk["from"]
             bbox = (r.x0, r.y0, r.x1, r.y1)
             if lk.get("uri"):
-                links.append({"bbox": bbox, "uri": lk["uri"]})
+                uri = xml_safe_uri(lk["uri"])
+                if uri:
+                    links.append({"bbox": bbox, "uri": uri})
                 continue
             dest = _goto_dest(doc, lk)
             if dest is not None:
@@ -160,7 +173,7 @@ def parse_pdf(path: str, keep_image_data: bool = True) -> DocIR:
             for ln in blk.get("lines", []):
                 spans = []
                 for sp in ln.get("spans", []):
-                    text = sp.get("text", "")
+                    text = xml_safe_text(sp.get("text", ""))
                     if text == "":
                         continue
                     flags = sp.get("flags", 0)
