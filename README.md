@@ -234,6 +234,13 @@ liberally licensed, but that alone does not settle distribution obligations.
 The author being the sole project author does not remove third-party obligations.
 This is project strategy, not legal advice.
 
+[docs/license-audit.md](docs/license-audit.md) is the first pass at that audit:
+every dependency licence read from installed metadata, the 16 components inside
+the PDFium binary, the redistribution basis of all 47 committed corpus PDFs, and
+the four migration gates as a live status table. Its finding is that PyMuPDF is
+the only code-licence blocker in the dependency graph — which narrows the work
+without doing it.
+
 ## Verification
 
 ```bash

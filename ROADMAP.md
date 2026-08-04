@@ -212,6 +212,19 @@ PyMuPDF must leave the core/default path; pypdfium2/PDFium and every bundled
 dependency need provenance and license audit; and the migration gates above
 must pass. This roadmap is project strategy, not legal advice.
 
+That audit now has a first pass:
+[docs/license-audit.md](docs/license-audit.md). It reads every licence from
+installed metadata rather than memory, and its result is narrow —
+**PyMuPDF is the only code-licence blocker in the entire dependency graph.**
+Of 35 resolved packages only four carry any copyleft term: exactdoc itself,
+PyMuPDF (core, the blocker), fpdf2 (LGPL, `test` extra only, imported nowhere
+under `exactdoc/`), and certifi (MPL-2.0, transitive, unmodified). PDFium's 16
+bundled components are all permissive, AGG included — it vendors 2.3, which
+predates AGG's move to GPL. The audit also carries the four migration gates as
+a live status table, the mechanical switch steps, and what a real base-wheel
+proof still needs. It does **not** cover LIC-01, the provenance of the initial
+source itself, which remains the hard blocker.
+
 ## Reproducible checks
 
 ```bash
