@@ -167,7 +167,18 @@
     "residual_after_pass3": {
       "advance_width_deviation": -0.063,
       "note": "Noto Serif is the closest family to DejaVu Serif among those measurable offline AND asserted Docs-native. With tracking discarded by Docs, this 6.3% is currently irreducible and still moves later line breaks within a paragraph, so l1's dx may not reach the 10pt bound on structure alone.",
-      "next_step": "A Docs font-metrics probe, built on the ride-along pattern that worked for the cover band: render candidate serif families (Merriweather, PT Serif, Lora, Libre Baskerville, EB Garamond) in Docs and measure advance per character, since their files cannot be measured offline here."
+      "next_step": "BUILT: testkit/probe_font_metrics.py, on the ride-along pattern that worked for the cover band. Nine pages, one family each -- Merriweather, Bitter, Libre Baskerville, PT Serif, Lora and IBM Plex Serif as candidates, with Noto Serif, Times New Roman and Georgia as controls that are measurable offline and so validate the round trip. It measures advance width AND natural line height per family, and identifies the rendered face so a family Docs silently substitutes cannot be mistaken for a measurement.",
+      "decision_rule": {
+        "adopt_if_deviation_within": 0.02,
+        "or_if_it_halves_noto_serif": 0.031,
+        "close_the_book_if_best_worse_than": 0.045,
+        "hard_requirements": [
+          "Docs must have rendered the family itself (no substitution)",
+          "its natural line height must have come back, because adopting on advance width alone is what put l1's pitch at 17.48pt against a 14.70pt source"
+        ],
+        "close_the_book_means": "no family available to Docs closes the gap; the 6.3% residual is inherent and l1's dx_p50 bound needs a ratified waiver rather than another substitution attempt"
+      },
+      "libreoffice_control_result": "Controls reproduced their offline advances to within 0.12% (Noto Serif -0.09%, Times New Roman -0.10%, Georgia -0.12%) and their natural factors to within 0.011, so the analyzer and the round trip are sound. All six real candidates were substituted by LibreOffice (LiberationSerif), correctly flagged, and correctly excluded from the decision -- which is the failure mode the face check exists to prevent."
     }
   },
   "cover_band_claim": {
