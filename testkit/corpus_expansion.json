@@ -371,6 +371,166 @@
    "src_pages": 2,
    "tier": "unsupported",
    "why": "a real fillable form: 199 interactive widgets over 2 pages. The refusal contract has never been tested against one, and at 215 KB this is the cheapest possible way to find out whether the converter honours it"
+  },
+  "y08_nist_sp80088r1.pdf": {
+   "bytes": 714563,
+   "content": "2343f8eba394409aea30a05cb3428760",
+   "dialect": "Adobe PDF Library 11.0 / Acrobat PDFMaker 11 for Word",
+   "provenance": {
+    "acquired": "2026-08-04",
+    "creator": "Acrobat PDFMaker 11 for Word",
+    "license": "Public domain (US Government work, 17 U.S.C. 105)",
+    "license_evidence": "https://www.nist.gov/oism/copyrights",
+    "license_statement_in_document": "p4: 'This publication may be used by nongovernmental organizations on a voluntary basis and is not subject to copyright in the United States. Attribution would, however, be appreciated by NIST.'",
+    "origin": "downloaded",
+    "producer": "Adobe PDF Library 11.0",
+    "recipe": null,
+    "source_url": "https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-88r1.pdf"
+   },
+   "sha256": "acd2315cb1823d51db93b180d898fabfdf5e964e3fcb41cf44d14b4c3ec8c5c4",
+   "src_pages": 65,
+   "tier": "ordinary_digital",
+   "why": "third PDFMaker-for-Word generation in the corpus (11, against 17 and 20 already held), 65 pages, single column measured, with decision-flow figures"
+  },
+  "y09_nist_sp800207.pdf": {
+   "bytes": 966908,
+   "content": "8f3b42b6e0b05829517695ecd14de408",
+   "dialect": "Adobe PDF Library 20.9.95 / Acrobat PDFMaker 20 for Word",
+   "provenance": {
+    "acquired": "2026-08-04",
+    "creator": "Acrobat PDFMaker 20 for Word",
+    "license": "Public domain (US Government work, 17 U.S.C. 105)",
+    "license_evidence": "https://www.nist.gov/oism/copyrights",
+    "license_statement_in_document": "p3: 'This publication may be used by nongovernmental organizations on a voluntary basis and is not subject to copyright in the United States. Attribution would, however, be appreciated by NIST.' A p5 notice disclaims third-party names as trademarks of their owners; it reserves no rights over the text.",
+    "origin": "downloaded",
+    "producer": "Adobe PDF Library 20.9.95",
+    "recipe": null,
+    "source_url": "https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-207.pdf"
+   },
+   "sha256": "0290d6ece24874287316f4bf430fef770aa4ec08a2227c8f2c1e5b2ff975e03d",
+   "src_pages": 59,
+   "tier": "ordinary_digital",
+   "why": "Zero Trust Architecture, 59 pages, single column measured, diagram-heavy: a same-generation control against y02 for whether page inflation tracks the producer or the document"
+  },
+  "y10_nist_fips180.pdf": {
+   "bytes": 833315,
+   "content": "2f7042b4584ea0a26f8d6c06cc6d52f1",
+   "dialect": "Microsoft Word 2010 (direct export, no Acrobat in the chain)",
+   "provenance": {
+    "acquired": "2026-08-04",
+    "creator": "Microsoft Word 2010",
+    "license": "Public domain (US Government work, 17 U.S.C. 105)",
+    "license_evidence": "https://www.nist.gov/oism/copyrights",
+    "license_statement_in_document": "none found; no copyright or trademark notice appears anywhere in the document. It is a NIST Federal Information Processing Standard, a US Government work by publisher identity.",
+    "origin": "downloaded",
+    "producer": "Microsoft Word 2010",
+    "recipe": null,
+    "source_url": "https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf"
+   },
+   "sha256": "0455b406d89648d20cbde375561e19c245b9815e894164c2670772e3d54deb82",
+   "src_pages": 36,
+   "tier": "ordinary_digital",
+   "why": "the first fixture written by Word ITSELF rather than by Acrobat PDFMaker: producer and creator are both 'Microsoft Word 2010', a distinct dialect from the Adobe PDF Library chain. 36 pages, single column, hash pseudocode and equations"
+  },
+  "y11_nist_sp80053r5_overcap.pdf": {
+   "bytes": 6073678,
+   "content": "b6437a2123ed7cebce041c26d70e49a3",
+   "dialect": "Adobe PDF Library 20.13.96 / Acrobat PDFMaker 20 for Word",
+   "provenance": {
+    "acquired": "2026-08-04",
+    "creator": "Acrobat PDFMaker 20 for Word",
+    "license": "Public domain (US Government work, 17 U.S.C. 105)",
+    "license_evidence": "https://www.nist.gov/oism/copyrights",
+    "license_statement_in_document": "p3: 'This publication may be used by nongovernmental organizations on a voluntary basis and is not subject to copyright in the United States. Attribution would, however, be appreciated by NIST.'",
+    "origin": "downloaded",
+    "producer": "Adobe PDF Library 20.13.96",
+    "recipe": null,
+    "source_url": "https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-53r5.pdf"
+   },
+   "sha256": "fc63bcd61715d0181dd8e85998b1e6201ae3515fc6626102101cab1841e11ec6",
+   "src_pages": 492,
+   "tier": "unsupported",
+   "why": "over-cap refusal input: 492 pages exceeds MAX_PAGES_PER_DOCUMENT of 250 in exactdoc/batch.py. Replaces the discarded 15.3 MB GAO report at 6.1 MB. Single column measured, so the ONLY reason it is unsupported is length -- which makes it a clean test of that one branch"
+  },
+  "y12_irs_pub15.pdf": {
+   "bytes": 1713916,
+   "content": "af4093dc4f702534373520fad29ee47b",
+   "dialect": "Antenna House PDF Output Library 6.6.1437 / AH XSL Formatter V6.6",
+   "provenance": {
+    "acquired": "2026-08-04",
+    "creator": "AH XSL Formatter V6.6 MR4 for Linux64",
+    "license": "Public domain (US Government work, 17 U.S.C. 105)",
+    "license_evidence": "https://www.irs.gov/privacy-disclosure/copyright-status-of-irs-materials",
+    "license_statement_in_document": "no copyright notice over the publication. A p10 notice credits the National Center for Missing & Exploited Children as a partner and marks NCMEC as that organisation's trademark; it asserts no rights over the text.",
+    "origin": "downloaded",
+    "producer": "Antenna House PDF Output Library 6.6.1437 (Linux64); modified using iText 2.1.7 by 1T3XT",
+    "recipe": null,
+    "source_url": "https://www.irs.gov/pub/irs-pdf/p15.pdf"
+   },
+   "sha256": "b46c3622439d8521e3a0faca4cd5b5ece3451b526f65f06a5e38d5c9f804c88b",
+   "src_pages": 59,
+   "tier": "ordinary_digital",
+   "why": "Circular E, 59 pages. Tier CORRECTED from the plan's designed_stress guess: side-by-side detection measures a plain two-column body on 100% of pages and three columns on only 8%, and section 4 places plain two-column in ordinary_digital. It is the tier's first two-column member and its first Antenna House member"
+  },
+  "y13_irs_pub501.pdf": {
+   "bytes": 1553735,
+   "content": "0d13632e902985d118e3039955e39232",
+   "dialect": "Antenna House PDF Output Library 6.6.1437 / AH XSL Formatter V6.6",
+   "provenance": {
+    "acquired": "2026-08-04",
+    "creator": "AH XSL Formatter V6.6 MR4 for Linux64",
+    "license": "Public domain (US Government work, 17 U.S.C. 105)",
+    "license_evidence": "https://www.irs.gov/privacy-disclosure/copyright-status-of-irs-materials",
+    "license_statement_in_document": "no copyright notice over the publication; the same p2 NCMEC partner trademark credit appears and asserts no rights over the text.",
+    "origin": "downloaded",
+    "producer": "Antenna House PDF Output Library 6.6.1437 (Linux64); modified using iText 2.1.7 by 1T3XT",
+    "recipe": null,
+    "source_url": "https://www.irs.gov/pub/irs-pdf/p501.pdf"
+   },
+   "sha256": "288b62a4917f3bc3df0bade7a22c23a8ae648ba9eb5086df5b8b50e881148ff6",
+   "src_pages": 31,
+   "tier": "designed_stress",
+   "why": "31 pages with a measured three-column body on 92% of them: genuinely multi-column reading order, which section 4 places in designed_stress. The small, cheap counterpart to y06"
+  },
+  "y14_irs_fw9_form.pdf": {
+   "bytes": 140815,
+   "content": "6badc77060b7df8092109d4ef7165db8",
+   "dialect": "Adobe LiveCycle Designer 6.5",
+   "provenance": {
+    "acquired": "2026-08-04",
+    "creator": "Designer 6.5",
+    "license": "Public domain (US Government work, 17 U.S.C. 105)",
+    "license_evidence": "https://www.irs.gov/privacy-disclosure/copyright-status-of-irs-materials",
+    "license_statement_in_document": "none found; no copyright or trademark notice appears anywhere. It is an official IRS form, a US Government work by publisher identity.",
+    "origin": "downloaded",
+    "producer": "Designer 6.5",
+    "recipe": null,
+    "source_url": "https://www.irs.gov/pub/irs-pdf/fw9.pdf"
+   },
+   "sha256": "2d420cbb4123dcf1fb82595b2359cfbb5d81f00b9df9d359fcc7af361d093f53",
+   "src_pages": 6,
+   "tier": "unsupported",
+   "why": "a second fillable form, 23 widgets over 6 pages against y07's 199 over 2. Tests whether the refusal-contract gap y07 exposed is general or was one document's accident"
+  },
+  "y17_rfc9110.pdf": {
+   "bytes": 2858365,
+   "content": "e30e43dae3017e1d7f82d08f066cc78a",
+   "dialect": "cairo 1.16.0 / xml2rfc 3.12.10",
+   "provenance": {
+    "acquired": "2026-08-04",
+    "creator": "xml2rfc 3.12.10",
+    "license": "IETF Trust Legal Provisions -- verbatim redistribution of unmodified copies permitted; modification and derivative works outside the IETF Standards Process are NOT",
+    "license_evidence": "https://trustee.ietf.org/documents/trust-legal-provisions/",
+    "license_statement_in_document": "p1: 'Copyright (c) 2022 IETF Trust and the persons identified as the document authors. All rights reserved.' p2 adds that the document 'may not be modified outside the IETF Standards Process, and derivative works ... may not be created outside the IETF Standards Process'. THIS IS THE ONLY FIXTURE IN THE CORPUS THAT IS NOT PUBLIC DOMAIN. The restriction is on modification and derivative works; the corpus stores an unmodified byte-identical copy, which is the use the TLP permits. It must never be edited, trimmed or re-rendered in place.",
+    "origin": "downloaded",
+    "producer": "cairo 1.16.0 (https://cairographics.org)",
+    "recipe": null,
+    "source_url": "https://www.rfc-editor.org/rfc/rfc9110.pdf"
+   },
+   "sha256": "60b30efa1048900833d1758440247fe8ac85a3134f2327388dcb24e07d814c89",
+   "src_pages": 194,
+   "tier": "ordinary_digital",
+   "why": "HTTP Semantics, 194 pages, single column measured, zero images, produced by cairo via xml2rfc -- a rendering stack unlike anything else in the corpus. At 194 pages it is under the 250-page cap, so it is the longest document the converter is expected to actually handle"
   }
  },
  "fixtures_dir": "testkit/fixtures_expansion",

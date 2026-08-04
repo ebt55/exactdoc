@@ -38,7 +38,10 @@ testkit/expansion_build/
 # the ones sealed into testkit/fixtures_expansion/; this is the landing area,
 # and it also holds documents that were fetched and then deliberately NOT sealed
 # (see docs/corpus-expansion.md section 9), which must not reach the repository.
-testkit/fetched_expansion/
+# The glob covers the per-round directories (fetched_expansion_r3, ...) as well:
+# the round-1 pattern was exact and round 3 landed outside it, one `git add -A`
+# away from committing a 15.3 MB document that was deliberately discarded.
+testkit/fetched_expansion*/
 corpus/pdfs/
 
 # Google API credentials -- never commit these.

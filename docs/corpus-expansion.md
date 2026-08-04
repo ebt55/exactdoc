@@ -580,3 +580,79 @@ documents are no longer a minority — which is an argument for finishing tranch
 
 None of this gates anything. No baseline describes these documents and
 `gate.py` has never seen them.
+
+---
+
+## 10. Round 3, and the close of acquisition
+
+Thirteen candidates attempted, **eight fetched and all eight sealed** — the first
+round with no discards. The corpus is now **16 gated + 29 expansion = 45
+documents**, inside the 40–60 target ROADMAP.md set, and **acquisition is
+closed**. `testkit/expansion_download_plan.json` now carries an empty
+`candidates` array, so `fetch_expansion.py` refuses it even when handed
+`--allow-download`; the five that never arrived are kept as an annex in the same
+file.
+
+### Licence outcomes
+
+| fixture | basis | evidence in the document |
+|---|---|---|
+| `y08_nist_sp80088r1` | US Gov work | p4: explicit NIST "not subject to copyright in the United States" |
+| `y09_nist_sp800207` | US Gov work | p3: same NIST statement |
+| `y10_nist_fips180` | US Gov work | **none found** — publisher identity (NIST FIPS) |
+| `y11_nist_sp80053r5` | US Gov work | p3: explicit NIST statement |
+| `y12_irs_pub15` | US Gov work | no notice over the publication; a partner's NCMEC trademark credit only |
+| `y13_irs_pub501` | US Gov work | same NCMEC credit; no rights asserted over the text |
+| `y14_irs_fw9_form` | US Gov work | **none found** — publisher identity (IRS form) |
+| `y17_rfc9110` | **IETF Trust TLP — not public domain** | p1: "Copyright (c) 2022 IETF Trust… All rights reserved." p2 forbids modification and derivative works outside the IETF Standards Process |
+
+**`y17_rfc9110` is the only fixture in the entire corpus that is not public
+domain**, and it is the only one carrying an active restriction. The restriction
+is on *modification and derivative works*; verbatim redistribution of an
+unmodified copy is what the TLP permits and is exactly what a frozen fixture is.
+Its provenance record says so explicitly, and says that it must never be edited,
+trimmed or re-rendered in place. That is a constraint the freezing procedure
+already imposes on every fixture, so it costs nothing — but it is now written
+down against the one document where breaking it would be a licence breach rather
+than merely bad method.
+
+### Tiers, assigned from measured geometry
+
+The plan guesses tiers before anyone has seen the file. Column count is the
+criterion §4 turns on, and it was measured rather than eyeballed — by detecting
+text blocks that **overlap vertically while being horizontally disjoint**, which
+is what a real column does and what an indented sub-list never does. A plain
+left-edge histogram cannot tell those apart and initially mis-read NIST SP
+800-171's indented requirement lists as a second column.
+
+| fixture | measured layout | tier | note |
+|---|---|---|---|
+| `y08`, `y09`, `y10`, `y17` | single column | `ordinary_digital` | |
+| `y12_irs_pub15` | 2 columns on 100% of pages, 3 on 8% | `ordinary_digital` | **corrected** from the plan's `designed_stress`; §4 places plain two-column in ordinary |
+| `y13_irs_pub501` | 3+ columns on 92% of pages | `designed_stress` | genuine multi-column reading order |
+| `y11_nist_sp80053r5` | single column | `unsupported` | 492 pages > the 250-page cap. Its *only* disqualification is length, which makes it a clean test of that one branch |
+| `y14_irs_fw9_form` | — | `unsupported` | 23 form widgets over 6 pages |
+
+The same measurement re-checked the already-sealed tranche-2 tiers and confirmed
+them: `y06_irs_1040_instructions` really is 3+ column on 68% of pages, so its
+`designed_stress` tier holds, and `y01`/`y02`/`y03` really are single column.
+
+### Producer census, which was the point
+
+Fourteen documents fetched across three rounds introduced producer chains the
+corpus had never contained, none of them written by this project:
+
+| producer chain | fixtures |
+|---|---|
+| Acrobat PDFMaker **for Word**, gen. 11 / 17 / 20 | `y08`, `y01`, `y02` `y09` `y11` |
+| **Microsoft Word 2010**, direct — no Acrobat | `y10` |
+| **pdfTeX** (TeX Live 2020) | `y03` |
+| **Antenna House** PDF Output Library 6.6 / AH XSL Formatter | `y06`, `y12`, `y13` |
+| **Adobe LiveCycle Designer 6.5** | `y07`, `y14` |
+| **cairo 1.16.0** via xml2rfc 3.12.10 | `y17` |
+
+`y10` is worth singling out: producer *and* creator are both "Microsoft Word
+2010", so it is Word's own PDF writer rather than Acrobat's. Against the five
+PDFMaker documents it separates "what Word's layout does" from "what Acrobat's
+writer does" — two things the corpus previously could not distinguish at all,
+because it had one word-processor document in total.
