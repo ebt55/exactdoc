@@ -195,6 +195,59 @@ class ColumnAssignment(unittest.TestCase):
         self.assertEqual(_column_of((370.0, 10.0, 470.0, 20.0), BANDS), 2)
 
 
+def _two_col_page(right_blocks=1, right_height=710.0):
+    """Two columns at x=42 and x=315, the right one in `right_blocks` pieces.
+
+    y12_irs_pub15's shape. Its p3 right column is three blocks and was
+    detected; its p4 right column is a single 711pt block and was not.
+    """
+    blocks = []
+    left = [_line(42.0, 300.0, 45.0 + 11.0 * i) for i in range(64)]
+    blocks.append(TextBlock(lines=left[:32], bbox=(42.0, 34.0, 300.0, 396.0)))
+    blocks.append(TextBlock(lines=left[32:], bbox=(42.0, 396.0, 300.0, 748.0)))
+    rows = max(1, int(right_height // 11.0))
+    per = max(1, rows // right_blocks)
+    rl = [_line(315.0, 570.0, 45.0 + 11.0 * i) for i in range(rows)]
+    for s in range(0, rows, per):
+        grp = rl[s:s + per]
+        if grp:
+            blocks.append(TextBlock(lines=grp,
+                                    bbox=(315.0, grp[0].bbox[1],
+                                          570.0, grp[-1].bbox[3])))
+    return DocIR(path="twocol.pdf",
+                 pages=[PageIR(number=1, width=PAGE_W, height=792.0,
+                               blocks=blocks)])
+
+
+class SingleBlockColumn(unittest.TestCase):
+    """A column that is one uninterrupted block is still a column.
+
+    The two-column detector required the right cluster to be at least two
+    blocks. That inverted the test -- a well-formed column is ONE block of
+    prose, and requiring fragmentation refused exactly the clean pages. On
+    y12_irs_pub15 it linearised p4 and p5 into 1413pt and 1379pt against a
+    768pt body.
+    """
+
+    def test_a_single_tall_block_is_accepted_as_a_column(self):
+        lay = infer(_two_col_page(right_blocks=1))
+        self.assertTrue(any(ch.n_cols == 2 for pl in lay.pages
+                            for ch in pl.chunks),
+                        "a 710pt single-block right column is a column")
+
+    def test_a_fragmented_column_still_works(self):
+        lay = infer(_two_col_page(right_blocks=3))
+        self.assertTrue(any(ch.n_cols == 2 for pl in lay.pages
+                            for ch in pl.chunks))
+
+    def test_a_short_single_inset_is_not_a_column(self):
+        # 88pt of text on the right is an inset, not a column: one block and
+        # nowhere near half the body
+        lay = infer(_two_col_page(right_blocks=1, right_height=88.0))
+        self.assertFalse(any(ch.n_cols >= 2 for pl in lay.pages
+                             for ch in pl.chunks))
+
+
 class NoStrandedTail(unittest.TestCase):
     """The tail is what made recognising the grid cost pages rather than save
     them: items that overhang their ink band used to be linearised beneath the

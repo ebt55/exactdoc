@@ -47,8 +47,26 @@ ACCENT_MAX_FRAC = 0.25
 MIN_GUTTER_W = 8.0          # pt; narrower than this is word spacing
 GRID_WIDTH_TOL = 0.12       # columns must be within 12% of the same width
 MIN_COL_LINES = 6           # ...and each must actually carry text
-GUTTER_CROSS_FRAC = 0.02    # a full-width heading may cross a real gutter
+# A full-width heading crosses a real gutter, so this was never a test for
+# absolute emptiness -- it has always let a fraction of baselines through. The
+# question is only how large that fraction may be, and it is bounded from above
+# by tables rather than by headings.
+#
+# Swept 0.02..0.15 over the corpus with a fresh parse per value. No gated
+# fixture fires a >=3 column grid at any of them, and neither IRS form
+# (y14_irs_fw9, y07_irs_f1040) does either -- so forms are not the binding
+# constraint. A numeric table is: at 0.04 and above, y03_nist_fips197 p41 reads
+# as a three-column grid, and it is an AES byte table whose line starts sit at
+# 184/245/303/362/421 on a pitch of 59. Measured end to end, that costs y03 a
+# page (+21 -> +22).
+#
+# 0.03 is therefore the widest value that makes no document worse. It still
+# moves the PDFium arm, which is what the tolerance is for: y13 goes 2 -> 6
+# pages. Going further would take y13 to 19 against PyMuPDF's 20, and the
+# reason not to is that it gets there by calling a table a grid.
+GUTTER_CROSS_FRAC = 0.03
 COL_SPAN_FRAC = 1.5         # wider than 1.5 columns is genuinely page-spanning
+COL_SINGLE_BLOCK_FRAC = 0.5  # one block this tall is a column on its own
 
 # --- side-margin page furniture -------------------------------------------
 # Clearance a shape must keep from the body column before it is called margin
@@ -2306,6 +2324,7 @@ def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
                      page_top: Optional[float] = None) -> List[Chunk]:
     content_l, content_r = lay.margin_l, lay.page_w - lay.margin_r
     content_w = content_r - content_l
+    body_h = lay.page_h - lay.margin_t - lay.margin_b
     flow_blocks = _merge_list_markers(flow_blocks)
 
     # A >=3 column grid is checked first and, when found, decides the page on
@@ -2333,7 +2352,20 @@ def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
             c2 = [b for b in narrow if abs(b.bbox[0] - rc) < 12]
             h1 = sum(b.bbox[3] - b.bbox[1] for b in c1)
             h2 = sum(b.bbox[3] - b.bbox[1] for b in c2)
-            if h1 > 60 and h2 > 60 and len(c2) >= 2:
+            # Two blocks in the right cluster is evidence that it is a COLUMN
+            # rather than one incidental inset. It is not the only evidence,
+            # and requiring it inverted the test: a column that is one
+            # uninterrupted block of prose -- which is what a well-formed
+            # column is -- was refused for being too clean, while a fragmented
+            # one passed. Measured on y12_irs_pub15, whose pages are two
+            # columns at x=42 and x=315: p3's right column is 3 blocks and is
+            # detected, p4's is a single block 711pt tall and was not, so the
+            # page linearised to 1413pt into a 768pt body. A block spanning
+            # half the body is stronger evidence of a column than two short
+            # ones, so it is accepted too, and a stray 100pt inset still is
+            # not.
+            tall_single = h2 >= COL_SINGLE_BLOCK_FRAC * max(1.0, body_h)
+            if h1 > 60 and h2 > 60 and (len(c2) >= 2 or tall_single):
                 col_split = float(_mode([b.bbox[0] for b in c2], 0))
                 ys1 = sorted(b.bbox[1] for b in c1)
                 ys2 = sorted(b.bbox[1] for b in c2)
