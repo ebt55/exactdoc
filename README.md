@@ -150,23 +150,47 @@ pinned Linux/LibreOffice CI environment:
 
 | Canonical profile | Page match | Mean within 2pt | Mean live text | Median dy50 |
 |---|---:|---:|---:|---:|
-| product | 15/16 | 0.4981 | 0.9652 | 0.675pt |
-| raw | 13/16 | 0.3349 | 0.9652 | 2.2pt |
+| product | 16/16 | 0.5161 | 0.9652 | 0.675pt |
+| raw | 14/16 | 0.3349 | 0.9652 | 2.79pt |
 
-The regression record asks "did anything get worse?", not "is everything
-perfect"; the absolute qualification still exposes the Tier 2/3 items above.
+Measured 2026-08-04, both lanes PASS. The regression record asks "did anything
+get worse?", not "is everything perfect"; the absolute qualification still
+exposes the Tier 2/3 items above.
+
+A separate, deliberately **non-gating** corpus of 16 further ordinary documents
+lives in `testkit/fixtures_expansion/`. It is measured by `testkit/expansion.py`,
+has no baseline, and gates nothing — see [docs/corpus-expansion.md](docs/corpus-expansion.md).
+Its first run found that running headers, footers and browser page furniture
+dominate the geometry error in ordinary documents, a construct the frozen 16
+barely sample.
 
 ### PDFium / Google Docs candidate — not shipping
 
 `pdfium/gdocs/none/refine0@240dpi` is the explicit non-shipping migration
-candidate. Its latest consented live Google qualification (2026-08-02) was
-operationally successful (16/16 documents, zero orphaned Drive objects) but
-fails the draft quality policy: blocking findings are `01_whitepaper_market`
-SSIM, `c2_paper2col` drift and SSIM, `c7_code` horizontal drift, and
-`l1_word_native` drift. Same-profile PDFium/PyMuPDF parity is 7 regressions,
-7 same, 2 better. The candidate is neither adopted nor releasable, and the
-policy will not be ratified merely to turn the gate green. See
-[STATUS.md](STATUS.md) for the full numbers.
+candidate. Its latest consented live Google qualification (2026-08-04) was
+operationally successful — 16/16 documents attempted and succeeded, zero
+failures, zero orphaned Drive objects — and **fails the draft quality policy:
+11 blocking findings across 8 of the 13 `ordinary_digital` fixtures**, so 5 of
+13 clear every threshold. The 3 `designed_stress` fixtures produce 9 further
+findings, tracked and non-blocking. The policy is also still a draft, which
+cannot pass by construction whatever the numbers say.
+
+Two previously blocking findings cleared live: `c7_code` horizontal drift and
+`c2_paper2col` horizontal drift. What replaced them is a broader set of
+**vertical** drift blockers — `03_tech_report_code`, `c1_whitepaper`,
+`c2_paper2col`, `c6_long`, `c8_toc_links`, `l1_word_native` and
+`r1_reportlab_report` all exceed the draft 10pt `dy_p50` bar — plus SSIM on
+`01_whitepaper_market`, `c2_paper2col` and `c6_long`, and horizontal drift on
+`l1_word_native`. **The cause is under investigation** and is not settled here;
+a per-boundary spacing compensation is one line of enquiry, not a conclusion.
+Fixing a horizontal defect and surfacing a vertical one is the ordinary shape
+of this work, and the honest reading is that the blocking count went up.
+
+Same-profile PDFium/PyMuPDF parity is 8 regressions, 6 same, 2 better as raw
+measurement; adjudicated against the profile-bound policy that is no unwaived
+regressions and three tracked provisional findings. The candidate is neither
+adopted nor releasable, and the policy will not be ratified merely to turn the
+gate green. See [STATUS.md](STATUS.md) for the full numbers.
 
 Google qualification is separate, two-step and consent-gated:
 
