@@ -32,6 +32,34 @@ def contains(outer: BBox, inner: BBox, pad: float = 2.0) -> bool:
             inner[2] <= outer[2] + pad and inner[3] <= outer[3] + pad)
 
 
+@dataclass(frozen=True)
+class LinkDest:
+    """Where an internal (GoTo) link lands: a point in THIS document.
+
+    Frozen and hashable on purpose: the writer groups runs by destination and
+    keys its bookmark table on one of these, so two runs pointing at the same
+    place must compare equal and hash alike.
+
+    `page` is a 0-based page index, which is what both backends report and what
+    PDF's own destination arrays carry. `x`/`y` are page points in the IR's
+    top-left origin, like every bbox in this module -- NOT the PDF's bottom-up
+    user space. Both parsers normalise into this, and they have to, because
+    neither library hands it over ready to use: PDFium's
+    FPDFDest_GetLocationInPage always reports raw bottom-up y, while PyMuPDF
+    reports a direct /Dest array already flipped and a NAMED destination raw.
+    Measured on the same two files, before normalisation: PDFium 646.5 and
+    600.0, PyMuPDF 646.5 and 192.0, for destinations that are 145.5 and 192.0
+    in this coordinate system.
+
+    A consumer tells the two link kinds apart by which field is set, never by
+    inspecting the string: `Span.link` is an external URI, `Span.dest` is an
+    internal destination. They are mutually exclusive.
+    """
+    page: int
+    x: float
+    y: float
+
+
 @dataclass
 class Span:
     text: str
@@ -45,7 +73,8 @@ class Span:
     superscript: bool
     bbox: BBox
     origin: Tuple[float, float]  # baseline origin
-    link: Optional[str] = None   # uri if inside a link rect
+    link: Optional[str] = None   # external uri if inside a URI link rect
+    dest: Optional[LinkDest] = None  # internal target if inside a GoTo rect
 
 
 @dataclass
@@ -109,7 +138,8 @@ class PageIR:
     blocks: List[TextBlock] = field(default_factory=list)
     drawings: List[DrawCmd] = field(default_factory=list)
     images: List[ImageObj] = field(default_factory=list)
-    links: List[Dict[str, Any]] = field(default_factory=list)  # {'bbox':..., 'uri':...}
+    # one of {'bbox':..., 'uri': str} or {'bbox':..., 'dest': LinkDest}
+    links: List[Dict[str, Any]] = field(default_factory=list)
     rotated: List[Line] = field(default_factory=list)  # non-horizontal, out of flow
 
 

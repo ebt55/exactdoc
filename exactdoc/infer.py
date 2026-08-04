@@ -120,12 +120,14 @@ def runs_from_spans(spans: List[Span]) -> List[Run]:
         txt = s.text if s.mono else re.sub(r" {2,}", " ", s.text)
         r = Run(text=txt, font=s.font, size=s.size, color=s.color,
                 bold=s.bold, italic=s.italic, mono=s.mono, serif=s.serif,
-                link=s.link, underline=bool(getattr(s, "_ul", False)),
+                link=s.link, dest=getattr(s, "dest", None),
+                underline=bool(getattr(s, "_ul", False)),
                 superscript=s.superscript)
         if runs:
             p = runs[-1]
             if (p.font == r.font and abs(p.size - r.size) < 0.05 and p.color == r.color
                     and p.bold == r.bold and p.italic == r.italic and p.link == r.link
+                    and p.dest == r.dest
                     and p.underline == r.underline and p.superscript == r.superscript):
                 if not p.mono and p.text.endswith(" ") and r.text.startswith(" "):
                     p.text += r.text.lstrip(" ")
@@ -580,7 +582,7 @@ def _pagefields(runs: List[Run], roles_for_line: Optional[List[str]],
                 continue
             nr = Run(text=part, font=r.font, size=r.size, color=r.color,
                      bold=r.bold, italic=r.italic, mono=r.mono, link=r.link,
-                     underline=r.underline)
+                     dest=r.dest, underline=r.underline)
             if part.isdigit():
                 role = next_role()
                 if role == "PAGE":

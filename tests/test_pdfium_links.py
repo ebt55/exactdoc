@@ -65,20 +65,21 @@ class PdfiumLinkAnnotations(unittest.TestCase):
         return [lk for p in self.ir.pages for lk in p.links]
 
     def test_uri_annotation_becomes_a_link(self):
-        self.assertEqual([lk["uri"] for lk in self._links()],
+        self.assertEqual([lk["uri"] for lk in self._links() if "uri" in lk],
                          ["https://example.com/spec"])
 
-    def test_goto_annotation_is_not_emitted_as_a_uri_link(self):
-        # The page carries two annotations; only the URI one is a link here.
-        # A GoTo has no action at all -- a bare /Dest -- so this also pins that
-        # FPDFLink_GetAction returning NULL is handled as an ordinary answer.
-        self.assertNotIn("jump", [lk["uri"] for lk in self._links()])
+    def test_goto_annotation_without_a_point_yields_no_destination(self):
+        # `bookmarkPage` writes a /Fit destination: a whole-page view carrying
+        # no point at all. FPDFDest_GetLocationInPage reports has_y=0 for it,
+        # and reporting y=0 anyway would anchor the link to the top of the page
+        # as though that had been measured. It is skipped instead.
+        self.assertEqual([lk for lk in self._links() if "dest" in lk], [])
         self.assertEqual(len(self._links()), 1)
 
     def test_url_text_without_an_annotation_is_not_a_link(self):
         # The removed weblink scan would have reported this one.
         for lk in self._links():
-            self.assertNotIn("unlinked", lk["uri"])
+            self.assertNotIn("unlinked", lk.get("uri") or "")
 
     def test_rect_is_flipped_into_the_irs_top_left_origin(self):
         # /Rect [100 695 210 715] on a 792pt page.
@@ -104,13 +105,19 @@ class PdfiumLinksOnC8(unittest.TestCase):
 
     def test_recovers_all_three_uri_links(self):
         self.assertEqual(sorted(lk["uri"] for p in self.ir.pages
-                                for lk in p.links),
+                                for lk in p.links if "uri" in lk),
                          ["https://example.com/rfc-2119",
                           "https://example.com/spec",
                           "mailto:team@example.com"])
 
-    def test_the_three_goto_annotations_are_not_links(self):
-        self.assertEqual(sum(len(p.links) for p in self.ir.pages), 3)
+    def test_uri_and_goto_are_separate_entries_never_mixed(self):
+        entries = [lk for p in self.ir.pages for lk in p.links]
+        self.assertEqual(len(entries), 6)
+        self.assertEqual(sum(1 for lk in entries if "uri" in lk), 3)
+        self.assertEqual(sum(1 for lk in entries if "dest" in lk), 3)
+        # a consumer never has to sniff a string to tell them apart
+        for lk in entries:
+            self.assertNotEqual("uri" in lk, "dest" in lk)
 
     def test_anchor_text_is_tagged_not_just_the_url_shaped_word(self):
         # `the specification` and `RFC` are ordinary words; only
@@ -130,8 +137,10 @@ class PdfiumLinksOnC8(unittest.TestCase):
         want = parse_reference(C8, keep_image_data=False)
         got = self.ir
         for a, b in zip(want.pages, got.pages):
-            self.assertEqual([lk["uri"] for lk in a.links],
-                             [lk["uri"] for lk in b.links])
+            self.assertEqual([lk.get("uri") for lk in a.links],
+                             [lk.get("uri") for lk in b.links])
+            self.assertEqual([lk.get("dest") for lk in a.links],
+                             [lk.get("dest") for lk in b.links])
             for la, lb in zip(a.links, b.links):
                 for i in range(4):
                     self.assertAlmostEqual(la["bbox"][i], lb["bbox"][i],

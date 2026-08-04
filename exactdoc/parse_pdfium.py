@@ -20,7 +20,8 @@ from typing import List, Optional
 import pypdfium2 as pdfium
 import pypdfium2.raw as raw
 
-from .model import DocIR, PageIR, TextBlock, Line, Span, DrawCmd, ImageObj
+from .model import (DocIR, PageIR, TextBlock, Line, Span, DrawCmd, ImageObj,
+                    LinkDest)
 
 _SUBSET_RE = re.compile(r"^[A-Z]{6}\+")
 
@@ -1108,8 +1109,54 @@ def _link_uri(doc, link) -> Optional[str]:
     return buf.raw[:max(0, need - 1)].decode("utf-8", "replace") or None
 
 
+def _link_dest(doc, link) -> Optional[LinkDest]:
+    """A GoTo link's target as a LinkDest, or None if it is not one.
+
+    A destination reaches a link either directly (`/Dest`, which is what
+    Chromium writes) or through a GoTo action (`/A << /S /GoTo /D ... >>`), so
+    both are asked for. FPDFDest_GetLocationInPage reports the raw PDF number
+    in bottom-up user space for BOTH spellings -- unlike PyMuPDF, which flips
+    one and not the other (see parse._goto_dest) -- so a single flip here puts
+    the two backends on the same number.
+
+    `has_y` is honoured rather than assumed: a `/Fit` destination carries no
+    point, and reporting y=0 for it would anchor every such link to the top of
+    the page as though that were measured.
+    """
+    dest = raw.FPDFLink_GetDest(doc.raw, link)
+    if not dest:
+        act = raw.FPDFLink_GetAction(link)
+        if act:
+            dest = raw.FPDFAction_GetDest(doc.raw, act)
+    if not dest:
+        return None
+    page_index = raw.FPDFDest_GetDestPageIndex(doc.raw, dest)
+    if page_index < 0:
+        return None
+    has_x = ctypes.c_int(); has_y = ctypes.c_int(); has_z = ctypes.c_int()
+    x = ctypes.c_float(); y = ctypes.c_float(); z = ctypes.c_float()
+    if not raw.FPDFDest_GetLocationInPage(dest, ctypes.byref(has_x),
+                                          ctypes.byref(has_y), ctypes.byref(has_z),
+                                          ctypes.byref(x), ctypes.byref(y),
+                                          ctypes.byref(z)):
+        return None
+    if not has_y.value:
+        return None
+    # The TARGET page's height, and read without loading the page: a link can
+    # point at a page of a different size, and `doc[page_index]` would open a
+    # second handle on a page this parser may already have open -- closing it
+    # would invalidate the one in use, and not closing it leaks one per link.
+    size = raw.FS_SIZEF()
+    if not raw.FPDF_GetPageSizeByIndexF(doc.raw, page_index, ctypes.byref(size)):
+        return None
+    target_h = float(size.height)
+    return LinkDest(page=int(page_index),
+                    x=float(x.value) if has_x.value else 0.0,
+                    y=target_h - float(y.value))
+
+
 def _page_links(page, page_h, doc):
-    """URI link rectangles for a page, read from its LINK ANNOTATIONS.
+    """URI and GoTo link rectangles for a page, read from its LINK ANNOTATIONS.
 
     This used to call `FPDFLink_LoadWebLinks`, which does something else
     entirely: it scans the extracted TEXT for substrings that look like URLs.
@@ -1140,15 +1187,19 @@ def _page_links(page, page_h, doc):
         while raw.FPDFLink_Enumerate(page.raw, ctypes.byref(start),
                                      ctypes.byref(link)):
             uri = _link_uri(doc, link)
-            if not uri:
+            target = None if uri else _link_dest(doc, link)
+            if not uri and target is None:
                 continue
             r = raw.FS_RECTF()
             if not raw.FPDFLink_GetAnnotRect(link, ctypes.byref(r)):
                 continue
-            links.append({
-                "bbox": (min(r.left, r.right), page_h - max(r.top, r.bottom),
-                         max(r.left, r.right), page_h - min(r.top, r.bottom)),
-                "uri": uri})
+            entry = {"bbox": (min(r.left, r.right), page_h - max(r.top, r.bottom),
+                              max(r.left, r.right), page_h - min(r.top, r.bottom))}
+            if uri:
+                entry["uri"] = uri
+            else:
+                entry["dest"] = target
+            links.append(entry)
     except Exception:
         pass
     return links
@@ -1165,21 +1216,9 @@ def parse_pdf(path: str, keep_image_data: bool = True) -> DocIR:
     queue would hold a native document per job until it died, and PDF documents are
     not small in MuPDF or PDFium.
 
-    GoTo (internal) links are read by neither backend, and this one does not
-    start. The reason is not a PDFium limitation -- pypdfium2 5.12.1 resolves
-    them completely: on c8_toc_links `FPDFLink_GetDest` plus
-    `FPDFDest_GetDestPageIndex`/`FPDFDest_GetLocationInPage` return page 0 at
-    y=646.50, 556.50 and 458.25, which is exactly what PyMuPDF reports as
-    `to=Point(0.0, 646.5)` and so on. The reason is that the IR has nowhere to
-    put them: `Span.link` and `Run.link` are a single Optional[str] URI,
-    `PageIR.links` entries are {'bbox', 'uri'}, and docxout._add_hyperlink
-    always relates externally (`is_external=True`, `w:hyperlink r:id`) -- there
-    is no w:anchor and no bookmark anywhere in the writer. PyMuPDF's parser
-    drops GoTo too (`if lk.get("uri")`), so emitting them here would make the
-    candidate backend DIVERGE from the reference rather than match it.
-    Supporting them needs an IR field, a writer capability, and a rule for
-    which paragraph a destination point anchors to -- that last one is an
-    inference decision, not a parser normalisation.
+    GoTo (internal) links are carried as `Span.dest` (model.LinkDest), in the
+    IR's top-left origin, and the writer turns them into w:hyperlink w:anchor
+    against a bookmark. `_link_dest` explains the one coordinate subtlety.
     """
     doc = pdfium.PdfDocument(path)
     try:
@@ -1208,7 +1247,8 @@ def parse_pdf(path: str, keep_image_data: bool = True) -> DocIR:
                               max(0, min(sp.bbox[3], lb[3]) - max(sp.bbox[1], lb[1])))
                         if ov > 0.5 * max(1e-6, (sp.bbox[2] - sp.bbox[0]) *
                                           (sp.bbox[3] - sp.bbox[1])):
-                            sp.link = lk["uri"]
+                            sp.link = lk.get("uri")
+                            sp.dest = lk.get("dest")
                             break
                 pir.blocks = _build_blocks(lines, w)
                 pir.drawings = _page_paths(page, h)
