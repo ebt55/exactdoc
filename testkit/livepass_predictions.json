@@ -241,8 +241,39 @@
           "docxout.NATURAL_FACTORS['libre baskerville']": 1.24,
           "note": "The advance is the calibrated probe value rescaled onto METRIC_REFERENCE, which is what the rest of FAMILY_METRICS is measured over. Its provenance differs from every other entry -- measured in Docs rather than from a local font file, because Libre Baskerville is not installed here -- and that should be stated where it is written down."
         },
-        "expected_effect": "l1_word_native's packing ratio should go from 1.0637 to ~1.000, closing the residual re-wrap that is the last known contributor to its dx_p50 39.82. Needs pass-4 verification."
+        "expected_effect": "l1_word_native's packing ratio should go from 1.0637 to ~1.000, closing the residual re-wrap that is the last known contributor to its dx_p50 39.82. Needs pass-4 verification.",
+        "applied": {
+          "commit_note": "Registered for pass 4 in all three sites, and the substitution rule now picks it for DejaVu Serif on measured distance alone: -0.04% against Noto Serif's -6.29%.",
+          "verified_offline": {
+            "l1_gdocs_fonts": ["Arial", "Libre Baskerville", "Verdana"],
+            "body_multiple": 1.0792,
+            "predicted_docs_pitch_pt": 14.72,
+            "source_pitch_pt": 14.7,
+            "predicted_packing_ratio": 1.0004,
+            "standard_profile": "byte-identical on all 16 gated documents",
+            "only_document_changed": "l1_word_native; c4_i18n's DejaVu Sans -> Verdana mapping is untouched"
+          }
+        }
       }
+    }
+  },
+
+  "l1_pass4_expectation": {
+    "packing_ratio": {"predicted": 1.0004, "was": 1.0637,
+                      "falsified_above": 1.02},
+    "dy_p50": {"predicted": 1.93, "tolerance": 3.0,
+               "note": "already cleared in pass 3; the family swap changes advance width, and its natural line height is registered, so dy should hold."},
+    "dx_p50": {
+      "predicted": 6.0,
+      "tolerance": 4.0,
+      "was": 39.82,
+      "reasoning": "dx_p50 39.82 has been attributed to re-wrap: with Noto Serif 6.3% narrow, line breaks drifted progressively through each paragraph, and matched words landed on different lines. At a 1.0004 packing ratio the breaks should reproduce the source's, which removes that contributor entirely.",
+      "known_residual_contributors": [
+        "The table cells sit 5.5pt right of source. Measured in pass 1 and deliberately not fixed: the gdocs tcMar relocation (ff518be) removed an accident that had been compensating a table whose true column boundary lies left of the text margin, and reverting it would re-break c7_code. Affects 13 of 141 matched words, so it lifts dx_p90 more than dx_p50.",
+        "Half-point font-size quantisation, worth up to ~0.5% of a line's advance.",
+        "Residual advance error: Libre Baskerville is -0.04% from DejaVu Serif by the probe's calibrated measurement, whose own controls agree to 0.2%, so call it under 0.3%."
+      ],
+      "attribution_if_missed": "If dx_p50 comes back above ~10 with the packing ratio at ~1.000, the cause is NOT font metrics and the table indent is the only other measured contributor -- which would make it worth reopening rather than the font choice. If the packing ratio itself misses 1.000, the Docs-measured advance for Libre Baskerville is wrong and the probe's calibration needs re-examining, since that number has a different provenance from every other entry in FAMILY_METRICS."
     }
   },
   "cover_band_claim": {
@@ -280,7 +311,20 @@
       "compensation_was_not_floored": "The band's first cover paragraph carried 1068 twips of space_before AFTER the 296-twip subtraction, so 53.4pt remained. The full 14.8pt was applied; this document never hit the floor case.",
       "residual": "The band's BOTTOM still lands at 175.05 against the source's 170.00. Docs adds 14.55 above and the writer removes 14.8 inside, which should net to zero, so ~5.05pt of extra height is coming from the band's interior rendering taller than the source's -- a separate effect from the top addition, and not yet attributed.",
       "why_page1_ssim_fell": "p1 went 0.6183 (pass 2) -> 0.5996 (pass 3) even though the fix landed. Pass 2's page-1 drift was a SPREAD straddling zero (dy median -2.68, p10 -15.56, p90 +0.14): much of the page was coincidentally aligned. Pass 3's is a single uniform offset (median +6.30, p10 +5.38, p90 +8.36) inherited from the 5.05pt band overhang. A uniform offset overlaps less ink than a spread that crosses zero, so SSIM fell while the document became structurally more correct -- and a single offset is one number to close, where a spread is not.",
-      "next_step": "Attribute the ~5.05pt of extra band interior height. It is one measurable quantity and closing it should take page 1 from a uniform +6.30pt offset to near zero."
+      "next_step": "Attribute the ~5.05pt of extra band interior height. It is one measurable quantity and closing it should take page 1 from a uniform +6.30pt offset to near zero.",
+      "overhang_attributed": {
+        "verdict": "The 'band interior renders taller than the writer accounts' hypothesis is NOT supported. The writer is faithful and Docs' own excess is ~1.4pt, not 5. No gdocs constant is justified, and none was added.",
+        "the_5pt_was_a_measurement_artefact_of_mine": "I had been comparing against the source's DARK rectangle, 0..170. The source's cover block is actually TWO fills: navy 0..170 and a 4pt orange accent bar 170..174. The IR records the block as 174.0 -- correctly -- so the true source bottom is 174.0, not 170.0, and the band overhang is 175.05 - 174.0 = +1.05pt.",
+        "writer_model_is_faithful": "Modelled interior = pads + sum(space_before + space_after + lines*leading) = 173.92 against the IR's 174.0, a 0.08pt agreement. Under this profile a paragraph's rendered line height IS its leading, because the exact->multiple translation emits leading/(size*natural) for Docs to multiply back, so the band is predictable from the layout without rendering anything.",
+        "docs_side_excess": "Requested interior after the 14.8pt subtraction is 159.12, so the predicted bottom is 14.55 + 159.12 = 173.67 against a measured 175.05: Docs delivers ~1.38pt more than asked. Too small, and too close to the glyph-top versus line-box-top ambiguity in these measurements, to encode as a constant.",
+        "real_defect_found_instead": "The 4pt orange accent bar is ABSENT from every Google render, pass 2 and pass 3 alike. Inference represents the two-colour cover block as a single navy cell 174pt tall, so the accent stripe has no representation to emit -- it is not a writer or a Docs problem. Filed separately; it is a visible page-1 fidelity loss independent of any offset.",
+        "page1_offset_still_open": "The uniform +6.30pt offset of page-1 content is therefore NOT explained by the band, which is only 1.05pt low. It originates in the space between the band and the first body element, where the writer emits 36.8pt and the source's visual gap is 34.88pt. Attributing the rest needs a probe rather than more arithmetic on this one document, because the residual is the same size as the glyph-versus-line-box ambiguity."
+      },
+      "pass4_prediction": {
+        "01_whitepaper_market_p1_ssim": 0.5996,
+        "tolerance": 0.02,
+        "reasoning": "Deliberately predicting NO CHANGE. Nothing shipped for pass 4 touches this document: it is Helvetica-based, so the Libre Baskerville substitution does not reach it, and no band constant was added because the evidence did not support one. Predicting an improvement here would be predicting the effect of a change nobody made."
+      }
     }
   },
   "c2_ssim_diagnosis": {

@@ -81,12 +81,31 @@ FAMILY_METRICS = {
     "notoserif":         (0.488144, "serif"),
     "notosans":          (0.480460, "sans"),
     "verdana":           (0.516962, "sans"),
+    # MEASURED DIFFERENTLY FROM EVERY ENTRY ABOVE, and the difference matters.
+    #
+    # Libre Baskerville is not installed here, so there is no file to read: this
+    # number comes from testkit/probe_font_metrics.py in live pass 3, measured
+    # inside Google Docs itself. The probe's raw reading was 0.527269 over its
+    # concatenated segments; dividing by the +0.70% offset its three
+    # offline-measurable controls showed in the same export, and rescaling from
+    # the segments onto METRIC_REFERENCE, gives the value below.
+    #
+    # That calibration is checkable rather than asserted: Noto Serif, carried
+    # through the identical arithmetic, lands at -6.30% against the -6.18% its
+    # own font file gives.
+    #
+    # It is worth the unusual provenance because it is a near-exact match for
+    # DejaVu Serif -- -0.04% against Noto Serif's -6.3% -- which is what l1's
+    # remaining re-wrap costs. Docs rendered LibreBaskerville-Regular for all
+    # 349 probe characters, so the family is genuinely present and not
+    # substituted.
+    "librebaskerville":  (0.520687, "serif"),
 }
 
 # Substitution candidates, restricted to families already asserted as natively
 # rendered by Google Docs (GDOCS_NATIVE) AND measured above.
 _CANDIDATES = {
-    "serif": ("Times New Roman", "Georgia", "Noto Serif"),
+    "serif": ("Times New Roman", "Georgia", "Noto Serif", "Libre Baskerville"),
     "sans": ("Arial", "Verdana", "Noto Sans"),
     "mono": ("Courier New",),
 }
