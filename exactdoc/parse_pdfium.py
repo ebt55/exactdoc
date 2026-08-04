@@ -71,6 +71,10 @@ TABLE_COL_TOL = 3.0       # x-starts of one column agree to about a character
 # _marker_starts_visual_line). The vocabulary mirrors infer's BULLET_CHARS and
 # NUM_RE; it is repeated rather than imported because a parser must not depend
 # on the inference layer.
+# Bound on the justification exemption (see _gutter_xs): a gap position that
+# recurs down a page is a column gutter, not a stretched space.
+GUTTER_MIN_ROWS = 4       # 4x the largest legitimate cluster measured (01: 1)
+GUTTER_X_TOL = 3.0        # a gutter holds its x; a word space wanders
 MARKER_GAP_EM = 0.5       # separation that is not an interword space
 MARKER_GAP_ADV = 0.6      # ...and is wide against the marker's own advance
 _MARKER_BULLETS = set("•◦▪‣·-–—*➤►○●♦")
@@ -339,8 +343,49 @@ def _style(c: _Char):
             getattr(c, "sup", False))
 
 
+def _gutter_xs(exempted: List[float]) -> List[float]:
+    """Gap positions that recur down a page: column gutters, not stretched space.
+
+    The justification exemption below forgives ANY gap that follows a real
+    space, without bound. On a dense multi-column booklet the producer emits a
+    space at the end of every column line, so the exemption forgave the gutter
+    too and joined column 2's prose to column 3's mid-sentence: measured on
+    y13_irs_pub501, 947 of 4499 lines (21%) crossed a gutter against PyMuPDF's
+    zero.
+
+    No em-threshold separates them -- y13's gutters are 1.26em and
+    01_whitepaper's legitimate justified gaps are 1.73em, so any threshold that
+    caught the first would split the second. Repetition does separate them, and
+    by a wide margin. Measured over the gated 16 and the booklets, exempted gaps
+    clustered by x on each page:
+
+        01_whitepaper   9 exemptions, all on page 3, every one at its own x
+                        (534, 472, 443, 363, ...) -- largest cluster: 1
+        every other gated fixture      exemption never fires at all
+        y13_irs_pub501  620 exemptions; largest clusters 54, 27, 20, 20
+        y12_irs_pub15   724 exemptions; largest clusters 22, 20, 19, 18
+
+    A stretched word space lands wherever the line happens to break; a gutter is
+    the same x on every line of the column. GUTTER_MIN_ROWS sits at 4 -- four
+    times the largest legitimate cluster observed, and a quarter of the smallest
+    structural one.
+    """
+    if len(exempted) < GUTTER_MIN_ROWS:
+        return []
+    clusters, cur = [], [sorted(exempted)[0]]
+    for x in sorted(exempted)[1:]:
+        if x - cur[-1] <= GUTTER_X_TOL:
+            cur.append(x)
+        else:
+            clusters.append(cur)
+            cur = [x]
+    clusters.append(cur)
+    return [sum(c) / len(c) for c in clusters if len(c) >= GUTTER_MIN_ROWS]
+
+
 def _wide_gap_starts_visual_line(prev: _Char, current: _Char,
-                                 fragment: List[_Char]) -> bool:
+                                 fragment: List[_Char],
+                                 gutters=()) -> bool:
     """Whether a same-baseline gap is a new visual line rather than justification.
 
     PDFium exposes literal spaces as ordinary characters.  A producer can then
@@ -358,7 +403,13 @@ def _wide_gap_starts_visual_line(prev: _Char, current: _Char,
         return False
     explicit_interword_space = not prev.gen and prev.u == " "
     fragment_has_text = any(not char.u.isspace() for char in fragment)
-    return not (explicit_interword_space and fragment_has_text)
+    if not (explicit_interword_space and fragment_has_text):
+        return True
+    # The exemption, bounded: it does not extend to a gap sitting on one of this
+    # page's repeated gap positions. See _gutter_xs -- a stretched word space
+    # lands wherever the line breaks, a gutter is the same x on every line.
+    mid = (prev.x1 + current.x0) / 2
+    return any(abs(mid - g) <= GUTTER_X_TOL for g in gutters)
 
 
 def _marker_starts_visual_line(fragment: List[_Char], current: _Char) -> bool:
@@ -589,20 +640,39 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
     # split each baseline row into visual lines at wide horizontal gaps.
     # The row index travels with the fragment so _absorb_script_rows can tell a
     # raised marker from the far side of a split it must not undo.
-    vis_rows = []
-    for ri, row in enumerate(rows):
-        row.sort(key=lambda c: c.x0)
-        part = [row[0]]
-        started = False          # has this row already produced a fragment?
-        for prev, c in zip(row, row[1:]):
-            if _wide_gap_starts_visual_line(prev, c, part) or \
-                    (not started and _marker_starts_visual_line(part, c)):
-                vis_rows.append((ri, part))
-                part = [c]
-                started = True
-            else:
-                part.append(c)
-        vis_rows.append((ri, part))
+    # Two passes over the same rows. The first records every gap the
+    # justification exemption forgives; the second re-decides with this page's
+    # repeated gap positions in hand, so a column gutter splits and a stretched
+    # word space still does not. Running the real decision function twice is
+    # deliberate -- duplicating its conditions to "predict" them is how the two
+    # copies drift apart.
+    def _split_rows(gutters, record=None):
+        out = []
+        for ri, row in enumerate(rows):
+            row.sort(key=lambda c: c.x0)
+            part = [row[0]]
+            started = False      # has this row already produced a fragment?
+            for prev, c in zip(row, row[1:]):
+                if record is not None and \
+                        c.x0 - prev.x1 > LINE_SPLIT_EM * max(
+                            prev.size, c.size, 1.0) and \
+                        not _wide_gap_starts_visual_line(prev, c, part):
+                    record.append((prev.x1 + c.x0) / 2)
+                if _wide_gap_starts_visual_line(prev, c, part, gutters) or \
+                        (not started and _marker_starts_visual_line(part, c)):
+                    out.append((ri, part))
+                    part = [c]
+                    started = True
+                else:
+                    part.append(c)
+            out.append((ri, part))
+        return out
+
+    exempted = []
+    vis_rows = _split_rows((), record=exempted)
+    gutters = _gutter_xs(exempted)
+    if gutters:
+        vis_rows = _split_rows(gutters)
 
     vis_rows = _absorb_script_rows(vis_rows)
 
