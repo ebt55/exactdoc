@@ -1,0 +1,138 @@
+{
+ "_note": "PROPOSED tranche 2 fetch list. Nothing here has been downloaded. Every url, expected_producer and expected_bytes is an expectation from prior knowledge, NOT a measurement -- testkit/fetch_expansion.py records what actually arrives and reports each divergence. A candidate that 404s is reported as a failure and dropped, not guessed at. Restricted to licences that permit redistribution: US Government works (17 U.S.C. 105), IETF Trust TLP, and CC-BY/CC0. arXiv is deliberately absent: its default submission licence does not grant onward redistribution, so a paper qualifies only if its own abstract page declares CC-BY or CC0, which must be checked per paper and cannot be planned in advance.",
+ "schema": "exactdoc.expansion-download-plan.v1",
+ "candidates": [
+  {
+   "id": "D09a",
+   "url": "https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-63b.pdf",
+   "filename": "y01_nist_sp80063b.pdf",
+   "license": "Public domain (US Government work, 17 U.S.C. 105)",
+   "license_evidence": "https://www.nist.gov/oism/copyrights",
+   "expected_producer": "Acrobat",
+   "expected_bytes": 1500000,
+   "tier": "ordinary_digital",
+   "why": "NIST special publication: Word-to-Acrobat with running headers, footers and page-number fields -- the construct tranche 1 flagged as the dominant unmodelled one"
+  },
+  {
+   "id": "D09b",
+   "url": "https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-171r2.pdf",
+   "filename": "y02_nist_sp800171r2.pdf",
+   "license": "Public domain (US Government work, 17 U.S.C. 105)",
+   "license_evidence": "https://www.nist.gov/oism/copyrights",
+   "expected_producer": "Acrobat",
+   "expected_bytes": 1200000,
+   "tier": "ordinary_digital",
+   "why": "second NIST document: dense requirement tables with a repeating header row across page breaks"
+  },
+  {
+   "id": "D09c",
+   "url": "https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.197-upd1.pdf",
+   "filename": "y03_nist_fips197.pdf",
+   "license": "Public domain (US Government work, 17 U.S.C. 105)",
+   "license_evidence": "https://www.nist.gov/oism/copyrights",
+   "expected_producer": "Acrobat",
+   "expected_bytes": 900000,
+   "tier": "designed_stress",
+   "why": "FIPS 197: mathematical notation, matrices and monospaced hex tables in a government publication"
+  },
+  {
+   "id": "D11a",
+   "url": "https://crsreports.congress.gov/product/pdf/R/R47175",
+   "filename": "y04_crs_report.pdf",
+   "license": "Public domain (US Government work, 17 U.S.C. 105)",
+   "license_evidence": "https://crsreports.congress.gov/",
+   "expected_producer": "Acrobat",
+   "expected_bytes": 800000,
+   "tier": "ordinary_digital",
+   "why": "Congressional Research Service report: Word-authored policy prose with footnotes and a summary page"
+  },
+  {
+   "id": "D10a",
+   "url": "https://www.gao.gov/assets/gao-23-106203.pdf",
+   "filename": "y05_gao_report.pdf",
+   "license": "Public domain (US Government work, 17 U.S.C. 105)",
+   "license_evidence": "https://www.gao.gov/about/copyright",
+   "expected_producer": "Acrobat Distiller",
+   "expected_bytes": 2000000,
+   "tier": "ordinary_digital",
+   "why": "GAO report: highlights page, running furniture, figures and a distinct agency template"
+  },
+  {
+   "id": "D15a",
+   "url": "https://www.irs.gov/pub/irs-pdf/i1040gi.pdf",
+   "filename": "y06_irs_1040_instructions.pdf",
+   "license": "Public domain (US Government work, 17 U.S.C. 105)",
+   "license_evidence": "https://www.irs.gov/privacy-disclosure/copyright-status-of-irs-materials",
+   "expected_producer": "Acrobat",
+   "expected_bytes": 4000000,
+   "tier": "designed_stress",
+   "why": "IRS instructions: multi-column, worksheets, rules and shading from an in-house composition engine, well over the ordinary page ceiling"
+  },
+  {
+   "id": "D37a",
+   "url": "https://www.irs.gov/pub/irs-pdf/f1040.pdf",
+   "filename": "y07_irs_f1040_form.pdf",
+   "license": "Public domain (US Government work, 17 U.S.C. 105)",
+   "license_evidence": "https://www.irs.gov/privacy-disclosure/copyright-status-of-irs-materials",
+   "expected_producer": "Acrobat",
+   "expected_bytes": 200000,
+   "tier": "unsupported",
+   "why": "fillable AcroForm: the refusal contract has never been tested against a real interactive form, and this one is small"
+  },
+  {
+   "id": "D19a",
+   "url": "https://www.rfc-editor.org/rfc/rfc8259.pdf",
+   "filename": "y08_rfc8259.pdf",
+   "license": "IETF Trust Legal Provisions (redistribution of unmodified copies permitted)",
+   "license_evidence": "https://trustee.ietf.org/documents/trust-legal-provisions/",
+   "expected_producer": "xml2rfc",
+   "expected_bytes": 200000,
+   "tier": "ordinary_digital",
+   "why": "modern RFC toolchain output: a producer string the corpus has never seen"
+  },
+  {
+   "id": "D19b",
+   "url": "https://www.rfc-editor.org/rfc/rfc2119.pdf",
+   "filename": "y09_rfc2119.pdf",
+   "license": "IETF Trust Legal Provisions (redistribution of unmodified copies permitted)",
+   "license_evidence": "https://trustee.ietf.org/documents/trust-legal-provisions/",
+   "expected_producer": "xml2rfc",
+   "expected_bytes": 40000,
+   "tier": "ordinary_digital",
+   "why": "the minimal real-world case: three pages, plain prose, no tables -- the downloaded counterpart of 05_memo"
+  },
+  {
+   "id": "D20a",
+   "url": "https://www.rfc-editor.org/rfc/rfc793.pdf",
+   "filename": "y10_rfc793_ascii.pdf",
+   "license": "IETF Trust Legal Provisions (redistribution of unmodified copies permitted)",
+   "license_evidence": "https://trustee.ietf.org/documents/trust-legal-provisions/",
+   "expected_producer": "xml2rfc",
+   "expected_bytes": 300000,
+   "tier": "designed_stress",
+   "why": "the original TCP RFC: fixed-pitch ASCII-art packet diagrams, which no proportional reflow can preserve"
+  },
+  {
+   "id": "D26a",
+   "url": "https://www.ecb.europa.eu/pub/pdf/other/ecb.euro_area_statistics_annual~2023.en.pdf",
+   "filename": "y11_eu_report.pdf",
+   "license": "CC-BY 4.0 (verify on the publication landing page before sealing)",
+   "license_evidence": "https://www.ecb.europa.eu/services/using-our-site/copyright/html/index.en.html",
+   "expected_producer": "Adobe InDesign",
+   "expected_bytes": 3000000,
+   "tier": "designed_stress",
+   "why": "European institutional publication: InDesign layout with charts, a producer class the corpus lacks entirely"
+  },
+  {
+   "id": "D32a",
+   "url": "https://upload.wikimedia.org/wikipedia/commons/6/6b/Wikipedia_-_Portable_Document_Format.pdf",
+   "filename": "y12_wikimedia_export.pdf",
+   "license": "CC-BY-SA 4.0 (verify the file's Commons page before sealing)",
+   "license_evidence": "https://creativecommons.org/licenses/by-sa/4.0/",
+   "expected_producer": "unknown",
+   "expected_bytes": 500000,
+   "tier": "ordinary_digital",
+   "why": "an encyclopaedia article exported to PDF by someone else's renderer, with reference lists and infoboxes"
+  }
+ ]
+}
