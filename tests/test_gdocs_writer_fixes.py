@@ -89,10 +89,18 @@ class GoogleDocsWriterFixes(unittest.TestCase):
             self.assertEqual(_first_table_values(standard_path),
                              ("600", "400", None))
 
-    def test_gdocs_compensates_paragraph_boundary_gap(self):
-        # Docs adds ~3pt at every flow-element boundary (docs_quirks.py);
-        # the gdocs profile subtracts it statically, floored at zero, and
-        # never on the first flow element.  Standard is untouched.
+    def test_gdocs_emits_paragraph_spacing_verbatim(self):
+        # Google Docs adds nothing of its own at a paragraph boundary, so the
+        # gdocs profile must emit space_before exactly as inferred.
+        #
+        # This profile used to subtract 3.0pt per boundary here.  Measured
+        # against Google's own exports on 2026-08-04, Docs' contribution is
+        # A = +0.10pt (95% CI [+0.04, +0.21], n=187 single-column boundaries):
+        # it honoured the subtraction and gave nothing back, so the space was
+        # simply lost, once per boundary, accumulating down every page --
+        # c6_long alone carries 17.4 boundaries per page and drifted 25.84pt
+        # upward.  Both profiles now emit the same spacing; see the provenance
+        # comment in exactdoc/docxout.py.
         def _layout():
             return DocLayout(pages=[PageLayout(1, [Chunk(elements=[
                 Para(runs=[_run("first")], space_before=20.0),
@@ -116,8 +124,7 @@ class GoogleDocsWriterFixes(unittest.TestCase):
                 return out
 
             self.assertEqual(befores(standard), ["400", "400", "20"])
-            # first element uncompensated; 20-3=17pt; 1pt floors at 0
-            self.assertEqual(befores(gdocs), ["400", "340", "0"])
+            self.assertEqual(befores(gdocs), ["400", "400", "20"])
 
     def test_gdocs_cover_retains_a_source_indent_beyond_cell_padding(self):
         table = TableEl(
