@@ -1,0 +1,279 @@
+{
+ "documents": {
+  "x01_lo_memo_pageno.pdf": {
+   "bytes": 42108,
+   "content": "1b4ce034af06b7c7ae6b3b004902ee39",
+   "dialect": "libreoffice",
+   "provenance": {
+    "acquired": "2026-08-04",
+    "license": "AGPL-3.0-or-later",
+    "origin": "generated",
+    "recipe": "testkit/gen_expansion.py::x01_lo_memo_pageno",
+    "source_url": null,
+    "toolchain": "python 3.12.3 / LibreOffice 24.2.7.2 420(Build:2) / Google Chrome for Testing 149.0.7827.55 / reportlab 5.0.0 / fpdf2 2.8.7 / python-docx 1.2.0 / image=exactdoc-gate"
+   },
+   "sha256": "436bbe4680104a97fd0b2c044985a892550952cb0d4d9bc536f7063e70daeb88",
+   "src_pages": 3,
+   "tier": "ordinary_digital",
+   "why": "running header and footer with real PAGE/NUMPAGES fields over three pages"
+  },
+  "x02_lo_report_toc.pdf": {
+   "bytes": 43971,
+   "content": "368081a5d843ce8d4f416f0c1c6674d1",
+   "dialect": "libreoffice",
+   "provenance": {
+    "acquired": "2026-08-04",
+    "license": "AGPL-3.0-or-later",
+    "origin": "generated",
+    "recipe": "testkit/gen_expansion.py::x02_lo_report_toc",
+    "source_url": null,
+    "toolchain": "python 3.12.3 / LibreOffice 24.2.7.2 420(Build:2) / Google Chrome for Testing 149.0.7827.55 / reportlab 5.0.0 / fpdf2 2.8.7 / python-docx 1.2.0 / image=exactdoc-gate"
+   },
+   "sha256": "0563d109a44752bd55c644c9cb7cc6b3bf5e2cf1b594052f834dc53ce9e4e3a9",
+   "src_pages": 4,
+   "tier": "ordinary_digital",
+   "why": "contents page with dot-leader tab stops ahead of a numbered multi-page report"
+  },
+  "x03_lo_lists_nested.pdf": {
+   "bytes": 42852,
+   "content": "562f92be258d636b11aab5984a186235",
+   "dialect": "libreoffice",
+   "provenance": {
+    "acquired": "2026-08-04",
+    "license": "AGPL-3.0-or-later",
+    "origin": "generated",
+    "recipe": "testkit/gen_expansion.py::x03_lo_lists_nested",
+    "source_url": null,
+    "toolchain": "python 3.12.3 / LibreOffice 24.2.7.2 420(Build:2) / Google Chrome for Testing 149.0.7827.55 / reportlab 5.0.0 / fpdf2 2.8.7 / python-docx 1.2.0 / image=exactdoc-gate"
+   },
+   "sha256": "18e43463ca7162cdc31cab2aa0c9009f12f078687d9851ecde62b9aaa776c409",
+   "src_pages": 2,
+   "tier": "ordinary_digital",
+   "why": "bulleted and numbered lists nested three deep, and interleaved"
+  },
+  "x04_lo_tables_plain.pdf": {
+   "bytes": 63621,
+   "content": "437e4bd982d02d5da2650bcca56c20d4",
+   "dialect": "libreoffice",
+   "provenance": {
+    "acquired": "2026-08-04",
+    "license": "AGPL-3.0-or-later",
+    "origin": "generated",
+    "recipe": "testkit/gen_expansion.py::x04_lo_tables_plain",
+    "source_url": null,
+    "toolchain": "python 3.12.3 / LibreOffice 24.2.7.2 420(Build:2) / Google Chrome for Testing 149.0.7827.55 / reportlab 5.0.0 / fpdf2 2.8.7 / python-docx 1.2.0 / image=exactdoc-gate"
+   },
+   "sha256": "429885af5a347dbff83cd5dfba954a31835fa9d39769f8e57f417a65e6777593",
+   "src_pages": 1,
+   "tier": "ordinary_digital",
+   "why": "bordered grid, fully borderless, and shaded-header-only tables"
+  },
+  "x05_lo_quotes_notes.pdf": {
+   "bytes": 38065,
+   "content": "3a4b5aa9c4e10b932bebefee122bc18a",
+   "dialect": "libreoffice",
+   "provenance": {
+    "acquired": "2026-08-04",
+    "license": "AGPL-3.0-or-later",
+    "origin": "generated",
+    "recipe": "testkit/gen_expansion.py::x05_lo_quotes_notes",
+    "source_url": null,
+    "toolchain": "python 3.12.3 / LibreOffice 24.2.7.2 420(Build:2) / Google Chrome for Testing 149.0.7827.55 / reportlab 5.0.0 / fpdf2 2.8.7 / python-docx 1.2.0 / image=exactdoc-gate"
+   },
+   "sha256": "686e936d3007505d76e49b2211d296f8f3045a2370d84e6e13fa431ab2ddcf10",
+   "src_pages": 1,
+   "tier": "ordinary_digital",
+   "why": "block quotes, a page-bottom note apparatus, and inline hyperlinks"
+  },
+  "x06_lo_euro_scripts.pdf": {
+   "bytes": 43998,
+   "content": "d132602dd86f1888df0cedf5a0608c76",
+   "dialect": "libreoffice",
+   "provenance": {
+    "acquired": "2026-08-04",
+    "license": "AGPL-3.0-or-later",
+    "origin": "generated",
+    "recipe": "testkit/gen_expansion.py::x06_lo_euro_scripts",
+    "source_url": null,
+    "toolchain": "python 3.12.3 / LibreOffice 24.2.7.2 420(Build:2) / Google Chrome for Testing 149.0.7827.55 / reportlab 5.0.0 / fpdf2 2.8.7 / python-docx 1.2.0 / image=exactdoc-gate"
+   },
+   "sha256": "b09d2f0afcdb1c1ecc8c8a50a6f9c06111f564b5f36d52598e9f70a212ef7a8b",
+   "src_pages": 1,
+   "tier": "ordinary_digital",
+   "why": "Latin diacritics, Cyrillic and Greek inside the pinned font set"
+  },
+  "x07_chrome_memo_running.pdf": {
+   "bytes": 42943,
+   "content": "4128d918a1928433a9b1afd429e5dced",
+   "dialect": "chromium",
+   "provenance": {
+    "acquired": "2026-08-04",
+    "license": "AGPL-3.0-or-later",
+    "origin": "generated",
+    "recipe": "testkit/gen_expansion.py::x07_chrome_memo_running",
+    "source_url": null,
+    "toolchain": "python 3.12.3 / LibreOffice 24.2.7.2 420(Build:2) / Google Chrome for Testing 149.0.7827.55 / reportlab 5.0.0 / fpdf2 2.8.7 / python-docx 1.2.0 / image=exactdoc-gate"
+   },
+   "sha256": "718cc116e9407efea78203ed2eb6c913624b45782317db8c0d5adf535b5c1aa6",
+   "src_pages": 3,
+   "tier": "ordinary_digital",
+   "why": "fixed running header and footer repeated on every printed page"
+  },
+  "x08_chrome_print_default.pdf": {
+   "bytes": 40027,
+   "content": "b730e8f8eaa4490b1c02557d08d05267",
+   "dialect": "chromium",
+   "provenance": {
+    "acquired": "2026-08-04",
+    "license": "AGPL-3.0-or-later",
+    "origin": "generated",
+    "recipe": "testkit/gen_expansion.py::x08_chrome_print_default",
+    "source_url": null,
+    "toolchain": "python 3.12.3 / LibreOffice 24.2.7.2 420(Build:2) / Google Chrome for Testing 149.0.7827.55 / reportlab 5.0.0 / fpdf2 2.8.7 / python-docx 1.2.0 / image=exactdoc-gate"
+   },
+   "sha256": "0096b562133a22e55af500d6a5a868b2c84b98a02dc65a0b1911b10734594190",
+   "src_pages": 2,
+   "tier": "ordinary_digital",
+   "why": "Chromium's own printed furniture: date, title, URL and page N/M"
+  },
+  "x09_chrome_lists_nested.pdf": {
+   "bytes": 37654,
+   "content": "74930043789984e297cdb1f570cf6779",
+   "dialect": "chromium",
+   "provenance": {
+    "acquired": "2026-08-04",
+    "license": "AGPL-3.0-or-later",
+    "origin": "generated",
+    "recipe": "testkit/gen_expansion.py::x09_chrome_lists_nested",
+    "source_url": null,
+    "toolchain": "python 3.12.3 / LibreOffice 24.2.7.2 420(Build:2) / Google Chrome for Testing 149.0.7827.55 / reportlab 5.0.0 / fpdf2 2.8.7 / python-docx 1.2.0 / image=exactdoc-gate"
+   },
+   "sha256": "296d5c7629692f3b31743a532db9d50f15aaed7844266a42995152fa1677bce3",
+   "src_pages": 2,
+   "tier": "ordinary_digital",
+   "why": "nested ul/ol three levels deep, and interleaved"
+  },
+  "x10_chrome_tables_plain.pdf": {
+   "bytes": 59517,
+   "content": "40f9279897207e5f7453844118bb6de9",
+   "dialect": "chromium",
+   "provenance": {
+    "acquired": "2026-08-04",
+    "license": "AGPL-3.0-or-later",
+    "origin": "generated",
+    "recipe": "testkit/gen_expansion.py::x10_chrome_tables_plain",
+    "source_url": null,
+    "toolchain": "python 3.12.3 / LibreOffice 24.2.7.2 420(Build:2) / Google Chrome for Testing 149.0.7827.55 / reportlab 5.0.0 / fpdf2 2.8.7 / python-docx 1.2.0 / image=exactdoc-gate"
+   },
+   "sha256": "1ace4324b550e35b70e0e84c6f5fb38a43033a10d60f17359f1e19bf9a711301",
+   "src_pages": 2,
+   "tier": "ordinary_digital",
+   "why": "bordered, borderless and shaded-header tables with no nesting"
+  },
+  "x11_chrome_toc_headings.pdf": {
+   "bytes": 60224,
+   "content": "4c63be891343980568729c9989e372cb",
+   "dialect": "chromium",
+   "provenance": {
+    "acquired": "2026-08-04",
+    "license": "AGPL-3.0-or-later",
+    "origin": "generated",
+    "recipe": "testkit/gen_expansion.py::x11_chrome_toc_headings",
+    "source_url": null,
+    "toolchain": "python 3.12.3 / LibreOffice 24.2.7.2 420(Build:2) / Google Chrome for Testing 149.0.7827.55 / reportlab 5.0.0 / fpdf2 2.8.7 / python-docx 1.2.0 / image=exactdoc-gate"
+   },
+   "sha256": "4498e3a2d994d640d907d7fce743e20553baf8d370711b5facb298eb2031ad57",
+   "src_pages": 2,
+   "tier": "ordinary_digital",
+   "why": "contents with dot leaders, four heading levels, internal and external links"
+  },
+  "x12_chrome_euro_scripts.pdf": {
+   "bytes": 54207,
+   "content": "01037d342ed2d0ed9c8e3b5fb80e9181",
+   "dialect": "chromium",
+   "provenance": {
+    "acquired": "2026-08-04",
+    "license": "AGPL-3.0-or-later",
+    "origin": "generated",
+    "recipe": "testkit/gen_expansion.py::x12_chrome_euro_scripts",
+    "source_url": null,
+    "toolchain": "python 3.12.3 / LibreOffice 24.2.7.2 420(Build:2) / Google Chrome for Testing 149.0.7827.55 / reportlab 5.0.0 / fpdf2 2.8.7 / python-docx 1.2.0 / image=exactdoc-gate"
+   },
+   "sha256": "929fb3df3506ae03ef0c5b3797c73f38879cfd1f412d0f9e68dfbe4eaaa757bd",
+   "src_pages": 1,
+   "tier": "ordinary_digital",
+   "why": "the browser producer's Latin-diacritic, Cyrillic and Greek text"
+  },
+  "x13_rl_report_running.pdf": {
+   "bytes": 5417,
+   "content": "5a0cd3e56a5505f8ee58c4eff924a3b1",
+   "dialect": "reportlab",
+   "provenance": {
+    "acquired": "2026-08-04",
+    "license": "AGPL-3.0-or-later",
+    "origin": "generated",
+    "recipe": "testkit/gen_expansion.py::x13_rl_report_running",
+    "source_url": null,
+    "toolchain": "python 3.12.3 / LibreOffice 24.2.7.2 420(Build:2) / Google Chrome for Testing 149.0.7827.55 / reportlab 5.0.0 / fpdf2 2.8.7 / python-docx 1.2.0 / image=exactdoc-gate"
+   },
+   "sha256": "877ea260e58a64afbc33b8668297da6b914b4474cfed797c8c6fc2071a7d9f04",
+   "src_pages": 2,
+   "tier": "ordinary_digital",
+   "why": "report-generator running furniture with a two-pass 'Page N of M' footer"
+  },
+  "x14_rl_statement_lines.pdf": {
+   "bytes": 3076,
+   "content": "16eccb6c7dfdf90957b5bc25485746f2",
+   "dialect": "reportlab",
+   "provenance": {
+    "acquired": "2026-08-04",
+    "license": "AGPL-3.0-or-later",
+    "origin": "generated",
+    "recipe": "testkit/gen_expansion.py::x14_rl_statement_lines",
+    "source_url": null,
+    "toolchain": "python 3.12.3 / LibreOffice 24.2.7.2 420(Build:2) / Google Chrome for Testing 149.0.7827.55 / reportlab 5.0.0 / fpdf2 2.8.7 / python-docx 1.2.0 / image=exactdoc-gate"
+   },
+   "sha256": "93c41fe99c82d00572ce9896cd07d818ffd841bf9b26d33e42d9bd3d45e139b4",
+   "src_pages": 1,
+   "tier": "ordinary_digital",
+   "why": "statement line items: borderless rules, right-aligned money, totals"
+  },
+  "x15_rl_handbook_toc.pdf": {
+   "bytes": 5238,
+   "content": "eb8a99b137eaad08d9c5ef36a3480e1b",
+   "dialect": "reportlab",
+   "provenance": {
+    "acquired": "2026-08-04",
+    "license": "AGPL-3.0-or-later",
+    "origin": "generated",
+    "recipe": "testkit/gen_expansion.py::x15_rl_handbook_toc",
+    "source_url": null,
+    "toolchain": "python 3.12.3 / LibreOffice 24.2.7.2 420(Build:2) / Google Chrome for Testing 149.0.7827.55 / reportlab 5.0.0 / fpdf2 2.8.7 / python-docx 1.2.0 / image=exactdoc-gate"
+   },
+   "sha256": "cc6821f32401ed888cdcda26eada74bc5ce815471364d5d74226be3c18fdf8b6",
+   "src_pages": 3,
+   "tier": "ordinary_digital",
+   "why": "contents with dot leaders, heading hierarchy, block quote and notes"
+  },
+  "x16_fpdf_bulletin.pdf": {
+   "bytes": 2541,
+   "content": "a9e78f386fe188f9138416d92a1c26e9",
+   "dialect": "fpdf2",
+   "provenance": {
+    "acquired": "2026-08-04",
+    "license": "AGPL-3.0-or-later",
+    "origin": "generated",
+    "recipe": "testkit/gen_expansion.py::x16_fpdf_bulletin",
+    "source_url": null,
+    "toolchain": "python 3.12.3 / LibreOffice 24.2.7.2 420(Build:2) / Google Chrome for Testing 149.0.7827.55 / reportlab 5.0.0 / fpdf2 2.8.7 / python-docx 1.2.0 / image=exactdoc-gate"
+   },
+   "sha256": "9c5ccdacd2bea2fab4c08fe5b9723e15cd21bec3c5091c4f4922e8a74aaac8ff",
+   "src_pages": 1,
+   "tier": "ordinary_digital",
+   "why": "core-14 fonts with no FontDescriptor, and a page-numbered footer"
+  }
+ },
+ "fixtures_dir": "testkit/fixtures_expansion",
+ "gating": false,
+ "schema": "exactdoc.corpus-expansion.v1"
+}
