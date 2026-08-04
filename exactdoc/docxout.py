@@ -835,6 +835,17 @@ def _band_accent_as_row(t: TableEl) -> TableEl:
         return t
     main = copy.copy(cell)
     main.borders = {k: v for k, v in (cell.borders or {}).items() if k != "bottom"}
+    # The stripe is carved OUT of the band, never added underneath it: the
+    # source block is navy 170 + accent 4 = 174 total, not 174 + 4.
+    #
+    # Reducing row_heights[0] alone does nothing, and that was the bug live
+    # pass 5 caught. Row 0 carries the cover text, and the writer deliberately
+    # leaves text rows content-driven -- it pins w:trHeight only on rows with
+    # no text -- so row_heights[0] is never emitted for this row. The height
+    # that actually has to give is the cell's bottom padding, which
+    # build_band_table sized against the whole block including the stripe.
+    pad = tuple(cell.pad) if len(cell.pad) >= 4 else (0.0, 0.0, 0.0, 0.0)
+    main.pad = (pad[0], pad[1], max(0.0, round(pad[2] - thickness, 1)), pad[3])
     stripe = Cell(shading=color, borders={}, pad=(0.0, 0.0, 0.0, 0.0),
                   paras=[Para(runs=[Run(text="", font="Helvetica", size=2,
                                         color="#000000")],

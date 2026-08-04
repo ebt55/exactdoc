@@ -92,6 +92,70 @@ def _band_table(thickness=4.0, color=ORANGE, height=174.0):
                    role="band")
 
 
+def _vertical_budget(t):
+    """Height the band asks for: the writer's own model of it.
+
+    Row 0 carries text, so the writer leaves it content-driven and its height
+    is the cell's pads plus its paragraphs. A stripe row has no text, so it is
+    pinned to its own height. Paragraph content is identical either way, so
+    comparing pads + pinned rows compares the band's total.
+    """
+    total = 0.0
+    for ri, row in enumerate(t.rows):
+        cell = row[0]
+        has_text = any(p.text.strip() for p in cell.paras)
+        pad = tuple(cell.pad) if len(cell.pad) >= 4 else (0.0, 0.0, 0.0, 0.0)
+        total += pad[0] + pad[2]
+        if not has_text:
+            h = t.row_heights[ri] if ri < len(t.row_heights) else None
+            total += h or 0.0
+    return total
+
+
+class BandDoesNotGrow(unittest.TestCase):
+    """The stripe is carved OUT of the band, never added underneath it.
+
+    Live pass 5 caught this: the accent row was added on top of the band's
+    existing height, so 01's block asked for ~178pt where the source block is
+    174.0 (navy 170 + accent 4), and its page-1 step grew from +3.43 to +4.25.
+    Reducing row_heights[0] does not fix it -- row 0 carries text, and the
+    writer pins w:trHeight only on rows WITHOUT text, so that value is never
+    emitted for it. The height has to come out of the cell's bottom padding.
+    """
+
+    def _case(self, thickness, band_h, pad_bottom):
+        cell = Cell(shading=NAVY, borders={"bottom": (thickness, ORANGE)},
+                    pad=(0.0, 0.0, pad_bottom, 0.0),
+                    paras=[Para(runs=[Run(text="Title", font="Helvetica",
+                                          size=20, color="#ffffff")])])
+        return TableEl(rows=[[cell]], col_widths=[612.0],
+                       row_heights=[band_h], role="band")
+
+    def test_total_height_is_unchanged_for_a_four_point_stripe(self):
+        # 01_whitepaper: navy 170 + accent 4 = 174
+        t = self._case(4.0, 174.0, 24.0)
+        self.assertAlmostEqual(_vertical_budget(_band_accent_as_row(t)),
+                               _vertical_budget(t), places=6)
+
+    def test_total_height_is_unchanged_for_an_eight_point_stripe(self):
+        # 04_exec_brief: 130 + 8 = 138
+        t = self._case(8.0, 138.0, 20.0)
+        self.assertAlmostEqual(_vertical_budget(_band_accent_as_row(t)),
+                               _vertical_budget(t), places=6)
+
+    def test_the_bottom_pad_absorbs_the_stripe(self):
+        out = _band_accent_as_row(self._case(4.0, 174.0, 24.0))
+        self.assertAlmostEqual(out.rows[0][0].pad[2], 20.0, places=6)
+
+    def test_row_heights_also_sum_to_the_original_band(self):
+        out = _band_accent_as_row(self._case(4.0, 174.0, 24.0))
+        self.assertAlmostEqual(sum(out.row_heights), 174.0, places=6)
+
+    def test_a_stripe_thicker_than_the_pad_cannot_go_negative(self):
+        out = _band_accent_as_row(self._case(8.0, 138.0, 3.0))
+        self.assertGreaterEqual(out.rows[0][0].pad[2], 0.0)
+
+
 class AccentAsRow(unittest.TestCase):
     def test_border_becomes_a_shaded_row(self):
         out = _band_accent_as_row(_band_table())

@@ -421,7 +421,25 @@
       "statement": "Falsified if 01's pass-5 page-1 render still has no #f59e0b pixels beneath the navy block. That would mean Docs drops a shaded 4pt table row as well as a 4pt border, and the construct swap is the wrong lever.",
       "note": "A stripe that appears but at the wrong thickness is NOT a falsification of this claim -- it would confirm the construct and move the question to row-height fidelity."
     },
-    "status": "recorded before live pass 5"
+    "status": "GRADED against live pass 5 -- presence CONFIRMED, height WRONG, corrected below",
+    "pass5_result": {
+      "primary_claim": "CONFIRMED. Both fills are present in the Google export: the 4pt orange stripe rendered at 4.50pt against a 4.00pt source. The construct swap was the right lever -- Docs honours a shaded table row where it dropped a 4pt border.",
+      "defect_found_instead": "The accent row was added ON TOP of the band's existing height rather than carved out of it. The block asked for ~178pt where the source block is 174.0 (navy 170 + accent 4), giving a +4.05 block-bottom offset and growing 01's page-1 step from +3.43 to +4.25.",
+      "why_row_heights_did_not_carve_it": "The split already set row_heights to [band - stripe, stripe], which looks like a carve-out and is inert. Row 0 carries the cover text, and the writer pins w:trHeight only on rows WITHOUT text -- text rows are content-driven -- so row_heights[0] is never emitted for it. The height that actually governs is the cell's bottom padding, which build_band_table had sized against the whole block including the stripe.",
+      "fix": "docxout._band_accent_as_row now also reduces the main cell's bottom pad by the stripe thickness, so navy 170 + accent 4 = 174 rather than 174 + 4.",
+      "carve_out_evidence": "LibreOffice render-back, total block extent from navy top to accent bottom: 01 gdocs 163.0 -> 159.0 (-4.0, its 4pt stripe) and 04 gdocs 131.0 -> 123.0 (-8.0, its 8pt stripe). Standard is untouched at 177.0 and 146.0.",
+      "libreoffice_caveat": "Only the DELTA is offered as evidence. LibreOffice renders the gdocs cover block about 15pt short of source in absolute terms because the profile carries a Docs-specific cover compensation (_GDOCS_COVER_BEFORE_COMP_TWIPS), so its absolute block height says nothing about Docs. The 4.0 and 8.0 deltas are exactly the two stripe thicknesses.",
+      "standard_still_byte_identical": "01 1cf8e0667bc9a7b1, 04 200e09da95087966, c1 016fb756eb2ae07e -- unchanged again. Under gdocs only the accent documents move: 01 1e309cdeef093e17 -> 9d30c8061335b175, 04 07dab940dcbabb84 -> 1665e1d7bfe65a7d; c1 stays 7d6d639fb4b0724a.",
+      "regression_test": "tests/test_cover_band_accent.BandDoesNotGrow asserts the band's vertical budget is identical with and without the accent, for both the 4pt and 8pt shapes. It fails against the pre-fix writer by exactly +4.0 and +8.0, which is the defect this grades."
+    },
+    "pass6_expectation": {
+      "attribution": "the drift agent's, from the pass-5 ledger; recorded here so the two claims are graded together",
+      "page1_step_pt": "+4.25 -> ~+0.25",
+      "p1_ssim": "0.62 - 0.66",
+      "mean_ssim": "0.68 - 0.70",
+      "caveat": "possibly still short of the 0.70 bound. The down-page accumulation is a separate residual and is not addressed by the carve-out; that attribution stays with the drift agent's workstream.",
+      "stripe_presence": "should REMAIN present -- the carve-out changes where the stripe sits, not whether it is emitted. A stripe that disappears again would mean the pad reduction broke the row, and is a falsification."
+    }
   },
   "c2_ssim_diagnosis": {
     "status": "attributed, not fixed -- the step is LibreOffice-visible and its cause is a cancelling pair of writer errors",
