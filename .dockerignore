@@ -48,6 +48,8 @@ testkit/parity/
 testkit/regroup/
 testkit/exp_off/
 testkit/exp_on/
+testkit/expansion_out/
+testkit/expansion_build/
 corpus/pdfs/
 
 # Credentials and cloud-oracle state. Keep these out even when ignored by Git.
