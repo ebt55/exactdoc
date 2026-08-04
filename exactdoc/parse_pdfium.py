@@ -1090,42 +1090,67 @@ def _page_images(page, page_h, keep_data) -> List[ImageObj]:
     return out
 
 
-def _page_links(page, textpage, page_h):
-    """Web-link rectangles for a page.
+def _link_uri(doc, link) -> Optional[str]:
+    """The URI a link annotation activates, or None if it is not a URI link.
 
-    `FPDFLink_LoadWebLinks` returns a native handle that the caller owns, and it
-    was never released -- one leaked page-link set per page, invisible because
-    pypdfium2's exit-time warning only names the objects it wraps. The
-    close is in a `finally` so an exception mid-iteration cannot skip it.
+    A GoTo link has no action at all in this fixture -- it carries a bare
+    /Dest -- so `FPDFLink_GetAction` returning NULL is an ordinary answer and
+    not a failure. See parse_pdf on why GoTo stops here.
+    """
+    act = raw.FPDFLink_GetAction(link)
+    if not act or raw.FPDFAction_GetType(act) != raw.PDFACTION_URI:
+        return None
+    need = raw.FPDFAction_GetURIPath(doc.raw, act, None, 0)
+    if not need:
+        return None
+    buf = ctypes.create_string_buffer(need)
+    raw.FPDFAction_GetURIPath(doc.raw, act, buf, need)
+    return buf.raw[:max(0, need - 1)].decode("utf-8", "replace") or None
+
+
+def _page_links(page, page_h, doc):
+    """URI link rectangles for a page, read from its LINK ANNOTATIONS.
+
+    This used to call `FPDFLink_LoadWebLinks`, which does something else
+    entirely: it scans the extracted TEXT for substrings that look like URLs.
+    That finds a link only where the anchor text IS the URL, and invents one
+    wherever prose happens to contain a URL the producer never linked.
+    PyMuPDF's `page.get_links()` reads the page's /Annots array, and the IR
+    contract is PyMuPDF's, so this reads the same array.
+
+    Measured on c8_toc_links, whose page carries six /Link annotations -- three
+    URI and three GoTo -- the weblink scan recovered ONE of the three URI
+    links: `team@example.com`, the only one whose anchor text is the address
+    itself. `the specification` -> https://example.com/spec and `RFC` ->
+    https://example.com/rfc-2119 were invisible to it, because a text scan
+    cannot see an annotation. Against PyMuPDF's three, that was 1/3, and the
+    two it missed are the ordinary case: prose linked by a word.
+
+    The rectangles agree with PyMuPDF's to the decimal once flipped into the
+    IR's top-left origin, which is what lets the existing span-tagging loop in
+    parse_pdf stay exactly as it was.
+
+    `FPDFLink_Enumerate` walks the annotations without the caller owning a
+    handle, so unlike the weblink set there is nothing here to leak or close.
     """
     links = []
-    wl = None
     try:
-        wl = raw.FPDFLink_LoadWebLinks(textpage.raw)
-        if wl:
-            n = raw.FPDFLink_CountWebLinks(wl)
-            for i in range(n):
-                need = raw.FPDFLink_GetURL(wl, i, None, 0)
-                buf = (ctypes.c_ushort * need)()
-                raw.FPDFLink_GetURL(wl, i, buf, need)
-                uri = "".join(chr(c) for c in buf[:max(0, need - 1)])
-                cnt = raw.FPDFLink_CountRects(wl, i)
-                for j in range(cnt):
-                    l = ctypes.c_double(); t = ctypes.c_double()
-                    r_ = ctypes.c_double(); b = ctypes.c_double()
-                    raw.FPDFLink_GetRect(wl, i, j, ctypes.byref(l), ctypes.byref(t),
-                                         ctypes.byref(r_), ctypes.byref(b))
-                    links.append({"bbox": (float(l.value), page_h - float(t.value),
-                                           float(r_.value), page_h - float(b.value)),
-                                  "uri": uri})
+        start = ctypes.c_int(0)
+        link = raw.FPDF_LINK()
+        while raw.FPDFLink_Enumerate(page.raw, ctypes.byref(start),
+                                     ctypes.byref(link)):
+            uri = _link_uri(doc, link)
+            if not uri:
+                continue
+            r = raw.FS_RECTF()
+            if not raw.FPDFLink_GetAnnotRect(link, ctypes.byref(r)):
+                continue
+            links.append({
+                "bbox": (min(r.left, r.right), page_h - max(r.top, r.bottom),
+                         max(r.left, r.right), page_h - min(r.top, r.bottom)),
+                "uri": uri})
     except Exception:
         pass
-    finally:
-        if wl:
-            try:
-                raw.FPDFLink_CloseWebLinks(wl)
-            except Exception:
-                pass
     return links
 
 
@@ -1139,6 +1164,22 @@ def parse_pdf(path: str, keep_image_data: bool = True) -> DocIR:
     collected them, which is not a resource policy -- a worker process converting a
     queue would hold a native document per job until it died, and PDF documents are
     not small in MuPDF or PDFium.
+
+    GoTo (internal) links are read by neither backend, and this one does not
+    start. The reason is not a PDFium limitation -- pypdfium2 5.12.1 resolves
+    them completely: on c8_toc_links `FPDFLink_GetDest` plus
+    `FPDFDest_GetDestPageIndex`/`FPDFDest_GetLocationInPage` return page 0 at
+    y=646.50, 556.50 and 458.25, which is exactly what PyMuPDF reports as
+    `to=Point(0.0, 646.5)` and so on. The reason is that the IR has nowhere to
+    put them: `Span.link` and `Run.link` are a single Optional[str] URI,
+    `PageIR.links` entries are {'bbox', 'uri'}, and docxout._add_hyperlink
+    always relates externally (`is_external=True`, `w:hyperlink r:id`) -- there
+    is no w:anchor and no bookmark anywhere in the writer. PyMuPDF's parser
+    drops GoTo too (`if lk.get("uri")`), so emitting them here would make the
+    candidate backend DIVERGE from the reference rather than match it.
+    Supporting them needs an IR field, a writer capability, and a rule for
+    which paragraph a destination point anchors to -- that last one is an
+    inference decision, not a parser normalisation.
     """
     doc = pdfium.PdfDocument(path)
     try:
@@ -1154,9 +1195,9 @@ def parse_pdf(path: str, keep_image_data: bool = True) -> DocIR:
             try:
                 w, h = page.get_width(), page.get_height()
                 pir = PageIR(number=pno + 1, width=w, height=h)
+                pir.links = _page_links(page, h, doc)
                 tp = page.get_textpage()
                 try:
-                    pir.links = _page_links(page, tp, h)
                     lines = _build_lines(_page_chars(tp, h))
                 finally:
                     tp.close()
