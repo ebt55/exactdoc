@@ -897,15 +897,21 @@ def _classify_cluster(cl) -> str:
     # A rule is a rule at any length; on its own it is never a figure.
     if art and not all(d.shape == "line" and _thin(d) for d in art):
         return "figure"
-    fills = [d for d in ds if d.fill and d.shape == "rect"]
-    if len(fills) >= 3:
-        bots = _cluster([f.bbox[3] for f in fills], 2.5)
-        for b in bots:
-            grp = [f for f in fills if abs(f.bbox[3] - b) <= 2.5]
-            if len(grp) >= 3:
-                hts = [f.bbox[3] - f.bbox[1] for f in grp]
-                if max(hts) > 1.3 * max(1e-6, min(hts)):
-                    return "figure"
+    # Lattice evidence is tested BEFORE the bar-chart shape test below, and
+    # outranks it. The bar test asks whether three or more filled rectangles
+    # share a bottom edge with differing heights -- true of a bar chart, and
+    # equally true of a table row whose merged cells have different heights.
+    # When it won, a whole bordered table was classified 'figure'; the figure
+    # budget then refused to rasterise that much text, and the fallback broke
+    # the table into one single-cell box per rectangle. NIST SP 800-171 p94 is
+    # one table 686pt tall and became 55 stacked boxes totalling 2947pt, plus
+    # 1294pt of figures over the same region.
+    #
+    # A lattice of long edges at many distinct rows AND columns is much
+    # stronger evidence than a shared baseline: a bar chart has one baseline
+    # and no interior horizontal rules. Measured over all 45 fixtures, no
+    # cluster that the bar test claims on a gated fixture has a lattice --
+    # including c5_graphics, which is the chart fixture.
     hs, vs = [], []
     for d in ds:
         h, v = _edges_of(d)
@@ -915,6 +921,15 @@ def _classify_cluster(cl) -> str:
     vxs = _cluster([v[0] for v in vs if v[2] - v[1] > 6], 2.0)
     if len(hys) >= 2 and len(vxs) >= 2 and (len(hys) >= 3 or len(vxs) >= 3):
         return "grid"
+    fills = [d for d in ds if d.fill and d.shape == "rect"]
+    if len(fills) >= 3:
+        bots = _cluster([f.bbox[3] for f in fills], 2.5)
+        for b in bots:
+            grp = [f for f in fills if abs(f.bbox[3] - b) <= 2.5]
+            if len(grp) >= 3:
+                hts = [f.bbox[3] - f.bbox[1] for f in grp]
+                if max(hts) > 1.3 * max(1e-6, min(hts)):
+                    return "figure"
     if len(fills) >= 2:
         y0s = _cluster([f.bbox[1] for f in fills], 3.0)
         y1s = _cluster([f.bbox[3] for f in fills], 3.0)
