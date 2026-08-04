@@ -410,6 +410,47 @@ def line_mode_for(output_profile: str) -> str:
 # too-tall row beats an unreadable one.
 MIN_ROW_SHRINK = 0.55
 
+# A continuous section break is carried by a real paragraph, and that paragraph
+# occupies flow height the source page never spent. The "crush" further down
+# used to be described as making it consume none; it does not.
+#
+# Measured on c2_paper2col through the canonical LibreOffice by putting marker
+# text in the paragraph and reading the render back: its advance is exactly its
+# w:line, with a floor near 1pt. Raising w:line from 20 twips to 400 moved every
+# following line down by 19.00pt -- exactly the 19pt added -- so the height is
+# honoured, and 1pt is the least it can be made to cost. Dropping it to 1 twip
+# changed nothing, which is the floor showing. Folding the sectPr into the
+# preceding paragraph instead does NOT work: that collapses the paragraph's own
+# exact height, which cost 13.7pt on c2.
+#
+# So it cannot be removed, only accounted for -- the gap hoisted ahead of the
+# break is emitted that much shorter.
+SECT_BREAK_PARA_TWIPS = 20
+SECT_BREAK_PARA_PT = SECT_BREAK_PARA_TWIPS / 20.0
+
+
+def _sect_break_comp(ctx) -> float:
+    """How much of the section-break paragraph's height to pre-subtract.
+
+    Deliberately gdocs-only, and scoped by output profile rather than by
+    whether the correction loop runs.
+
+    The standard profile ships with the LibreOffice loop (refine3), and that
+    loop has already absorbed this 1pt empirically: correcting it at source as
+    well makes the loop over-correct, and it was measured doing so --
+    c2's product-lane mean_ssim fell 0.824 -> 0.793 and its dy_p50 went
+    0.85 -> 1.75. The recorded 0.85 encodes the loop cancelling this bug, and
+    unbundling that is not worth a shipping regression.
+
+    The gdocs profile ships with no loop at all (refine0) and exists precisely
+    as the static-translation layer for corrections a loop cannot supply there,
+    so this is exactly the kind of correction it is for. Scoping on the output
+    profile rather than on refine_rounds also leaves the raw gate lane alone --
+    raw runs the standard profile open-loop -- so neither gate lane moves.
+    """
+    return SECT_BREAK_PARA_PT if getattr(ctx, "output_profile", "") == "gdocs" \
+        else 0.0
+
 
 def _natural_factor(family: str) -> float:
     return NATURAL_FACTORS.get((family or "").lower(), NATURAL_DEFAULT)
@@ -1350,7 +1391,8 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
         cur_cfg = {"margin_t": margin_t, "cols": cols, "gap": gap,
                    "margin_lr": margin_lr, "hdr0": False}
         cur_cols = cols
-        # crush section-break paragraphs so they consume no vertical space
+        # Shrink section-break paragraphs to the least height a renderer will
+        # give them. That is SECT_BREAK_PARA_PT, not zero -- see the constant.
         for p_el in doc.element.body.findall(qn("w:p")):
             ppr = p_el.find(qn("w:pPr"))
             if ppr is not None and ppr.find(qn("w:sectPr")) is not None:
@@ -1358,7 +1400,7 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                     sp = OxmlElement("w:spacing")
                     sp.set(qn("w:before"), "0")
                     sp.set(qn("w:after"), "0")
-                    sp.set(qn("w:line"), "20")
+                    sp.set(qn("w:line"), str(SECT_BREAK_PARA_TWIPS))
                     sp.set(qn("w:lineRule"), "exact")
                     ppr.append(sp)
         return sec
@@ -1417,7 +1459,7 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
         for ci, ch in enumerate(pg.chunks):
             if ch.n_cols != cur_cols:
                 if ch.pre_gap > 0.5:
-                    _spacer(doc, ch.pre_gap)
+                    _spacer(doc, ch.pre_gap - _sect_break_comp(ctx))
                 new_section(WD_SECTION.CONTINUOUS, ch.n_cols, ch.col_gap)
             for el in ch.elements:
                 if isinstance(el, ColBreak):

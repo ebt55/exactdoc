@@ -331,12 +331,24 @@
         "product_refine3": "c2 mean_ssim 0.824 -> 0.793 and dy_p50 0.85 -> 1.75, which the gate reports as its single finding -- the closed-loop path gets worse",
         "reading": "the refine loop had already absorbed this 1pt empirically, so correcting it at source makes the loop over-correct. The recorded 0.85 encodes the loop cancelling a writer bug rather than the writer being right."
       },
-      "status": "NOT LANDED and reverted. It improves the candidate path the live pass measures and degrades the shipping profile, which is an adjudication for the coordinator rather than a change to make silently. The gate is left PASS on both lanes.",
+      "status": "ADJUDICATED AND LANDED, scoped to the gdocs output profile only.",
+      "resolution": {
+        "scope": "docxout._sect_break_comp returns SECT_BREAK_PARA_PT for output_profile 'gdocs' and 0.0 otherwise, so only the gdocs writer shortens the hoisted gap",
+        "why_by_output_profile_and_not_by_refine_rounds": "The standard profile ships with the LibreOffice loop, which has already absorbed this 1pt empirically -- correcting it at source too made the loop over-correct, measured as c2 product-lane mean_ssim 0.824 -> 0.793 and dy_p50 0.85 -> 1.75. The gdocs profile ships with no loop and is the static-translation layer for corrections a loop cannot supply there. Scoping on the output profile rather than on refine_rounds also leaves the raw gate lane alone, because raw runs the standard profile open-loop -- so neither gate lane moves and there is no baseline event.",
+        "standard_unchanged_evidence": "word/document.xml sha256 under the standard profile is identical before and after: c2_paper2col 219d901c74d32721, 02_research_paper dd59d9feebbb7793. Those are the only two gated fixtures that emit a hoisted section gap at all.",
+        "gdocs_delta_evidence": "under gdocs the hoisted spacer drops by exactly 1.0pt: c2 13.7 -> 12.7 (539d49a20c33c144 -> aa62038d8df6c944), 02 79.1 -> 78.1 (661e6d642f30facf -> 9251b9128fa1eb41)",
+        "gate": "PASS both lanes, metrics identical to the pre-change run"
+      },
       "if_adopted_predict": "c2 candidate mean_ssim 0.6772 -> ~0.69 at pass 4 (the raw-lane proxy moved +0.016 for this 1.0pt of the 3.30). Closing the remaining 2.30 as well should approach, but not reach, the 0.8116 the rigid shift demonstrates."
     },
     "pass3_expectation": "GRADED and HELD. Nothing shipped for c2 and pass 3 returned mean_ssim 0.6772 with dy_p50 3.88, exactly as predicted.",
-    "pass4_expectation": "UNCHANGED AGAIN unless the sect_break_fix_attempt above is adjudicated in. Nothing is landed for c2, so mean_ssim should come back at ~0.6772 and dy_p50 at ~3.88. If the fix IS adopted, the prediction becomes ~0.69.",
-    "next_step": "Adjudicate the lane conflict in sect_break_fix_attempt: the 1.0pt source correction helps the unrefined candidate path the live pass measures and hurts the refined shipping lane, because the refine loop had already absorbed the error. Either accept the product-lane movement as a baseline event, or scope the correction to profiles that do not refine. The remaining 2.30pt lives in _para_box's paragraph-bottom estimate and is a wider change -- it moves every paragraph's space_before, not just this boundary."
+    "pass4_expectation": {
+      "mean_ssim": "0.6772 -> ~0.69. One of the two boundary errors is now corrected on the gdocs path: 1.00pt of the measured 3.30pt over-emission. The raw-lane LibreOffice proxy moved +0.016 for exactly this 1.00pt, and that is the whole basis for the number -- it is an extrapolation from one renderer to another, not a measurement of Docs.",
+      "dy_p50": "~3.88, essentially UNCHANGED, and that is expected rather than a disappointment. dy_p50 is a median over 48 matched lines; correcting 1.00pt of a 3.30pt boundary step moves the lines below the boundary by 1pt and leaves the lines above it alone, which barely moves a median. SSIM is the metric this claims, because SSIM punishes the offset everywhere it appears.",
+      "falsification": "The claim is falsified if c2's mean_ssim comes back below 0.68 -- i.e. the correction did not move it materially off the 0.6772 it has held for two passes. A value at or above 0.70 would mean it helped more than the LibreOffice proxy predicted.",
+      "caveat": "The remaining 2.30pt is untouched, so c2 stays well short of the 0.8116 that removing the whole offset demonstrates, and well short of its 0.70 bound being comfortably cleared."
+    },
+    "next_step": "TASK #20, not this chunk: the remaining 2.30pt. It lives in _position_chunks working from a paragraph bottom that _para_box places too high, and closing it is a wider change than this boundary -- _para_box sets every paragraph's space_before in every document, so it moves the whole corpus and both gate lanes rather than one profile's section boundaries."
   },
   "documents": {
     "c6_long": {
