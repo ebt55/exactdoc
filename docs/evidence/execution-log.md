@@ -45,6 +45,7 @@ inconvenient:
 | DET-02b | `accepted_shortfalls` split into `provisional_shortfalls` (cannot authorise) and `ratified_shortfalls` (owner/date/issue/review). Four D2 docs provisional; nothing ratified | `testkit/parity_policy.json` schema 2 |
 | DET-02c | Two false-green tests repaired: the PyMuPDF-free proof searched only gitignored dirs and returned 0 having converted nothing; the generator test discarded both exit codes and required 3 of 16 documents | `tests/test_no_pymupdf.py`, `tests/test_corpus_generation.py` |
 | DET-02d | Canonical image built and recorded; stale `c4_i18n` floors remeasured; all six floors bound to their environment | `docker/gate.Dockerfile` |
+| 2026-08-04 canonical run | Stale `c3_tables` baseline records found and the baseline deliberately re-recorded after byte-identical attribution; both lanes re-verified PASS; parity policy rebound to a full profile ID as provisional. See the dated entry at the end of this file | `docs/evidence/canonical-gate-2026-08-04.json`, `29945f2` |
 
 **Found along the way, each now tested:**
 
@@ -64,17 +65,21 @@ Mutation suite 153 → 198 assertions, green on Windows and in the canonical ima
 ## Current gate state, and why it is red
 
 ```
-gate PASS (product)   pagematch 15/16  <2pt 0.4981  live 0.9652  dy50 0.675
-gate PASS (raw)       pagematch 13/16  <2pt 0.3349  live 0.9652  dy50 2.2
-parity FAIL           6 failures
+gate PASS (product)   pagematch 16/16  <2pt 0.5161  live 0.9652  dy50 0.675
+gate PASS (raw)       pagematch 14/16  <2pt 0.3349  live 0.9652  dy50 2.79
+parity FAIL           3 failures
 ```
 
-Six failures, all deliberate:
+Measured 2026-08-04, canonical fingerprint `3ca438f1…`, evidence
+`docs/evidence/canonical-gate-2026-08-04.json`. Three failures, all deliberate:
 
 | n | kind | resolution |
 |---:|---|---|
-| 2 | unwaived `dy_p50` regressions (`05_memo`, `f1_fpdf_brief`) | DEC-D2, after Google evidence |
-| 4 | provisional D2 shortfalls | DEC-D2, owner ratification |
+| 3 | provisional shortfalls (`c2_paper2col` D2, `c4_i18n` D10, `c5_graphics` D10) | DEC-D2, owner ratification |
+
+The two previously unwaived `dy_p50` regressions are gone: at the candidate's
+own profile `05_memo` and `f1_fpdf_brief` are better and same respectively. They
+remain out of every waiver section, by test.
 
 **Parity cannot go green by engineering.** It is a decision queue. Do not
 "fix" it, do not widen a waiver, do not re-add `continue-on-error`.
@@ -156,3 +161,81 @@ docker exec -e FONTCONFIG_FILE=/work/scripts/fonts.conf exactdoc-canon \
 
 A full both-lane gate plus a parity run is 20–40 minutes. Windows renders with
 real Arial/Times and is indicative only; CI Linux is the number of record.
+
+---
+
+## 2026-08-04 — stale baseline found, re-recorded on purpose, re-verified
+
+Canonical environment, fingerprint `3ca438f17d905cef…`, evidence committed at
+`docs/evidence/canonical-gate-2026-08-04.json`.
+
+**1. The discovery: the baseline had gone stale.** The gate refused the
+`c3_tables` records, and it was right to. The striped-table assembler had
+already moved that document — product `page_err` 1→0 and word recall
+0.331→0.9359 — while the committed record still described the document as it had
+been. A record that no longer describes reality is the failure mode the stale
+check exists for, and it fired. This is worth stating plainly because it is the
+inverse of the usual worry: the gate went red not because quality dropped but
+because quality improved and the record did not follow.
+
+**2. The attribution check, before any re-record.** A baseline may only be
+re-recorded after full-corpus success in the named environment, with the
+before/after diff shown (§17 rule 3) — but "which change caused this?" is not
+answered by a diff. It was answered by disabling the new inference rules and
+re-converting: **`c3` output is byte-identical with them off.** So the movement
+is the striped-table assembler's and nothing else's. Byte-identity is the only
+form of this check that cannot be argued with; a metric that merely "looks
+unchanged" would have left the attribution a hypothesis.
+
+**3. The deliberate re-record** (`29945f2`). Justification, in order: the
+improvement is real, it is attributed to a single named change, the environment
+is canonical and unchanged, and the corpus is the same 16 frozen fixtures — so
+the record was wrong and the measurement was right. The re-record was not
+performed to clear a red gate; the gate was red *about the record*, and leaving
+it red would have meant preserving a number known to be false. Before/after,
+both lanes:
+
+| lane | page match | mean within-2pt | mean live text | median dy50 |
+|---|---:|---:|---:|---:|
+| product, before | 15/16 | 0.4981 | 0.9652 | 0.675pt |
+| product, after | 16/16 | 0.5161 | 0.9652 | 0.675pt |
+| raw, before | 13/16 | 0.3349 | 0.9652 | 2.2pt |
+| raw, after | 14/16 | 0.3349 | 0.9652 | 2.79pt |
+
+Two movements are worth naming so nobody re-chases them as regressions. Raw
+median dy50 rose 2.2→2.79pt: `c3` now matches many more words (raw word recall
+0.3137→0.8648) and its own dy50 moved 2.5→7.45pt with them, which reorders the
+median. That is a word-population effect, not drift. And `c2_paper2col`'s
+two-column right-edge fix moved product dy50 29.2→0.85pt with within-2pt
+0.1948→0.4857, and raw dy50 26.8→4.0pt — placement, not pagination.
+
+**4. Fresh verification: both lanes PASS.** Product 16/16 page match, 0.5161
+mean within-2pt, 0.9652 mean live text, 0.675pt median dy50. Raw 14/16, 0.3349,
+0.9652, 2.79pt. Gate mutation tests all clear (83 cases). The corpus resolved
+16 of 16 with no problems, and the environment reported canonical with no
+mismatches.
+
+**5. Parity refused adjudication, correctly.** `testkit/parity_policy.json` was
+bound only by `recorded_refine_rounds: 3`; refine rounds name neither a backend
+nor an output profile, oracle or DPI. The tool said so and told the operator
+what to do instead: measure with `--measure`, then create a policy explicitly
+bound to the named profile, because `--update-policy` deliberately does not
+migrate findings across a profile boundary. The `--measure` run
+(`pdfium/gdocs/none/refine0@240dpi`, 16 documents, empty margins) reports **8
+regressions, 6 same, 2 better** — raw movements, explicitly unadjudicated and
+never release-ready.
+
+A new policy bound to that full profile ID now replaces the legacy file. It is
+**provisional and unratified**: three tracked findings (`c2_paper2col` D2,
+`c4_i18n` D10, `c5_graphics` D10), each bounded by floors measured in this
+environment, and `ratified_shortfalls` is empty, which is the executable form of
+"nothing is authorised". The four D2 core-14 findings the old file carried were
+measured at another profile and are **not** migrated and **not** retired — their
+profile has simply not been remeasured. The prior rendered evidence for
+`c4_i18n` (PDFium reports RTL in logical order) and `c5_graphics` (PDFium keeps
+the gradient band PyMuPDF drops) is preserved inside those entries rather than
+used to excuse them, because it was produced at a profile this policy does not
+govern.
+
+Live Google truth is unchanged: the committed 2026-08-02 evidence. Nothing in
+this run touched it.
