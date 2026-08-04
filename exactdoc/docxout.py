@@ -387,6 +387,12 @@ NATURAL_FACTORS = {
     # offset across four independently probed families. Noto Serif reads 1.362
     # by the same formula, so 1.356 predicted against 1.360 observed.
     "noto serif": 1.360, "noto sans": 1.356, "verdana": 1.209,
+    # Also measured inside Docs rather than from a font file, by
+    # testkit/probe_font_metrics.py in live pass 3 -- the family is not
+    # installed here. The probe's own controls recovered Noto Serif at 1.362,
+    # Times New Roman at 1.150 and Georgia at 1.136 against the 1.360/1.144/
+    # 1.130 in this table, so a pitch read this way is good to about 0.006.
+    "libre baskerville": 1.240,
 }
 NATURAL_DEFAULT = 1.144
 # The two encodings. Which one is used is a per-write decision carried in

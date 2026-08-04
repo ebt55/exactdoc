@@ -100,8 +100,46 @@ class MetricFitTests(unittest.TestCase):
             self.assertEqual(FAMILY_METRICS[a][0], FAMILY_METRICS[b][0])
 
     def test_dejavu_families_are_substituted(self):
-        self.assertEqual(metric_fit("DejaVuSerif", serif=True), "Noto Serif")
+        self.assertEqual(metric_fit("DejaVuSerif", serif=True),
+                         "Libre Baskerville")
         self.assertEqual(metric_fit("DejaVuSans", serif=False), "Verdana")
+
+    def test_libre_baskerville_wins_on_measured_distance_alone(self):
+        """Adopted from live pass 3, and it must earn the pick every time.
+
+        Nothing names this family: `metric_fit` walks the serif candidates and
+        keeps whichever measured advance is closest to the source. If a future
+        edit made another candidate closer, the rule should change its answer
+        rather than keep a hard-coded favourite.
+        """
+        src = FAMILY_METRICS["dejavuserif"][0]
+        dists = {c: abs(FAMILY_METRICS[c.lower().replace(" ", "")][0] / src - 1)
+                 for c in ("Times New Roman", "Georgia", "Noto Serif",
+                           "Libre Baskerville")}
+        self.assertEqual(min(dists, key=dists.get), "Libre Baskerville")
+        # and it is a near-exact match, not merely the least bad
+        self.assertLess(dists["Libre Baskerville"], 0.01)
+        self.assertGreater(dists["Noto Serif"], 0.05)
+
+    def test_the_docs_measured_entries_are_declared_as_such(self):
+        """Two entries come from a live probe, not from a font file.
+
+        Libre Baskerville is not installed in this environment, so its advance
+        and its natural line height were both measured inside Google Docs. That
+        provenance is unlike every other entry and the source must say so where
+        the numbers are written down.
+        """
+        import inspect
+
+        import exactdoc.fonts as F
+        import exactdoc.docxout as D
+        for mod, marker in ((F, "librebaskerville"), (D, "libre baskerville")):
+            src = inspect.getsource(mod)
+            idx = src.index(marker)
+            preceding = src[max(0, idx - 1400):idx].lower()
+            self.assertIn("probe", preceding,
+                          "%s must record where its number came from"
+                          % mod.__name__)
 
     def test_a_metric_compatible_mapping_is_left_alone(self):
         for name, mono, serif in (("LiberationSerif", False, True),
@@ -190,7 +228,7 @@ class LayoutWalkTests(unittest.TestCase):
         moved = apply_metric_fit(lay)
         self.assertEqual(moved, 8)
         for run in iter_runs(lay):
-            self.assertEqual(run.font, "Noto Serif", run.text)
+            self.assertEqual(run.font, "Libre Baskerville", run.text)
 
     def test_inference_tracking_is_left_alone(self):
         # char_spacing belongs to inference (TeX's inter-word shrink) now that
@@ -236,7 +274,7 @@ class WriterIntegrationTests(unittest.TestCase):
             self.assertEqual(spacing, [])
 
             fonts, spacing = self._fonts_and_spacing(gd)
-            self.assertEqual(fonts, ["Noto Serif"])
+            self.assertEqual(fonts, ["Libre Baskerville"])
             # Docs discards w:spacing (measured in live pass 2), so emitting it
             # only misleads whoever reads the file next.
             self.assertEqual(spacing, [])
