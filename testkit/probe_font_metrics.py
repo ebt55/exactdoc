@@ -36,9 +36,39 @@ exactly how the last attempt regressed:
                  `docxout.NATURAL_FACTORS` needs an entry for any family this
                  project adopts, and this is where it comes from.
 
-  glyph face     The font name Docs reports per page. A family Docs does not
-                 have is silently substituted, and a measurement of the
-                 substitute tells you nothing about the family you asked for.
+  glyph face     The font name Docs reports per page, counted over visible
+                 characters only. A family Docs does not have is silently
+                 substituted, and a measurement of the substitute tells you
+                 nothing about the family you asked for.
+
+WHAT v1 GOT WRONG (live pass 3)
+-------------------------------
+v1 identified a measurement line by its exact text and measured the line's
+bounding box. Both halves failed, and the failure is worth keeping written down
+because it did not look like a failure -- it looked like a family measuring
+-0.91%.
+
+Docs preserves explicit line breaks but appends U+200B (zero width space) at
+each one, so five of the six segments no longer compared equal and were
+discarded. The sixth, the last line, has no break after it and did match -- but
+its bounding box also contained a trailing space and an 11pt Cambria paragraph
+mark, both of which are wider than the 10pt glyphs they follow. Measuring one
+short line with that tail attached inflated every family by 3-5%, and inflated
+the shortest segment most, which is exactly the kind of error that survives
+review because all nine numbers move together.
+
+v2 therefore measures from WORD boxes: the extent runs from the first word's x0
+to the last word's x1, so it ends at the last glyph and cannot include a
+trailing space or a paragraph mark, and the line's text is rebuilt from the
+words themselves so zero-width marks never enter the comparison. Re-run against
+the pass-3 export, the three controls came back +0.58/+0.78/+0.76% instead of
++3.57/+4.33/+5.28%.
+
+The residual +0.7% is systematic across all three controls (spread 0.2%), so
+`decide` calibrates on them: every candidate is divided by the controls' mean
+offset before it is judged. That makes the comparison independent of whatever
+causes the offset, and it is itself checkable -- Noto Serif calibrates to
+-6.30% against the -6.18% measured from its own font file.
 
 Controls: Noto Serif (today's substitute), Times New Roman (the original
 mapping) and Georgia are all measurable offline, so their probe numbers say
@@ -100,6 +130,10 @@ CANDIDATES = (
 # so the two differ in the fourth decimal). Measured with
 # fitz.Font(fontfile=...).text_length(joined, fontsize=1.0)/len(joined).
 TARGET_ADVANCE = 0.523808          # DejaVu Serif: what l1's source actually used
+# fonts.FAMILY_METRICS is measured over METRIC_REFERENCE itself, whose spaces at
+# the segment joins this probe drops; DejaVu Serif reads 0.520900 there against
+# 0.523808 here. Multiply a probe advance by this to put it on that scale.
+REFERENCE_SCALE = 0.520900 / 0.523808
 KNOWN_ADVANCE = {                  # controls, for validating the round trip
     "Noto Serif": 0.491413,
     "Times New Roman": 0.410575,
@@ -223,12 +257,16 @@ def _norm(name):
     return re.sub(r"[^a-z]", "", (name or "").lower())
 
 
+# Docs appends U+200B at every explicit line break, and soft hyphens and other
+# zero-width marks travel the same way. None of them are glyphs to measure.
+_ZERO_WIDTH = re.compile(r"[​‌‍﻿­]")
+
+
 def analyse(pdf_path):
     """[{family, advance, ratio, pitch, factor, face, substituted}] per page."""
     import fitz          # imported here so `build` works without PyMuPDF
 
-    segs = segments()
-    by_text = {s: len(s) for s in segs}
+    by_text = {s: len(s) for s in segments()}
     doc = fitz.open(pdf_path)
     rows = []
     try:
@@ -241,21 +279,41 @@ def analyse(pdf_path):
                 continue
             family = CANDIDATES[idx]
             row["family"] = family
+
+            # Word boxes, grouped into lines. The extent of a line is first
+            # word x0 to last word x1: it ends at the last glyph, so a trailing
+            # space or a paragraph mark cannot widen it.
+            lines = {}
+            for x0, y0, x1, y1, word, blk, lno, _wn in page.get_text("words"):
+                clean = _ZERO_WIDTH.sub("", word)
+                if clean:
+                    lines.setdefault((blk, lno), []).append((x0, y0, x1, clean))
+
             width_sum = char_sum = 0.0
-            tops, faces, sizes = [], {}, []
+            tops = []
+            for parts in lines.values():
+                parts.sort(key=lambda t: t[0])
+                text = " ".join(t[3] for t in parts)
+                if text not in by_text:
+                    continue
+                width_sum += max(t[2] for t in parts) - min(t[0] for t in parts)
+                char_sum += by_text[text]
+                tops.append(min(t[1] for t in parts))
+
+            # Faces, counted over visible characters at the probe size only, so
+            # an empty span cannot masquerade as a substitution.
+            faces = {}
             for b in page.get_text("dict")["blocks"]:
                 if b.get("type"):
                     continue
                 for ln in b["lines"]:
-                    text = "".join(s["text"] for s in ln["spans"]).strip()
-                    if text not in by_text:
-                        continue
-                    width_sum += ln["bbox"][2] - ln["bbox"][0]
-                    char_sum += by_text[text]
-                    tops.append(ln["bbox"][1])
                     for s in ln["spans"]:
-                        faces[s["font"]] = faces.get(s["font"], 0) + len(s["text"])
-                        sizes.append(s["size"])
+                        if abs(s["size"] - PROBE_SIZE) > 0.3:
+                            continue
+                        n = len(_ZERO_WIDTH.sub("", s["text"]).strip())
+                        if n:
+                            faces[s["font"]] = faces.get(s["font"], 0) + n
+
             row["lines_found"] = len(tops)
             if char_sum:
                 row["advance"] = width_sum / char_sum / PROBE_SIZE
@@ -263,18 +321,34 @@ def analyse(pdf_path):
             if len(tops) > 1:
                 tops.sort()
                 gaps = sorted(b - a for a, b in zip(tops, tops[1:]) if b > a)
-                pitch = gaps[len(gaps) // 2]
-                row["pitch"] = pitch
-                size = sorted(sizes)[len(sizes) // 2] if sizes else PROBE_SIZE
-                row["factor"] = pitch / size
+                row["pitch"] = gaps[len(gaps) // 2]
+                row["factor"] = row["pitch"] / PROBE_SIZE
             if faces:
                 face = max(faces, key=faces.get)
                 row["face"] = face
                 row["substituted"] = _norm(family) not in _norm(face)
+                row["face_share"] = faces[face] / float(sum(faces.values()))
             rows.append(row)
     finally:
         doc.close()
     return rows
+
+
+def calibration(rows):
+    """Mean (measured / offline) over the control families, or None.
+
+    The controls are the only families whose true advance is known here, so
+    they are what turns a raw reading into a comparable one. Returning None
+    rather than 1.0 when they are missing keeps "uncalibrated" distinguishable
+    from "calibrated to no correction".
+    """
+    offsets = [r["advance"] / KNOWN_ADVANCE[r["family"]]
+               for r in rows
+               if r.get("advance") and r.get("family") in KNOWN_ADVANCE
+               and not r.get("substituted")]
+    if not offsets:
+        return None
+    return sum(offsets) / len(offsets)
 
 
 # ------------------------------------------------------------ decision rule
@@ -299,19 +373,28 @@ NOTO_DEV = abs(KNOWN_ADVANCE["Noto Serif"] / TARGET_ADVANCE - 1.0)
 
 
 def decide(rows):
-    """Apply the documented rule. Returns a verdict dict."""
+    """Apply the documented rule. Returns a verdict dict.
+
+    Judged on CALIBRATED ratios: the controls' mean offset is divided out
+    first, so the comparison does not depend on whatever small systematic the
+    round trip introduces. Uncalibrated raw ratios are kept for reporting.
+    """
+    cal = calibration(rows)
+    for r in rows:
+        if r.get("ratio"):
+            r["cal_ratio"] = r["ratio"] / cal if cal else r["ratio"]
     usable = [r for r in rows
-              if r.get("ratio") and not r.get("substituted")
+              if r.get("cal_ratio") and not r.get("substituted")
               and r.get("factor")]
-    scored = sorted(usable, key=lambda r: abs(r["ratio"] - 1.0))
+    scored = sorted(usable, key=lambda r: abs(r["cal_ratio"] - 1.0))
     best = scored[0] if scored else None
     verdict = {"n_measured": len(rows), "n_usable": len(usable),
-               "noto_dev": NOTO_DEV, "best": best}
+               "noto_dev": NOTO_DEV, "best": best, "calibration": cal}
     if best is None:
         verdict.update(action="inconclusive",
                        reason="no candidate produced a usable measurement")
         return verdict
-    dev = abs(best["ratio"] - 1.0)
+    dev = abs(best["cal_ratio"] - 1.0)
     verdict["best_dev"] = dev
     if best["family"] == "Noto Serif":
         verdict.update(action="keep-noto-serif",
@@ -341,9 +424,11 @@ def decide(rows):
 
 
 def render(rows, verdict=None):
-    L = ["%-20s %6s %9s %8s %8s %8s  %s"
-         % ("family", "lines", "adv@1pt", "ratio", "dev", "factor", "face"),
-         "-" * 88]
+    cal = (verdict or {}).get("calibration")
+    L = ["%-20s %6s %9s %9s %9s %8s  %s"
+         % ("family", "lines", "adv@1pt", "raw dev", "calib dev", "factor",
+            "face"),
+         "-" * 92]
     for r in rows:
         if not r.get("family"):
             L.append("page %d: no probe marker found" % r["page"])
@@ -352,12 +437,25 @@ def render(rows, verdict=None):
             L.append("%-20s %6s  (no measurement lines matched)"
                      % (r["family"], r.get("lines_found", 0)))
             continue
-        L.append("%-20s %6d %9.6f %8.4f %+7.2f%% %8.3f  %s%s" % (
-            r["family"], r["lines_found"], r["advance"], r["ratio"],
-            100 * (r["ratio"] - 1), r.get("factor", float("nan")),
+        cr = r.get("cal_ratio")
+        L.append("%-20s %6d %9.6f %+8.2f%% %+8s %8.3f  %s%s" % (
+            r["family"], r["lines_found"], r["advance"],
+            100 * (r["ratio"] - 1),
+            "-" if cr is None else "%.2f%%" % (100 * (cr - 1)),
+            r.get("factor", float("nan")),
             r.get("face", "?"), "  SUBSTITUTED" if r.get("substituted") else ""))
-    L.append("-" * 88)
-    L.append("ratio 1.0000 = the family matches DejaVu Serif, l1's source face")
+    L.append("-" * 92)
+    L.append("dev 0.00% = the family matches DejaVu Serif, l1's source face")
+    if cal:
+        L.append("calibrated on the controls (offset %+.2f%%); judge on that "
+                 "column" % (100 * (cal - 1)))
+    else:
+        L.append("NO CALIBRATION: no control measured, so the raw column is all "
+                 "there is and candidates cannot be trusted against it")
+    if any(r.get("lines_found") not in (None, len(segments())) for r in rows):
+        L.append("NOTE: a family with fewer than %d matched lines lost segments "
+                 "to the extractor; its advance is measured over less text and "
+                 "its pitch may be missing." % len(segments()))
 
     controls = [r for r in rows if r.get("family") in KNOWN_ADVANCE
                 and r.get("advance")]
@@ -381,14 +479,26 @@ def render(rows, verdict=None):
         L.append("  %s" % verdict["reason"])
         if verdict.get("best"):
             b = verdict["best"]
-            L.append("  best usable candidate: %s (dev %+.2f%%, factor %.3f)"
-                     % (b["family"], 100 * (b["ratio"] - 1),
+            L.append("  best usable candidate: %s (calibrated %+.2f%%, factor %.3f)"
+                     % (b["family"], 100 * (b.get("cal_ratio", 1) - 1),
                         b.get("factor", float("nan"))))
         if verdict["action"] == "adopt":
-            L.append("  To act: add the family to fonts._CANDIDATES with its")
-            L.append("  measured advance in FAMILY_METRICS, AND its measured")
-            L.append("  factor to docxout.NATURAL_FACTORS. The test that ties")
-            L.append("  those two tables together will fail if you forget.")
+            b = verdict["best"]
+            adv_ref = (b["advance"] / (verdict.get("calibration") or 1.0)
+                       * REFERENCE_SCALE)
+            L.append("")
+            L.append("  To act, register %r in all THREE places:" % b["family"])
+            L.append("    1. fonts.FAMILY_METRICS[%r] = (%.6f, 'serif')"
+                     % (_norm(b["family"]), adv_ref))
+            L.append("       (calibrated advance rescaled from the probe's")
+            L.append("       concatenated segments onto METRIC_REFERENCE, which")
+            L.append("       is what the rest of that table is measured over)")
+            L.append("    2. fonts._CANDIDATES['serif'] -- add the family name")
+            L.append("    3. docxout.NATURAL_FACTORS[%r] = %.3f"
+                     % (b["family"].lower(), b.get("factor", float("nan"))))
+            L.append("  The test tying FAMILY_METRICS to NATURAL_FACTORS fails")
+            L.append("  if you do 1 and 2 without 3 -- which is the mistake that")
+            L.append("  put l1's line pitch 19% out in the first place.")
     return "\n".join(L)
 
 

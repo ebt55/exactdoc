@@ -133,7 +133,46 @@ class LivePassVerifyTests(unittest.TestCase):
             report, _, _ = self._grade(work, _predictions(),
                                        _evidence(26.0, 12.0, 5.0))
             self.assertEqual(report["state"], "pre-fix")
+            self.assertIn("baseline", report["state_reason"])
+
+    def test_the_majority_heuristic_still_applies_with_no_movers(self):
+        # nothing is predicted to move, so only the majority vote is left
+        with tempfile.TemporaryDirectory() as work:
+            preds = _predictions()
+            for spec in preds["documents"].values():
+                spec["predicted_dy_p50"] = spec["baseline_dy_p50"]
+            report, _, _ = self._grade(work, preds, _evidence(26.0, 12.0, 5.0))
+            self.assertEqual(report["state"], "pre-fix")
             self.assertIn("still report their pre-fix", report["state_reason"])
+
+    def test_untouched_documents_cannot_outvote_a_document_that_moved(self):
+        """The wart live pass 3 exposed.
+
+        A pass typically changes a few documents and leaves the rest byte-
+        identical, so "most documents reproduce their baseline" is the normal
+        shape of a POST-fix run. Pass 3 had 13 of 16 untouched and their
+        unanimous vote outranked a sha that already said post-fix. Only the
+        documents a prediction expects to move can tell the two states apart.
+        """
+        with tempfile.TemporaryDirectory() as work:
+            preds = _predictions()
+            # D1 is expected to move 26 -> 2; D2 and N1 are not expected to move
+            preds["documents"]["D2"]["predicted_dy_p50"] = 12.0
+            preds["documents"]["N1"]["predicted_dy_p50"] = 5.0
+            # D1 moved, the other two sit on their baselines
+            report, _, _ = self._grade(work, preds, _evidence(2.0, 12.0, 5.0))
+            self.assertEqual(report["state"], "post-fix")
+            self.assertIn("D1 moved off its baseline", report["state_reason"])
+
+    def test_a_run_where_nothing_expected_to_move_moved_is_pre_fix(self):
+        with tempfile.TemporaryDirectory() as work:
+            preds = _predictions()
+            preds["documents"]["D2"]["predicted_dy_p50"] = 12.0
+            preds["documents"]["N1"]["predicted_dy_p50"] = 5.0
+            report, _, _ = self._grade(work, preds, _evidence(26.0, 12.0, 5.0))
+            self.assertEqual(report["state"], "pre-fix")
+            self.assertIn("expect to move is still on its baseline",
+                          report["state_reason"])
 
     def test_pre_fix_reports_how_far_each_document_must_move(self):
         with tempfile.TemporaryDirectory() as work:

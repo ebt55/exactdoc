@@ -114,7 +114,8 @@ class BuildTests(unittest.TestCase):
 @unittest.skipIf(fitz is None, "PyMuPDF not installed")
 class AnalyseTests(unittest.TestCase):
     def _pdf(self, path, pages, pitch=13.0, size=10.0,
-             fontfile="DejaVuSerif.ttf"):
+             fontfile="DejaVuSerif.ttf", zero_width=False, trailing="",
+             empty_span=False):
         """pages: [(index|None, fontfile|None)] -- one probe page each."""
         segs = P.segments()
         doc = fitz.open()
@@ -129,10 +130,54 @@ class AnalyseTests(unittest.TestCase):
                 continue
             page.insert_font(fontname="probe", fontfile=src)
             for j, seg in enumerate(segs):
-                page.insert_text((P.MARGIN, 80 + j * pitch), seg,
+                text = seg + trailing
+                if zero_width and j < len(segs) - 1:
+                    text += "​"
+                page.insert_text((P.MARGIN, 80 + j * pitch), text,
                                  fontname="probe", fontsize=size)
+            if empty_span:
+                # a run carrying nothing visible, in another face
+                page.insert_text((P.MARGIN, 80 + len(segs) * pitch), " ",
+                                 fontsize=size)
         doc.save(path)
         doc.close()
+
+    def test_zero_width_marks_do_not_break_the_line_match(self):
+        """What live pass 3 actually did to the v1 analyzer.
+
+        Docs preserves explicit line breaks and appends U+200B at each one, so
+        matching a line by its exact text discarded five of six segments. The
+        text is now rebuilt from word boxes, which never carry the mark.
+        """
+        with tempfile.TemporaryDirectory() as work:
+            path = os.path.join(work, "e.pdf")
+            self._pdf(path, [(0, "DejaVuSerif.ttf")], zero_width=True)
+            r = P.analyse(path)[0]
+            self.assertEqual(r["lines_found"], len(P.segments()))
+            self.assertAlmostEqual(r["ratio"], 1.0, places=2)
+
+    def test_a_trailing_space_does_not_widen_the_measurement(self):
+        """The other half of the v1 failure.
+
+        The one line that did match carried a trailing space and a paragraph
+        mark inside its bounding box, inflating every family by 3-5%. A word
+        extent ends at the last glyph, so it cannot.
+        """
+        with tempfile.TemporaryDirectory() as work:
+            plain = os.path.join(work, "a.pdf")
+            tailed = os.path.join(work, "b.pdf")
+            self._pdf(plain, [(0, "DejaVuSerif.ttf")])
+            self._pdf(tailed, [(0, "DejaVuSerif.ttf")], trailing="    ")
+            self.assertAlmostEqual(P.analyse(plain)[0]["advance"],
+                                   P.analyse(tailed)[0]["advance"], places=5)
+
+    def test_an_empty_span_is_not_a_substitution(self):
+        # pass 3 flagged five families MIXED on a zero-character span
+        with tempfile.TemporaryDirectory() as work:
+            path = os.path.join(work, "e.pdf")
+            self._pdf(path, [(0, "NotoSerif-Regular.ttf")], empty_span=True)
+            r = P.analyse(path)[0]
+            self.assertFalse(r["substituted"])
 
     def test_measures_advance_and_pitch_against_the_dejavu_target(self):
         with tempfile.TemporaryDirectory() as work:

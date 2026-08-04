@@ -109,7 +109,33 @@ def detect_state(preds, evidence, by_name, digest):
             return "pre-fix", ("evidence sha256 matches a superseded baseline (%s)"
                                % old.get("state", "earlier pass"))
 
+    # The value heuristic only gets a vote where the values could disagree.
+    #
+    # Most passes change a handful of documents and leave the rest byte-
+    # identical, so "most documents reproduce their baseline" is the NORMAL
+    # shape of a post-fix run, not evidence of a stale one. Live pass 3 had 13
+    # of 16 untouched and was mislabelled PRE-FIX on their unanimous vote, over
+    # a sha that already said otherwise. So the documents a prediction expects
+    # to MOVE are the only ones that can distinguish the two states, and if any
+    # of them moved, the run is post-fix whatever the majority did.
     docs = preds["documents"]
+    movers = [n for n, s in docs.items()
+              if s.get("predicted_dy_p50") is not None
+              and s.get("baseline_dy_p50") is not None
+              and abs(float(s["predicted_dy_p50"])
+                      - float(s["baseline_dy_p50"])) > 0.51]
+    for name in movers:
+        actual = (by_name.get(name) or {}).get("dy_p50")
+        if actual is None:
+            continue
+        if abs(float(actual) - float(docs[name]["baseline_dy_p50"])) > 0.51:
+            return "post-fix", ("%s moved off its baseline, and it is a "
+                                "document the predictions expect to move" % name)
+    if movers and any((by_name.get(n) or {}).get("dy_p50") is not None
+                      for n in movers):
+        return "pre-fix", ("every document the predictions expect to move is "
+                           "still on its baseline value")
+
     same = total = 0
     for name, spec in docs.items():
         actual = (by_name.get(name) or {}).get("dy_p50")

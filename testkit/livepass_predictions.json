@@ -58,9 +58,30 @@
     "status": "CONFIRMED by live pass 2 (2026-08-04)",
     "outcome": {
       "predicted_vs_observed_dy_p50": {
-        "c6_long": [1.65, 1.67], "c8_toc_links": [1.71, 1.71],
-        "c7_code": [1.93, 1.93], "r1_reportlab_report": [0.60, 0.60],
-        "03_tech_report_code": [4.70, 4.10], "c2_paper2col": [3.53, 3.88]
+        "c6_long": [
+          1.65,
+          1.67
+        ],
+        "c8_toc_links": [
+          1.71,
+          1.71
+        ],
+        "c7_code": [
+          1.93,
+          1.93
+        ],
+        "r1_reportlab_report": [
+          0.6,
+          0.6
+        ],
+        "03_tech_report_code": [
+          4.7,
+          4.1
+        ],
+        "c2_paper2col": [
+          3.53,
+          3.88
+        ]
       },
       "discriminating_documents_above_threshold": 0,
       "page_match": "held on every document that held it before",
@@ -69,15 +90,22 @@
     }
   },
   "baseline_evidence": {
-    "name": "gdocs-2026-08-04-pass2-qualification.json",
-    "sha256": "0d3e87afee065848568a1e5b1c83b62e3039a2bb9ae756fc2f7e9fb3f7dbb015",
+    "name": "gdocs-2026-08-04-pass3-qualification.json",
+    "sha256": "5f21757e6c40ff2a5a1ebe2d3a0556c0fb54032516b4f9585d45cf6abf4fb466",
     "run_date": "2026-08-04",
     "candidate_profile": "pdfium/gdocs/none/refine0@240dpi",
     "manifest_sha256": "cc4dd4c1c449ddabe85d7538454ed4a3d6163d762f68d2e59d97801e11c3c7da",
     "state": "pre-fix",
-    "note": "Live pass 2. It is the run these pass-3 predictions are measured FROM, so grading it against them must report it as the baseline rather than as a wall of failures. The pass-1 baseline it replaces was sha256 6eae3c1e...; A-approx-zero was confirmed between the two and its entries are kept above as the settled record."
+    "note": "Live pass 3. It confirmed the Noto Serif line-height correction (l1 dy_p50 15.19 -> 1.93) and the cover-band side bleed. It is the run any pass-4 predictions are measured FROM."
   },
   "superseded_baselines": [
+    {
+      "name": "gdocs-2026-08-04-pass2-qualification.json",
+      "sha256": "0d3e87afee065848568a1e5b1c83b62e3039a2bb9ae756fc2f7e9fb3f7dbb015",
+      "run_date": "2026-08-04",
+      "state": "pass 2, pre-line-height-fix",
+      "note": "Superseded by pass 3. Retained so pass-2 evidence still grades as a baseline rather than a falsification."
+    },
     {
       "name": "gdocs_qualification.json",
       "sha256": "6eae3c1ed3e2e7aeb81cbff49c152368602e3875d055b4335e6bc1ec525496e0",
@@ -108,11 +136,26 @@
     "min_documents_to_falsify": 2,
     "discriminating_documents": [],
     "retired_discriminating_documents": {
-      "c6_long": {"threshold": 13.745, "observed": 1.67},
-      "c8_toc_links": {"threshold": 13.845, "observed": 1.71},
-      "c2_paper2col": {"threshold": 13.27, "observed": 3.88},
-      "r1_reportlab_report": {"threshold": 6.305, "observed": 0.6},
-      "03_tech_report_code": {"threshold": 9.04, "observed": 4.1}
+      "c6_long": {
+        "threshold": 13.745,
+        "observed": 1.67
+      },
+      "c8_toc_links": {
+        "threshold": 13.845,
+        "observed": 1.71
+      },
+      "c2_paper2col": {
+        "threshold": 13.27,
+        "observed": 3.88
+      },
+      "r1_reportlab_report": {
+        "threshold": 6.305,
+        "observed": 0.6
+      },
+      "03_tech_report_code": {
+        "threshold": 9.04,
+        "observed": 4.1
+      }
     },
     "threshold_derivation": "falsifies_A0_above_pt was the midpoint between the predicted (A=0) and baseline (which A=3 would roughly reproduce in magnitude) dy_p50. Above the midpoint, A~3 explains the observation better than A~0. Only documents whose two hypotheses were separated by >=8pt were allowed to discriminate; the rest were reported without a verdict.",
     "single_exceedance": "warn, do not falsify -- one document can be a reflow artefact",
@@ -178,7 +221,28 @@
         ],
         "close_the_book_means": "no family available to Docs closes the gap; the 6.3% residual is inherent and l1's dx_p50 bound needs a ratified waiver rather than another substitution attempt"
       },
-      "libreoffice_control_result": "Controls reproduced their offline advances to within 0.12% (Noto Serif -0.09%, Times New Roman -0.10%, Georgia -0.12%) and their natural factors to within 0.011, so the analyzer and the round trip are sound. All six real candidates were substituted by LibreOffice (LiberationSerif), correctly flagged, and correctly excluded from the decision -- which is the failure mode the face check exists to prevent."
+      "libreoffice_control_result": "Controls reproduced their offline advances to within 0.12% (Noto Serif -0.09%, Times New Roman -0.10%, Georgia -0.12%) and their natural factors to within 0.011, so the analyzer and the round trip are sound. All six real candidates were substituted by LibreOffice (LiberationSerif), correctly flagged, and correctly excluded from the decision -- which is the failure mode the face check exists to prevent.",
+      "pass3_result": {
+        "status": "ANSWERED -- decision ADOPT, pending a writer change and pass-4 verification",
+        "docs_has_every_candidate": "All nine families rendered natively, 349 of 349 characters each: Merriweather-Regular, Bitter-Regular, LibreBaskerville-Regular, PTSerif-Regular, Lora-Regular, IBMPlexSerif-Regular, plus the three controls. No substitution anywhere.",
+        "v1_measurement_was_wrong": "The v1 analyzer reported one matched line per family, a nan pitch, and controls drifting +3.57/+4.33/+5.28%. Docs does NOT collapse explicit line breaks -- it preserves them and appends U+200B at each one, so five of six segments failed an exact-text match. The sixth matched but its bounding box carried a trailing space and an 11pt Cambria paragraph mark, which is the whole of the inflation. Merriweather's headline -0.91% was that artefact.",
+        "v2_measurement": "Word-box extents (first word x0 to last word x1) with zero-width marks stripped, faces counted over visible characters only. All six lines match for every family, pitch is recovered, and controls drift +0.58/+0.78/+0.76% -- systematic at +0.70% with a 0.2% spread, so decide() calibrates candidates on them.",
+        "calibrated_deviations": {
+          "Libre Baskerville": -0.0004, "Merriweather": -0.0608,
+          "Noto Serif": -0.063, "IBM Plex Serif": -0.0799, "Lora": -0.0897,
+          "Bitter": -0.0989, "PT Serif": -0.1326, "Georgia": -0.1382,
+          "Times New Roman": -0.2156
+        },
+        "calibration_self_check": "Noto Serif calibrates to -6.30% against the -6.18% measured from its own font file, so the calibration is validated by a family whose true value is known independently.",
+        "verdict": "Libre Baskerville is within 0.04% of DejaVu Serif -- effectively an exact metric match, and far inside the 2% adopt bar. Merriweather is -6.08%, no better than the Noto Serif already in use.",
+        "registration_required": {
+          "fonts.FAMILY_METRICS['librebaskerville']": [0.520687, "serif"],
+          "fonts._CANDIDATES['serif']": "add 'Libre Baskerville'",
+          "docxout.NATURAL_FACTORS['libre baskerville']": 1.24,
+          "note": "The advance is the calibrated probe value rescaled onto METRIC_REFERENCE, which is what the rest of FAMILY_METRICS is measured over. Its provenance differs from every other entry -- measured in Docs rather than from a local font file, because Libre Baskerville is not installed here -- and that should be stated where it is written down."
+        },
+        "expected_effect": "l1_word_native's packing ratio should go from 1.0637 to ~1.000, closing the residual re-wrap that is the last known contributor to its dx_p50 39.82. Needs pass-4 verification."
+      }
     }
   },
   "cover_band_claim": {
@@ -186,8 +250,20 @@
     "statement": "Google Docs honours a cover band's side margins exactly, so a true side bleed is reachable by asking for zero; it adds ~14.8pt above a page-leading band unconditionally, so a true top bleed is not.",
     "measured_by": "testkit/probe_cover_band.py, live pass 2 exploration channel, one variable per page, against a LibreOffice control that honoured all twelve variants exactly",
     "top_family": {
-      "requested": [0.0, 4.0, 8.0, 14.4, 20.0],
-      "rendered": [14.55, 18.83, 22.83, 29.23, 34.83],
+      "requested": [
+        0.0,
+        4.0,
+        8.0,
+        14.4,
+        20.0
+      ],
+      "rendered": [
+        14.55,
+        18.83,
+        22.83,
+        29.23,
+        34.83
+      ],
       "reading": "rendered = requested + ~14.8 throughout. An addition, not a clamp: no requested value reaches the page edge, and asking via header distance lands in the same place (header 14.4 with top 0 differs by 0.43pt)."
     },
     "side_family": {
@@ -197,7 +273,15 @@
       "gdocs cover band asks for a 0pt side margin instead of 4pt, removing a 3.9pt white frame down each edge that was ours, not Google's",
       "_GDOCS_COVER_BEFORE_COMP_TWIPS 290 -> 296 (14.5pt -> the measured 14.8pt)"
     ],
-    "documented_limitation": "~14.6pt of white above a page-one band is unavoidable in Google Docs. The writer stops trying to beat it: compensation subtracts only where the source left 14.8pt or more, and accepts the floor below that."
+    "documented_limitation": "~14.6pt of white above a page-one band is unavoidable in Google Docs. The writer stops trying to beat it: compensation subtracts only where the source left 14.8pt or more, and accepts the floor below that.",
+    "pass3_result": {
+      "side_bleed": "LANDED EXACTLY. 01_whitepaper_market's band rendered left 0.00 right 612.00 on a 612pt page, matching the source's 0.00/612.00. Pass 2 was 4.00/607.75, so the 3.9pt white frame down each edge is gone.",
+      "top": "14.55pt as measured and as expected; the floor is real and unbeaten.",
+      "compensation_was_not_floored": "The band's first cover paragraph carried 1068 twips of space_before AFTER the 296-twip subtraction, so 53.4pt remained. The full 14.8pt was applied; this document never hit the floor case.",
+      "residual": "The band's BOTTOM still lands at 175.05 against the source's 170.00. Docs adds 14.55 above and the writer removes 14.8 inside, which should net to zero, so ~5.05pt of extra height is coming from the band's interior rendering taller than the source's -- a separate effect from the top addition, and not yet attributed.",
+      "why_page1_ssim_fell": "p1 went 0.6183 (pass 2) -> 0.5996 (pass 3) even though the fix landed. Pass 2's page-1 drift was a SPREAD straddling zero (dy median -2.68, p10 -15.56, p90 +0.14): much of the page was coincidentally aligned. Pass 3's is a single uniform offset (median +6.30, p10 +5.38, p90 +8.36) inherited from the 5.05pt band overhang. A uniform offset overlaps less ink than a spread that crosses zero, so SSIM fell while the document became structurally more correct -- and a single offset is one number to close, where a spread is not.",
+      "next_step": "Attribute the ~5.05pt of extra band interior height. It is one measurable quantity and closing it should take page 1 from a uniform +6.30pt offset to near zero."
+    }
   },
   "c2_ssim_diagnosis": {
     "status": "attributed, not fixed -- the step is LibreOffice-visible and its cause is a cancelling pair of writer errors",
@@ -239,8 +323,8 @@
       "falsifies_A0_above_pt": null,
       "expect": "unchanged",
       "confidence": "high",
-      "note": "Not touched by the pass-3 changes; it should reproduce its pass-2 value.",
-      "baseline_source": "live pass 2 (2026-08-04)"
+      "note": "No pass-4 change is staged for this document; it should reproduce its pass-3 value.",
+      "baseline_source": "live pass 3 (2026-08-04)"
     },
     "c8_toc_links": {
       "tier": "ordinary_digital",
@@ -253,8 +337,8 @@
       "falsifies_A0_above_pt": null,
       "expect": "unchanged",
       "confidence": "high",
-      "baseline_source": "live pass 2 (2026-08-04)",
-      "note": "Not touched by the pass-3 changes; it should reproduce its pass-2 value."
+      "baseline_source": "live pass 3 (2026-08-04)",
+      "note": "No pass-4 change is staged for this document; it should reproduce its pass-3 value."
     },
     "c2_paper2col": {
       "tier": "ordinary_digital",
@@ -267,8 +351,8 @@
       "falsifies_A0_above_pt": null,
       "expect": "unchanged",
       "confidence": "high",
-      "note": "Not touched by the pass-3 changes; it should reproduce its pass-2 value.",
-      "baseline_source": "live pass 2 (2026-08-04)"
+      "note": "No pass-4 change is staged for this document; it should reproduce its pass-3 value.",
+      "baseline_source": "live pass 3 (2026-08-04)"
     },
     "r1_reportlab_report": {
       "tier": "ordinary_digital",
@@ -281,8 +365,8 @@
       "falsifies_A0_above_pt": null,
       "expect": "unchanged",
       "confidence": "high",
-      "baseline_source": "live pass 2 (2026-08-04)",
-      "note": "Not touched by the pass-3 changes; it should reproduce its pass-2 value."
+      "baseline_source": "live pass 3 (2026-08-04)",
+      "note": "No pass-4 change is staged for this document; it should reproduce its pass-3 value."
     },
     "03_tech_report_code": {
       "tier": "ordinary_digital",
@@ -295,8 +379,8 @@
       "falsifies_A0_above_pt": null,
       "expect": "unchanged",
       "confidence": "high",
-      "baseline_source": "live pass 2 (2026-08-04)",
-      "note": "Not touched by the pass-3 changes; it should reproduce its pass-2 value."
+      "baseline_source": "live pass 3 (2026-08-04)",
+      "note": "No pass-4 change is staged for this document; it should reproduce its pass-3 value."
     },
     "c7_code": {
       "tier": "ordinary_digital",
@@ -309,8 +393,8 @@
       "falsifies_A0_above_pt": null,
       "expect": "unchanged",
       "confidence": "high",
-      "note": "Not touched by the pass-3 changes; it should reproduce its pass-2 value.",
-      "baseline_source": "live pass 2 (2026-08-04)"
+      "note": "No pass-4 change is staged for this document; it should reproduce its pass-3 value.",
+      "baseline_source": "live pass 3 (2026-08-04)"
     },
     "c1_whitepaper": {
       "tier": "ordinary_digital",
@@ -323,28 +407,28 @@
       "falsifies_A0_above_pt": null,
       "expect": "unchanged",
       "confidence": "high",
-      "note": "Not touched by the pass-3 changes; it should reproduce its pass-2 value.",
-      "baseline_source": "live pass 2 (2026-08-04)"
+      "note": "No pass-4 change is staged for this document; it should reproduce its pass-3 value.",
+      "baseline_source": "live pass 3 (2026-08-04)"
     },
     "l1_word_native": {
       "tier": "ordinary_digital",
       "src_pages": 1,
       "n_matched_words": 141,
-      "baseline_dy_p50": 15.19,
-      "predicted_dy_p50": 4.0,
-      "tolerance_pt": 8.0,
+      "baseline_dy_p50": 1.93,
+      "predicted_dy_p50": 1.93,
+      "tolerance_pt": 3.0,
       "discriminating": false,
       "falsifies_A0_above_pt": null,
-      "expect": "improves",
-      "confidence": "low",
+      "expect": "unchanged",
+      "confidence": "high",
       "superseded": {
         "previous_predicted_dy_p50": 12.26,
         "previous_expect": "improves-but-still-blocking",
         "reason": "That prediction assumed only the boundary compensation was removed and the font mapping was left alone, so it still carried l1's re-wrap. The metric fit now substitutes the family and tracks out the residual, which restores the source line breaks and with them the lines the paragraphs were losing.",
         "superseded_by": "gdocs metric fit (exactdoc/fonts.metric_fit)"
       },
-      "note": "Line height corrected: Noto Serif's natural factor is 1.360, not the 1.144 default the substitution silently inherited, so pass 2 rendered this document at a 17.48pt pitch against the source's 14.70. The emitted multiple now predicts 14.71pt. dx should also fall as lines stop drifting vertically, but the 6.3% advance-width residual against Noto Serif still moves later line breaks and Docs discards the tracking that used to close it.",
-      "baseline_source": "live pass 2 (2026-08-04)"
+      "note": "No pass-4 change is staged for this document; it should reproduce its pass-3 value.",
+      "baseline_source": "live pass 3 (2026-08-04)"
     },
     "02_research_paper": {
       "tier": "ordinary_digital",
@@ -357,36 +441,36 @@
       "falsifies_A0_above_pt": null,
       "expect": "unchanged",
       "confidence": "high",
-      "note": "Not touched by the pass-3 changes; it should reproduce its pass-2 value.",
-      "baseline_source": "live pass 2 (2026-08-04)"
+      "note": "No pass-4 change is staged for this document; it should reproduce its pass-3 value.",
+      "baseline_source": "live pass 3 (2026-08-04)"
     },
     "01_whitepaper_market": {
       "tier": "ordinary_digital",
       "src_pages": 3,
       "n_matched_words": 705,
-      "baseline_dy_p50": 8.24,
-      "predicted_dy_p50": 7.5,
-      "tolerance_pt": 4.0,
+      "baseline_dy_p50": 8.18,
+      "predicted_dy_p50": 8.18,
+      "tolerance_pt": 3.0,
       "discriminating": false,
       "falsifies_A0_above_pt": null,
-      "expect": "improves",
-      "confidence": "low",
-      "note": "Cover band now asks for a zero side margin (Docs honours side margins exactly) and compensates 14.8pt rather than 14.5pt above the band.",
-      "baseline_source": "live pass 2 (2026-08-04)"
+      "expect": "unchanged",
+      "confidence": "high",
+      "note": "No pass-4 change is staged for this document; it should reproduce its pass-3 value.",
+      "baseline_source": "live pass 3 (2026-08-04)"
     },
     "04_exec_brief": {
       "tier": "ordinary_digital",
       "src_pages": 2,
       "n_matched_words": 164,
       "baseline_dy_p50": 7.35,
-      "predicted_dy_p50": 7.0,
-      "tolerance_pt": 4.0,
+      "predicted_dy_p50": 7.35,
+      "tolerance_pt": 3.0,
       "discriminating": false,
       "falsifies_A0_above_pt": null,
-      "expect": "improves",
-      "confidence": "low",
-      "baseline_source": "live pass 2 (2026-08-04)",
-      "note": "Cover band side/top changes as for 01_whitepaper_market."
+      "expect": "unchanged",
+      "confidence": "high",
+      "baseline_source": "live pass 3 (2026-08-04)",
+      "note": "No pass-4 change is staged for this document; it should reproduce its pass-3 value."
     },
     "05_memo": {
       "tier": "ordinary_digital",
@@ -399,8 +483,8 @@
       "falsifies_A0_above_pt": null,
       "expect": "unchanged",
       "confidence": "high",
-      "baseline_source": "live pass 2 (2026-08-04)",
-      "note": "Not touched by the pass-3 changes; it should reproduce its pass-2 value."
+      "baseline_source": "live pass 3 (2026-08-04)",
+      "note": "No pass-4 change is staged for this document; it should reproduce its pass-3 value."
     },
     "f1_fpdf_brief": {
       "tier": "ordinary_digital",
@@ -413,8 +497,8 @@
       "falsifies_A0_above_pt": null,
       "expect": "unchanged",
       "confidence": "high",
-      "note": "Not touched by the pass-3 changes; it should reproduce its pass-2 value.",
-      "baseline_source": "live pass 2 (2026-08-04)"
+      "note": "No pass-4 change is staged for this document; it should reproduce its pass-3 value.",
+      "baseline_source": "live pass 3 (2026-08-04)"
     },
     "c3_tables": {
       "tier": "designed_stress",
@@ -427,8 +511,8 @@
       "falsifies_A0_above_pt": null,
       "expect": "unchanged",
       "confidence": "high",
-      "note": "Not touched by the pass-3 changes; it should reproduce its pass-2 value.",
-      "baseline_source": "live pass 2 (2026-08-04)"
+      "note": "No pass-4 change is staged for this document; it should reproduce its pass-3 value.",
+      "baseline_source": "live pass 3 (2026-08-04)"
     },
     "c4_i18n": {
       "tier": "designed_stress",
@@ -441,8 +525,8 @@
       "falsifies_A0_above_pt": null,
       "expect": "unchanged",
       "confidence": "high",
-      "note": "Not touched by the pass-3 changes; it should reproduce its pass-2 value.",
-      "baseline_source": "live pass 2 (2026-08-04)"
+      "note": "No pass-4 change is staged for this document; it should reproduce its pass-3 value.",
+      "baseline_source": "live pass 3 (2026-08-04)"
     },
     "c5_graphics": {
       "tier": "designed_stress",
@@ -455,8 +539,8 @@
       "falsifies_A0_above_pt": null,
       "expect": "unchanged",
       "confidence": "high",
-      "note": "Not touched by the pass-3 changes; it should reproduce its pass-2 value.",
-      "baseline_source": "live pass 2 (2026-08-04)"
+      "note": "No pass-4 change is staged for this document; it should reproduce its pass-3 value.",
+      "baseline_source": "live pass 3 (2026-08-04)"
     }
   },
   "checks": [
