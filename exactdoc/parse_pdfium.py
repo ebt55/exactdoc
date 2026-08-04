@@ -67,6 +67,14 @@ SCRIPT_RAISE_EM = 0.12    # raised by more than this: a superscript
 TABLE_MIN_ROWS = 3        # three aligned baselines; two is a coincidence
 TABLE_ROW_PITCH_MAX = 60  # pt between consecutive rows of one band
 TABLE_COL_TOL = 3.0       # x-starts of one column agree to about a character
+# A list marker and its item are two lines on one baseline (see
+# _marker_starts_visual_line). The vocabulary mirrors infer's BULLET_CHARS and
+# NUM_RE; it is repeated rather than imported because a parser must not depend
+# on the inference layer.
+MARKER_GAP_EM = 0.5       # separation that is not an interword space
+MARKER_GAP_ADV = 0.6      # ...and is wide against the marker's own advance
+_MARKER_BULLETS = set("•◦▪‣·-–—*➤►○●♦")
+_MARKER_RE = re.compile(r"^\(?(\d{1,3}|[a-zA-Z]|[ivxlIVXL]{1,5})[.):]$")
 
 
 def _line_size(ln) -> float:
@@ -353,6 +361,54 @@ def _wide_gap_starts_visual_line(prev: _Char, current: _Char,
     return not (explicit_interword_space and fragment_has_text)
 
 
+def _marker_starts_visual_line(fragment: List[_Char], current: _Char) -> bool:
+    """Whether `fragment` is a list marker and `current` begins its item text.
+
+    A marker and its item are TWO lines sharing a baseline in the IR, because
+    that is what PyMuPDF reports: on x03_lo_lists_nested it gives `1.` at
+    x[64.90, 73.15] and `Establish the temporary layover` at x[82.90, 222.97],
+    both on baseline 442.55, and infer._merge_list_markers is written against
+    exactly that shape. PDFium reports one line, `1. Establish the temporary
+    layover`, because the 9.75pt gap between them is under LINE_SPLIT_EM
+    (1.10em = 12.1pt at this size) and the wide-gap rule never fires.
+
+    This is a DIFFERENT question from the wide-gap rule and is kept separate
+    from it. That one is about interword spacing -- whether a stretched space is
+    justification or a structural break. This one is about a specific leading
+    token: nothing splits here unless the text so far IS a marker.
+
+    The gap must clear two bars, because either alone is too easy: it must be
+    wider than an interword space (MARKER_GAP_EM; a space at this size is
+    0.28em) and wide against the marker's own advance (MARKER_GAP_ADV), which
+    is what separates `1.` + 9.75pt from an ordinary short first word followed
+    by a space. `The depot replacement...` never reaches the vocabulary test at
+    all, and a hanging-indent continuation line has no leading marker to match.
+
+    Only ever fires at the START of a visual line: `fragment` is everything
+    seen since the last split, so a `1.` mid-sentence is not a marker.
+    """
+    if not fragment:
+        return False
+    text = "".join(c.u for c in fragment).strip()
+    if not text or len(text) > 5:
+        return False
+    if not (text in _MARKER_BULLETS or _MARKER_RE.match(text)):
+        return False
+    # Measure from the marker's INK, not from whatever trails it. PDFium
+    # synthesises a space after `1.` and _page_chars gives it one space of
+    # advance, so measuring from the fragment's end put the marker's own width
+    # at 11.35pt instead of 8.25 and the gap at 6.65 instead of 9.75 -- and the
+    # rule missed by a quarter of a point. The inked numbers are also the ones
+    # PyMuPDF reports for the same row.
+    inked = [c for c in fragment if not c.u.isspace()]
+    if not inked:
+        return False
+    size = max(max(c.size for c in inked), current.size, 1.0)
+    gap = current.x0 - inked[-1].x1
+    advance = max(1.0, inked[-1].x1 - inked[0].x0)
+    return gap > MARKER_GAP_EM * size and gap > MARKER_GAP_ADV * advance
+
+
 def _row_span(row: List[_Char]):
     return min(c.x0 for c in row), max(c.x1 for c in row)
 
@@ -537,10 +593,13 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
     for ri, row in enumerate(rows):
         row.sort(key=lambda c: c.x0)
         part = [row[0]]
+        started = False          # has this row already produced a fragment?
         for prev, c in zip(row, row[1:]):
-            if _wide_gap_starts_visual_line(prev, c, part):
+            if _wide_gap_starts_visual_line(prev, c, part) or \
+                    (not started and _marker_starts_visual_line(part, c)):
                 vis_rows.append((ri, part))
                 part = [c]
+                started = True
             else:
                 part.append(c)
         vis_rows.append((ri, part))
