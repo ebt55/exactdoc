@@ -91,22 +91,34 @@ _CANDIDATES = {
     "mono": ("Courier New",),
 }
 
-# Act only on a deviation large enough to move line breaks, and substitute a
-# family only when the gain is worth changing the typeface.
+# Substitute a family only when the gain is worth changing the typeface.
 #
-# Measured basis for the floor: the corpus's metric-compatible mappings sit at
-# exactly 0.0% -- Liberation Serif/Sans/Mono against Times New Roman/Arial/
-# Courier New all measure 1.000000, because they are metric clones by design.
-# The largest honest residual among working documents is DejaVu Sans Mono ->
-# Courier New at -0.32%. So anything under 2% is indistinguishable from the
-# mappings that already work, and is also below the half-point font-size
+# Measured basis: the corpus's metric-compatible mappings sit at exactly 0.0% --
+# Liberation Serif/Sans/Mono against Times New Roman/Arial/Courier New all
+# measure 1.000000, because they are metric clones by design. The largest
+# honest residual among working documents is DejaVu Sans Mono -> Courier New at
+# -0.32%. 5% is comfortably clear of both, and of the half-point font-size
 # quantisation this writer already accepts (_quantised_size), which moves a
 # line's advance by up to ~0.5% on its own.
-METRIC_TRACK_DEV = 0.02
-# 5% is where a family swap earns its visual cost: below it the residual
-# tracking is under ~0.25pt at 11pt and closes the gap without changing the
-# typeface at all.
 METRIC_SUBSTITUTE_DEV = 0.05
+
+# Run-level tracking (w:spacing on rPr) was the second half of this fix and is
+# RETIRED: Google Docs discards it on import.
+#
+# Measured in live pass 2. The file emitted 7 twips of tracking per run on
+# l1_word_native, which would have brought its packing ratio to 1.0018. The
+# export came back at 1.0637 -- within 0.3% of the 1.067 predicted for "family
+# honoured, spacing dropped", and nowhere near 1.0018. Docs rendered
+# NotoSerif-Regular, so the substitution took effect and only the tracking was
+# ignored. The two mechanisms were deliberately chosen to fail independently,
+# and this is exactly that: one worked, one did not.
+#
+# So the residual 6.3% between DejaVu Serif and the closest family Docs is known
+# to render is currently irreducible, and is what still moves l1's later line
+# breaks. Closing it needs a family closer than Noto Serif, which needs a Docs
+# font-metrics probe of candidates whose files are not available to measure
+# offline -- the same ride-along probe pattern testkit/probe_cover_band.py used.
+GDOCS_HONOURS_RUN_TRACKING = False
 
 
 def base_family(pdf_font: str) -> str:
@@ -189,7 +201,7 @@ def family_metrics(name):
 
 
 def metric_fit(pdf_font: str, mono: bool = False, serif: bool = False):
-    """Google Docs profile: (family, tracking_pt_per_pt_of_size).
+    """Google Docs profile: the family whose advance width fits the source.
 
     The standard mapping is metric-compatible by design -- Helvetica->Arial,
     Times->Times New Roman, and the Liberation faces measure *exactly* 1.000000
@@ -201,32 +213,34 @@ def metric_fit(pdf_font: str, mono: bool = False, serif: bool = False):
     document scored dx_p50 63.65pt with dy_p50 19.35pt -- one root cause for
     both, since re-wrapping also drops whole lines.
 
-    Two corrections, applied in order and each keyed on measured deviation
-    rather than on any document:
+    If the mapped family deviates by more than METRIC_SUBSTITUTE_DEV, pick the
+    candidate of the same class whose measured advance is closest to the
+    source. DejaVu Serif goes Times New Roman (-21.6%) -> Noto Serif (-6.3%);
+    DejaVu Sans goes Arial (-12.6%) -> Verdana (+0.2%). Live pass 2 confirmed
+    Docs renders the substituted family: l1_word_native's packing ratio went
+    1.2935 -> 1.0637 and its first body line wrapped exactly as the source did.
 
-    1.  If the mapped family deviates by more than METRIC_SUBSTITUTE_DEV, pick
-        the candidate of the same class whose measured advance is closest to
-        the source. DejaVu Serif goes Times New Roman (-21.6%) -> Noto Serif
-        (-6.3%); DejaVu Sans goes Arial (-12.6%) -> Verdana (+0.2%).
-    2.  Close whatever remains with run-level tracking, if it still exceeds
-        METRIC_TRACK_DEV. For DejaVu Serif -> Noto Serif that is 0.360pt at
-        11pt, or 33/1000 em -- ordinary loose tracking. Against unsubstituted
-        Times New Roman it would have been 113/1000 em, conspicuously spaced,
-        which is why the substitution comes first.
+    Returns the unmodified mapping whenever either side is unmeasured. An
+    absent measurement is not a deviation of zero, and this is the same
+    discipline `metrics.NullMetrics` applies: act only on a number you actually
+    have.
 
-    Returns the unmodified mapping and no tracking whenever either side is
-    unmeasured. An absent measurement is not a deviation of zero, and this is
-    the same discipline `metrics.NullMetrics` applies: act only on a number you
-    actually have.
+    A substituted family MUST also have a `docxout.NATURAL_FACTORS` entry.
+    Swapping in a family without one silently reuses NATURAL_DEFAULT for the
+    exact->multiple line-height translation, and Noto Serif's natural height is
+    1.360 against that default's 1.144: pass 2 rendered l1 at a 17.48pt pitch
+    where the source used 14.70. Fixing the advance width while breaking the
+    line height trades one drift for another. `tests/test_font_metric_fit.py`
+    holds the two tables together.
     """
     mapped = map_font(pdf_font, mono=mono, serif=serif)
     src = family_metrics(pdf_font)
     cur = family_metrics(mapped)
     if src is None or cur is None:
-        return mapped, 0.0
+        return mapped
     src_adv, cls = src
     if not src_adv:
-        return mapped, 0.0
+        return mapped
     family, adv = mapped, cur[0]
     if abs(adv / src_adv - 1.0) > METRIC_SUBSTITUTE_DEV:
         for cand in _CANDIDATES.get(cls, ()):
@@ -235,7 +249,4 @@ def metric_fit(pdf_font: str, mono: bool = False, serif: bool = False):
                 continue
             if abs(got[0] / src_adv - 1.0) < abs(adv / src_adv - 1.0):
                 family, adv = cand, got[0]
-    track = 0.0
-    if abs(adv / src_adv - 1.0) > METRIC_TRACK_DEV:
-        track = src_adv - adv
-    return family, track
+    return family

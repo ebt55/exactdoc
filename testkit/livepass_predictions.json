@@ -3,7 +3,6 @@
   "created": "2026-08-04",
   "title": "Falsifiable predictions for the next consented Google Docs live pass",
   "purpose": "A prediction recorded after the fact is not a prediction. These numbers are committed BEFORE live pass #2 runs so that the pass can falsify them. testkit/livepass_verify.py grades a fresh gdocs_qualification.json against this file and exits nonzero if the claim below is falsified.",
-
   "predicts_change": {
     "commit": "41e8e7f",
     "merge": "3299b6f",
@@ -16,39 +15,77 @@
     "profile_affected": "gdocs",
     "standard_profile_bytes_changed": false
   },
-
   "claim": {
     "id": "A-approx-zero",
     "statement": "Google Docs adds ~0pt of vertical space of its own at a flow-element boundary, so a DOCX must emit space_before verbatim.",
-    "measured_A_pt": 0.10,
-    "ci95_pt": [0.04, 0.21],
+    "measured_A_pt": 0.1,
+    "ci95_pt": [
+      0.04,
+      0.21
+    ],
     "n_boundaries": 187,
     "n_documents": 12,
     "scope": "single-column chunks only; two-column pages excluded because sorting elements by y interleaves the columns and 'consecutive' is undefined there",
     "method": "For each pair of consecutive flow elements, gap_delta = dy(first line of el i+1) - dy(last line of el i), measured on Google's own exported PDFs. The file asked for space_before - comp, so Docs' contribution is A = gap_delta + comp. Differencing two dy values cancels the paragraph's internal line-height error; a whole-page regression on cumulative compensation cannot, because there the two are collinear.",
     "by_class_pt": {
-      "into_body_paragraph": {"A": 0.04, "ci95": [-2.47, 0.07], "n": 147},
-      "into_heading": {"A": 0.75, "n": 40},
-      "into_table": {"A": 1.04, "ci95": [0.49, 1.67], "n": 17}
+      "into_body_paragraph": {
+        "A": 0.04,
+        "ci95": [
+          -2.47,
+          0.07
+        ],
+        "n": 147
+      },
+      "into_heading": {
+        "A": 0.75,
+        "n": 40
+      },
+      "into_table": {
+        "A": 1.04,
+        "ci95": [
+          0.49,
+          1.67
+        ],
+        "n": 17
+      }
     },
     "competing_model": {
       "id": "A-approx-three",
       "A_pt": 3.0,
       "origin": "testkit/docs_quirks.py probes written with lineRule=exact",
       "note": "The retired model. Under it, removing the subtraction makes Docs add ~3pt per boundary, so |dy| returns to roughly its pre-fix magnitude. That is what makes the two models separable per document."
+    },
+    "status": "CONFIRMED by live pass 2 (2026-08-04)",
+    "outcome": {
+      "predicted_vs_observed_dy_p50": {
+        "c6_long": [1.65, 1.67], "c8_toc_links": [1.71, 1.71],
+        "c7_code": [1.93, 1.93], "r1_reportlab_report": [0.60, 0.60],
+        "03_tech_report_code": [4.70, 4.10], "c2_paper2col": [3.53, 3.88]
+      },
+      "discriminating_documents_above_threshold": 0,
+      "page_match": "held on every document that held it before",
+      "blocking_findings": "11 -> 4",
+      "note": "All five discriminating documents landed inside tolerance and none approached its falsification threshold. The claim is settled, so no document discriminates any more; the entries below are now ordinary regression expectations."
     }
   },
-
   "baseline_evidence": {
-    "name": "gdocs_qualification.json",
-    "sha256": "6eae3c1ed3e2e7aeb81cbff49c152368602e3875d055b4335e6bc1ec525496e0",
+    "name": "gdocs-2026-08-04-pass2-qualification.json",
+    "sha256": "0d3e87afee065848568a1e5b1c83b62e3039a2bb9ae756fc2f7e9fb3f7dbb015",
     "run_date": "2026-08-04",
     "candidate_profile": "pdfium/gdocs/none/refine0@240dpi",
     "manifest_sha256": "cc4dd4c1c449ddabe85d7538454ed4a3d6163d762f68d2e59d97801e11c3c7da",
     "state": "pre-fix",
-    "note": "The compensation was ACTIVE in this run. Grading this evidence against these predictions must report it as the pre-fix baseline, not as a falsification."
+    "note": "Live pass 2. It is the run these pass-3 predictions are measured FROM, so grading it against them must report it as the baseline rather than as a wall of failures. The pass-1 baseline it replaces was sha256 6eae3c1e...; A-approx-zero was confirmed between the two and its entries are kept above as the settled record."
   },
-
+  "superseded_baselines": [
+    {
+      "name": "gdocs_qualification.json",
+      "sha256": "6eae3c1ed3e2e7aeb81cbff49c152368602e3875d055b4335e6bc1ec525496e0",
+      "run_date": "2026-08-04",
+      "state": "pass 1, pre-boundary-fix",
+      "note": "Retained so a pass-1 evidence file still grades as a baseline rather than as a falsification."
+    }
+  ],
   "prediction_method": {
     "name": "column-aware counterfactual",
     "description": "Every word's measured dy from the 2026-08-04 export, plus the cumulative compensation subtracted above it, reconstructs the drift the uncompensated file would have shown. Cumulative compensation resets at every page break and every ColBreak, because a fresh column starts at the top of the text area regardless of how much space was removed higher up.",
@@ -62,20 +99,25 @@
       "restoring ~3pt per boundary adds ~50pt per page on c6_long, which the model does not reflow"
     ]
   },
-
   "tolerance": {
     "default_pt": 4.0,
     "rationale": "The counterfactual is arithmetic, not a re-render. On the least-perturbed document in the corpus (f1_fpdf_brief) the residual |dy| floor is already 1.34pt, and the reflow the model ignores is worth several points on dense pages. A band tighter than this would fail on model error rather than on the claim."
   },
-
   "falsification_rule": {
-    "statement": "A-approx-zero is falsified if 2 or more of the discriminating documents exceed their falsifies_A0_above_pt.",
+    "statement": "A-approx-zero is falsified if 2 or more of the discriminating documents exceed their falsifies_A0_above_pt. SETTLED: live pass 2 put all five inside tolerance and none above threshold, so the discriminating set is now empty and this rule can no longer fire.",
     "min_documents_to_falsify": 2,
-    "discriminating_documents": ["c6_long", "c8_toc_links", "c2_paper2col", "r1_reportlab_report", "03_tech_report_code"],
-    "threshold_derivation": "falsifies_A0_above_pt is the midpoint between the predicted (A=0) and baseline (which A=3 would roughly reproduce in magnitude) dy_p50. Above the midpoint, A~3 explains the observation better than A~0. Only documents whose two hypotheses are separated by >=8pt are allowed to discriminate; the rest cannot tell the models apart and are reported without a verdict.",
-    "single_exceedance": "warn, do not falsify -- one document can be a reflow artefact"
+    "discriminating_documents": [],
+    "retired_discriminating_documents": {
+      "c6_long": {"threshold": 13.745, "observed": 1.67},
+      "c8_toc_links": {"threshold": 13.845, "observed": 1.71},
+      "c2_paper2col": {"threshold": 13.27, "observed": 3.88},
+      "r1_reportlab_report": {"threshold": 6.305, "observed": 0.6},
+      "03_tech_report_code": {"threshold": 9.04, "observed": 4.1}
+    },
+    "threshold_derivation": "falsifies_A0_above_pt was the midpoint between the predicted (A=0) and baseline (which A=3 would roughly reproduce in magnitude) dy_p50. Above the midpoint, A~3 explains the observation better than A~0. Only documents whose two hypotheses were separated by >=8pt were allowed to discriminate; the rest were reported without a verdict.",
+    "single_exceedance": "warn, do not falsify -- one document can be a reflow artefact",
+    "note": "The pass-3 entries below are ordinary regression expectations, not tests of a live claim. The open claims now are font_metric_claim and cover_band_claim, which carry their own falsification terms."
   },
-
   "font_metric_claim": {
     "id": "metric-fit-restores-packing",
     "statement": "Under the gdocs profile, substituting a family whose measured advance width matches the source and tracking out the residual makes Google Docs fit the same number of characters per line as the source producer did.",
@@ -85,7 +127,7 @@
       "dejavu_serif_vs_times_new_roman": -0.216,
       "dejavu_serif_vs_noto_serif": -0.063,
       "predicted_packing_before": 1.2758,
-      "observed_packing_before": 1.2950,
+      "observed_packing_before": 1.295,
       "agreement": "1.5%, on a document where 85 source characters per line became 105"
     },
     "predicted_after": {
@@ -93,147 +135,325 @@
       "tracking_twips_at_11pt": 7,
       "packing_ratio": 1.0018,
       "tolerance": 0.03,
-      "libreoffice_render_back": 1.0270,
+      "libreoffice_render_back": 1.027,
       "libreoffice_caveat": "LibreOffice cannot confirm Docs behaviour and is not offered as evidence of it. It is quoted because it renders the same font files: it measured the BROKEN case at 1.2932 against Google's observed 1.2950, agreeing to 0.14% on advance width specifically, which is the one quantity this fix controls."
     },
     "assumption_requiring_live_verification": "That Google Docs renders a run named 'Noto Serif' using the Noto Serif metrics measured here. Noto Serif is Google-authored, is listed in fonts.GDOCS_NATIVE, and Google Fonts ships the file measured -- but the 2026-08-04 export only ever exercised 'Times New Roman', so this is an assumption and not a measurement. If Docs substitutes something else, both the family choice and the computed tracking are wrong together.",
     "falsification": {
       "statement": "The claim is falsified if l1_word_native's measured packing ratio in the Google export stays above 1.10 -- i.e. the substitution and tracking did not move it materially off the 1.295 it started at.",
-      "packing_ratio_above": 1.10,
+      "packing_ratio_above": 1.1,
       "how_to_measure": "median (characters / line advance width) over full-width body lines of the export, divided by the same quantity on testkit/fixtures/l1_word_native.pdf",
       "degradation_note": "If Docs honours the family but drops w:spacing, the expected packing ratio is 1.067 rather than 1.0018 -- still a large improvement and NOT a falsification. The two mechanisms fail independently by design."
+    },
+    "status": "GRADED against live pass 2 -- NOT falsified, and the degradation branch is the one that happened",
+    "outcome": {
+      "measured_packing_ratio": 1.0637,
+      "falsification_threshold": 1.1,
+      "verdict": "not falsified",
+      "family_assumption": "HELD -- the export renders NotoSerif-Regular at 11pt for 862 of 866 body characters, so Docs has the family and used it",
+      "run_tracking": "DISCARDED by Docs. 1.0637 sits within 0.3% of the 1.067 predicted for 'family honoured, spacing dropped', and nowhere near the 1.0018 predicted with spacing honoured. fonts.GDOCS_HONOURS_RUN_TRACKING records this and the tracking is retired.",
+      "line_break_evidence": "The first body line now wraps identically to the source (85 characters, x 64.9->549.1 against 64.9->550.8) and the paragraph regained its sixth line.",
+      "why_dx_stayed_high": "dx_p50 41.76 and dx_p90 345.54 were NOT a packing failure. Substituting Noto Serif without adding its NATURAL_FACTORS entry left the exact->multiple line-height translation dividing by the 1.144 default against Noto Serif's true 1.360, so every line was 19% too tall: the export's pitch was 17.48pt where the source used 14.70. Word matching across vertically displaced lines is what produced the 345pt outliers. Fixing the advance width while breaking the line height traded one drift for another."
+    },
+    "line_height_correction": {
+      "family": "Noto Serif",
+      "natural_factor_was": 1.144,
+      "natural_factor_now": 1.36,
+      "derived_from_export": "1.144 * 17.48 / 14.70 = 1.360",
+      "font_file_cross_check": "(hhea.ascender - hhea.descender + hhea.lineGap)/unitsPerEm gives 1.362 for Noto Serif, and reproduces the whole existing table with a constant +0.006 offset: Arial 1.150/1.144, Times New Roman 1.150/1.144, Courier New 1.133/1.127, Georgia 1.136/1.130",
+      "predicted_pitch_after": "the emitted multiple 0.9833 gives 11 * 1.360 * 0.9833 = 14.71pt against the source's 14.70, a ratio of 1.0007",
+      "guard": "tests/test_font_metric_fit.py now requires every substitution candidate to carry a NATURAL_FACTORS entry, so a future family cannot repeat this."
+    },
+    "residual_after_pass3": {
+      "advance_width_deviation": -0.063,
+      "note": "Noto Serif is the closest family to DejaVu Serif among those measurable offline AND asserted Docs-native. With tracking discarded by Docs, this 6.3% is currently irreducible and still moves later line breaks within a paragraph, so l1's dx may not reach the 10pt bound on structure alone.",
+      "next_step": "A Docs font-metrics probe, built on the ride-along pattern that worked for the cover band: render candidate serif families (Merriweather, PT Serif, Lora, Libre Baskerville, EB Garamond) in Docs and measure advance per character, since their files cannot be measured offline here."
     }
   },
-
+  "cover_band_claim": {
+    "id": "band-side-bleed-reachable-top-floor-is-not",
+    "statement": "Google Docs honours a cover band's side margins exactly, so a true side bleed is reachable by asking for zero; it adds ~14.8pt above a page-leading band unconditionally, so a true top bleed is not.",
+    "measured_by": "testkit/probe_cover_band.py, live pass 2 exploration channel, one variable per page, against a LibreOffice control that honoured all twelve variants exactly",
+    "top_family": {
+      "requested": [0.0, 4.0, 8.0, 14.4, 20.0],
+      "rendered": [14.55, 18.83, 22.83, 29.23, 34.83],
+      "reading": "rendered = requested + ~14.8 throughout. An addition, not a clamp: no requested value reaches the page edge, and asking via header distance lands in the same place (header 14.4 with top 0 differs by 0.43pt)."
+    },
+    "side_family": {
+      "reading": "relative response tracks requests one-for-one at +2/+4/+8, so side margins are honoured exactly. The constant -24pt x-offset in the raw analyzer output is a coordinate-frame artifact of the probe page geometry, not a Docs behaviour."
+    },
+    "changes_made": [
+      "gdocs cover band asks for a 0pt side margin instead of 4pt, removing a 3.9pt white frame down each edge that was ours, not Google's",
+      "_GDOCS_COVER_BEFORE_COMP_TWIPS 290 -> 296 (14.5pt -> the measured 14.8pt)"
+    ],
+    "documented_limitation": "~14.6pt of white above a page-one band is unavoidable in Google Docs. The writer stops trying to beat it: compensation subtracts only where the source left 14.8pt or more, and accepts the floor below that."
+  },
+  "c2_ssim_diagnosis": {
+    "status": "diagnosed, not fixed",
+    "mean_ssim": 0.6772,
+    "bound": 0.7,
+    "geometry": "dx_p50 0.50, dy_p50 3.88, 48 lines on both sides with identical line breaks -- the words are in the right places",
+    "decomposition": {
+      "best_rigid_shift": "dy = -6px (-3.9pt) raises page 1 from 0.6772 to 0.8116, so most of the deficit is a vertical offset rather than content",
+      "glyph_shape_floor": "Liberation Serif against Times New Roman, same text, same size, same position, scores 0.9837 -- they are metric clones with identical advances, so the typeface substitution costs only ~1.6% and is NOT the problem",
+      "drift_profile": "+0.6pt at the title, +2.5 at the abstract, +6.3 at the first two-column heading, +8.1 at the page bottom: a step of roughly 3.8pt at the two-column section boundary, plus ~0.6% per line accumulating within the columns"
+    },
+    "why_not_fixed": "The step sits in continuous-section and column-start handling, which is the pagination agent's area, and c2's dy_p50 is already inside its bound at 3.88. SSIM at 8x8 windows on dense two-column text simply punishes a sub-4pt offset very hard.",
+    "next_step": "Attribute the ~3.8pt step at the two-column section boundary. It is a single measurable quantity and closing it should move mean_ssim most of the way from 0.6772 toward the 0.8116 that removing the offset already demonstrates."
+  },
   "documents": {
     "c6_long": {
-      "tier": "ordinary_digital", "src_pages": 7, "n_matched_words": 2554,
-      "baseline_dy_p50": 25.84, "predicted_dy_p50": 1.65, "tolerance_pt": 4.0,
-      "discriminating": true, "falsifies_A0_above_pt": 13.745,
-      "expect": "improves", "confidence": "high",
-      "note": "17.4 boundaries per page and 120 measured boundaries -- the strongest single piece of evidence for A~0, and the largest overflow risk."
+      "tier": "ordinary_digital",
+      "src_pages": 7,
+      "n_matched_words": 2554,
+      "baseline_dy_p50": 1.67,
+      "predicted_dy_p50": 1.67,
+      "tolerance_pt": 3.0,
+      "discriminating": false,
+      "falsifies_A0_above_pt": null,
+      "expect": "unchanged",
+      "confidence": "high",
+      "note": "Not touched by the pass-3 changes; it should reproduce its pass-2 value.",
+      "baseline_source": "live pass 2 (2026-08-04)"
     },
     "c8_toc_links": {
-      "tier": "ordinary_digital", "src_pages": 1, "n_matched_words": 133,
-      "baseline_dy_p50": 25.98, "predicted_dy_p50": 1.71, "tolerance_pt": 4.0,
-      "discriminating": true, "falsifies_A0_above_pt": 13.845,
-      "expect": "improves", "confidence": "high"
+      "tier": "ordinary_digital",
+      "src_pages": 1,
+      "n_matched_words": 133,
+      "baseline_dy_p50": 1.71,
+      "predicted_dy_p50": 1.71,
+      "tolerance_pt": 3.0,
+      "discriminating": false,
+      "falsifies_A0_above_pt": null,
+      "expect": "unchanged",
+      "confidence": "high",
+      "baseline_source": "live pass 2 (2026-08-04)",
+      "note": "Not touched by the pass-3 changes; it should reproduce its pass-2 value."
     },
     "c2_paper2col": {
-      "tier": "ordinary_digital", "src_pages": 1, "n_matched_words": 382,
-      "baseline_dy_p50": 23.01, "predicted_dy_p50": 3.53, "tolerance_pt": 4.0,
-      "discriminating": true, "falsifies_A0_above_pt": 13.27,
-      "expect": "improves", "confidence": "medium",
-      "note": "Two-column, so it was excluded from the boundary measurement. The prediction is column-aware but rests on the model rather than on this document's own boundaries -- the least-supported of the discriminating set."
+      "tier": "ordinary_digital",
+      "src_pages": 1,
+      "n_matched_words": 382,
+      "baseline_dy_p50": 3.88,
+      "predicted_dy_p50": 3.88,
+      "tolerance_pt": 3.0,
+      "discriminating": false,
+      "falsifies_A0_above_pt": null,
+      "expect": "unchanged",
+      "confidence": "high",
+      "note": "Not touched by the pass-3 changes; it should reproduce its pass-2 value.",
+      "baseline_source": "live pass 2 (2026-08-04)"
     },
     "r1_reportlab_report": {
-      "tier": "ordinary_digital", "src_pages": 1, "n_matched_words": 190,
-      "baseline_dy_p50": 12.01, "predicted_dy_p50": 0.60, "tolerance_pt": 4.0,
-      "discriminating": true, "falsifies_A0_above_pt": 6.305,
-      "expect": "improves", "confidence": "high"
+      "tier": "ordinary_digital",
+      "src_pages": 1,
+      "n_matched_words": 190,
+      "baseline_dy_p50": 0.6,
+      "predicted_dy_p50": 0.6,
+      "tolerance_pt": 3.0,
+      "discriminating": false,
+      "falsifies_A0_above_pt": null,
+      "expect": "unchanged",
+      "confidence": "high",
+      "baseline_source": "live pass 2 (2026-08-04)",
+      "note": "Not touched by the pass-3 changes; it should reproduce its pass-2 value."
     },
     "03_tech_report_code": {
-      "tier": "ordinary_digital", "src_pages": 2, "n_matched_words": 265,
-      "baseline_dy_p50": 13.38, "predicted_dy_p50": 4.70, "tolerance_pt": 4.0,
-      "discriminating": true, "falsifies_A0_above_pt": 9.04,
-      "expect": "improves", "confidence": "high"
+      "tier": "ordinary_digital",
+      "src_pages": 2,
+      "n_matched_words": 265,
+      "baseline_dy_p50": 4.1,
+      "predicted_dy_p50": 4.1,
+      "tolerance_pt": 3.0,
+      "discriminating": false,
+      "falsifies_A0_above_pt": null,
+      "expect": "unchanged",
+      "confidence": "high",
+      "baseline_source": "live pass 2 (2026-08-04)",
+      "note": "Not touched by the pass-3 changes; it should reproduce its pass-2 value."
     },
     "c7_code": {
-      "tier": "ordinary_digital", "src_pages": 1, "n_matched_words": 159,
-      "baseline_dy_p50": 5.61, "predicted_dy_p50": 1.93, "tolerance_pt": 4.0,
-      "discriminating": false, "falsifies_A0_above_pt": null,
-      "expect": "improves", "confidence": "high",
-      "note": "Already inside the bound before the fix, so it cannot discriminate, but it is one of the five documents whose dy the fix is meant to clear."
+      "tier": "ordinary_digital",
+      "src_pages": 1,
+      "n_matched_words": 159,
+      "baseline_dy_p50": 1.93,
+      "predicted_dy_p50": 1.93,
+      "tolerance_pt": 3.0,
+      "discriminating": false,
+      "falsifies_A0_above_pt": null,
+      "expect": "unchanged",
+      "confidence": "high",
+      "note": "Not touched by the pass-3 changes; it should reproduce its pass-2 value.",
+      "baseline_source": "live pass 2 (2026-08-04)"
     },
     "c1_whitepaper": {
-      "tier": "ordinary_digital", "src_pages": 2, "n_matched_words": 320,
-      "baseline_dy_p50": 13.55, "predicted_dy_p50": 10.44, "tolerance_pt": 4.0,
-      "discriminating": false, "falsifies_A0_above_pt": null,
-      "expect": "improves", "confidence": "low",
-      "note": "Predicted to land marginally OVER the 10.0 bound. Page 2 matched only 32 words at dy -55, which smells like a pagination effect the counterfactual does not model. Expect this one to stay blocking or sit on the line."
+      "tier": "ordinary_digital",
+      "src_pages": 2,
+      "n_matched_words": 320,
+      "baseline_dy_p50": 9.3,
+      "predicted_dy_p50": 9.3,
+      "tolerance_pt": 3.0,
+      "discriminating": false,
+      "falsifies_A0_above_pt": null,
+      "expect": "unchanged",
+      "confidence": "high",
+      "note": "Not touched by the pass-3 changes; it should reproduce its pass-2 value.",
+      "baseline_source": "live pass 2 (2026-08-04)"
     },
     "l1_word_native": {
-      "tier": "ordinary_digital", "src_pages": 1, "n_matched_words": 141,
-      "baseline_dy_p50": 19.35, "predicted_dy_p50": 4.0, "tolerance_pt": 6.0,
-      "discriminating": false, "falsifies_A0_above_pt": null,
-      "expect": "improves", "confidence": "low",
+      "tier": "ordinary_digital",
+      "src_pages": 1,
+      "n_matched_words": 141,
+      "baseline_dy_p50": 15.19,
+      "predicted_dy_p50": 4.0,
+      "tolerance_pt": 8.0,
+      "discriminating": false,
+      "falsifies_A0_above_pt": null,
+      "expect": "improves",
+      "confidence": "low",
       "superseded": {
         "previous_predicted_dy_p50": 12.26,
         "previous_expect": "improves-but-still-blocking",
         "reason": "That prediction assumed only the boundary compensation was removed and the font mapping was left alone, so it still carried l1's re-wrap. The metric fit now substitutes the family and tracks out the residual, which restores the source line breaks and with them the lines the paragraphs were losing.",
         "superseded_by": "gdocs metric fit (exactdoc/fonts.metric_fit)"
       },
-      "note": "dy here is now bounded by two corrections rather than one, and the counterfactual cannot simulate re-wrap, so this number is deliberately low-confidence with a wide band. The sharp, falsifiable claim for this document is the packing ratio and dx_p50 -- see font_metric_claim."
+      "note": "Line height corrected: Noto Serif's natural factor is 1.360, not the 1.144 default the substitution silently inherited, so pass 2 rendered this document at a 17.48pt pitch against the source's 14.70. The emitted multiple now predicts 14.71pt. dx should also fall as lines stop drifting vertically, but the 6.3% advance-width residual against Noto Serif still moves later line breaks and Docs discards the tracking that used to close it.",
+      "baseline_source": "live pass 2 (2026-08-04)"
     },
     "02_research_paper": {
-      "tier": "ordinary_digital", "src_pages": 2, "n_matched_words": 394,
-      "baseline_dy_p50": 9.00, "predicted_dy_p50": 7.35, "tolerance_pt": 4.0,
-      "discriminating": false, "falsifies_A0_above_pt": null,
-      "expect": "improves", "confidence": "medium",
-      "note": "Two-column. An earlier non-column-aware counterfactual wrongly predicted this would worsen to 16.95; assigning cumulative compensation by y alone is invalid across columns. The column-aware model predicts a slight improvement."
+      "tier": "ordinary_digital",
+      "src_pages": 2,
+      "n_matched_words": 394,
+      "baseline_dy_p50": 7.87,
+      "predicted_dy_p50": 7.87,
+      "tolerance_pt": 3.0,
+      "discriminating": false,
+      "falsifies_A0_above_pt": null,
+      "expect": "unchanged",
+      "confidence": "high",
+      "note": "Not touched by the pass-3 changes; it should reproduce its pass-2 value.",
+      "baseline_source": "live pass 2 (2026-08-04)"
     },
     "01_whitepaper_market": {
-      "tier": "ordinary_digital", "src_pages": 3, "n_matched_words": 705,
-      "baseline_dy_p50": 5.86, "predicted_dy_p50": 8.25, "tolerance_pt": 4.0,
-      "discriminating": false, "falsifies_A0_above_pt": null,
-      "expect": "worsens-within-bound", "confidence": "medium",
-      "note": "The subtraction was accidentally cancelling genuine positive drift here. Predicted to worsen but stay under 10.0."
+      "tier": "ordinary_digital",
+      "src_pages": 3,
+      "n_matched_words": 705,
+      "baseline_dy_p50": 8.24,
+      "predicted_dy_p50": 7.5,
+      "tolerance_pt": 4.0,
+      "discriminating": false,
+      "falsifies_A0_above_pt": null,
+      "expect": "improves",
+      "confidence": "low",
+      "note": "Cover band now asks for a zero side margin (Docs honours side margins exactly) and compensates 14.8pt rather than 14.5pt above the band.",
+      "baseline_source": "live pass 2 (2026-08-04)"
     },
     "04_exec_brief": {
-      "tier": "ordinary_digital", "src_pages": 2, "n_matched_words": 164,
-      "baseline_dy_p50": 2.59, "predicted_dy_p50": 7.73, "tolerance_pt": 4.0,
-      "discriminating": false, "falsifies_A0_above_pt": null,
-      "expect": "worsens-within-bound", "confidence": "medium"
+      "tier": "ordinary_digital",
+      "src_pages": 2,
+      "n_matched_words": 164,
+      "baseline_dy_p50": 7.35,
+      "predicted_dy_p50": 7.0,
+      "tolerance_pt": 4.0,
+      "discriminating": false,
+      "falsifies_A0_above_pt": null,
+      "expect": "improves",
+      "confidence": "low",
+      "baseline_source": "live pass 2 (2026-08-04)",
+      "note": "Cover band side/top changes as for 01_whitepaper_market."
     },
     "05_memo": {
-      "tier": "ordinary_digital", "src_pages": 1, "n_matched_words": 78,
-      "baseline_dy_p50": 6.87, "predicted_dy_p50": 7.93, "tolerance_pt": 4.0,
-      "discriminating": false, "falsifies_A0_above_pt": null,
-      "expect": "worsens-within-bound", "confidence": "medium"
+      "tier": "ordinary_digital",
+      "src_pages": 1,
+      "n_matched_words": 78,
+      "baseline_dy_p50": 5.13,
+      "predicted_dy_p50": 5.13,
+      "tolerance_pt": 3.0,
+      "discriminating": false,
+      "falsifies_A0_above_pt": null,
+      "expect": "unchanged",
+      "confidence": "high",
+      "baseline_source": "live pass 2 (2026-08-04)",
+      "note": "Not touched by the pass-3 changes; it should reproduce its pass-2 value."
     },
     "f1_fpdf_brief": {
-      "tier": "ordinary_digital", "src_pages": 1, "n_matched_words": 124,
-      "baseline_dy_p50": 1.34, "predicted_dy_p50": 0.14, "tolerance_pt": 4.0,
-      "discriminating": false, "falsifies_A0_above_pt": null,
-      "expect": "improves", "confidence": "high",
-      "note": "Only 4 boundaries per page. Its 1.34pt baseline is the corpus residual floor and is what sets the tolerance."
+      "tier": "ordinary_digital",
+      "src_pages": 1,
+      "n_matched_words": 124,
+      "baseline_dy_p50": 0.14,
+      "predicted_dy_p50": 0.14,
+      "tolerance_pt": 3.0,
+      "discriminating": false,
+      "falsifies_A0_above_pt": null,
+      "expect": "unchanged",
+      "confidence": "high",
+      "note": "Not touched by the pass-3 changes; it should reproduce its pass-2 value.",
+      "baseline_source": "live pass 2 (2026-08-04)"
     },
     "c3_tables": {
-      "tier": "designed_stress", "src_pages": 3, "n_matched_words": 501,
-      "baseline_dy_p50": 7.66, "predicted_dy_p50": 10.28, "tolerance_pt": 4.0,
-      "discriminating": false, "falsifies_A0_above_pt": null,
-      "expect": "worsens-crosses-bound", "confidence": "medium",
-      "note": "Predicted to cross the 10.0 bound. Non-blocking tier, but it is a real predicted regression and should be reported rather than absorbed."
+      "tier": "designed_stress",
+      "src_pages": 3,
+      "n_matched_words": 501,
+      "baseline_dy_p50": 7.85,
+      "predicted_dy_p50": 7.85,
+      "tolerance_pt": 3.0,
+      "discriminating": false,
+      "falsifies_A0_above_pt": null,
+      "expect": "unchanged",
+      "confidence": "high",
+      "note": "Not touched by the pass-3 changes; it should reproduce its pass-2 value.",
+      "baseline_source": "live pass 2 (2026-08-04)"
     },
     "c4_i18n": {
-      "tier": "designed_stress", "src_pages": 1, "n_matched_words": 92,
-      "baseline_dy_p50": 12.61, "predicted_dy_p50": 13.73, "tolerance_pt": 4.0,
-      "discriminating": false, "falsifies_A0_above_pt": null,
-      "expect": "worsens-within-existing-failure", "confidence": "low",
-      "note": "Already over the bound before the fix and stays over."
+      "tier": "designed_stress",
+      "src_pages": 1,
+      "n_matched_words": 92,
+      "baseline_dy_p50": 3.07,
+      "predicted_dy_p50": 3.07,
+      "tolerance_pt": 3.0,
+      "discriminating": false,
+      "falsifies_A0_above_pt": null,
+      "expect": "unchanged",
+      "confidence": "high",
+      "note": "Not touched by the pass-3 changes; it should reproduce its pass-2 value.",
+      "baseline_source": "live pass 2 (2026-08-04)"
     },
     "c5_graphics": {
-      "tier": "designed_stress", "src_pages": 1, "n_matched_words": 15,
-      "baseline_dy_p50": 14.31, "predicted_dy_p50": null, "tolerance_pt": null,
-      "discriminating": false, "falsifies_A0_above_pt": null,
-      "expect": "no-prediction", "confidence": "none",
-      "note": "page_match was already false and only 15 words matched. There is not enough signal to predict, and pretending otherwise would manufacture a number."
+      "tier": "designed_stress",
+      "src_pages": 1,
+      "n_matched_words": 15,
+      "baseline_dy_p50": 14.31,
+      "predicted_dy_p50": 14.31,
+      "tolerance_pt": 3.0,
+      "discriminating": false,
+      "falsifies_A0_above_pt": null,
+      "expect": "unchanged",
+      "confidence": "high",
+      "note": "Not touched by the pass-3 changes; it should reproduce its pass-2 value.",
+      "baseline_source": "live pass 2 (2026-08-04)"
     }
   },
-
   "checks": [
     {
       "id": "newly_cleared_dy",
       "kind": "dy_prediction",
       "description": "The five documents whose dy_p50 blocker this fix is meant to clear must land within tolerance of prediction AND under the 10.0pt bound.",
-      "documents": ["c6_long", "c8_toc_links", "r1_reportlab_report", "03_tech_report_code", "c7_code"],
+      "documents": [
+        "c6_long",
+        "c8_toc_links",
+        "r1_reportlab_report",
+        "03_tech_report_code",
+        "c7_code"
+      ],
       "bound_pt": 10.0
     },
     {
       "id": "c1_marginal",
       "kind": "dy_prediction",
       "description": "c1_whitepaper is predicted at 10.44 against a 10.0 bound. Report which side it lands on; a miss here is model error, not falsification, because its page 2 matched only 32 words at dy -55 (suspected pagination effect).",
-      "documents": ["c1_whitepaper"],
+      "documents": [
+        "c1_whitepaper"
+      ],
       "bound_pt": 10.0,
       "advisory": true
     },
@@ -241,19 +461,34 @@
       "id": "overflow_page_match",
       "kind": "page_match",
       "description": "Restoring ~3pt per boundary adds roughly 50pt per page on c6_long. The counterfactual does not simulate reflow, so page_match must be confirmed on every multi-page document.",
-      "documents": ["c6_long", "01_whitepaper_market", "c3_tables", "02_research_paper", "03_tech_report_code", "04_exec_brief", "c1_whitepaper"]
+      "documents": [
+        "c6_long",
+        "01_whitepaper_market",
+        "c3_tables",
+        "02_research_paper",
+        "03_tech_report_code",
+        "04_exec_brief",
+        "c1_whitepaper"
+      ]
     },
     {
       "id": "c2_ssim_improves",
       "kind": "metric_improves",
       "description": "c2_paper2col mean_ssim should rise from its pre-fix 0.6532 as its dy collapses from 23.01 to a predicted 3.53. This is the least-supported prediction in the set: two-column pages were excluded from the boundary measurement.",
-      "document": "c2_paper2col", "metric": "mean_ssim", "baseline": 0.6532, "direction": "up"
+      "document": "c2_paper2col",
+      "metric": "mean_ssim",
+      "baseline": 0.6532,
+      "direction": "up"
     },
     {
       "id": "expected_worsening",
       "kind": "dy_prediction",
       "description": "Documents where the subtraction was accidentally cancelling genuine positive drift. These are PREDICTED to get worse; worsening here confirms the model rather than contradicting it. All must stay under the 10.0pt bound.",
-      "documents": ["01_whitepaper_market", "04_exec_brief", "05_memo"],
+      "documents": [
+        "01_whitepaper_market",
+        "04_exec_brief",
+        "05_memo"
+      ],
       "bound_pt": 10.0
     },
     {
@@ -261,21 +496,34 @@
       "kind": "page_ssim_split",
       "description": "01_whitepaper_market mean_ssim should rise, driven by pages 2 and 3. Page 1 should NOT materially improve: its 0.6183 is dominated by the cover band, which Google renders 14.4pt below the page top with a 3.9pt white frame, and that floor is untouched by this change.",
       "document": "01_whitepaper_market",
-      "unchanged_pages": {"1": 0.6183}, "unchanged_tolerance": 0.05,
-      "improved_pages": {"2": 0.674, "3": 0.7245}
+      "unchanged_pages": {
+        "1": 0.6183
+      },
+      "unchanged_tolerance": 0.05,
+      "improved_pages": {
+        "2": 0.674,
+        "3": 0.7245
+      }
     },
     {
       "id": "l1_rewrap_is_fixed",
       "kind": "metric_max",
       "description": "l1_word_native's dx_p50 was 63.65pt, driven entirely by re-wrap: Times New Roman is 21.6% narrower than the source's DejaVu Serif, so 85 characters per line became 105 and matched words landed on different lines. With the family substituted to Noto Serif and the residual tracked out, the re-wrap should be gone and dx must come inside the 10.0pt bound. A dx still in the tens of points means the substitution did not take effect in Docs.",
-      "document": "l1_word_native", "metric": "dx_p50", "max": 10.0
+      "document": "l1_word_native",
+      "metric": "dx_p50",
+      "max": 10.0
     },
     {
       "id": "l1_table_indent_residual",
       "kind": "expected_blocking",
       "description": "Separately measured and deliberately NOT fixed: l1's table cells render 5.5pt right of source because the gdocs tcMar relocation (ff518be) removed an accident that was compensating a table whose true column boundary sits left of the text margin. It is inside the bound, affects 13 of 141 matched words, and reverting it would re-break c7_code. Reported so it is not mistaken for a font-fit failure.",
       "document": "l1_word_native",
-      "metrics": {"dx_p90": {"expect_near": 6.0, "tolerance": 12.0}},
+      "metrics": {
+        "dx_p90": {
+          "expect_near": 6.0,
+          "tolerance": 12.0
+        }
+      },
       "advisory": true
     }
   ]

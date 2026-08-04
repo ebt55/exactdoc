@@ -102,6 +102,30 @@ class LivePassVerifyTests(unittest.TestCase):
             self.assertEqual({c["status"] for c in report["checks"]}, {"baseline"})
             self.assertEqual(V.main([e2, "--predictions", p]), V.EXIT_OK)
 
+    def test_a_superseded_baseline_still_grades_as_baseline(self):
+        """Once a claim is settled the baseline moves forward.
+
+        The older evidence is still the run an earlier set of predictions was
+        measured from, so re-grading it must report a baseline rather than a
+        wall of missed predictions.
+        """
+        import hashlib
+        with tempfile.TemporaryDirectory() as work:
+            evid = _evidence(2.0, 1.0, 3.8)      # nothing like the baselines
+            p, e = self._write(work, _predictions(), evid)
+            with open(e, "rb") as fh:
+                digest = hashlib.sha256(fh.read()).hexdigest()
+            preds = _predictions()
+            preds["superseded_baselines"] = [
+                {"sha256": digest, "state": "pass 1, pre-boundary-fix"}]
+            report, _, e2 = self._grade(work, preds, evid)
+            self.assertEqual(report["state"], "pre-fix")
+            self.assertIn("superseded baseline", report["state_reason"])
+            self.assertTrue(report["falsification"]["skipped"])
+            self.assertEqual(V.main([e2, "--predictions",
+                                     self._write(work, preds, evid)[0]]),
+                             V.EXIT_OK)
+
     def test_pre_fix_detected_by_values_when_hash_differs(self):
         # The recorded hash breaks the moment anyone reformats the file, so the
         # value agreement has to stand on its own.

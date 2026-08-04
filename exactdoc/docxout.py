@@ -374,6 +374,19 @@ WRAP_CORRECTION = False
 NATURAL_FACTORS = {
     "arial": 1.144, "times new roman": 1.144, "courier new": 1.127,
     "georgia": 1.130, "roboto": 1.194,
+    # Added when the metric fit began substituting these families. Docs' live
+    # pass 2 rendered l1_word_native in Noto Serif at a 17.48pt pitch where the
+    # source used 14.70pt: dividing by the 1.144 default inflated every line by
+    # 19%, which is the whole of that document's remaining dy. Deriving the
+    # factor back out of that export gives 1.144 * 17.48 / 14.70 = 1.360.
+    #
+    # The font files agree and explain the whole table. With
+    #     (hhea.ascender - hhea.descender + hhea.lineGap) / unitsPerEm
+    # Arial reads 1.150, Times New Roman 1.150, Courier New 1.133 and Georgia
+    # 1.136 -- each exactly 0.006 above its Docs-measured value here, a constant
+    # offset across four independently probed families. Noto Serif reads 1.362
+    # by the same formula, so 1.356 predicted against 1.360 observed.
+    "noto serif": 1.360, "noto sans": 1.356, "verdana": 1.209,
 }
 NATURAL_DEFAULT = 1.144
 # The two encodings. Which one is used is a per-write decision carried in
@@ -689,7 +702,24 @@ def _fit_col_widths(t: TableEl, content_w: float = 0.0) -> List[float]:
     return widths
 
 
-_GDOCS_COVER_BEFORE_COMP_TWIPS = 290  # Google adds about 14.5pt above a band.
+# Google adds ~14.8pt of its own above a page-leading band, and it is an
+# ADDITION, not a clamp. Measured by testkit/probe_cover_band.py in live pass 2,
+# one variable per page, against a LibreOffice control that honoured all twelve
+# variants exactly:
+#
+#     requested top   0.0    4.0    8.0   14.4   20.0
+#     Docs rendered  14.55  18.83  22.83  29.23  34.83
+#
+# so rendered = requested + ~14.8 throughout, with no value of the section top
+# margin reaching the page edge. Asking for a header distance instead lands in
+# the same place (header 14.4 with top 0 differs by 0.43pt).
+#
+# Two consequences. Compensation can only subtract where the source actually
+# left 14.8pt or more above the band; below that the remainder is a floor and
+# `max(0, ...)` accepts it rather than inventing negative spacing. And a true
+# top bleed is UNREACHABLE in Google Docs -- roughly 14.6pt of white above a
+# page-one band is a documented limitation of the target, not a defect here.
+_GDOCS_COVER_BEFORE_COMP_TWIPS = 296  # 14.8pt, measured above
 
 # ---- Google Docs paragraph boundaries: nothing to compensate --------------
 # This profile briefly subtracted 3.0pt of space_before at every flow-element
@@ -1259,7 +1289,14 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
 
     sec = doc.sections[0]
     has_cover = lay.cover_band is not None
-    band_bleed = 4.0  # cover band section: near-zero side margins => full-bleed band
+    # Cover-band section side margins. The 4pt was a hedge against renderers
+    # refusing a zero margin, and it cost a visible 3.9pt white frame down both
+    # edges of every Google cover page -- the source band bleeds to the paper.
+    # probe_cover_band's SIDE family measured Docs honouring side margins
+    # exactly (requests of 0/2/4/8 tracked one-for-one), so under the gdocs
+    # profile it can simply ask for zero and get a true bleed. Other targets
+    # keep the hedge, which also keeps the standard profile byte-identical.
+    band_bleed = 0.0 if ctx.output_profile == "gdocs" else 4.0
     if has_cover:
         _config_section(sec, lay, margin_t=lay.cover_top, cols=1, margin_lr=band_bleed)
         sec.header_distance = Emu(0)  # body must start flush at the band

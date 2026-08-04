@@ -57,25 +57,22 @@ def iter_runs(lay: DocLayout):
 
 
 def apply_metric_fit(lay: DocLayout) -> int:
-    """Rewrite run fonts and tracking in place. Returns how many runs moved.
+    """Rewrite run fonts in place. Returns how many runs changed family.
 
     Mutates, because `_write_docx` has already deep-copied the layout and
-    purity is its contract, not this pass's. Tracking is ADDED to whatever a
-    run already carries: inference sets `char_spacing` to reproduce TeX's
-    inter-word shrink, and that correction and this one describe different
-    things about the same run.
+    purity is its contract, not this pass's.
+
+    This used to also add run-level tracking to close the residual deviation.
+    Live pass 2 measured Google Docs discarding w:spacing entirely, so that
+    half is retired (see fonts.GDOCS_HONOURS_RUN_TRACKING) and `Run.char_spacing`
+    is left to inference, which uses it for TeX's inter-word shrink.
     """
     changed = 0
     for run in iter_runs(lay):
         if run.is_tab or not run.text:
             continue
-        family, track = metric_fit(run.font, mono=run.mono, serif=run.serif)
-        moved = False
+        family = metric_fit(run.font, mono=run.mono, serif=run.serif)
         if family != run.font:
             run.font = family
-            moved = True
-        if track:
-            run.char_spacing = run.char_spacing + track * run.size
-            moved = True
-        changed += 1 if moved else 0
+            changed += 1
     return changed

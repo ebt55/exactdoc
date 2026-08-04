@@ -60,10 +60,20 @@ class GoogleDocsWriterFixes(unittest.TestCase):
             write_docx(_cover_layout(), str(gdocs), output_profile="gdocs")
 
             # Standard preserves the original cell-padding form.  Google Docs receives
-            # the same horizontal position as paragraph indentation and 290 fewer twips
-            # only on the first real cover paragraph.
+            # the same horizontal position as paragraph indentation, less the space
+            # Docs adds above a page-leading band.
+            #
+            # Both gdocs numbers moved when live pass 2 measured the band:
+            #   before 400 - 296 = 104 twips.  The compensation was 290 (14.5pt);
+            #   the probe measured Docs adding 14.8pt, as an ADDITION at every
+            #   requested top margin rather than a clamp.
+            #   indent 1960 -> 2040.  The gdocs band now asks for a zero side
+            #   margin instead of 4pt, because the probe measured Docs honouring
+            #   side margins exactly, so the 4pt white frame down each edge of
+            #   every cover page was ours and not Google's.  Page-one elements are
+            #   shifted by the full margin to keep their x, hence 80 more twips.
             self.assertEqual(_first_table_values(standard), ("1960", "400", None))
-            self.assertEqual(_first_table_values(gdocs), ("0", "110", "1960"))
+            self.assertEqual(_first_table_values(gdocs), ("0", "104", "2040"))
 
 
     def test_gdocs_moves_left_padding_for_ordinary_tables_too(self):

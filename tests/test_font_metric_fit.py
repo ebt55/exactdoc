@@ -15,10 +15,11 @@ from docx import Document
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from exactdoc.docxout import WriteCtx, write_docx, write_para          # noqa: E402
-from exactdoc.fonts import (FAMILY_METRICS, METRIC_SUBSTITUTE_DEV,     # noqa: E402
-                            METRIC_TRACK_DEV, family_keys, family_metrics,
-                            map_font, metric_fit)
+from exactdoc.docxout import (NATURAL_FACTORS, WriteCtx, write_docx,   # noqa: E402
+                              write_para)
+from exactdoc.fonts import (FAMILY_METRICS, GDOCS_HONOURS_RUN_TRACKING,  # noqa: E402
+                            METRIC_SUBSTITUTE_DEV, family_keys,
+                            family_metrics, map_font, metric_fit)
 from exactdoc.gdocs_metrics import apply_metric_fit, iter_runs         # noqa: E402
 from exactdoc.layout import (Cell, Chunk, DocLayout, HFPart, PageLayout,  # noqa: E402
                              Para, Run, TableEl)
@@ -98,56 +99,69 @@ class MetricFitTests(unittest.TestCase):
                      ("liberationmono", "couriernew")):
             self.assertEqual(FAMILY_METRICS[a][0], FAMILY_METRICS[b][0])
 
-    def test_dejavu_serif_is_substituted_and_tracked(self):
-        family, track = metric_fit("DejaVuSerif", serif=True)
-        self.assertEqual(family, "Noto Serif")
-        # residual is the measured gap per point of font size
-        expected = FAMILY_METRICS["dejavuserif"][0] - FAMILY_METRICS["notoserif"][0]
-        self.assertAlmostEqual(track, expected, places=6)
-        self.assertAlmostEqual(track * 11.0, 0.360, places=3)
-
-    def test_dejavu_sans_is_substituted_but_needs_no_tracking(self):
-        # Verdana measures +0.2% against DejaVu Sans -- inside the track floor
-        family, track = metric_fit("DejaVuSans", serif=False)
-        self.assertEqual(family, "Verdana")
-        self.assertEqual(track, 0.0)
+    def test_dejavu_families_are_substituted(self):
+        self.assertEqual(metric_fit("DejaVuSerif", serif=True), "Noto Serif")
+        self.assertEqual(metric_fit("DejaVuSans", serif=False), "Verdana")
 
     def test_a_metric_compatible_mapping_is_left_alone(self):
         for name, mono, serif in (("LiberationSerif", False, True),
                                   ("LiberationSans", False, False),
                                   ("LiberationMono", True, False),
                                   ("DejaVuSansMono", True, False)):
-            family, track = metric_fit(name, mono=mono, serif=serif)
-            self.assertEqual(family, map_font(name, mono=mono, serif=serif), name)
-            self.assertEqual(track, 0.0, name)
+            self.assertEqual(metric_fit(name, mono=mono, serif=serif),
+                             map_font(name, mono=mono, serif=serif), name)
 
     def test_an_unmeasured_family_is_never_guessed_at(self):
         """Absent measurement is not deviation zero -- it is 'do not act'."""
         for name in ("Helvetica", "Times-Roman", "Calibri", "OpenSymbol",
                      "HelveticaNeueLTStd-Roman", "SomeFoundryFont"):
             self.assertIsNone(family_metrics(name), name)
-            family, track = metric_fit(name, serif=True)
-            self.assertEqual(family, map_font(name, serif=True), name)
-            self.assertEqual(track, 0.0, name)
+            self.assertEqual(metric_fit(name, serif=True),
+                             map_font(name, serif=True), name)
 
-    def test_thresholds_are_ordered_and_respected(self):
-        self.assertLess(METRIC_TRACK_DEV, METRIC_SUBSTITUTE_DEV)
+    def test_substitution_threshold_is_clear_of_the_working_mappings(self):
         src = FAMILY_METRICS["dejavusans"][0]
-        # the chosen sans candidate is inside the track floor ...
-        self.assertLess(abs(FAMILY_METRICS["verdana"][0] / src - 1),
-                        METRIC_TRACK_DEV)
-        # ... while the one it replaced was past the substitution threshold
+        # the family it replaced was past the threshold ...
         self.assertGreater(abs(FAMILY_METRICS["arial"][0] / src - 1),
                            METRIC_SUBSTITUTE_DEV)
+        # ... and every mapping that already works is far inside it
+        for a, b in (("liberationserif", "timesnewroman"),
+                     ("liberationsans", "arial"),
+                     ("liberationmono", "couriernew"),
+                     ("dejavusansmono", "couriernew")):
+            dev = abs(FAMILY_METRICS[b][0] / FAMILY_METRICS[a][0] - 1)
+            self.assertLess(dev, METRIC_SUBSTITUTE_DEV, "%s->%s" % (a, b))
 
     def test_substitution_always_moves_closer_to_the_source(self):
         for name, mono, serif in (("DejaVuSerif", False, True),
                                   ("DejaVuSans", False, False)):
             src = family_metrics(name)[0]
             before = family_metrics(map_font(name, mono=mono, serif=serif))[0]
-            family, _ = metric_fit(name, mono=mono, serif=serif)
-            after = family_metrics(family)[0]
+            after = family_metrics(metric_fit(name, mono=mono, serif=serif))[0]
             self.assertLess(abs(after / src - 1), abs(before / src - 1), name)
+
+    def test_every_substitution_candidate_has_a_measured_line_height(self):
+        """The guard for the defect live pass 2 found.
+
+        Substituting on advance width alone is half a fix: the gdocs profile
+        also divides by NATURAL_FACTORS to turn exact leading into the multiple
+        Docs honours. Noto Serif went in without an entry, silently took the
+        1.144 default against its true 1.360, and rendered l1_word_native at a
+        17.48pt pitch where the source used 14.70 -- trading a horizontal drift
+        for a vertical one. Any future candidate must bring both measurements.
+        """
+        from exactdoc.fonts import _CANDIDATES
+        for cls, families in _CANDIDATES.items():
+            for fam in families:
+                self.assertIn(fam.lower(), NATURAL_FACTORS,
+                              "%s is a substitution candidate with no measured "
+                              "natural line height" % fam)
+
+    def test_run_tracking_is_retired_because_docs_discards_it(self):
+        # Pass 2 emitted 7 twips per run on l1_word_native, which would have put
+        # its packing ratio at 1.0018; the export came back at 1.0637, within
+        # 0.3% of the 1.067 predicted for "family honoured, spacing dropped".
+        self.assertFalse(GDOCS_HONOURS_RUN_TRACKING)
 
 
 class LayoutWalkTests(unittest.TestCase):
@@ -171,22 +185,21 @@ class LayoutWalkTests(unittest.TestCase):
         self.assertEqual(texts, ["band", "body", "cell", "flow", "footer",
                                  "header", "r1", "r2"])
 
-    def test_apply_rewrites_font_and_tracking_everywhere(self):
+    def test_apply_rewrites_font_everywhere(self):
         lay = self._layout()
         moved = apply_metric_fit(lay)
         self.assertEqual(moved, 8)
         for run in iter_runs(lay):
             self.assertEqual(run.font, "Noto Serif", run.text)
-            self.assertAlmostEqual(run.char_spacing, 0.360, places=3)
 
-    def test_existing_tracking_is_added_to_not_replaced(self):
-        # inference sets char_spacing to reproduce TeX's inter-word shrink; the
-        # two corrections describe different things and must compose.
+    def test_inference_tracking_is_left_alone(self):
+        # char_spacing belongs to inference (TeX's inter-word shrink) now that
+        # the metric fit no longer writes it.
         lay = DocLayout(pages=[PageLayout(1, [Chunk(elements=[
             Para(runs=[_run("x", char_spacing=-0.5)])])])])
         apply_metric_fit(lay)
         run = lay.pages[0].chunks[0].elements[0].runs[0]
-        self.assertAlmostEqual(run.char_spacing, -0.5 + 0.360, places=3)
+        self.assertAlmostEqual(run.char_spacing, -0.5, places=6)
 
     def test_tabs_and_empty_runs_are_skipped(self):
         lay = DocLayout(pages=[PageLayout(1, [Chunk(elements=[
@@ -211,7 +224,7 @@ class WriterIntegrationTests(unittest.TestCase):
                    for sp in rpr.findall(W + "spacing")]
         return fonts, spacing
 
-    def test_gdocs_substitutes_and_tracks_while_standard_does_not(self):
+    def test_gdocs_substitutes_the_family_and_emits_no_tracking(self):
         with tempfile.TemporaryDirectory() as td:
             std = Path(td) / "standard.docx"
             gd = Path(td) / "gdocs.docx"
@@ -224,16 +237,12 @@ class WriterIntegrationTests(unittest.TestCase):
 
             fonts, spacing = self._fonts_and_spacing(gd)
             self.assertEqual(fonts, ["Noto Serif"])
-            # 0.3603pt at 11pt, in integer twentieths of a point
-            self.assertEqual(spacing, ["7"])
+            # Docs discards w:spacing (measured in live pass 2), so emitting it
+            # only misleads whoever reads the file next.
+            self.assertEqual(spacing, [])
 
-    def test_writing_twice_does_not_compound_the_tracking(self):
-        """The failure mode this codebase has already paid for once.
-
-        `apply_metric_fit` adds to `char_spacing`, so a writer that mutated the
-        caller's layout would double the tracking on the second write -- and
-        only on documents the rule acts on, which is why it would survive.
-        """
+    def test_writing_twice_is_reproducible(self):
+        """The failure mode this codebase has already paid for once."""
         lay = self._layout()
         with tempfile.TemporaryDirectory() as td:
             first = Path(td) / "a.docx"

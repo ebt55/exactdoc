@@ -101,6 +101,13 @@ def detect_state(preds, evidence, by_name, digest):
     base = preds.get("baseline_evidence") or {}
     if base.get("sha256") and digest == base["sha256"]:
         return "pre-fix", "evidence sha256 matches the recorded pre-fix baseline"
+    # An earlier pass's evidence is still a baseline, not a failing run. Once a
+    # claim is settled the file's baseline moves forward, and re-grading the
+    # older evidence must not suddenly read as a wall of missed predictions.
+    for old in preds.get("superseded_baselines") or ():
+        if old.get("sha256") and digest == old["sha256"]:
+            return "pre-fix", ("evidence sha256 matches a superseded baseline (%s)"
+                               % old.get("state", "earlier pass"))
 
     docs = preds["documents"]
     same = total = 0
