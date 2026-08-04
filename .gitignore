@@ -32,6 +32,8 @@ testkit/parity/
 testkit/regroup/
 testkit/exp_off/
 testkit/exp_on/
+testkit/expansion_out/
+testkit/expansion_build/
 corpus/pdfs/
 
 # Google API credentials -- never commit these.

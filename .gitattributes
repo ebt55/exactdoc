@@ -22,3 +22,12 @@
 # ending translation would change their hashes and make every gate run fail on a
 # corpus identity check -- which is precisely the check they exist to satisfy.
 testkit/fixtures/*.pdf binary
+
+# The expansion corpus is pinned exactly the same way and needs exactly the same
+# protection. Without this line `git check-attr` reports `diff: astextplain` and
+# no `text: unset` for these files, so a Windows checkout with autocrlf would
+# translate them on the way in and every sha256 in corpus_expansion.json would
+# stop matching its own bytes. The rule above is path-scoped and does not reach
+# a sibling directory, which is easy to miss precisely because the fixtures it
+# does cover keep working.
+testkit/fixtures_expansion/*.pdf binary

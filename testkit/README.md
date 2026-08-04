@@ -149,6 +149,13 @@ project has actually shipped.
 | `gate_baseline.json` | every gated metric of every document, per lane, numerically, plus the environment it was measured on and the defect ID each shortfall answers to |
 | `parity_policy.json` | the backend-swap acceptance rule: the complete conversion profile ID, per-dimension comparison margins, expected divergences with rendered evidence, and shortfalls bounded by numeric floors in both directions. A policy/profile mismatch fails before any floor is applied |
 
+The gate does **not** read `corpus_expansion.json`. That corpus is pinned the
+same way and verified by the same file, but it has no baseline, no tier in
+`gdocs_quality_policy.json`, and no path into `gate.py`. It cannot be added to
+this table by editing `corpus_manifest.json` either: `gdocs_quality_policy.json`
+pins that file's own SHA-256, and a mismatch silently stops the Google Docs
+quality assessment from running at all. See `docs/corpus-expansion.md` §2 and §7.
+
 ### Recording is refused unless the run deserves to be believed
 
 A baseline is what every later run is judged against, so writing one is the most
@@ -253,7 +260,9 @@ distinguish a document from a photograph of a document.
 | `harness.py` | the metrics; importable, or `python harness.py src.pdf out.docx workdir` |
 | `runall.py` | convert + score both lanes; produces the numbers, applies no policy of its own |
 | `gate.py` | **the decision.** Pure over already-measured results, so it can be mutation-tested without a corpus |
-| `corpus_manifest.py` | `verify` / `update` the exact 16-document manifest |
+| `corpus_manifest.py` | `verify` / `update` the exact 16-document manifest, and `expansion-seal` the non-gating expansion corpus |
+| `expansion.py` | measure `corpus_expansion.json` with the gate's metrics and none of its authority — no baseline, no comparison, exit 0 on any number |
+| `gen_expansion.py` | corpus expansion tranche 1: 16 ordinary word-processor / browser / report-generator documents. Separate entry point from `gen_corpus.py` on purpose, which `--strict` generation tests would otherwise reject as unexpected |
 | `evidence.py` | the one artifact every published number traces to: commit, dependency and oracle versions, profile, corpus, both lanes, parity |
 | `backend_superscript.py` | does PDFium's hardcoded `superscript=False` reach a DOCX? Measured: no |
 | `gen_corpus.py` | adversarial corpus across 4 producer dialects (Chromium/Skia, ReportLab, fpdf2, LibreOffice) |
