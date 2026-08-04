@@ -491,23 +491,41 @@ def _fit_col_widths(t: TableEl, content_w: float = 0.0) -> List[float]:
 
 _GDOCS_COVER_BEFORE_COMP_TWIPS = 290  # Google adds about 14.5pt above a band.
 
-# ---- Google Docs static translation layer (gdocs output profile) ----------
-# Docs' importer adds vertical space the OOXML never asked for, and the
-# additions are regular (testkit/docs_quirks.py, targets.py): roughly 3pt at
-# every paragraph boundary, accumulating down the page, plus a one-off gap
-# after the first heading. Regularity implies a generative rule, so the fix
-# is a static, declarative subtraction at write time -- no network loop.
-# Applied only under output_profile="gdocs"; the standard profile is
-# byte-identical. Floored at zero: a boundary whose space_before is already
-# smaller than the quirk cannot be fully compensated, and the residual is
-# accepted rather than invented away with negative spacing.
-GDOCS_PARA_BOUNDARY_COMP_PT = 3.0
-# The first-heading one-off is real (docs_quirks.py h3 family reproduces it:
-# LibreOffice 49.4pt vs Docs 77.6pt on the c8 heading pair) but its isolated
-# magnitude -- net of the exact->multiple line-height translation this
-# profile already performs -- has not been measured by a consented Google
-# probe run. The hook is wired; the constant stays 0.0 until measured.
-GDOCS_FIRST_HEADING_COMP_PT = 0.0
+# ---- Google Docs paragraph boundaries: nothing to compensate --------------
+# This profile briefly subtracted 3.0pt of space_before at every flow-element
+# boundary, on the theory (testkit/docs_quirks.py) that Docs' importer adds
+# ~3pt per boundary. The consented live pass of 2026-08-04 measured the theory
+# directly against Google's OWN exported PDFs and it is wrong.
+#
+# Method: for each pair of consecutive flow elements, compare the gap Google
+# rendered with the gap the source had, as
+#     gap_delta = dy(first line of el i+1) - dy(last line of el i)
+# The file asked for space_before - comp, so Docs' own contribution is
+# A = gap_delta + comp. Differencing two dy values cancels the paragraph's
+# internal line-height error, which a whole-page regression on cumulative
+# compensation cannot do (there the two are collinear and the fit blames the
+# boundary for all of it -- that is how 3.0pt survived review).
+#
+# Measured over 187 single-column boundaries in 12 corpus documents:
+#     all boundaries      A = +0.10pt   95% CI [+0.04, +0.21]
+#     into a body para    A = +0.04pt   95% CI [-2.47, +0.07]   n=147
+#     into a heading      A = +0.75pt                            n= 40
+#     into a table        A = +1.04pt   95% CI [+0.49, +1.67]   n= 17
+# Boundaries that received the full 3.0pt subtraction rendered a gap 2.90pt
+# SMALLER than the source: Docs honoured the subtraction and added nothing.
+#
+# So the subtraction was pure loss, and it accumulated -- c6_long carries 17.4
+# boundaries per page, and its dy_p50 went 25.84pt with every word pulled UP
+# (dy is negative in all 16 documents). The earlier ~3pt reading came from
+# probes written with lineRule="exact"; this profile already retranslates
+# exact leading into a multiple, so compensating again double-counted the same
+# height twice.
+#
+# The heading and table residuals are real but sub-point, and this writer
+# already quantises font sizes to the half-point (_quantised_size), which moves
+# a baseline by up to ~0.5pt on its own. Encoding a +0.75pt constant would be
+# encoding its own noise floor, so they are recorded here and not applied.
+# Re-measure them if the corpus ever needs the last point of vertical fidelity.
 
 
 def write_table(container, t: TableEl, content_w: float, ctx=None,
@@ -1030,12 +1048,6 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                     cover_band=True)
 
     last_el_par = None
-    # gdocs static translation: subtract the space Docs' importer will add
-    # back at each flow-element boundary (constants and provenance above).
-    gdocs_flow_comp = ctx.output_profile == "gdocs"
-    seen_flow_el = False
-    any_heading_seen = False
-    after_first_heading = False
     for pi, pg in enumerate(lay.pages):
         if pi > 0 and not pg.continuation_only:
             # page boundary
@@ -1064,21 +1076,6 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                     _spacer(doc, ch.pre_gap)
                 new_section(WD_SECTION.CONTINUOUS, ch.n_cols, ch.col_gap)
             for el in ch.elements:
-                if gdocs_flow_comp and not isinstance(el, ColBreak):
-                    comp = GDOCS_PARA_BOUNDARY_COMP_PT if seen_flow_el else 0.0
-                    if after_first_heading:
-                        comp += GDOCS_FIRST_HEADING_COMP_PT
-                        after_first_heading = False
-                    if comp > 0.0 and getattr(el, "space_before", 0.0) > 0.05:
-                        # copy, never mutate: the refine loop writes the same
-                        # layout repeatedly and in-place edits would compound.
-                        el = copy.copy(el)
-                        el.space_before = max(0.0, el.space_before - comp)
-                    seen_flow_el = True
-                    if isinstance(el, Para) and el.heading \
-                            and not any_heading_seen:
-                        any_heading_seen = True
-                        after_first_heading = True
                 if isinstance(el, ColBreak):
                     par = doc.add_paragraph()
                     pf = par.paragraph_format
