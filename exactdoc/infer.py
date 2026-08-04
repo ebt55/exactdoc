@@ -59,6 +59,45 @@ def _margin_cluster(vals: List[float], left=True) -> Optional[float]:
     return (min(good) if left else max(good))
 
 
+def _two_column_right_edge(body_lines, margin_l: float,
+                           page_w: float) -> Optional[float]:
+    """Right content edge from verified two-column geometry.
+
+    On two-column pages an inset full-width element (e.g. an abstract)
+    can supply the only lines wide enough for the wide-line right-margin
+    estimate, pulling the inferred content edge inside the true right
+    column.  When the page shows genuine two-column evidence -- a
+    repeated x0 cluster at margin_l, a second repeated x0 cluster in the
+    middle band, a gutter (left-column lines ending before the second
+    column starts), and a repeated flush right edge among the second
+    column's lines -- that flush edge is the content right edge.
+    Purely geometric: no backend or fixture conditionals."""
+    approx_w = page_w - 2 * margin_l
+    if approx_w <= 0:
+        return None
+    left_lines = [l for _, l in body_lines if abs(l.bbox[0] - margin_l) <= 2.5]
+    if len(left_lines) < 3:
+        return None
+    lo = margin_l + 0.35 * approx_w
+    hi = 0.7 * page_w
+    mid_x0 = [l.bbox[0] for _, l in body_lines if lo <= l.bbox[0] < hi]
+    col2 = _margin_cluster(mid_x0, left=True)
+    if col2 is None:
+        return None
+    col2_lines = [l for _, l in body_lines if abs(l.bbox[0] - col2) <= 2.5]
+    if len(col2_lines) < 3:
+        return None
+    # gutter: enough left-column lines must end before column 2 starts
+    if sum(1 for l in left_lines if l.bbox[2] < col2 - 6.0) < 3:
+        return None
+    edge = _margin_cluster([l.bbox[2] for l in col2_lines], left=False)
+    if edge is None or edge - col2 < 0.15 * approx_w:
+        return None
+    if page_w - edge < 14.0:
+        return None
+    return float(edge)
+
+
 # ------------------------------------------------------------------ runs/paras
 def _soft_join(runs: List[Run], next_text: str):
     """Append a joiner between wrapped lines: space normally, dehyphenate
@@ -1467,6 +1506,12 @@ def infer(ir: DocIR) -> DocLayout:
                if (l.bbox[2] - l.bbox[0]) >= 0.45 * lay.page_w and
                l.bbox[2] > 0.6 * lay.page_w]
     mr = _margin_cluster(wide_x1, left=False)
+    # two-column pages: an inset full-width element can win the wide-line
+    # estimate while the true content edge is the right column's flush
+    # edge.  Only ever widens content (edge further right than mr).
+    tc_edge = _two_column_right_edge(body_lines, lay.margin_l, lay.page_w)
+    if tc_edge is not None and (mr is None or tc_edge > mr + 2.5):
+        mr = tc_edge
     lay.margin_r = round(lay.page_w - mr, 1) if mr else lay.margin_l
     lay.margin_r = max(14.0, lay.margin_r)
 
@@ -1886,8 +1931,14 @@ def _merge_flow_paras(seq, col_r):
 
 def _is_marker_line(ln: Line) -> bool:
     t = ln.text.strip()
+    # Bare digits count too: step/badge lists number their items "1", "2"
+    # without trailing punctuation, and some producers emit each such
+    # marker as its own block. Only the separated-marker merge uses this
+    # (it still demands a shared baseline with adjacent item text); the
+    # inline marker split keeps the stricter NUM_RE.
     return (ln.bbox[2] - ln.bbox[0]) < 44 and bool(
-        t in BULLET_CHARS or NUM_RE.match(t))
+        t in BULLET_CHARS or NUM_RE.match(t) or
+        (t.isdigit() and len(t) <= 3))
 
 
 def _merge_list_markers(flow_blocks):

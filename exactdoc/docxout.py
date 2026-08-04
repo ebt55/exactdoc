@@ -491,6 +491,24 @@ def _fit_col_widths(t: TableEl, content_w: float = 0.0) -> List[float]:
 
 _GDOCS_COVER_BEFORE_COMP_TWIPS = 290  # Google adds about 14.5pt above a band.
 
+# ---- Google Docs static translation layer (gdocs output profile) ----------
+# Docs' importer adds vertical space the OOXML never asked for, and the
+# additions are regular (testkit/docs_quirks.py, targets.py): roughly 3pt at
+# every paragraph boundary, accumulating down the page, plus a one-off gap
+# after the first heading. Regularity implies a generative rule, so the fix
+# is a static, declarative subtraction at write time -- no network loop.
+# Applied only under output_profile="gdocs"; the standard profile is
+# byte-identical. Floored at zero: a boundary whose space_before is already
+# smaller than the quirk cannot be fully compensated, and the residual is
+# accepted rather than invented away with negative spacing.
+GDOCS_PARA_BOUNDARY_COMP_PT = 3.0
+# The first-heading one-off is real (docs_quirks.py h3 family reproduces it:
+# LibreOffice 49.4pt vs Docs 77.6pt on the c8 heading pair) but its isolated
+# magnitude -- net of the exact->multiple line-height translation this
+# profile already performs -- has not been measured by a consented Google
+# probe run. The hook is wired; the constant stays 0.0 until measured.
+GDOCS_FIRST_HEADING_COMP_PT = 0.0
+
 
 def write_table(container, t: TableEl, content_w: float, ctx=None,
                 cover_band: bool = False):
@@ -613,10 +631,18 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
             _set_borders(tcPr, spec.borders, "w:tcBorders")
             tmar = OxmlElement("w:tcMar")
             pads = spec.pad  # (top, left, bottom, right)
-            # Google ignores tcMar/left on a bleed cover table.  Move (rather
-            # than duplicate) that left padding to its paragraph below, so a
-            # future importer which starts honouring tcMar does not double it.
-            emitted_pads = (pads[0], 0.0, pads[2], pads[3]) if gdocs_cover else pads
+            # Google ignores tcMar/left: first measured on the bleed cover
+            # table, and the c7_code Google evidence shows the same signature
+            # on ordinary cells (dx_p50 ~ the 10.7pt code-cell tcMar left).
+            # Under the gdocs profile, move (rather than duplicate) the left
+            # padding of EVERY cell to its paragraphs below, so a future
+            # importer which starts honouring tcMar does not double it.  The
+            # relocation is exact for renderers that do honour tcMar (Word,
+            # LibreOffice): tcMar_left + max(0, indent - pad) and
+            # max(indent, pad) land text at the same x.
+            gdocs_cellpad = ctx.output_profile == "gdocs"
+            emitted_pads = (pads[0], 0.0, pads[2], pads[3]) \
+                if gdocs_cellpad else pads
             for side, val in zip(("top", "left", "bottom", "right"),
                                   emitted_pads):
                 m = OxmlElement("w:" + side)
@@ -638,7 +664,7 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
                 # measured from the tcMar edge; make the paragraphs agree.
                 def _depadded(p, _s=row_shrink):
                     q = copy.copy(p)
-                    if gdocs_cover:
+                    if gdocs_cellpad:
                         # Standard rendering lands at max(source indent,
                         # tcMar left).  With tcMar moved to zero, carry that
                         # effective position exactly; adding would double the
@@ -1004,6 +1030,12 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                     cover_band=True)
 
     last_el_par = None
+    # gdocs static translation: subtract the space Docs' importer will add
+    # back at each flow-element boundary (constants and provenance above).
+    gdocs_flow_comp = ctx.output_profile == "gdocs"
+    seen_flow_el = False
+    any_heading_seen = False
+    after_first_heading = False
     for pi, pg in enumerate(lay.pages):
         if pi > 0 and not pg.continuation_only:
             # page boundary
@@ -1032,6 +1064,21 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                     _spacer(doc, ch.pre_gap)
                 new_section(WD_SECTION.CONTINUOUS, ch.n_cols, ch.col_gap)
             for el in ch.elements:
+                if gdocs_flow_comp and not isinstance(el, ColBreak):
+                    comp = GDOCS_PARA_BOUNDARY_COMP_PT if seen_flow_el else 0.0
+                    if after_first_heading:
+                        comp += GDOCS_FIRST_HEADING_COMP_PT
+                        after_first_heading = False
+                    if comp > 0.0 and getattr(el, "space_before", 0.0) > 0.05:
+                        # copy, never mutate: the refine loop writes the same
+                        # layout repeatedly and in-place edits would compound.
+                        el = copy.copy(el)
+                        el.space_before = max(0.0, el.space_before - comp)
+                    seen_flow_el = True
+                    if isinstance(el, Para) and el.heading \
+                            and not any_heading_seen:
+                        any_heading_seen = True
+                        after_first_heading = True
                 if isinstance(el, ColBreak):
                     par = doc.add_paragraph()
                     pf = par.paragraph_format

@@ -66,7 +66,12 @@ class GoogleDocsWriterFixes(unittest.TestCase):
             self.assertEqual(_first_table_values(gdocs), ("0", "110", "1960"))
 
 
-    def test_gdocs_does_not_move_padding_for_ordinary_tables(self):
+    def test_gdocs_moves_left_padding_for_ordinary_tables_too(self):
+        # Google ignores tcMar/left on ordinary cells as well: the c7_code
+        # Google evidence shows dx_p50 tracking the code cell's tcMar left
+        # (~10.7pt) while the LibreOffice proxy sits at 0.25pt.  The gdocs
+        # profile therefore relocates every cell's left pad to its
+        # paragraphs; standard keeps the tcMar form.
         with tempfile.TemporaryDirectory() as td:
             table = TableEl(rows=[[Cell(paras=[Para(runs=[_run("ordinary")], space_before=20.0)],
                                         pad=(0.0, 30.0, 0.0, 0.0))]], col_widths=[200.0])
@@ -74,7 +79,45 @@ class GoogleDocsWriterFixes(unittest.TestCase):
             write_table(doc, table, 200.0, ctx=WriteCtx(output_profile="gdocs"))
             path = Path(td) / "ordinary.docx"
             doc.save(path)
-            self.assertEqual(_first_table_values(path), ("600", "400", None))
+            self.assertEqual(_first_table_values(path), ("0", "400", "600"))
+
+            standard_doc = Document()
+            write_table(standard_doc, table, 200.0,
+                        ctx=WriteCtx(output_profile="standard"))
+            standard_path = Path(td) / "ordinary-standard.docx"
+            standard_doc.save(standard_path)
+            self.assertEqual(_first_table_values(standard_path),
+                             ("600", "400", None))
+
+    def test_gdocs_compensates_paragraph_boundary_gap(self):
+        # Docs adds ~3pt at every flow-element boundary (docs_quirks.py);
+        # the gdocs profile subtracts it statically, floored at zero, and
+        # never on the first flow element.  Standard is untouched.
+        def _layout():
+            return DocLayout(pages=[PageLayout(1, [Chunk(elements=[
+                Para(runs=[_run("first")], space_before=20.0),
+                Para(runs=[_run("second")], space_before=20.0),
+                Para(runs=[_run("third")], space_before=1.0),
+            ])])])
+        with tempfile.TemporaryDirectory() as td:
+            tmp_path = Path(td)
+            standard = tmp_path / "standard.docx"
+            gdocs = tmp_path / "gdocs.docx"
+            write_docx(_layout(), str(standard), output_profile="standard")
+            write_docx(_layout(), str(gdocs), output_profile="gdocs")
+
+            def befores(path):
+                root = _xml(path)
+                out = []
+                for par in root.findall(".//" + W + "p"):
+                    sp = par.find(".//" + W + "spacing")
+                    if par.findall(".//" + W + "t"):
+                        out.append(None if sp is None else sp.get(W + "before"))
+                return out
+
+            self.assertEqual(befores(standard), ["400", "400", "20"])
+            # first element uncompensated; 20-3=17pt; 1pt floors at 0
+            self.assertEqual(befores(gdocs), ["400", "340", "0"])
 
     def test_gdocs_cover_retains_a_source_indent_beyond_cell_padding(self):
         table = TableEl(

@@ -1,61 +1,72 @@
 # exactdoc
 
-PDF to editable DOCX for ordinary digital documents: text reports, papers,
-multi-column pages, common tables, and international text. This is an alpha;
-use the measurements below rather than assuming every PDF dialect is supported.
+**exactdoc converts PDFs into editable DOCX files that look like the original.**
 
-## Current shipping profile
+Most PDF→Word converters give you either a pile of text boxes frozen at absolute
+positions (looks right, unusable to edit) or reflowed text that has lost the
+layout (editable, looks wrong). exactdoc aims at both at once for ordinary
+digital documents: it infers the *semantic* structure — margins, paragraphs,
+headings, lists, tables, multi-column sections, headers/footers, hyperlinks —
+and writes real flowing Word constructs whose rendered geometry matches the
+source page to within points, verified by measurement.
 
-Shipping is quality-first:
+This is an alpha. Every claim below is measured against a frozen 16-document
+corpus; use those measurements rather than assuming every PDF dialect works.
 
-```text
-pymupdf/standard/libreoffice/refine3@240dpi
-```
+## What it does
 
-PyMuPDF is a core dependency. The `raw` comparison profile is the same
-PyMuPDF/standard path with LibreOffice refinement disabled. PDFium is an
-optional `[pdfium]` migration candidate, not the shipped backend.
+- **Editable output, not text boxes.** Paragraphs are real paragraphs with
+  correct spacing, indents, alignment and line leading; tables are real DOCX
+  tables; lists keep their markers; hyperlinks and internal TOC links stay live.
+- **Measured fidelity.** A closed refinement loop renders the produced DOCX
+  back to PDF (LibreOffice headless by default), compares word positions
+  against the source, and corrects page overflow and per-page offsets. The
+  test harness reports word recall, horizontal/vertical drift percentiles,
+  SSIM and ink IoU per document.
+- **Honest degradation.** Designed regions it cannot represent as flowing text
+  (gradient graphics, rotated art) are rasterised so the rest of the document
+  stays editable — and the live-text metric counts that trade-off instead of
+  hiding it. Image-only scans are rejected with an explicit OCR-required error
+  rather than silently converted to blank output.
+- **Two parser backends.** PyMuPDF (core, shipping) and PDFium via pypdfium2
+  (optional `[pdfium]`, migration candidate). Shared inference contains no
+  backend conditionals; a parity harness compares the two.
+- **A Google Docs output profile.** `output_profile="gdocs"` writes OOXML that
+  survives Google Docs' importer (which mistranslates exact line heights,
+  ignores cell margins in places, and inserts extra paragraph spacing) using a
+  static, offline translation layer — no upload required.
 
-The canonical LibreOffice regression record is not an absolute quality pass; it
-asks whether a result got worse than its recorded value. The separate absolute
-qualification still exposes known limitations.
-
-| Profile | Page match | Mean within 2pt | Mean live text | Median dy50 |
-|---|---:|---:|---:|---:|
-| shipping product | 15/16 | 0.4981 | 0.9652 | 0.675pt |
-| raw control | 13/16 | 0.3349 | 0.9652 | 2.2pt |
-
-Current product limitations include complex/nested table layouts and rasterised
-text regions (D10) in `c5_graphics` and `04_exec_brief`.
-
-## Install and use
+## Install
 
 ```bash
 git clone https://github.com/ebt55/exactdoc && cd exactdoc
-pip install -e ".[test]"
-exactdoc report.pdf -o report.docx
+pip install -e .            # core (PyMuPDF backend)
+# optional extras:
+pip install -e ".[pdfium]"  # PDFium backend (migration candidate)
+pip install -e ".[gdocs]"   # exactdoc-gdocs CLI (Google auth + qualification)
+pip install -e ".[test]"    # test/measurement toolkit
 ```
 
-The shipping correction loop uses LibreOffice. Conversion is local; it does not
-upload a document. The API equivalent is:
+The refinement loop uses LibreOffice headless (`soffice`) if present.
+Conversion is local; nothing is uploaded.
+
+## Usage
+
+```bash
+exactdoc report.pdf -o report.docx
+```
 
 ```python
 from exactdoc import convert
 
 convert("report.pdf", "report.docx")
+
+# Google-Docs-safe OOXML, still fully offline:
+convert("report.pdf", "report.docx", output_profile="gdocs", oracle="none",
+        refine_rounds=0)
 ```
 
-For the non-shipping PDFium candidate, install `.[pdfium]` and select an
-explicit candidate profile in development tooling. It is not a release option.
-
-Input errors are deliberately stable: encrypted PDFs report unsupported input;
-malformed or truncated PDFs report parse errors. Writer and refinement
-candidates stay private until structural DOCX validation succeeds, then replace
-the public destination atomically; failures preserve existing bytes and leave no
-predictable adjacent `.best` artifact.
-
-For folders of PDFs, the backward-compatible CLI also supports deterministic
-batch conversion:
+Batch conversion over folders is deterministic and safe to re-run:
 
 ```bash
 exactdoc --input-dir pdfs --out-dir docx --recursive --result-json batch.json
@@ -63,126 +74,107 @@ exactdoc --input-dir pdfs --out-dir docx --recursive --result-json batch.json
 
 Use `--continue-on-error`, `--overwrite`, or `--scan-only` as appropriate.
 Discovery is case-insensitive and preserves relative paths; existing outputs
-require `--overwrite`. Batch runs are intentionally serial today (`--workers`
-must be `1`); Google cloud qualification is not a batch operation. Result JSON
-is atomically published and contains only relative paths, safe errors, hashes,
-counts, and options. Limits are 500 documents, 250 pages/document, 2,000
-pages/run, and 250 MiB/file.
+require `--overwrite`; batch runs are serial today (`--workers` must be `1`).
+Limits are 500 documents, 250 pages/document, 2,000 pages/run, 250 MiB/file.
+Result JSON is atomically published and contains only relative paths, safe
+errors, hashes, counts and options.
 
-The local scan detector refuses only high-confidence image-only scans with an
-explicit OCR-required error (exit 17, or 18 for a batch with OCR-required or
-other partial failures). Mixed and digital PDFs proceed; blank PDFs are
-distinguished. No OCR engine is bundled.
+Input errors are deliberately stable: encrypted PDFs report unsupported input;
+malformed or truncated PDFs report parse errors; high-confidence image-only
+scans exit with an explicit OCR-required code (17, or 18 for partial batch
+failures). Output publication is transactional: candidates stay private until
+structural DOCX validation succeeds, then replace the destination atomically —
+a failed conversion never corrupts an existing output.
 
-## PDFium/Google-Docs candidate
+## What to expect (quality examples)
 
-`PDFIUM_GDOCS_CANDIDATE` is explicitly non-shipping:
+Typical results from the measured corpus, described rather than screenshotted:
 
-```text
-pdfium/gdocs/none/refine0@240dpi
-```
+- **A three-page business whitepaper** (cover band, headings, callout boxes,
+  a bar chart, numbered and bulleted lists, footer with page numbers) converts
+  to a fully editable document: the coloured cover band is a real table with
+  live text, the chart is rasterised in place, callouts keep their tinted
+  backgrounds and border bars, and body text lands within ~1–2pt of the
+  source. You can retitle the cover and re-wrap paragraphs like any Word file.
+- **A two-column academic paper** with an inset abstract keeps its two-column
+  section: column boundaries, the abstract inset, superscripts and references
+  survive, and the column geometry is inferred from the page itself — no
+  template assumptions.
+- **A technical report with code blocks** keeps code as monospace text in
+  shaded single-cell tables with preserved indentation — editable, not an
+  image.
+- **A 45-row striped table** spanning three pages becomes one continuous
+  editable DOCX table with every row present exactly once, paginating
+  naturally.
+- **An international text page** (CJK, Cyrillic, Greek, accented Latin)
+  retains live, correctly positioned text through metric-compatible font
+  mapping.
 
-After the bounded bottom-margin correction it records 14/16 page match, 0.2429
-within-2pt, 0.9568 live text, and 2.425pt median dy50. Its LibreOffice-refined
-diagnostic records 15/16, 0.3381, 0.9568, and 2.06pt. Same-profile parity is 7
-regressions, 7 same, and 2 better; the material regressions include ordinary
-memo placement, complex scripts, and graphics. It is therefore neither adopted
-nor releasable.
+## Limitations, in tiers
 
-The bottom-margin change fixes the candidate's `c1_whitepaper` and
-`c2_paper2col` overflow while preserving the other 12 page-matching documents.
-Candidate page-count misses remain `c3_tables` (nested table) and
-`c5_graphics` (designed graphics); these are stated limitations, not reasons to
-silently change the shipping profile.
+**Tier 1 — works today (the target class).** Ordinary digital documents:
+reports, memos, letters, whitepapers, academic papers, multi-column pages,
+common (striped/ruled) tables, code listings, headers/footers, hyperlinks and
+TOC links, most Latin/CJK/Cyrillic text. This is what the corpus measures and
+the numbers below describe.
 
-## Google Docs qualification
+**Tier 2 — partially supported, measured limitations.**
 
-The packaged user CLI is `exactdoc-gdocs` (install `.[gdocs]`; for example,
-`exactdoc-gdocs auth`). It handles authentication and attempts cleanup of Drive
-objects; an orphan ledger blocks unsafe follow-on work and evidence avoids
-credential data. Testkit qualification is intentionally separate and two-step:
+- *Complex and nested tables*: regional/nested table layouts are deferred;
+  only conservative, strongly-evidenced striped tables are assembled.
+- *Designed/vector-heavy pages*: gradients, rounded and rotated artwork are
+  rasterised regions inside an otherwise-editable document, not recreated
+  vector art (`c5_graphics`, parts of `04_exec_brief`).
+- *Google Docs as the renderer*: the offline `gdocs` profile compensates for
+  measured importer quirks (line-height mistranslation, ignored cell margins,
+  per-boundary spacing), but Docs fidelity currently trails LibreOffice/Word
+  fidelity and is qualified separately.
+
+**Tier 3 — explicitly out of scope for now.**
+
+- *Heavy LaTeX/mathematics*: stacked scripts and equation layout are not
+  reconstructed as editable math.
+- *Highly designed pages* (magazine spreads, posters): not representable as
+  flowing Word constructs; expect rasterised regions at best.
+- *RTL scripts* (Arabic, Hebrew): waiting on a logical-Unicode-ordering
+  contract; not converted correctly today.
+- *Scanned / image-only PDFs*: rejected with an explicit OCR-required error.
+  No OCR engine is bundled — by design, a wrong-but-confident transcription is
+  worse than an honest refusal.
+
+## Measured state
+
+Shipping profile (quality-first): `pymupdf/standard/libreoffice/refine3@240dpi`.
+`raw` is the same path with refinement off. Canonical figures come from the
+pinned Linux/LibreOffice CI environment:
+
+| Canonical profile | Page match | Mean within 2pt | Mean live text | Median dy50 |
+|---|---:|---:|---:|---:|
+| product | 15/16 | 0.4981 | 0.9652 | 0.675pt |
+| raw | 13/16 | 0.3349 | 0.9652 | 2.2pt |
+
+The regression record asks "did anything get worse?", not "is everything
+perfect"; the absolute qualification still exposes the Tier 2/3 items above.
+
+### PDFium / Google Docs candidate — not shipping
+
+`pdfium/gdocs/none/refine0@240dpi` is the explicit non-shipping migration
+candidate. Its latest consented live Google qualification (2026-08-02) was
+operationally successful (16/16 documents, zero orphaned Drive objects) but
+fails the draft quality policy: blocking findings are `01_whitepaper_market`
+SSIM, `c2_paper2col` drift and SSIM, `c7_code` horizontal drift, and
+`l1_word_native` drift. Same-profile PDFium/PyMuPDF parity is 7 regressions,
+7 same, 2 better. The candidate is neither adopted nor releasable, and the
+policy will not be ratified merely to turn the gate green. See
+[STATUS.md](STATUS.md) for the full numbers.
+
+Google qualification is separate, two-step and consent-gated:
 
 ```bash
-python testkit/gdocs_oracle.py prepare <dir>
-python testkit/gdocs_oracle.py run <dir> --allow-cloud-upload
+python testkit/gdocs_oracle.py prepare <dir>              # offline, hash-binds the candidate
+python testkit/gdocs_oracle.py run <dir> --allow-cloud-upload   # the only step that uploads
+python testkit/gdocs_oracle.py assess <gdocs_qualification.json> # re-assess without uploading
 ```
-
-`prepare` is offline and binds the exact candidate by hash. `run` is the only
-operation that may upload, requires explicit consent, and reports operational
-and quality verdicts separately.
-
-The latest live qualification on 2026-08-02 completed its operational work for
-`pdfium/gdocs/none/refine0@240dpi`: 16 documents attempted, 16 succeeded, zero
-failed, with no `.gdocs_orphans.json` after cleanup. Against the prior live
-candidate, page-count match improved 14/16→15/16, mean word recall
-0.8745→0.9064, SSIM 0.7767→0.7878, and ink IoU 0.2108→0.2138; mean live text
-remained 0.9568 and mean within-2pt was 0.1378→0.1443. Median dy50 is
-4.98→6.68pt because `c3_tables` now matches many more words and changes the
-median ordering, not because of a broad regression. The only page-count mismatch
-is the deferred `c5_graphics` (1→2).
-
-The qualified candidate adds a conservative ordinary striped-table
-assembler. It makes the `c3_tables` long table one editable 46-row × 4-column
-DOCX table, with IDs 1–45 exactly once, and lets it paginate naturally without
-inventing a repeating header the source does not contain. It also consolidates
-`c1_whitepaper`'s 5-row comparison table. It accepts only strong striped-table
-evidence and rejects ambiguous multiline content, cards, and callouts; pages
-are coalesced only at a page edge with matching geometry. Complex/nested
-regional tables remain outside this narrow fix. `c5_graphics` depends on
-gradients and rounded/rotated complex graphics and remains deliberately
-deferred. PDFium also now preserves stretched literal interword spaces, removing
-the visible word staircase in `01_whitepaper_market`; shipping PyMuPDF is
-unchanged.
-
-Local LibreOffice review was indicative only; the live Google result is now
-available. `c3_tables` is 3→3 rather than 3→4, with live text 0.9226 and
-document recall 0.9359 unchanged, word recall 0.3120→0.8215, within-2pt
-0→0.1076, SSIM 0.5785→0.7573, and IoU 0.0973→0.1448. Its dy50/dy90 are
-2.94→7.85pt and 80.52→103.34pt because the continuous table matches many more
-words. Visual review found all 45 table rows, editable in one continuous table
-across three pages, though their page distribution differs from the source.
-`c1_whitepaper` remains 2→2 with live/document/word recall 0.9654/0.9697/0.9697
-and dy50/dy90 9.30/54.79pt unchanged; within-2pt, SSIM, and IoU have tiny
-0.0719→0.0688, 0.8006→0.7993, and 0.1568→0.1563 visual tradeoffs.
-
-This is an operational success, not an overall quality-gate pass. A strict draft
-v2 policy now separates 13 blocking `ordinary_digital` fixtures from three
-nonblocking `designed_stress` fixtures and keeps unsupported inputs out of cloud
-qualification. Existing evidence can be reassessed without another upload:
-
-```bash
-python testkit/gdocs_oracle.py assess <gdocs_qualification.json>
-```
-
-The current offline assessment is operationally valid but fails quality: the
-policy is deliberately unratified, and only 9/13 ordinary fixtures meet every
-draft threshold. Blocking findings are `01_whitepaper_market` SSIM;
-`c2_paper2col` horizontal/vertical drift and SSIM; `c7_code` horizontal drift;
-and `l1_word_native` horizontal/vertical drift. The candidate therefore remains
-non-shipping and non-releasable; the policy must not be ratified merely to turn
-the gate green.
-
-A subsequent local-only candidate addresses the Word-native list failure without
-guessing from producer metadata: repeated leading OpenSymbol `U+F0B7` markers
-are canonicalised to safe Unicode bullets only when matching list geometry
-corroborates them. `l1_word_native` now has three separate editable hanging-indent
-items instead of one paragraph with replacement glyphs. Across the 16 prepared
-DOCX packages, only l1's `word/document.xml` changes. LibreOffice proxy metrics
-improve (doc/word recall 0.9583→0.9792, dx50 90.29→64.93pt, dy50
-12.79→10.39pt, SSIM 0.7887→0.7946), but this is not yet fresh Google evidence;
-the recorded live blocker remains until another explicitly consented run.
-
-## Scope and limits
-
-Priorities are ordinary digital text, multi-column documents, common tables, and
-i18n. Proven PDF annotations and internal TOC navigation are next, followed by
-heading/list semantics; RTL waits for a logical-Unicode-ordering contract. Heavy
-LaTeX, highly designed/vector pages, and complex/nested tables remain deferred.
-Scanned/OCR-only PDFs are explicitly unsupported rather than silently converted
-to blank output.
-
-Some designed regions are rasterised so the surrounding document stays editable;
-the live-text metric counts that trade-off rather than hiding it.
 
 ## Licensing
 
@@ -203,5 +195,6 @@ python testkit/runall.py
 python tests/test_gate_mutations.py
 ```
 
-See [STATUS.md](STATUS.md) for the measured state and defects, and
-[ROADMAP.md](ROADMAP.md) for sequencing.
+See [STATUS.md](STATUS.md) for the measured state and defects,
+[ROADMAP.md](ROADMAP.md) for sequencing, and [THEORY.md](THEORY.md) for the
+laws the codebase is built around.
