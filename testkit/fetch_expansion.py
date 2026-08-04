@@ -33,6 +33,7 @@ import json
 import os
 import ssl
 import sys
+import time
 import urllib.error
 import urllib.request
 
@@ -88,14 +89,58 @@ def load_plan(path):
     return entries, problems
 
 
-def fetch_one(entry, out_dir):
-    """-> (record, divergences). One request, no retry loop, no crawling."""
+def _ssl_context():
+    """A CA bundle that works off Windows' store as well as on it.
+
+    Measured: `ssl.create_default_context()` on this Windows host failed the ECB
+    fetch with CERTIFICATE_VERIFY_FAILED (unable to get local issuer), because
+    the Windows certificate store populates intermediates lazily through CryptoAPI
+    and Python does not drive that. `certifi` ships the Mozilla bundle and
+    resolves the chain the same way on every platform, which is also what a
+    reproducible corpus wants. Falls back to the system default when absent --
+    a missing optional package should not silently downgrade verification, and
+    it does not: verification stays on either way.
+    """
+    try:
+        import certifi
+        return ssl.create_default_context(cafile=certifi.where())
+    except ImportError:
+        return ssl.create_default_context()
+
+
+def fetch_one(entry, out_dir, retries=1):
+    """-> (record, divergences). One request, at most one polite retry.
+
+    A 429 or 503 is answered by honouring `Retry-After` exactly once. There is
+    deliberately no general retry loop and no exponential backoff hammering: if
+    a host says no twice, the answer is no.
+
+    A 403 is NOT retried and the User-Agent is never disguised. Where that
+    status comes from user-agent filtering -- crsreports.congress.gov returned
+    it -- the remedy is to fetch the same public-domain work from a host that
+    permits automated access, not to make this client look like a browser.
+    Dressing up as something else to get past a filter is bot-detection evasion,
+    and a corpus is not worth doing that for.
+    """
     url = entry["url"]
     request = urllib.request.Request(url, headers={"User-Agent": UA,
                                                     "Accept": "application/pdf"})
-    context = ssl.create_default_context()
-    with urllib.request.urlopen(request, timeout=TIMEOUT,
-                                context=context) as response:
+    context = _ssl_context()
+    try:
+        response = urllib.request.urlopen(request, timeout=TIMEOUT, context=context)
+    except urllib.error.HTTPError as exc:
+        if exc.code not in (429, 503) or retries <= 0:
+            raise
+        wait = exc.headers.get("Retry-After") if exc.headers else None
+        try:
+            wait = min(int(wait), 120)
+        except (TypeError, ValueError):
+            wait = 10
+        print("       %s said %d; waiting %ds as instructed, one retry"
+              % (url.split("/")[2], exc.code, wait))
+        time.sleep(wait)
+        return fetch_one(entry, out_dir, retries - 1)
+    with response:
         final_url = response.geturl()
         ctype = (response.headers.get("Content-Type") or "").split(";")[0].strip()
         data = response.read(MAX_BYTES + 1)
