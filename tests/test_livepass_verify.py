@@ -236,6 +236,25 @@ class LivePassVerifyTests(unittest.TestCase):
             self.assertEqual(status["split"], "miss")
 
     # ------------------------------------------------------------- inputs
+    def test_metric_max_check_grades_a_capped_metric(self):
+        with tempfile.TemporaryDirectory() as work:
+            preds = _predictions()
+            preds["checks"] = [{"id": "cap", "kind": "metric_max",
+                                "document": "D1", "metric": "dx_p50",
+                                "max": 10.0, "description": "c"}]
+            evid = _evidence(2.0, 1.0, 3.8)
+            report, _, _ = self._grade(work, preds, evid)
+            self.assertEqual(report["checks"][0]["status"], "pass")
+
+            evid["documents"][0]["metrics"]["dx_p50"] = 63.65
+            report, _, _ = self._grade(work, preds, evid)
+            self.assertEqual(report["checks"][0]["status"], "miss")
+            self.assertIn("OVER", report["checks"][0]["details"][0])
+
+            del evid["documents"][0]["metrics"]["dx_p50"]
+            report, _, _ = self._grade(work, preds, evid)
+            self.assertEqual(report["checks"][0]["status"], "incomplete")
+
     def test_malformed_inputs_are_usage_errors_not_verdicts(self):
         with tempfile.TemporaryDirectory() as work:
             good_e = os.path.join(work, "e.json")

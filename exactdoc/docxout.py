@@ -1127,6 +1127,14 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
     if dest_anchors or anchor_ids:
         ctx = dataclasses.replace(ctx, dest_anchors=dest_anchors,
                                   anchor_ids=anchor_ids)
+    if ctx.output_profile == "gdocs":
+        # Substitute fonts whose measured advance width does not match the
+        # source's, and track out what remains, so paragraphs wrap where they
+        # wrapped in the PDF. Safe here: the layout above is already a copy,
+        # and this rewrites run properties only -- never element identity, so
+        # the bookmark plan above stays valid.
+        from .gdocs_metrics import apply_metric_fit
+        apply_metric_fit(lay)
     doc = Document()
     dpi = ctx.dpi
     content_w = lay.content_w
