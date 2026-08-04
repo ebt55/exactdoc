@@ -48,6 +48,7 @@ MIN_GUTTER_W = 8.0          # pt; narrower than this is word spacing
 GRID_WIDTH_TOL = 0.12       # columns must be within 12% of the same width
 MIN_COL_LINES = 6           # ...and each must actually carry text
 GUTTER_CROSS_FRAC = 0.02    # a full-width heading may cross a real gutter
+COL_SPAN_FRAC = 1.5         # wider than 1.5 columns is genuinely page-spanning
 
 # --- side-margin page furniture -------------------------------------------
 # Clearance a shape must keep from the body column before it is called margin
@@ -2173,8 +2174,36 @@ def column_grid(line_boxes, content_l: float, content_r: float):
     if len(bands) < 3:
         return None
     widths = [b - a for a, b in bands]
-    if min(widths) <= 0 or max(widths) - min(widths) > GRID_WIDTH_TOL * max(widths):
+    if min(widths) <= 0:
+        return None
+    # Regularity is tested on the column PITCH, not on the inked band widths.
+    # A band is bounded by ink, so a column whose text does not fill it reads
+    # narrow: a ragged final column, or one a short right-margin estimate cuts
+    # off, fails a width test while the grid behind it is exact. The IRS
+    # booklets are the case -- y13_irs_pub501 p2 is three columns starting at
+    # x=42/222/402 with pitches 180 and 180, inked widths 168/171/145, and the
+    # width test rejected 22 of its 31 pages. Those pages fell through to the
+    # two-column path, which merged two of the three columns and emitted
+    # 1037pt of content into a 768pt body.
+    #
+    # Pitch is the grid's own property and content cannot narrow it. It also
+    # keeps refusing forms, which is what the width test was really for: a
+    # ruled form's bands are 34, 14, 9, 9... and its pitches are just as
+    # irregular.
+    starts = [a for a, _ in bands]
+    pitches = [starts[i + 1] - starts[i] for i in range(len(starts) - 1)]
+    if min(pitches) <= 0 or \
+            max(pitches) - min(pitches) > GRID_WIDTH_TOL * max(pitches):
         return None                      # not a regular grid
+    # Snap the bands out to the grid the pitch describes. They arrive ink
+    # bounded and ASSIGNMENT uses them, so a paragraph that fills its column
+    # but overhangs the measured band by a point is called page-spanning and
+    # drops out of the columns entirely.
+    col_w = (sum(pitches) / len(pitches)) - \
+        (sum(g1 - g0 for g0, g1 in gutters) / len(gutters))
+    if col_w <= 0:
+        return None
+    bands = [(a, max(b, a + col_w)) for a, b in bands]
     for a, b in bands:
         if sum(1 for lb in line_boxes if lb[0] >= a - 2 and lb[2] <= b + 2) \
                 < MIN_COL_LINES:
@@ -2190,6 +2219,40 @@ def _band_of(bb, bands) -> Optional[int]:
     return None
 
 
+def _column_of(bb, bands) -> Optional[int]:
+    """Which column bb belongs to, or None if it genuinely spans them.
+
+    `_band_of` answers "does this fit inside a column", which is the right
+    question for deciding whether something is full-width furniture and the
+    wrong one for deciding where it goes. A bullet hanging into the gutter, a
+    hyphen poking past the measured edge, an indented sub-item -- each fits no
+    band and is not remotely page-wide, and routing those to the page-spanning
+    tail linearises them: measured on y13_irs_pub501 p6, 21 paragraphs became a
+    1122pt single-column tail beneath three balanced ~600pt columns, which is
+    worse than not recognising the grid at all.
+
+    So width decides. Something wider than one and a half columns really does
+    span them and stays out of the grid; anything column-sized belongs to the
+    column it overlaps most, and only ties fall back to its centre.
+    """
+    i = _band_of(bb, bands)
+    if i is not None:
+        return i
+    col_w = max(1e-6, sum(b - a for a, b in bands) / len(bands))
+    if (bb[2] - bb[0]) > COL_SPAN_FRAC * col_w:
+        return None                      # genuinely spans the grid
+    best, best_ov = None, 0.0
+    for k, (a, b) in enumerate(bands):
+        ov = min(bb[2], b) - max(bb[0], a)
+        if ov > best_ov:
+            best, best_ov = k, ov
+    if best is not None:
+        return best
+    cx = (bb[0] + bb[2]) / 2.0
+    return min(range(len(bands)),
+               key=lambda k: abs(cx - (bands[k][0] + bands[k][1]) / 2.0))
+
+
 def _grid_chunks(elements, flow_blocks, bands, lay: DocLayout,
                  content_l: float, content_r: float) -> List[Chunk]:
     """Lay a >=3 column page out as lead / columns / tail."""
@@ -2197,14 +2260,14 @@ def _grid_chunks(elements, flow_blocks, bands, lay: DocLayout,
     for b in flow_blocks:
         groups = defaultdict(list)
         for l in b.lines:
-            groups[_band_of(l.bbox, bands)].append(l)
+            groups[_column_of(l.bbox, bands)].append(l)
         for bi, ls in groups.items():
             blk = _mk_block(ls)
             (spanning if bi is None else banded).append(
                 (bi, ("blk", blk.bbox, blk)))
     for e in elements:
         bb = _el_bbox(e) or (content_l, 0.0, content_r, 0.0)
-        bi = _band_of(bb, bands)
+        bi = _column_of(bb, bands)
         (spanning if bi is None else banded).append((bi, ("el", bb, e)))
     if not banded:
         return []
