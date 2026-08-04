@@ -1672,15 +1672,8 @@ def infer(ir: DocIR) -> DocLayout:
                 cd.add(di)
 
         elements: List[Any] = []
-        # Side-margin furniture is filtered out here, before any element is
-        # built from it, rather than after: a shape that reached build_figure
-        # would first absorb neighbouring text lines into the raster, so
-        # dropping the element later would delete that text instead of
-        # returning it to the flow. Nothing consumed, nothing to give back.
         draws = [(i, d) for i, d in enumerate(p.drawings)
-                 if i not in cd and d.opacity > 0.05
-                 and not in_side_margin(d.bbox, lay.margin_l, lay.margin_r,
-                                        p.width)]
+                 if i not in cd and d.opacity > 0.05]
         # This runs before drawing clustering because a row-regular table is
         # otherwise split into alternating filled-card clusters and bare flow
         # paragraphs.  It has no side effects until the entire segment passes.
@@ -1784,6 +1777,18 @@ def infer(ir: DocIR) -> DocLayout:
                 continue        # stray ornament: not worth rasterising a region for
             if d.shape in ("curve", "complex", "line") or (
                     d.fill and bbox_area(d.bbox) > 400):
+                # A stray shape is promoted to a rasterised block here on area
+                # alone. That test has no sense of position, and a shape lying
+                # wholly in a side margin is furniture: rasterising it spends
+                # body height the source never spent. Guarded at the promotion
+                # site rather than by filtering the drawing list, because
+                # shapes in the margin band still legitimately ANCHOR body
+                # content -- a quote bar or callout rule sits just outside the
+                # column and marks text inside it, and removing it upstream
+                # destroys the callout (measured: it moved four gated
+                # fixtures).
+                if in_side_margin(d.bbox, lay.margin_l, lay.margin_r, p.width):
+                    continue
                 elements.append(build_figure([d], blocks, p.images, consumed, p))
 
         for im in p.images:

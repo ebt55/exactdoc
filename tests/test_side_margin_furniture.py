@@ -122,6 +122,42 @@ class MarginRectDoesNotEnterFlow(unittest.TestCase):
         self.assertEqual(_figures(lay), [])
 
 
+class MarginShapesThatAnchorBodyContent(unittest.TestCase):
+    """A shape in the margin band is not automatically furniture.
+
+    The first version of this rule filtered every side-margin drawing out of
+    the pipeline, and moved four gated fixtures. The reason: a blockquote or
+    callout bar sits just OUTSIDE the body column and marks text INSIDE it, so
+    removing it upstream destroys the callout. The rule therefore guards only
+    the branch that promotes a stray shape to a standalone raster.
+    """
+
+    def _page_with_quote_bar(self):
+        lines = [_line(BODY_L, BODY_R, 300.0 + 12.0 * i) for i in range(8)]
+        blk = TextBlock(lines=lines, bbox=(BODY_L, 290.0, BODY_R, 396.0))
+        # a 2pt bar at x=68..70, wholly left of the column but anchoring text
+        bar = DrawCmd(kind="stroke", shape="vline", bbox=(68.0, 296.0, 70.0, 398.0),
+                      fill=None, stroke="#2563eb", width=2.0, opacity=1.0,
+                      n_items=1)
+        pg = PageIR(number=1, width=PAGE_W, height=PAGE_H, blocks=[blk],
+                    drawings=[bar])
+        return DocIR(path="quotebar.pdf", pages=[pg])
+
+    def test_quote_bar_in_the_margin_still_builds_its_callout(self):
+        ir = self._page_with_quote_bar()
+        lay = infer(ir)
+        roles = [el.role for pl in lay.pages for ch in pl.chunks
+                 for el in ch.elements if hasattr(el, "role")]
+        self.assertIn("quote", roles,
+                      "a margin quote bar must still anchor its callout; "
+                      "filtering side-margin drawings wholesale breaks this")
+
+    def test_quote_bar_is_geometrically_in_the_margin(self):
+        # the bar really is in the band -- this test would be vacuous otherwise
+        self.assertTrue(in_side_margin((68.0, 296.0, 70.0, 398.0), 72.0,
+                                       90.0, PAGE_W))
+
+
 class BodyRectIsStillAFigure(unittest.TestCase):
     """The control: the rule discriminates on position, not on shape."""
 
