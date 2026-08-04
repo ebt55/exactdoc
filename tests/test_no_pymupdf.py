@@ -55,6 +55,54 @@ def check(name, cond, detail=""):
         FAILED.append(name)
 
 
+# The only module allowed to need PyMuPDF: the shipping parser itself. Every
+# other reference in the package is lazy -- inside a function, on the PyMuPDF
+# backend's own code path -- which is what makes a PyMuPDF-free install able to
+# import the writer at all. `docxout` carried a top-level `import fitz` once and
+# a wheel without PyMuPDF failed while *importing the writer*, before any
+# conversion was attempted.
+#
+# The rule below is a SUBSET rule, not equality, and the asymmetry is
+# deliberate: shrinking the seam is progress toward the Apache-2.0 target and
+# must not need a test edit, while growing it by one module is red immediately.
+PYMUPDF_SEAM = {"parse"}
+
+
+def package_modules():
+    """Every module in the package, enumerated rather than listed by hand.
+
+    A hardcoded list goes stale the moment someone adds a module -- and the
+    module nobody remembered to add is exactly where a stray top-level
+    `import fitz` would sit unnoticed.
+    """
+    pkg = os.path.join(ROOT, "exactdoc")
+    return sorted(f[:-3] for f in os.listdir(pkg)
+                  if f.endswith(".py") and f != "__init__.py")
+
+
+def _blames_pymupdf(exc):
+    return any(root in str(exc).lower() for root in ("fitz", "pymupdf"))
+
+
+def declared_core_dependencies():
+    """The `[project].dependencies` block, as text, or None.
+
+    Read as text rather than through `tomllib`: the package declares
+    `requires-python = ">=3.9"` and this test has to run wherever the package
+    does, which is three releases before tomllib existed.
+    """
+    try:
+        with open(os.path.join(ROOT, "pyproject.toml"), encoding="utf-8") as fh:
+            text = fh.read()
+    except OSError:
+        return None
+    start = text.find("\ndependencies = [")
+    if start == -1:
+        return None
+    end = text.find("]", start)
+    return text[start:end] if end != -1 else None
+
+
 def block_pymupdf():
     for mod in list(sys.modules):
         if _Blocker._blocked(mod):
@@ -144,6 +192,57 @@ def main():
     from exactdoc import refine, verify, infer, dialect        # noqa: F401
     check("import refine/verify/infer/dialect", True)
     check("fitz never entered sys.modules", "fitz" not in sys.modules)
+    check("pymupdf never entered sys.modules either",
+          "pymupdf" not in sys.modules,
+          "the package is importable under two names and blocking one is not "
+          "blocking the dependency")
+
+    # 1b. The seam, measured across the WHOLE package rather than the handful of
+    # modules this test happens to reach. The checks above import ten modules by
+    # name; a top-level `import fitz` in any of the other fourteen would not be
+    # noticed here, and would break a PyMuPDF-free install at import time.
+    import importlib
+    clean, blocked, broken = [], [], []
+    for name in package_modules():
+        try:
+            importlib.import_module("exactdoc." + name)
+            clean.append(name)
+        except ImportError as exc:
+            (blocked if _blames_pymupdf(exc) else broken).append((name, exc))
+        except Exception as exc:                       # noqa: BLE001
+            broken.append((name, exc))
+    blocked_names = {name for name, _ in blocked}
+    check("the whole package was enumerated", len(package_modules()) > 10,
+          "found %d modules" % len(package_modules()))
+    check("the PyMuPDF seam has not grown beyond %s"
+          % ", ".join(sorted(PYMUPDF_SEAM)),
+          blocked_names <= PYMUPDF_SEAM,
+          "these modules need PyMuPDF to import and are not the declared seam: "
+          "%s. A top-level PyMuPDF import outside the parser breaks a "
+          "PyMuPDF-free install before any conversion is attempted."
+          % ", ".join(sorted(blocked_names - PYMUPDF_SEAM)))
+    check("no module failed to import for a non-PyMuPDF reason", not broken,
+          "; ".join("%s: %s: %s" % (n, type(e).__name__, e) for n, e in broken))
+    print("     %d of %d modules import with PyMuPDF unimportable; seam = %s"
+          % (len(clean), len(package_modules()),
+             ", ".join(sorted(blocked_names)) or "none"))
+
+    # 1c. What this test does NOT prove, stated so nobody mistakes it for the
+    # base-wheel proof. Blocking an import inside an interpreter that still has
+    # PyMuPDF on disk is not the same as installing without it -- and today it
+    # cannot be, because PyMuPDF is a hard core dependency, so a PyMuPDF-free
+    # install is impossible by construction. See docs/license-audit.md gate (c).
+    core = declared_core_dependencies()
+    check("pyproject declares a core dependency list", core is not None,
+          "could not find [project].dependencies in pyproject.toml")
+    check("PyMuPDF is still core, so this test is not the base-wheel proof",
+          bool(core) and "pymupdf" in core,
+          "pymupdf is no longer a declared core dependency, so a PyMuPDF-free "
+          "INSTALL is now possible -- and this test cannot prove it works, "
+          "because it only blocks the import in an interpreter that still has "
+          "the package on disk. Replace this check with the real proof: install "
+          "the wheel with only the [pdfium] extra into an environment where "
+          "PyMuPDF is absent, and convert the corpus there.")
 
     # 2. the writer must not be carrying a MuPDF text-metric dependency
     from exactdoc.metrics import NullMetrics, get_metrics
@@ -242,6 +341,7 @@ def main():
                   "%s: %s" % (type(e).__name__, e))
 
     check("fitz still absent after converting", "fitz" not in sys.modules)
+    check("pymupdf still absent after converting", "pymupdf" not in sys.modules)
     # The count, asserted rather than assumed. A loop over an empty list is a
     # loop that reports nothing wrong, and that is precisely how this test used
     # to pass.
