@@ -17,12 +17,26 @@ change?*
 
 ## 0. Method, and what "verified" means here
 
-Dependency licences were read with `importlib.metadata` from the pinned
+Dependency **licences** were read with `importlib.metadata` from the pinned
 environment (`uv.lock`, resolved into `.venv`), taking `License-Expression`,
 `License` and the `License ::` classifiers from each installed distribution.
 Bundled native-library licences were read from the licence files inside the
 installed wheel. Corpus provenance was read from
 `testkit/corpus_manifest.json` and `testkit/corpus_expansion.json`.
+
+**The dependency *relationships* — what is core and what is an extra — were read
+from `pyproject.toml`, never from installed metadata, and that distinction is
+load-bearing.** A third-party package's own `.dist-info` states its licence
+accurately, because it was built from that project's own source. exactdoc's own
+`.dist-info` is a different matter: it is frozen at install time, and an
+editable install does not refresh it when the source tree changes. At the time
+of writing, the development virtualenv's metadata reported `pypdfium2` as a core
+requirement and `pymupdf` behind an `mupdf` extra — **the exact inverse of what
+`pyproject.toml` declares**. An auditor reading dependency structure out of that
+environment would have concluded the AGPL dependency was already optional, which
+is the single most consequential thing it is possible to be wrong about in this
+document, wrong in the reassuring direction. `tests/test_packaging_metadata.py`
+now reports that divergence on every run.
 
 Versions are named throughout, because a licence claim without a version is a
 claim about a package that may not exist any more — iText is the standing
@@ -371,10 +385,23 @@ which has happened here before, in `docxout.py`.
    convert all 16 gated fixtures and compare against the pinned candidate
    baseline. That needs PyMuPDF moved to an extra, a default path that does not
    route through `exactdoc/parse.py`, and CI running it in a clean container.
-3. **The built artifact's own metadata.** Nothing inspects the wheel's
-   `Requires-Dist`. The proof should assert that the base wheel's core
-   requirements contain no AGPL package — read from the built artifact, not from
-   `pyproject.toml` text, because the artifact is what users install.
+3. **The built artifact's own metadata — partially closed.**
+   `tests/test_packaging_metadata.py` now turns §1 and §2 into executable
+   comparisons: the declared core set and every extra must match the audited
+   sets, no package may be declared in both core and an extra, PyMuPDF must
+   still be core, and the project licence must still say AGPL while it is.
+   Verified to bite — seven mutations of the declaration (a dependency added,
+   one removed, PyMuPDF moved to an extra, an extra gaining a package, an extra
+   renamed, a package declared twice, the licence flipped) are each caught.
+   **What remains open is the wheel itself.** The strongest check reads
+   `Requires-Dist` from a freshly built wheel, because that is the artifact a
+   user installs and the only one whose metadata is guaranteed to have been
+   generated from the current `pyproject.toml`. `build`, `setuptools` and
+   `wheel` are all absent from the pinned virtualenv, and installing them into
+   a shared environment to satisfy a test is not a change to make silently.
+   What is asserted today therefore catches every edit to the declaration and
+   would not catch a build backend that mistranslates it. Closing it needs
+   build tooling in the environment.
 4. **Runtime failure mode.** Even with the seam at zero modules,
    `backend.py`'s `PyMuPDFBackend` lazily imports `fitz` in its methods. A base
    wheel must make `backend="pymupdf"` fail with a clear typed error rather than
@@ -431,6 +458,8 @@ decision.**
 | 3 | ~~Remove or record `tmp/pdfs/` (§5.3)~~ — **done**: removed from tracking and disk, `tmp/` ignored, recorded in the execution log. | *closed* |
 | 4 | Record provenance for the gated 16 (§5.1), as a single re-pinning commit. | engineering |
 | 5 | Confirm installed metadata matches each project's published licence (§0). | legal review |
+| 6 | Add build tooling to the pinned environment so the wheel-level `Requires-Dist` check in §8 item 3 can be written. | engineering |
+| 7 | Re-run `uv sync` in the development virtualenv: its `exactdoc` metadata is stale and inverts the core/extra position of PyMuPDF (§0). Harmless to the tests, misleading to a human. | engineering |
 
 ---
 
