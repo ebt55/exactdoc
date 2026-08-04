@@ -805,6 +805,69 @@ _GDOCS_COVER_BEFORE_COMP_TWIPS = 296  # 14.8pt, measured above
 # Re-measure them if the corpus ever needs the last point of vertical fidelity.
 
 
+# --- column-break emission --------------------------------------------------
+# An explicit column break says "column one ends HERE". That is right only if
+# column one's content actually reaches the bottom of the column and no
+# further. Measured on an isolated OOXML matrix at y12_irs_pub15's own
+# geometry:
+#
+#   column 1 content     with the break        without it
+#   under-fills          19/66  (correct)      66/28  (columns MERGE)
+#   just fits            66/66                 66/66  (identical)
+#   OVERFLOWS            66/10  (column 2      66/66  (degrades by lines,
+#                               abandoned)            not by a column)
+#
+# So the break protects the source's split when column one under-fills, and
+# destroys a column when it overflows: the spill enters column two, and the
+# break then fires from column two and advances to the next page. On
+# y12_irs_pub15 that is the whole defect -- 59 source pages rendering as 114
+# with every second column empty.
+#
+# The break is therefore emitted only when column one is predicted NOT to
+# overflow. The prediction is `ladder.predict_lines`, the same greedy first-fit
+# the quality ladder uses; it returns None when it cannot be trusted (non
+# base-14 family, unmeasurable glyph), and None keeps the break, which is the
+# behaviour that shipped.
+#
+# The boundary is biased toward keeping the break: the matrix shows the
+# "just fits" case works either way, so the slack costs nothing there and buys
+# safety against a prediction that is a line optimistic.
+COL_OVERFLOW_SLACK_PT = 6.0
+
+
+def _column_one_overflows(ch, content_w: float, lay: DocLayout) -> bool:
+    """Is the first column's content predicted to outgrow its column?"""
+    if ch.n_cols < 2:
+        return False
+    try:
+        from .ladder import predict_lines
+        from .metrics import get_metrics
+        metrics = get_metrics("mupdf")
+    except Exception:
+        return False
+    gap = ch.col_gap or 0.0
+    col_w = (content_w - gap * (ch.n_cols - 1)) / ch.n_cols
+    if col_w <= 1.0:
+        return False
+    capacity = lay.page_h - lay.margin_t - lay.margin_b - max(0.0, ch.pre_gap)
+    used = 0.0
+    for el in ch.elements:
+        if isinstance(el, ColBreak):
+            break
+        if not isinstance(el, Para):
+            bb = getattr(el, "bbox", None) or getattr(el, "clip", None) \
+                or getattr(el, "_bbox", None)
+            used += (bb[3] - bb[1]) if bb else 0.0
+            continue
+        n = predict_lines(el, col_w - el.left_indent - el.right_indent, metrics)
+        if n is None:
+            return False          # not predictable: leave the break alone
+        lead = el.leading if (el.leading and el.leading > 1) else \
+            (max((r.size for r in el.runs if r.text), default=10.0) * 1.15)
+        used += el.space_before + n * lead + el.space_after
+    return used > capacity + COL_OVERFLOW_SLACK_PT
+
+
 def _band_accent_as_row(t: TableEl) -> TableEl:
     """Re-express a band cell's accent border as a shaded row of its own.
 
@@ -1522,8 +1585,16 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                 if ch.pre_gap > 0.5:
                     _spacer(doc, ch.pre_gap - _sect_break_comp(ctx))
                 new_section(WD_SECTION.CONTINUOUS, ch.n_cols, ch.col_gap)
+            drop_col_break = _column_one_overflows(ch, cw_ctx, lay)
             for el in ch.elements:
                 if isinstance(el, ColBreak):
+                    if drop_col_break:
+                        # Column one is predicted to overflow. Forcing the
+                        # break here would fire it from column TWO and abandon
+                        # that column; letting the content flow costs a few
+                        # lines instead of a whole column. See
+                        # _column_one_overflows for the matrix.
+                        continue
                     par = doc.add_paragraph()
                     pf = par.paragraph_format
                     pf.space_before = Pt(0)
