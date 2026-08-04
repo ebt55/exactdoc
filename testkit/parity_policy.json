@@ -1,25 +1,94 @@
 {
- "_note": "The backend-swap acceptance policy, as data the gate executes rather than prose a reader is trusted to apply. Schema 2 splits the old `accepted_shortfalls` into `provisional_shortfalls` (visible, bounded, attributed -- and NOT authorising a swap or a release) and `ratified_shortfalls` (a named owner took responsibility on a date, with a way to expire it). Schema 1 had one section whose own note called it RATIFIED while every prose document called the same four documents provisional, so the executable rule and the written rule disagreed about whether a release was authorised. Every floor now also names the environment, corpus and commit it was measured under, because three stale `c4_i18n` floors survived a font-environment change and failed CI as though the backend had regressed. Record floors with `backend_parity.py --update-policy` on the canonical environment.",
+ "_note": "The backend-swap acceptance policy for ONE named profile, as data the gate executes rather than prose a reader is trusted to apply. This file was rewritten on 2026-08-04 because its predecessor was bound only by `recorded_refine_rounds: 3` -- refine rounds alone do not name a backend, an output profile, an oracle or a DPI, and the four D2 findings it carried had been measured at a different profile altogether. `backend_parity.py` refused to adjudicate against it and said so. The refusal was right: floors measured at one full profile say nothing about another, and `--update-policy` deliberately will not migrate findings across that boundary. So this is a NEW policy bound to `pdfium/gdocs/none/refine0@240dpi`, populated from a fresh measurement run, and it is PROVISIONAL: it authorises nothing.",
+ "_ratification": {
+  "_note": "COMMENTARY, NOT ENFORCEMENT -- the leading underscore is this file's convention for a key the tool does not read, and it is used deliberately here so nobody mistakes this block for the gate. The executable statement that nothing is ratified is the EMPTY `ratified_shortfalls` section below. These fields are recorded empty so that the shape of a ratification is visible before anyone has to invent it: all four are required, and each is checked on its own, when a shortfall is moved into `ratified_shortfalls`.",
+  "decision": "DEC-D2, on Google evidence -- not on this LibreOffice proxy",
+  "issue": "",
+  "ratified": false,
+  "ratified_by": "",
+  "ratified_on": "",
+  "review_condition": ""
+ },
+ "_status_note": "PROVISIONAL means: the divergences below are visible, bounded and attributed, and not one of them may authorise a backend swap or a release. That is not a promise in prose -- `adjudicate()` appends a `provisional` failure for every entry in `provisional_shortfalls`, so this policy cannot report ok or release_ready while any of them stands. The findings clear in one of two ways: the defect is fixed, or a named owner ratifies it at DEC-D2.",
  "candidate_backend": "pdfium",
  "expected_divergence": {
-  "_note": "Documents where the two backends disagree about what CORRECT means and the candidate was verified to be the right one. Nothing goes in here without rendered evidence, because the harness measures agreement with the incumbent and would otherwise demand that a bug be reproduced.",
+  "_note": "Empty at this profile, deliberately. This section is for documents where the two backends disagree about what CORRECT means and the candidate was verified to be the right one -- and nothing enters it without rendered evidence, because a document listed here is excused from the comparison. `c4_i18n` and `c5_graphics` were waived here under the previous, differently-bound policy, and both of those waivers rest on rendered evidence that was produced at the parity/refine3 profile. That evidence has NOT been reproduced at `pdfium/gdocs/none/refine0@240dpi`. The prior reasoning is preserved verbatim in each document's entry in `provisional_shortfalls`, where it is bounded and blocking, rather than copied here, where it would excuse. Re-verify with rendered output at this profile before promoting either one back."
+ },
+ "margins": {
+  "_note": "How much worse the candidate may be on a dimension before the document counts as a regression. Every gated dimension appears here, and each is judged INDEPENDENTLY -- the comparison used to stop at the first dimension outside its margin, so one improvement suppressed every regression ordered after it. Sizing: these are deliberately looser than testkit/gate.py's run-to-run tolerances, because two correct parsers legitimately differ by more than one parser differs from itself; the ratio is about 2.5-5x on the fraction metrics. They are NOT tuned to make the current corpus pass -- a margin chosen to clear a failure is the failure, silenced. dy_p50 additionally carries gate.py's 10% relative term, since it is the one dimension that is not a fraction and runs from 0.3pt to 34pt across this corpus. UNCHANGED on 2026-08-04: rebinding a policy to a profile is not an occasion to move a margin, and moving one in the same change would make the rebinding unreviewable.",
+  "doc_recall": 0.05,
+  "dy_p50": 0.5,
+  "live_text_cov": 0.05,
+  "page_err": 0,
+  "raster_frac": 0.02,
+  "within2pt": 0.08,
+  "word_recall": 0.05
+ },
+ "measured_on": "2026-08-04",
+ "profile_id": "pdfium/gdocs/none/refine0@240dpi",
+ "provisional_shortfalls": {
+  "_not_carried_over": "The four D2 findings the previous policy carried (01_whitepaper_market, 02_research_paper, 03_tech_report_code, r1_reportlab_report -- the core-14 font-metric class, where PyMuPDF reads a real base-14 ascent and PDFium substitutes a generic one) are NOT migrated here, and their absence is not a fix. They were measured at a different full profile; at this profile all four sit inside the margins. Their own profile has not been remeasured, so nothing here retires D2 -- see STATUS D2 and the line-box escalation ruling.",
+  "_not_recorded_here": "The 2026-08-04 measurement run reports 8 raw regressions because `--measure` runs with EMPTY margins, which is what makes every raw movement visible. Five of those eight sit inside the margins above and are therefore not divergences this policy tracks: 01_whitepaper_market (doc/word recall 0.9677->0.957, within-2pt 0.0417->0.007), 02_research_paper (within-2pt 0.0381->0.033), 03_tech_report_code (doc/word recall 1->0.9723), 05_memo (within-2pt 0.0241->0, and BETTER on dy_p50 13.36->7.36pt), and l1_word_native (live 1->0.9883, recall 0.9931->0.9792, within-2pt 0.014->0.0071, raster 0->0.0117, and BETTER on dy_p50 30.99->19.69pt). Recording any of them as a shortfall would be recording a finding the comparison does not make, and `adjudicate()` would correctly call it stale. `05_memo.pdf` and `f1_fpdf_brief.pdf` additionally stay out of every waiver section by test, not by habit: attribution is not authorisation, and widening a waiver is a product decision.",
+  "_note": "Documents where the candidate is measurably worse at this profile AFTER the margins above are applied, the cause is attributed, and the shortfall is PROVISIONAL: visible and bounded, but it may NOT authorise a backend swap or a release (plan section 17 rule 4). Acceptance is bounded in both directions by the numeric floors: worsening past one fails, and clearing the divergence entirely fails as a stale record. Ratifying one means moving it to `ratified_shortfalls` with ratified_by, ratified_on, issue and review_condition -- all four required, all four checked. The decision is scheduled for the Google Docs checkpoint (DEC-D2), because Google Docs is the renderer this project actually targets and LibreOffice is a proxy for it.",
+  "c2_paper2col.pdf": {
+   "corpus_manifest_sha256": "e6e4a15986bd5ba002e31a64c5366144245d1146bd464551295b06dd9310e539",
+   "defect": "D2",
+   "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+   "floors": {
+    "doc_recall": 0.9922,
+    "dy_p50": 23.55,
+    "live_text_cov": 0.9942,
+    "page_err": 0,
+    "raster_frac": 0.0058,
+    "within2pt": 0.0131,
+    "word_recall": 0.9922
+   },
+   "measured_commit": "ff518bebddfe722bdabd2705bc2494a0612bc441",
+   "measured_commit_source": "the commit stamped into docs/evidence/canonical-gate-2026-08-04.json by the canonical run that produced these numbers",
+   "measured_on": "2026-08-04",
+   "profile_id": "pdfium/gdocs/none/refine0@240dpi",
+   "reason": "Two-column vertical placement. The verified right-column-edge fix landed for both arms, and the PyMuPDF reference took more of it than the PDFium candidate did: at this profile the reference is within-2pt 0.1039 and median dy 10.05pt against the candidate's 0.0131 and 23.55pt. This is a widening gap, not a loss against the candidate's own previous state -- which is exactly the shape a parity harness exists to catch, because a candidate that stands still while the incumbent improves is a candidate that got worse. Same placement family as the STATUS D2 core-14 findings: the candidate does not track the corrected two-column geometry through the same box-top space the incumbent measures it in.",
+   "recorded_on": {
+    "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+    "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+    "os": "linux",
+    "pdfium": "152.0.7947.0",
+    "pymupdf": "1.28.0",
+    "python": "3.12.3",
+    "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+   },
+   "reference_at_record": {
+    "doc_recall": 1.0,
+    "dy_p50": 10.05,
+    "live_text_cov": 1.0,
+    "page_err": 0,
+    "raster_frac": 0.0,
+    "within2pt": 0.1039,
+    "word_recall": 1.0
+   },
+   "worse_at_record": [
+    "within2pt",
+    "dy_p50"
+   ]
+  },
   "c4_i18n.pdf": {
    "corpus_manifest_sha256": "e6e4a15986bd5ba002e31a64c5366144245d1146bd464551295b06dd9310e539",
+   "defect": "D10",
    "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
    "floors": {
     "doc_recall": 0.9748,
-    "dy_p50": 0.8,
+    "dy_p50": 13.13,
     "live_text_cov": 0.9091,
     "page_err": 0,
     "raster_frac": 0.0909,
-    "within2pt": 0.3017,
+    "within2pt": 0.0129,
     "word_recall": 0.9748
    },
-   "floors_remeasured": "Remeasured 2026-07-30 in the canonical image (fingerprint cf51ded391ce5ef7...) after scripts/fonts.conf pinned the visible font set. The previous floors were recorded before that pinning and had been failing CI as though the backend had regressed: doc_recall 0.9874 -> 0.9748, dy_p50 0.15 -> 0.8, within2pt 0.5745 -> 0.3017, word_recall 0.9874 -> 0.9748. c4_i18n is the CJK + Arabic + Hebrew document and was the ONLY document in the corpus whose floors moved -- the other five waived documents came out bit-identical, which is what makes the font environment the attributed cause rather than a hypothesis.",
-   "measured_commit": "8a14f77f86d5b2699a86199383d4eb5de8630455",
-   "measured_commit_source": "stamped from the checkout: the canonical image held a copy of the tree with no git repository. The authoritative re-record comes from CI once gate.yml runs inside the published image.",
-   "profile_id": "parity/refine3",
-   "reason": "RTL: PDFium reports glyphs in visual order and this backend reorders them to logical, which is what a DOCX must carry. PyMuPDF returns visual order, so its DOCX renders Arabic backwards.",
+   "measured_commit": "ff518bebddfe722bdabd2705bc2494a0612bc441",
+   "measured_commit_source": "the commit stamped into docs/evidence/canonical-gate-2026-08-04.json by the canonical run that produced these numbers",
+   "measured_on": "2026-08-04",
+   "profile_id": "pdfium/gdocs/none/refine0@240dpi",
+   "reason": "Complex-script raster fallback. One region in eleven falls back to raster under PDFium (raster_frac 0 -> 0.0909), and the text in it stops counting as live (1.0 -> 0.9091). Content recall barely moves (0.9832 -> 0.9748), which is the signature of a rasterised region rather than lost text. PRIOR EVIDENCE, at the parity/refine3 profile and not reproduced here: PDFium reports RTL glyphs in logical order, which is what a DOCX must carry, while PyMuPDF returns visual order, so the incumbent's DOCX renders Arabic backwards -- verified by rendering the source and both outputs side by side. On that evidence the candidate is the correct backend for this document and the live-text loss is the price of a raster fallback rather than a defect in ordering. Until that rendering is reproduced at THIS profile, the difference is tracked and blocking, not excused.",
    "recorded_on": {
     "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
     "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
@@ -31,32 +100,36 @@
    },
    "reference_at_record": {
     "doc_recall": 0.9832,
-    "dy_p50": 0.87,
+    "dy_p50": 13.18,
     "live_text_cov": 1.0,
     "page_err": 0,
     "raster_frac": 0.0,
-    "within2pt": 0.1966,
+    "within2pt": 0.0128,
     "word_recall": 0.9832
    },
-   "verified": "rendered source and both outputs side by side; the PyMuPDF output reads the same words in reverse"
+   "worse_at_record": [
+    "live_text_cov",
+    "raster_frac"
+   ]
   },
   "c5_graphics.pdf": {
    "corpus_manifest_sha256": "e6e4a15986bd5ba002e31a64c5366144245d1146bd464551295b06dd9310e539",
+   "defect": "D10",
    "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
    "floors": {
     "doc_recall": 0.6556,
-    "dy_p50": 0.0,
+    "dy_p50": 0.3,
     "live_text_cov": 0.6778,
-    "page_err": 0,
+    "page_err": 1,
     "raster_frac": 0.3222,
-    "within2pt": 0.2373,
-    "word_recall": 0.6556
+    "within2pt": 0.2,
+    "word_recall": 0.1667
    },
-   "measured_commit": "8a14f77f86d5b2699a86199383d4eb5de8630455",
-   "measured_commit_source": "stamped from the checkout: the canonical image held a copy of the tree with no git repository. The authoritative re-record comes from CI once gate.yml runs inside the published image.",
-   "metric_caveat": "live_text_cov scored PyMuPDF higher (0.71 vs 0.68) because invisible white text still counts as live. Text coverage cannot see contrast.",
-   "profile_id": "parity/refine3",
-   "reason": "The page opens with a gradient band carrying white text. PyMuPDF does not report the gradient, so the band's text is emitted white on white and is invisible. PDFium reports the pattern flattened to grey, so the band survives and its text is legible.",
+   "measured_commit": "ff518bebddfe722bdabd2705bc2494a0612bc441",
+   "measured_commit_source": "the commit stamped into docs/evidence/canonical-gate-2026-08-04.json by the canonical run that produced these numbers",
+   "measured_on": "2026-08-04",
+   "profile_id": "pdfium/gdocs/none/refine0@240dpi",
+   "reason": "Designed-page rasterisation. PDFium rasterises one region more than PyMuPDF on a gradient/rounded/rotated designed page (0.2933 -> 0.3222). METRIC CAVEAT, and it points the other way: live_text_cov scores the incumbent higher (0.7067 against 0.6778) because invisible white text still counts as live. Text coverage cannot see contrast. PRIOR EVIDENCE, at the parity/refine3 profile and not reproduced here: the page opens with a gradient band carrying white text; PyMuPDF does not report the gradient, so the band's text is emitted white on white and is invisible, while PDFium reports the pattern flattened to grey and the heading survives legibly. Both arms are page_err 1 here, so the floor permits it: c5_graphics is the deliberately deferred designed-page limitation, and the floor bounds it rather than pretending it is fixed.",
    "recorded_on": {
     "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
     "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
@@ -68,177 +141,22 @@
    },
    "reference_at_record": {
     "doc_recall": 0.6778,
-    "dy_p50": 0.5,
+    "dy_p50": 2.05,
     "live_text_cov": 0.7067,
-    "page_err": 0,
+    "page_err": 1,
     "raster_frac": 0.2933,
-    "within2pt": 0.6885,
-    "word_recall": 0.6778
+    "within2pt": 0.1333,
+    "word_recall": 0.1667
    },
-   "verified": "rendered: PyMuPDF's output has no band, PDFium's has a grey one with the heading readable"
-  }
- },
- "margins": {
-  "_note": "How much worse the candidate may be on a dimension before the document counts as a regression. Every gated dimension appears here, and each is judged INDEPENDENTLY -- the comparison used to stop at the first dimension outside its margin, so one improvement suppressed every regression ordered after it. Sizing: these are deliberately looser than testkit/gate.py's run-to-run tolerances, because two correct parsers legitimately differ by more than one parser differs from itself; the ratio is about 2.5-5x on the fraction metrics. They are NOT tuned to make the current corpus pass -- a margin chosen to clear a failure is the failure, silenced. dy_p50 additionally carries gate.py's 10% relative term, since it is the one dimension that is not a fraction and runs from 0.04pt to 101pt across this corpus.",
-  "doc_recall": 0.05,
-  "dy_p50": 0.5,
-  "live_text_cov": 0.05,
-  "page_err": 0,
-  "raster_frac": 0.02,
-  "within2pt": 0.08,
-  "word_recall": 0.05
- },
- "provisional_shortfalls": {
-  "01_whitepaper_market.pdf": {
-   "corpus_manifest_sha256": "e6e4a15986bd5ba002e31a64c5366144245d1146bd464551295b06dd9310e539",
-   "defect": "D2",
-   "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
-   "floors": {
-    "doc_recall": 0.9677,
-    "dy_p50": 1.39,
-    "live_text_cov": 0.9573,
-    "page_err": 0,
-    "raster_frac": 0.0427,
-    "within2pt": 0.5444,
-    "word_recall": 0.9677
-   },
-   "measured_commit": "8a14f77f86d5b2699a86199383d4eb5de8630455",
-   "measured_commit_source": "stamped from the checkout: the canonical image held a copy of the tree with no git repository. The authoritative re-record comes from CI once gate.yml runs inside the published image.",
-   "profile_id": "parity/refine3",
-   "reason": "font-metric convention difference: PyMuPDF's base-14 above/below-baseline ratios reach margin_t and displace every word on the page by a constant. Reproducing them means vendoring MuPDF's table into the permissive tree.",
-   "recorded_on": {
-    "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
-    "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
-    "os": "linux",
-    "pdfium": "152.0.7947.0",
-    "pymupdf": "1.28.0",
-    "python": "3.12.3",
-    "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
-   },
-   "reference_at_record": {
-    "doc_recall": 0.9677,
-    "dy_p50": 0.5,
-    "live_text_cov": 0.9595,
-    "page_err": 0,
-    "raster_frac": 0.0405,
-    "within2pt": 0.7194,
-    "word_recall": 0.9677
-   }
-  },
-  "02_research_paper.pdf": {
-   "corpus_manifest_sha256": "e6e4a15986bd5ba002e31a64c5366144245d1146bd464551295b06dd9310e539",
-   "defect": "D2",
-   "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
-   "floors": {
-    "doc_recall": 0.9586,
-    "dy_p50": 1.29,
-    "live_text_cov": 0.9736,
-    "page_err": 0,
-    "raster_frac": 0.0264,
-    "within2pt": 0.5685,
-    "word_recall": 0.9586
-   },
-   "measured_commit": "8a14f77f86d5b2699a86199383d4eb5de8630455",
-   "measured_commit_source": "stamped from the checkout: the canonical image held a copy of the tree with no git repository. The authoritative re-record comes from CI once gate.yml runs inside the published image.",
-   "profile_id": "parity/refine3",
-   "reason": "same cause as 01_whitepaper_market: measured margin_t 63.30 (PyMuPDF) against 64.90 (PDFium), a constant 1.5pt displacement visible as two identical dy distributions offset by exactly that.",
-   "recorded_on": {
-    "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
-    "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
-    "os": "linux",
-    "pdfium": "152.0.7947.0",
-    "pymupdf": "1.28.0",
-    "python": "3.12.3",
-    "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
-   },
-   "reference_at_record": {
-    "doc_recall": 0.9586,
-    "dy_p50": 0.04,
-    "live_text_cov": 0.9736,
-    "page_err": 0,
-    "raster_frac": 0.0264,
-    "within2pt": 0.7614,
-    "word_recall": 0.9586
-   }
-  },
-  "03_tech_report_code.pdf": {
-   "corpus_manifest_sha256": "e6e4a15986bd5ba002e31a64c5366144245d1146bd464551295b06dd9310e539",
-   "defect": "D2",
-   "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
-   "floors": {
-    "doc_recall": 1.0,
-    "dy_p50": 1.43,
-    "live_text_cov": 0.976,
-    "page_err": 0,
-    "raster_frac": 0.024,
-    "within2pt": 0.308,
-    "word_recall": 1.0
-   },
-   "measured_commit": "8a14f77f86d5b2699a86199383d4eb5de8630455",
-   "measured_commit_source": "stamped from the checkout: the canonical image held a copy of the tree with no git repository. The authoritative re-record comes from CI once gate.yml runs inside the published image.",
-   "profile_id": "parity/refine3",
-   "reason": "D2's cause reaching the closed loop rather than margin_t. refine() measures rendered_box_top - source_box_top; the render is Liberation (embedded, real ascent) and the source is core-14, where PDFium substitutes a generic ascent for the real one MuPDF reads from its base-14 table. The subtraction carries a systematic ~0.17 x type size bias, about 1.7pt at 10pt, which under-corrects every page against a 2pt threshold. Baseline anchoring cancels it perfectly and costs the INCUMBENT 0.511 -> 0.478 mean within-2pt, because the space_before chain it feeds is calibrated on box tops -- the same result as the line-box escalation closed out in STATUS D2.",
-   "recorded_on": {
-    "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
-    "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
-    "os": "linux",
-    "pdfium": "152.0.7947.0",
-    "pymupdf": "1.28.0",
-    "python": "3.12.3",
-    "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
-   },
-   "reference_at_record": {
-    "doc_recall": 1.0,
-    "dy_p50": 0.54,
-    "live_text_cov": 0.9827,
-    "page_err": 0,
-    "raster_frac": 0.0173,
-    "within2pt": 0.4602,
-    "word_recall": 1.0
-   }
-  },
-  "_note": "Documents where the candidate is measurably worse, the cause is attributed, and the shortfall is PROVISIONAL: visible and bounded, but it may NOT authorise a backend swap or a release (plan \u00a717 rule 4). All four are STATUS D2 and all four are core-14 documents: infer() and refine() both work in line-box-top space, PyMuPDF reads that from its own base-14 table (the real font's ascent, which the metric-compatible render font also has), and PDFium substitutes a generic ascent. Documents that embed their fonts are unaffected because both parsers then read the embedded metrics. Acceptance is bounded by numeric floors: worsening past them fails, and clearing the divergence entirely fails as stale. These four grew from two when the refinement loop stopped reading its measurements through PyMuPDF regardless of which backend had parsed -- so 'two regressions' had described a configuration nobody could install. Widening a waiver from two documents to four is a product decision, and moving them here records that it has not been made. Ratifying one means moving it to `ratified_shortfalls` with ratified_by, ratified_on, issue and review_condition. The decision is scheduled for the Google Docs checkpoint (DEC-D2), because Google Docs is the renderer this project actually targets and LibreOffice is a proxy for it.",
-  "r1_reportlab_report.pdf": {
-   "corpus_manifest_sha256": "e6e4a15986bd5ba002e31a64c5366144245d1146bd464551295b06dd9310e539",
-   "defect": "D2",
-   "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
-   "floors": {
-    "doc_recall": 1.0,
-    "dy_p50": 1.1,
-    "live_text_cov": 1.0,
-    "page_err": 0,
-    "raster_frac": 0.0,
-    "within2pt": 0.3212,
-    "word_recall": 1.0
-   },
-   "measured_commit": "8a14f77f86d5b2699a86199383d4eb5de8630455",
-   "measured_commit_source": "stamped from the checkout: the canonical image held a copy of the tree with no git repository. The authoritative re-record comes from CI once gate.yml runs inside the published image.",
-   "profile_id": "parity/refine3",
-   "reason": "same cause as 03_tech_report_code: a core-14 document whose placement is otherwise good enough for the 2pt threshold to be sensitive to the refine loop's ~1.7pt box-top bias. All four provisional documents are core-14; every Chromium document embeds its fonts, so PDFium reads the real ascent and none of them is affected.",
-   "recorded_on": {
-    "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
-    "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
-    "os": "linux",
-    "pdfium": "152.0.7947.0",
-    "pymupdf": "1.28.0",
-    "python": "3.12.3",
-    "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
-   },
-   "reference_at_record": {
-    "doc_recall": 1.0,
-    "dy_p50": 1.5,
-    "live_text_cov": 1.0,
-    "page_err": 0,
-    "raster_frac": 0.0,
-    "within2pt": 0.5959,
-    "word_recall": 1.0
-   }
+   "worse_at_record": [
+    "raster_frac"
+   ]
   }
  },
  "ratified_shortfalls": {
-  "_note": "Empty, deliberately. A shortfall reaches this section only when a named owner takes responsibility for it on a date, with an issue and a review or expiry condition -- `ratified_by`, `ratified_on`, `issue`, `review_condition`, all four required and all four checked. Nothing has been ratified yet: the four D2 documents in `provisional_shortfalls` are attributed but not authorised, and `05_memo` and `f1_fpdf_brief` are deliberately not in either section, because attribution is not authorisation and a gate that cannot tell the difference is not a gate."
+  "_note": "Empty, deliberately, and this emptiness is the enforcement. A shortfall reaches this section only when a named owner takes responsibility for it on a date, with an issue and a review or expiry condition -- `ratified_by`, `ratified_on`, `issue`, `review_condition`, all four required and all four checked. Nothing has been ratified at this profile or any other: the three findings in `provisional_shortfalls` are attributed but not authorised, and `05_memo` and `f1_fpdf_brief` are in neither section, because attribution is not authorisation and a gate that cannot tell the difference is not a gate."
  },
- "recorded_refine_rounds": 3,
  "reference_backend": "pymupdf",
- "schema": 2
+ "schema": 3,
+ "status": "provisional"
 }

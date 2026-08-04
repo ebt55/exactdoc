@@ -255,8 +255,14 @@ def _policy_profile_errors(policy, profile_id):
             % (" (legacy recorded_refine_rounds=%r)" % legacy
                if legacy is not None else "")]
     if recorded != profile_id:
+        # Names the field, `profile_id`, and not merely the two values. Both
+        # refusal messages in this function have to say which key is wrong,
+        # because the reader's next act is to edit that key -- and
+        # `test_committed_policy_cannot_govern_product_without_full_profile`
+        # asserts the token is present, so dropping it is a red test rather
+        # than a quietly less useful message.
         return [
-            "policy was recorded for %r but this run selected %r. Use --measure "
+            "policy profile_id is %r but this run selected %r. Use --measure "
             "for raw differences, then create and review a separately bound "
             "policy; --update-policy does not migrate findings"
             % (recorded, profile_id)]

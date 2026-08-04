@@ -12,9 +12,26 @@ Shipping profile:
 pymupdf/standard/libreoffice/refine3@240dpi
 ```
 
-Canonical product quality is 15/16 page match, 0.4981 mean within-2pt, 0.9652
+Canonical product quality is 16/16 page match, 0.5161 mean within-2pt, 0.9652
 mean live text, and 0.675pt median dy50. The PyMuPDF/standard open-loop `raw`
-control is 13/16, 0.3349, 0.9652, and 2.2pt respectively.
+control is 14/16, 0.3349, 0.9652, and 2.79pt respectively. Measured 2026-08-04,
+canonical fingerprint `3ca438f1…`, both lanes PASS
+(`docs/evidence/canonical-gate-2026-08-04.json`).
+
+Product page match reached 16/16 on one document: the striped-table assembler
+took `c3_tables` from one page out to exact (word recall 0.331→0.9359).
+Separately, the two-column right-edge fix took `c2_paper2col` median dy
+29.2→0.85pt and within-2pt 0.1948→0.4857 — placement, not pagination. The raw
+lane moved 13/16→14/16, with `c1_whitepaper` and `c5_graphics` its two remaining
+mismatches; its median dy50 2.2→2.79pt is the c3 word population reordering the
+median (raw c3 word recall 0.3137→0.8648, dy50 2.5→7.45pt), not a placement
+regression.
+
+The gate baseline was deliberately re-recorded in that run (`29945f2`) because
+the committed `c3_tables` records had gone stale and the gate refuses a record
+that no longer describes reality. Attribution was verified first: with the new
+inference rules disabled the `c3` output is byte-identical, so the movement is
+the assembler's.
 
 These are regression records, not an absolute release-quality declaration.
 Complex/nested table layouts and D10 rasterised-text regions in `c5_graphics`
@@ -59,15 +76,21 @@ three editable list items, and only its `document.xml` changes across the full
 prepared corpus. Local proxy metrics improve, but the live blocker remains until
 fresh Google qualification.
 
-The next engineering target is `c2_paper2col`. Its right column ends near
-551pt, while margin inference trusts an inset abstract ending near 509pt; that
-narrows content by about 42pt and shifts column two left by about 21pt, matching
-the measured 20.09pt error. Correct this from verified two-column geometry, then
-address code indentation and whitepaper visual similarity. Fix these as general
-layout rules, not fixture exceptions. Afterward expand to roughly 40–60 frozen
-real/generated PDFs from common producers, review/ratify the policy, and perform
-the second consented full Google pass. The current 16 fixtures are regression evidence,
-not market coverage.
+The `c2_paper2col` target is addressed. Its right column ends near 551pt while
+margin inference trusted an inset abstract ending near 509pt, narrowing content
+by about 42pt and shifting column two left by about 21pt; the fix (`ff518be`)
+derives the edge from verified two-column geometry rather than from the inset,
+as a general layout rule and not a fixture exception. Against the LibreOffice
+proxy the product lane moves `c2` median dy 29.2→0.85pt and within-2pt
+0.1948→0.4857, and raw `c2` median dy 26.8→4.0pt. **That is proxy evidence and
+does not clear the live blocker**, which still stands against the committed
+2026-08-02 Google evidence until a fresh consented run replaces it.
+
+Next: code indentation and whitepaper visual similarity, likewise as general
+rules. Afterward expand to roughly 40–60 frozen real/generated PDFs from common
+producers, review/ratify the policy, and perform the second consented full
+Google pass. The current 16 fixtures are regression evidence, not market
+coverage.
 
 The long ordinary striped table in `c3_tables` is now one editable 46-row ×
 4-column table with IDs 1–45 exactly once; it naturally spans pages and has no
@@ -94,16 +117,37 @@ The non-shipping candidate is:
 PDFIUM_GDOCS_CANDIDATE = pdfium/gdocs/none/refine0@240dpi
 ```
 
-After bottom-margin relief it has 14/16 page match, 0.2429 mean within-2pt,
-0.9568 live text, and 2.425pt median dy50. Its candidate-refined diagnostic has
-15/16, 0.3381, 0.9568, and 2.06pt. Same-profile parity is 7 regressions, 7 same,
-and 2 better, including major regressions in plain memo placement, complex
-scripts, and graphics. It is not adopted and not releasable.
+On 2026-08-04 the candidate arm measures 15/16 page match, 0.0694 mean
+within-2pt, 0.9566 live text, and 13.78pt median dy50 against the LibreOffice
+proxy. Those absolutes say little alone — a Google-Docs output profile graded by
+a renderer that is not Google — so read them against the reference arm at the
+same profile: 14/16, 0.0712, 0.9652, and 13.27pt. The `candidate-refined`
+diagnostic was not remeasured and its earlier figures are not carried forward.
+
+Same-profile parity is 8 regressions, 6 same, and 2 better as raw measurement
+(`--measure` uses empty margins, so every movement shows). The count moved 7→8
+but the composition moved more: `c7_code` is now identical on every dimension
+after the Google-Docs cell-margin fix, `c1_whitepaper` is now better (page error
+1→0, word recall 0.8273→0.9697), plain memo placement is no longer a regression,
+and `c2_paper2col` entered because the *incumbent* improved — PyMuPDF took more
+of the right-column-edge fix than PDFium did, 0.1039 against 0.0131 within-2pt
+and 10.05pt against 23.55pt median dy. Adjudicated against the newly
+profile-bound policy that leaves no unwaived regressions and three tracked
+provisional findings: `c4_i18n` complex scripts, `c5_graphics` designed-page
+rasterisation, `c2_paper2col` two-column placement. Provisional is not accepted,
+nothing is ratified, and the candidate is not adopted and not releasable.
+
+`testkit/parity_policy.json` is now bound to the full profile ID rather than to
+`recorded_refine_rounds: 3`. That rebinding is not a migration: floors measured
+at one full profile say nothing about another, and the four D2 core-14 findings
+the old file carried were measured elsewhere. They are not retired — their own
+profile has simply not been remeasured.
 
 The bounded bottom-margin relief is useful evidence, not a declaration of
-victory: it fixed candidate `c1_whitepaper` and `c2_paper2col` overflow while
-preserving the other 12 page-matching fixtures. Complex/nested tables and
-`c5_graphics` designed graphics remain explicit limitations.
+victory: it fixed candidate `c1_whitepaper` and `c2_paper2col` overflow, and the
+candidate now matches page count on 15 of 16 fixtures, one better than the
+reference arm. Complex/nested tables and `c5_graphics` designed graphics remain
+explicit limitations; `c5_graphics` is a page out under both backends.
 
 The next migration decision requires all of:
 
