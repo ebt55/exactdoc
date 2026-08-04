@@ -1,4 +1,5 @@
 """Structure inference: PageIR -> DocLayout (semantic, writer-ready)."""
+import math
 import re
 from collections import Counter, defaultdict
 from statistics import median
@@ -20,6 +21,17 @@ RULE_THICK = 2.5           # pt; thinner than this is a rule, not a shape
 MAX_FIG_GROWTH = 4.0       # a figure may not exceed 4x its seed area
 MAX_FIG_PAGE_FRAC = 0.55   # ...nor 55% of the page
 MAX_FIG_TEXT_FRAC = 0.35   # ...nor swallow more than 35% of a page's text
+
+# --- multi-column grids ----------------------------------------------------
+# A column grid is recognised from its GUTTERS: vertical bands that almost no
+# text line crosses. Block geometry cannot be used for this -- the parser
+# merges adjacent columns into a single block often enough (y06 p6 has one
+# 57-line block spanning columns 2 and 3) that a block-based test misses the
+# structure entirely, while line left-edges cluster on the grid exactly.
+MIN_GUTTER_W = 8.0          # pt; narrower than this is word spacing
+GRID_WIDTH_TOL = 0.12       # columns must be within 12% of the same width
+MIN_COL_LINES = 6           # ...and each must actually carry text
+GUTTER_CROSS_FRAC = 0.02    # a full-width heading may cross a real gutter
 
 # --- side-margin page furniture -------------------------------------------
 # Clearance a shape must keep from the body column before it is called margin
@@ -64,6 +76,38 @@ def _margin_cluster(vals: List[float], left=True) -> Optional[float]:
     if not good:
         return None
     return (min(good) if left else max(good))
+
+
+def _margin_by_mass(vals: List[float], left=True) -> Optional[float]:
+    """Margin estimate that survives a dense ladder of indents.
+
+    `_cluster` chains -- a value joins the previous cluster when it is within
+    tol of the PREVIOUS VALUE, not of the cluster's centre. A document with
+    many indent levels therefore collapses into a few very wide clusters whose
+    means sit between the real edges and match almost nothing, so
+    `_margin_cluster`'s 8%-membership test rejects every one of them and it
+    returns None.
+
+    That is a measurement failure, not evidence that the page has no margin,
+    and the caller's fallback was the constant 72.0 -- an assumption that the
+    document uses 1in margins. On the IRS 1040 instructions (14,050 left edges
+    collapsing into 3 clusters) the true margin is 42.0, so the constant put
+    the content edge 30pt to the right of the text and the column detector,
+    which requires the first column to start at the content edge, could never
+    fire.
+
+    This counts exact edges instead of clustering them: the leftmost x that
+    carries real mass. Used ONLY where `_margin_cluster` finds nothing, so it
+    cannot move a document that already has an answer.
+    """
+    if not vals:
+        return None
+    counts = Counter(round(v) for v in vals)
+    need = max(3.0, 0.02 * len(vals))
+    mass = [x for x, c in counts.items() if c >= need]
+    if not mass:
+        return None
+    return float(min(mass) if left else max(mass))
 
 
 def _two_column_right_edge(body_lines, margin_l: float,
@@ -1533,8 +1577,12 @@ def infer(ir: DocIR) -> DocLayout:
             for l in b.lines:
                 if (bi, id(l)) not in ct:
                     body_lines.append((p.number, l))
-    ml = _margin_cluster([l.bbox[0] for _, l in body_lines
-                          if l.bbox[0] < 0.35 * lay.page_w], left=True)
+    left_edges = [l.bbox[0] for _, l in body_lines
+                  if l.bbox[0] < 0.35 * lay.page_w]
+    ml = _margin_cluster(left_edges, left=True)
+    if ml is None:
+        # Prefer a measurement of this document over the 1in assumption.
+        ml = _margin_by_mass(left_edges, left=True)
     lay.margin_l = float(ml) if ml else 72.0
     wide_x1 = [l.bbox[2] for _, l in body_lines
                if (l.bbox[2] - l.bbox[0]) >= 0.45 * lay.page_w and
@@ -2032,11 +2080,133 @@ def _merge_list_markers(flow_blocks):
     return out
 
 
+def column_grid(line_boxes, content_l: float, content_r: float):
+    """Column bands of a >=3 column page, or None.
+
+    Columns are defined by what is NOT there: a gutter is a vertical band the
+    text does not cross. Measuring the gutters rather than the column starts
+    makes the test independent of how the parser happened to group lines into
+    blocks, and independent of indents inside a column -- an indent ladder
+    produces many left-edge clusters but no empty band.
+
+    Deliberately restricted to three columns or more. Two-column pages already
+    have a detector with its own tuned thresholds and a reference fixture
+    (c2_paper2col); rerouting them through this one could only put that
+    behaviour at risk for no measured gain.
+    """
+    n = int(round(content_r - content_l))
+    if n < 120 or not line_boxes:
+        return None
+    occ = [0] * n
+    for lb in line_boxes:
+        a = max(0, int(lb[0] - content_l))
+        b = min(n, int(math.ceil(lb[2] - content_l)))
+        for i in range(a, b):
+            occ[i] += 1
+    # A heading spanning the whole page crosses a real gutter, so a gutter is
+    # a band almost nothing crosses rather than one nothing crosses.
+    tol = max(1, int(GUTTER_CROSS_FRAC * len(line_boxes)))
+    gutters, i = [], 0
+    while i < n:
+        if occ[i] > tol:
+            i += 1
+            continue
+        j = i
+        while j < n and occ[j] <= tol:
+            j += 1
+        # an empty run touching either edge is a margin, not a gutter
+        if i > 0 and j < n and (j - i) >= MIN_GUTTER_W:
+            gutters.append((content_l + i, content_l + j))
+        i = j
+    if len(gutters) < 2:
+        return None
+    edges = [content_l] + [x for g in gutters for x in g] + [content_r]
+    bands = [(edges[k], edges[k + 1]) for k in range(0, len(edges) - 1, 2)]
+    if len(bands) < 3:
+        return None
+    widths = [b - a for a, b in bands]
+    if min(widths) <= 0 or max(widths) - min(widths) > GRID_WIDTH_TOL * max(widths):
+        return None                      # not a regular grid
+    for a, b in bands:
+        if sum(1 for lb in line_boxes if lb[0] >= a - 2 and lb[2] <= b + 2) \
+                < MIN_COL_LINES:
+            return None                  # a band carrying no text is not a column
+    return bands
+
+
+def _band_of(bb, bands) -> Optional[int]:
+    """Index of the column band containing bb, or None if it spans bands."""
+    for i, (a, b) in enumerate(bands):
+        if bb[0] >= a - 2 and bb[2] <= b + 2:
+            return i
+    return None
+
+
+def _grid_chunks(elements, flow_blocks, bands, lay: DocLayout,
+                 content_l: float, content_r: float) -> List[Chunk]:
+    """Lay a >=3 column page out as lead / columns / tail."""
+    banded, spanning = [], []
+    for b in flow_blocks:
+        groups = defaultdict(list)
+        for l in b.lines:
+            groups[_band_of(l.bbox, bands)].append(l)
+        for bi, ls in groups.items():
+            blk = _mk_block(ls)
+            (spanning if bi is None else banded).append(
+                (bi, ("blk", blk.bbox, blk)))
+    for e in elements:
+        bb = _el_bbox(e) or (content_l, 0.0, content_r, 0.0)
+        bi = _band_of(bb, bands)
+        (spanning if bi is None else banded).append((bi, ("el", bb, e)))
+    if not banded:
+        return []
+    col_y0 = min(item[1][1] for _, item in banded)
+    lead = [item for _, item in spanning if item[1][3] <= col_y0 + 4]
+    tail = [item for _, item in spanning if item[1][3] > col_y0 + 4]
+
+    chunks: List[Chunk] = []
+    if lead:
+        lead.sort(key=lambda t: (t[1][1], t[1][0]))
+        ch = Chunk(n_cols=1)
+        ch.elements = _merge_flow_paras(_to_flow(lead, content_l, content_r),
+                                        content_r)
+        chunks.append(ch)
+    gaps = [bands[i + 1][0] - bands[i][1] for i in range(len(bands) - 1)]
+    ch = Chunk(n_cols=len(bands), col_gap=max(10.0, round(sum(gaps) / len(gaps), 1)))
+    flows = []
+    for i, (a, b) in enumerate(bands):
+        items = sorted((t for bi, t in banded if bi == i),
+                       key=lambda t: (t[1][1], t[1][0]))
+        flows.append(_merge_flow_paras(_to_flow(items, a, b), b))
+    ch.elements = flows[0]
+    for f in flows[1:]:
+        ch.elements = ch.elements + [ColBreak()] + f
+    chunks.append(ch)
+    if tail:
+        tail.sort(key=lambda t: (t[1][1], t[1][0]))
+        ch2 = Chunk(n_cols=1)
+        ch2.elements = _merge_flow_paras(_to_flow(tail, content_l, content_r),
+                                         content_r)
+        chunks.append(ch2)
+    return chunks
+
+
 def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
                      page_top: Optional[float] = None) -> List[Chunk]:
     content_l, content_r = lay.margin_l, lay.page_w - lay.margin_r
     content_w = content_r - content_l
     flow_blocks = _merge_list_markers(flow_blocks)
+
+    # A >=3 column grid is checked first and, when found, decides the page on
+    # its own. The two-column path below is left exactly as it was: it owns
+    # every page it already handled, so its reference fixture cannot move.
+    bands = column_grid([l.bbox for b in flow_blocks for l in b.lines],
+                        content_l, content_r)
+    if bands is not None:
+        grid = _grid_chunks(elements, flow_blocks, bands, lay,
+                            content_l, content_r)
+        if grid:
+            return _position_chunks(grid, lay, page_top)
 
     narrow = [b for b in flow_blocks if (b.bbox[2] - b.bbox[0]) <= 0.62 * content_w]
     twocol, col_split, col_y0 = False, None, None
@@ -2113,6 +2283,12 @@ def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
                                              content_r)
             chunks.append(ch2)
 
+    return _position_chunks(chunks, lay, page_top)
+
+
+def _position_chunks(chunks: List[Chunk], lay: DocLayout,
+                     page_top: Optional[float]) -> List[Chunk]:
+    """Turn absolute source positions into the flow's space_before values."""
     base = page_top if page_top is not None else lay.margin_t
     for ch in chunks:
         top = base
