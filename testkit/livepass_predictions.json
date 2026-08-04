@@ -76,6 +76,35 @@
     "single_exceedance": "warn, do not falsify -- one document can be a reflow artefact"
   },
 
+  "font_metric_claim": {
+    "id": "metric-fit-restores-packing",
+    "statement": "Under the gdocs profile, substituting a family whose measured advance width matches the source and tracking out the residual makes Google Docs fit the same number of characters per line as the source producer did.",
+    "applies_to": "l1_word_native (the only corpus document whose mapped family deviates: DejaVu Serif -> Times New Roman, -21.6%)",
+    "measured_basis": {
+      "method": "fitz.Font(fontfile=...).text_length(REF, fontsize=1.0)/len(REF) over exactdoc.fonts.METRIC_REFERENCE",
+      "dejavu_serif_vs_times_new_roman": -0.216,
+      "dejavu_serif_vs_noto_serif": -0.063,
+      "predicted_packing_before": 1.2758,
+      "observed_packing_before": 1.2950,
+      "agreement": "1.5%, on a document where 85 source characters per line became 105"
+    },
+    "predicted_after": {
+      "family": "Noto Serif",
+      "tracking_twips_at_11pt": 7,
+      "packing_ratio": 1.0018,
+      "tolerance": 0.03,
+      "libreoffice_render_back": 1.0270,
+      "libreoffice_caveat": "LibreOffice cannot confirm Docs behaviour and is not offered as evidence of it. It is quoted because it renders the same font files: it measured the BROKEN case at 1.2932 against Google's observed 1.2950, agreeing to 0.14% on advance width specifically, which is the one quantity this fix controls."
+    },
+    "assumption_requiring_live_verification": "That Google Docs renders a run named 'Noto Serif' using the Noto Serif metrics measured here. Noto Serif is Google-authored, is listed in fonts.GDOCS_NATIVE, and Google Fonts ships the file measured -- but the 2026-08-04 export only ever exercised 'Times New Roman', so this is an assumption and not a measurement. If Docs substitutes something else, both the family choice and the computed tracking are wrong together.",
+    "falsification": {
+      "statement": "The claim is falsified if l1_word_native's measured packing ratio in the Google export stays above 1.10 -- i.e. the substitution and tracking did not move it materially off the 1.295 it started at.",
+      "packing_ratio_above": 1.10,
+      "how_to_measure": "median (characters / line advance width) over full-width body lines of the export, divided by the same quantity on testkit/fixtures/l1_word_native.pdf",
+      "degradation_note": "If Docs honours the family but drops w:spacing, the expected packing ratio is 1.067 rather than 1.0018 -- still a large improvement and NOT a falsification. The two mechanisms fail independently by design."
+    }
+  },
+
   "documents": {
     "c6_long": {
       "tier": "ordinary_digital", "src_pages": 7, "n_matched_words": 2554,
@@ -125,11 +154,16 @@
     },
     "l1_word_native": {
       "tier": "ordinary_digital", "src_pages": 1, "n_matched_words": 141,
-      "baseline_dy_p50": 19.35, "predicted_dy_p50": 12.26, "tolerance_pt": 4.0,
+      "baseline_dy_p50": 19.35, "predicted_dy_p50": 4.0, "tolerance_pt": 6.0,
       "discriminating": false, "falsifies_A0_above_pt": null,
-      "expect": "improves-but-still-blocking", "confidence": "low",
-      "known_unfixed_cause": "fonts.py maps DejaVuSerif to Times New Roman, which is 22.2% narrower; every body paragraph re-wraps. Drives both dx_p50 63.65 and part of dy. Untouched by this change.",
-      "note": "Must NOT count as falsification: its residual has a separately measured cause."
+      "expect": "improves", "confidence": "low",
+      "superseded": {
+        "previous_predicted_dy_p50": 12.26,
+        "previous_expect": "improves-but-still-blocking",
+        "reason": "That prediction assumed only the boundary compensation was removed and the font mapping was left alone, so it still carried l1's re-wrap. The metric fit now substitutes the family and tracks out the residual, which restores the source line breaks and with them the lines the paragraphs were losing.",
+        "superseded_by": "gdocs metric fit (exactdoc/fonts.metric_fit)"
+      },
+      "note": "dy here is now bounded by two corrections rather than one, and the counterfactual cannot simulate re-wrap, so this number is deliberately low-confidence with a wide band. The sharp, falsifiable claim for this document is the packing ratio and dx_p50 -- see font_metric_claim."
     },
     "02_research_paper": {
       "tier": "ordinary_digital", "src_pages": 2, "n_matched_words": 394,
@@ -231,11 +265,17 @@
       "improved_pages": {"2": 0.674, "3": 0.7245}
     },
     {
-      "id": "l1_stays_blocking",
+      "id": "l1_rewrap_is_fixed",
+      "kind": "metric_max",
+      "description": "l1_word_native's dx_p50 was 63.65pt, driven entirely by re-wrap: Times New Roman is 21.6% narrower than the source's DejaVu Serif, so 85 characters per line became 105 and matched words landed on different lines. With the family substituted to Noto Serif and the residual tracked out, the re-wrap should be gone and dx must come inside the 10.0pt bound. A dx still in the tens of points means the substitution did not take effect in Docs.",
+      "document": "l1_word_native", "metric": "dx_p50", "max": 10.0
+    },
+    {
+      "id": "l1_table_indent_residual",
       "kind": "expected_blocking",
-      "description": "l1_word_native stays blocking on dx_p50 (~63.65) until the DejaVu Serif font mapping is addressed, and its dy_p50 is predicted to remain over the bound. Expected, separately measured, and must not be read as evidence against A~0.",
+      "description": "Separately measured and deliberately NOT fixed: l1's table cells render 5.5pt right of source because the gdocs tcMar relocation (ff518be) removed an accident that was compensating a table whose true column boundary sits left of the text margin. It is inside the bound, affects 13 of 141 matched words, and reverting it would re-break c7_code. Reported so it is not mistaken for a font-fit failure.",
       "document": "l1_word_native",
-      "metrics": {"dx_p50": {"expect_near": 63.65, "tolerance": 10.0}},
+      "metrics": {"dx_p90": {"expect_near": 6.0, "tolerance": 12.0}},
       "advisory": true
     }
   ]

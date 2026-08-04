@@ -260,6 +260,20 @@ def _run_checks(preds, by_name, rows):
                                          "improved" if ok else "did not improve"))
                 if not ok:
                     res["status"] = "miss"
+        elif kind == "metric_max":
+            name, metric = spec.get("document"), spec.get("metric")
+            actual = (by_name.get(name) or {}).get(metric)
+            cap = spec.get("max")
+            if actual is None:
+                res["details"].append("%s: %s absent" % (name, metric))
+                res["status"] = "incomplete"
+            else:
+                ok = float(actual) <= float(cap)
+                res["details"].append("%s %s: %.2f (max %.2f) -- %s"
+                                      % (name, metric, float(actual), float(cap),
+                                         "within" if ok else "OVER"))
+                if not ok:
+                    res["status"] = "miss"
         elif kind == "expected_blocking":
             name = spec.get("document")
             metrics = by_name.get(name) or {}
