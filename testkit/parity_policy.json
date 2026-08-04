@@ -1,5 +1,5 @@
 {
- "_note": "The backend-swap acceptance policy for ONE named profile, as data the gate executes rather than prose a reader is trusted to apply. This file was rewritten on 2026-08-04 because its predecessor was bound only by `recorded_refine_rounds: 3` -- refine rounds alone do not name a backend, an output profile, an oracle or a DPI, and the four D2 findings it carried had been measured at a different profile altogether. `backend_parity.py` refused to adjudicate against it and said so. The refusal was right: floors measured at one full profile say nothing about another, and `--update-policy` deliberately will not migrate findings across that boundary. So this is a NEW policy bound to `pdfium/gdocs/none/refine0@240dpi`, populated from a fresh measurement run, and it is PROVISIONAL: it authorises nothing.",
+ "_note": "The backend-swap acceptance policy for ONE named profile, as data the gate executes rather than prose a reader is trusted to apply. This file was rewritten on 2026-08-04 because its predecessor was bound only by `recorded_refine_rounds: 3` -- refine rounds alone do not name a backend, an output profile, an oracle or a DPI, and the four D2 findings it carried had been measured at a different profile altogether. `backend_parity.py` refused to adjudicate against it and said so. The refusal was right: floors measured at one full profile say nothing about another, and `--update-policy` deliberately will not migrate findings across that boundary. So this is a NEW policy bound to `pdfium/gdocs/none/refine0@240dpi`, populated from a fresh measurement run, and it is PROVISIONAL: it authorises nothing. The findings were measured at ff518be. c1cbc2a has since retired c2_paper2col (see `provisional_shortfalls._retired`) and no canonical parity run has been recorded against that tree, so this file is one run behind HEAD. The floors that remain still describe it -- that commit reports the other 15 documents unchanged on every dimension -- but re-record with `--update-policy` at the next canonical opportunity rather than trusting that indefinitely.",
  "_ratification": {
   "_note": "COMMENTARY, NOT ENFORCEMENT -- the leading underscore is this file's convention for a key the tool does not read, and it is used deliberately here so nobody mistakes this block for the gate. The executable statement that nothing is ratified is the EMPTY `ratified_shortfalls` section below. These fields are recorded empty so that the shape of a ratification is visible before anyone has to invent it: all four are required, and each is checked on its own, when a shortfall is moved into `ratified_shortfalls`.",
   "decision": "DEC-D2, on Google evidence -- not on this LibreOffice proxy",
@@ -28,49 +28,9 @@
  "profile_id": "pdfium/gdocs/none/refine0@240dpi",
  "provisional_shortfalls": {
   "_not_carried_over": "The four D2 findings the previous policy carried (01_whitepaper_market, 02_research_paper, 03_tech_report_code, r1_reportlab_report -- the core-14 font-metric class, where PyMuPDF reads a real base-14 ascent and PDFium substitutes a generic one) are NOT migrated here, and their absence is not a fix. They were measured at a different full profile; at this profile all four sit inside the margins. Their own profile has not been remeasured, so nothing here retires D2 -- see STATUS D2 and the line-box escalation ruling.",
-  "_not_recorded_here": "The 2026-08-04 measurement run reports 8 raw regressions because `--measure` runs with EMPTY margins, which is what makes every raw movement visible. Five of those eight sit inside the margins above and are therefore not divergences this policy tracks: 01_whitepaper_market (doc/word recall 0.9677->0.957, within-2pt 0.0417->0.007), 02_research_paper (within-2pt 0.0381->0.033), 03_tech_report_code (doc/word recall 1->0.9723), 05_memo (within-2pt 0.0241->0, and BETTER on dy_p50 13.36->7.36pt), and l1_word_native (live 1->0.9883, recall 0.9931->0.9792, within-2pt 0.014->0.0071, raster 0->0.0117, and BETTER on dy_p50 30.99->19.69pt). Recording any of them as a shortfall would be recording a finding the comparison does not make, and `adjudicate()` would correctly call it stale. `05_memo.pdf` and `f1_fpdf_brief.pdf` additionally stay out of every waiver section by test, not by habit: attribution is not authorisation, and widening a waiver is a product decision.",
+  "_not_recorded_here": "The 2026-08-04 measurement run reported 8 raw regressions -- 7 after c1cbc2a retired c2_paper2col -- because `--measure` runs with EMPTY margins, which is what makes every raw movement visible. Five of those eight sit inside the margins above and are therefore not divergences this policy tracks: 01_whitepaper_market (doc/word recall 0.9677->0.957, within-2pt 0.0417->0.007), 02_research_paper (within-2pt 0.0381->0.033), 03_tech_report_code (doc/word recall 1->0.9723), 05_memo (within-2pt 0.0241->0, and BETTER on dy_p50 13.36->7.36pt), and l1_word_native (live 1->0.9883, recall 0.9931->0.9792, within-2pt 0.014->0.0071, raster 0->0.0117, and BETTER on dy_p50 30.99->19.69pt). Recording any of them as a shortfall would be recording a finding the comparison does not make, and `adjudicate()` would correctly call it stale. `05_memo.pdf` and `f1_fpdf_brief.pdf` additionally stay out of every waiver section by test, not by habit: attribution is not authorisation, and widening a waiver is a product decision.",
   "_note": "Documents where the candidate is measurably worse at this profile AFTER the margins above are applied, the cause is attributed, and the shortfall is PROVISIONAL: visible and bounded, but it may NOT authorise a backend swap or a release (plan section 17 rule 4). Acceptance is bounded in both directions by the numeric floors: worsening past one fails, and clearing the divergence entirely fails as a stale record. Ratifying one means moving it to `ratified_shortfalls` with ratified_by, ratified_on, issue and review_condition -- all four required, all four checked. The decision is scheduled for the Google Docs checkpoint (DEC-D2), because Google Docs is the renderer this project actually targets and LibreOffice is a proxy for it.",
-  "c2_paper2col.pdf": {
-   "corpus_manifest_sha256": "e6e4a15986bd5ba002e31a64c5366144245d1146bd464551295b06dd9310e539",
-   "defect": "D2",
-   "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
-   "floors": {
-    "doc_recall": 0.9922,
-    "dy_p50": 23.55,
-    "live_text_cov": 0.9942,
-    "page_err": 0,
-    "raster_frac": 0.0058,
-    "within2pt": 0.0131,
-    "word_recall": 0.9922
-   },
-   "measured_commit": "ff518bebddfe722bdabd2705bc2494a0612bc441",
-   "measured_commit_source": "the commit stamped into docs/evidence/canonical-gate-2026-08-04.json by the canonical run that produced these numbers",
-   "measured_on": "2026-08-04",
-   "profile_id": "pdfium/gdocs/none/refine0@240dpi",
-   "reason": "Two-column vertical placement. The verified right-column-edge fix landed for both arms, and the PyMuPDF reference took more of it than the PDFium candidate did: at this profile the reference is within-2pt 0.1039 and median dy 10.05pt against the candidate's 0.0131 and 23.55pt. This is a widening gap, not a loss against the candidate's own previous state -- which is exactly the shape a parity harness exists to catch, because a candidate that stands still while the incumbent improves is a candidate that got worse. Same placement family as the STATUS D2 core-14 findings: the candidate does not track the corrected two-column geometry through the same box-top space the incumbent measures it in.",
-   "recorded_on": {
-    "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
-    "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
-    "os": "linux",
-    "pdfium": "152.0.7947.0",
-    "pymupdf": "1.28.0",
-    "python": "3.12.3",
-    "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
-   },
-   "reference_at_record": {
-    "doc_recall": 1.0,
-    "dy_p50": 10.05,
-    "live_text_cov": 1.0,
-    "page_err": 0,
-    "raster_frac": 0.0,
-    "within2pt": 0.1039,
-    "word_recall": 1.0
-   },
-   "worse_at_record": [
-    "within2pt",
-    "dy_p50"
-   ]
-  },
+  "_retired": "c2_paper2col.pdf was tracked here when this policy was written and was RETIRED the same day by ebcb3be (merged as c1cbc2a), which absorbs a superscript into its host line in the PDFium parser rather than leaving it a line -- and a block -- of its own. That commit records the candidate moving dy_p50 23.55 -> 10.00 against a 10.05 reference, within2pt 0.0131 -> 0.1247 against 0.1039, and live_text_cov, word_recall and raster_frac all reaching the reference exactly. No dimension is worse any more, so the document is now BETTER and the entry described nothing. Keeping it would have been a stale waiver, which `adjudicate()` fails on by design: a waiver for a difference that no longer exists still excuses the document, and would hide the next real regression on it. Deleted rather than re-floored -- floors are recorded by `--update-policy` on the canonical environment, and no such run has happened against the new tree. The c4/c5 floors below are untouched and still describe it: that commit reports the other 15 documents unchanged on every dimension.",
   "c4_i18n.pdf": {
    "corpus_manifest_sha256": "e6e4a15986bd5ba002e31a64c5366144245d1146bd464551295b06dd9310e539",
    "defect": "D10",

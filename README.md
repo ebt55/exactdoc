@@ -186,9 +186,14 @@ a per-boundary spacing compensation is one line of enquiry, not a conclusion.
 Fixing a horizontal defect and surfacing a vertical one is the ordinary shape
 of this work, and the honest reading is that the blocking count went up.
 
-Same-profile PDFium/PyMuPDF parity is 8 regressions, 6 same, 2 better as raw
+One parser fix has landed since that live run and has **not** been re-measured
+against Google: `c1cbc2a` absorbs a superscript into its host line, which moved
+`c2_paper2col` substantially on the LibreOffice proxy. The live findings above
+stand until a fresh consented run replaces them.
+
+Same-profile PDFium/PyMuPDF parity is 7 regressions, 6 same, 3 better as raw
 measurement; adjudicated against the profile-bound policy that is no unwaived
-regressions and three tracked provisional findings. The candidate is neither
+regressions and two tracked provisional findings. The candidate is neither
 adopted nor releasable, and the policy will not be ratified merely to turn the
 gate green. See [STATUS.md](STATUS.md) for the full numbers.
 

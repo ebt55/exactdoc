@@ -121,21 +121,26 @@ On 2026-08-04 the candidate arm measures 15/16 page match, 0.0694 mean
 within-2pt, 0.9566 live text, and 13.78pt median dy50 against the LibreOffice
 proxy. Those absolutes say little alone — a Google-Docs output profile graded by
 a renderer that is not Google — so read them against the reference arm at the
-same profile: 14/16, 0.0712, 0.9652, and 13.27pt. The `candidate-refined`
-diagnostic was not remeasured and its earlier figures are not carried forward.
+same profile: 14/16, 0.0712, 0.9652, and 13.27pt. Both rows predate `c1cbc2a`,
+which improved `c2_paper2col` on four dimensions; no canonical parity run has
+been recorded since, so they are not restated from a partially updated set. The
+`candidate-refined` diagnostic was not remeasured and its earlier figures are
+not carried forward.
 
-Same-profile parity is 8 regressions, 6 same, and 2 better as raw measurement
-(`--measure` uses empty margins, so every movement shows). The count moved 7→8
-but the composition moved more: `c7_code` is now identical on every dimension
-after the Google-Docs cell-margin fix, `c1_whitepaper` is now better (page error
-1→0, word recall 0.8273→0.9697), plain memo placement is no longer a regression,
-and `c2_paper2col` entered because the *incumbent* improved — PyMuPDF took more
-of the right-column-edge fix than PDFium did, 0.1039 against 0.0131 within-2pt
-and 10.05pt against 23.55pt median dy. Adjudicated against the newly
-profile-bound policy that leaves no unwaived regressions and three tracked
-provisional findings: `c4_i18n` complex scripts, `c5_graphics` designed-page
-rasterisation, `c2_paper2col` two-column placement. Provisional is not accepted,
-nothing is ratified, and the candidate is not adopted and not releasable.
+Same-profile parity is 7 regressions, 6 same, and 3 better as raw measurement
+(`--measure` uses empty margins, so every movement shows; the 2026-08-04
+evidence recorded 8/6/2 and `c1cbc2a` retired one). The composition moved more
+than the count: `c7_code` is now identical on every dimension after the
+Google-Docs cell-margin fix, `c1_whitepaper` is now better (page error 1→0, word
+recall 0.8273→0.9697), and plain memo placement is no longer a regression.
+`c2_paper2col` entered because the *incumbent* improved — PyMuPDF took more of
+the right-column-edge fix than PDFium did — and then left when `c1cbc2a`
+absorbed a superscript into its host line in the parser, taking dy 23.55→10.00
+against a 10.05 reference and within-2pt 0.0131→0.1247 against 0.1039.
+Adjudicated against the profile-bound policy that leaves no unwaived regressions
+and two tracked provisional findings: `c4_i18n` complex scripts and
+`c5_graphics` designed-page rasterisation. Provisional is not accepted, nothing
+is ratified, and the candidate is not adopted and not releasable.
 
 `testkit/parity_policy.json` is now bound to the full profile ID rather than to
 `recorded_refine_rounds: 3`. That rebinding is not a migration: floors measured

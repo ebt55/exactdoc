@@ -74,34 +74,42 @@ only thing parity actually measures:
 | reference (PyMuPDF) | 14/16 | 0.0712 | 0.9652 | 13.27pt |
 
 The `candidate-refined` diagnostic profile was not remeasured on 2026-08-04, so
-its earlier figures are not carried forward here.
+its earlier figures are not carried forward here. The candidate-arm row above is
+derived from that day's evidence and therefore **predates `c1cbc2a`**, which
+improved `c2_paper2col` on four dimensions; no canonical parity run has been
+recorded against the newer tree, so the aggregates are not restated from a
+partially updated set.
 
-Same-profile PDFium/PyMuPDF parity is **8 regressions, 6 same, 2 better** as
+Same-profile PDFium/PyMuPDF parity is **7 regressions, 6 same, 3 better** as
 raw measurement — `--measure` runs with empty margins, which is what makes every
-movement visible and is not the adjudicated verdict. The total moved 7→8, but
-the composition changed more than the count:
+movement visible and is not the adjudicated verdict. The 2026-08-04 evidence
+recorded 8/6/2; `c1cbc2a` then retired one. The composition matters more than
+the count:
 
 - `c7_code` is now **same**. It was a material regression; the Google-Docs cell
   margin fix closed it, and every compared dimension is now identical.
 - `c1_whitepaper` is now **better than the reference** — page error 1 against 0,
   word recall 0.8273 against 0.9697, and both placement dimensions with them.
-- `c2_paper2col` entered the list, and it entered because the *incumbent*
-  improved. The verified right-column-edge fix landed for both arms and PyMuPDF
-  took more of it: reference within-2pt 0.1039 and median dy 10.05pt against the
-  candidate's 0.0131 and 23.55pt. A candidate that stands still while the
-  incumbent gets better is a candidate that got worse, and this harness is built
-  to say so rather than to report the candidate against its own past.
+- `c2_paper2col` entered the list and then left it again on the same day. It
+  entered because the *incumbent* improved: the right-column-edge fix landed for
+  both arms and PyMuPDF took more of it, 0.1039 within-2pt and 10.05pt median dy
+  against the candidate's 0.0131 and 23.55pt. It left when `c1cbc2a` absorbed a
+  superscript into its host line in the PDFium parser instead of leaving it a
+  line of its own — dy 23.55→10.00 and within-2pt 0.0131→0.1247, with live text,
+  word recall and raster fraction all reaching the reference exactly. The
+  episode is the harness working as intended: a candidate that stands still
+  while the incumbent improves is a candidate that got worse, and saying so
+  found a real parser defect.
 - Plain memo placement is no longer a regression: `05_memo` is better on median
   dy, 13.36→7.36pt.
 
 Applying `testkit/parity_policy.json`, now bound to the full profile, leaves
-**no unwaived regressions and three tracked provisional findings**: complex
-scripts (`c4_i18n`), designed-page rasterisation (`c5_graphics`), and two-column
-placement (`c2_paper2col`). Five of the eight raw movements sit inside the
-policy margins and are not divergences it tracks. Provisional means visible,
-bounded and attributed — it does not mean accepted. Nothing is ratified, so the
-policy cannot report a pass by construction. **The candidate is not adopted and
-is not releasable.**
+**no unwaived regressions and two tracked provisional findings**: complex
+scripts (`c4_i18n`) and designed-page rasterisation (`c5_graphics`). The other
+raw movements sit inside the policy margins and are not divergences it tracks.
+Provisional means visible, bounded and attributed — it does not mean accepted.
+Nothing is ratified, so the policy cannot report a pass by construction. **The
+candidate is not adopted and is not releasable.**
 
 A general bottom-margin relief fixed the candidate's `c1_whitepaper` and
 `c2_paper2col` overflow; the candidate now matches page count on 15 of 16
