@@ -1625,8 +1625,22 @@ def infer(ir: DocIR) -> DocLayout:
     # two-column pages: an inset full-width element can win the wide-line
     # estimate while the true content edge is the right column's flush
     # edge.  Only ever widens content (edge further right than mr).
+    #
+    # "Only ever widens" requires something to widen. When the wide-line
+    # estimate is missing this used to adopt the two-column edge outright, and
+    # a right-column edge is far to the LEFT of the page's content edge, so the
+    # rule inverted: it narrowed the content instead of widening it. Measured
+    # on y17_rfc9110, whose line geometry is identical under both parsers --
+    # PyMuPDF's right edge clusters at 503.6, PDFium's chains to None, and the
+    # widener then supplied 332.5 as the content edge. A 266pt content width
+    # against a true 438pt re-wraps every paragraph in the document. y02 does
+    # the same under PDFium at 353.7.
+    #
+    # With no estimate the caller already has a defensible answer below --
+    # mirror the left margin -- which errs wide, and erring wide costs a little
+    # under-wrapping rather than a document-wide re-flow.
     tc_edge = _two_column_right_edge(body_lines, lay.margin_l, lay.page_w)
-    if tc_edge is not None and (mr is None or tc_edge > mr + 2.5):
+    if tc_edge is not None and mr is not None and tc_edge > mr + 2.5:
         mr = tc_edge
     lay.margin_r = round(lay.page_w - mr, 1) if mr else lay.margin_l
     lay.margin_r = max(14.0, lay.margin_r)

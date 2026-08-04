@@ -423,6 +423,86 @@ def _absorb_script_rows(vis_rows):
     return [row for i, (_, row) in enumerate(rows) if i not in absorbed]
 
 
+# --- vertical text -----------------------------------------------------------
+# PDFium reports no writing direction, so rotated text arrives looking like
+# ordinary horizontal text whose characters happen to be stacked. `_build_lines`
+# groups by baseline, so a vertical run does not become one line -- it shatters
+# into dozens of 1-4 character fragments sharing an x, with the characters
+# interleaved into nonsense ('T', 'ihsp', 'ub', 'clia').
+#
+# Those fragments are body text as far as everything downstream is concerned,
+# and the damage is not confined to their own garbled content. NIST SP 800-207
+# prints a citation strip vertically in its left margin: under PDFium it became
+# 2777 phantom body lines at x=17, which dragged the inferred left margin from
+# 72.0 to 16.8 and so moved the body column over the margin band. The
+# side-margin furniture guard keys on that column, so it stopped firing --
+# 66 promotable margin shapes fell to 13, and y09 re-inflated from ~44 to ~80
+# pages of emitted height.
+#
+# PyMuPDF reports `dir` and `parse.py` routes non-horizontal lines to
+# `PageIR.rotated`. This restores the same IR contract from geometry alone:
+# characters are in content-stream order, so a rotated run is a run whose
+# advance between consecutive characters is vertical rather than horizontal.
+VERT_MIN_CHARS = 8          # shorter runs are stacked punctuation, not a strip
+VERT_MAX_DX_FRAC = 0.35     # a vertical advance barely moves x
+VERT_MIN_DY_FRAC = 0.20     # ...and moves y by a real fraction of the size
+VERT_MAX_DY_FRAC = 2.0      # ...but not by more than a plausible advance
+
+
+def _split_vertical_runs(chars: List[_Char]):
+    """(flow_chars, rotated_lines). Pull vertically-advancing runs out of flow.
+
+    Deliberately conservative: a run must be at least VERT_MIN_CHARS long
+    before it is taken out, so a couple of stacked glyphs inside ordinary text
+    stay exactly where they were and no existing line changes shape.
+    """
+    n = len(chars)
+    if n < VERT_MIN_CHARS:
+        return chars, []
+    vert = [False] * n
+    for i in range(1, n):
+        p, c = chars[i - 1], chars[i]
+        size = max(1.0, p.size)
+        dx, dy = abs(c.ox - p.ox), abs(c.oy - p.oy)
+        if dx <= VERT_MAX_DX_FRAC * size and \
+                VERT_MIN_DY_FRAC * size <= dy <= VERT_MAX_DY_FRAC * size:
+            vert[i - 1] = vert[i] = True
+    flow: List[_Char] = []
+    rotated: List[Line] = []
+    i = 0
+    while i < n:
+        if not vert[i]:
+            flow.append(chars[i])
+            i += 1
+            continue
+        j = i
+        while j < n and vert[j]:
+            j += 1
+        run = chars[i:j]
+        line = _vertical_line(run) if len(run) >= VERT_MIN_CHARS else None
+        if line is None:
+            flow.extend(run)
+        else:
+            rotated.append(line)
+        i = j
+    return flow, rotated
+
+
+def _vertical_line(run: List[_Char]) -> Optional[Line]:
+    """One out-of-flow Line for a vertical run, read in increasing y."""
+    cs = sorted(run, key=lambda c: c.oy)
+    text = xml_safe_text("".join(c.u for c in cs))
+    if not text.strip():
+        return None
+    bb = (min(c.x0 for c in cs), min(c.y0 for c in cs),
+          max(c.x1 for c in cs), max(c.y1 for c in cs))
+    first = cs[0]
+    span = Span(text=text, font=first.font, size=first.size, color=first.color,
+                bold=False, italic=False, mono=first.mono_hint, serif=False,
+                superscript=False, bbox=bb, origin=(first.ox, first.oy))
+    return Line(spans=[span], bbox=bb, dir=(0.0, 1.0))
+
+
 def _build_lines(chars: List[_Char]) -> List[Line]:
     """chars -> spans -> lines, by baseline then x.
 
@@ -1262,7 +1342,8 @@ def parse_pdf(path: str, keep_image_data: bool = True) -> DocIR:
                 pir.links = _page_links(page, h, doc)
                 tp = page.get_textpage()
                 try:
-                    lines = _build_lines(_page_chars(tp, h))
+                    _flow, pir.rotated = _split_vertical_runs(_page_chars(tp, h))
+                    lines = _build_lines(_flow)
                 finally:
                     tp.close()
                 for sp in (s for l in lines for s in l.spans):
