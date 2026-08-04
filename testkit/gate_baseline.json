@@ -5,10 +5,10 @@
    "aggregate": {
     "gate_pass_count": 13,
     "mean_live_text": 0.9652,
-    "mean_within2pt": 0.4981,
+    "mean_within2pt": 0.5161,
     "median_dy_p50": 0.675,
     "n": 16,
-    "page_match_count": 15
+    "page_match_count": 16
    },
    "documents": {
     "01_whitepaper_market.pdf": {
@@ -62,26 +62,26 @@
      "live_text_cov": 0.9654,
      "page_err": 0,
      "raster_frac": 0.0346,
-     "within2pt": 0.1812,
+     "within2pt": 0.1781,
      "word_recall": 0.9697
     },
     "c2_paper2col.pdf": {
      "doc_recall": 1.0,
-     "dy_p50": 29.2,
+     "dy_p50": 0.85,
      "live_text_cov": 1.0,
      "page_err": 0,
      "raster_frac": 0.0,
-     "within2pt": 0.1948,
+     "within2pt": 0.4857,
      "word_recall": 1.0
     },
     "c3_tables.pdf": {
      "doc_recall": 0.9359,
-     "dy_p50": 4.8,
+     "dy_p50": 2.75,
      "live_text_cov": 0.9226,
-     "page_err": 1,
+     "page_err": 0,
      "raster_frac": 0.0774,
      "within2pt": 0.0,
-     "word_recall": 0.331
+     "word_recall": 0.9359
     },
     "c4_i18n.pdf": {
      "doc_recall": 0.9832,
@@ -329,7 +329,7 @@
     "image": {
      "base_digest": "sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90",
      "digest": null,
-     "ref": "ghcr.io/ebt55/exactdoc-gate"
+     "ref": null
     },
     "machine": "x86_64",
     "oracles": {
@@ -378,9 +378,9 @@
     "gate_pass_count": 12,
     "mean_live_text": 0.9652,
     "mean_within2pt": 0.3349,
-    "median_dy_p50": 2.2,
+    "median_dy_p50": 2.79,
     "n": 16,
-    "page_match_count": 13
+    "page_match_count": 14
    },
    "documents": {
     "01_whitepaper_market.pdf": {
@@ -439,7 +439,7 @@
     },
     "c2_paper2col.pdf": {
      "doc_recall": 1.0,
-     "dy_p50": 26.8,
+     "dy_p50": 4.0,
      "live_text_cov": 1.0,
      "page_err": 0,
      "raster_frac": 0.0,
@@ -448,12 +448,12 @@
     },
     "c3_tables.pdf": {
      "doc_recall": 0.9359,
-     "dy_p50": 2.5,
+     "dy_p50": 7.45,
      "live_text_cov": 0.9226,
-     "page_err": 1,
+     "page_err": 0,
      "raster_frac": 0.0774,
      "within2pt": 0.0,
-     "word_recall": 0.3137
+     "word_recall": 0.8648
     },
     "c4_i18n.pdf": {
      "doc_recall": 0.9832,
@@ -701,7 +701,7 @@
     "image": {
      "base_digest": "sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90",
      "digest": null,
-     "ref": "ghcr.io/ebt55/exactdoc-gate"
+     "ref": null
     },
     "machine": "x86_64",
     "oracles": {
