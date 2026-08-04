@@ -182,39 +182,37 @@ keep, and not flatteringly:
 ### PDFium / Google Docs candidate — not shipping
 
 `pdfium/gdocs/none/refine0@240dpi` is the explicit non-shipping migration
-candidate. Its latest consented live Google qualification (2026-08-04) was
+candidate. **Four** consented live Google qualifications ran on 2026-08-04, all
 operationally successful — 16/16 documents attempted and succeeded, zero
-failures, zero orphaned Drive objects — and **fails the draft quality policy:
-11 blocking findings across 8 of the 13 `ordinary_digital` fixtures**, so 5 of
-13 clear every threshold. The 3 `designed_stress` fixtures produce 9 further
-findings, tracked and non-blocking. The policy is also still a draft, which
-cannot pass by construction whatever the numbers say.
+failures, zero orphaned Drive objects — with blocking quality findings falling
+**11 → 4 → 3 → 1** across the day. The vertical-drift blockers were a 3pt
+per-boundary spacing compensation, retired after remeasurement against Google's
+own exports put the real figure near +0.1pt; `l1_word_native` horizontal drift
+was a font-substitution error, fixed by adopting Libre Baskerville from
+Docs-measured metrics (39.82 → 1.35pt); `c2_paper2col` cleared its similarity
+bound on a scoped section-break compensation (0.6772 → 0.7087).
 
-Two previously blocking findings cleared live: `c7_code` horizontal drift and
-`c2_paper2col` horizontal drift. What replaced them is a broader set of
-**vertical** drift blockers — `03_tech_report_code`, `c1_whitepaper`,
-`c2_paper2col`, `c6_long`, `c8_toc_links`, `l1_word_native` and
-`r1_reportlab_report` all exceed the draft 10pt `dy_p50` bar — plus SSIM on
-`01_whitepaper_market`, `c2_paper2col` and `c6_long`, and horizontal drift on
-`l1_word_native`. Fixing a horizontal defect and surfacing a vertical one is the
-ordinary shape of this work, and the honest reading is that the blocking count
-went up.
+Twelve of the thirteen blocking fixtures now clear every threshold unaided. The
+thirteenth, `01_whitepaper_market`, misses only structural similarity, because
+Google Docs adds space above a page-leading cover band unconditionally — probe
+measured, an addition rather than a clamp, and the writer already compensates
+what is compensable. The quality policy has been **ratified** with a single
+bounded waiver for exactly that metric on exactly that document, floored just
+below the measured value, and it retires itself: if `01` reaches the bar unaided
+the waiver goes stale and blocks until it is deleted.
 
-That vertical drift has since been diagnosed and a fix has landed, **but it has
-not been confirmed against Google.** The cause was a 3pt per-boundary spacing
-compensation: measured against Google's own exported PDFs across 187 boundaries,
-Docs adds about +0.1pt at a paragraph boundary, not 3pt, so the subtraction was
-simply lost space accumulating down every page. It is retired. A counterfactual
-predicts 11 of the 13 ordinary documents inside the 10pt bound, and two parser
-fixes (superscript absorption, annotation-based links) have landed alongside it.
-**A prediction is not a measurement**: the findings above remain the live truth
-until a fresh consented run replaces them.
+Assessed against the fourth pass, the ratified policy returns `overall_pass:
+true` with zero blocking findings. **That is one clean pass. The migration gate
+asks for two, and the second must be a fresh consented run** — so this is
+progress toward a decision, not a release.
 
 Same-profile PDFium/PyMuPDF parity is 7 regressions, 6 same, 3 better as raw
 measurement; adjudicated against the profile-bound policy that is no unwaived
-regressions and two tracked provisional findings. The candidate is neither
-adopted nor releasable, and the policy will not be ratified merely to turn the
-gate green. See [STATUS.md](STATUS.md) for the full numbers.
+regressions and two tracked provisional findings, neither of them ratified —
+that is a separate file and a separate decision from the Google Docs quality
+policy above. The candidate is neither adopted nor releasable, and no policy
+here gets ratified merely to turn a gate green. See [STATUS.md](STATUS.md) for
+the full numbers.
 
 Google qualification is separate, two-step and consent-gated:
 

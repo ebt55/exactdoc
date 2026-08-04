@@ -135,17 +135,25 @@ python testkit/gdocs_oracle.py run <dir> --allow-cloud-upload
 operation and separately reports operational success and quality success. Drive
 objects are always cleanup-attempted; an orphan ledger blocks continued work.
 
-The latest live run is **2026-08-04** for `pdfium/gdocs/none/refine0@240dpi`
-(`docs/evidence/gdocs-2026-08-04-qualification.json`). It is operationally
-successful: 16 attempted, 16 succeeded, zero failed, and no
-`.gdocs_orphans.json` remained. On fidelity it is worse than the 2026-08-02 run
-it replaces. Page-count match holds at 15/16 (`c5_graphics` 1→2 remains the only
-mismatch) and mean live text is flat at 0.9568→0.9566, but mean within-2pt fell
-0.1443→0.0483, mean SSIM 0.7878→0.7635, mean IoU 0.2138→0.1560, mean word recall
-0.9064→0.9056, and median dy50 rose 6.68→12.31pt. Every document drifted
-upward. That is a broad vertical regression, not a median-ordering artefact, and
-it has since been attributed to a 3pt per-boundary spacing compensation
-introduced in `ff518be` and now retired — see below.
+**Four consented full-corpus passes ran on 2026-08-04** for
+`pdfium/gdocs/none/refine0@240dpi`. Every one was operationally clean — 16
+attempted, 16 succeeded, zero failed, no `.gdocs_orphans.json` — and blocking
+quality findings fell across the day:
+
+| pass | blocking findings | what cleared | evidence |
+|---|---:|---|---|
+| 1 | 11 | — (the 3pt boundary compensation regressed it from 7) | `gdocs-2026-08-04-qualification.json` |
+| 2 | 4 | the boundary-compensation retirement | `…-pass2-qualification.json` |
+| 3 | 3 | `l1_word_native` dy 15.19→1.93pt | `…-pass3-qualification.json` |
+| 4 | **1** | `l1` dx 39.82→1.35pt, `c2_paper2col` SSIM 0.6772→0.7087 | `…-pass4-qualification.json` |
+
+The two that cleared in pass 4 cleared for named, measured reasons, not drift.
+`l1_word_native`'s horizontal drift was a font-substitution error: adopting
+Libre Baskerville, chosen from Docs-measured metrics, landed its packing
+prediction of 1.0004 against the source pitch. `c2_paper2col` cleared its SSIM
+bound on a 1.0pt scoped section-break compensation, beating the ~0.69 raw-proxy
+extrapolation. Twelve of the thirteen blocking `ordinary_digital` fixtures now
+clear every threshold unaided.
 
 The qualified conservative striped-table assembler makes
 the `c3_tables` long table one editable 46-row × 4-column DOCX table, IDs 1–45
@@ -165,22 +173,40 @@ SSIM, and IoU have tiny 0.0719→0.0688, 0.8006→0.7993, and 0.1568→0.1563
 tradeoffs. PDFium preserves stretched literal interword spaces, removing the
 `01_whitepaper_market` word staircase; shipping PyMuPDF output is unaffected.
 
-That operational result remains unacceptable for release. A strict draft
-`testkit/gdocs_quality_policy.json` now defines blocking ordinary documents,
-tracked designed-stress documents, unsupported-input refusal, exact metrics,
-and explicit owner ratification. The offline `assess` command hash-binds its
-source evidence and never performs a cloud operation.
+`testkit/gdocs_quality_policy.json` defines blocking ordinary documents, tracked
+designed-stress documents, unsupported-input refusal, exact metrics, and
+explicit owner ratification. The offline `assess` command hash-binds its source
+evidence and never performs a cloud operation.
 
-Applied to the 2026-08-04 Google evidence, operational pass remains true but
-quality and overall pass remain false: the policy is unratified and only **5/13
-ordinary fixtures meet every threshold**, down from 9/13. **Eleven blocking
-findings span eight fixtures** — `dy_p50` on `03_tech_report_code`,
-`c1_whitepaper`, `c2_paper2col`, `c6_long`, `c8_toc_links`, `l1_word_native` and
-`r1_reportlab_report`; SSIM on `01_whitepaper_market`, `c2_paper2col` and
-`c6_long`; and `dx_p50` on `l1_word_native`. Two earlier blockers cleared:
-`c7_code` dx and `c2_paper2col` dx. The three stress fixtures produce nine
-additional nonblocking findings. This is an actionable gap report, not release
-approval.
+**The policy is now ratified** (schema v3), by the repository author on
+2026-08-04, carrying **one bounded waiver**: `01_whitepaper_market` `mean_ssim`,
+floored at 0.65 against a measured 0.6589. Assessed against pass 4, the result
+is `operational_pass: true`, `quality_pass: true`, **`overall_pass: true`**,
+zero blocking findings. The waiver is *reported*, not hidden — the finding still
+appears as `waived` and the tier still says it has one.
+
+The waiver is deliberately narrow, and the schema enforces the narrowness rather
+than trusting the prose:
+
+- it covers **one metric on one document**. `01` would still block on drift,
+  recall, coverage or pagination — waiving a metric is not waiving a document;
+- it is **floored**, not open-ended. Below 0.65 the finding blocks again;
+- it **expires by mechanism**. If `01` reaches the 0.70 bar unaided the waiver
+  becomes a `stale-waiver` and blocks every assess until the entry is deleted,
+  so retirement is enforced rather than remembered.
+
+Its cause is probe-measured, not inferred: Docs adds space above a page-leading
+cover band unconditionally (requested top margins `[0, 4, 8, 14.4, 20]` rendered
+as `[14.55, 18.83, 22.83, 29.23, 34.83]` — an addition, not a clamp). The writer
+compensates what is compensable; pass 4 records the remainder as a ~14.6pt band
+floor, with two residual fixable causes filed — a missing 4pt accent bar and a
+~2pt band-to-body gap. `01` clears page match, live text, both recalls and both
+drift bounds on the same pass, so this is a visual-registration cost rather than
+a conversion defect. The three stress fixtures produce eight tracked
+non-blocking findings, unchanged.
+
+**This is one clean pass, not a release.** The migration gate asks for two, and
+the second must be a fresh consented run.
 
 Local follow-up now canonicalises only corroborated leading OpenSymbol private-use
 bullets into safe Unicode list markers. `l1_word_native` becomes three separate

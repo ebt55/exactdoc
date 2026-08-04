@@ -52,33 +52,35 @@ python testkit/gdocs_oracle.py run <dir> --allow-cloud-upload
 `prepare` is offline and hash-binds the exact candidate; `run` requires explicit
 upload consent. It reports operational and quality pass independently.
 
-The latest live run is 2026-08-04 and completed the operational gate for
-`pdfium/gdocs/none/refine0@240dpi`: all 16 documents were attempted and
-succeeded, zero failed, and cleanup left no `.gdocs_orphans.json`. On fidelity
-it is worse than the 2026-08-02 run it replaces. Page match holds at 15/16 (only
-deferred `c5_graphics` 1→2) and live text is flat 0.9568→0.9566, but mean
-within-2pt fell 0.1443→0.0483, SSIM 0.7878→0.7635, IoU 0.2138→0.1560, word
-recall 0.9064→0.9056, and median dy50 rose 6.68→12.31pt with every document
-drifting upward. The cause has been attributed to a 3pt per-boundary spacing
-compensation and retired; see below.
+Four consented full-corpus passes ran on 2026-08-04 for
+`pdfium/gdocs/none/refine0@240dpi`. All four completed the operational gate — 16
+attempted, 16 succeeded, zero failed, no `.gdocs_orphans.json` — and blocking
+quality findings fell 11 → 4 → 3 → **1** across the day. Pass 2 took the
+boundary-compensation retirement; pass 3 cleared `l1_word_native` dy
+15.19→1.93pt; pass 4 cleared `l1` dx 39.82→1.35pt on the Docs-measured Libre
+Baskerville substitution and `c2_paper2col` SSIM 0.6772→0.7087 on a 1.0pt scoped
+section-break compensation. Twelve of the thirteen blocking fixtures now clear
+every threshold unaided.
 
-The strict quality-policy v2 design is now implemented. It has a blocking
-`ordinary_digital` tier, a tracked/nonblocking `designed_stress` tier, and a
-clear pre-qualification refusal contract for `unsupported` inputs. Policy
-ratification is explicit and fail-closed, and collected evidence can be
-reassessed offline without a new Google upload.
+The quality policy is implemented and **ratified** (schema v3). It has a
+blocking `ordinary_digital` tier, a tracked/nonblocking `designed_stress` tier,
+a pre-qualification refusal contract for `unsupported` inputs, and collected
+evidence can be reassessed offline without a new Google upload. Ratification is
+explicit and fail-closed, and v3 adds bounded per-metric waivers that are
+ratified-only.
 
-The committed policy remains a draft. Applied to the 2026-08-04 evidence, 5/13
-ordinary fixtures meet every threshold, down from 9/13; eleven blocking findings
-remain across eight documents — `dy_p50` on `03_tech_report_code`,
-`c1_whitepaper`, `c2_paper2col`, `c6_long`, `c8_toc_links`, `l1_word_native` and
-`r1_reportlab_report`, SSIM on `01_whitepaper_market`, `c2_paper2col` and
-`c6_long`, and `dx_p50` on `l1_word_native`. `c7_code` dx and `c2_paper2col` dx
-cleared. The Word-native tranche is now
-implemented locally as a general symbol-font list-marker normalizer: l1 becomes
-three editable list items, and only its `document.xml` changes across the full
-prepared corpus. Local proxy metrics improve, but the live blocker remains until
-fresh Google qualification.
+Assessed against pass 4, the ratified policy returns `overall_pass: true` with
+zero blocking findings, carrying **one bounded waiver**: `01_whitepaper_market`
+`mean_ssim`, floored at 0.65 against a measured 0.6589, cause probe-measured as
+the Docs importer's unconditional addition above a page-leading cover band. The
+waiver covers one metric on one document, blocks again below its floor, and
+becomes a blocking `stale-waiver` the moment `01` clears 0.70 unaided — so it
+retires by mechanism rather than by memory. Two residual fixable causes are
+filed: a missing 4pt accent bar and a ~2pt band-to-body gap.
+
+**That is one clean pass of the two the migration gate requires.** The second
+must be a fresh consented run; a policy that passes today does not make a
+release.
 
 The `c2_paper2col` target is addressed. Its right column ends near 551pt while
 margin inference trusted an inset abstract ending near 509pt, narrowing content
@@ -156,7 +158,10 @@ against a 10.05 reference and within-2pt 0.0131→0.1247 against 0.1039.
 Adjudicated against the profile-bound policy that leaves no unwaived regressions
 and two tracked provisional findings: `c4_i18n` complex scripts and
 `c5_graphics` designed-page rasterisation. Provisional is not accepted, nothing
-is ratified, and the candidate is not adopted and not releasable.
+in the **parity** policy is ratified, and the candidate is not adopted and not
+releasable. (The **Google Docs quality** policy is a separate file and a
+separate decision; it was ratified on 2026-08-04 and that says nothing about
+these two parity findings.)
 
 `testkit/parity_policy.json` is now bound to the full profile ID rather than to
 `recorded_refine_rounds: 3`. That rebinding is not a migration: floors measured
@@ -172,11 +177,19 @@ explicit limitations; `c5_graphics` is a page out under both backends.
 
 The next migration decision requires all of:
 
-1. expanded same-profile parity with no unratified regressions;
+1. expanded same-profile parity with no unratified regressions — **partial**:
+   no unwaived regressions, but two provisional findings (`c4_i18n`,
+   `c5_graphics`) remain unratified, and parity still sees only the gated 16;
 2. two clean full-corpus Google Docs passes for the exact candidate, each after
-   explicit upload consent;
-3. a no-PyMuPDF/base-wheel proof; and
-4. a dependency, provenance, and license audit.
+   explicit upload consent — **1 of 2**: pass 4 assesses clean under the
+   ratified policy; the second must be a fresh consented run;
+3. a no-PyMuPDF/base-wheel proof — **partial**: the isolation proof holds and
+   the seam is one module, but a PyMuPDF-free *install* is impossible while
+   PyMuPDF is core; and
+4. a dependency, provenance, and license audit — **first pass done**,
+   [docs/license-audit.md](docs/license-audit.md).
+
+The live status table lives in the audit; this list is the contract.
 
 Do not replace the shipping profile, regenerate golden/numeric evidence, or
 change licensing before those gates pass.

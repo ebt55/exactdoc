@@ -101,7 +101,7 @@ Nothing below can be unblocked by a session, and three of them gate a release.
 | B1 | `write:packages` on the `gh` token, or `gate-image.yml` on `main` | Publishing the canonical image. Without it CI can never be canonical |
 | B2 | **LIC-01 provenance ledger** | Requires knowledge of where the initial code came from and the right to relicense it. Plan calls it a hard blocker: if rights cannot be established, that material cannot be relicensed |
 | B3 | Legal sign-off on LIC-02 | Not a measurement |
-| B4 | DEC-D2 and GDOCS-05 ratification | Explicit owner decisions. A gate an executor can satisfy alone is not a gate |
+| B4 | DEC-D2 and GDOCS-05 ratification | Explicit owner decisions. A gate an executor can satisfy alone is not a gate. **Partly discharged 2026-08-04**: the author ratified the Google Docs *quality* policy with one bounded waiver (recorded with its provenance in that policy's `review.rationale`). DEC-D2 — the two provisional *parity* findings — and GDOCS-05, the default flip, are untouched and still owner-only |
 | B5 | Google Cloud project + test account, protected CI environment | Credentials and org policy |
 | B6 | PyPI / TestPyPI trusted publishing | Publishing under the owner's identity |
 
@@ -248,6 +248,83 @@ live qualification (`ee0d06c`) — operationally clean, quality worse: 11 blocki
 findings across 8 ordinary fixtures, attributed to `ff518be`'s 3pt per-boundary
 compensation and retired in `41e8e7f` on remeasurement against Google's own
 exports. That retirement is unconfirmed until a fresh consented pass.
+
+---
+
+## 2026-08-04 — the quality policy is ratified, and pass 4 assesses clean
+
+Four consented full-corpus passes ran today. All four were operationally clean;
+blocking quality findings fell **11 → 4 → 3 → 1**:
+
+| pass | blocking | cleared by |
+|---|---:|---|
+| 1 | 11 | — (the 3pt boundary compensation had regressed it from 7) |
+| 2 | 4 | retiring that compensation |
+| 3 | 3 | `l1_word_native` dy 15.19 → 1.93pt |
+| 4 | **1** | `l1` dx 39.82 → 1.35pt; `c2_paper2col` SSIM 0.6772 → 0.7087 |
+
+The pass-4 clearances have named mechanisms, which is the difference between a
+fix and a coincidence. `l1`'s horizontal drift was a font substitution error —
+Libre Baskerville, chosen from Docs-measured metrics, landed a packing
+prediction of 1.0004 against the source pitch. `c2` cleared on a 1.0pt scoped
+section-break compensation and beat its own ~0.69 raw-proxy extrapolation.
+
+**The decision.** The repository author decided, in the coordinating session
+today, to ratify the policy with a single documented waiver for `01`'s cover
+band while the residual fixes proceed in parallel. Recording the provenance
+matters here more than usual: ratification is the one act the standing
+constraints say an executor must not perform on its own authority (B4), so the
+policy's `review.rationale` states that the decision was taken by the author and
+relayed, that the named approver is an attestation recorded on that relay, and
+that the approver should confirm it against the file. An attestation nobody can
+trace is the thing the provisional/ratified split exists to prevent.
+
+**The policy could not express the decision, so the schema grew.** v2's
+`per_document` applies uniformly to every document in a tier. The only ways to
+pass `01` were to lower `mean_ssim` for all thirteen blocking fixtures, or to
+move `01` to the non-blocking tier — a bar moved to clear a failure, or a tier
+treated as a property of a score rather than of a document. Both are failures
+this repository has already named. v3 adds `waivers`: one metric, one document,
+floored, ratified-only. Three outcomes, two of which still block — inside the
+band is `waived` and reported; past the floor is `out-of-bounds` and blocking;
+clearing the tier bar entirely is a blocking `stale-waiver`, so retirement is
+enforced rather than remembered. Every other metric on a waived document is
+untouched, so `01` would still block on drift, recall, coverage or pagination.
+
+**The waiver:** `01_whitepaper_market` `mean_ssim`, floor 0.65 against a measured
+0.6589 — about a hundredth below, which absorbs run-to-run jitter and nothing
+else. Cause is probe-measured, not inferred: Docs adds space above a page-leading
+cover band unconditionally, requested `[0, 4, 8, 14.4, 20]` rendering as
+`[14.55, 18.83, 22.83, 29.23, 34.83]`, an addition and not a clamp. The writer
+compensates what is compensable; the remainder is a ~14.6pt band floor, with a
+missing 4pt accent bar and a ~2pt band-to-body gap filed as the fixable
+residue. `01` clears page match, live text, both recalls and both drift bounds
+on the same pass, so this is visual registration, not conversion.
+
+**Result:** assessed offline against pass 4, `operational_pass: true`,
+`quality_pass: true`, **`overall_pass: true`**, zero blocking findings. That is
+**clean pass 1 of the 2** the migration gate requires. Two things belong next to
+that sentence rather than beneath it: the pass became clean partly *because* a
+waiver was ratified after it was measured, and the second pass must be a fresh
+consented run.
+
+**A defect found while doing this, not yet fixed.** `assess` refuses the
+committed evidence files. It validates the evidence shape with an exact key set,
+and the stamping step that files a run into `docs/evidence/` adds a `git`
+provenance key — so the archived copy of a run cannot be re-assessed by the tool
+that produced it. The verdict above was therefore obtained from a copy with that
+one key removed and nothing else changed:
+
+```
+docs/evidence/gdocs-2026-08-04-pass4-qualification.json  sha256 311389ab…
+de-stamped copy actually assessed                        sha256 d921de1a…
+```
+
+This was deliberately *not* fixed in the same change. Loosening a strict
+validator is a decision about what evidence is allowed to contain, and making it
+a side effect of a ratification is exactly the mixing the standing constraints
+forbid. Either the stamp belongs inside the schema or the archive should keep
+the raw file beside the stamped one; that is a separate commit.
 
 ---
 

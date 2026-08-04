@@ -84,23 +84,25 @@ limitation. PDFium
 preserves stretched literal interword spaces, removing the
 `01_whitepaper_market` word staircase; shipping PyMuPDF is unaffected.
 
-This is operational success only. The strict draft v2 policy has blocking
-`ordinary_digital`, tracked/nonblocking `designed_stress`, and unsupported-input
-refusal tiers plus explicit owner ratification. `assess` is offline, constructs
-no Drive service, hash-binds the source evidence, writes a separate atomic
-assessment, and returns 1 while a valid assessment fails quality.
+The strict v3 policy has blocking `ordinary_digital`, tracked/nonblocking
+`designed_stress`, and unsupported-input refusal tiers, plus explicit owner
+ratification and bounded, ratified-only per-metric waivers. `assess` is offline,
+constructs no Drive service, hash-binds the source evidence, writes a separate
+atomic assessment, and returns 1 while a valid assessment fails quality.
 
-The latest evidence (2026-08-04) has 5/13 ordinary fixtures within every draft
-threshold, down from 9/13. Eleven blocking findings remain across eight
-documents: `dy_p50` on `03_tech_report_code`, `c1_whitepaper`, `c2_paper2col`,
-`c6_long`, `c8_toc_links`, `l1_word_native` and `r1_reportlab_report`; SSIM on
-`01_whitepaper_market`, `c2_paper2col` and `c6_long`; and `dx_p50` on
-`l1_word_native`. `c7_code` dx and `c2_paper2col` dx cleared. The vertical
-drift is attributed to a 3pt per-boundary compensation, since retired; that
-retirement is a prediction until a consented live pass confirms it.
-The policy is intentionally still unratified, so `quality_pass=false` and
-`overall_pass=false`. Do not ratify or weaken it merely to declare the candidate
-releasable. Expand the corpus to 40–60 PDFs and review the thresholds after the
+Four consented passes ran on 2026-08-04, all operationally clean, blocking
+findings falling 11 → 4 → 3 → 1. Twelve of the thirteen ordinary fixtures now
+clear every threshold unaided; the thirteenth, `01_whitepaper_market`, misses
+only `mean_ssim` and is covered by a single ratified waiver floored at 0.65
+against a measured 0.6589. Assessed against pass 4 the policy returns
+`overall_pass: true` with zero blocking findings — **one clean pass of the two
+the migration gate requires.**
+
+A waiver covers one metric on one document, blocks again below its floor, and
+turns into a blocking `stale-waiver` once the document clears the bar unaided,
+so it cannot outlive its cause. Do not widen one, and do not weaken a threshold,
+merely to declare the candidate releasable. Expand the corpus to 40–60 PDFs and
+review the thresholds after the
 blocking layout issues are fixed; the current 16 fixtures are regression
 evidence, not market coverage.
 
