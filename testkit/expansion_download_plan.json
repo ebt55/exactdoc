@@ -1,155 +1,34 @@
 {
- "_note": "Tranche 2 round 2, corrected after round 1 (6 fetched, 6 failed). Nothing here has been downloaded. Every url, expected_producer and expected_bytes remains an expectation, not a measurement; fetch_expansion.py records what arrives and reports divergences. Round 1 evidence drives this list: nvlpubs.nist.gov went 3/3 and irs.gov 2/2, so the reliable hosts are weighted heavily. Candidates already sealed are absent. Licences are restricted to US Government works and CC-BY/CC0; arXiv remains excluded because its default submission licence does not grant onward redistribution.",
- "_round_1_failures": {
-  "D11a_crs_403": "crsreports.congress.gov returned 403 Forbidden to a declared non-browser User-Agent. NOT retried and the UA is NOT disguised: defeating a bot filter by impersonating a browser is evasion. Replaced by D11b, the same public-domain CRS work from EveryCRSReport, which publishes an open bulk access policy.",
-  "D19a_D19b_D20a_rfc_404": "https://www.rfc-editor.org/rfc/rfcNNNN.pdf 404s for these three. That path serves a native PDF only for RFCs authored in RFCXML v3 (roughly 2019 onward); 8259 (2017), 2119 (1997) and 793 (1981) predate it. The RFC Editor publishes generated PDFs of older text RFCs at /rfc/pdfrfc/rfcNNNN.txt.pdf, which is the corrected path below. D19c adds a modern RFC to exercise the native-PDF form as well.",
-  "D26a_ecb_ssl": "CERTIFICATE_VERIFY_FAILED (unable to get local issuer) on Windows: the system store populates intermediates lazily via CryptoAPI and Python does not drive that. Fixed in fetch_expansion.py by preferring certifi's bundle. The ECB URL itself was also an unverified guess and is dropped in favour of hosts whose paths are easier to confirm.",
-  "D32a_wikimedia_429": "Rate limited. fetch_expansion.py now honours Retry-After exactly once. Retained below."
- },
+ "_note": "ACQUISITION PHASE CLOSED. The corpus stands at 16 gated + 29 expansion = 45 documents, inside the 40-60 target set in ROADMAP.md, so no further fetch round is planned. `candidates` is deliberately EMPTY: fetch_expansion.py refuses a plan with no candidates, so this file can no longer cause a download even if someone passes --allow-download to it. The five candidates that never arrived are recorded in _open_annex below, with what three rounds taught us about each host, so that reopening acquisition starts from evidence rather than from the same guesses.",
  "schema": "exactdoc.expansion-download-plan.v1",
- "candidates": [
-  {
-   "id": "D09d",
-   "url": "https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-88r1.pdf",
-   "filename": "y08_nist_sp80088r1.pdf",
-   "license": "Public domain (US Government work, 17 U.S.C. 105)",
-   "license_evidence": "https://www.nist.gov/oism/copyrights",
-   "expected_producer": "Acrobat",
-   "expected_bytes": 900000,
-   "tier": "ordinary_digital",
-   "why": "third Word-to-Acrobat NIST publication, about 64 pages with decision-flow figures alongside the running furniture"
+ "candidates": [],
+ "_acquisition_record": {
+  "round_1": "12 attempted, 6 fetched, 5 sealed, 1 discarded (y05 GAO: 286pp over the 250-page cap at 15.3 MB, 13x the whole corpus for one refusal branch).",
+  "round_2": "no fetch; plan correction only.",
+  "round_3": "13 attempted, 8 fetched, 8 sealed.",
+  "totals": "25 requests, 14 documents fetched, 13 sealed, 1 discarded. Hosts that answered: nvlpubs.nist.gov 7/7, irs.gov 5/5, www.rfc-editor.org 1/4.",
+  "producers_gained": "Acrobat PDFMaker for Word (generations 11, 17, 20) via Adobe PDF Library 11.0/15.0/20.9.95/20.13.106; Microsoft Word 2010 direct; pdfTeX (TeX Live 2020); Antenna House PDF Output Library 6.6 / AH XSL Formatter; Adobe LiveCycle Designer 6.5; cairo 1.16.0 via xml2rfc 3.12.10. None of these existed in the corpus before tranche 2."
+ },
+ "_open_annex": {
+  "_note": "Not a plan. These are the five that never arrived, kept so the knowledge is not lost. Reopening acquisition means confirming each URL against its host's own site FIRST -- every failure below was a guessed path, and guessing cost three of four RFC candidates.",
+  "rfc_pre_v3_pdfs": {
+   "candidates": ["D19a2 rfc8259", "D19b2 rfc2119", "D20a2 rfc793"],
+   "what_we_tried": "https://www.rfc-editor.org/rfc/rfcNNNN.pdf (round 1, 404) then https://www.rfc-editor.org/rfc/pdfrfc/rfcNNNN.txt.pdf (round 3, also 404).",
+   "what_we_learned": "The native path IS correct for RFCs authored in RFCXML v3: D19c fetched https://www.rfc-editor.org/rfc/rfc9110.pdf successfully, 194 pages, produced by cairo 1.16.0 via xml2rfc 3.12.10. The half of the hypothesis that held is the v3 boundary; the half that failed is the pdfrfc path, which was invented. No working URL for a pre-v3 RFC PDF has been demonstrated, and it is possible the RFC Editor simply does not publish one for text-era RFCs.",
+   "before_retrying": "Look up one such RFC on rfc-editor.org and read the actual link off the page. Do not guess a third scheme.",
+   "value_if_recovered": "low-to-moderate. The fixed-pitch ASCII-art case (rfc793) is genuinely unlike anything held; the plain-prose cases are already covered by y10 and y17."
   },
-  {
-   "id": "D09e",
-   "url": "https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-207.pdf",
-   "filename": "y09_nist_sp800207.pdf",
-   "license": "Public domain (US Government work, 17 U.S.C. 105)",
-   "license_evidence": "https://www.nist.gov/oism/copyrights",
-   "expected_producer": "Acrobat",
-   "expected_bytes": 1100000,
-   "tier": "ordinary_digital",
-   "why": "Zero Trust Architecture, about 59 pages: same producer family, heavier on diagrams than 800-63b"
+  "crs_reports": {
+   "candidates": ["D11a crsreports.congress.gov", "D11b everycrsreport.com"],
+   "what_we_tried": "crsreports.congress.gov returned 403 to a declared non-browser User-Agent; everycrsreport.com returned 404 for a guessed /files/<id>.pdf scheme.",
+   "what_we_learned": "The 403 is a User-Agent filter and is NOT to be worked around: impersonating a browser to defeat bot detection is evasion, and a test corpus is not worth it. The everycrsreport 404 is an ordinary wrong-URL, since that host publishes an open access policy; its real file naming was never established.",
+   "value_if_recovered": "low. CRS output is Word-to-Acrobat, a dialect now represented by seven documents."
   },
-  {
-   "id": "D09f",
-   "url": "https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf",
-   "filename": "y10_nist_fips180.pdf",
-   "license": "Public domain (US Government work, 17 U.S.C. 105)",
-   "license_evidence": "https://www.nist.gov/oism/copyrights",
-   "expected_producer": "Acrobat",
-   "expected_bytes": 800000,
-   "tier": "ordinary_digital",
-   "why": "Secure Hash Standard: a second FIPS to pair against the pdfTeX-produced FIPS 197 already sealed, testing whether the fi-ligature loss is a property of the producer or of the document"
-  },
-  {
-   "id": "D38a",
-   "url": "https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-53r5.pdf",
-   "filename": "y11_nist_sp80053r5_overcap.pdf",
-   "license": "Public domain (US Government work, 17 U.S.C. 105)",
-   "license_evidence": "https://www.nist.gov/oism/copyrights",
-   "expected_producer": "Acrobat",
-   "expected_bytes": 5000000,
-   "tier": "unsupported",
-   "why": "over-cap refusal input, replacing the excluded 15.3 MB GAO report: about 490 pages exceeds exactdoc/batch.py MAX_PAGES_PER_DOCUMENT of 250, at roughly a third of the weight and from a host that has already answered three times"
-  },
-  {
-   "id": "D15b",
-   "url": "https://www.irs.gov/pub/irs-pdf/p15.pdf",
-   "filename": "y12_irs_pub15.pdf",
-   "license": "Public domain (US Government work, 17 U.S.C. 105)",
-   "license_evidence": "https://www.irs.gov/privacy-disclosure/copyright-status-of-irs-materials",
-   "expected_producer": "Antenna House",
-   "expected_bytes": 1800000,
-   "tier": "designed_stress",
-   "why": "Circular E: second Antenna House XSL-FO document, dense multi-column with wage-bracket tables"
-  },
-  {
-   "id": "D15c",
-   "url": "https://www.irs.gov/pub/irs-pdf/p501.pdf",
-   "filename": "y13_irs_pub501.pdf",
-   "license": "Public domain (US Government work, 17 U.S.C. 105)",
-   "license_evidence": "https://www.irs.gov/privacy-disclosure/copyright-status-of-irs-materials",
-   "expected_producer": "Antenna House",
-   "expected_bytes": 600000,
-   "tier": "designed_stress",
-   "why": "a short Antenna House booklet, about 30 pages: the small end of the multi-column class and cheap to measure"
-  },
-  {
-   "id": "D37b",
-   "url": "https://www.irs.gov/pub/irs-pdf/fw9.pdf",
-   "filename": "y14_irs_fw9_form.pdf",
-   "license": "Public domain (US Government work, 17 U.S.C. 105)",
-   "license_evidence": "https://www.irs.gov/privacy-disclosure/copyright-status-of-irs-materials",
-   "expected_producer": "Designer",
-   "expected_bytes": 150000,
-   "tier": "unsupported",
-   "why": "a second fillable form, smaller and simpler than f1040: confirms whether a refusal-contract result generalises or is one document's accident"
-  },
-  {
-   "id": "D19a2",
-   "url": "https://www.rfc-editor.org/rfc/pdfrfc/rfc8259.txt.pdf",
-   "filename": "y15_rfc8259.pdf",
-   "license": "IETF Trust Legal Provisions (redistribution of unmodified copies permitted)",
-   "license_evidence": "https://trustee.ietf.org/documents/trust-legal-provisions/",
-   "expected_producer": "unknown",
-   "expected_bytes": 120000,
-   "tier": "ordinary_digital",
-   "why": "corrected path for the generated PDF of a text RFC: fixed-pitch single column, a producer chain the corpus lacks"
-  },
-  {
-   "id": "D19b2",
-   "url": "https://www.rfc-editor.org/rfc/pdfrfc/rfc2119.txt.pdf",
-   "filename": "y16_rfc2119.pdf",
-   "license": "IETF Trust Legal Provisions (redistribution of unmodified copies permitted)",
-   "license_evidence": "https://trustee.ietf.org/documents/trust-legal-provisions/",
-   "expected_producer": "unknown",
-   "expected_bytes": 40000,
-   "tier": "ordinary_digital",
-   "why": "the minimal real-world document: three pages of plain prose, the downloaded counterpart of 05_memo"
-  },
-  {
-   "id": "D19c",
-   "url": "https://www.rfc-editor.org/rfc/rfc9110.pdf",
-   "filename": "y17_rfc9110.pdf",
-   "license": "IETF Trust Legal Provisions (redistribution of unmodified copies permitted)",
-   "license_evidence": "https://trustee.ietf.org/documents/trust-legal-provisions/",
-   "expected_producer": "unknown",
-   "expected_bytes": 900000,
-   "tier": "ordinary_digital",
-   "why": "a modern RFCXML v3 RFC with a NATIVE pdf at the /rfc/rfcNNNN.pdf path, unlike the three that 404'd: proportional type, real headings and a large cross-referenced table of contents"
-  },
-  {
-   "id": "D20a2",
-   "url": "https://www.rfc-editor.org/rfc/pdfrfc/rfc793.txt.pdf",
-   "filename": "y18_rfc793_ascii.pdf",
-   "license": "IETF Trust Legal Provisions (redistribution of unmodified copies permitted)",
-   "license_evidence": "https://trustee.ietf.org/documents/trust-legal-provisions/",
-   "expected_producer": "unknown",
-   "expected_bytes": 250000,
-   "tier": "designed_stress",
-   "why": "the original TCP RFC: fixed-pitch ASCII-art packet diagrams that no proportional reflow can preserve"
-  },
-  {
-   "id": "D11b",
-   "url": "https://www.everycrsreport.com/files/20220certain.pdf",
-   "filename": "y19_crs_report.pdf",
-   "license": "Public domain (US Government work, 17 U.S.C. 105) -- CRS reports carry no copyright; confirm on the landing page before sealing",
-   "license_evidence": "https://www.everycrsreport.com/about.html",
-   "expected_producer": "Acrobat",
-   "expected_bytes": 700000,
-   "tier": "ordinary_digital",
-   "why": "replaces the 403 from crsreports.congress.gov with a host that permits automated access. The URL is a guess at the file scheme and may 404; that is a dropped candidate, not a reason to disguise the client"
-  },
-  {
-   "id": "D32a",
-   "url": "https://upload.wikimedia.org/wikipedia/commons/6/6b/Wikipedia_-_Portable_Document_Format.pdf",
-   "filename": "y20_wikimedia_export.pdf",
-   "license": "CC-BY-SA 4.0 (verify the file's Commons page before sealing)",
-   "license_evidence": "https://creativecommons.org/licenses/by-sa/4.0/",
-   "expected_producer": "unknown",
-   "expected_bytes": 500000,
-   "tier": "ordinary_digital",
-   "why": "retained from round 1; the 429 is now answered by honouring Retry-After once. An article exported by someone else's renderer, with reference lists and infoboxes"
+  "wikimedia_export": {
+   "candidates": ["D32a upload.wikimedia.org"],
+   "what_we_tried": "429 in round 1; 429 again in round 3 even after fetch_expansion.py began honouring Retry-After once.",
+   "what_we_learned": "upload.wikimedia.org rate-limits this access pattern beyond what a single polite retry clears. Retrying harder is the wrong response to a host saying no twice.",
+   "value_if_recovered": "low. It would add a CC-BY-SA document, but y17 already provides the only non-public-domain licence case the corpus needs to reason about."
   }
- ]
+ }
 }

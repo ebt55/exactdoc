@@ -50,6 +50,7 @@ testkit/exp_off/
 testkit/exp_on/
 testkit/expansion_out/
 testkit/expansion_build/
+testkit/fetched_expansion*/
 corpus/pdfs/
 
 # Credentials and cloud-oracle state. Keep these out even when ignored by Git.
