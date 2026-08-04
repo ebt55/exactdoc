@@ -28,6 +28,22 @@ MAX_FIG_TEXT_FRAC = 0.35   # ...nor swallow more than 35% of a page's text
 # merges adjacent columns into a single block often enough (y06 p6 has one
 # 57-line block spanning columns 2 and 3) that a block-based test misses the
 # structure entirely, while line left-edges cluster on the grid exactly.
+# --- cover-band accent stripes ---------------------------------------------
+# A cover block is often two fills: the block itself and a thin full-width rule
+# flush against its edge. The thin one is an accent stripe and is carried as a
+# border on the band cell; the thick one is the band. Both bounds below refuse
+# a SECOND SUBSTANTIAL fill, which is a second band rather than a stripe.
+#
+# The absolute bound is not a taste call: OOXML stores border width in eighths
+# of a point with a maximum of 96, so a stripe thicker than 12pt cannot be
+# expressed as a border at all. The relative bound is the shape argument -- a
+# rule against a block is a small fraction of it. Measured over the corpus, the
+# only two accent stripes are 4.0pt (2.4% of its band, 01_whitepaper) and 8.0pt
+# (6.2%, 04_exec_brief), so 8pt is a real accent and the threshold has to admit
+# it.
+ACCENT_MAX_PT = 12.0
+ACCENT_MAX_FRAC = 0.25
+
 MIN_GUTTER_W = 8.0          # pt; narrower than this is word spacing
 GRID_WIDTH_TOL = 0.12       # columns must be within 12% of the same width
 MIN_COL_LINES = 6           # ...and each must actually carry text
@@ -735,12 +751,15 @@ def build_band_table(band, band_lines: List[Line], margin_l, content_w,
     cursor = _space_paras(cell.paras, band_bb[1])
     pad_bot = max(0.0, round(band_bb[3] - cursor, 1))
     cell.pad = (0.0, pad_left, pad_bot, 0.0)
+    main_h = max(1e-6, main.bbox[3] - main.bbox[1])
     for a in accents:
+        ah = a.bbox[3] - a.bbox[1]
+        if ah > ACCENT_MAX_PT or ah > ACCENT_MAX_FRAC * main_h:
+            continue          # a second substantial fill is a band, not a stripe
         if a.bbox[1] >= main.bbox[3] - 1:
-            cell.borders["bottom"] = (max(1.0, a.bbox[3] - a.bbox[1]),
-                                      a.fill or "#000000")
+            cell.borders["bottom"] = (max(1.0, ah), a.fill or "#000000")
         elif a.bbox[3] <= main.bbox[1] + 1:
-            cell.borders["top"] = (max(1.0, a.bbox[3] - a.bbox[1]), a.fill or "#000000")
+            cell.borders["top"] = (max(1.0, ah), a.fill or "#000000")
     return TableEl(rows=[[cell]], col_widths=[content_w],
                    row_heights=[band_bb[3] - band_bb[1]], role="band", bbox=band_bb)
 

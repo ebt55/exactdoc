@@ -385,6 +385,44 @@
       }
     }
   },
+  "cover_accent_stripe_claim": {
+    "id": "accent-stripe-as-shaded-row",
+    "statement": "Re-expressing a cover block's accent stripe as a shaded table row instead of a thick cell border makes Google Docs render it, because Docs honours w:shd cell shading where it drops w:tcBorders at this width.",
+    "applies_to": "01_whitepaper_market (4.0pt orange stripe) and 04_exec_brief (8.0pt indigo stripe) -- the corpus's only two cover accents",
+    "corrects_an_earlier_finding": {
+      "supersedes": "cover_band_claim.pass3_result.overhang_attributed.real_defect_found_instead, which recorded that inference 'represents the two-colour cover block as a single navy cell ... it is not a writer or a Docs problem'",
+      "what_inference_actually_does": "build_band_table already records a thin flush fill as a border on the band cell. On 01 the cover_band cell carries borders={'bottom': (4.0, '#f59e0b')}, and the writer emits w:tcBorders bottom val=single sz=32 color=F59E0B under BOTH profiles -- w:sz is in eighths of a point, so exactly 4.0pt. The stripe is represented and emitted end to end.",
+      "libreoffice_render_evidence": "Sampling the page-1 centre column: the source has ORANGE at y 170..173 (4px); the LibreOffice render-back has ORANGE at y 174..176 under standard and y 159..162 (4px) under gdocs. The construct renders.",
+      "conclusion": "The loss is specific to Google Docs. It is a writer/target-translation problem, not an inference gap, and the earlier attribution was wrong."
+    },
+    "why_shading_rather_than_a_border": "The navy block is w:shd cell shading on the same cell and comes back in every Docs render, passes 2 through 4, while the stripe never does. Shading is demonstrably honoured by Docs at this geometry where a 4pt table border is not.",
+    "change": "docxout._band_accent_as_row, applied only when output_profile == 'gdocs' and only to the cover band: the band becomes two rows -- the original cell with its bottom border removed, and a second row shaded with the accent colour and pinned to the stripe's height.",
+    "inference_rule": {
+      "rule": "a full-width fill flush against a band's edge is an accent stripe when it is thin both absolutely and relative to the band",
+      "absolute_bound_pt": 12.0,
+      "absolute_bound_argument": "OOXML stores border width in eighths of a point with a maximum of 96, so a stripe thicker than 12pt cannot be expressed as a border at all",
+      "relative_bound_frac": 0.25,
+      "relative_bound_argument": "a rule against a block is a small fraction of it; at a quarter of the band's height it is a second band",
+      "measured_accents": "4.0pt = 2.4% of its band (01), 8.0pt = 6.2% (04). 8pt is a real accent, so a '<8pt' threshold would have refused one of the two.",
+      "refusals_tested": "a second large fill (35% of the band), a stripe too thick to be a border (14pt), and a fill that is not flush against either edge"
+    },
+    "blast_radius": {
+      "standard_profile": "byte-identical. word/document.xml sha256 before and after: 01 1cf8e0667bc9a7b1, 04 200e09da95087966, c1 016fb756eb2ae07e.",
+      "gdocs_profile": "changes only where there is an accent: 01 fbf22910cd49098f -> 1e309cdeef093e17, 04 99a9f0d126e3fc0b -> 07dab940dcbabb84. c1_whitepaper has a cover band with no accent and is unchanged at 7d6d639fb4b0724a.",
+      "gate": "PASS both lanes, metrics identical to the pre-change run -- no baseline event"
+    },
+    "predicted_after": {
+      "primary_claim": "The 4pt orange stripe (#f59e0b) is PRESENT in the pass-5 Google render of 01 page 1, immediately below the navy block, spanning the full page width. This is deliberately a presence test rather than a score: it is binary, and it cannot be confounded by the page-1 offset that dominates 01's SSIM.",
+      "how_to_measure": "sample the page-1 raster down its centre column and look for a run of pixels within tolerance of #f59e0b directly beneath the navy run, as testkit's stripe check does offline",
+      "secondary_p1_ssim": "0.5996 -> ~0.61. The stripe is 4pt of a 792pt page, so even counting the 8x8 windows it touches it is worth roughly a point of SSIM. The dominant term in 01's page-1 deficit remains the uniform offset, which is a separate workstream.",
+      "same_for_04": "04_exec_brief's 8.0pt indigo stripe should appear by the same mechanism; it was never listed as a blocker, so this is a free consequence rather than a claim about its score."
+    },
+    "falsification": {
+      "statement": "Falsified if 01's pass-5 page-1 render still has no #f59e0b pixels beneath the navy block. That would mean Docs drops a shaded 4pt table row as well as a 4pt border, and the construct swap is the wrong lever.",
+      "note": "A stripe that appears but at the wrong thickness is NOT a falsification of this claim -- it would confirm the construct and move the question to row-height fidelity."
+    },
+    "status": "recorded before live pass 5"
+  },
   "c2_ssim_diagnosis": {
     "status": "attributed, not fixed -- the step is LibreOffice-visible and its cause is a cancelling pair of writer errors",
     "mean_ssim": 0.6772,

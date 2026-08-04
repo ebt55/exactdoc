@@ -805,6 +805,48 @@ _GDOCS_COVER_BEFORE_COMP_TWIPS = 296  # 14.8pt, measured above
 # Re-measure them if the corpus ever needs the last point of vertical fidelity.
 
 
+def _band_accent_as_row(t: TableEl) -> TableEl:
+    """Re-express a band cell's accent border as a shaded row of its own.
+
+    Inference already records a cover block's accent stripe -- a thin
+    full-width fill flush against the block -- as a bottom border on the band
+    cell, and that is a faithful representation: LibreOffice renders it at the
+    right colour and thickness from `w:tcBorders`.
+
+    Google Docs does not. The 4pt orange stripe on 01_whitepaper is absent from
+    every Docs render across live passes 2, 3 and 4, while the navy block above
+    it -- which is `w:shd` cell shading on the same cell -- comes back every
+    time. So shading is demonstrably honoured by Docs where a thick table
+    border is not, and this trades one construct for the other on the profile
+    that needs it.
+
+    The stripe becomes a second row of the same table, shaded with the accent
+    colour and pinned to the stripe's own height, and the border is dropped so
+    the two cannot both render.
+    """
+    if len(t.rows) != 1 or len(t.rows[0]) != 1 or not t.rows[0][0]:
+        return t
+    cell = t.rows[0][0]
+    spec = (cell.borders or {}).get("bottom")
+    if not spec:
+        return t
+    thickness, color = spec
+    if not color or thickness <= 0:
+        return t
+    main = copy.copy(cell)
+    main.borders = {k: v for k, v in (cell.borders or {}).items() if k != "bottom"}
+    stripe = Cell(shading=color, borders={}, pad=(0.0, 0.0, 0.0, 0.0),
+                  paras=[Para(runs=[Run(text="", font="Helvetica", size=2,
+                                        color="#000000")],
+                              leading=max(1.0, thickness))])
+    band_h = t.row_heights[0] if t.row_heights else None
+    heights = [max(1.0, band_h - thickness) if band_h else None, thickness]
+    out = copy.copy(t)
+    out.rows = [[main], [stripe]]
+    out.row_heights = heights
+    return out
+
+
 def write_table(container, t: TableEl, content_w: float, ctx=None,
                 cover_band: bool = False):
     ctx = ctx or _DEFAULT_CTX
@@ -812,6 +854,8 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
     # differently.  Do not infer this from ``role == 'band'``: header bands
     # share that role and must retain their ordinary table treatment.
     gdocs_cover = cover_band and ctx.output_profile == "gdocs"
+    if gdocs_cover:
+        t = _band_accent_as_row(t)
     n_rows = len(t.rows)
     n_cols = len(t.col_widths)
     if n_rows == 0 or n_cols == 0:
