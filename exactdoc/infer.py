@@ -21,6 +21,13 @@ MAX_FIG_GROWTH = 4.0       # a figure may not exceed 4x its seed area
 MAX_FIG_PAGE_FRAC = 0.55   # ...nor 55% of the page
 MAX_FIG_TEXT_FRAC = 0.35   # ...nor swallow more than 35% of a page's text
 
+# --- side-margin page furniture -------------------------------------------
+# Clearance a shape must keep from the body column before it is called margin
+# furniture. Margins are inferred, so a shape that merely grazes the column
+# edge may be ordinary content sitting against a slightly mis-inferred margin;
+# the constructs this rule exists for clear the column by tens of points.
+MARGIN_BAND_CLEARANCE = 2.0
+
 
 def _thin(d: DrawCmd) -> bool:
     x0, y0, x1, y1 = d.bbox
@@ -812,6 +819,31 @@ def _is_glyphlike(d: DrawCmd) -> bool:
     whole cluster to 'figure'."""
     x0, y0, x1, y1 = d.bbox
     return (x1 - x0) <= GLYPH_MAX and (y1 - y0) <= GLYPH_MAX
+
+
+def in_side_margin(bb: BBox, margin_l: float, margin_r: float,
+                   page_w: float) -> bool:
+    """Does this geometry lie wholly in a left/right margin band?
+
+    DOCX body flow is a single vertical stream: every block element in it
+    consumes its own height from the content area. A PDF has no such
+    constraint, and producers use the side margins for furniture -- rotated
+    citation strips, change bars, tabs, marginal icons -- which occupy zero
+    body height because they are not in the body column at all.
+
+    Emitting such a shape as a flow element therefore invents height the source
+    never spent. It is not a small error: a 432pt sidebar strip repeated on
+    every page of an 80-page NIST publication injected ~45 pages of height and
+    pushed each source page onto two output pages, which is why word_recall
+    collapsed to 0.13 while nearly every word was still present somewhere.
+
+    Only the horizontal bands are treated this way. The top and bottom bands
+    are running headers and footers, which `detect_hf` already recognises with
+    a repetition test, and the vertical extent of an inferred body area is much
+    less reliable than its column edges.
+    """
+    return (bb[2] <= margin_l - MARGIN_BAND_CLEARANCE or
+            bb[0] >= page_w - margin_r + MARGIN_BAND_CLEARANCE)
 
 
 def _classify_cluster(cl) -> str:
@@ -1640,8 +1672,15 @@ def infer(ir: DocIR) -> DocLayout:
                 cd.add(di)
 
         elements: List[Any] = []
+        # Side-margin furniture is filtered out here, before any element is
+        # built from it, rather than after: a shape that reached build_figure
+        # would first absorb neighbouring text lines into the raster, so
+        # dropping the element later would delete that text instead of
+        # returning it to the flow. Nothing consumed, nothing to give back.
         draws = [(i, d) for i, d in enumerate(p.drawings)
-                 if i not in cd and d.opacity > 0.05]
+                 if i not in cd and d.opacity > 0.05
+                 and not in_side_margin(d.bbox, lay.margin_l, lay.margin_r,
+                                        p.width)]
         # This runs before drawing clustering because a row-regular table is
         # otherwise split into alternating filled-card clusters and bare flow
         # paragraphs.  It has no side effects until the entire segment passes.
@@ -1750,6 +1789,8 @@ def infer(ir: DocIR) -> DocLayout:
         for im in p.images:
             if getattr(im, "_consumed", False) or im.data is None:
                 continue
+            if in_side_margin(im.bbox, lay.margin_l, lay.margin_r, p.width):
+                continue        # marginal logo/icon: furniture, not flow
             el = ImageEl(data=im.data, ext=im.ext,
                          width=im.bbox[2] - im.bbox[0], height=im.bbox[3] - im.bbox[1])
             el._bbox = im.bbox
