@@ -53,6 +53,14 @@ BLOCK_GAP_FACTOR = 1.15   # multiple of the BODY pitch that ends a block. See
 BLOCK_SAME_ROW_EM = 1.2
 MONO_ADV_EM = 0.6         # advance of a monospaced glyph, as a fraction of size
 SPACE_ADV_EM = 0.28       # advance of a space in a proportional face
+# Super/subscript reattachment. These are infer._merge_row_lines' numbers, not
+# new ones: that pass already absorbs raised fragments into their host row, and
+# this is the same rule applied one stage earlier so the fragment reaches the
+# IR inside its line, which is where PyMuPDF puts it.
+SCRIPT_SIZE_FRAC = 0.92   # a fragment this close to the host's size is a line
+SCRIPT_BASE_EM = 0.75     # ...a script's baseline stays inside the host em box
+SCRIPT_REACH_EM = 0.5     # ...and it sits against the host's text, not adrift
+SCRIPT_RAISE_EM = 0.12    # raised by more than this: a superscript
 
 
 def _line_size(ln) -> float:
@@ -65,7 +73,13 @@ def _hexcol(r, g, b):
 
 class _Char:
     __slots__ = ("u", "x0", "y0", "x1", "y1", "ox", "oy", "size", "font",
-                 "flags", "color", "gen")
+                 "flags", "color", "gen", "sup")
+
+    def __init__(self):
+        # Only the flag that _absorb_script_rows sets needs a default; every
+        # other slot is assigned by _page_chars before the character is used,
+        # and leaving them unset keeps construction as cheap as it was.
+        self.sup = False
 
     @property
     def mono_hint(self) -> bool:
@@ -284,7 +298,10 @@ def _style(c: _Char):
     serif = bool(c.flags & _FLAG_SERIF)
     if not serif and "sans" not in fl:
         serif = any(k in fl for k in _SERIF_NAMES)
-    return (c.font, round(c.size, 2), c.color, bold, italic, mono, serif)
+    # A script is its own span even when it is set at the host's size: the
+    # writer has to raise it, and a run cannot be half superscript.
+    return (c.font, round(c.size, 2), c.color, bold, italic, mono, serif,
+            getattr(c, "sup", False))
 
 
 def _wide_gap_starts_visual_line(prev: _Char, current: _Char,
@@ -309,6 +326,81 @@ def _wide_gap_starts_visual_line(prev: _Char, current: _Char,
     return not (explicit_interword_space and fragment_has_text)
 
 
+def _row_span(row: List[_Char]):
+    return min(c.x0 for c in row), max(c.x1 for c in row)
+
+
+def _absorb_script_rows(vis_rows):
+    """Put super/subscript fragments back on the line they belong to.
+
+    A script sits on its own baseline, so baseline grouping gives it a line of
+    its own. PDFium reports `A. Researcher` / `1` / `, B. Coauthor` as three
+    lines where PyMuPDF reports one -- `A. Researcher1, B. Coauthor`, with the
+    marker as an interior span carrying superscript=True. The IR contract is
+    PyMuPDF's, and the cost of missing it is nowhere near the size of a marker.
+
+    Measured on c2_paper2col, a two-column paper with three such markers:
+
+      * each marker became its own Line and therefore its own TextBlock, so
+        infer._merge_row_lines -- which already knows how to absorb a raised
+        fragment -- never saw it: that pass merges lines *within* a block, and
+        the marker was in a different one.
+      * the `2` after the second author sorted into the RIGHT COLUMN, ahead of
+        that column's real first paragraph, which then carried 111.0pt of
+        space_before. The `3` split a two-line paragraph into three.
+      * taking the marker out of its host line left the gap it used to occupy,
+        and the space heuristic in _build_lines refilled it: `Researcher ,` and
+        `terminality .` against PyMuPDF's `Researcher1,` and `terminality3.`,
+        so the markers cost word recall as well as geometry.
+
+    The rule is infer._merge_row_lines' script rule, applied one stage earlier:
+    a fragment smaller than its host, whose baseline stays inside the host's em
+    box, sitting against the host's text. Two structural guards are added,
+    because this stage has evidence that stage does not:
+
+      * a fragment may not join the row it was SPLIT FROM. Two visual lines that
+        share a baseline were separated on purpose by LINE_SPLIT_EM -- the two
+        halves of a two-column page, or the cells of a table row -- and
+        absorbing one back would silently undo that.
+      * a fragment left of the host's first character is refused. `Line.baseline`
+        is the first span's origin, so a raised leading span would make the
+        whole line report the script's baseline as its own.
+    """
+    rows = [(ri, row) for ri, row in vis_rows if row]
+    absorbed = set()
+    for i, (frag_ri, frag) in enumerate(rows):
+        fsz = max(c.size for c in frag)
+        fx0 = min(c.x0 for c in frag)
+        fb = frag[0].oy
+        best = None
+        for j, (host_ri, host) in enumerate(rows):
+            if j == i or j in absorbed or host_ri == frag_ri:
+                continue
+            hsz = max(c.size for c in host)
+            if fsz >= SCRIPT_SIZE_FRAC * hsz:
+                continue                      # same size: a real line
+            dy = fb - host[0].oy
+            if abs(dy) > SCRIPT_BASE_EM * hsz:
+                continue                      # outside the em box
+            hx0, hx1 = _row_span(host)
+            if fx0 <= hx0 or fx0 > hx1 + SCRIPT_REACH_EM * hsz:
+                continue                      # not adjacent, or would lead
+            score = (max(0.0, fx0 - hx1), abs(dy))
+            if best is None or score < best[0]:
+                best = (score, j, hsz)
+        if best is None:
+            continue
+        _, j, hsz = best
+        host = rows[j][1]
+        if fb < host[0].oy - SCRIPT_RAISE_EM * hsz:
+            for c in frag:
+                c.sup = True
+        host.extend(frag)
+        host.sort(key=lambda c: c.x0)
+        absorbed.add(i)
+    return [row for i, (_, row) in enumerate(rows) if i not in absorbed]
+
+
 def _build_lines(chars: List[_Char]) -> List[Line]:
     """chars -> spans -> lines, by baseline then x.
 
@@ -331,18 +423,22 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
         if not placed:
             rows.append([c])
 
-    # split each baseline row into visual lines at wide horizontal gaps
+    # split each baseline row into visual lines at wide horizontal gaps.
+    # The row index travels with the fragment so _absorb_script_rows can tell a
+    # raised marker from the far side of a split it must not undo.
     vis_rows = []
-    for row in rows:
+    for ri, row in enumerate(rows):
         row.sort(key=lambda c: c.x0)
         part = [row[0]]
         for prev, c in zip(row, row[1:]):
             if _wide_gap_starts_visual_line(prev, c, part):
-                vis_rows.append(part)
+                vis_rows.append((ri, part))
                 part = [c]
             else:
                 part.append(c)
-        vis_rows.append(part)
+        vis_rows.append((ri, part))
+
+    vis_rows = _absorb_script_rows(vis_rows)
 
     lines = []
     for row in vis_rows:
@@ -415,7 +511,7 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
         for cs, key in spans:
             if not cs:
                 continue
-            font, size, color, bold, italic, mono, serif = key
+            font, size, color, bold, italic, mono, serif, sup = key
             text = "".join(c.u for c in cs)
             if not text.strip() and not sp_objs:
                 continue
@@ -423,7 +519,7 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
                   max(c.x1 for c in cs), max(c.y1 for c in cs))
             sp_objs.append(Span(
                 text=text, font=font, size=size, color=color, bold=bold,
-                italic=italic, mono=mono, serif=serif, superscript=False,
+                italic=italic, mono=mono, serif=serif, superscript=sup,
                 bbox=bb, origin=(cs[0].ox, cs[0].oy)))
         if not sp_objs:
             continue
