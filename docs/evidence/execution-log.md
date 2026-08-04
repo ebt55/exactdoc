@@ -67,19 +67,21 @@ Mutation suite 153 → 198 assertions, green on Windows and in the canonical ima
 ```
 gate PASS (product)   pagematch 16/16  <2pt 0.5161  live 0.9652  dy50 0.675
 gate PASS (raw)       pagematch 14/16  <2pt 0.3349  live 0.9652  dy50 2.79
-parity FAIL           3 failures
+parity FAIL           2 failures
 ```
 
 Measured 2026-08-04, canonical fingerprint `3ca438f1…`, evidence
-`docs/evidence/canonical-gate-2026-08-04.json`. Three failures, all deliberate:
+`docs/evidence/canonical-gate-2026-08-04.json`. Two failures, both deliberate:
 
 | n | kind | resolution |
 |---:|---|---|
-| 3 | provisional shortfalls (`c2_paper2col` D2, `c4_i18n` D10, `c5_graphics` D10) | DEC-D2, owner ratification |
+| 2 | provisional shortfalls (`c4_i18n` D10, `c5_graphics` D10) | DEC-D2, owner ratification |
 
 The two previously unwaived `dy_p50` regressions are gone: at the candidate's
 own profile `05_memo` and `f1_fpdf_brief` are better and same respectively. They
-remain out of every waiver section, by test.
+remain out of every waiver section, by test. `c2_paper2col` was a third
+provisional shortfall for part of the same day and was retired by `c1cbc2a`;
+the gate lines above predate that commit and the parity count does not.
 
 **Parity cannot go green by engineering.** It is a decision queue. Do not
 "fix" it, do not widen a waiver, do not re-add `continue-on-error`.
@@ -226,10 +228,13 @@ regressions, 6 same, 2 better** — raw movements, explicitly unadjudicated and
 never release-ready.
 
 A new policy bound to that full profile ID now replaces the legacy file. It is
-**provisional and unratified**: three tracked findings (`c2_paper2col` D2,
-`c4_i18n` D10, `c5_graphics` D10), each bounded by floors measured in this
-environment, and `ratified_shortfalls` is empty, which is the executable form of
-"nothing is authorised". The four D2 core-14 findings the old file carried were
+**provisional and unratified**: it was written with three tracked findings
+(`c2_paper2col` D2, `c4_i18n` D10, `c5_graphics` D10) and carries two, because
+`c1cbc2a` retired `c2_paper2col` the same day — the superscript-absorption fix
+took it to BETTER on every dimension and the entry became a stale waiver, which
+`adjudicate()` refuses. Each remaining finding is bounded by floors measured in
+this environment, and `ratified_shortfalls` is empty, which is the executable
+form of "nothing is authorised". The four D2 core-14 findings the old file carried were
 measured at another profile and are **not** migrated and **not** retired — their
 profile has simply not been remeasured. The prior rendered evidence for
 `c4_i18n` (PDFium reports RTL in logical order) and `c5_graphics` (PDFium keeps
@@ -237,5 +242,9 @@ the gradient band PyMuPDF drops) is preserved inside those entries rather than
 used to excuse them, because it was produced at a profile this policy does not
 govern.
 
-Live Google truth is unchanged: the committed 2026-08-02 evidence. Nothing in
-this run touched it.
+Live Google truth was the committed 2026-08-02 evidence at the time of this
+run, which touched none of it. It has since been superseded by the 2026-08-04
+live qualification (`ee0d06c`) — operationally clean, quality worse: 11 blocking
+findings across 8 ordinary fixtures, attributed to `ff518be`'s 3pt per-boundary
+compensation and retired in `41e8e7f` on remeasurement against Google's own
+exports. That retirement is unconfirmed until a fresh consented pass.

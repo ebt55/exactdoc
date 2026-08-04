@@ -90,9 +90,14 @@ refusal tiers plus explicit owner ratification. `assess` is offline, constructs
 no Drive service, hash-binds the source evidence, writes a separate atomic
 assessment, and returns 1 while a valid assessment fails quality.
 
-The latest evidence has 9/13 ordinary fixtures within every draft threshold.
-Seven blocking findings remain across `01_whitepaper_market` (SSIM),
-`c2_paper2col` (dx/dy/SSIM), `c7_code` (dx), and `l1_word_native` (dx/dy).
+The latest evidence (2026-08-04) has 5/13 ordinary fixtures within every draft
+threshold, down from 9/13. Eleven blocking findings remain across eight
+documents: `dy_p50` on `03_tech_report_code`, `c1_whitepaper`, `c2_paper2col`,
+`c6_long`, `c8_toc_links`, `l1_word_native` and `r1_reportlab_report`; SSIM on
+`01_whitepaper_market`, `c2_paper2col` and `c6_long`; and `dx_p50` on
+`l1_word_native`. `c7_code` dx and `c2_paper2col` dx cleared. The vertical
+drift is attributed to a 3pt per-boundary compensation, since retired; that
+retirement is a prediction until a consented live pass confirms it.
 The policy is intentionally still unratified, so `quality_pass=false` and
 `overall_pass=false`. Do not ratify or weaken it merely to declare the candidate
 releasable. Expand the corpus to 40–60 PDFs and review the thresholds after the
