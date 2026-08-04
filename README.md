@@ -160,12 +160,24 @@ Measured 2026-08-04, both lanes PASS. The regression record asks "did anything
 get worse?", not "is everything perfect"; the absolute qualification still
 exposes the Tier 2/3 items above.
 
-A separate, deliberately **non-gating** corpus of 16 further ordinary documents
-lives in `testkit/fixtures_expansion/`. It is measured by `testkit/expansion.py`,
-has no baseline, and gates nothing — see [docs/corpus-expansion.md](docs/corpus-expansion.md).
-Its first run found that running headers, footers and browser page furniture
-dominate the geometry error in ordinary documents, a construct the frozen 16
-barely sample.
+A separate, deliberately **non-gating** corpus of 21 further documents — 16
+generated, 5 real documents this project did not write — lives in
+`testkit/fixtures_expansion/`. It is measured by `testkit/expansion.py`, has no
+baseline, and gates nothing; see
+[docs/corpus-expansion.md](docs/corpus-expansion.md). It is already earning its
+keep, and not flatteringly:
+
+- running headers, footers and browser page furniture dominate the geometry
+  error in ordinary documents — a construct the frozen 16 barely sample;
+- **long documents double their pagination.** An 80-page real document came out
+  158 pages and a 114-page one came out 314. Document recall stays around
+  0.90 while word recall collapses to ~0.13, because everything after the first
+  overflow lands on the wrong page. The gated 16 are 1–7 pages and cannot
+  compound a per-page error into a page-count error, so no gated number has ever
+  moved in response to this;
+- a 199-widget fillable form classified `unsupported` **converted anyway**: the
+  page and byte ceilings are enforced, but nothing rejects interactive form
+  logic.
 
 ### PDFium / Google Docs candidate — not shipping
 
