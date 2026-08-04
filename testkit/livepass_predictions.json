@@ -306,10 +306,37 @@
         "zero_space_before_after_the_break": "moved the heading from +4.80 to -11.30, i.e. -16.10pt, exactly the emitted space_before. LibreOffice DOES honour space_before at a continuous-section start, so that is not the missing height."
       },
       "why_no_fix_landed": "Two errors of opposite sign very nearly cancel here. The sectPr paragraph adds about +13.7pt it should not, yet the net error is only +3.35pt, so something under-emits about 10.35pt at the same boundary and has not been isolated. Removing the sectPr paragraph alone takes c2's heading dy from +4.80 to -8.90 -- larger in magnitude than the 3.88 the document has today. Landing half of a cancelling pair is how a document that is inside its bound leaves it.",
-      "constraint_observed": "No code was changed. c2 is a gated fixture and every variant above moves its dy materially, which is a baseline event rather than a silent improvement."
+      "constraint_observed": "No code was changed. c2 is a gated fixture and every variant above moves its dy materially, which is a baseline event rather than a silent improvement.",
+      "CORRECTION": "The 'cancelling pair' reading above is WRONG and is kept only because the experiment that produced it is on the record. The fold experiment misled: folding the sectPr into the spacer collapses that spacer's own exact height, which is why the heading moved 13.70pt. The section-break paragraph does not occupy 13.7pt. Marker text was put in both paragraphs and read back from the render, and raising the paragraph's w:line from 20 twips to 400 moved every following line down by exactly 19.00pt -- so its height IS honoured, and it costs exactly its w:line, 1.00pt, with a floor near 1pt (which is why 20 -> 1 twip changed nothing). Both boundary errors over-emit; neither cancels the other."
     },
-    "pass3_expectation": "UNCHANGED. Nothing shipped for c2, so mean_ssim should come back at ~0.6772 and dy_p50 at ~3.88. A materially different value means something else moved it, and the attribution above should be re-measured before it is trusted.",
-    "next_step": "Isolate the ~10.35pt under-emission at the same boundary, then fix it together with the sectPr paragraph's spurious line box -- the two have to land as one change. The 0.8116 that the rigid shift already demonstrates remains the ceiling such a fix would approach."
+    "balanced_accounting": {
+      "measured_on": "c2 page 1, pdfium/gdocs/none/refine0, canonical LibreOffice, abstract's last line top to the '1 Introduction' top",
+      "source_delta": 40.05,
+      "render_delta": 43.35,
+      "over_emission": 3.3,
+      "components": {
+        "section_break_paragraph": 1.0,
+        "boundary_arithmetic": 2.3
+      },
+      "section_break_paragraph_proof": "w:line 20 twips -> 400 moved the heading +19.00pt, exactly the 19pt added; 20 -> 1 twip moved 0.00, the ~1pt floor. It costs its declared 1.00pt and cannot be made to cost less.",
+      "boundary_arithmetic_detail": "_position_chunks sets base = abstract top 133.24 + modelled height 67.50 = 200.74, then pre_gap = target 214.46 - base = 13.70 and the heading's space_before = 230.57 - 214.46 = 16.11, so the emitted gap is 13.70 + 1.00 + 16.10 = 30.80. The abstract's true source bottom is about 204.5 (last line top 191.04 plus leading 13.50), which makes the true gap to the heading about 26.0. _para_box returns height = n * leading measured from a box top that sits ~3pt above the first line's ink top, and c2's abstract pitch is not uniform (13.50, 14.25, 13.50, 13.50), so the modelled bottom lands high and every gap measured from it is that much too large.",
+      "balances": "1.00 + 2.30 = 3.30, against the 3.30 measured"
+    },
+    "sect_break_fix_attempt": {
+      "change": "subtract SECT_BREAK_PARA_PT (1.0) from the gap hoisted ahead of a continuous section break, in docxout's chunk emission",
+      "effect_verified": "the heading moved up by exactly 1.00pt (render 235.89 -> 234.89), over-emission 3.30 -> 2.30",
+      "blast_radius": "the only gated fixtures that emit a hoisted section gap are 02_research_paper and c2_paper2col, one each, on both backends",
+      "lane_conflict": {
+        "raw_refine0": "c2 mean_ssim 0.674 -> 0.690, dy_p90 21.6 -> 20.6, dy_p50 unchanged at 4.0 -- the open-loop path improves",
+        "product_refine3": "c2 mean_ssim 0.824 -> 0.793 and dy_p50 0.85 -> 1.75, which the gate reports as its single finding -- the closed-loop path gets worse",
+        "reading": "the refine loop had already absorbed this 1pt empirically, so correcting it at source makes the loop over-correct. The recorded 0.85 encodes the loop cancelling a writer bug rather than the writer being right."
+      },
+      "status": "NOT LANDED and reverted. It improves the candidate path the live pass measures and degrades the shipping profile, which is an adjudication for the coordinator rather than a change to make silently. The gate is left PASS on both lanes.",
+      "if_adopted_predict": "c2 candidate mean_ssim 0.6772 -> ~0.69 at pass 4 (the raw-lane proxy moved +0.016 for this 1.0pt of the 3.30). Closing the remaining 2.30 as well should approach, but not reach, the 0.8116 the rigid shift demonstrates."
+    },
+    "pass3_expectation": "GRADED and HELD. Nothing shipped for c2 and pass 3 returned mean_ssim 0.6772 with dy_p50 3.88, exactly as predicted.",
+    "pass4_expectation": "UNCHANGED AGAIN unless the sect_break_fix_attempt above is adjudicated in. Nothing is landed for c2, so mean_ssim should come back at ~0.6772 and dy_p50 at ~3.88. If the fix IS adopted, the prediction becomes ~0.69.",
+    "next_step": "Adjudicate the lane conflict in sect_break_fix_attempt: the 1.0pt source correction helps the unrefined candidate path the live pass measures and hurts the refined shipping lane, because the refine loop had already absorbed the error. Either accept the product-lane movement as a baseline event, or scope the correction to profiles that do not refine. The remaining 2.30pt lives in _para_box's paragraph-bottom estimate and is a wider change -- it moves every paragraph's space_before, not just this boundary."
   },
   "documents": {
     "c6_long": {
