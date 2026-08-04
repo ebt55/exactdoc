@@ -656,3 +656,127 @@ corpus had never contained, none of them written by this project:
 PDFMaker documents it separates "what Word's layout does" from "what Acrobat's
 writer does" — two things the corpus previously could not distinguish at all,
 because it had one word-processor document in total.
+
+### Measurement: the doubling is a *producer* property, not a length one
+
+`testkit/expansion.py --lane product`, canonical container, measured at commit
+**`0b4e289`** — the unmodified tip, *before* the pagination fix being built
+concurrently. This is the "before" record; same §8 caveat, LibreOffice proxy
+rather than the Google Docs oracle.
+
+| fixture | producer chain | pages in → out | ratio | doc_recall | **word_recall** | mean_ssim |
+|---|---|---|---|---|---|---|
+| `y09_nist_sp800207` | **Adobe PDF Library / PDFMaker 20** | 59 → **116** | **1.97×** | 0.956 | **0.155** | 0.312 |
+| `y10_nist_fips180` | **Microsoft Word 2010 direct** | 36 → 40 | **1.11×** | 0.800 | 0.585 | 0.693 |
+| `y17_rfc9110` | cairo / xml2rfc | 194 → 221 | **1.14×** | 0.978 | 0.346 | 0.561 |
+| `y14_irs_fw9_form` | LiveCycle Designer | 6 → 9 | 1.50× | 0.990 | 0.213 | 0.268 |
+| `y08_nist_sp80088r1` | Adobe PDF Library 11.0 | — | *crashed:* `UnrecognizedImageError` | | | |
+| `y12_irs_pub15` | Antenna House | — | *crashed:* `UnrecognizedImageError` | | | |
+| `y13_irs_pub501` | Antenna House | — | *crashed:* `UnrecognizedImageError` | | | |
+
+**The headline question has a sharp answer, and it is not the one §9 assumed.**
+Lining up every measured document by producer:
+
+| producer chain | documents | inflation |
+|---|---|---|
+| Acrobat PDFMaker for Word / Adobe PDF Library | `y01` 1.98×, `y02` 2.75×, `y09` 1.97× | **~2× and up** |
+| Microsoft Word 2010 direct | `y10` 1.11× | near-correct |
+| pdfTeX | `y03` 1.15× | near-correct |
+| cairo / xml2rfc | `y17` 1.14× | near-correct |
+
+Three PDFMaker documents all roughly double. Three non-PDFMaker documents all
+land within 15%. No overlap. **§9 called this "pagination doubles on real
+documents" and attributed it to length; that was wrong.** `y17_rfc9110` is 194
+pages — by far the longest document ever put through this converter — and
+inflates 1.14×. Length is not the variable. The variable is the producer, and
+specifically the Adobe PDF Library writer that Acrobat PDFMaker emits.
+
+`y10` is what makes the claim clean rather than suggestive. It is a Word
+document, from the same publisher, in the same series as `y08`/`y09`/`y11`,
+differing in exactly one respect: Word wrote the PDF itself instead of handing
+off to Acrobat. It does not double. So this is not "Word documents inflate" —
+it is the Adobe PDF Library output specifically.
+
+The word/document recall split holds everywhere and is worth restating: `y09`
+keeps 95.6% of the text (`doc_recall`) and places 15.5% of it (`word_recall`).
+The words survive; the pagination destroys their positions.
+
+**A second crash class.** `UnrecognizedImageError` now accounts for four
+documents — `y06`, `y08`, `y12`, `y13` — and the grouping is stark: **all three
+Antenna House documents in the corpus fail**, plus one Adobe PDF Library 11.0
+document. Three of the seven round-3 documents produce no measurement at all,
+which is why the runner exits 1. That is an infrastructure failure, not a
+fidelity score: we do not know how well these convert, because they do not
+convert.
+
+**The refusal contract is absent, not leaky.** `y14` (23 widgets over 6 pages)
+converted, exactly as `y07` (199 widgets over 2 pages) did — so the gap is
+general, not one document's accident. Reading the code explains why:
+`MAX_PAGES_PER_DOCUMENT = 250` and the byte ceiling live **only in
+`exactdoc/batch.py`**, and neither `expansion.py` nor `gdocs_oracle.prepare`
+goes through it — both call `exactdoc.convert.convert` directly, which has no
+resource or capability check at all. The `unsupported` tier's expectation of
+"reject-before-qualification" is therefore unmet by construction on the
+qualification path. `y11_nist_sp80053r5_overcap` (492 pages) was deliberately
+not measured for that reason: it would not be refused, it would grind, and the
+code already answers the question.
+
+---
+
+## 11. Final census — acquisition closed
+
+**45 documents: 16 gated, 29 expansion.** Inside the 40–60 target ROADMAP.md
+set. The gated 16 are byte-identical to what they were before any of this
+started; every number this repository has ever published still describes exactly
+the same inputs.
+
+| | documents | origin |
+|---|---|---|
+| gated metric corpus | 16 | generated in-repo |
+| expansion tranche 1 | 16 | generated in-repo |
+| expansion tranche 2 | 13 | **downloaded** |
+| **total** | **45** | |
+
+Expansion tiers: **24 `ordinary_digital`, 2 `designed_stress`, 3 `unsupported`**.
+
+### Producer mix against the §3 target
+
+| producer class | target | achieved | |
+|---|---|---|---|
+| word-processor export | 12 | **13** | LibreOffice ×7, Acrobat PDFMaker for Word ×5, Word 2010 direct ×1 |
+| browser print-to-PDF | 12 | **14** | Chromium/Skia |
+| report generator | 10 | **16** | ReportLab ×9, fpdf2 ×2, Antenna House ×3, LiveCycle Designer ×2 |
+| LaTeX-light | 8 | **1** | pdfTeX (`y03`) |
+| other / unknown real-world | 6 | **1** | cairo via xml2rfc (`y17`) |
+
+Two honest shortfalls. **LaTeX is 1 of a target 8**, because the only bulk
+source is arXiv and its default submission licence does not grant onward
+redistribution; the one LaTeX document held was reachable only because a NIST
+FIPS happens to be typeset with pdfTeX. **"Other real-world" is 1 of 6**,
+because the three RFC candidates and the CRS candidate never resolved to a
+working URL and Wikimedia rate-limited twice. Both are recorded in the annex in
+`testkit/expansion_download_plan.json` rather than quietly rounded up.
+
+Against the two gaps §1 named at the start, the picture is different:
+word-processor coverage went from **1 document to 13**, and the corpus went from
+**0 documents this project did not write to 13**.
+
+### What the expansion actually bought
+
+Four defects, none of which the gated 16 could express:
+
+1. **Adobe PDF Library pagination inflation** (~2×), producer-specific, proven
+   by a same-publisher Word-direct control that does not inflate.
+2. **`UnrecognizedImageError` on 4 of 13 real documents** — every Antenna House
+   document plus one Adobe, a third of the downloaded corpus producing no
+   measurement at all.
+3. **No refusal contract on the conversion path** — resource and capability
+   limits exist only in `batch.py`, which neither the qualification path nor any
+   single-document caller goes through.
+4. **`fi`-ligature loss in pdfTeX text extraction** (§9), invisible to a reader
+   and silently suppressing word recall.
+
+All four are properties of the converter as of `0b4e289`, all four are now
+measurable on committed bytes, and none of them gates anything yet. Promotion
+into the gate remains the deliberate commit described in §7 — and these numbers
+are the reason to be careful about it, not a reason to hurry.

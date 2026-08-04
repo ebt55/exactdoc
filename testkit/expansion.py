@@ -52,15 +52,46 @@ REPORTED = ("live_text_cov", "doc_recall", "word_recall", "within2pt",
             "dy_p50", "mean_ssim", "raster_frac")
 
 
-def resolve(tier=None):
-    """-> (paths, specs, problems). Fail closed on any identity mismatch."""
+def _commit():
+    """Which code produced these numbers.
+
+    An expansion measurement is a statement about the converter at one moment,
+    and this corpus exists precisely to be measured before and after a fix. A
+    table with no commit beside it cannot be compared to anything later, and
+    "before" is only meaningful if you can say before WHAT.
+    """
+    import subprocess
+    try:
+        out = subprocess.run(["git", "rev-parse", "HEAD"], cwd=ROOT,
+                             capture_output=True, timeout=15)
+        head = (out.stdout or b"").decode("utf-8", "replace").strip()
+        return head or None
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def resolve(tier=None, only=None):
+    """-> (paths, specs, problems). Fail closed on any identity mismatch.
+
+    `only` selects named documents. Identity is still verified over the WHOLE
+    manifest before any subset is measured: a corpus that does not match its
+    record is not a corpus you can take a subset of, and checking only the
+    subset would let a corrupted neighbour pass unnoticed.
+    """
     manifest = corpus_manifest.load_expansion()
     problems = corpus_manifest.verify_expansion(manifest)
     documents = manifest.get("documents", {})
+    wanted = set(only or ())
+    unknown = sorted(wanted - set(documents))
+    if unknown:
+        problems.append(("unknown", ", ".join(unknown)[:60],
+                         "named by --only but not in corpus_expansion.json"))
     paths, specs = [], {}
     for doc_id in sorted(documents):
         spec = documents[doc_id]
         if tier and spec.get("tier") != tier:
+            continue
+        if wanted and doc_id not in wanted:
             continue
         paths.append(corpus_manifest.expansion_fixture_path(doc_id))
         specs[doc_id] = spec
@@ -208,11 +239,13 @@ def main(argv=None):
     ap.add_argument("--lane", choices=["raw", "product", "both"], default="both")
     ap.add_argument("--tier", default=None,
                     help="measure only one tier (%s)" % ", ".join(corpus_manifest.TIERS))
+    ap.add_argument("--only", nargs="*", default=None, metavar="DOC",
+                    help="measure only these fixtures, by manifest basename")
     ap.add_argument("--save-images", action="store_true",
                     help="keep per-page comparison rasters (slow, large)")
     a = ap.parse_args(argv)
 
-    paths, specs, problems = resolve(a.tier)
+    paths, specs, problems = resolve(a.tier, a.only)
     if problems:
         print("expansion corpus does not match corpus_expansion.json:")
         for kind, doc, why in problems:
@@ -233,7 +266,9 @@ def main(argv=None):
 
     failed = False
     payload = {"schema": "exactdoc.expansion-measurement.v1", "gating": False,
-               "documents": len(paths), "tier_filter": a.tier, "lanes": {}}
+               "documents": len(paths), "tier_filter": a.tier,
+               "only": sorted(a.only) if a.only else None,
+               "measured_at_commit": _commit(), "lanes": {}}
     for lane in lanes:
         out_dir = os.path.join(OUT, "lane_" + lane)
         results = run_lane(lane, paths, specs, LANES[lane], out_dir,
