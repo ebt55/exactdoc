@@ -248,3 +248,58 @@ live qualification (`ee0d06c`) — operationally clean, quality worse: 11 blocki
 findings across 8 ordinary fixtures, attributed to `ff518be`'s 3pt per-boundary
 compensation and retired in `41e8e7f` on remeasurement against Google's own
 exports. That retirement is unconfirmed until a fresh consented pass.
+
+---
+
+## 2026-08-04 — a shadow of a frozen fixture, found by the licence audit
+
+The licence audit (`docs/license-audit.md`) had to enumerate everything this
+repository redistributes, which meant counting tracked PDFs rather than trusting
+the two manifests to be the whole story. They were not: **47 PDFs were tracked
+and only 45 were manifested.**
+
+The other two, plus three more binaries, sat in `tmp/pdfs/`:
+
+```
+tmp/pdfs/l1_word_native.pdf     tmp/pdfs/l1_symbol_fix.pdf
+tmp/pdfs/l1_symbol_fix.docx     tmp/pdfs/l1_symbol_fix.png
+tmp/pdfs/l1_source.png
+```
+
+**How they got in.** `0d3d03e`, whose message is "Updating .md files." It
+carried the l1 symbol-list-marker work — `exactdoc/dialect.py`,
+`tests/test_symbol_list_markers.py` — the doc updates its message describes, and
+five binary files from the debugging session that produced it: the input, the
+output, and before/after renders. An over-broad `git add`, in a commit message
+that mentioned none of it. `.gitignore` had no `tmp` entry, so nothing stopped
+it and nothing would have stopped the next one.
+
+**Why it mattered more than untidiness.** `tmp/pdfs/l1_word_native.pdf` shares
+its name with a frozen, SHA-256-pinned gate fixture and is *not* that file:
+
+| | bytes | sha256 | content fingerprint |
+|---|---:|---|---|
+| `testkit/fixtures/l1_word_native.pdf` (pinned) | 44,035 | `fa9e0742…` | `28c27dbb…` |
+| `tmp/pdfs/l1_word_native.pdf` (shadow) | 81,769 | `dddef295…` | `28c27dbb…` |
+
+The content fingerprints are **identical**. That digest covers page geometry and
+whitespace-normalised text and carries no timestamp, so the two files are the
+same document — same page, same words, nearly double the bytes. Which is the
+worst version of this hazard, not the mildest: opening both and comparing them
+tells you nothing, because there is nothing to see. Only the manifest's sha256
+separates them, and only for the copy the manifest describes. The other copy was
+governed by nothing.
+
+Nothing read them — grepped for `tmp/pdfs`, `l1_symbol_fix` and `l1_source`
+across the tree; the only references were in the audit that found them. So they
+were removed from tracking **and from disk**: leaving an unpinned shadow of a
+gated input in the worktree preserves the hazard while hiding it from `git
+status`, and the bytes remain recoverable from `0d3d03e` if anyone ever wants
+them. `tmp/` is now in `.gitignore` with the reason written next to it.
+
+**The general lesson is the one this repository keeps paying for.** The
+manifests make corpus identity mechanical, and they do it only for files inside
+the directories they describe. A file one directory away is outside the system
+entirely — not failing its checks, simply absent from them — and absence is the
+failure mode that no check reports. It took an audit that counted the tree
+rather than reading the manifests to notice.

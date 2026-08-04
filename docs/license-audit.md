@@ -172,7 +172,10 @@ Unlike dependencies, these are content, and each needs a basis to be shipped.
 |---|---:|---|---|
 | `testkit/fixtures/` | 16 | `testkit/corpus_manifest.json` | yes |
 | `testkit/fixtures_expansion/` | 29 | `testkit/corpus_expansion.json` | no (`gating: false`) |
-| `tmp/pdfs/` | 2 | **nothing** | no — see §5.3 |
+| ~~`tmp/pdfs/`~~ | ~~2~~ | **nothing** | removed — see §5.3 |
+
+45 of the 47 were manifested. Finding the other two is why this section counts
+the tree instead of reading the manifests.
 
 ### 5.1 The gated 16 — sound basis, unrecorded
 
@@ -244,25 +247,32 @@ is documented in `docs/corpus-expansion.md` as discarded on page-count and size
 grounds, with a qualification about embedded images — so it is not cited as
 evidence here.)*
 
-### 5.3 Finding: five untracked-looking files are tracked, with no basis at all
+### 5.3 Finding, now resolved: five tracked files with no basis at all
 
-`tmp/pdfs/` contains five committed files — `l1_word_native.pdf`,
+`tmp/pdfs/` contained five committed files — `l1_word_native.pdf`,
 `l1_symbol_fix.pdf`, `l1_symbol_fix.docx`, `l1_source.png`, `l1_symbol_fix.png`
-— added incidentally by commit `0d3d03e` ("Updating .md files."). They appear in
-neither manifest, and `.gitignore` has no `tmp` entry.
+— added incidentally by commit `0d3d03e` ("Updating .md files."). They appeared
+in neither manifest, and `.gitignore` had no `tmp` entry. **This is how the
+count reached 47 against 45 manifested.**
 
-They are derived from this project's own `l1` fixture, so the redistribution
-basis is the same as §5.1 — but nothing records that, and there is a sharper
-problem than tidiness:
+They derive from this project's own `l1` fixture, so the redistribution basis
+was the same as §5.1 — but nothing recorded it, and there was a sharper problem
+than tidiness:
 
-```
-tmp/pdfs/l1_word_native.pdf          sha256 dddef295fd911f3e…
-testkit/fixtures/l1_word_native.pdf  sha256 fa9e0742c95ef5b8…   (== manifest pin)
-```
+| | bytes | sha256 | content fingerprint |
+|---|---:|---|---|
+| `testkit/fixtures/l1_word_native.pdf` (pinned) | 44,035 | `fa9e0742…` | `28c27dbb…` |
+| `tmp/pdfs/l1_word_native.pdf` (shadow) | 81,769 | `dddef295…` | `28c27dbb…` |
 
-**Same filename, different bytes, no pin.** An unpinned variant of a gated input
-sitting in the tree is a measurement hazard independent of any licence question.
-Recommended action in §10.
+**Same name, same document, different bytes.** The content fingerprint — page
+geometry plus whitespace-normalised text, carrying no timestamp — is identical,
+so nothing a reader could see distinguished the two files. Only the manifest's
+sha256 did, and only for the copy the manifest described.
+
+**Resolved:** nothing referenced them (verified by grep across the tree), so
+they were removed from tracking and from disk, and `tmp/` was added to
+`.gitignore`. The bytes remain recoverable from `0d3d03e`. Recorded in
+`docs/evidence/execution-log.md`.
 
 ---
 
@@ -418,7 +428,7 @@ decision.**
 |---|---|---|
 | 1 | **LIC-01 provenance ledger** — where the *initial code* came from and the right to relicense it. This audit covers dependencies and corpus; it does **not** establish the provenance of the source itself, which the execution log lists as blocker B2 and calls a hard blocker. Nothing here substitutes for it. | owner |
 | 2 | Legal review of §§1–6, particularly the five publisher-identity fixtures (§5.2) and font embedding in generated fixtures (§6). | owner / counsel |
-| 3 | Remove or record `tmp/pdfs/` (§5.3), and add `tmp/` to `.gitignore`. The stray `l1_word_native.pdf` differs from the pinned fixture of the same name. | engineering |
+| 3 | ~~Remove or record `tmp/pdfs/` (§5.3)~~ — **done**: removed from tracking and disk, `tmp/` ignored, recorded in the execution log. | *closed* |
 | 4 | Record provenance for the gated 16 (§5.1), as a single re-pinning commit. | engineering |
 | 5 | Confirm installed metadata matches each project's published licence (§0). | legal review |
 

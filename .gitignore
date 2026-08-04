@@ -44,6 +44,17 @@ testkit/expansion_build/
 testkit/fetched_expansion*/
 corpus/pdfs/
 
+# Scratch space for debugging artifacts: rendered before/after PNGs, one-off
+# conversions, copies of a fixture being investigated. Five such files were
+# committed by an over-broad `git add` in 0d3d03e, whose message was "Updating
+# .md files." One of them was a copy of `l1_word_native.pdf` with the SAME
+# content fingerprint as the frozen fixture and DIFFERENT bytes -- 81,769
+# against 44,035 -- so nothing a reader could see distinguished them, and only
+# the manifest's sha256 could. A same-named, differently-sized shadow of a
+# gated input is the exact hazard the manifests exist to prevent, so the
+# directory that produces them is ignored rather than policed.
+tmp/
+
 # Google API credentials -- never commit these.
 # Patterns are deliberately broad: Google's download name is
 # client_secret_<id>.apps.googleusercontent.com.json, which a narrower glob
