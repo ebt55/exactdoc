@@ -1,0 +1,242 @@
+{
+  "schema": "exactdoc.livepass-predictions.v1",
+  "created": "2026-08-04",
+  "title": "Falsifiable predictions for the next consented Google Docs live pass",
+  "purpose": "A prediction recorded after the fact is not a prediction. These numbers are committed BEFORE live pass #2 runs so that the pass can falsify them. testkit/livepass_verify.py grades a fresh gdocs_qualification.json against this file and exits nonzero if the claim below is falsified.",
+
+  "predicts_change": {
+    "commit": "41e8e7f",
+    "merge": "3299b6f",
+    "summary": "Retire the gdocs per-boundary space_before subtraction.",
+    "retired_constants": {
+      "GDOCS_PARA_BOUNDARY_COMP_PT": 3.0,
+      "GDOCS_FIRST_HEADING_COMP_PT": 0.0
+    },
+    "introduced_by": "ff518be",
+    "profile_affected": "gdocs",
+    "standard_profile_bytes_changed": false
+  },
+
+  "claim": {
+    "id": "A-approx-zero",
+    "statement": "Google Docs adds ~0pt of vertical space of its own at a flow-element boundary, so a DOCX must emit space_before verbatim.",
+    "measured_A_pt": 0.10,
+    "ci95_pt": [0.04, 0.21],
+    "n_boundaries": 187,
+    "n_documents": 12,
+    "scope": "single-column chunks only; two-column pages excluded because sorting elements by y interleaves the columns and 'consecutive' is undefined there",
+    "method": "For each pair of consecutive flow elements, gap_delta = dy(first line of el i+1) - dy(last line of el i), measured on Google's own exported PDFs. The file asked for space_before - comp, so Docs' contribution is A = gap_delta + comp. Differencing two dy values cancels the paragraph's internal line-height error; a whole-page regression on cumulative compensation cannot, because there the two are collinear.",
+    "by_class_pt": {
+      "into_body_paragraph": {"A": 0.04, "ci95": [-2.47, 0.07], "n": 147},
+      "into_heading": {"A": 0.75, "n": 40},
+      "into_table": {"A": 1.04, "ci95": [0.49, 1.67], "n": 17}
+    },
+    "competing_model": {
+      "id": "A-approx-three",
+      "A_pt": 3.0,
+      "origin": "testkit/docs_quirks.py probes written with lineRule=exact",
+      "note": "The retired model. Under it, removing the subtraction makes Docs add ~3pt per boundary, so |dy| returns to roughly its pre-fix magnitude. That is what makes the two models separable per document."
+    }
+  },
+
+  "baseline_evidence": {
+    "name": "gdocs_qualification.json",
+    "sha256": "6eae3c1ed3e2e7aeb81cbff49c152368602e3875d055b4335e6bc1ec525496e0",
+    "run_date": "2026-08-04",
+    "candidate_profile": "pdfium/gdocs/none/refine0@240dpi",
+    "manifest_sha256": "cc4dd4c1c449ddabe85d7538454ed4a3d6163d762f68d2e59d97801e11c3c7da",
+    "state": "pre-fix",
+    "note": "The compensation was ACTIVE in this run. Grading this evidence against these predictions must report it as the pre-fix baseline, not as a falsification."
+  },
+
+  "prediction_method": {
+    "name": "column-aware counterfactual",
+    "description": "Every word's measured dy from the 2026-08-04 export, plus the cumulative compensation subtracted above it, reconstructs the drift the uncompensated file would have shown. Cumulative compensation resets at every page break and every ColBreak, because a fresh column starts at the top of the text area regardless of how much space was removed higher up.",
+    "assumes": [
+      "A = 0 exactly (the claim under test)",
+      "no reflow: pagination and line breaking are unchanged by restoring the space"
+    ],
+    "known_error_sources": [
+      "half-point font size quantisation moves a baseline up to ~0.5pt per line",
+      "the exact->multiple line-height translation has its own residual",
+      "restoring ~3pt per boundary adds ~50pt per page on c6_long, which the model does not reflow"
+    ]
+  },
+
+  "tolerance": {
+    "default_pt": 4.0,
+    "rationale": "The counterfactual is arithmetic, not a re-render. On the least-perturbed document in the corpus (f1_fpdf_brief) the residual |dy| floor is already 1.34pt, and the reflow the model ignores is worth several points on dense pages. A band tighter than this would fail on model error rather than on the claim."
+  },
+
+  "falsification_rule": {
+    "statement": "A-approx-zero is falsified if 2 or more of the discriminating documents exceed their falsifies_A0_above_pt.",
+    "min_documents_to_falsify": 2,
+    "discriminating_documents": ["c6_long", "c8_toc_links", "c2_paper2col", "r1_reportlab_report", "03_tech_report_code"],
+    "threshold_derivation": "falsifies_A0_above_pt is the midpoint between the predicted (A=0) and baseline (which A=3 would roughly reproduce in magnitude) dy_p50. Above the midpoint, A~3 explains the observation better than A~0. Only documents whose two hypotheses are separated by >=8pt are allowed to discriminate; the rest cannot tell the models apart and are reported without a verdict.",
+    "single_exceedance": "warn, do not falsify -- one document can be a reflow artefact"
+  },
+
+  "documents": {
+    "c6_long": {
+      "tier": "ordinary_digital", "src_pages": 7, "n_matched_words": 2554,
+      "baseline_dy_p50": 25.84, "predicted_dy_p50": 1.65, "tolerance_pt": 4.0,
+      "discriminating": true, "falsifies_A0_above_pt": 13.745,
+      "expect": "improves", "confidence": "high",
+      "note": "17.4 boundaries per page and 120 measured boundaries -- the strongest single piece of evidence for A~0, and the largest overflow risk."
+    },
+    "c8_toc_links": {
+      "tier": "ordinary_digital", "src_pages": 1, "n_matched_words": 133,
+      "baseline_dy_p50": 25.98, "predicted_dy_p50": 1.71, "tolerance_pt": 4.0,
+      "discriminating": true, "falsifies_A0_above_pt": 13.845,
+      "expect": "improves", "confidence": "high"
+    },
+    "c2_paper2col": {
+      "tier": "ordinary_digital", "src_pages": 1, "n_matched_words": 382,
+      "baseline_dy_p50": 23.01, "predicted_dy_p50": 3.53, "tolerance_pt": 4.0,
+      "discriminating": true, "falsifies_A0_above_pt": 13.27,
+      "expect": "improves", "confidence": "medium",
+      "note": "Two-column, so it was excluded from the boundary measurement. The prediction is column-aware but rests on the model rather than on this document's own boundaries -- the least-supported of the discriminating set."
+    },
+    "r1_reportlab_report": {
+      "tier": "ordinary_digital", "src_pages": 1, "n_matched_words": 190,
+      "baseline_dy_p50": 12.01, "predicted_dy_p50": 0.60, "tolerance_pt": 4.0,
+      "discriminating": true, "falsifies_A0_above_pt": 6.305,
+      "expect": "improves", "confidence": "high"
+    },
+    "03_tech_report_code": {
+      "tier": "ordinary_digital", "src_pages": 2, "n_matched_words": 265,
+      "baseline_dy_p50": 13.38, "predicted_dy_p50": 4.70, "tolerance_pt": 4.0,
+      "discriminating": true, "falsifies_A0_above_pt": 9.04,
+      "expect": "improves", "confidence": "high"
+    },
+    "c7_code": {
+      "tier": "ordinary_digital", "src_pages": 1, "n_matched_words": 159,
+      "baseline_dy_p50": 5.61, "predicted_dy_p50": 1.93, "tolerance_pt": 4.0,
+      "discriminating": false, "falsifies_A0_above_pt": null,
+      "expect": "improves", "confidence": "high",
+      "note": "Already inside the bound before the fix, so it cannot discriminate, but it is one of the five documents whose dy the fix is meant to clear."
+    },
+    "c1_whitepaper": {
+      "tier": "ordinary_digital", "src_pages": 2, "n_matched_words": 320,
+      "baseline_dy_p50": 13.55, "predicted_dy_p50": 10.44, "tolerance_pt": 4.0,
+      "discriminating": false, "falsifies_A0_above_pt": null,
+      "expect": "improves", "confidence": "low",
+      "note": "Predicted to land marginally OVER the 10.0 bound. Page 2 matched only 32 words at dy -55, which smells like a pagination effect the counterfactual does not model. Expect this one to stay blocking or sit on the line."
+    },
+    "l1_word_native": {
+      "tier": "ordinary_digital", "src_pages": 1, "n_matched_words": 141,
+      "baseline_dy_p50": 19.35, "predicted_dy_p50": 12.26, "tolerance_pt": 4.0,
+      "discriminating": false, "falsifies_A0_above_pt": null,
+      "expect": "improves-but-still-blocking", "confidence": "low",
+      "known_unfixed_cause": "fonts.py maps DejaVuSerif to Times New Roman, which is 22.2% narrower; every body paragraph re-wraps. Drives both dx_p50 63.65 and part of dy. Untouched by this change.",
+      "note": "Must NOT count as falsification: its residual has a separately measured cause."
+    },
+    "02_research_paper": {
+      "tier": "ordinary_digital", "src_pages": 2, "n_matched_words": 394,
+      "baseline_dy_p50": 9.00, "predicted_dy_p50": 7.35, "tolerance_pt": 4.0,
+      "discriminating": false, "falsifies_A0_above_pt": null,
+      "expect": "improves", "confidence": "medium",
+      "note": "Two-column. An earlier non-column-aware counterfactual wrongly predicted this would worsen to 16.95; assigning cumulative compensation by y alone is invalid across columns. The column-aware model predicts a slight improvement."
+    },
+    "01_whitepaper_market": {
+      "tier": "ordinary_digital", "src_pages": 3, "n_matched_words": 705,
+      "baseline_dy_p50": 5.86, "predicted_dy_p50": 8.25, "tolerance_pt": 4.0,
+      "discriminating": false, "falsifies_A0_above_pt": null,
+      "expect": "worsens-within-bound", "confidence": "medium",
+      "note": "The subtraction was accidentally cancelling genuine positive drift here. Predicted to worsen but stay under 10.0."
+    },
+    "04_exec_brief": {
+      "tier": "ordinary_digital", "src_pages": 2, "n_matched_words": 164,
+      "baseline_dy_p50": 2.59, "predicted_dy_p50": 7.73, "tolerance_pt": 4.0,
+      "discriminating": false, "falsifies_A0_above_pt": null,
+      "expect": "worsens-within-bound", "confidence": "medium"
+    },
+    "05_memo": {
+      "tier": "ordinary_digital", "src_pages": 1, "n_matched_words": 78,
+      "baseline_dy_p50": 6.87, "predicted_dy_p50": 7.93, "tolerance_pt": 4.0,
+      "discriminating": false, "falsifies_A0_above_pt": null,
+      "expect": "worsens-within-bound", "confidence": "medium"
+    },
+    "f1_fpdf_brief": {
+      "tier": "ordinary_digital", "src_pages": 1, "n_matched_words": 124,
+      "baseline_dy_p50": 1.34, "predicted_dy_p50": 0.14, "tolerance_pt": 4.0,
+      "discriminating": false, "falsifies_A0_above_pt": null,
+      "expect": "improves", "confidence": "high",
+      "note": "Only 4 boundaries per page. Its 1.34pt baseline is the corpus residual floor and is what sets the tolerance."
+    },
+    "c3_tables": {
+      "tier": "designed_stress", "src_pages": 3, "n_matched_words": 501,
+      "baseline_dy_p50": 7.66, "predicted_dy_p50": 10.28, "tolerance_pt": 4.0,
+      "discriminating": false, "falsifies_A0_above_pt": null,
+      "expect": "worsens-crosses-bound", "confidence": "medium",
+      "note": "Predicted to cross the 10.0 bound. Non-blocking tier, but it is a real predicted regression and should be reported rather than absorbed."
+    },
+    "c4_i18n": {
+      "tier": "designed_stress", "src_pages": 1, "n_matched_words": 92,
+      "baseline_dy_p50": 12.61, "predicted_dy_p50": 13.73, "tolerance_pt": 4.0,
+      "discriminating": false, "falsifies_A0_above_pt": null,
+      "expect": "worsens-within-existing-failure", "confidence": "low",
+      "note": "Already over the bound before the fix and stays over."
+    },
+    "c5_graphics": {
+      "tier": "designed_stress", "src_pages": 1, "n_matched_words": 15,
+      "baseline_dy_p50": 14.31, "predicted_dy_p50": null, "tolerance_pt": null,
+      "discriminating": false, "falsifies_A0_above_pt": null,
+      "expect": "no-prediction", "confidence": "none",
+      "note": "page_match was already false and only 15 words matched. There is not enough signal to predict, and pretending otherwise would manufacture a number."
+    }
+  },
+
+  "checks": [
+    {
+      "id": "newly_cleared_dy",
+      "kind": "dy_prediction",
+      "description": "The five documents whose dy_p50 blocker this fix is meant to clear must land within tolerance of prediction AND under the 10.0pt bound.",
+      "documents": ["c6_long", "c8_toc_links", "r1_reportlab_report", "03_tech_report_code", "c7_code"],
+      "bound_pt": 10.0
+    },
+    {
+      "id": "c1_marginal",
+      "kind": "dy_prediction",
+      "description": "c1_whitepaper is predicted at 10.44 against a 10.0 bound. Report which side it lands on; a miss here is model error, not falsification, because its page 2 matched only 32 words at dy -55 (suspected pagination effect).",
+      "documents": ["c1_whitepaper"],
+      "bound_pt": 10.0,
+      "advisory": true
+    },
+    {
+      "id": "overflow_page_match",
+      "kind": "page_match",
+      "description": "Restoring ~3pt per boundary adds roughly 50pt per page on c6_long. The counterfactual does not simulate reflow, so page_match must be confirmed on every multi-page document.",
+      "documents": ["c6_long", "01_whitepaper_market", "c3_tables", "02_research_paper", "03_tech_report_code", "04_exec_brief", "c1_whitepaper"]
+    },
+    {
+      "id": "c2_ssim_improves",
+      "kind": "metric_improves",
+      "description": "c2_paper2col mean_ssim should rise from its pre-fix 0.6532 as its dy collapses from 23.01 to a predicted 3.53. This is the least-supported prediction in the set: two-column pages were excluded from the boundary measurement.",
+      "document": "c2_paper2col", "metric": "mean_ssim", "baseline": 0.6532, "direction": "up"
+    },
+    {
+      "id": "expected_worsening",
+      "kind": "dy_prediction",
+      "description": "Documents where the subtraction was accidentally cancelling genuine positive drift. These are PREDICTED to get worse; worsening here confirms the model rather than contradicting it. All must stay under the 10.0pt bound.",
+      "documents": ["01_whitepaper_market", "04_exec_brief", "05_memo"],
+      "bound_pt": 10.0
+    },
+    {
+      "id": "whitepaper_ssim_split",
+      "kind": "page_ssim_split",
+      "description": "01_whitepaper_market mean_ssim should rise, driven by pages 2 and 3. Page 1 should NOT materially improve: its 0.6183 is dominated by the cover band, which Google renders 14.4pt below the page top with a 3.9pt white frame, and that floor is untouched by this change.",
+      "document": "01_whitepaper_market",
+      "unchanged_pages": {"1": 0.6183}, "unchanged_tolerance": 0.05,
+      "improved_pages": {"2": 0.674, "3": 0.7245}
+    },
+    {
+      "id": "l1_stays_blocking",
+      "kind": "expected_blocking",
+      "description": "l1_word_native stays blocking on dx_p50 (~63.65) until the DejaVu Serif font mapping is addressed, and its dy_p50 is predicted to remain over the bound. Expected, separately measured, and must not be read as evidence against A~0.",
+      "document": "l1_word_native",
+      "metrics": {"dx_p50": {"expect_near": 63.65, "tolerance": 10.0}},
+      "advisory": true
+    }
+  ]
+}
