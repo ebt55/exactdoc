@@ -62,6 +62,11 @@ SCRIPT_SIZE_FRAC = 0.92   # a fragment this close to the host's size is a line
 SCRIPT_BASE_EM = 0.75     # ...a script's baseline stays inside the host em box
 SCRIPT_REACH_EM = 0.5     # ...and it sits against the host's text, not adrift
 SCRIPT_RAISE_EM = 0.12    # raised by more than this: a superscript
+# Table-row regrouping (see _group_table_rows). Repetition, not width, is the
+# evidence: a table repeats its columns and a coincidence does not.
+TABLE_MIN_ROWS = 3        # three aligned baselines; two is a coincidence
+TABLE_ROW_PITCH_MAX = 60  # pt between consecutive rows of one band
+TABLE_COL_TOL = 3.0       # x-starts of one column agree to about a character
 
 
 def _line_size(ln) -> float:
@@ -791,8 +796,131 @@ def _build_blocks(lines: List[Line], page_w: float = 612.0) -> List[TextBlock]:
         if left and right:
             out = _build_blocks_one(left, col_x) + _build_blocks_one(right, col_x)
             out.sort(key=lambda b: (round(b.bbox[1], 1), b.bbox[0]))
-            return out
-    return _build_blocks_one(lines, col_x)
+            return _group_table_rows(out)
+    return _group_table_rows(_build_blocks_one(lines, col_x))
+
+
+def _group_table_rows(blocks: List[TextBlock]) -> List[TextBlock]:
+    """Put the cells of a table row back in ONE block, from column repetition.
+
+    BLOCK_SAME_ROW_EM cannot do this and the comment on it says why: measured
+    over the corpus, the same-baseline gaps inside a table and the coincidental
+    ones have identical distributions, so no width threshold separates them. A
+    real table's gaps are far wider than 1.2em anyway -- x10's header row runs
+    `Corridor` to `Q1` across 157pt, about 15em -- so every cell became its own
+    block, and then its own paragraph.
+
+    dialect._join_ruled_rows repairs this from the RULING LINES, which is the
+    right evidence when there are any. x10's second table is borderless: 5 rows
+    x 4 cells, no rules, so it stayed shattered. Measured on x10 under
+    pdfium/gdocs/none/refine0, that was 40 paragraphs against PyMuPDF's 16,
+    +2 pages, and -- because the harness's `word_recall` only counts a word
+    found on the RIGHT page -- 0.4664 against the reference's 0.9963, while
+    `doc_recall` stayed at 0.9851. Nothing was lost; it moved pages.
+
+    What decides it here is repetition, not width: three or more consecutive
+    multi-cell baselines whose cell x-starts land in the SAME columns are a
+    table, and a coincidence is not repeated. This is the discriminator
+    _column_split already uses in this module, applied to rows instead of pages,
+    and the two-column guard is the same one: a baseline carrying exactly two
+    lines that are both WIDE is a page split, not a table row, and is refused.
+
+    Deliberately in the PDFium parser and not in dialect: this is one backend's
+    grouping being normalised to the IR contract PyMuPDF already satisfies, and
+    the same rule applied in the shared layer moved PyMuPDF's own blocks on
+    02_research_paper -- a shipping-lane change for a backend that had nothing
+    wrong with it.
+    """
+    if len(blocks) < 3:
+        return blocks
+    rows = {}
+    for bi, b in enumerate(blocks):
+        for ln in b.lines:
+            if not ln.horizontal or not ln.spans or not ln.text.strip():
+                continue
+            key = next((k for k in rows if abs(ln.baseline - k) <= 1.5), None)
+            rows.setdefault(key if key is not None else round(ln.baseline, 1),
+                            []).append((bi, ln))
+    multi = sorted((base, items) for base, items in rows.items() if len(items) >= 2)
+    if len(multi) < TABLE_MIN_ROWS:
+        return blocks
+
+    bands, cur = [], [multi[0]]
+    for prev, r in zip(multi, multi[1:]):
+        if r[0] - prev[0] <= TABLE_ROW_PITCH_MAX:
+            cur.append(r)
+        else:
+            bands.append(cur)
+            cur = [r]
+    bands.append(cur)
+
+    host_of = {}
+    for grp in bands:
+        if len(grp) < TABLE_MIN_ROWS:
+            continue
+        lo = min(l.bbox[0] for _, items in grp for _, l in items)
+        hi = max(l.bbox[2] for _, items in grp for _, l in items)
+        width = max(1.0, hi - lo)
+
+        def _page_split(items):
+            """Two wide halves on one baseline are a page's columns, not cells.
+
+            Checked PER ROW, not per band. Checked per band it missed the case
+            that matters: on 02_research_paper a two-column prose line sits 46pt
+            below a real 4-column table, close enough to join its band, and one
+            such row among five never reaches a band-level majority. It was then
+            grouped as though it were a table row -- which cost that document a
+            page and took its candidate word_recall from 0.9586 to 0.8029, the
+            very failure this rule exists to remove.
+            """
+            return len(items) == 2 and all(
+                (l.bbox[2] - l.bbox[0]) > 0.25 * width for _, l in items)
+
+        grp = [r for r in grp if not _page_split(r[1])]
+        if len(grp) < TABLE_MIN_ROWS:
+            continue
+        xs = sorted(l.bbox[0] for _, items in grp for _, l in items)
+        cols, need = [], max(TABLE_MIN_ROWS, 0.6 * len(grp))
+        for x in xs:
+            if cols and x - cols[-1][-1] <= TABLE_COL_TOL:
+                cols[-1].append(x)
+            else:
+                cols.append([x])
+        if sum(1 for c in cols if len(c) >= need) < 2:
+            continue
+        for _, items in grp:
+            host = min(bi for bi, _ in items)
+            for bi, ln in items:
+                host_of[id(ln)] = host
+    if not host_of:
+        return blocks
+
+    moved = {}
+    for bi, b in enumerate(blocks):
+        keep = []
+        for ln in b.lines:
+            host = host_of.get(id(ln))
+            if host is None or host == bi:
+                keep.append(ln)
+            else:
+                moved.setdefault(host, []).append(ln)
+        b.lines = keep
+    for host, lns in moved.items():
+        blocks[host].lines.extend(lns)
+    out = []
+    for b in blocks:
+        if not b.lines:
+            continue
+        b.lines.sort(key=lambda l: (round(l.baseline, 1), l.bbox[0]))
+        bb = None
+        for l in b.lines:
+            bb = (l.bbox if bb is None else
+                  (min(bb[0], l.bbox[0]), min(bb[1], l.bbox[1]),
+                   max(bb[2], l.bbox[2]), max(bb[3], l.bbox[3])))
+        b.bbox = bb
+        out.append(b)
+    out.sort(key=lambda b: (round(b.bbox[1], 1), b.bbox[0]))
+    return out
 
 
 def _body_pitch(lines: List[Line]) -> float:
