@@ -2085,6 +2085,20 @@ def _merge_flow_paras(seq, col_r):
             a.runs += el.runs
             a.bbox = bbox_union(a.bbox, el.bbox)
             a._vis_lines = getattr(a, "_vis_lines", 1) + getattr(el, "_vis_lines", 1)
+            # The SOURCE description has to accumulate too. `_vis_lines` did
+            # and `src_lines` did not, so a merged paragraph claimed only its
+            # first fragment's line count -- 5169 lines against 6935 on
+            # y12_irs_pub15, 4217 against 5324 on y13. That is not a geometry
+            # bug: `_para_box` measures height from `_vis_lines`, so the
+            # emitted layout was always right. It is a bug in what the layout
+            # SAYS about the source, and the consumers of that are the quality
+            # ladder, which compares a predicted re-wrap against
+            # `src_lines`/`src_widths` and needs them to describe the whole
+            # paragraph, and the table-cell height in docxout. Both counts move
+            # together so `len(src_widths) == src_lines` survives the merge.
+            a.src_lines = (a.src_lines or 0) + (el.src_lines or 0)
+            if a.src_widths or el.src_widths:
+                a.src_widths = list(a.src_widths) + list(el.src_widths)
             if was_flush and a.align == "left":
                 a.align = "justify"
             continue
