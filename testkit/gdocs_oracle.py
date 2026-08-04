@@ -536,8 +536,34 @@ def _valid_checks(checks):
     return normalised
 
 
+def _pinned_sha256(pin):
+    """The digest a pin claims, or a safe word saying it claims none.
+
+    Digests of committed files are not secrets, so they are safe to name in an
+    error the operator has to act on -- and an error about two hashes that
+    prints neither of them cannot be acted on at all.
+    """
+    if isinstance(pin, dict) and isinstance(pin.get("sha256"), str) and pin["sha256"]:
+        return pin["sha256"]
+    return "<unpinned>"
+
+
 def _load_quality_policy(path, manifest_identity, plan):
-    """Strict v2 policy parser.  Invalid policy never prevents collection."""
+    """Strict v2 policy parser.
+
+    An unusable policy does not prevent *collection* -- operational evidence is
+    worth gathering even when nothing can grade it -- with exactly one
+    exception: a policy pinned to a different corpus manifest raises.
+
+    That exception exists because the fall-through was a fail-open. The pin
+    binds the policy to the exact 16 documents it was written for; on any
+    difference this returned ``tiers=None`` and quality evaluation simply
+    stopped, reporting ``findings: []``. An empty finding list reads like "no
+    problems found", and the legitimate way to reach it -- editing
+    ``corpus_manifest.json``, which corpus promotion requires -- is precisely
+    the moment the quality gate must not quietly switch itself off. See
+    docs/corpus-expansion.md section 2 and section 7.
+    """
     if not os.path.isfile(path):
         return None, _policy_state("missing")
     try:
@@ -550,9 +576,22 @@ def _load_quality_policy(path, manifest_identity, plan):
     except (OSError, ValueError):
         return None, _policy_state("malformed", identity)
     if (not isinstance(policy, dict) or policy.get("schema") != QUALITY_POLICY_SCHEMA or
-            policy.get("candidate_profile") != CANDIDATE_PROFILE_ID or
-            policy.get("manifest") != manifest_identity):
+            policy.get("candidate_profile") != CANDIDATE_PROFILE_ID):
         return None, _policy_state("mismatch", identity)
+    # Checked after schema and profile on purpose: a file that is not a v2
+    # policy for this candidate has nothing to say about any manifest, and
+    # accusing it of the wrong pin would send the reader to the wrong file.
+    if policy.get("manifest") != manifest_identity:
+        raise QualificationError(
+            "Google Docs quality policy is pinned to a different corpus "
+            "manifest: the policy pins sha256 %s, and %s is sha256 %s. Re-pin "
+            "the policy and assign every manifest document to a tier. "
+            "Refusing to report a quality result from a policy that does not "
+            "describe this corpus."
+            % (_pinned_sha256(policy.get("manifest")),
+               manifest_identity.get("name") if isinstance(manifest_identity, dict)
+               else "the corpus manifest",
+               _pinned_sha256(manifest_identity)))
     if set(policy) != {"schema", "candidate_profile", "manifest", "review", "tiers"}:
         return None, _policy_state("malformed", identity)
     review = policy["review"]
@@ -675,6 +714,11 @@ def run_qualification(docx_dir, out_dir, manifest_path=DEFAULT_MANIFEST,
     try:
         _require_clear_orphan_ledger(orphan_ledger_path)
         identity, plan, preparation = qualification_plan(docx_dir, manifest_path)
+        # Inside preflight, and deliberately before any service is constructed:
+        # a policy pinned to another manifest cannot grade this run, so
+        # uploading the corpus first would spend a consented cloud run to
+        # produce evidence nothing can read.
+        checks, quality = _load_quality_policy(quality_policy_path, identity, plan)
     except QualificationError as exc:
         # Consent has already been checked by the caller, so recording the
         # rejection is useful evidence; importantly no service was constructed.
@@ -692,7 +736,6 @@ def run_qualification(docx_dir, out_dir, manifest_path=DEFAULT_MANIFEST,
         return False, evidence
 
     rows = [_document_record(item) for item in plan]
-    checks, quality = _load_quality_policy(quality_policy_path, identity, plan)
     try:
         svc = service_factory(interactive=False)
     except Exception:

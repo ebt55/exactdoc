@@ -39,9 +39,12 @@ What is pinned where, with no overlap:
 There is a SECOND, non-gating corpus: `corpus_expansion.json` over
 `testkit/fixtures_expansion/`, verified here and consumed only by
 `testkit/expansion.py`. It is a separate file rather than a key in the manifest
-above because `gdocs_quality_policy.json` pins THIS file's SHA-256 and
-`gdocs_oracle._load_quality_policy` stops evaluating the quality policy
-entirely, silently, on any mismatch. See `docs/corpus-expansion.md` §2.
+above because `gdocs_quality_policy.json` pins THIS file's SHA-256, so any edit
+here re-binds the Google Docs quality policy. That pin used to fail open --
+`gdocs_oracle._load_quality_policy` returned no tiers and evaluation silently
+stopped; it now raises `QualificationError` naming both hashes. Editing this
+file therefore fails loudly rather than quietly disabling the quality gate.
+See `docs/corpus-expansion.md` §2.
 
 The split is enforced by which function a caller reaches for. `verify()` answers
 only for the gated 16 and is what `runall.py` calls; `verify_expansion()`

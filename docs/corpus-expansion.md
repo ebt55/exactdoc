@@ -69,14 +69,24 @@ closed set, and adding a file to it breaks all three:
    gdocs_quality_policy.json "manifest"  = cc4dd4c1c449ddabe85d7538454ed4a3d6163d762f68d2e59d97801e11c3c7da
    ```
 
-   `gdocs_oracle._load_quality_policy()` compares them and, on any difference,
-   returns policy status `mismatch` with `tiers = None` — which **silently stops
-   evaluating the Google Docs quality policy altogether**. A one-byte edit to
-   the manifest (adding a key, reformatting) disables the tiered quality
-   assessment without failing anything. `_load_quality_policy` additionally
-   requires every manifest document to be assigned to a tier and
-   `unsupported.documents` to stay empty, so even a correctly re-pinned manifest
-   with new documents would come back `malformed`.
+   `gdocs_oracle._load_quality_policy()` compares them. It used to return policy
+   status `mismatch` with `tiers = None` on any difference, which **silently
+   stopped evaluating the Google Docs quality policy altogether** — a one-byte
+   edit to the manifest disabled the tiered assessment without failing
+   anything, and the resulting `findings: []` reads like "nothing wrong" rather
+   than "nothing was checked".
+
+   **Fixed: a pin mismatch now raises `QualificationError`**, naming both the
+   hash the policy pins and the hash the manifest actually has. It refuses in
+   preflight, before any Drive service is constructed, so a consented run
+   cannot spend an upload collecting evidence nothing can grade; `assess`
+   refuses the same way offline. Schema and candidate-profile mismatches still
+   return `mismatch` without raising — those describe a file that is not this
+   policy at all, and accusing it of the wrong pin would send the reader to the
+   wrong file. `_load_quality_policy` additionally requires every manifest
+   document to be assigned to a tier and `unsupported.documents` to stay empty,
+   so even a correctly re-pinned manifest with new documents comes back
+   `malformed`.
 
    `gdocs_oracle._source_plan()` also requires the set of `.pdf` files in the
    fixtures directory to match the manifest **exactly**, so the two cannot be
@@ -319,8 +329,8 @@ The promotion commit, which must be a single commit and must contain all of:
   compares against per-document records and has none for the newcomers;
 - `gdocs_quality_policy.json` re-pinned: the `manifest.sha256` updated to the new
   manifest bytes, and every promoted document assigned to a tier — otherwise
-  `_load_quality_policy` returns `mismatch` or `malformed` and the quality
-  assessment silently stops running (§2);
+  `_load_quality_policy` refuses outright on the pin, or returns `malformed` on
+  the tier assignment, and no quality result can be produced at all (§2);
 - `parity_policy.json` re-pinned for the same reason;
 - the provenance and tier of every promoted document preserved in the new
   manifest. Provenance does not get dropped on the way into the gate.

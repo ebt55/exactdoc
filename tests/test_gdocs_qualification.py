@@ -497,16 +497,21 @@ class GDocsQualificationTests(unittest.TestCase):
                 payload = json.load(fh)
             payload["manifest"]["sha256"] = "0" * 64
             oracle._atomic_json(policy, payload)
+            # This used to complete the whole run and record `quality.status =
+            # mismatch` with an empty finding list.  It now refuses in preflight:
+            # a policy pinned to another manifest cannot grade this corpus, and
+            # collecting evidence nothing can read is not worth a cloud upload.
+            calls = []
             passed, evidence = oracle.run_qualification(
                 docxs, os.path.join(work, "out"), manifest,
-                service_factory=lambda **_kwargs: _Service(),
+                service_factory=lambda **_kwargs: calls.append(True),
                 roundtrip_fn=lambda svc, path, out: oracle.roundtrip(svc, path, out, media_factory=_media),
                 evaluator=lambda *_args, **_kw: {"page_match": True, "live_text_cov": 1.0},
                 allow_cloud_upload=True, quality_policy_path=policy)
             self.assertFalse(passed)
-            self.assertTrue(evidence["operational_pass"])
-            self.assertEqual(evidence["quality"]["status"], "mismatch")
-            self.assertIn("policy", evidence["quality"])
+            self.assertEqual(calls, [])
+            self.assertFalse(evidence["operational_pass"])
+            self.assertEqual(evidence["failure_stage"], "preflight")
         with tempfile.TemporaryDirectory() as work:
             manifest, docxs = self.make_corpus(work)
             policy = self.make_quality_policy(work, manifest)
@@ -519,6 +524,78 @@ class GDocsQualificationTests(unittest.TestCase):
             self.assertFalse(passed)
             self.assertTrue(evidence["operational_pass"])
             self.assertEqual({f["reason"] for f in evidence["quality"]["findings"]}, {"missing"})
+
+    def test_manifest_pin_mismatch_fails_closed_naming_both_hashes(self):
+        """The pin is the one policy mismatch that must refuse, not fall through.
+
+        `_load_quality_policy` returned `tiers=None` on any manifest difference,
+        so quality evaluation stopped and reported `findings: []` -- which reads
+        like "nothing wrong" rather than "nothing was checked".  The legitimate
+        way to reach it is editing `corpus_manifest.json`, which is exactly what
+        corpus promotion requires (docs/corpus-expansion.md sections 2 and 7),
+        so the failure mode was: grow the corpus, silently lose the quality gate.
+        """
+        with tempfile.TemporaryDirectory() as work:
+            manifest, docxs = self.make_corpus(work)
+            policy = self.make_quality_policy(work, manifest)
+            identity, plan = oracle._source_plan(manifest)
+
+            # Direction 1: a pin that matches still evaluates.  A refusal that
+            # also refuses the healthy case would pass this test by being broken.
+            tiers, state = oracle._load_quality_policy(policy, identity, plan)
+            self.assertIsNotNone(tiers)
+            self.assertEqual(state["status"], "valid")
+
+            evidence_path = os.path.join(work, "out", oracle.EVIDENCE_NAME)
+            oracle.run_qualification(
+                docxs, os.path.join(work, "out"), manifest,
+                service_factory=lambda **_k: _Service(),
+                roundtrip_fn=lambda svc, path, out: oracle.roundtrip(svc, path, out, media_factory=_media),
+                evaluator=lambda *_a, **_k: {"page_match": True, "live_text_cov": 1., "doc_recall": 1.,
+                                             "word_recall": 1., "mean_ssim": 1., "dx_p50": 0., "dy_p50": 0.},
+                allow_cloud_upload=True, quality_policy_path=policy)
+            self.assertTrue(os.path.isfile(evidence_path))
+
+            # Direction 2: break only the pin.
+            with open(policy, encoding="utf-8") as fh:
+                payload = json.load(fh)
+            pinned = "0" * 64
+            payload["manifest"]["sha256"] = pinned
+            oracle._atomic_json(policy, payload)
+
+            with self.assertRaises(oracle.QualificationError) as caught:
+                oracle._load_quality_policy(policy, identity, plan)
+            message = str(caught.exception)
+            self.assertIn(pinned, message)                   # what the policy pins
+            self.assertIn(identity["sha256"], message)       # what the manifest is
+            self.assertNotIn(work, message)                  # no absolute paths
+            self.assertEqual(caught.exception.stage, "preflight")
+
+            # Offline reassessment of already-collected evidence refuses too --
+            # this is the path that re-grades committed evidence, so a silent
+            # skip here turns a real finding list into an empty one.
+            with mock.patch.object(oracle, "_service", side_effect=AssertionError("offline")):
+                with self.assertRaises(oracle.QualificationError):
+                    oracle.assess(evidence_path, manifest, policy)
+                self.assertEqual(oracle.main(["assess", evidence_path, "--manifest", manifest,
+                                              "--quality-policy", policy]), 2)
+
+            # And a consented run refuses before constructing any service.
+            calls = []
+            passed, evidence = oracle.run_qualification(
+                docxs, os.path.join(work, "retry"), manifest,
+                service_factory=lambda **_kwargs: calls.append(True),
+                allow_cloud_upload=True, quality_policy_path=policy)
+            self.assertFalse(passed)
+            self.assertEqual(calls, [])
+            self.assertEqual(evidence["failure_stage"], "preflight")
+            with self.assertRaises(oracle.QualificationError):
+                oracle.run_qualification(
+                    docxs, os.path.join(work, "retry2"), manifest,
+                    service_factory=lambda **_kwargs: calls.append(True),
+                    allow_cloud_upload=True, quality_policy_path=policy,
+                    raise_preflight=True)
+            self.assertEqual(calls, [])
 
     def test_perverse_or_malformed_policy_rules_cannot_qualify(self):
         with tempfile.TemporaryDirectory() as work:
@@ -558,6 +635,11 @@ class GDocsQualificationTests(unittest.TestCase):
     def test_sibling_output_allows_retry_without_mutating_prepared_set(self):
         with tempfile.TemporaryDirectory() as work:
             manifest, docxs = self.make_corpus(work)
+            # An explicit policy pinned to THIS manifest.  The default committed
+            # policy pins the real 16-document manifest, and a pin that does not
+            # describe the corpus under test now refuses in preflight -- which
+            # would stop this test before it reached the retry it exists to check.
+            policy = self.make_quality_policy(work, manifest)
             out = oracle.qualification_output_dir(docxs)
             before = set(os.listdir(docxs))
             for _ in range(2):
@@ -566,7 +648,7 @@ class GDocsQualificationTests(unittest.TestCase):
                     roundtrip_fn=lambda svc, path, rendered: oracle.roundtrip(
                         svc, path, rendered, media_factory=_media),
                     evaluator=lambda *_args, **_kw: {"page_match": True},
-                    allow_cloud_upload=True)
+                    allow_cloud_upload=True, quality_policy_path=policy)
                 self.assertFalse(passed)  # no real policy can qualify the run
                 self.assertTrue(evidence["operational_pass"])
             self.assertEqual(set(os.listdir(docxs)), before)
