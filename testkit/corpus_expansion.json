@@ -271,6 +271,106 @@
    "src_pages": 1,
    "tier": "ordinary_digital",
    "why": "core-14 fonts with no FontDescriptor, and a page-numbered footer"
+  },
+  "y01_nist_sp80063b.pdf": {
+   "bytes": 1480377,
+   "content": "3018511af85b5b8d22b9781f31aafa08",
+   "dialect": "Adobe PDF Library 15.0 / Acrobat PDFMaker 17 for Word",
+   "provenance": {
+    "acquired": "2026-08-04",
+    "creator": "Acrobat PDFMaker 17 for Word",
+    "license": "Public domain (US Government work, 17 U.S.C. 105)",
+    "license_evidence": "https://www.nist.gov/oism/copyrights",
+    "license_statement_in_document": "p4: 'This publication may be used by nongovernmental organizations on a voluntary basis and is not subject to copyright in the United States. Attribution would, however, be appreciated by NIST.'",
+    "origin": "downloaded",
+    "producer": "Adobe PDF Library 15.0",
+    "recipe": null,
+    "source_url": "https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-63b.pdf"
+   },
+   "sha256": "ccfce7510a1267933f912d023306c6e7d485f21be63d271108b61aad6139127e",
+   "src_pages": 80,
+   "tier": "ordinary_digital",
+   "why": "a genuine Word-to-Acrobat export, 80 pages with running headers, footers and page numbers -- the exact construct tranche 1 measured as the dominant unmodelled one, from a producer the corpus has never contained"
+  },
+  "y02_nist_sp800171r2.pdf": {
+   "bytes": 1539170,
+   "content": "9fc50e9f5d1e12c8a657a3d168081a44",
+   "dialect": "Adobe PDF Library 20.13.106 / Acrobat PDFMaker 20 for Word",
+   "provenance": {
+    "acquired": "2026-08-04",
+    "creator": "Acrobat PDFMaker 20 for Word",
+    "license": "Public domain (US Government work, 17 U.S.C. 105)",
+    "license_evidence": "https://www.nist.gov/oism/copyrights",
+    "license_statement_in_document": "p4: 'This publication may be used by nongovernmental organizations on a voluntary basis, and is not subject to copyright in the United States. Attribution would, however, be appreciated by NIST.' A separate p6 notice disclaims third-party names as trademarks of their owners; it reserves no rights over the text.",
+    "origin": "downloaded",
+    "producer": "Adobe PDF Library 20.13.106",
+    "recipe": null,
+    "source_url": "https://nvlpubs.nist.gov/nistpubs/SpecialPublications/NIST.SP.800-171r2.pdf"
+   },
+   "sha256": "298bdbfcf6a4890a564b225c893230a0b32b2e69e3b98dd898aaeb1d544c5e12",
+   "src_pages": 114,
+   "tier": "ordinary_digital",
+   "why": "second Word-to-Acrobat export from a different PDFMaker generation, 114 pages of requirement tables with header rows repeating across page breaks"
+  },
+  "y03_nist_fips197.pdf": {
+   "bytes": 1184436,
+   "content": "4cdf070f4b3b92caf8a1e53b7a5ae675",
+   "dialect": "pdfTeX 3.14159265-2.6-1.40.21 (TeX Live 2020) / LaTeX with hyperref",
+   "provenance": {
+    "acquired": "2026-08-04",
+    "creator": "LaTeX with hyperref",
+    "license": "Public domain (US Government work, 17 U.S.C. 105)",
+    "license_evidence": "https://www.nist.gov/oism/copyrights",
+    "license_statement_in_document": "none found in front or back matter; no copyright or trademark notice appears anywhere in the document. It is a NIST Federal Information Processing Standard, a US Government work by publisher identity.",
+    "origin": "downloaded",
+    "producer": "pdfTeX, Version 3.14159265-2.6-1.40.21 (TeX Live 2020) kpathsea version 6.3.2",
+    "recipe": null,
+    "source_url": "https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.197-upd1.pdf"
+   },
+   "sha256": "62c86eb567f13edb8f71826e985da870b04ef6381634f303cdb16e84d47becd1",
+   "src_pages": 46,
+   "tier": "ordinary_digital",
+   "why": "the corpus's first real LaTeX document: running header on every page, dot-leader table of contents, single-column prose. Its text layer drops the fi ligature (Specifcation, affne, feld), an authentic pdfTeX extraction artifact no generated fixture can produce"
+  },
+  "y06_irs_1040_instructions.pdf": {
+   "bytes": 4434643,
+   "content": "6389238a68936c49c43db7277f3029bf",
+   "dialect": "Antenna House PDF Output Library 6.6.1437 / AH XSL Formatter V6.6",
+   "provenance": {
+    "acquired": "2026-08-04",
+    "creator": "AH XSL Formatter V6.6 MR4 for Linux64",
+    "license": "Public domain (US Government work, 17 U.S.C. 105)",
+    "license_evidence": "https://www.irs.gov/privacy-disclosure/copyright-status-of-irs-materials",
+    "license_statement_in_document": "none found; no copyright or trademark notice appears anywhere in the document. It is an IRS tax-form instruction booklet, a US Government work by publisher identity.",
+    "origin": "downloaded",
+    "producer": "Antenna House PDF Output Library 6.6.1437 (Linux64); modified using iText 2.1.7 by 1T3XT",
+    "recipe": null,
+    "source_url": "https://www.irs.gov/pub/irs-pdf/i1040gi.pdf"
+   },
+   "sha256": "482e9c487c608f1bbeaceef35bc3c0933e8b35443cfff447e4279d590468364a",
+   "src_pages": 126,
+   "tier": "designed_stress",
+   "why": "commercial XSL-FO formatter output, 126 pages of dense multi-column instructions with worksheets, rules and shading. designed_stress for the multi-column reading order, not for its length"
+  },
+  "y07_irs_f1040_form.pdf": {
+   "bytes": 220237,
+   "content": "56c42fa6c9d2bf1ca4b86fb7635668aa",
+   "dialect": "Adobe LiveCycle Designer 6.5",
+   "provenance": {
+    "acquired": "2026-08-04",
+    "creator": "Designer 6.5",
+    "license": "Public domain (US Government work, 17 U.S.C. 105)",
+    "license_evidence": "https://www.irs.gov/privacy-disclosure/copyright-status-of-irs-materials",
+    "license_statement_in_document": "none found; no copyright or trademark notice appears anywhere in the document. It is an official IRS tax form, a US Government work by publisher identity.",
+    "origin": "downloaded",
+    "producer": "Designer 6.5",
+    "recipe": null,
+    "source_url": "https://www.irs.gov/pub/irs-pdf/f1040.pdf"
+   },
+   "sha256": "3d31c226df0d189ced80e039d01cf0f8820c1019681a0f0ca6264de277b7e982",
+   "src_pages": 2,
+   "tier": "unsupported",
+   "why": "a real fillable form: 199 interactive widgets over 2 pages. The refusal contract has never been tested against one, and at 215 KB this is the cheapest possible way to find out whether the converter honours it"
   }
  },
  "fixtures_dir": "testkit/fixtures_expansion",

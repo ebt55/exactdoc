@@ -67,8 +67,17 @@ def resolve(tier=None):
     return paths, specs, problems
 
 
-def run_lane(lane, paths, options, out_dir, save_images=False):
-    """Convert + render + score one lane. No verdict is computed anywhere here."""
+def run_lane(lane, paths, specs, options, out_dir, save_images=False):
+    """Convert + render + score one lane. No verdict is computed anywhere here.
+
+    One asymmetry, forced by real documents: a fixture tiered `unsupported` is
+    one the converter is *expected to refuse*. For those, an exception is the
+    contract being honoured and is recorded as `refused`, not as a failure --
+    otherwise adding an honest refusal input would turn the runner red for doing
+    exactly what it should. The converse is the interesting case and is flagged:
+    an `unsupported` document that converts anyway means the refusal contract
+    does not actually cover it.
+    """
     from exactdoc.convert import convert
 
     os.makedirs(out_dir, exist_ok=True)
@@ -77,16 +86,27 @@ def run_lane(lane, paths, options, out_dir, save_images=False):
           % (lane, options.profile_id()))
     for p in paths:
         name = os.path.splitext(os.path.basename(p))[0]
+        doc_id = os.path.basename(p)
+        expect_refusal = specs.get(doc_id, {}).get("tier") == "unsupported"
         docx = os.path.join(out_dir, name + ".docx")
         t0 = time.time()
         try:
             convert(p, docx, options=options)
-            converted.append((p, docx, round(time.time() - t0, 2)))
         except Exception as e:
-            results.append({"src": os.path.basename(p),
-                            "convert_error": "%s: %s" % (type(e).__name__, e),
-                            "trace": traceback.format_exc()[-1200:]})
-            print("CONVERT FAIL %-30s %s" % (name, e))
+            if expect_refusal:
+                results.append({"src": doc_id, "tier": "unsupported",
+                                "refused": "%s: %s" % (type(e).__name__, e)})
+                print("REFUSED      %-30s %s: %s" % (name, type(e).__name__, e))
+            else:
+                results.append({"src": doc_id,
+                                "convert_error": "%s: %s" % (type(e).__name__, e),
+                                "trace": traceback.format_exc()[-1200:]})
+                print("CONVERT FAIL %-30s %s" % (name, e))
+            continue
+        converted.append((p, docx, round(time.time() - t0, 2)))
+        if expect_refusal:
+            print("NOT REFUSED  %-30s converted despite the unsupported tier"
+                  % name)
 
     print("\n-- LibreOffice batch render --")
     rmap = harness.batch_docx_to_pdf([d for _, d, _ in converted],
@@ -101,6 +121,8 @@ def run_lane(lane, paths, options, out_dir, save_images=False):
                                  save_images=save_images,
                                  img_dir=os.path.join(out_dir, "cmp_" + name))
             r["convert_s"] = secs
+            if specs.get(os.path.basename(p), {}).get("tier") == "unsupported":
+                r["refusal_contract"] = "not enforced -- converted anyway"
             results.append(r)
             print(harness.brief(r))
         except Exception as e:
@@ -136,8 +158,15 @@ def summarise(results, specs):
         spec = specs.get(doc_id, {})
         tier = spec.get("tier", "unclassified")
         row = by_tier.setdefault(tier, {"documents": 0, "measured": 0,
-                                        "metrics": {}, "page_match": 0})
+                                        "metrics": {}, "page_match": 0,
+                                        "refused": 0, "refusal_gaps": []})
         row["documents"] += 1
+        if "refused" in r:
+            # The contract was honoured. Not a measurement and not a failure.
+            row["refused"] += 1
+            continue
+        if r.get("refusal_contract"):
+            row["refusal_gaps"].append(doc_id)
         if "convert_error" in r or "eval_error" in r or "error" in r:
             broken.append((doc_id, r.get("convert_error") or r.get("eval_error")
                            or r.get("error")))
@@ -158,10 +187,15 @@ def summarise(results, specs):
 def report(by_tier, broken):
     lines = []
     for tier, row in sorted(by_tier.items()):
-        lines.append("  %s: %d document(s), %d measured, %d page-exact"
-                     % (tier, row["documents"], row["measured"], row["page_match"]))
+        lines.append("  %s: %d document(s), %d measured, %d page-exact%s"
+                     % (tier, row["documents"], row["measured"], row["page_match"],
+                        ", %d refused as expected" % row["refused"]
+                        if row.get("refused") else ""))
         for metric, value in sorted(row["metrics"].items()):
             lines.append("      median %-14s %8.4f" % (metric, value))
+        for doc_id in row.get("refusal_gaps", []):
+            lines.append("      REFUSAL CONTRACT GAP  %s converted despite being "
+                         "tiered unsupported" % doc_id)
     if broken:
         lines.append("  %d document(s) produced no measurement:" % len(broken))
         for doc_id, why in broken:
@@ -202,15 +236,17 @@ def main(argv=None):
                "documents": len(paths), "tier_filter": a.tier, "lanes": {}}
     for lane in lanes:
         out_dir = os.path.join(OUT, "lane_" + lane)
-        results = run_lane(lane, paths, LANES[lane], out_dir,
+        results = run_lane(lane, paths, specs, LANES[lane], out_dir,
                            save_images=a.save_images)
         by_tier, broken = summarise(results, specs)
         if broken or len(results) != len(paths):
             failed = True
         print("\n-- %s summary (NON-GATING) --" % lane)
         print(report(by_tier, broken))
-        payload["lanes"][lane] = {"tiers": by_tier,
-                                  "unmeasured": [d for d, _ in broken]}
+        payload["lanes"][lane] = {
+            "tiers": by_tier, "unmeasured": [d for d, _ in broken],
+            "refused": [r["src"] for r in results if "refused" in r],
+            "refusal_gaps": [r["src"] for r in results if r.get("refusal_contract")]}
         with open(os.path.join(out_dir, "summary.json"), "w") as f:
             json.dump(payload["lanes"][lane], f, indent=1, sort_keys=True)
 

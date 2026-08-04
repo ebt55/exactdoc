@@ -172,8 +172,17 @@ A document is **`ordinary_digital`** — the blocking tier — when **all** hold
   pinned font set in `scripts/fonts.conf` without fallback (Latin incl.
   diacritics, Cyrillic, Greek);
 - no rotated or transformed text, no text knocked out of a gradient or image,
-  no vector graphic that carries meaning the text does not;
-- page count ≤ 20 and file size ≤ 2 MB, so a full-corpus run stays affordable.
+  no vector graphic that carries meaning the text does not.
+
+**Size is not a tier criterion.** The first version of this rule required
+`ordinary_digital` to be ≤ 20 pages and ≤ 2 MB, and tranche 2 broke it
+immediately: the real documents that arrived are 46, 80, 114 and 126 pages, and
+an 80-page Word-to-Acrobat government report is the most ordinary document
+imaginable. That rule conflated two unrelated axes — **how hard a document is to
+convert**, which is what a tier means, and **how expensive it is to measure**,
+which is a corpus budget. Length is not difficulty. The budget is stated
+separately in §6 and governs what we choose to freeze, never what tier a frozen
+document belongs to.
 
 A document is **`designed_stress`** — tracked, non-blocking — when it is
 otherwise ordinary but **deliberately** exercises a construct on the known-hard
@@ -183,8 +192,19 @@ vector graphics, or true multi-column with column-spanning elements.
 
 A document is **`unsupported`** — expected to be refused before qualification —
 when it has no usable text layer (pure scan), is encrypted or password
-protected, uses XFA or interactive form logic, or exceeds the practical limits
-(> 200 pages, > 50 MB).
+protected, uses XFA or interactive form logic for data entry, or exceeds the
+converter's own declared limits: **> 250 pages or > 250 MiB**, which are
+`MAX_PAGES_PER_DOCUMENT` and `MAX_BYTES_PER_DOCUMENT` in `exactdoc/batch.py`.
+
+Those two numbers are read from the product rather than invented here, and that
+is the point: the `unsupported` tier should mean "the converter says it refuses
+this", not "the corpus authors guessed it would be hard". The earlier
+`> 200 pages, > 50 MB` was a guess and disagreed with the shipping code.
+
+Interactive form logic means fields a user fills in — text fields, checkboxes,
+radio groups. Navigation widgets are not form logic: `y03_nist_fips197` carries
+16 `Button` annotations emitted by LaTeX's `hyperref`, which are links, and it
+is `ordinary_digital`.
 
 Two consequences worth stating plainly.
 
@@ -398,3 +418,165 @@ settled is that it is now measurable, repeatably, on committed bytes.
 The corresponding `raw`-lane numbers were not collected in this pass; the two
 lanes are run together by default and only `product` was needed to establish the
 above. That is a gap in the record, not a claim about the raw lane.
+
+---
+
+## 9. Tranche 2: the first documents this project did not write
+
+Twelve candidates were attempted under the §5 protocol. **Six arrived, six
+failed, five were sealed and one was fetched and then deliberately discarded.**
+The expansion corpus is now 21 fixtures; the gated 16 are untouched.
+
+### Licence verification, per document
+
+Verified from the statement **inside each document**, which is first-party and
+needs no network call to re-check. Where a document is silent, that silence is
+recorded as silence rather than upgraded into a claim.
+
+| fixture | licence basis | evidence found in the document |
+|---|---|---|
+| `y01_nist_sp80063b` | US Gov work, 17 U.S.C. §105 | p4: "…is not subject to copyright in the United States. Attribution would, however, be appreciated by NIST." |
+| `y02_nist_sp800171r2` | US Gov work | p4: same NIST statement. A p6 notice disclaims third-party *names* as trademarks; it reserves no rights over the text |
+| `y03_nist_fips197` | US Gov work | **none found** — no copyright or trademark notice anywhere. Public domain by publisher identity (a NIST FIPS), not by a statement |
+| `y06_irs_1040_instructions` | US Gov work | **none found**. Public domain by publisher identity (IRS instruction booklet) |
+| `y07_irs_f1040_form` | US Gov work | **none found**. Public domain by publisher identity (official IRS form) |
+
+Three of five rest on publisher identity rather than an explicit grant. That is
+sound — a US Government work is uncopyrighted whether or not it says so, and
+agencies routinely omit the notice for exactly that reason — but it is weaker
+than a statement and is recorded as such in `corpus_expansion.json` rather than
+smoothed over.
+
+### The one that was thrown away
+
+`y05_gao_report.pdf` was fetched successfully and is **not** in the corpus. Its
+GAO notice is the most explicit of the six: "This is a work of the U.S.
+government and is not subject to copyright protection… may be reproduced and
+distributed in its entirety without further permission." So it could have been
+kept. Three facts said not to:
+
+1. **286 pages exceeds `MAX_PAGES_PER_DOCUMENT` (250)** in `exactdoc/batch.py`,
+   so its only possible role was as an over-cap refusal input.
+2. **15.3 MB is 13× the entire existing corpus** — the 16 gated fixtures and 16
+   tranche-1 fixtures together are about 1.1 MB. Permanently carrying that in
+   git history to prove one `ResourceLimitError` is a bad trade, and the trade
+   is what matters: any 251-page document tests the same branch.
+3. The same notice adds that the work "may contain copyrighted images or other
+   material" needing separate permission. It has 176 images. Whole-file
+   redistribution is covered, but it is the one document of the six whose
+   redistribution carries a qualification at all.
+
+Splitting or trimming it was never an option: a trimmed document is a document
+this project wrote, which is the exact property tranche 2 exists to avoid. The
+over-cap slot is refilled in the corrected plan by NIST SP 800-53r5 (~490 pages,
+~5 MB) — same test, one third the weight, from a host that has already answered
+three times.
+
+### What the corpus gained
+
+Five producer chains it had never contained, none of them ours:
+
+| fixture | producer | creator |
+|---|---|---|
+| `y01` | Adobe PDF Library 15.0 | **Acrobat PDFMaker 17 for Word** |
+| `y02` | Adobe PDF Library 20.13.106 | **Acrobat PDFMaker 20 for Word** |
+| `y03` | **pdfTeX 3.14159265-2.6-1.40.21 (TeX Live 2020)** | LaTeX with hyperref |
+| `y06` | **Antenna House PDF Output Library 6.6.1437** | AH XSL Formatter V6.6 |
+| `y07` | **Adobe LiveCycle Designer 6.5** | Designer 6.5 |
+
+Two of these matter beyond variety. `y01`/`y02` are **genuine Word exports** —
+the dialect the whole product targets, which the corpus previously sampled with
+one single-page document. And `y03` closes the LaTeX gap that §3 said could only
+be closed by download: pdfTeX output, without touching arXiv's licence problem,
+because a NIST FIPS is a US Government work.
+
+`y03` also produced an artifact no generator here could fake: **its text layer
+drops the `fi` ligature.** "Specification" extracts as "Specifcation", "affine"
+as "affne", "field" as "feld". That is a real Type-1/pdfTeX extraction property,
+it is invisible to a human reading the PDF, and it will suppress word recall on
+every document from that toolchain.
+
+### Two rules this tranche corrected
+
+**The tier ceiling was wrong** (§4). Requiring `ordinary_digital` to be ≤ 20
+pages and ≤ 2 MB failed on contact: the real documents are 46, 80, 114 and 126
+pages, and an 80-page Word-to-Acrobat government report is as ordinary as a
+document gets. Length is not difficulty, and the ceiling has been split out into
+a corpus-budget concern. The `unsupported` thresholds now read 250 pages and
+250 MiB from `exactdoc/batch.py` rather than the invented "200 pages, 50 MB".
+
+**`unsupported` needed refusal semantics** in `expansion.py`. A fixture the
+converter is *expected to refuse* would otherwise make the runner red for
+working correctly. A raised exception on an `unsupported` document is now
+recorded as `refused` and is a pass; the converse — an `unsupported` document
+that converts anyway — is flagged as a refusal-contract gap, which is the case
+actually worth knowing about.
+
+### Round-1 transport failures and their remedies
+
+| candidate | failure | remedy |
+|---|---|---|
+| D11a CRS | 403 Forbidden | **Not retried, User-Agent not disguised.** Getting past a bot filter by impersonating a browser is evasion, and a corpus is not worth it. Re-pointed at EveryCRSReport, which publishes an open access policy |
+| D19a/D19b/D20a RFC | 404 | The path `/rfc/rfcNNNN.pdf` serves a native PDF only for RFCXML v3 documents (~2019+). RFCs 8259, 2119 and 793 predate it; their generated PDFs live at `/rfc/pdfrfc/rfcNNNN.txt.pdf`. Corrected, plus RFC 9110 added to exercise the native form |
+| D26a ECB | `CERTIFICATE_VERIFY_FAILED` | A real bug in `fetch_expansion.py`: Windows populates chain intermediates lazily through CryptoAPI and Python does not drive it. Now prefers `certifi`'s bundle, which resolves identically on every platform. The ECB URL was also an unverified guess and is dropped |
+| D32a Wikimedia | 429 | A real gap: no backoff. Now honours `Retry-After` exactly once — no loop, no exponential hammering. If a host says no twice, the answer is no |
+
+Round 1 also established which hosts are worth planning around:
+`nvlpubs.nist.gov` answered 3/3 and `irs.gov` 2/2, so the corrected plan is
+weighted to them — 13 candidates, ~12.3 MB, still unfetched and still requiring
+`--allow-download`.
+
+### Measurement: the real documents fail, and they fail differently
+
+`testkit/expansion.py --lane product`, canonical container, same caveat as §8 —
+this is the LibreOffice proxy, not the Google Docs oracle the policy describes.
+
+| fixture | pages in → out | live_text_cov | doc_recall | **word_recall** | dy_p50 | mean_ssim |
+|---|---|---|---|---|---|---|
+| `y01_nist_sp80063b` | 80 → **158** | 0.906 | 0.923 | **0.131** | 88.8 | 0.314 |
+| `y02_nist_sp800171r2` | 114 → **314** | 0.869 | 0.900 | **0.128** | 81.4 | 0.243 |
+| `y03_nist_fips197` | 46 → 53 | 0.931 | 0.961 | 0.558 | 16.8 | 0.614 |
+| `y07_irs_f1040_form` | 2 → **10** | 0.937 | 0.919 | 0.457 | 63.7 | 0.085 |
+| `y06_irs_1040_instructions` | — | *crashed: `UnrecognizedImageError`* | | | | |
+
+Three things, in order of how much they matter.
+
+**1. Pagination doubles.** `y01` produces 158 pages from 80; `y02` produces 314
+from 114. That is 1.98× and 2.75×, and it is the same defect tranche 1 saw at
+small scale finally showing its actual shape. Note which metrics move and which
+do not: `doc_recall` stays at 0.90–0.92, so **the words are nearly all there**,
+while `word_recall` collapses to 0.13, because word recall is position-aware and
+every word after the first overflow is on the wrong page. A converter that
+keeps 92% of the text and puts 87% of it on the wrong page is not 92% correct.
+
+The gated 16 could not have found this. They are 1–7 pages, and a per-page
+overflow needs length to compound into a page-count error — which is exactly
+what `c6_long` was designed to catch at 7 pages and was too short to see.
+
+**2. The refusal contract is not enforced.** `y07_irs_f1040_form` is a 199-widget
+fillable form, tiered `unsupported`, meaning the converter is expected to reject
+it. It converted: 2 pages became 10, at `mean_ssim` 0.085 — visually almost
+nothing in common with the input. The new refusal-semantics check in
+`expansion.py` flagged it as `REFUSAL CONTRACT GAP`. `exactdoc/batch.py` enforces
+page and byte ceilings but nothing rejects interactive form logic, so a user
+handing this converter a tax form gets ten pages of confident garbage rather
+than a refusal. That is a product decision to make, not a bug to quietly fix
+here, but it is now measurable and named.
+
+**3. One document crashes outright.** `y06_irs_1040_instructions`, the Antenna
+House XSL-FO booklet, raises `UnrecognizedImageError` and produces no
+measurement at all. The runner exits 1 and calls it an infrastructure failure
+rather than a fidelity score, which is the honest reading: we do not know how
+well it converts, because it does not convert.
+
+**On the tier medians, which look fine and are not.** The `ordinary_digital`
+median row barely moved between §8 and now — `dy_p50` 12.2 → 13.0, `mean_ssim`
+0.826 → 0.803. That is an artefact of counting: 16 of the 19 documents in that
+tier are the small tranche-1 fixtures, so they outvote the three real ones. The
+median is doing what a median does and it is the wrong statistic for a corpus
+this lopsided. Read the per-document table, not the tier summary, until the real
+documents are no longer a minority — which is an argument for finishing tranche
+2, not for adjusting the statistic.
+
+None of this gates anything. No baseline describes these documents and
+`gate.py` has never seen them.
