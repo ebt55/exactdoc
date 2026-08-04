@@ -1,0 +1,1121 @@
+{
+  "candidate_profile": "pdfium/gdocs/none/refine0@240dpi",
+  "documents": [
+    {
+      "attempted": true,
+      "docx": "01_whitepaper_market.docx",
+      "failed": false,
+      "failure_stage": null,
+      "metrics": {
+        "doc_recall": 0.9476,
+        "docx_bytes": 74944,
+        "dx_p50": 0.71,
+        "dx_p90": 6.65,
+        "dy_p50": 5.86,
+        "dy_p90": 16.59,
+        "live_chars": 4439,
+        "live_text_cov": 0.9595,
+        "mean_iou": 0.4438,
+        "mean_ssim": 0.6723,
+        "media_bytes": 34918,
+        "n_media": 1,
+        "out_pages": 3,
+        "out_pagesize": [
+          612.0,
+          792.0
+        ],
+        "page_dy_p90": {
+          "1": 15.6,
+          "2": 16.7,
+          "3": 17.7
+        },
+        "page_match": true,
+        "pages": [
+          {
+            "iou": 0.6121,
+            "mad": 22.75,
+            "page": 1,
+            "ssim": 0.6183
+          },
+          {
+            "iou": 0.4184,
+            "mad": 16.88,
+            "page": 2,
+            "ssim": 0.674
+          },
+          {
+            "iou": 0.3008,
+            "mad": 14.4,
+            "page": 3,
+            "ssim": 0.7245
+          }
+        ],
+        "raster_frac": 0.0405,
+        "renderer": "supplied",
+        "src_chars": 4614,
+        "src_pages": 3,
+        "src_pagesize": [
+          612.0,
+          792.0
+        ],
+        "src_words": 744,
+        "within2pt": 0.1248,
+        "within5pt": 0.2567,
+        "word_recall": 0.9476
+      },
+      "source": "01_whitepaper_market.pdf",
+      "succeeded": true,
+      "timing_s": 5.941
+    },
+    {
+      "attempted": true,
+      "docx": "02_research_paper.docx",
+      "failed": false,
+      "failure_stage": null,
+      "metrics": {
+        "doc_recall": 0.9586,
+        "docx_bytes": 64187,
+        "dx_p50": 0.28,
+        "dx_p90": 1.83,
+        "dy_p50": 9.0,
+        "dy_p90": 19.3,
+        "live_chars": 2295,
+        "live_text_cov": 0.9736,
+        "mean_iou": 0.1452,
+        "mean_ssim": 0.8321,
+        "media_bytes": 25438,
+        "n_media": 1,
+        "out_pages": 2,
+        "out_pagesize": [
+          612.0,
+          792.0
+        ],
+        "page_dy_p90": {
+          "1": 19.2,
+          "2": 35.6
+        },
+        "page_match": true,
+        "pages": [
+          {
+            "iou": 0.1668,
+            "mad": 14.95,
+            "page": 1,
+            "ssim": 0.6867
+          },
+          {
+            "iou": 0.1237,
+            "mad": 0.9,
+            "page": 2,
+            "ssim": 0.9775
+          }
+        ],
+        "raster_frac": 0.0264,
+        "renderer": "supplied",
+        "src_chars": 2352,
+        "src_pages": 2,
+        "src_pagesize": [
+          612.0,
+          792.0
+        ],
+        "src_words": 411,
+        "within2pt": 0.0203,
+        "within5pt": 0.2411,
+        "word_recall": 0.9586
+      },
+      "source": "02_research_paper.pdf",
+      "succeeded": true,
+      "timing_s": 5.631
+    },
+    {
+      "attempted": true,
+      "docx": "03_tech_report_code.docx",
+      "failed": false,
+      "failure_stage": null,
+      "metrics": {
+        "doc_recall": 0.917,
+        "docx_bytes": 40842,
+        "dx_p50": 4.62,
+        "dx_p90": 11.07,
+        "dy_p50": 13.38,
+        "dy_p90": 25.8,
+        "live_chars": 1765,
+        "live_text_cov": 0.9827,
+        "mean_iou": 0.096,
+        "mean_ssim": 0.7623,
+        "media_bytes": 0,
+        "n_media": 0,
+        "out_pages": 2,
+        "out_pagesize": [
+          612.0,
+          792.0
+        ],
+        "page_dy_p90": {
+          "1": 26.7,
+          "2": 15.2
+        },
+        "page_match": true,
+        "pages": [
+          {
+            "iou": 0.1054,
+            "mad": 17.59,
+            "page": 1,
+            "ssim": 0.688
+          },
+          {
+            "iou": 0.0866,
+            "mad": 6.27,
+            "page": 2,
+            "ssim": 0.8366
+          }
+        ],
+        "raster_frac": 0.0173,
+        "renderer": "supplied",
+        "src_chars": 1792,
+        "src_pages": 2,
+        "src_pagesize": [
+          612.0,
+          792.0
+        ],
+        "src_words": 289,
+        "within2pt": 0.0755,
+        "within5pt": 0.1132,
+        "word_recall": 0.917
+      },
+      "source": "03_tech_report_code.pdf",
+      "succeeded": true,
+      "timing_s": 4.685
+    },
+    {
+      "attempted": true,
+      "docx": "04_exec_brief.docx",
+      "failed": false,
+      "failure_stage": null,
+      "metrics": {
+        "doc_recall": 0.9061,
+        "docx_bytes": 72571,
+        "dx_p50": 0.6,
+        "dx_p90": 14.58,
+        "dy_p50": 2.59,
+        "dy_p90": 10.25,
+        "live_chars": 1026,
+        "live_text_cov": 0.9406,
+        "mean_iou": 0.4946,
+        "mean_ssim": 0.8669,
+        "media_bytes": 34724,
+        "n_media": 1,
+        "out_pages": 2,
+        "out_pagesize": [
+          612.0,
+          792.0
+        ],
+        "page_dy_p90": {
+          "1": 16.0,
+          "2": 4.3
+        },
+        "page_match": true,
+        "pages": [
+          {
+            "iou": 0.7165,
+            "mad": 14.45,
+            "page": 1,
+            "ssim": 0.7723
+          },
+          {
+            "iou": 0.2726,
+            "mad": 1.77,
+            "page": 2,
+            "ssim": 0.9616
+          }
+        ],
+        "raster_frac": 0.0594,
+        "renderer": "supplied",
+        "src_chars": 1079,
+        "src_pages": 2,
+        "src_pagesize": [
+          612.0,
+          792.0
+        ],
+        "src_words": 181,
+        "within2pt": 0.311,
+        "within5pt": 0.5488,
+        "word_recall": 0.9061
+      },
+      "source": "04_exec_brief.pdf",
+      "succeeded": true,
+      "timing_s": 5.653
+    },
+    {
+      "attempted": true,
+      "docx": "05_memo.docx",
+      "failed": false,
+      "failure_stage": null,
+      "metrics": {
+        "doc_recall": 0.9398,
+        "docx_bytes": 37313,
+        "dx_p50": 0.01,
+        "dx_p90": 0.75,
+        "dy_p50": 6.87,
+        "dy_p90": 12.59,
+        "live_chars": 432,
+        "live_text_cov": 1.0,
+        "mean_iou": 0.0425,
+        "mean_ssim": 0.8963,
+        "media_bytes": 0,
+        "n_media": 0,
+        "out_pages": 1,
+        "out_pagesize": [
+          612.0,
+          792.0
+        ],
+        "page_dy_p90": {
+          "1": 12.6
+        },
+        "page_match": true,
+        "pages": [
+          {
+            "iou": 0.0425,
+            "mad": 4.3,
+            "page": 1,
+            "ssim": 0.8963
+          }
+        ],
+        "raster_frac": 0.0,
+        "renderer": "supplied",
+        "src_chars": 432,
+        "src_pages": 1,
+        "src_pagesize": [
+          612.0,
+          792.0
+        ],
+        "src_words": 83,
+        "within2pt": 0.0,
+        "within5pt": 0.0385,
+        "word_recall": 0.9398
+      },
+      "source": "05_memo.pdf",
+      "succeeded": true,
+      "timing_s": 4.295
+    },
+    {
+      "attempted": true,
+      "docx": "c1_whitepaper.docx",
+      "failed": false,
+      "failure_stage": null,
+      "metrics": {
+        "doc_recall": 0.9697,
+        "docx_bytes": 61136,
+        "dx_p50": 2.63,
+        "dx_p90": 35.43,
+        "dy_p50": 13.55,
+        "dy_p90": 54.79,
+        "live_chars": 1690,
+        "live_text_cov": 0.9654,
+        "mean_iou": 0.1368,
+        "mean_ssim": 0.7953,
+        "media_bytes": 23360,
+        "n_media": 1,
+        "out_pages": 2,
+        "out_pagesize": [
+          612.0,
+          792.0
+        ],
+        "page_dy_p90": {
+          "1": 26.5,
+          "2": 55.1
+        },
+        "page_match": true,
+        "pages": [
+          {
+            "iou": 0.2736,
+            "mad": 30.0,
+            "page": 1,
+            "ssim": 0.6256
+          },
+          {
+            "iou": 0.0,
+            "mad": 1.12,
+            "page": 2,
+            "ssim": 0.965
+          }
+        ],
+        "raster_frac": 0.0346,
+        "renderer": "supplied",
+        "src_chars": 1735,
+        "src_pages": 2,
+        "src_pagesize": [
+          612.0,
+          792.0
+        ],
+        "src_words": 330,
+        "within2pt": 0.0125,
+        "within5pt": 0.0406,
+        "word_recall": 0.9697
+      },
+      "source": "c1_whitepaper.pdf",
+      "succeeded": true,
+      "timing_s": 5.225
+    },
+    {
+      "attempted": true,
+      "docx": "c2_paper2col.docx",
+      "failed": false,
+      "failure_stage": null,
+      "metrics": {
+        "doc_recall": 0.9922,
+        "docx_bytes": 37907,
+        "dx_p50": 0.56,
+        "dx_p90": 2.69,
+        "dy_p50": 23.01,
+        "dy_p90": 87.81,
+        "live_chars": 2088,
+        "live_text_cov": 0.9942,
+        "mean_iou": 0.0842,
+        "mean_ssim": 0.6532,
+        "media_bytes": 0,
+        "n_media": 0,
+        "out_pages": 1,
+        "out_pagesize": [
+          612.0,
+          792.0
+        ],
+        "page_dy_p90": {
+          "1": 87.8
+        },
+        "page_match": true,
+        "pages": [
+          {
+            "iou": 0.0842,
+            "mad": 14.68,
+            "page": 1,
+            "ssim": 0.6532
+          }
+        ],
+        "raster_frac": 0.0058,
+        "renderer": "supplied",
+        "src_chars": 2088,
+        "src_pages": 1,
+        "src_pagesize": [
+          612.0,
+          792.0
+        ],
+        "src_words": 385,
+        "within2pt": 0.0131,
+        "within5pt": 0.0393,
+        "word_recall": 0.9922
+      },
+      "source": "c2_paper2col.pdf",
+      "succeeded": true,
+      "timing_s": 4.827
+    },
+    {
+      "attempted": true,
+      "docx": "c3_tables.docx",
+      "failed": false,
+      "failure_stage": null,
+      "metrics": {
+        "doc_recall": 0.9359,
+        "docx_bytes": 105567,
+        "dx_p50": 7.02,
+        "dx_p90": 7.23,
+        "dy_p50": 7.66,
+        "dy_p90": 61.15,
+        "live_chars": 1962,
+        "live_text_cov": 0.9226,
+        "mean_iou": 0.1315,
+        "mean_ssim": 0.744,
+        "media_bytes": 71142,
+        "n_media": 1,
+        "out_pages": 3,
+        "out_pagesize": [
+          612.0,
+          792.0
+        ],
+        "page_dy_p90": {
+          "1": 52.4,
+          "2": 61.2,
+          "3": 76.2
+        },
+        "page_match": true,
+        "pages": [
+          {
+            "iou": 0.2793,
+            "mad": 25.87,
+            "page": 1,
+            "ssim": 0.6905
+          },
+          {
+            "iou": 0.0579,
+            "mad": 12.15,
+            "page": 2,
+            "ssim": 0.6551
+          },
+          {
+            "iou": 0.0573,
+            "mad": 4.41,
+            "page": 3,
+            "ssim": 0.8865
+          }
+        ],
+        "raster_frac": 0.0774,
+        "renderer": "supplied",
+        "src_chars": 2120,
+        "src_pages": 3,
+        "src_pagesize": [
+          612.0,
+          792.0
+        ],
+        "src_words": 577,
+        "within2pt": 0.0,
+        "within5pt": 0.012,
+        "word_recall": 0.8683
+      },
+      "source": "c3_tables.pdf",
+      "succeeded": true,
+      "timing_s": 5.743
+    },
+    {
+      "attempted": true,
+      "docx": "c4_i18n.docx",
+      "failed": false,
+      "failure_stage": null,
+      "metrics": {
+        "doc_recall": 1.0,
+        "docx_bytes": 38071,
+        "dx_p50": 10.37,
+        "dx_p90": 53.53,
+        "dy_p50": 12.61,
+        "dy_p90": 48.97,
+        "live_chars": 487,
+        "live_text_cov": 0.9091,
+        "mean_iou": 0.0956,
+        "mean_ssim": 0.8301,
+        "media_bytes": 0,
+        "n_media": 0,
+        "out_pages": 1,
+        "out_pagesize": [
+          612.0,
+          792.0
+        ],
+        "page_dy_p90": {
+          "1": 49.0
+        },
+        "page_match": true,
+        "pages": [
+          {
+            "iou": 0.0956,
+            "mad": 7.78,
+            "page": 1,
+            "ssim": 0.8301
+          }
+        ],
+        "raster_frac": 0.0909,
+        "renderer": "supplied",
+        "src_chars": 486,
+        "src_pages": 1,
+        "src_pagesize": [
+          612.0,
+          792.0
+        ],
+        "src_words": 238,
+        "within2pt": 0.0126,
+        "within5pt": 0.021,
+        "word_recall": 1.0
+      },
+      "source": "c4_i18n.pdf",
+      "succeeded": true,
+      "timing_s": 4.288
+    },
+    {
+      "attempted": true,
+      "docx": "c5_graphics.docx",
+      "failed": false,
+      "failure_stage": null,
+      "metrics": {
+        "doc_recall": 0.6556,
+        "docx_bytes": 86388,
+        "dx_p50": 1.54,
+        "dx_p90": 1.79,
+        "dy_p50": 14.31,
+        "dy_p90": 145.0,
+        "live_chars": 313,
+        "live_text_cov": 0.6778,
+        "mean_iou": 0.2776,
+        "mean_ssim": 0.4183,
+        "media_bytes": 54345,
+        "n_media": 2,
+        "out_pages": 2,
+        "out_pagesize": [
+          612.0,
+          792.0
+        ],
+        "page_dy_p90": {
+          "1": 145.0
+        },
+        "page_match": false,
+        "pages": [
+          {
+            "iou": 0.5551,
+            "mad": 15.78,
+            "page": 1,
+            "ssim": 0.8366
+          },
+          {
+            "iou": 0.0,
+            "note": "missing",
+            "page": 2,
+            "ssim": 0.0
+          }
+        ],
+        "raster_frac": 0.3222,
+        "renderer": "supplied",
+        "src_chars": 452,
+        "src_pages": 1,
+        "src_pagesize": [
+          612.0,
+          792.0
+        ],
+        "src_words": 90,
+        "within2pt": 0.0,
+        "within5pt": 0.0,
+        "word_recall": 0.1667
+      },
+      "source": "c5_graphics.pdf",
+      "succeeded": true,
+      "timing_s": 5.245
+    },
+    {
+      "attempted": true,
+      "docx": "c6_long.docx",
+      "failed": false,
+      "failure_stage": null,
+      "metrics": {
+        "doc_recall": 1.0,
+        "docx_bytes": 38799,
+        "dx_p50": 0.24,
+        "dx_p90": 2.39,
+        "dy_p50": 25.84,
+        "dy_p90": 51.31,
+        "live_chars": 13086,
+        "live_text_cov": 0.9923,
+        "mean_iou": 0.0616,
+        "mean_ssim": 0.6556,
+        "media_bytes": 0,
+        "n_media": 0,
+        "out_pages": 7,
+        "out_pagesize": [
+          612.0,
+          792.0
+        ],
+        "page_dy_p90": {
+          "1": 51.5,
+          "2": 55.0,
+          "3": 50.1,
+          "4": 45.6,
+          "5": 53.2,
+          "6": 52.6,
+          "7": 32.1
+        },
+        "page_match": true,
+        "pages": [
+          {
+            "iou": 0.0839,
+            "mad": 14.58,
+            "page": 1,
+            "ssim": 0.6542
+          },
+          {
+            "iou": 0.0575,
+            "mad": 16.04,
+            "page": 2,
+            "ssim": 0.616
+          },
+          {
+            "iou": 0.0429,
+            "mad": 15.45,
+            "page": 3,
+            "ssim": 0.6469
+          },
+          {
+            "iou": 0.073,
+            "mad": 15.45,
+            "page": 4,
+            "ssim": 0.6375
+          },
+          {
+            "iou": 0.0596,
+            "mad": 15.8,
+            "page": 5,
+            "ssim": 0.6248
+          },
+          {
+            "iou": 0.0647,
+            "mad": 16.17,
+            "page": 6,
+            "ssim": 0.6226
+          },
+          {
+            "iou": 0.0494,
+            "mad": 9.13,
+            "page": 7,
+            "ssim": 0.7871
+          }
+        ],
+        "raster_frac": 0.0077,
+        "renderer": "supplied",
+        "src_chars": 13036,
+        "src_pages": 7,
+        "src_pagesize": [
+          612.0,
+          792.0
+        ],
+        "src_words": 2554,
+        "within2pt": 0.0454,
+        "within5pt": 0.0873,
+        "word_recall": 1.0
+      },
+      "source": "c6_long.pdf",
+      "succeeded": true,
+      "timing_s": 5.97
+    },
+    {
+      "attempted": true,
+      "docx": "c7_code.docx",
+      "failed": false,
+      "failure_stage": null,
+      "metrics": {
+        "doc_recall": 0.9034,
+        "docx_bytes": 38122,
+        "dx_p50": 0.97,
+        "dx_p90": 5.4,
+        "dy_p50": 5.61,
+        "dy_p90": 10.96,
+        "live_chars": 1036,
+        "live_text_cov": 1.0,
+        "mean_iou": 0.095,
+        "mean_ssim": 0.7949,
+        "media_bytes": 0,
+        "n_media": 0,
+        "out_pages": 1,
+        "out_pagesize": [
+          612.0,
+          792.0
+        ],
+        "page_dy_p90": {
+          "1": 11.0
+        },
+        "page_match": true,
+        "pages": [
+          {
+            "iou": 0.095,
+            "mad": 6.68,
+            "page": 1,
+            "ssim": 0.7949
+          }
+        ],
+        "raster_frac": 0.0,
+        "renderer": "supplied",
+        "src_chars": 1036,
+        "src_pages": 1,
+        "src_pagesize": [
+          612.0,
+          792.0
+        ],
+        "src_words": 176,
+        "within2pt": 0.0126,
+        "within5pt": 0.1698,
+        "word_recall": 0.9034
+      },
+      "source": "c7_code.pdf",
+      "succeeded": true,
+      "timing_s": 4.304
+    },
+    {
+      "attempted": true,
+      "docx": "c8_toc_links.docx",
+      "failed": false,
+      "failure_stage": null,
+      "metrics": {
+        "doc_recall": 0.9568,
+        "docx_bytes": 37490,
+        "dx_p50": 0.11,
+        "dx_p90": 2.4,
+        "dy_p50": 25.98,
+        "dy_p90": 34.71,
+        "live_chars": 772,
+        "live_text_cov": 1.0,
+        "mean_iou": 0.0902,
+        "mean_ssim": 0.8472,
+        "media_bytes": 0,
+        "n_media": 0,
+        "out_pages": 1,
+        "out_pagesize": [
+          612.0,
+          792.0
+        ],
+        "page_dy_p90": {
+          "1": 34.7
+        },
+        "page_match": true,
+        "pages": [
+          {
+            "iou": 0.0902,
+            "mad": 6.36,
+            "page": 1,
+            "ssim": 0.8472
+          }
+        ],
+        "raster_frac": 0.0,
+        "renderer": "supplied",
+        "src_chars": 772,
+        "src_pages": 1,
+        "src_pagesize": [
+          612.0,
+          792.0
+        ],
+        "src_words": 139,
+        "within2pt": 0.015,
+        "within5pt": 0.0226,
+        "word_recall": 0.9568
+      },
+      "source": "c8_toc_links.pdf",
+      "succeeded": true,
+      "timing_s": 4.274
+    },
+    {
+      "attempted": true,
+      "docx": "f1_fpdf_brief.docx",
+      "failed": false,
+      "failure_stage": null,
+      "metrics": {
+        "doc_recall": 1.0,
+        "docx_bytes": 37564,
+        "dx_p50": 3.41,
+        "dx_p90": 23.32,
+        "dy_p50": 1.34,
+        "dy_p90": 4.16,
+        "live_chars": 653,
+        "live_text_cov": 1.0,
+        "mean_iou": 0.1198,
+        "mean_ssim": 0.8751,
+        "media_bytes": 0,
+        "n_media": 0,
+        "out_pages": 1,
+        "out_pagesize": [
+          612.0,
+          792.0
+        ],
+        "page_dy_p90": {
+          "1": 4.2
+        },
+        "page_match": true,
+        "pages": [
+          {
+            "iou": 0.1198,
+            "mad": 6.64,
+            "page": 1,
+            "ssim": 0.8751
+          }
+        ],
+        "raster_frac": 0.0,
+        "renderer": "supplied",
+        "src_chars": 653,
+        "src_pages": 1,
+        "src_pagesize": [
+          612.0,
+          792.0
+        ],
+        "src_words": 124,
+        "within2pt": 0.1129,
+        "within5pt": 0.5645,
+        "word_recall": 1.0
+      },
+      "source": "f1_fpdf_brief.pdf",
+      "succeeded": true,
+      "timing_s": 4.488
+    },
+    {
+      "attempted": true,
+      "docx": "l1_word_native.docx",
+      "failed": false,
+      "failure_stage": null,
+      "metrics": {
+        "doc_recall": 0.9792,
+        "docx_bytes": 37839,
+        "dx_p50": 63.65,
+        "dx_p90": 303.74,
+        "dy_p50": 19.35,
+        "dy_p90": 33.93,
+        "live_chars": 772,
+        "live_text_cov": 0.9883,
+        "mean_iou": 0.1043,
+        "mean_ssim": 0.8014,
+        "media_bytes": 0,
+        "n_media": 0,
+        "out_pages": 1,
+        "out_pagesize": [
+          612.0,
+          792.0
+        ],
+        "page_dy_p90": {
+          "1": 33.9
+        },
+        "page_match": true,
+        "pages": [
+          {
+            "iou": 0.1043,
+            "mad": 10.68,
+            "page": 1,
+            "ssim": 0.8014
+          }
+        ],
+        "raster_frac": 0.0117,
+        "renderer": "supplied",
+        "src_chars": 772,
+        "src_pages": 1,
+        "src_pagesize": [
+          612.0,
+          792.0
+        ],
+        "src_words": 144,
+        "within2pt": 0.0071,
+        "within5pt": 0.0213,
+        "word_recall": 0.9792
+      },
+      "source": "l1_word_native.pdf",
+      "succeeded": true,
+      "timing_s": 4.497
+    },
+    {
+      "attempted": true,
+      "docx": "r1_reportlab_report.docx",
+      "failed": false,
+      "failure_stage": null,
+      "metrics": {
+        "doc_recall": 0.9845,
+        "docx_bytes": 38035,
+        "dx_p50": 0.21,
+        "dx_p90": 1.12,
+        "dy_p50": 12.01,
+        "dy_p90": 18.53,
+        "live_chars": 1054,
+        "live_text_cov": 1.0,
+        "mean_iou": 0.0779,
+        "mean_ssim": 0.7713,
+        "media_bytes": 0,
+        "n_media": 0,
+        "out_pages": 1,
+        "out_pagesize": [
+          612.0,
+          792.0
+        ],
+        "page_dy_p90": {
+          "1": 18.5
+        },
+        "page_match": true,
+        "pages": [
+          {
+            "iou": 0.0779,
+            "mad": 13.9,
+            "page": 1,
+            "ssim": 0.7713
+          }
+        ],
+        "raster_frac": 0.0,
+        "renderer": "supplied",
+        "src_chars": 1054,
+        "src_pages": 1,
+        "src_pagesize": [
+          612.0,
+          792.0
+        ],
+        "src_words": 193,
+        "within2pt": 0.0105,
+        "within5pt": 0.0263,
+        "word_recall": 0.9845
+      },
+      "source": "r1_reportlab_report.pdf",
+      "succeeded": true,
+      "timing_s": 4.642
+    }
+  ],
+  "failure_stage": "quality-policy",
+  "manifest": {
+    "name": "corpus_manifest.json",
+    "sha256": "cc4dd4c1c449ddabe85d7538454ed4a3d6163d762f68d2e59d97801e11c3c7da"
+  },
+  "mode": "qualification",
+  "operational_pass": true,
+  "overall_pass": false,
+  "preparation": {
+    "name": ".exactdoc-gdocs-preparation.json",
+    "sha256": "775480f3b89bfc34b75cf7f8f2e9f28643783704712e5e4121cba1f0a15264a1"
+  },
+  "quality": {
+    "findings": [
+      {
+        "blocking": true,
+        "docx": "01_whitepaper_market.docx",
+        "metric": "mean_ssim",
+        "reason": "out-of-bounds",
+        "tier": "ordinary_digital"
+      },
+      {
+        "blocking": true,
+        "docx": "03_tech_report_code.docx",
+        "metric": "dy_p50",
+        "reason": "out-of-bounds",
+        "tier": "ordinary_digital"
+      },
+      {
+        "blocking": true,
+        "docx": "c1_whitepaper.docx",
+        "metric": "dy_p50",
+        "reason": "out-of-bounds",
+        "tier": "ordinary_digital"
+      },
+      {
+        "blocking": true,
+        "docx": "c2_paper2col.docx",
+        "metric": "mean_ssim",
+        "reason": "out-of-bounds",
+        "tier": "ordinary_digital"
+      },
+      {
+        "blocking": true,
+        "docx": "c2_paper2col.docx",
+        "metric": "dy_p50",
+        "reason": "out-of-bounds",
+        "tier": "ordinary_digital"
+      },
+      {
+        "blocking": true,
+        "docx": "c6_long.docx",
+        "metric": "mean_ssim",
+        "reason": "out-of-bounds",
+        "tier": "ordinary_digital"
+      },
+      {
+        "blocking": true,
+        "docx": "c6_long.docx",
+        "metric": "dy_p50",
+        "reason": "out-of-bounds",
+        "tier": "ordinary_digital"
+      },
+      {
+        "blocking": true,
+        "docx": "c8_toc_links.docx",
+        "metric": "dy_p50",
+        "reason": "out-of-bounds",
+        "tier": "ordinary_digital"
+      },
+      {
+        "blocking": true,
+        "docx": "l1_word_native.docx",
+        "metric": "dx_p50",
+        "reason": "out-of-bounds",
+        "tier": "ordinary_digital"
+      },
+      {
+        "blocking": true,
+        "docx": "l1_word_native.docx",
+        "metric": "dy_p50",
+        "reason": "out-of-bounds",
+        "tier": "ordinary_digital"
+      },
+      {
+        "blocking": true,
+        "docx": "r1_reportlab_report.docx",
+        "metric": "dy_p50",
+        "reason": "out-of-bounds",
+        "tier": "ordinary_digital"
+      },
+      {
+        "blocking": false,
+        "docx": "c3_tables.docx",
+        "metric": "word_recall",
+        "reason": "out-of-bounds",
+        "tier": "designed_stress"
+      },
+      {
+        "blocking": false,
+        "docx": "c4_i18n.docx",
+        "metric": "dx_p50",
+        "reason": "out-of-bounds",
+        "tier": "designed_stress"
+      },
+      {
+        "blocking": false,
+        "docx": "c4_i18n.docx",
+        "metric": "dy_p50",
+        "reason": "out-of-bounds",
+        "tier": "designed_stress"
+      },
+      {
+        "blocking": false,
+        "docx": "c5_graphics.docx",
+        "metric": "page_match",
+        "reason": "mismatch",
+        "tier": "designed_stress"
+      },
+      {
+        "blocking": false,
+        "docx": "c5_graphics.docx",
+        "metric": "live_text_cov",
+        "reason": "out-of-bounds",
+        "tier": "designed_stress"
+      },
+      {
+        "blocking": false,
+        "docx": "c5_graphics.docx",
+        "metric": "doc_recall",
+        "reason": "out-of-bounds",
+        "tier": "designed_stress"
+      },
+      {
+        "blocking": false,
+        "docx": "c5_graphics.docx",
+        "metric": "word_recall",
+        "reason": "out-of-bounds",
+        "tier": "designed_stress"
+      },
+      {
+        "blocking": false,
+        "docx": "c5_graphics.docx",
+        "metric": "mean_ssim",
+        "reason": "out-of-bounds",
+        "tier": "designed_stress"
+      },
+      {
+        "blocking": false,
+        "docx": "c5_graphics.docx",
+        "metric": "dy_p50",
+        "reason": "out-of-bounds",
+        "tier": "designed_stress"
+      }
+    ],
+    "passed": false,
+    "policy": {
+      "name": "gdocs_quality_policy.json",
+      "sha256": "fa64e7634f51935430742011ad8a6117aee1f212921f9ffdfcad2b223f13021e"
+    },
+    "reason": "policy-not-ratified",
+    "review": {
+      "status": "draft"
+    },
+    "status": "valid",
+    "tiers": {
+      "designed_stress": {
+        "document_count": 3,
+        "finding_count": 9,
+        "passed": false
+      },
+      "ordinary_digital": {
+        "document_count": 13,
+        "finding_count": 11,
+        "passed": false
+      }
+    }
+  },
+  "quality_pass": false,
+  "schema": "exactdoc.gdocs-qualification.v1"
+}
