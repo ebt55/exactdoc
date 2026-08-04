@@ -597,6 +597,148 @@ class GDocsQualificationTests(unittest.TestCase):
                     raise_preflight=True)
             self.assertEqual(calls, [])
 
+    # ---------------------------------------------------------------- waivers
+    # A ratified waiver is the narrowest exception the policy can express: one
+    # metric, one document, floored. Everything below is a way that could turn
+    # into "this document may fail", which is what it must never become.
+    def waiver_spec(self, **over):
+        spec = {"floor": 0.65, "measured": 0.6589, "measured_on": "2026-08-04",
+                "evidence": "docs/evidence/example.json",
+                "cause": "measured importer behaviour",
+                "issue": "TASK-1",
+                "review_condition": "retire when the fix lands"}
+        spec.update(over)
+        return spec
+
+    def parsed_tiers(self):
+        checks = {"page_match": {"equals": True}, "live_text_cov": {"min": .9},
+                  "doc_recall": {"min": .9}, "word_recall": {"min": .9},
+                  "mean_ssim": {"min": .7}, "dx_p50": {"max": 10.},
+                  "dy_p50": {"max": 10.}}
+        return {"ordinary_digital": {"blocking": True, "documents": {"case.pdf"},
+                                     "checks": checks},
+                "designed_stress": {"blocking": False, "documents": {"stress.pdf"},
+                                    "checks": checks}}
+
+    def test_a_draft_policy_cannot_waive_anything(self):
+        """Ratification is the act of taking responsibility for an exception."""
+        parsed = self.parsed_tiers()
+        waivers = {"case.pdf": {"mean_ssim": self.waiver_spec()}}
+        self.assertIsNone(oracle._valid_waivers(waivers, parsed, ratified=False))
+        self.assertIsNotNone(oracle._valid_waivers(waivers, parsed, ratified=True))
+        self.assertEqual(oracle._valid_waivers({}, parsed, ratified=False), {})
+
+    def test_waiver_must_be_bounded_complete_and_a_real_relaxation(self):
+        parsed = self.parsed_tiers()
+        bad = {
+            "floor above the bar is not a relaxation": self.waiver_spec(floor=0.95),
+            "floor at the bar waives nothing": self.waiver_spec(floor=0.7),
+            "floor below zero": self.waiver_spec(floor=-0.1),
+            "floor must admit its own measurement": self.waiver_spec(
+                floor=0.66, measured=0.6589),
+            "non-numeric floor": self.waiver_spec(floor="0.65"),
+            "NaN floor": self.waiver_spec(floor=float("nan")),
+            "boolean floor": self.waiver_spec(floor=True),
+            "non-ISO date": self.waiver_spec(measured_on="4 August"),
+            "empty cause": self.waiver_spec(cause="   "),
+            "empty issue": self.waiver_spec(issue=""),
+            "empty review condition": self.waiver_spec(review_condition=""),
+        }
+        for label, spec in bad.items():
+            self.assertIsNone(
+                oracle._valid_waivers({"case.pdf": {"mean_ssim": spec}},
+                                      parsed, ratified=True),
+                "accepted a waiver that should be refused: %s" % label)
+        for field in sorted(oracle._WAIVER_FIELDS):
+            spec = self.waiver_spec()
+            del spec[field]
+            self.assertIsNone(
+                oracle._valid_waivers({"case.pdf": {"mean_ssim": spec}},
+                                      parsed, ratified=True),
+                "accepted a waiver missing %s" % field)
+        spec = self.waiver_spec(extra="surprise")
+        self.assertIsNone(oracle._valid_waivers({"case.pdf": {"mean_ssim": spec}},
+                                                parsed, ratified=True))
+
+    def test_waiver_refuses_page_match_unknown_metric_and_unknown_document(self):
+        parsed = self.parsed_tiers()
+        for waivers in (
+                {"case.pdf": {"page_match": self.waiver_spec(floor=0.5)}},
+                {"case.pdf": {"invented_metric": self.waiver_spec()}},
+                {"absent.pdf": {"mean_ssim": self.waiver_spec()}},
+                {"../case.pdf": {"mean_ssim": self.waiver_spec()}},
+                {"case.pdf": {}},
+                # a non-blocking tier: waiving there changes no verdict, so the
+                # waiver claims a significance the file cannot cash
+                {"stress.pdf": {"mean_ssim": self.waiver_spec()}}):
+            self.assertIsNone(oracle._valid_waivers(waivers, parsed, ratified=True),
+                              "accepted %r" % (waivers,))
+
+    def _evaluate_with_waiver(self, ssim):
+        parsed = self.parsed_tiers()
+        parsed["ordinary_digital"]["waivers"] = {
+            "case.pdf": {"mean_ssim": self.waiver_spec()}}
+        parsed["designed_stress"]["documents"] = set()
+        rows = [{"source": "case.pdf", "docx": "case.docx", "metrics": dict(
+            page_match=True, live_text_cov=1., doc_recall=1., word_recall=1.,
+            mean_ssim=ssim, dx_p50=0., dy_p50=0.)}]
+        return oracle._evaluate_quality(
+            rows, parsed, {"status": "valid", "review": {"status": "ratified"}})
+
+    def test_waiver_admits_the_measured_band_and_nothing_worse(self):
+        inside = self._evaluate_with_waiver(0.6589)
+        self.assertTrue(inside["passed"], str(inside["findings"]))
+        self.assertEqual([f["reason"] for f in inside["findings"]], ["waived"])
+        self.assertFalse(inside["findings"][0]["blocking"])
+        # the finding is still REPORTED -- a waiver is visible, not invisible
+        self.assertEqual(inside["tiers"]["ordinary_digital"]["finding_count"], 1)
+        self.assertFalse(inside["tiers"]["ordinary_digital"]["passed"])
+
+        past = self._evaluate_with_waiver(0.60)          # below the 0.65 floor
+        self.assertFalse(past["passed"], "a regression past the floor must block")
+        self.assertEqual([f["reason"] for f in past["findings"]], ["out-of-bounds"])
+        self.assertTrue(past["findings"][0]["blocking"])
+
+    def test_a_waiver_that_no_longer_describes_anything_blocks(self):
+        """Same rule as parity's stale check: a dead waiver hides the next one."""
+        fixed = self._evaluate_with_waiver(0.95)         # now clears the 0.7 bar
+        self.assertFalse(fixed["passed"])
+        self.assertEqual([f["reason"] for f in fixed["findings"]], ["stale-waiver"])
+        self.assertTrue(fixed["findings"][0]["blocking"])
+
+    def test_a_waiver_covers_one_metric_and_not_the_document(self):
+        """The whole point: 01 may be waived on SSIM and still block on drift."""
+        parsed = self.parsed_tiers()
+        parsed["ordinary_digital"]["waivers"] = {
+            "case.pdf": {"mean_ssim": self.waiver_spec()}}
+        parsed["designed_stress"]["documents"] = set()
+        rows = [{"source": "case.pdf", "docx": "case.docx", "metrics": dict(
+            page_match=True, live_text_cov=1., doc_recall=1., word_recall=1.,
+            mean_ssim=0.6589, dx_p50=0., dy_p50=99.)}]      # dy blows its bound
+        out = oracle._evaluate_quality(
+            rows, parsed, {"status": "valid", "review": {"status": "ratified"}})
+        self.assertFalse(out["passed"], "an unwaived metric must still block")
+        reasons = {f["metric"]: (f["reason"], f["blocking"]) for f in out["findings"]}
+        self.assertEqual(reasons["mean_ssim"], ("waived", False))
+        self.assertEqual(reasons["dy_p50"], ("out-of-bounds", True))
+
+    def test_committed_policy_waivers_are_wellformed(self):
+        """The shipped policy, read through the real loader."""
+        with tempfile.TemporaryDirectory() as work:
+            manifest, _ = self.make_corpus(work)
+            identity, plan = oracle._source_plan(manifest)
+        with open(oracle.DEFAULT_QUALITY_POLICY, encoding="utf-8") as fh:
+            policy = json.load(fh)
+        self.assertEqual(policy["schema"], oracle.QUALITY_POLICY_SCHEMA)
+        for source, metrics in (policy.get("waivers") or {}).items():
+            self.assertIn(source, policy["tiers"]["ordinary_digital"]["documents"],
+                          "a waiver names a document outside the blocking tier")
+            for metric, spec in metrics.items():
+                self.assertEqual(set(spec), oracle._WAIVER_FIELDS)
+                bar = policy["tiers"]["ordinary_digital"]["per_document"][metric]
+                self.assertLess(spec["floor"], bar["min"])
+                self.assertGreaterEqual(spec["measured"], spec["floor"])
+
     def test_perverse_or_malformed_policy_rules_cannot_qualify(self):
         with tempfile.TemporaryDirectory() as work:
             manifest, docxs = self.make_corpus(work)

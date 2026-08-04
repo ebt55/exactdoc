@@ -40,7 +40,12 @@ DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.docu
 EVIDENCE_NAME = "gdocs_qualification.json"
 PREPARATION_NAME = ".exactdoc-gdocs-preparation.json"
 PREPARATION_SCHEMA = "exactdoc.gdocs-preparation.v1"
-QUALITY_POLICY_SCHEMA = "exactdoc.gdocs-quality-policy.v2"
+# v3 adds `waivers`: bounded, per-metric, ratified-only exceptions for a single
+# document. The name changes with the meaning. A v2 reader handed a v3 policy
+# refuses it as malformed rather than silently ignoring the waiver block and
+# reporting a different verdict from the same file -- which is the direction
+# this has to fail in, and the reason the version is not merely decoration.
+QUALITY_POLICY_SCHEMA = "exactdoc.gdocs-quality-policy.v3"
 DEFAULT_QUALITY_POLICY = os.path.join(HERE, "gdocs_quality_policy.json")
 # This is intentionally a qualification candidate, not the shipping PRODUCT.
 # ``prepare`` verifies the runtime's named options object resolves to this ID.
@@ -548,8 +553,84 @@ def _pinned_sha256(pin):
     return "<unpinned>"
 
 
+# What a waiver must carry. All seven, all checked. A waiver is not "this
+# document may fail": it names ONE metric on ONE document, floors the value it
+# is allowed to reach, and records what caused it, where that was measured, who
+# has to fix it and when it stops being allowed.
+_WAIVER_FIELDS = {"floor", "measured", "measured_on", "evidence", "cause",
+                  "issue", "review_condition"}
+
+
+def _valid_waivers(waivers, parsed, ratified):
+    """-> {source: {metric: spec}} keyed by document, or None if malformed.
+
+    Fail-closed in every direction that matters:
+
+    * **A draft policy may not waive anything.** Ratification is the act that
+      takes responsibility for an exception; a waiver in an unratified policy
+      would be an exception nobody had signed, which is the exact ambiguity the
+      provisional/ratified split in `parity_policy.json` was created to end.
+    * **Only a blocking tier.** Waiving a metric on a document that is already
+      non-blocking changes no verdict, so a waiver there is a claim of
+      significance the file cannot cash.
+    * **Bounded, and a genuine relaxation.** The floor must sit on the failing
+      side of the tier threshold (otherwise the waiver describes nothing) and
+      must admit the measurement it was written for (otherwise it does not
+      describe the finding it claims to cover).
+    * **`page_match` is not waivable.** Pagination is a boolean; there is no
+      floor to put under it, so a "bounded" waiver on it would be unbounded
+      wearing the word.
+    """
+    if not isinstance(waivers, dict):
+        return None
+    if waivers and not ratified:
+        return None
+
+    by_document = {}
+    for tier in parsed.values():
+        if not tier["blocking"]:
+            continue
+        for source in tier["documents"]:
+            by_document[source] = tier["checks"]
+
+    out = {}
+    for source, metrics in waivers.items():
+        if not isinstance(source, str) or os.path.basename(source) != source:
+            return None
+        checks = by_document.get(source)
+        if checks is None or not isinstance(metrics, dict) or not metrics:
+            return None
+        for metric, spec in metrics.items():
+            rule = checks.get(metric)
+            if rule is None or metric == "page_match":
+                return None
+            if not isinstance(spec, dict) or set(spec) != _WAIVER_FIELDS:
+                return None
+            if not _finite_number(spec["floor"]) or not _finite_number(spec["measured"]):
+                return None
+            floor, measured = spec["floor"], spec["measured"]
+            if "min" in rule:
+                # A relaxation below the bar, which the measurement clears.
+                if not (0 <= floor < rule["min"]) or measured < floor:
+                    return None
+            else:
+                if not (floor > rule["max"] >= 0) or measured > floor:
+                    return None
+            try:
+                if not isinstance(spec["measured_on"], str) or \
+                        not datetime.date.fromisoformat(spec["measured_on"]):
+                    return None
+            except ValueError:
+                return None
+            for field in ("evidence", "cause", "issue", "review_condition"):
+                if not isinstance(spec[field], str) or not spec[field].strip():
+                    return None
+            out.setdefault(source, {})[metric] = dict(spec)
+    return out
+
+
 def _load_quality_policy(path, manifest_identity, plan):
-    """Strict v2 policy parser.
+    """Strict v3 policy parser.
 
     An unusable policy does not prevent *collection* -- operational evidence is
     worth gathering even when nothing can grade it -- with exactly one
@@ -592,7 +673,8 @@ def _load_quality_policy(path, manifest_identity, plan):
                manifest_identity.get("name") if isinstance(manifest_identity, dict)
                else "the corpus manifest",
                _pinned_sha256(manifest_identity)))
-    if set(policy) != {"schema", "candidate_profile", "manifest", "review", "tiers"}:
+    required = {"schema", "candidate_profile", "manifest", "review", "tiers"}
+    if not required <= set(policy) or set(policy) - required - {"waivers"}:
         return None, _policy_state("malformed", identity)
     review = policy["review"]
     if not isinstance(review, dict) or set(review) != {"status", "rationale", "approved_by", "approved_on"} or not isinstance(review["rationale"], str) or not review["rationale"].strip():
@@ -624,18 +706,45 @@ def _load_quality_policy(path, manifest_identity, plan):
     unsupported = tiers["unsupported"]
     if (not isinstance(unsupported, dict) or set(unsupported) != {"blocking", "expected", "documents"} or unsupported["blocking"] is not False or unsupported["expected"] != "reject-before-qualification" or unsupported["documents"] != [] or assigned != expected):
         return None, _policy_state("malformed", identity)
+    waivers = _valid_waivers(policy.get("waivers", {}), parsed, ratified)
+    if waivers is None:
+        return None, _policy_state("malformed", identity)
+    # Attached to the tier that owns each document, so `_evaluate_quality`
+    # keeps its signature and a tier dict built by hand in a test needs no
+    # waiver key at all.
+    for tier in parsed.values():
+        tier["waivers"] = {source: spec for source, spec in waivers.items()
+                           if source in tier["documents"]}
     return parsed, _policy_state("valid", identity) | {"review": {"status": review["status"]}}
 
 
 def _evaluate_quality(rows, tiers, state):
-    """Evaluate tiered checks while retaining only safe names and reasons."""
+    """Evaluate tiered checks while retaining only safe names and reasons.
+
+    A waiver narrows exactly one metric on exactly one document, and only
+    between the tier threshold and its own floor. Three outcomes follow, and the
+    two that are not "waived" both still block:
+
+    * value inside the waived band -> `waived`, reported and non-blocking;
+    * value past the floor -> ordinary `out-of-bounds`, blocking. The document
+      regressed beyond what anyone signed for;
+    * value clearing the tier threshold -> `stale-waiver`, blocking. An
+      exception that no longer describes anything still excuses the document,
+      so the next real regression on that metric would pass unremarked. Same
+      rule, and the same reason, as the stale check in `parity_policy.json`.
+
+    Every other metric on a waived document is untouched, so a NEW finding for
+    a DIFFERENT reason blocks exactly as it would have before.
+    """
     findings, summaries = [], {}
     by_source = {row["source"]: row for row in rows}
     for tier_name, tier in tiers.items():
         tier_findings = []
+        waivers = tier.get("waivers") or {}
         for source in sorted(tier["documents"]):
             row = by_source[source]
             metrics = row.get("metrics", {})
+            waived_metrics = waivers.get(source) or {}
             for metric, rule in tier["checks"].items():
                 value = metrics.get(metric)
                 reason = None
@@ -648,10 +757,24 @@ def _evaluate_quality(rows, tiers, state):
                     reason = "missing"
                 elif ("min" in rule and value < rule["min"]) or ("max" in rule and value > rule["max"]):
                     reason = "out-of-bounds"
+                waiver = waived_metrics.get(metric)
+                blocking = tier["blocking"]
+                if waiver is not None and _finite_number(value):
+                    inside = (value >= waiver["floor"] if "min" in rule
+                              else value <= waiver["floor"])
+                    if reason == "out-of-bounds" and inside:
+                        reason, blocking = "waived", False
+                    elif reason is None:
+                        reason, blocking = "stale-waiver", tier["blocking"]
                 if reason:
                     finding = {"docx": row["docx"], "metric": metric, "reason": reason,
-                               "tier": tier_name, "blocking": tier["blocking"]}
+                               "tier": tier_name, "blocking": blocking}
                     findings.append(finding); tier_findings.append(finding)
+        # Deliberately "no findings at all", not "no blocking findings": a
+        # tracked non-blocking tier reporting `passed: true` while carrying
+        # findings would hide the tracking, and a waived finding is still a
+        # finding. What gates is the overall `passed` below, which counts only
+        # blocking ones.
         summaries[tier_name] = {"document_count": len(tier["documents"]),
                                 "finding_count": len(tier_findings),
                                 "passed": not tier_findings}

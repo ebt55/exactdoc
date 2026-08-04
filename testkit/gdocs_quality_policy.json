@@ -1,8 +1,26 @@
 {
-  "schema": "exactdoc.gdocs-quality-policy.v2",
+  "schema": "exactdoc.gdocs-quality-policy.v3",
   "candidate_profile": "pdfium/gdocs/none/refine0@240dpi",
   "manifest": {"name": "corpus_manifest.json", "sha256": "cc4dd4c1c449ddabe85d7538454ed4a3d6163d762f68d2e59d97801e11c3c7da"},
-  "review": {"status": "draft", "rationale": "Ordinary digital documents are blocking; designed stress documents are tracked. Scans and heavy unsupported inputs are excluded before qualification. Thresholds are draft pending owner review and an expanded corpus.", "approved_by": null, "approved_on": null},
+  "review": {
+    "status": "ratified",
+    "rationale": "RATIFIED for the pdfium/gdocs/none/refine0@240dpi candidate against live pass 4 (docs/evidence/gdocs-2026-08-04-pass4-qualification.json), with exactly one bounded waiver: 01_whitepaper_market mean_ssim. Twelve of the thirteen blocking ordinary_digital fixtures clear every threshold unaided; the thirteenth is bounded, attributed and time-limited by the `waivers` block below, and its residual fixes proceed in parallel. Thresholds themselves are UNCHANGED by this ratification -- ratifying a policy is not an occasion to move a bar, and moving one in the same change would make the ratification unreviewable. PROVENANCE OF THE DECISION, recorded precisely because ratification is the one act an executor must not perform on its own authority: the decision to ratify with a single documented waiver for 01's cover band was taken by the repository author in the coordinating session on 2026-08-04 and relayed to the session that wrote this file; it was not inferred from the measurements. The named approver below is an attestation recorded on that relay and should be confirmed by the approver against this file.",
+    "approved_by": "Ebin Babu Thomas",
+    "approved_on": "2026-08-04"
+  },
+  "waivers": {
+    "01_whitepaper_market.pdf": {
+      "mean_ssim": {
+        "floor": 0.65,
+        "measured": 0.6589,
+        "measured_on": "2026-08-04",
+        "evidence": "docs/evidence/gdocs-2026-08-04-pass4-qualification.json",
+        "cause": "Google Docs' importer adds space above a page-leading cover band unconditionally, which pushes every element on page 1 down and costs structural similarity while leaving the text layer intact -- 01 clears page match, live text, both recalls and both drift bounds on the same pass, so this is a visual-registration cost and not a conversion defect. Probe evidence: testkit/livepass_predictions.json `cover_band_claim` (id `band-side-bleed-reachable-top-floor-is-not`), measured by testkit/probe_cover_band.py on the live pass 2 exploration channel, one variable per page, against a LibreOffice control that honoured all twelve variants exactly: requested top margins [0.0, 4.0, 8.0, 14.4, 20.0] rendered as [14.55, 18.83, 22.83, 29.23, 34.83], i.e. rendered = requested + ~14.8pt throughout -- an addition, not a clamp, so no requested value reaches the page edge. The writer already compensates what is compensable (exactdoc/docxout.py `_GDOCS_COVER_BEFORE_COMP_TWIPS`); live pass 4 records the irreducible remainder as a ~14.6pt band floor. Page 1 scored 0.5996 exactly as predicted-unchanged, nothing shipped in pass 4 having touched it.",
+        "issue": "Filed in 6871dde (live pass 4) as the two residual, fixable causes beside the importer floor: the missing 4pt accent bar (inference-side) and a ~2pt band-to-body gap. This project has no external issue tracker; the commit trail is the record, and that is stated rather than disguised behind a placeholder URL.",
+        "review_condition": "Retire this waiver on the first live pass where 01_whitepaper_market reaches mean_ssim >= 0.70 unaided -- the stale-waiver rule then blocks every subsequent assess until the entry is deleted, so retirement is enforced rather than remembered. Re-examine at the next ratification review in any case. The floor may NOT be widened to accommodate a different cause: this waiver covers the measured band-registration shortfall and nothing else, so if 01 falls below 0.65, or fails on any other metric, a later assess must block and the decision must be taken again."
+      }
+    }
+  },
   "tiers": {
     "ordinary_digital": {"blocking": true, "documents": ["01_whitepaper_market.pdf", "02_research_paper.pdf", "03_tech_report_code.pdf", "04_exec_brief.pdf", "05_memo.pdf", "c1_whitepaper.pdf", "c2_paper2col.pdf", "c6_long.pdf", "c7_code.pdf", "c8_toc_links.pdf", "f1_fpdf_brief.pdf", "l1_word_native.pdf", "r1_reportlab_report.pdf"], "per_document": {"page_match": {"equals": true}, "live_text_cov": {"min": 0.9}, "doc_recall": {"min": 0.9}, "word_recall": {"min": 0.9}, "mean_ssim": {"min": 0.7}, "dx_p50": {"max": 10.0}, "dy_p50": {"max": 10.0}}},
     "designed_stress": {"blocking": false, "documents": ["c3_tables.pdf", "c4_i18n.pdf", "c5_graphics.pdf"], "per_document": {"page_match": {"equals": true}, "live_text_cov": {"min": 0.9}, "doc_recall": {"min": 0.9}, "word_recall": {"min": 0.9}, "mean_ssim": {"min": 0.7}, "dx_p50": {"max": 10.0}, "dy_p50": {"max": 10.0}}},
