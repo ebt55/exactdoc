@@ -9,7 +9,7 @@ import copy
 import dataclasses
 import io
 import re
-from typing import Callable, Optional, List
+from typing import Any, Callable, Dict, Optional, List
 
 from docx import Document
 from docx.shared import Pt, Emu, RGBColor, Twips
@@ -51,6 +51,11 @@ class WriteCtx:
     # same encoding), while a handful of Google Docs workarounds really are
     # profile-specific.  It comes last to preserve the old positional shape.
     output_profile: str = "standard"
+    # Internal-link plumbing, filled in by _write_docx once it has planned the
+    # bookmarks. Appended after output_profile so the positional shape above is
+    # still the old one. {LinkDest: anchor name} and {anchor name: w:id}.
+    dest_anchors: Dict[Any, str] = dataclasses.field(default_factory=dict)
+    anchor_ids: Dict[str, int] = dataclasses.field(default_factory=dict)
 
 
 _DEFAULT_CTX = WriteCtx()
@@ -147,6 +152,177 @@ def _add_hyperlink(par, url: str, runs_and_styles):
         r.append(t)
         h.append(r)
         _style_run(DRun(r, par), style)
+
+
+def _add_internal_hyperlink(par, anchor: str, runs_and_styles):
+    """A link to a bookmark in this document: w:hyperlink w:anchor.
+
+    Deliberately built the same way as _add_hyperlink rather than through
+    python-docx's helper, and deliberately WITHOUT a w:rStyle: the Hyperlink
+    character style would repaint the text blue and underline it, and the source
+    span already carries the styling the producer chose. c8_toc_links sets its
+    table of contents in #123a5e with `text-decoration: none`, so borrowing
+    Word's link styling would visibly recolour text that is not blue in the PDF.
+    _style_run applies the run's own formatting, exactly as for external links.
+    """
+    h = OxmlElement("w:hyperlink")
+    h.set(qn("w:anchor"), anchor)
+    par._p.append(h)
+    from docx.text.run import Run as DRun
+    for text, style in runs_and_styles:
+        r = OxmlElement("w:r")
+        t = OxmlElement("w:t")
+        t.set(qn("xml:space"), "preserve")
+        t.text = text
+        r.append(t)
+        h.append(r)
+        _style_run(DRun(r, par), style)
+
+
+def _bookmark_pair(name: str, bid: int):
+    start = OxmlElement("w:bookmarkStart")
+    start.set(qn("w:id"), str(bid))
+    start.set(qn("w:name"), name)
+    end = OxmlElement("w:bookmarkEnd")
+    end.set(qn("w:id"), str(bid))
+    return start, end
+
+
+def _wrap_paragraph_bookmark(par, name: str, bid: int):
+    """Bracket a paragraph's content with a bookmark, inside the w:p.
+
+    bookmarkStart has to follow w:pPr -- pPr must be the first child of w:p --
+    so this inserts after it rather than at index 0.
+    """
+    start, end = _bookmark_pair(name, bid)
+    p = par._p
+    ppr = p.find(qn("w:pPr"))
+    p.insert(list(p).index(ppr) + 1 if ppr is not None else 0, start)
+    p.append(end)
+
+
+def _add_block_bookmark(container, name: str, bid: int):
+    """A zero-height bookmark between block elements.
+
+    Used when a destination resolves to a table, figure, image or rule rather
+    than a paragraph. bookmarkStart/End are range markers and are legal as
+    direct children of w:body, so this costs no paragraph and therefore no
+    vertical space -- which is the whole reason internal links can be added
+    without moving a single measured number.
+    """
+    start, end = _bookmark_pair(name, bid)
+    container.element.body.append(start)
+    container.element.body.append(end)
+
+
+def _el_extent(el):
+    """(top, bottom) of a flow element in source page points, or None."""
+    if isinstance(el, Para):
+        bb = el.bbox
+    elif isinstance(el, TableEl):
+        bb = el.bbox
+    elif isinstance(el, FigureEl):
+        bb = el.clip
+    else:
+        bb = getattr(el, "_bbox", None)
+    return (bb[1], bb[3]) if bb else None
+
+
+def _iter_runs(el):
+    if isinstance(el, Para):
+        for r in el.runs:
+            yield r
+        for row in getattr(el, "gdocs_rows", None) or []:
+            for r in row:
+                yield r
+    elif isinstance(el, TableEl):
+        for row in el.rows:
+            for cell in row:
+                if not cell:
+                    continue
+                for p in cell.paras:
+                    for r in p.runs:
+                        yield r
+
+
+def _anchor_name(dest) -> str:
+    """Deterministic, collision-free, and a legal Word bookmark name.
+
+    Word bookmark names must begin with a letter and may contain only letters,
+    digits and underscores. Two destinations that resolve to the same point get
+    the same name on purpose -- they are the same anchor -- and the hundredths
+    of a point keep two genuinely different points apart.
+    """
+    return "exactdoc_dest_p%d_%d" % (int(dest.page), int(round(dest.y * 100)))
+
+
+def _plan_bookmarks(lay: DocLayout):
+    """Resolve every referenced destination to a flow element and name it.
+
+    THE ANCHORING RULE, in order:
+
+      1. the element whose vertical extent CONTAINS the destination y;
+      2. otherwise the element whose top edge is nearest at-or-below it;
+      3. otherwise (the destination sits below all content) the last element.
+
+    Ties are broken by flow order, earliest first, so the result does not
+    depend on dictionary or sort stability.
+
+    Step 1 is not decoration. A /XYZ destination names the point that should
+    come to the top of the window, and producers put it at the target's top
+    edge -- which lands a hair INSIDE the element once font ascent is taken into
+    account, not above it. Measured on a ReportLab file whose destination is the
+    baseline of the text it names, "nearest at-or-below" alone skipped that text
+    and anchored to the following paragraph; containment gets it right.
+
+    Anchoring is by y only. A destination's x is recorded in the IR but says
+    nothing about which paragraph is meant -- /XYZ's `left` is a horizontal
+    scroll position, and on this corpus it is 0 for every destination.
+    """
+    wanted = set()
+    for pg in lay.pages:
+        for ch in pg.chunks:
+            for el in ch.elements:
+                for run in _iter_runs(el):
+                    if run.dest is not None:
+                        wanted.add(run.dest)
+    if not wanted:
+        return {}, {}
+
+    per_page = {}
+    for pi, pg in enumerate(lay.pages):
+        seq = []
+        for ch in pg.chunks:
+            for el in ch.elements:
+                ext = _el_extent(el)
+                if ext is not None:
+                    seq.append((ext[0], ext[1], el))
+        per_page[pi] = seq
+
+    dest_anchors, targets, named_element = {}, {}, {}
+    for dest in sorted(wanted, key=lambda d: (d.page, d.y, d.x)):
+        seq = per_page.get(int(dest.page)) or []
+        if not seq:
+            continue
+        hit = next((el for top, bot, el in seq if top <= dest.y <= bot), None)
+        if hit is None:
+            below = [(top, el) for top, _, el in seq if top >= dest.y]
+            hit = min(below, key=lambda t: t[0])[1] if below else seq[-1][2]
+        # ONE bookmark per element, whatever the destination was called. Two
+        # destinations a few points apart routinely land on the same paragraph;
+        # minting a name each would leave the element carrying only the last of
+        # them, and every other anchor pointing at a bookmark never written.
+        name = named_element.get(id(hit))
+        if name is None:
+            name = _anchor_name(dest)
+            named_element[id(hit)] = name
+            targets[name] = hit
+        dest_anchors[dest] = name
+
+    anchor_ids = {name: i + 1 for i, name in enumerate(sorted(targets))}
+    for name, el in targets.items():
+        el._bookmark = name
+    return dest_anchors, anchor_ids
 
 
 # Half-point wrap correction: implemented and measured, OFF by default.
@@ -357,6 +533,21 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None):
                 i += 1
             _add_hyperlink(par, run.link, grp)
             continue
+        if run.dest is not None:
+            grp = []
+            while i < len(runs) and runs[i].dest == run.dest:
+                grp.append((runs[i].text, runs[i]))
+                i += 1
+            anchor = ctx.dest_anchors.get(run.dest)
+            if anchor:
+                _add_internal_hyperlink(par, anchor, grp)
+            else:
+                # A destination whose page holds no flow element to anchor to
+                # (an all-figure page, say). Write the text plainly rather than
+                # a hyperlink pointing at a bookmark that was never emitted.
+                for text, style in grp:
+                    _style_run(par.add_run(text), style)
+            continue
         if run.field:
             _add_field(par, run.field, "1", run)
             i += 1
@@ -378,6 +569,9 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None):
                 br.add_break(WD_BREAK.LINE)
                 _style_run(br, run)
         i += 1
+    bookmark = getattr(p, "_bookmark", None)
+    if bookmark and bookmark in ctx.anchor_ids:
+        _wrap_paragraph_bookmark(par, bookmark, ctx.anchor_ids[bookmark])
     return par
 
 
@@ -928,6 +1122,11 @@ def write_docx(lay: DocLayout, out_path: str, dpi: int = 240,
 
 def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
     lay = copy.deepcopy(lay)
+    # After the deepcopy: the plan marks the elements this function will write.
+    dest_anchors, anchor_ids = _plan_bookmarks(lay)
+    if dest_anchors or anchor_ids:
+        ctx = dataclasses.replace(ctx, dest_anchors=dest_anchors,
+                                  anchor_ids=anchor_ids)
     doc = Document()
     dpi = ctx.dpi
     content_w = lay.content_w
@@ -1084,9 +1283,15 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                     pf.line_spacing_rule = WD_LINE_SPACING.EXACTLY
                     pf.line_spacing = Pt(1)
                     par.add_run().add_break(WD_BREAK.COLUMN)
-                elif isinstance(el, Para):
+                    continue
+                if isinstance(el, Para):
                     write_para(doc, el, cw_ctx, ctx=ctx)
-                elif isinstance(el, TableEl):
+                    continue
+                bookmark = getattr(el, "_bookmark", None)
+                if bookmark and bookmark in ctx.anchor_ids:
+                    # Not a paragraph: mark the spot between block elements.
+                    _add_block_bookmark(doc, bookmark, ctx.anchor_ids[bookmark])
+                if isinstance(el, TableEl):
                     write_table(doc, el, cw_ctx, ctx=ctx)
                 elif isinstance(el, FigureEl):
                     write_figure(doc, el, ctx=ctx)

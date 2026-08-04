@@ -5,9 +5,49 @@ from typing import List, Optional
 import fitz
 
 from .errors import UnsupportedInputError
-from .model import DocIR, PageIR, TextBlock, Line, Span, DrawCmd, ImageObj
+from .model import (DocIR, PageIR, TextBlock, Line, Span, DrawCmd, ImageObj,
+                    LinkDest)
 
 _SUBSET_RE = re.compile(r"^[A-Z]{6}\+")
+
+
+def _goto_dest(doc, lk) -> Optional[LinkDest]:
+    """A GoTo link's target as a LinkDest, or None if it is not one.
+
+    PyMuPDF reports the destination point in TWO different coordinate systems
+    depending on how the PDF spelled the destination, and nothing in the dict
+    says which one you got:
+
+      * LINK_GOTO -- a direct /Dest array -- arrives already flipped into
+        page space. Measured on a ReportLab file whose destination is
+        `/XYZ 0 600` on a 792pt page, `to.y` is 192.0.
+      * LINK_NAMED -- `/Dest /s1` resolved through the catalogue's /Dests --
+        arrives as the raw PDF number. Measured on c8_toc_links, whose
+        destination is `/XYZ 0 646.5`, `to.y` is 646.5, and the page-space
+        answer is 145.5.
+
+    Reading `to` without asking which kind it is therefore puts a named
+    destination 501pt from where it belongs on this corpus. PDFium has no such
+    split -- FPDFDest_GetLocationInPage is raw bottom-up for both -- so this
+    normalisation is what makes the two backends agree to the decimal.
+
+    A destination with no point at all (`/Fit`, a whole-page view) is not an
+    error and not a location: it returns None rather than inventing y=0.
+    """
+    kind = lk.get("kind")
+    if kind not in (getattr(fitz, "LINK_GOTO", 1), getattr(fitz, "LINK_NAMED", 4)):
+        return None
+    page = lk.get("page", -1)
+    to = lk.get("to")
+    if page is None or page < 0 or to is None:
+        return None
+    try:
+        height = doc[page].rect.height
+    except Exception:
+        return None
+    y = float(to.y) if kind == getattr(fitz, "LINK_GOTO", 1) \
+        else height - float(to.y)
+    return LinkDest(page=int(page), x=float(to.x), y=y)
 
 
 def _color_hex(v) -> Optional[str]:
@@ -101,9 +141,14 @@ def parse_pdf(path: str, keep_image_data: bool = True) -> DocIR:
         # ---- links first (so spans can be tagged)
         links = []
         for lk in page.get_links():
+            r = lk["from"]
+            bbox = (r.x0, r.y0, r.x1, r.y1)
             if lk.get("uri"):
-                r = lk["from"]
-                links.append({"bbox": (r.x0, r.y0, r.x1, r.y1), "uri": lk["uri"]})
+                links.append({"bbox": bbox, "uri": lk["uri"]})
+                continue
+            dest = _goto_dest(doc, lk)
+            if dest is not None:
+                links.append({"bbox": bbox, "dest": dest})
         pir.links = links
 
         # ---- text
@@ -125,12 +170,14 @@ def parse_pdf(path: str, keep_image_data: bool = True) -> DocIR:
                     italic = bool(flags & 2) or "italic" in fl or "oblique" in fl
                     bbox = tuple(sp["bbox"])
                     uri = None
+                    dest = None
                     for lk in links:
                         lb = lk["bbox"]
                         ov = (max(0, min(bbox[2], lb[2]) - max(bbox[0], lb[0])) *
                               max(0, min(bbox[3], lb[3]) - max(bbox[1], lb[1])))
                         if ov > 0.5 * max(1e-6, (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])):
-                            uri = lk["uri"]
+                            uri = lk.get("uri")
+                            dest = lk.get("dest")
                             break
                     spans.append(Span(
                         text=text, font=font, size=float(sp.get("size", 10.0)),
@@ -140,7 +187,7 @@ def parse_pdf(path: str, keep_image_data: bool = True) -> DocIR:
                         serif=bool(flags & 4),
                         superscript=bool(flags & 1),
                         bbox=bbox, origin=tuple(sp.get("origin", (bbox[0], bbox[3]))),
-                        link=uri,
+                        link=uri, dest=dest,
                     ))
                 if spans:
                     lb = tuple(ln["bbox"])

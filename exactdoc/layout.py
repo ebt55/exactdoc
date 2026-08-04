@@ -2,7 +2,7 @@
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple, Dict, Any
 
-from .model import BBox
+from .model import BBox, LinkDest
 
 
 @dataclass
@@ -15,7 +15,8 @@ class Run:
     italic: bool = False
     mono: bool = False
     serif: bool = False
-    link: Optional[str] = None
+    link: Optional[str] = None        # external URI
+    dest: Optional[LinkDest] = None   # internal destination; see model.LinkDest
     is_tab: bool = False
     underline: bool = False
     superscript: bool = False
