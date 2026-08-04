@@ -126,9 +126,12 @@ the numbers below describe.
   rasterised regions inside an otherwise-editable document, not recreated
   vector art (`c5_graphics`, parts of `04_exec_brief`).
 - *Google Docs as the renderer*: the offline `gdocs` profile compensates for
-  measured importer quirks (line-height mistranslation, ignored cell margins,
-  per-boundary spacing), but Docs fidelity currently trails LibreOffice/Word
-  fidelity and is qualified separately.
+  measured importer quirks (line-height mistranslation, ignored cell margins),
+  but Docs fidelity currently trails LibreOffice/Word fidelity and is qualified
+  separately. A per-boundary spacing compensation was also applied and has been
+  **retired** — remeasurement against Google's own exports put Docs' boundary
+  contribution at about +0.1pt, so the compensation was subtracting space Docs
+  never added.
 
 **Tier 3 — explicitly out of scope for now.**
 
@@ -181,15 +184,19 @@ Two previously blocking findings cleared live: `c7_code` horizontal drift and
 `c2_paper2col`, `c6_long`, `c8_toc_links`, `l1_word_native` and
 `r1_reportlab_report` all exceed the draft 10pt `dy_p50` bar — plus SSIM on
 `01_whitepaper_market`, `c2_paper2col` and `c6_long`, and horizontal drift on
-`l1_word_native`. **The cause is under investigation** and is not settled here;
-a per-boundary spacing compensation is one line of enquiry, not a conclusion.
-Fixing a horizontal defect and surfacing a vertical one is the ordinary shape
-of this work, and the honest reading is that the blocking count went up.
+`l1_word_native`. Fixing a horizontal defect and surfacing a vertical one is the
+ordinary shape of this work, and the honest reading is that the blocking count
+went up.
 
-One parser fix has landed since that live run and has **not** been re-measured
-against Google: `c1cbc2a` absorbs a superscript into its host line, which moved
-`c2_paper2col` substantially on the LibreOffice proxy. The live findings above
-stand until a fresh consented run replaces them.
+That vertical drift has since been diagnosed and a fix has landed, **but it has
+not been confirmed against Google.** The cause was a 3pt per-boundary spacing
+compensation: measured against Google's own exported PDFs across 187 boundaries,
+Docs adds about +0.1pt at a paragraph boundary, not 3pt, so the subtraction was
+simply lost space accumulating down every page. It is retired. A counterfactual
+predicts 11 of the 13 ordinary documents inside the 10pt bound, and two parser
+fixes (superscript absorption, annotation-based links) have landed alongside it.
+**A prediction is not a measurement**: the findings above remain the live truth
+until a fresh consented run replaces them.
 
 Same-profile PDFium/PyMuPDF parity is 7 regressions, 6 same, 3 better as raw
 measurement; adjudicated against the profile-bound policy that is no unwaived

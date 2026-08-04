@@ -52,14 +52,15 @@ python testkit/gdocs_oracle.py run <dir> --allow-cloud-upload
 `prepare` is offline and hash-binds the exact candidate; `run` requires explicit
 upload consent. It reports operational and quality pass independently.
 
-The latest live run on 2026-08-02 completed the operational gate for
+The latest live run is 2026-08-04 and completed the operational gate for
 `pdfium/gdocs/none/refine0@240dpi`: all 16 documents were attempted and
-succeeded, zero failed, and cleanup left no `.gdocs_orphans.json`. Against the
-prior live candidate, page-count match improved 14/16→15/16, mean within-2pt
-0.1378→0.1443, mean word recall 0.8745→0.9064, SSIM 0.7767→0.7878, and IoU
-0.2108→0.2138; mean live text stayed 0.9568. Median dy50 rose 4.98→6.68pt
-because `c3_tables` now matches many more words and changes median ordering,
-not because of a broad regression. Only deferred `c5_graphics` remains 1→2.
+succeeded, zero failed, and cleanup left no `.gdocs_orphans.json`. On fidelity
+it is worse than the 2026-08-02 run it replaces. Page match holds at 15/16 (only
+deferred `c5_graphics` 1→2) and live text is flat 0.9568→0.9566, but mean
+within-2pt fell 0.1443→0.0483, SSIM 0.7878→0.7635, IoU 0.2138→0.1560, word
+recall 0.9064→0.9056, and median dy50 rose 6.68→12.31pt with every document
+drifting upward. The cause has been attributed to a 3pt per-boundary spacing
+compensation and retired; see below.
 
 The strict quality-policy v2 design is now implemented. It has a blocking
 `ordinary_digital` tier, a tracked/nonblocking `designed_stress` tier, and a
@@ -67,10 +68,13 @@ clear pre-qualification refusal contract for `unsupported` inputs. Policy
 ratification is explicit and fail-closed, and collected evidence can be
 reassessed offline without a new Google upload.
 
-The committed policy remains a draft. Applied to the latest evidence, 9/13
-ordinary fixtures meet every threshold; seven blocking findings remain across
-four documents: `01_whitepaper_market` SSIM; `c2_paper2col` dx/dy/SSIM;
-`c7_code` dx; and `l1_word_native` dx/dy. The Word-native tranche is now
+The committed policy remains a draft. Applied to the 2026-08-04 evidence, 5/13
+ordinary fixtures meet every threshold, down from 9/13; eleven blocking findings
+remain across eight documents — `dy_p50` on `03_tech_report_code`,
+`c1_whitepaper`, `c2_paper2col`, `c6_long`, `c8_toc_links`, `l1_word_native` and
+`r1_reportlab_report`, SSIM on `01_whitepaper_market`, `c2_paper2col` and
+`c6_long`, and `dx_p50` on `l1_word_native`. `c7_code` dx and `c2_paper2col` dx
+cleared. The Word-native tranche is now
 implemented locally as a general symbol-font list-marker normalizer: l1 becomes
 three editable list items, and only its `document.xml` changes across the full
 prepared corpus. Local proxy metrics improve, but the live blocker remains until
@@ -84,13 +88,25 @@ as a general layout rule and not a fixture exception. Against the LibreOffice
 proxy the product lane moves `c2` median dy 29.2→0.85pt and within-2pt
 0.1948→0.4857, and raw `c2` median dy 26.8→4.0pt. **That is proxy evidence and
 does not clear the live blocker**, which still stands against the committed
-2026-08-02 Google evidence until a fresh consented run replaces it.
+2026-08-04 Google evidence until a fresh consented run replaces it.
 
-Next: code indentation and whitepaper visual similarity, likewise as general
-rules. Afterward expand to roughly 40–60 frozen real/generated PDFs from common
-producers, review/ratify the policy, and perform the second consented full
-Google pass. The current 16 fixtures are regression evidence, not market
-coverage.
+The same commit's `GDOCS_PARA_BOUNDARY_COMP_PT = 3.0` is what took the live pass
+from seven findings to eleven, and it is now retired (`41e8e7f`). Remeasured
+against Google's own exported PDFs over 187 single-column boundaries in 12
+documents, Docs contributes about +0.10pt at a paragraph boundary, not 3pt:
+compensated boundaries rendered gaps 2.90pt *smaller* than the source, so the
+subtraction was lost space accumulating down every page. The earlier reading
+came from probes using `lineRule="exact"`, which this profile already
+retranslates, so it double-counted. A column-aware counterfactual predicts
+eleven of thirteen ordinary documents inside the 10pt bound, `c1_whitepaper`
+marginal and `l1_word_native` separately caused — **a prediction, not a
+measurement**, and it needs a consented live pass to confirm.
+
+Next: confirm that retirement live, then code indentation and whitepaper visual
+similarity, likewise as general rules. Afterward expand to roughly 40–60 frozen
+real/generated PDFs from common producers, review/ratify the policy, and perform
+the second consented full Google pass. The current 16 fixtures are regression
+evidence, not market coverage.
 
 The long ordinary striped table in `c3_tables` is now one editable 46-row ×
 4-column table with IDs 1–45 exactly once; it naturally spans pages and has no
@@ -173,9 +189,17 @@ atomically. Batch conversion now has deterministic serial discovery, caps, safe
 machine-readable results, and explicit scan/OCR-required rejection. This is
 not a remaining release blocker, but is deliberately not a cloud batch feature.
 
-The next feature tranche preserves proven PDF URI and internal-TOC navigation
-(`c8` has three URI and three GoTo annotations; the current PDFium path sees
-only a mailto heuristic), then adds heading/list semantics. RTL follows only
+URI navigation is done on the candidate: PDFium now reads the producer's
+`/Link` annotations instead of scanning text for URL-shaped substrings, which
+was wrong in both directions — `c8_toc_links` found 1 of its 3 real links, and
+an expansion fixture invented 17 from URL-shaped prose. Both backends now agree
+on link count, URI and rectangle across all 32 documents, and no metric moved.
+Internal TOC navigation is **not** done and is not merely a parser gap: `c8`'s
+three GoTo destinations resolve fine, but the IR carries a link as a single URI
+string and the writer emits only external relationships, so it needs an IR
+field, a writer capability, and a rule for which paragraph a destination anchors
+to — the last of which is inference and is left as a decision rather than
+guessed at. Heading/list semantics follow. RTL follows only
 after a logical-Unicode-ordering contract. Heavy LaTeX, highly designed/vector
 pages, complex/nested tables, and a full OCR engine remain future work. Scan/OCR
 PDFs are explicitly unsupported rather than silently mishandled.

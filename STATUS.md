@@ -135,14 +135,17 @@ python testkit/gdocs_oracle.py run <dir> --allow-cloud-upload
 operation and separately reports operational success and quality success. Drive
 objects are always cleanup-attempted; an orphan ledger blocks continued work.
 
-The latest 2026-08-02 live run for `pdfium/gdocs/none/refine0@240dpi` is
-operationally successful: 16 attempted, 16 succeeded, zero failed, and no
-`.gdocs_orphans.json` remained. Compared with the prior live candidate,
-page-count match improved 14/16→15/16; mean within-2pt 0.1378→0.1443; mean live
-text stayed 0.9568; mean word recall 0.8745→0.9064; mean SSIM 0.7767→0.7878;
-and mean IoU 0.2108→0.2138. Median dy50 is 4.98→6.68pt because `c3_tables` now
-matches many more words and changes median ordering, not because of a broad
-regression. Only `c5_graphics` remains a page-count mismatch (1→2).
+The latest live run is **2026-08-04** for `pdfium/gdocs/none/refine0@240dpi`
+(`docs/evidence/gdocs-2026-08-04-qualification.json`). It is operationally
+successful: 16 attempted, 16 succeeded, zero failed, and no
+`.gdocs_orphans.json` remained. On fidelity it is worse than the 2026-08-02 run
+it replaces. Page-count match holds at 15/16 (`c5_graphics` 1→2 remains the only
+mismatch) and mean live text is flat at 0.9568→0.9566, but mean within-2pt fell
+0.1443→0.0483, mean SSIM 0.7878→0.7635, mean IoU 0.2138→0.1560, mean word recall
+0.9064→0.9056, and median dy50 rose 6.68→12.31pt. Every document drifted
+upward. That is a broad vertical regression, not a median-ordering artefact, and
+it has since been attributed to a 3pt per-boundary spacing compensation
+introduced in `ff518be` and now retired — see below.
 
 The qualified conservative striped-table assembler makes
 the `c3_tables` long table one editable 46-row × 4-column DOCX table, IDs 1–45
@@ -150,8 +153,8 @@ exactly once, and paginates it naturally without inventing a repeating header.
 It also consolidates the 5-row `c1_whitepaper` comparison table. It rejects
 ambiguous multiline content, cards, and callouts and coalesces pages only at an
 edge with matching geometry; it does not claim to solve complex/nested regional
-tables. Local LibreOffice review was indicative only; live Google evidence now
-shows `c3_tables` 3→3 rather than 3→4, live 0.9226/doc recall 0.9359 unchanged,
+tables. Local LibreOffice review was indicative only; the 2026-08-02 live run
+showed `c3_tables` 3→3 rather than 3→4, live 0.9226/doc recall 0.9359 unchanged,
 word recall 0.3120→0.8215, within-2pt 0→0.1076, SSIM 0.5785→0.7573, and IoU
 0.0973→0.1448. dy50/dy90 are 2.94→7.85pt and 80.52→103.34pt because the table
 now matches many more words. Visual review found all 45 rows in an editable
@@ -168,12 +171,16 @@ tracked designed-stress documents, unsupported-input refusal, exact metrics,
 and explicit owner ratification. The offline `assess` command hash-binds its
 source evidence and never performs a cloud operation.
 
-Applied to the latest Google evidence, operational pass remains true but quality
-and overall pass remain false: the policy is unratified and 9/13 ordinary
-fixtures meet every threshold. Seven blocking findings span four fixtures:
-`01_whitepaper_market` SSIM; `c2_paper2col` dx/dy/SSIM; `c7_code` dx; and
-`l1_word_native` dx/dy. The three stress fixtures produce nine additional
-nonblocking findings. This is an actionable gap report, not release approval.
+Applied to the 2026-08-04 Google evidence, operational pass remains true but
+quality and overall pass remain false: the policy is unratified and only **5/13
+ordinary fixtures meet every threshold**, down from 9/13. **Eleven blocking
+findings span eight fixtures** — `dy_p50` on `03_tech_report_code`,
+`c1_whitepaper`, `c2_paper2col`, `c6_long`, `c8_toc_links`, `l1_word_native` and
+`r1_reportlab_report`; SSIM on `01_whitepaper_market`, `c2_paper2col` and
+`c6_long`; and `dx_p50` on `l1_word_native`. Two earlier blockers cleared:
+`c7_code` dx and `c2_paper2col` dx. The three stress fixtures produce nine
+additional nonblocking findings. This is an actionable gap report, not release
+approval.
 
 Local follow-up now canonicalises only corroborated leading OpenSymbol private-use
 bullets into safe Unicode list markers. `l1_word_native` becomes three separate
@@ -181,14 +188,35 @@ editable hanging-indent items; no other prepared DOCX part changes anywhere in
 the 16-document corpus. LibreOffice proxy recall/drift/SSIM improve, but the
 committed assessment remains the last live Google truth until fresh consent.
 
-The `c2_paper2col` blocker diagnosed there — an inset abstract winning
-right-margin inference over the verified right-column edge, narrowing the
-content area by about 42pt and shifting the second column left by about 21pt —
-now has a landed fix (`ff518be`). Against the LibreOffice proxy it is a large
-move: product `c2` median dy 29.2→0.85pt and within-2pt 0.1948→0.4857, and raw
-`c2` median dy 26.8→4.0pt. That is proxy evidence only. The live Google
-blocking findings still stand against the committed 2026-08-02 evidence, which
-has not been re-collected; nothing here retires them.
+The `c2_paper2col` margin blocker — an inset abstract winning right-margin
+inference over the verified right-column edge, narrowing the content area by
+about 42pt and shifting the second column left by about 21pt — has a landed fix
+(`ff518be`). Against the LibreOffice proxy it is a large move: product `c2`
+median dy 29.2→0.85pt and within-2pt 0.1948→0.4857, and raw `c2` median dy
+26.8→4.0pt.
+
+The same commit also introduced `GDOCS_PARA_BOUNDARY_COMP_PT = 3.0`, and that is
+what took the live pass from seven findings to eleven. It has been **retired**
+(`41e8e7f`) on remeasurement against Google's own exported PDFs: across 187
+single-column boundaries in 12 documents, Docs' own contribution at a paragraph
+boundary is about **+0.10pt**, not 3pt. Boundaries given the full compensation
+rendered a gap 2.90pt *smaller* than the source — Docs honoured the subtraction
+and gave nothing back, so the space was lost once per boundary and accumulated
+down the page. `c6_long` carries 17.4 boundaries per page and drifted 25.84pt.
+The earlier ~3pt reading came from probes written with `lineRule="exact"`, which
+this profile already retranslates, so the compensation double-counted the same
+height. Heading (+0.75pt) and table (+1.04pt) residuals are real but sit at the
+writer's own half-point quantisation noise floor and are recorded rather than
+applied.
+
+A column-aware counterfactual predicts eleven of thirteen ordinary documents
+inside the 10pt bound, with `c1_whitepaper` marginal and `l1_word_native`
+carrying a separate cause. **That is a prediction, not a measurement.** Two
+parser fixes landed alongside it — superscript absorption (`ebcb3be`) and
+annotation-based links (`bb1687d`, which moved no metric) — and the standard
+profile is verified byte-identical throughout, so the shipping lanes cannot have
+moved. The 2026-08-04 live findings remain the live truth until a fresh
+consented run replaces them; nothing here retires them.
 
 ## Conversion safety, batch, and scan handling
 
@@ -214,7 +242,7 @@ All 16 frozen fixtures avoid false OCR-required classification.
 
 ## Verified local checks
 
-The current working tree passes 79 native `unittest` tests (2 platform skips),
+The current working tree passes 99 native `unittest` tests (2 platform skips),
 the gate mutation suite (83 cases, all clear), the batch suite (14 pass, 1
 Windows symlink skip), corpus purity (16/16), the no-PyMuPDF PDFium smoke check,
 atomic-output checks, and the 16-entry corpus manifest check. These are local
