@@ -200,7 +200,7 @@
     "documented_limitation": "~14.6pt of white above a page-one band is unavoidable in Google Docs. The writer stops trying to beat it: compensation subtracts only where the source left 14.8pt or more, and accepts the floor below that."
   },
   "c2_ssim_diagnosis": {
-    "status": "diagnosed, not fixed",
+    "status": "attributed, not fixed -- the step is LibreOffice-visible and its cause is a cancelling pair of writer errors",
     "mean_ssim": 0.6772,
     "bound": 0.7,
     "geometry": "dx_p50 0.50, dy_p50 3.88, 48 lines on both sides with identical line breaks -- the words are in the right places",
@@ -210,7 +210,22 @@
       "drift_profile": "+0.6pt at the title, +2.5 at the abstract, +6.3 at the first two-column heading, +8.1 at the page bottom: a step of roughly 3.8pt at the two-column section boundary, plus ~0.6% per line accumulating within the columns"
     },
     "why_not_fixed": "The step sits in continuous-section and column-start handling, which is the pagination agent's area, and c2's dy_p50 is already inside its bound at 3.88. SSIM at 8x8 windows on dense two-column text simply punishes a sub-4pt offset very hard.",
-    "next_step": "Attribute the ~3.8pt step at the two-column section boundary. It is a single measurable quantity and closing it should move mean_ssim most of the way from 0.6772 toward the 0.8116 that removing the offset already demonstrates."
+    "attribution": {
+      "by": "pagination agent, offline reproduction on the canonical LibreOffice",
+      "verdict": "LibreOffice-visible. The step is our writer emitting real height at the continuous-section boundary, NOT a Docs-importer artifact, so no gdocs-profile compensation is warranted.",
+      "method": "convert c2 under pdfium/gdocs/none/refine0, render with the canonical LibreOffice, match uniquely-identifiable lines to the source and read dy per region",
+      "reproduced_step": "abstract lines dy +1.40..+2.10, first two-column heading dy +4.80 -- a step of +3.35pt, against the +3.8pt the live pass measured on the Docs export",
+      "boundary_emits": "a spacer paragraph of 13.7pt exact (the hoisted pre_gap), then an empty paragraph carrying the sectPr at w:line=20 exact (1.0pt), then the heading with space_before 16.1pt",
+      "experiments": {
+        "shrink_the_sectpr_paragraph": "w:line 20 twips -> 1 twip (1.0pt -> 0.05pt) changed every measured dy by exactly 0.00. LibreOffice ignores lineRule=exact on a paragraph that carries a sectPr and gives it a default line box, so the 'crush' in new_section does nothing.",
+        "remove_the_sectpr_paragraph": "folding the sectPr into the preceding spacer's pPr and deleting the empty paragraph moved the heading from +4.80 to -8.90, i.e. -13.70pt. The paragraph occupies about 13.7pt -- a full default line, not the 1pt intended.",
+        "zero_space_before_after_the_break": "moved the heading from +4.80 to -11.30, i.e. -16.10pt, exactly the emitted space_before. LibreOffice DOES honour space_before at a continuous-section start, so that is not the missing height."
+      },
+      "why_no_fix_landed": "Two errors of opposite sign very nearly cancel here. The sectPr paragraph adds about +13.7pt it should not, yet the net error is only +3.35pt, so something under-emits about 10.35pt at the same boundary and has not been isolated. Removing the sectPr paragraph alone takes c2's heading dy from +4.80 to -8.90 -- larger in magnitude than the 3.88 the document has today. Landing half of a cancelling pair is how a document that is inside its bound leaves it.",
+      "constraint_observed": "No code was changed. c2 is a gated fixture and every variant above moves its dy materially, which is a baseline event rather than a silent improvement."
+    },
+    "pass3_expectation": "UNCHANGED. Nothing shipped for c2, so mean_ssim should come back at ~0.6772 and dy_p50 at ~3.88. A materially different value means something else moved it, and the attribution above should be re-measured before it is trusted.",
+    "next_step": "Isolate the ~10.35pt under-emission at the same boundary, then fix it together with the sectPr paragraph's spurious line box -- the two have to land as one change. The 0.8116 that the rigid shift already demonstrates remains the ceiling such a fix would approach."
   },
   "documents": {
     "c6_long": {
