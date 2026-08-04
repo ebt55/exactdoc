@@ -7,8 +7,9 @@ the CI product lane all run the same configuration. They used to run three.
 import argparse
 import sys
 
-from .errors import ExactdocError, OcrRequiredError
+from .errors import ExactdocError
 from .options import BACKENDS, ORACLES, OUTPUT_PROFILES, PRODUCT, TARGETS
+from .scan import MAX_PAGES_PER_DOCUMENT
 
 # Stable, documented exit codes. A script that branches on exit status is an API
 # whether or not anyone called it one, so these are part of the contract and do
@@ -34,6 +35,8 @@ EXIT_CODES = {
     "oracle-cleanup": 16,
     "ocr-required": 17,
     "batch-partial": 18,
+    "interactive-form": 19,
+    "page-limit": 20,
 }
 
 
@@ -77,6 +80,12 @@ def build_parser():
                          "against what actually rendered (0 disables, "
                          "default %(default)s -- the profile every published "
                          "number is measured on)")
+    ap.add_argument("--max-pages", type=int, default=None, metavar="N",
+                    help="page cap for a single conversion (default: %d, the "
+                         "same limit batch mode enforces). A longer document is "
+                         "refused rather than converted; pass a larger N to "
+                         "agree to it, or 0 to remove the cap"
+                         % MAX_PAGES_PER_DOCUMENT)
     ap.add_argument("--verify", action="store_true",
                     help="render the DOCX back to PDF (needs LibreOffice) and "
                          "report per-page visual similarity + text coverage")
@@ -125,6 +134,10 @@ def _run(ap, argv):
             ap.error("--input-dir requires --out-dir")
         if args.target:
             ap.error("--target is not supported for batch conversion")
+        if args.max_pages is not None:
+            # Raising the cap is a judgement about one document. Applying it to
+            # a whole directory would lift it for every member sight unseen.
+            ap.error("--max-pages is not supported for batch conversion")
         if args.out or args.verify or args.report_dir:
             ap.error("-o, --verify, and --report-dir are not supported for batch conversion")
         from .batch import make_items, run
@@ -150,11 +163,24 @@ def _run(ap, argv):
         if len(args.pdf) != 1:
             ap.error("--scan-only accepts one PDF or --input-dir")
         from .convert import _select_backend
-        from .scan import inspect_pdf
+        from .scan import inspect_pdf, page_cap, refusal
         report = inspect_pdf(_select_backend(args.backend), args.pdf[0])
         print(report.classification)
-        if report.classification == "ocr_required":
-            raise OcrRequiredError("this PDF appears to require OCR before conversion")
+        # Report every condition, then exit on the first. A document can be both
+        # a form and over the cap, and a scan that named only the one it happened
+        # to check first would send the caller round the loop twice.
+        print("  pages: %d%s" % (report.page_count,
+                                 "  (over the page cap)"
+                                 if report.over_page_cap(args.max_pages) else ""))
+        if report.census_available:
+            print("  form widgets: %d over %d form page(s)%s"
+                  % (report.widget_count, report.form_pages,
+                     "  (interactive form)" if report.classification == "form" else ""))
+        cap = page_cap(args.max_pages)
+        print("  page cap: %s" % ("none" if cap is None else cap))
+        error = refusal(report, max_pages=args.max_pages)
+        if error is not None:
+            raise error
         return 0
     if args.out and len(args.pdf) > 1:
         ap.error("-o works with a single input")
@@ -169,7 +195,7 @@ def _run(ap, argv):
         out = convert(p, args.out, dpi=args.dpi, refine_rounds=args.refine,
                       backend=args.backend, verbose=args.verbose,
                       allow_cloud_upload=args.allow_cloud_upload or None,
-                      **legacy)
+                      max_pages=args.max_pages, **legacy)
         print("wrote", out)
         if args.verify:
             from .verify import verify, audit

@@ -168,7 +168,10 @@ class BatchTests(unittest.TestCase):
                             return_value=ScanReport("digital", 251, 100)):
                 report = run([item], backend="pdfium", dpi=72, refine_rounds=0,
                              output_profile="gdocs", oracle="none", scan_only=True)
-            self.assertEqual(report["items"][0]["error"]["code"], "resource-limit")
+            # Still a ResourceLimitError, but now its own code: this is the one
+            # limit the caller can answer (--max-pages), and exit 9 could not say
+            # so.  See tests/test_refusals.py for the single-file half.
+            self.assertEqual(report["items"][0]["error"]["code"], "page-limit")
 
 
 @unittest.skipUnless(importlib.util.find_spec("reportlab") and

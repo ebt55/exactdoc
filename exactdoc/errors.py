@@ -129,6 +129,18 @@ class ResourceLimitError(ExactdocError):
     code = "resource-limit"
 
 
+class PageLimitError(ResourceLimitError):
+    """The document has more pages than the configured cap allows.
+
+    Its own code rather than a bare `resource-limit` because it is the one
+    resource refusal the caller can *answer*: every other bound in this family
+    means the input is hostile or the machine is too small, while this one means
+    "confirm you meant to convert a document this long" and is lifted by
+    `max_pages`. A script cannot tell those apart from exit code 9 alone.
+    """
+    code = "page-limit"
+
+
 class OcrRequiredError(UnsupportedInputError):
     """The PDF appears to be an image-only scan and needs an OCR stage.
 
@@ -137,6 +149,23 @@ class OcrRequiredError(UnsupportedInputError):
     does not invent text for a scan.
     """
     code = "ocr-required"
+
+
+class InteractiveFormError(UnsupportedInputError):
+    """The PDF is a fillable AcroForm, and its content lives in the fields.
+
+    A refusal for the same reason `OcrRequiredError` is one: the thing the
+    document is *for* is not something this converter preserves. Widget values,
+    field names, tab order and validation have no DOCX equivalent here, and the
+    field boxes are drawn by annotation appearance streams the text extractor
+    never sees. The result is not a lossy conversion of a form, it is a
+    convincing-looking non-form -- measured at 0.085 SSIM on IRS Form 1040,
+    which is worse than useless because it still exits zero.
+
+    Deliberately narrow: this is "the form dominates", not "the document
+    contains a widget". See `exactdoc.scan` for the threshold and its evidence.
+    """
+    code = "interactive-form"
 
 
 # --- oracles -----------------------------------------------------------------

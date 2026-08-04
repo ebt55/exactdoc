@@ -236,7 +236,8 @@ def _apply(lay: DocLayout, m) -> bool:
 
 def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
            rounds: int = 2, verbose: bool = False, render=None,
-           output_profile: str = "standard", backend=None) -> str:
+           output_profile: str = "standard", backend=None,
+           image_report=None) -> str:
     """Write `lay`, then correct it against real renders. Returns out_path.
 
     `render(docx_path, tmp_dir) -> pdf_path | None` selects the oracle. It
@@ -276,7 +277,8 @@ def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
     if rounds <= 0:
         publish(lambda tmp: write_docx(lay, tmp, dpi=dpi,
                                        output_profile=output_profile,
-                                       backend=backend), out_path)
+                                       backend=backend,
+                                       image_report=image_report), out_path)
         return out_path
 
     best_path, best_score = None, None
@@ -290,8 +292,10 @@ def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
         for rnd in range(rounds + 1):
             # write_docx is pure: `lay` survives the round unmodified.
             candidate = workspace.file("candidate-%d.docx" % rnd)
+            # Each round rewrites the same layout, so the image tally is
+            # per-write rather than cumulative: `write_docx` clears it first.
             write_docx(lay, candidate, dpi=dpi, output_profile=output_profile,
-                       backend=backend)
+                       backend=backend, image_report=image_report)
             rendered = render(candidate, td)
             if rendered is None:
                 raise OracleError(

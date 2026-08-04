@@ -56,6 +56,12 @@ class WriteCtx:
     # still the old one. {LinkDest: anchor name} and {anchor name: w:id}.
     dest_anchors: Dict[Any, str] = dataclasses.field(default_factory=dict)
     anchor_ids: Dict[str, int] = dataclasses.field(default_factory=dict)
+    #: Optional mutable tally of what happened to each extracted raster:
+    #: ``{"embedded": n, "reencoded": n, "dropped": n}``.  A degradation nobody
+    #: can observe is indistinguishable from a lie, and dropping an image is a
+    #: degradation.  Defaults to None -- the writer keeps no global ledger, so
+    #: two concurrent conversions cannot accumulate into each other's counts.
+    image_report: Optional[dict] = None
 
 
 _DEFAULT_CTX = WriteCtx()
@@ -955,8 +961,94 @@ def write_figure(container, fig: FigureEl, ctx=None, dpi: int = None):
     return par
 
 
+def _docx_accepts(data: bytes) -> bool:
+    """Whether python-docx will embed these bytes, asked without a Document.
+
+    python-docx matches a small signature table (`docx.image.SIGNATURES`) against
+    the first 32 bytes and raises `UnrecognizedImageError` for anything outside
+    it. Its JPEG entries are JFIF (`FF D8 FF E0`) and Exif (`FF D8 FF E1`) only,
+    so an **Adobe APP14 JPEG** -- `FF D8 FF EE`, what Antenna House and the rest
+    of the Adobe toolchain emit -- is a perfectly valid JPEG that python-docx
+    refuses. `Image.from_blob` runs exactly that check plus the chosen header
+    parser, so a truncated header of a *recognised* format is caught here too
+    rather than midway through serialising the package.
+    """
+    from docx.image.image import Image as _DocxImage
+    try:
+        _DocxImage.from_blob(data)
+        return True
+    except Exception:
+        return False
+
+
+def _to_png(data: bytes):
+    """Re-encode through Pillow to PNG, or None if Pillow cannot read it either.
+
+    PNG rather than a re-saved JPEG on purpose: the source is already lossily
+    encoded, and a second lossy pass would quietly degrade the pixels to work
+    around a *container* problem. Pillow reads the Adobe-APP14 JPEG above fine;
+    only the signature table objected.
+    """
+    try:
+        from PIL import Image as _PILImage
+    except ImportError:            # Pillow is not a hard dependency of the writer
+        return None
+    img = None
+    try:
+        img = _PILImage.open(io.BytesIO(data))
+        img.load()
+        if img.mode not in ("1", "L", "LA", "P", "RGB", "RGBA"):
+            # CMYK, I;16 and friends have no PNG representation.
+            img = img.convert("RGB")
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return buf.getvalue()
+    except Exception:
+        return None
+    finally:
+        if img is not None:
+            try:
+                img.close()
+            except Exception:
+                pass
+
+
+def _embeddable(data: bytes, report):
+    """Bytes python-docx will take, or None -- and record which of the three.
+
+    One image exactdoc cannot embed must never take the document down with it.
+    `y06_irs_1040_instructions.pdf` is 126 pages of text carrying two Adobe-APP14
+    JPEGs, and `add_picture` raising `UnrecognizedImageError` used to lose all
+    126 pages rather than the two images.
+
+    The ladder is: embed as extracted, else re-encode losslessly, else drop --
+    and a drop is *counted*, not swallowed.
+    """
+    outcome, out = "embedded", data
+    if not data:
+        outcome, out = "dropped", None
+    elif not _docx_accepts(data):
+        png = _to_png(data)
+        if png is not None and _docx_accepts(png):
+            outcome, out = "reencoded", png
+        else:
+            outcome, out = "dropped", None
+    if report is not None:
+        report[outcome] = report.get(outcome, 0) + 1
+    return out
+
+
 def write_image(container, im: ImageEl, ctx=None):
+    """Place an extracted raster. Returns None when the image had to be dropped.
+
+    Returning None so the caller omits the element is `write_figure`'s contract
+    for a visual it cannot produce, and this follows it: an honest empty space,
+    tallied in `ctx.image_report`, rather than a crash.
+    """
     ctx = ctx or _DEFAULT_CTX
+    data = _embeddable(im.data, ctx.image_report)
+    if data is None:
+        return None
     par = container.add_paragraph()
     pf = par.paragraph_format
     pf.space_before = Pt(round(max(0.0, im.space_before), 1))
@@ -968,7 +1060,7 @@ def write_image(container, im: ImageEl, ctx=None):
     if im.align == "left" and im.left_indent > 0.5:
         pf.left_indent = Pt(round(im.left_indent, 1))
     r = par.add_run()
-    r.add_picture(io.BytesIO(im.data), width=Emu(int(im.width * 12700)),
+    r.add_picture(io.BytesIO(data), width=Emu(int(im.width * 12700)),
                   height=Emu(int(im.height * 12700)))
     return par
 
@@ -1077,7 +1169,8 @@ def _fill_hf(hf_obj, part: Optional[HFPart], lay: DocLayout, ctx=None):
 
 # ------------------------------------------------------------------ main
 def write_docx(lay: DocLayout, out_path: str, dpi: int = 240,
-               output_profile: str = "standard", backend=None, ctx=None) -> str:
+               output_profile: str = "standard", backend=None, ctx=None,
+               image_report=None) -> str:
     """Render a DocLayout to a .docx. Pure: `lay` is never modified.
 
     `output_profile` selects the line-height encoding: Word and LibreOffice
@@ -1105,7 +1198,14 @@ def write_docx(lay: DocLayout, out_path: str, dpi: int = 240,
     reproducible on a second write. Callers must not have to know this, so the
     copy lives here and purity is part of the contract, verified by
     tests/test_purity.py.
+
+    `image_report`, when given, is cleared and refilled with this write's raster
+    tally (`embedded`/`reencoded`/`dropped`). Cleared rather than accumulated
+    because the refine loop writes the same layout once per round, and a ledger
+    that summed over rounds would report four dropped images for one.
     """
+    if image_report is not None:
+        image_report.clear()
     if ctx is None:
         render_clip = None
         if backend is not None and lay.src_path:
@@ -1116,7 +1216,7 @@ def write_docx(lay: DocLayout, out_path: str, dpi: int = 240,
                     return None
         ctx = WriteCtx(output_profile=output_profile,
                        line_mode=line_mode_for(output_profile), dpi=dpi,
-                       render_clip=render_clip)
+                       render_clip=render_clip, image_report=image_report)
     return _write_docx(lay, out_path, ctx)
 
 

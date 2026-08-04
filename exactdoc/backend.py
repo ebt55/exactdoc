@@ -131,6 +131,22 @@ class Backend(Protocol):
     def page_lines(self, path: str) -> PageLines:
         ...
 
+    def form_widgets(self, path: str) -> List[int]:
+        """Interactive form widget annotations per page, in page order.
+
+        A census, not a parse. It exists in the seam rather than on the IR
+        because `DocIR` carries what the *layout* needs -- text, paths, images,
+        links -- and a widget contributes none of that; adding it to the IR would
+        make every backend reproduce an annotation model that nothing downstream
+        reads. The preflight layer wants one integer per page and nothing else.
+
+        Backends predating this operation are tolerated: a missing
+        `form_widgets` means form detection did not run, and the scan report says
+        so (`census_available=False`) instead of recording a census of zero that
+        nobody took.
+        """
+        ...
+
 
 class PyMuPDFBackend:
     """Measured shipping backend, provided by the core PyMuPDF dependency."""
@@ -181,6 +197,24 @@ class PyMuPDFBackend:
                                           ln["bbox"][3]))
                 out.append(lines)
             return out
+        finally:
+            doc.close()
+
+    def form_widgets(self, path: str) -> List[int]:
+        import fitz
+        from .errors import UnsupportedInputError
+        doc = fitz.open(path)
+        try:
+            # Same documented status check `parse.parse_pdf` makes, for the same
+            # reason and now at the same boundary: PyMuPDF opens an encrypted
+            # document successfully and rejects every operation on it with a
+            # generic ValueError. This census runs *before* the parse, so it is
+            # the first call to touch the file and must not let a password-
+            # protected PDF escape as an untranslated reader diagnostic.
+            if doc.needs_pass:
+                raise UnsupportedInputError(
+                    "password-protected PDFs are not supported")
+            return [sum(1 for _ in page.widgets()) for page in doc]
         finally:
             doc.close()
 
@@ -307,6 +341,36 @@ class PDFiumBackend:
         finally:
             doc.close()
 
+    def form_widgets(self, path: str) -> List[int]:
+        # pypdfium2's object layer has no annotation wrapper, so this counts
+        # through the documented raw calls. Every annotation handle acquired is
+        # closed on the way out: `FPDFPage_GetAnnot` allocates, and a census over
+        # a 199-widget document would otherwise leak 199 handles per run.
+        import pypdfium2 as pdfium
+        import pypdfium2.raw as raw
+        doc = pdfium.PdfDocument(path)
+        try:
+            counts = []
+            for i in range(len(doc)):
+                page = doc[i]
+                try:
+                    n = 0
+                    for j in range(raw.FPDFPage_GetAnnotCount(page)):
+                        annot = raw.FPDFPage_GetAnnot(page, j)
+                        if not annot:
+                            continue
+                        try:
+                            if raw.FPDFAnnot_GetSubtype(annot) == raw.FPDF_ANNOT_WIDGET:
+                                n += 1
+                        finally:
+                            raw.FPDFPage_CloseAnnot(annot)
+                    counts.append(n)
+                finally:
+                    page.close()
+            return counts
+        finally:
+            doc.close()
+
 
 _IMPLEMENTATIONS = {"pymupdf": PyMuPDFBackend, "pdfium": PDFiumBackend}
 _EXPERIMENTAL = {}
@@ -345,6 +409,11 @@ class FunctionBackend:
 
     def render_page(self, path, page_no, dpi: int = 110):
         return self._renderer.render_page(path, page_no, dpi=dpi)
+
+    def form_widgets(self, path: str):
+        # An experiment on block grouping has no opinion about annotations
+        # either, so the census falls through with the rendering.
+        return self._renderer.form_widgets(path)
 
 
 def register_backend(name: str, parse, renderer=None) -> str:

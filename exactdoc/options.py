@@ -141,6 +141,12 @@ class ConversionOptions:
     #: Never read from the environment: an exported variable must not be able to
     #: authorise an upload on a caller's behalf.
     allow_cloud_upload: bool = False
+    #: The page cap this conversion agrees to. `None` takes the product default
+    #: (`scan.MAX_PAGES_PER_DOCUMENT`, the same 250 the batch runner enforces);
+    #: a positive int raises or lowers it; `0` removes it. Explicit rather than
+    #: absent because "convert whatever you are given" is a decision, and a
+    #: 492-page document is a decision worth having made on purpose.
+    max_pages: Optional[int] = None
 
     def __post_init__(self):
         object.__setattr__(self, "backend", canonical_backend(self.backend))
@@ -154,6 +160,12 @@ class ConversionOptions:
         if not isinstance(self.dpi, int) or not (36 <= self.dpi <= 1200):
             raise ConfigurationError(
                 "dpi must be an int in 36..1200, got %r" % (self.dpi,))
+        if self.max_pages is not None and (
+                not isinstance(self.max_pages, int) or
+                isinstance(self.max_pages, bool) or self.max_pages < 0):
+            raise ConfigurationError(
+                "max_pages must be a non-negative int or None (0 = no limit), "
+                "got %r" % (self.max_pages,))
 
         # Refinement without a renderer is not refinement. This used to resolve
         # itself silently: the loop asked for a renderer, got None, and the

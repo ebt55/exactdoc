@@ -29,6 +29,32 @@ def parse(backend, path, keep_image_data=True):
         raise
 
 
+def form_widgets(backend, path):
+    """Per-page interactive-widget census, through the same input boundary.
+
+    Returns None when the backend offers no census -- meaning "not measured",
+    which `scan` is careful not to read as "no widgets".
+
+    It goes through this module for the same reason `parse` does: the preflight
+    refusals run *before* the parse, so this is now the first call that opens the
+    caller's file, and a password-protected PDF must still surface as
+    `UnsupportedInputError` rather than as whatever the reader raises while
+    counting annotations.
+    """
+    census = getattr(backend, "form_widgets", None)
+    if census is None:
+        return None
+    try:
+        return census(path)
+    except (UnsupportedInputError, ParseError):
+        raise
+    except Exception as exc:
+        translated = _translate(backend, exc)
+        if translated is not None:
+            raise translated from exc
+        raise
+
+
 def _translate(backend, exc):
     """Return a public error for a documented backend input status, or None."""
     if backend.name == "pdfium":

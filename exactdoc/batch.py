@@ -14,12 +14,14 @@ import time
 from typing import Optional
 
 from .convert import convert
-from .errors import (ConfigurationError, ExactdocError, OcrRequiredError,
-                     ResourceLimitError)
-from .scan import inspect_pdf
+from .errors import (ConfigurationError, ExactdocError, InteractiveFormError,
+                     OcrRequiredError, PageLimitError, ResourceLimitError)
+from .scan import MAX_PAGES_PER_DOCUMENT, inspect_pdf, refusal
 
 MAX_DOCUMENTS = 500
-MAX_PAGES_PER_DOCUMENT = 250
+# MAX_PAGES_PER_DOCUMENT is re-exported from `scan`, where the single-file path
+# can reach it too.  It lived here alone, which meant the same 492-page document
+# was refused as a batch member and converted without comment as a single file.
 MAX_PAGES_PER_RUN = 2000
 MAX_BYTES_PER_DOCUMENT = 250 * 1024 * 1024
 MAX_WORKERS = 4
@@ -197,12 +199,14 @@ def run(items, *, backend, dpi, refine_rounds, output_profile, oracle,
                        text_char_count=report.text_char_count,
                        classification=report.classification)
             total_pages += report.page_count
-            if report.page_count > MAX_PAGES_PER_DOCUMENT:
-                raise ResourceLimitError("input exceeds the 250-page document limit")
             if total_pages > MAX_PAGES_PER_RUN:
                 raise ResourceLimitError("batch exceeds the 2,000-page run limit")
-            if report.classification == "ocr_required":
-                raise OcrRequiredError("this PDF appears to require OCR before conversion")
+            # Per-document class and page cap now come from the one policy the
+            # single-file path also asks.  A batch deliberately does not accept a
+            # page-cap override: raising it is a per-document decision.
+            error = refusal(report)
+            if error is not None:
+                raise error
             if scan_only:
                 row["status"] = "blank" if report.classification == "blank" else "would_convert"
             else:

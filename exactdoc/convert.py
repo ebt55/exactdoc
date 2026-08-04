@@ -12,8 +12,7 @@ from .dialect import normalize
 from .infer import infer
 from .input import parse as parse_input
 from .options import ConversionOptions, resolve
-from .errors import OcrRequiredError
-from .scan import classify_ir
+from .scan import classify_ir, preflight, refusal
 
 
 def _select_backend(name: str):
@@ -35,6 +34,7 @@ def convert(pdf_path: str, out_path: Optional[str] = None,
             output_profile: Optional[str] = None,
             oracle: Optional[str] = None,
             allow_cloud_upload: Optional[bool] = None,
+            max_pages: Optional[int] = None,
             options: Optional[ConversionOptions] = None) -> str:
     """Convert a PDF to DOCX. Returns the output path.
 
@@ -70,6 +70,12 @@ def convert(pdf_path: str, out_path: Optional[str] = None,
     `target=` is accepted for one alpha cycle and maps onto the pair. Note that
     `target="gdocs"` now selects the Google-safe *profile* without authorising
     an upload; the cloud oracle needs `allow_cloud_upload=True`.
+
+    **Three classes of document are refused rather than converted**: image-only
+    scans (`OcrRequiredError`), interactive forms (`InteractiveFormError`), and
+    documents longer than `max_pages` (`PageLimitError`, the only one of the
+    three the caller can lift). The form and page checks run before the parse, so
+    a refusal costs an annotation walk rather than a full extraction.
     """
     if backend is None and options is None:
         backend = os.environ.get("EXACTDOC_BACKEND", "").strip() or None
@@ -78,11 +84,15 @@ def convert(pdf_path: str, out_path: Optional[str] = None,
     opts = resolve(options, backend=backend, target=target, dpi=dpi,
                    refine_rounds=refine_rounds, ladder=ladder, verbose=verbose,
                    output_profile=output_profile, oracle=oracle,
-                   allow_cloud_upload=allow_cloud_upload)
+                   allow_cloud_upload=allow_cloud_upload, max_pages=max_pages)
     if out_path is None:
         out_path = os.path.splitext(pdf_path)[0] + ".docx"
 
     bk = _select_backend(opts.backend)
+    # Refuse what we can see cheaply, before spending a full extraction on it.
+    # This is also the first call to touch the file, so it goes through the same
+    # input boundary and reports a password-protected PDF as such.
+    widgets = preflight(bk, pdf_path, max_pages=opts.max_pages)
     # Keep the backend-native reader boundary here.  Known password and format
     # statuses become stable public errors before any output can be published;
     # unrelated exceptions deliberately propagate as bugs.
@@ -90,8 +100,13 @@ def convert(pdf_path: str, out_path: Optional[str] = None,
     # ``parse_input`` always returns a DocIR in production.  The attribute
     # guard keeps the historical lightweight writer-test seam usable: those
     # tests deliberately substitute an opaque layout sentinel, not a parser IR.
-    if hasattr(ir, "pages") and classify_ir(ir).classification == "ocr_required":
-        raise OcrRequiredError("this PDF appears to require OCR before conversion")
+    if hasattr(ir, "pages"):
+        # Re-run the whole policy against the parsed document: the OCR class
+        # needs text, and a backend without a census reaches the page cap only
+        # here.  Nothing is refused twice -- `preflight` already returned.
+        error = refusal(classify_ir(ir, widgets=widgets), max_pages=opts.max_pages)
+        if error is not None:
+            raise error
     ir = normalize(ir)
     lay = infer(ir)
     if opts.ladder:
@@ -105,6 +120,11 @@ def convert(pdf_path: str, out_path: Optional[str] = None,
         lay.ladder_report = rep
         if opts.verbose:
             print("  ladder: " + summarise(rep))
+    # The writer's honest-degradation ledger: which extracted rasters went in as
+    # they were, which had to be re-encoded, and which could not be embedded at
+    # all.  An image exactdoc cannot embed never fails the document -- but a
+    # silent drop would be a lie, so the write counts them and this reports them.
+    image_report = {}
     if opts.refine_rounds > 0:
         from .refine import refine
         from .targets import get_renderer
@@ -115,10 +135,12 @@ def convert(pdf_path: str, out_path: Optional[str] = None,
         render, resolved = get_renderer(opts.oracle)
         if opts.verbose:
             print("  refining against: %s" % resolved)
-        return refine(lay, pdf_path, out_path, dpi=opts.dpi,
-                      rounds=opts.refine_rounds, verbose=opts.verbose,
-                      render=render, output_profile=opts.output_profile,
-                      backend=bk)
+        out = refine(lay, pdf_path, out_path, dpi=opts.dpi,
+                     rounds=opts.refine_rounds, verbose=opts.verbose,
+                     render=render, output_profile=opts.output_profile,
+                     backend=bk, image_report=image_report)
+        _report_images(image_report, opts.verbose)
+        return out
     from .docxout import write_docx
     # The writer serialises a ZIP incrementally.  Never point it at the public
     # destination: if an image, disk, or Python failure interrupts it, preserve
@@ -128,8 +150,28 @@ def convert(pdf_path: str, out_path: Optional[str] = None,
     from .io import publish
     publish(lambda tmp: write_docx(lay, tmp, dpi=opts.dpi,
                                    output_profile=opts.output_profile,
-                                   backend=bk), out_path)
+                                   backend=bk, image_report=image_report),
+            out_path)
+    _report_images(image_report, opts.verbose)
     return out_path
+
+
+def _report_images(report, verbose):
+    """Say out loud when a raster did not survive the write.
+
+    Only under `verbose` for a re-encode -- that is a container change with
+    identical pixels, and nothing was lost. A *drop* is content the caller asked
+    for and did not get, so it is reported either way.
+    """
+    if not report:
+        return
+    dropped = report.get("dropped", 0)
+    if dropped:
+        print("  warning: %d image(s) could not be embedded and were omitted"
+              % dropped)
+    if verbose and report.get("reencoded"):
+        print("  images: %d re-encoded to PNG (format the writer cannot embed "
+              "as extracted)" % report["reencoded"])
 
 
 def main(argv=None):
