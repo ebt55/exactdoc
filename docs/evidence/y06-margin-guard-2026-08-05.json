@@ -1,0 +1,115 @@
+{
+ "schema": "exactdoc.right-margin-guard-evidence.v1",
+ "gating": false,
+ "adjudicated": false,
+ "ok": false,
+ "release_ready": false,
+ "_note": "Before/after for the right-margin mis-cluster guard in infer.py. `before` is fc4adf2's infer.py extracted byte-exactly from its own archive; `after` is the same tree with the guard live. Both measured in the canonical container, same corpus, same profile. The expansion corpus gates nothing and parity_policy.json governs none of it -- this record is a measurement, not an authorisation.",
+ "corpus": "corpus_expansion.json + corpus_manifest.json",
+ "profile_id": "pdfium/gdocs/none/refine0@240dpi",
+ "reference_profile_id": "pymupdf/gdocs/none/refine0@240dpi",
+ "candidate_profile_id": "pdfium/gdocs/none/refine0@240dpi",
+ "threshold": {
+  "constant": "MARGIN_MISCLUSTER_PT",
+  "value_pt": 60.0,
+  "statistic": "(p90 of the wide-line right edges) minus (the estimate)",
+  "why_p90_not_max": "max is a single line: y02's reference arm has a wide-line max of 613.2 on a 612pt page.",
+  "worst_correct_case_pt": 22.7,
+  "worst_correct_case": "y08_nist_sp80088r1.pdf [pdfium]",
+  "best_failure_case_pt": 95.8,
+  "best_failure_case": "y07_irs_f1040_form.pdf [pdfium]",
+  "margin_below_failures_pt": 35.8,
+  "margin_above_correct_pt": 37.3,
+  "placement": "after _two_column_right_edge, so the widener keeps its rescue of y14_irs_fw9_form (cluster 402.8, 171.8pt inside, lifted to the right column flush edge)"
+ },
+ "y06_irs_1040_instructions": {
+  "src_pages": 126,
+  "src_lines": 40649,
+  "src_chars_per_line": 14.0,
+  "reference_pymupdf": {
+   "_note": "The guard does not touch this arm: its estimator already returned None and took the mirror-the-left-margin fallback.",
+   "margin_r": {"before": 42.0, "after": 42.0},
+   "content_w": {"before": 528.0, "after": 528.0},
+   "pages": {"before": 259, "after": 259},
+   "lines": {"before": 40438, "after": 40438},
+   "chars_per_line": {"before": 14.1, "after": 14.1},
+   "page_err": {"before": 133, "after": 133}
+  },
+  "candidate_pdfium": {
+   "margin_r": {"before": 226.2, "after": 42.0},
+   "content_w": {"before": 343.8, "after": 528.0},
+   "pages": {"before": 599, "after": 350},
+   "lines": {"before": 63829, "after": 45869},
+   "chars_per_line": {"before": 10.5, "after": 13.8},
+   "page_err": {"before": 473, "after": 224},
+   "paragraphs_with_no_wrap_room": {"before": 2096, "after": 33},
+   "para_objects": {"before": 7355, "after": 5807}
+  },
+  "pages_recovered": 249,
+  "residual_candidate_specific": {
+   "pages": 91,
+   "lines": 5431,
+   "attributed_to": "parity bug B -- PDFium paragraph fragmentation, diagnosed below"
+  }
+ },
+ "y07_irs_f1040_form": {
+  "_note": "Tier `unsupported`: an interactive form the converter refuses, so it has no page count. Only the inferred geometry is measurable, and it is what the guard governs.",
+  "reference_pymupdf": {"margin_r": 44.0, "content_w": 532.4, "changed": false},
+  "candidate_pdfium": {
+   "margin_r": {"before": 141.8, "after": 35.6},
+   "content_w": {"before": 434.6, "after": 540.8},
+   "_note": "540.8 is wider than the reference's 532.4. The fallback mirrors the left margin and errs wide by design -- erring wide costs a little under-wrapping, erring narrow re-flows the document."
+  }
+ },
+ "blast_radius": {
+  "_note": "Every document-arm pair whose inferred right margin changed. 2 of 26 in the expansion corpus, 0 of 32 in the gated corpus.",
+  "expansion_pairs_measured": 26,
+  "expansion_pairs_changed": 2,
+  "changed": ["y06_irs_1040_instructions.pdf [pdfium]",
+              "y07_irs_f1040_form.pdf [pdfium]"],
+  "unchanged_and_flagged_but_below_threshold": [
+   "y01_nist_sp80063b.pdf [pdfium] 20.1pt",
+   "y09_nist_sp800207.pdf [pdfium] 20.7pt",
+   "y17_rfc9110.pdf [pymupdf] 22.1pt",
+   "y08_nist_sp80088r1.pdf [pymupdf] 22.5pt",
+   "y08_nist_sp80088r1.pdf [pdfium] 22.7pt"],
+  "gated_pairs_measured": 32,
+  "gated_pairs_changed": 0,
+  "gated_note": "Every gated document's cluster answer equals its own p90 exactly (e.g. 552.0/552.0), on both arms, so the statistic the guard reads is 0.0pt for all of them."
+ },
+ "gate": {
+  "_note": "testkit/runall.py, both lanes, run twice in the same container -- once with fc4adf2's infer.py restored byte-exactly from its archive, once with the guard live.",
+  "before": {"product": "PASS 16/16", "raw": "PASS 14/16",
+             "within2pt": 0.5161, "live_text_cov": 0.9652, "dy_p50": 0.675},
+  "after": {"product": "PASS 16/16", "raw": "PASS 14/16",
+            "within2pt": 0.5161, "live_text_cov": 0.9652, "dy_p50": 0.675},
+  "scored_rows_identical": {"product": true, "raw": true},
+  "identical_note": "Only convert_s wall-clock differs."
+ },
+ "tests": {"suite": 500, "result": "green", "new_file": "tests/test_right_margin_guard.py"},
+ "parity_bug_b_diagnosis": {
+  "_note": "Not fixed here. Measured with the guard live, so these are the residual numbers.",
+  "para_objects": {"pymupdf": 2402, "pdfium": 5807},
+  "visual_lines": {"pymupdf": 11375, "pdfium": 10884},
+  "lines_per_para": {"pymupdf": 4.74, "pdfium": 1.87},
+  "mergeable_questions_asked": {"pymupdf": 1905, "pdfium": 9244},
+  "finding": "The two parsers see the same content -- 11,375 visual lines against 10,884 -- and PDFium arrives at _merge_flow_paras with roughly one Para per LINE (9,244 merge questions for 10,884 lines) where PyMuPDF arrives with paragraphs already formed (1,905 questions for 11,375 lines). So paragraph formation is failing upstream of the merge, at block level, and _merge_flow_paras is being asked to rebuild every paragraph in the document rather than to join the occasional split one.",
+  "merge_gap_distribution_pt": {
+   "_stat": "b.bbox[1] - a.bbox[3], the quantity _mergeable accepts in [-2.0, 3.2]",
+   "pymupdf": {"p10": -2.61, "p50": 3.19, "p90": 9.96, "inside_window_pct": 29.0,
+               "modes": {"3": 345, "-3": 279, "2": 254}},
+   "pdfium": {"p10": -6.57, "p50": 0.43, "p90": 3.84, "inside_window_pct": 57.3,
+              "modes": {"0": 4104, "-2": 1066, "-3": 370}}
+  },
+  "refusal_reasons": {
+   "pymupdf": {"gap outside window": 1234, "font size differs": 177,
+               "centred/right": 174, "left edges differ": 94, "tab run": 9},
+   "pdfium": {"gap outside window": 2522, "centred/right": 2090,
+              "left edges differ": 451, "font size differs": 105, "tab run": 3}
+  },
+  "secondary_finding": "PDFium refuses 2,090 merges as centred/right against PyMuPDF's 174. A one-line fragment whose centre happens to sit near the column centre is classified centred, so the fragmentation feeds the alignment inference bad input and the alignment inference then blocks the repair. Both are consequences of the block-level fragmentation, not independent defects."
+ },
+ "instrument_caveats": [
+  "The per-source-page fan-out mapper (refine._map_pages, used in the diagnosis that located this bug) attributed 409 rendered pages to y06 source page 19 under PDFium. That is an artifact: that page's own flow is 1.8 page-heights. The mapper votes with distinctive lines, and a render whose text has been fragmented offers few 12-character lines to vote with, so a run of badly-mapped pages collapses onto one predecessor. Every number in this record comes from whole-document line and page censuses, or from the estimator trace, and none depends on that mapping."
+ ]
+}
