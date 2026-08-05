@@ -1,0 +1,1555 @@
+{
+ "schema": "exactdoc.parser-default-flip-evidence.v1",
+ "_note": "THE DELIBERATE BASELINE RE-RECORD OF THE LICENCE MIGRATION. The product's default parser changed from PyMuPDF to PDFium, so `PRODUCT.profile_id()` changed from pymupdf/standard/libreoffice/refine3@240dpi to pdfium/standard/libreoffice/refine3@240dpi -- and a baseline is a claim about a named profile. The gate refused to run at all rather than compare across the two identities, which is the fail-closed behaviour working: see `the_gate_refused_first`.",
+ "adjudicated": true,
+ "adjudication": "Pre-approved as part of gate (c). The justification is not 'the numbers moved and we would like them to be the new numbers' -- it is that the profile IDENTITY changed, which makes the old record a description of a configuration nothing ships any more. Every movement was predicted in advance by an already-ratified parity measurement and checked against it before the record was written.",
+ "measured_on": "2026-08-06",
+ "gating": true,
+ "environment_canonical": true,
+ "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+ "environment": {
+  "os": "linux",
+  "python": "3.12.3",
+  "image_base_digest": "sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90",
+  "soffice": "LibreOffice 24.2.7.2 420(Build:2)",
+  "pdfium": "152.0.7947.0",
+  "pymupdf": "1.28.0",
+  "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+  "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8"
+ },
+ "profile_change": {
+  "product": [
+   "pymupdf/standard/libreoffice/refine3@240dpi",
+   "pdfium/standard/libreoffice/refine3@240dpi"
+  ],
+  "raw": [
+   "pymupdf/standard/none/refine0@240dpi",
+   "pdfium/standard/none/refine0@240dpi"
+  ],
+  "what_moved": "the backend token, and nothing else on either axis"
+ },
+ "the_gate_refused_first": {
+  "_note": "Worth recording because it is the safety property, not an obstacle. `runall.py` at the new default exited 2 without converting a single document: `gate.load_lane` compares the recorded profile_id against options.LANES and raises BaselineInvalid. A gate that had silently scored a PDFium run against PyMuPDF's record would have produced a full table of plausible regressions attributable to nothing.",
+  "message": "invalid gate baseline: baseline lane 'product' is 'pymupdf/standard/libreoffice/refine3@240dpi', active profile is 'pdfium/standard/libreoffice/refine3@240dpi'; baseline lane 'raw' is 'pymupdf/standard/none/refine0@240dpi', active profile is 'pdfium/standard/none/refine0@240dpi'.",
+  "consequence": "`--backend pymupdf` cannot be used to produce a gated 'before' either, and should not be: load_lane reads LANES, not the overridden options. The before column is therefore the FILE OF RECORD, and its continued validity is established by the control below rather than assumed."
+ },
+ "the_control": {
+  "_note": "The question the before/after table cannot answer on its own: is the movement the parser, or did something else in the flip commits move a number? Answered by re-measuring the OLD parser from the NEW tree -- runall's own `run_lane` with `baseline=None`, so the same conversion, the same batch render, the same harness.evaluate and the same `gate.record`, with only the gate comparison skipped -- and diffing that against testkit/gate_baseline.json metric by metric.",
+  "profile_ids": [
+   "pymupdf/standard/libreoffice/refine3@240dpi",
+   "pymupdf/standard/none/refine0@240dpi"
+  ],
+  "documents_per_lane": 16,
+  "reproduces_the_record_exactly": true,
+  "drift_against_the_record": {},
+  "conclusion": "Zero drift in either lane, on every gated metric of every document. Every movement in the table below is therefore attributable to the parser swap and to nothing else in commits 900f0ab or f457567."
+ },
+ "prediction_check": {
+  "_note": "THE POINT OF THIS FILE. docs/evidence/parity-expanded-2026-08-05f.json's `gated16_product` arm is pdfium-vs-pymupdf at exactly the shipping profile, measured and ratified BEFORE the flip. It is therefore a prediction, and the re-record is its test. The rule set in advance: nothing outside the ratified set may move beyond its recorded values, and a surprise stops the re-record rather than being recorded over.",
+  "source": "docs/evidence/parity-expanded-2026-08-05f.json",
+  "arm": "gated16_product",
+  "documents_with_movement": 14,
+  "metric_movements_checked": 32,
+  "movements_matching_the_prediction_exactly": 32,
+  "movements_not_matching": {},
+  "verdict": "Every one of the 32 product-lane metric movements across 14 documents reproduces the parity record to the recorded digit. Not one value moved beyond what was already measured and ratified, so nothing was recorded over a surprise.",
+  "detail": {
+   "01_whitepaper_market.pdf": {
+    "parity_verdict": "minor",
+    "metrics": {
+     "within2pt": {
+      "gate_before": 0.7194,
+      "gate_after": 0.6611,
+      "parity_reference_pymupdf": 0.7194,
+      "parity_candidate_pdfium": 0.6611,
+      "matches_prediction": true
+     },
+     "dy_p50": {
+      "gate_before": 0.5,
+      "gate_after": 1.38,
+      "parity_reference_pymupdf": 0.5,
+      "parity_candidate_pdfium": 1.38,
+      "matches_prediction": true
+     }
+    }
+   },
+   "02_research_paper.pdf": {
+    "parity_verdict": "MAJOR",
+    "metrics": {
+     "within2pt": {
+      "gate_before": 0.7614,
+      "gate_after": 0.6168,
+      "parity_reference_pymupdf": 0.7614,
+      "parity_candidate_pdfium": 0.6168,
+      "matches_prediction": true
+     },
+     "dy_p50": {
+      "gate_before": 0.04,
+      "gate_after": 1.29,
+      "parity_reference_pymupdf": 0.04,
+      "parity_candidate_pdfium": 1.29,
+      "matches_prediction": true
+     }
+    }
+   },
+   "03_tech_report_code.pdf": {
+    "parity_verdict": "MAJOR",
+    "metrics": {
+     "within2pt": {
+      "gate_before": 0.4602,
+      "gate_after": 0.2803,
+      "parity_reference_pymupdf": 0.4602,
+      "parity_candidate_pdfium": 0.2803,
+      "matches_prediction": true
+     },
+     "dy_p50": {
+      "gate_before": 0.54,
+      "gate_after": 1.49,
+      "parity_reference_pymupdf": 0.54,
+      "parity_candidate_pdfium": 1.49,
+      "matches_prediction": true
+     }
+    }
+   },
+   "04_exec_brief.pdf": {
+    "parity_verdict": "better",
+    "metrics": {
+     "within2pt": {
+      "gate_before": 0.2249,
+      "gate_after": 0.4201,
+      "parity_reference_pymupdf": 0.2249,
+      "parity_candidate_pdfium": 0.4201,
+      "matches_prediction": true
+     },
+     "dy_p50": {
+      "gate_before": 3.51,
+      "gate_after": 1.38,
+      "parity_reference_pymupdf": 3.51,
+      "parity_candidate_pdfium": 1.38,
+      "matches_prediction": true
+     }
+    }
+   },
+   "05_memo.pdf": {
+    "parity_verdict": "minor",
+    "metrics": {
+     "dy_p50": {
+      "gate_before": 0.59,
+      "gate_after": 1.39,
+      "parity_reference_pymupdf": 0.59,
+      "parity_candidate_pdfium": 1.39,
+      "matches_prediction": true
+     }
+    }
+   },
+   "c1_whitepaper.pdf": {
+    "parity_verdict": "better",
+    "metrics": {
+     "within2pt": {
+      "gate_before": 0.1938,
+      "gate_after": 0.2812,
+      "parity_reference_pymupdf": 0.1938,
+      "parity_candidate_pdfium": 0.2812,
+      "matches_prediction": true
+     },
+     "dy_p50": {
+      "gate_before": 2.89,
+      "gate_after": 1.89,
+      "parity_reference_pymupdf": 2.89,
+      "parity_candidate_pdfium": 1.89,
+      "matches_prediction": true
+     }
+    }
+   },
+   "c2_paper2col.pdf": {
+    "parity_verdict": "better",
+    "metrics": {
+     "within2pt": {
+      "gate_before": 0.4857,
+      "gate_after": 0.574,
+      "parity_reference_pymupdf": 0.4857,
+      "parity_candidate_pdfium": 0.574,
+      "matches_prediction": true
+     },
+     "dy_p50": {
+      "gate_before": 0.85,
+      "gate_after": 0.55,
+      "parity_reference_pymupdf": 0.85,
+      "parity_candidate_pdfium": 0.55,
+      "matches_prediction": true
+     }
+    }
+   },
+   "c4_i18n.pdf": {
+    "parity_verdict": "MAJOR",
+    "metrics": {
+     "within2pt": {
+      "gate_before": 0.5043,
+      "gate_after": 0.4397,
+      "parity_reference_pymupdf": 0.5043,
+      "parity_candidate_pdfium": 0.4397,
+      "matches_prediction": true
+     },
+     "dy_p50": {
+      "gate_before": 0.85,
+      "gate_after": 0.8,
+      "parity_reference_pymupdf": 0.85,
+      "parity_candidate_pdfium": 0.8,
+      "matches_prediction": true
+     },
+     "live_text_cov": {
+      "gate_before": 1.0,
+      "gate_after": 0.9091,
+      "parity_reference_pymupdf": 1.0,
+      "parity_candidate_pdfium": 0.9091,
+      "matches_prediction": true
+     },
+     "word_recall": {
+      "gate_before": 0.9832,
+      "gate_after": 0.9748,
+      "parity_reference_pymupdf": 0.9832,
+      "parity_candidate_pdfium": 0.9748,
+      "matches_prediction": true
+     },
+     "doc_recall": {
+      "gate_before": 0.9832,
+      "gate_after": 0.9748,
+      "parity_reference_pymupdf": 0.9832,
+      "parity_candidate_pdfium": 0.9748,
+      "matches_prediction": true
+     },
+     "raster_frac": {
+      "gate_before": 0.0,
+      "gate_after": 0.0909,
+      "parity_reference_pymupdf": 0.0,
+      "parity_candidate_pdfium": 0.0909,
+      "matches_prediction": true
+     }
+    }
+   },
+   "c5_graphics.pdf": {
+    "parity_verdict": "better",
+    "metrics": {
+     "dy_p50": {
+      "gate_before": 0.5,
+      "gate_after": 0.45,
+      "parity_reference_pymupdf": 0.5,
+      "parity_candidate_pdfium": 0.45,
+      "matches_prediction": true
+     }
+    }
+   },
+   "c6_long.pdf": {
+    "parity_verdict": "better",
+    "metrics": {
+     "dy_p50": {
+      "gate_before": 0.65,
+      "gate_after": 0.5,
+      "parity_reference_pymupdf": 0.65,
+      "parity_candidate_pdfium": 0.5,
+      "matches_prediction": true
+     }
+    }
+   },
+   "c7_code.pdf": {
+    "parity_verdict": "minor",
+    "metrics": {
+     "within2pt": {
+      "gate_before": 0.9148,
+      "gate_after": 0.9375,
+      "parity_reference_pymupdf": 0.9148,
+      "parity_candidate_pdfium": 0.9375,
+      "matches_prediction": true
+     },
+     "dy_p50": {
+      "gate_before": 0.7,
+      "gate_after": 0.8,
+      "parity_reference_pymupdf": 0.7,
+      "parity_candidate_pdfium": 0.8,
+      "matches_prediction": true
+     }
+    }
+   },
+   "f1_fpdf_brief.pdf": {
+    "parity_verdict": "minor",
+    "metrics": {
+     "within2pt": {
+      "gate_before": 0.621,
+      "gate_after": 0.6048,
+      "parity_reference_pymupdf": 0.621,
+      "parity_candidate_pdfium": 0.6048,
+      "matches_prediction": true
+     },
+     "dy_p50": {
+      "gate_before": 0.0,
+      "gate_after": 1.2,
+      "parity_reference_pymupdf": 0.0,
+      "parity_candidate_pdfium": 1.2,
+      "matches_prediction": true
+     }
+    }
+   },
+   "l1_word_native.pdf": {
+    "parity_verdict": "minor",
+    "metrics": {
+     "within2pt": {
+      "gate_before": 0.0556,
+      "gate_after": 0.1631,
+      "parity_reference_pymupdf": 0.0556,
+      "parity_candidate_pdfium": 0.1631,
+      "matches_prediction": true
+     },
+     "live_text_cov": {
+      "gate_before": 1.0,
+      "gate_after": 0.9883,
+      "parity_reference_pymupdf": 1.0,
+      "parity_candidate_pdfium": 0.9883,
+      "matches_prediction": true
+     },
+     "word_recall": {
+      "gate_before": 1.0,
+      "gate_after": 0.9792,
+      "parity_reference_pymupdf": 1.0,
+      "parity_candidate_pdfium": 0.9792,
+      "matches_prediction": true
+     },
+     "doc_recall": {
+      "gate_before": 1.0,
+      "gate_after": 0.9792,
+      "parity_reference_pymupdf": 1.0,
+      "parity_candidate_pdfium": 0.9792,
+      "matches_prediction": true
+     },
+     "raster_frac": {
+      "gate_before": 0.0,
+      "gate_after": 0.0117,
+      "parity_reference_pymupdf": 0.0,
+      "parity_candidate_pdfium": 0.0117,
+      "matches_prediction": true
+     }
+    }
+   },
+   "r1_reportlab_report.pdf": {
+    "parity_verdict": "MAJOR",
+    "metrics": {
+     "within2pt": {
+      "gate_before": 0.5959,
+      "gate_after": 0.3212,
+      "parity_reference_pymupdf": 0.5959,
+      "parity_candidate_pdfium": 0.3212,
+      "matches_prediction": true
+     },
+     "dy_p50": {
+      "gate_before": 1.5,
+      "gate_after": 1.1,
+      "parity_reference_pymupdf": 1.5,
+      "parity_candidate_pdfium": 1.1,
+      "matches_prediction": true
+     }
+    }
+   }
+  },
+  "_ratified_blocking_four": {
+   "_note": "The four MAJOR findings the parity record carries at this profile. They are the reason the aggregate moved, and they were ratified before the flip, not in response to it.",
+   "02_research_paper.pdf": "within2pt 0.7614 -> 0.6168, dy_p50 0.04 -> 1.29",
+   "03_tech_report_code.pdf": "within2pt 0.4602 -> 0.2803, dy_p50 0.54 -> 1.49",
+   "c4_i18n.pdf": "live_text_cov 1.0 -> 0.9091, raster_frac 0.0 -> 0.0909 -- D10, complex-script raster fallback",
+   "r1_reportlab_report.pdf": "within2pt 0.5959 -> 0.3212"
+  }
+ },
+ "method": "GATE_BASELINE=update testkit/runall.py (clears the record, then gates the same run against the empty one, so its findings are informational and its exit code proves nothing), CHAINED with a plain testkit/runall.py that gates against the record just written. Identical to the method used for the c9d36df re-record; see docs/evidence/c1-band-and-cards-2026-08-05.json.",
+ "the_record_run": {
+  "_note": "Informational by construction: gating a run against an empty record produces one 'unrecorded' finding per document per metric. Its exit code proves nothing and is not cited as a pass.",
+  "product": {
+   "ok": false,
+   "findings": 28,
+   "kinds": [
+    "threshold",
+    "unrecorded"
+   ]
+  },
+  "raw": {
+   "ok": false,
+   "findings": 30,
+   "kinds": [
+    "threshold",
+    "unrecorded"
+   ]
+  }
+ },
+ "the_verification_run": {
+  "_note": "The run that proves anything: a plain testkit/runall.py gating against the freshly written record. It failed on the FIRST attempt, with exactly one finding per lane, and that failure is recorded here rather than smoothed away -- see `the_first_verification_failed`.",
+  "command": "testkit/runall.py",
+  "product": {
+   "verdict": "PASS",
+   "ok": true,
+   "findings": 0,
+   "page_match": "16/16",
+   "within2pt": 0.5241,
+   "live_text_cov": 0.9588,
+   "dy_p50": 1.15
+  },
+  "raw": {
+   "verdict": "PASS",
+   "ok": true,
+   "findings": 0,
+   "page_match": "15/16",
+   "within2pt": 0.3471,
+   "live_text_cov": 0.9588,
+   "dy_p50": 1.95
+  },
+  "both_lanes_pass": true,
+  "regression_findings": 0,
+  "stale_findings": 0
+ },
+ "the_first_verification_failed": {
+  "_note": "One finding per lane, and it was the gate asking for something real rather than noise.",
+  "finding": "undocumented  c4_i18n.pdf  recorded below the live_text_cov threshold with no defect ID; add one to shortfall_defects and to STATUS.md",
+  "why": "PDFium rasterises c4_i18n's complex-script runs where PyMuPDF kept them live, so live_text_cov lands at 0.9091 against a 0.95 release threshold. The gate's rule is that a document recorded BELOW a threshold is a known shortfall and must carry a defect ID -- otherwise a re-record quietly converts a failure into a floor.",
+  "resolution": "`c4_i18n.pdf: D10` added to shortfall_defects in both lanes, and the shortfall written into STATUS.md's limitations list. This is NOT a new concession: c4_i18n's D10 complex-script raster fallback was ratified on 2026-08-04 under DEC-D2 on Google evidence, and the gate was asking for the already-made decision to be visible where it enforces it. `gate.save_lanes` preserves shortfall_defects across a re-record by design -- 'defect IDs are human knowledge and survive a re-record; numbers do not' -- so this is the supported path, not a hand-patched number.",
+  "rerun": "clean: gate PASS on both lanes with zero findings"
+ },
+ "before_after": {
+  "_columns": [
+   "before (pymupdf)",
+   "after (pdfium)"
+  ],
+  "product": {
+   "profile_id": [
+    "pymupdf/standard/libreoffice/refine3@240dpi",
+    "pdfium/standard/libreoffice/refine3@240dpi"
+   ],
+   "aggregate": {
+    "gate_pass_count": [
+     13,
+     12
+    ],
+    "mean_live_text": [
+     0.9652,
+     0.9588
+    ],
+    "mean_within2pt": [
+     0.5389,
+     0.5241
+    ],
+    "median_dy_p50": [
+     0.62,
+     1.15
+    ],
+    "n": [
+     16,
+     16
+    ],
+    "page_match_count": [
+     16,
+     16
+    ]
+   },
+   "documents_moved": [
+    "01_whitepaper_market.pdf",
+    "02_research_paper.pdf",
+    "03_tech_report_code.pdf",
+    "04_exec_brief.pdf",
+    "05_memo.pdf",
+    "c1_whitepaper.pdf",
+    "c2_paper2col.pdf",
+    "c4_i18n.pdf",
+    "c5_graphics.pdf",
+    "c6_long.pdf",
+    "c7_code.pdf",
+    "f1_fpdf_brief.pdf",
+    "l1_word_native.pdf",
+    "r1_reportlab_report.pdf"
+   ],
+   "documents_unchanged": [
+    "c3_tables.pdf",
+    "c8_toc_links.pdf"
+   ],
+   "documents": {
+    "01_whitepaper_market.pdf": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.7194,
+      0.6611
+     ],
+     "dy_p50": [
+      0.5,
+      1.38
+     ],
+     "live_text_cov": [
+      0.9595,
+      0.9595
+     ],
+     "word_recall": [
+      0.9677,
+      0.9677
+     ],
+     "doc_recall": [
+      0.9677,
+      0.9677
+     ],
+     "raster_frac": [
+      0.0405,
+      0.0405
+     ]
+    },
+    "02_research_paper.pdf": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.7614,
+      0.6168
+     ],
+     "dy_p50": [
+      0.04,
+      1.29
+     ],
+     "live_text_cov": [
+      0.9736,
+      0.9736
+     ],
+     "word_recall": [
+      0.9586,
+      0.9586
+     ],
+     "doc_recall": [
+      0.9586,
+      0.9586
+     ],
+     "raster_frac": [
+      0.0264,
+      0.0264
+     ]
+    },
+    "03_tech_report_code.pdf": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.4602,
+      0.2803
+     ],
+     "dy_p50": [
+      0.54,
+      1.49
+     ],
+     "live_text_cov": [
+      0.9827,
+      0.9827
+     ],
+     "word_recall": [
+      1.0,
+      1.0
+     ],
+     "doc_recall": [
+      1.0,
+      1.0
+     ],
+     "raster_frac": [
+      0.0173,
+      0.0173
+     ]
+    },
+    "04_exec_brief.pdf": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.2249,
+      0.4201
+     ],
+     "dy_p50": [
+      3.51,
+      1.38
+     ],
+     "live_text_cov": [
+      0.9406,
+      0.9406
+     ],
+     "word_recall": [
+      0.9337,
+      0.9337
+     ],
+     "doc_recall": [
+      0.9337,
+      0.9337
+     ],
+     "raster_frac": [
+      0.0594,
+      0.0594
+     ]
+    },
+    "05_memo.pdf": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.6386,
+      0.6386
+     ],
+     "dy_p50": [
+      0.59,
+      1.39
+     ],
+     "live_text_cov": [
+      1.0,
+      1.0
+     ],
+     "word_recall": [
+      1.0,
+      1.0
+     ],
+     "doc_recall": [
+      1.0,
+      1.0
+     ],
+     "raster_frac": [
+      0.0,
+      0.0
+     ]
+    },
+    "c1_whitepaper.pdf": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.1938,
+      0.2812
+     ],
+     "dy_p50": [
+      2.89,
+      1.89
+     ],
+     "live_text_cov": [
+      0.9654,
+      0.9654
+     ],
+     "word_recall": [
+      0.9697,
+      0.9697
+     ],
+     "doc_recall": [
+      0.9697,
+      0.9697
+     ],
+     "raster_frac": [
+      0.0346,
+      0.0346
+     ]
+    },
+    "c2_paper2col.pdf": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.4857,
+      0.574
+     ],
+     "dy_p50": [
+      0.85,
+      0.55
+     ],
+     "live_text_cov": [
+      1.0,
+      1.0
+     ],
+     "word_recall": [
+      1.0,
+      1.0
+     ],
+     "doc_recall": [
+      1.0,
+      1.0
+     ],
+     "raster_frac": [
+      0.0,
+      0.0
+     ]
+    },
+    "c3_tables.pdf": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.0,
+      0.0
+     ],
+     "dy_p50": [
+      2.75,
+      2.75
+     ],
+     "live_text_cov": [
+      0.9226,
+      0.9226
+     ],
+     "word_recall": [
+      0.9359,
+      0.9359
+     ],
+     "doc_recall": [
+      0.9359,
+      0.9359
+     ],
+     "raster_frac": [
+      0.0774,
+      0.0774
+     ]
+    },
+    "c4_i18n.pdf": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.5043,
+      0.4397
+     ],
+     "dy_p50": [
+      0.85,
+      0.8
+     ],
+     "live_text_cov": [
+      1.0,
+      0.9091
+     ],
+     "word_recall": [
+      0.9832,
+      0.9748
+     ],
+     "doc_recall": [
+      0.9832,
+      0.9748
+     ],
+     "raster_frac": [
+      0.0,
+      0.0909
+     ]
+    },
+    "c5_graphics.pdf": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.6885,
+      0.6885
+     ],
+     "dy_p50": [
+      0.5,
+      0.45
+     ],
+     "live_text_cov": [
+      0.7067,
+      0.7067
+     ],
+     "word_recall": [
+      0.6778,
+      0.6778
+     ],
+     "doc_recall": [
+      0.6778,
+      0.6778
+     ],
+     "raster_frac": [
+      0.2933,
+      0.2933
+     ]
+    },
+    "c6_long.pdf": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.758,
+      0.758
+     ],
+     "dy_p50": [
+      0.65,
+      0.5
+     ],
+     "live_text_cov": [
+      0.9923,
+      0.9923
+     ],
+     "word_recall": [
+      1.0,
+      1.0
+     ],
+     "doc_recall": [
+      1.0,
+      1.0
+     ],
+     "raster_frac": [
+      0.0077,
+      0.0077
+     ]
+    },
+    "c7_code.pdf": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.9148,
+      0.9375
+     ],
+     "dy_p50": [
+      0.7,
+      0.8
+     ],
+     "live_text_cov": [
+      1.0,
+      1.0
+     ],
+     "word_recall": [
+      1.0,
+      1.0
+     ],
+     "doc_recall": [
+      1.0,
+      1.0
+     ],
+     "raster_frac": [
+      0.0,
+      0.0
+     ]
+    },
+    "c8_toc_links.pdf": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      1.0,
+      1.0
+     ],
+     "dy_p50": [
+      0.1,
+      0.1
+     ],
+     "live_text_cov": [
+      1.0,
+      1.0
+     ],
+     "word_recall": [
+      1.0,
+      1.0
+     ],
+     "doc_recall": [
+      1.0,
+      1.0
+     ],
+     "raster_frac": [
+      0.0,
+      0.0
+     ]
+    },
+    "f1_fpdf_brief.pdf": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.621,
+      0.6048
+     ],
+     "dy_p50": [
+      0.0,
+      1.2
+     ],
+     "live_text_cov": [
+      1.0,
+      1.0
+     ],
+     "word_recall": [
+      1.0,
+      1.0
+     ],
+     "doc_recall": [
+      1.0,
+      1.0
+     ],
+     "raster_frac": [
+      0.0,
+      0.0
+     ]
+    },
+    "l1_word_native.pdf": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.0556,
+      0.1631
+     ],
+     "dy_p50": [
+      0.01,
+      0.01
+     ],
+     "live_text_cov": [
+      1.0,
+      0.9883
+     ],
+     "word_recall": [
+      1.0,
+      0.9792
+     ],
+     "doc_recall": [
+      1.0,
+      0.9792
+     ],
+     "raster_frac": [
+      0.0,
+      0.0117
+     ]
+    },
+    "r1_reportlab_report.pdf": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.5959,
+      0.3212
+     ],
+     "dy_p50": [
+      1.5,
+      1.1
+     ],
+     "live_text_cov": [
+      1.0,
+      1.0
+     ],
+     "word_recall": [
+      1.0,
+      1.0
+     ],
+     "doc_recall": [
+      1.0,
+      1.0
+     ],
+     "raster_frac": [
+      0.0,
+      0.0
+     ]
+    }
+   }
+  },
+  "raw": {
+   "profile_id": [
+    "pymupdf/standard/none/refine0@240dpi",
+    "pdfium/standard/none/refine0@240dpi"
+   ],
+   "aggregate": {
+    "gate_pass_count": [
+     13,
+     12
+    ],
+    "mean_live_text": [
+     0.9652,
+     0.9588
+    ],
+    "mean_within2pt": [
+     0.3604,
+     0.3471
+    ],
+    "median_dy_p50": [
+     1.975,
+     1.95
+    ],
+    "n": [
+     16,
+     16
+    ],
+    "page_match_count": [
+     15,
+     15
+    ]
+   },
+   "documents_moved": [
+    "01_whitepaper_market.pdf",
+    "02_research_paper.pdf",
+    "05_memo.pdf",
+    "c1_whitepaper.pdf",
+    "c2_paper2col.pdf",
+    "c4_i18n.pdf",
+    "c5_graphics.pdf",
+    "l1_word_native.pdf"
+   ],
+   "documents_unchanged": [
+    "03_tech_report_code.pdf",
+    "04_exec_brief.pdf",
+    "c3_tables.pdf",
+    "c6_long.pdf",
+    "c7_code.pdf",
+    "c8_toc_links.pdf",
+    "f1_fpdf_brief.pdf",
+    "r1_reportlab_report.pdf"
+   ],
+   "documents": {
+    "01_whitepaper_market.pdf": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.2208,
+      0.2069
+     ],
+     "dy_p50": [
+      3.68,
+      3.68
+     ],
+     "live_text_cov": [
+      0.9595,
+      0.9595
+     ],
+     "word_recall": [
+      0.9677,
+      0.9677
+     ],
+     "doc_recall": [
+      0.9677,
+      0.9677
+     ],
+     "raster_frac": [
+      0.0405,
+      0.0405
+     ]
+    },
+    "02_research_paper.pdf": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.6701,
+      0.5685
+     ],
+     "dy_p50": [
+      1.09,
+      1.29
+     ],
+     "live_text_cov": [
+      0.9736,
+      0.9736
+     ],
+     "word_recall": [
+      0.9586,
+      0.9586
+     ],
+     "doc_recall": [
+      0.9586,
+      0.9586
+     ],
+     "raster_frac": [
+      0.0264,
+      0.0264
+     ]
+    },
+    "03_tech_report_code.pdf": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.0588,
+      0.0588
+     ],
+     "dy_p50": [
+      4.08,
+      4.08
+     ],
+     "live_text_cov": [
+      0.9827,
+      0.9827
+     ],
+     "word_recall": [
+      1.0,
+      1.0
+     ],
+     "doc_recall": [
+      1.0,
+      1.0
+     ],
+     "raster_frac": [
+      0.0173,
+      0.0173
+     ]
+    },
+    "04_exec_brief.pdf": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.0533,
+      0.0533
+     ],
+     "dy_p50": [
+      9.35,
+      9.35
+     ],
+     "live_text_cov": [
+      0.9406,
+      0.9406
+     ],
+     "word_recall": [
+      0.9337,
+      0.9337
+     ],
+     "doc_recall": [
+      0.9337,
+      0.9337
+     ],
+     "raster_frac": [
+      0.0594,
+      0.0594
+     ]
+    },
+    "05_memo.pdf": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.1566,
+      0.1205
+     ],
+     "dy_p50": [
+      4.29,
+      20.74
+     ],
+     "live_text_cov": [
+      1.0,
+      1.0
+     ],
+     "word_recall": [
+      1.0,
+      1.0
+     ],
+     "doc_recall": [
+      1.0,
+      1.0
+     ],
+     "raster_frac": [
+      0.0,
+      0.0
+     ]
+    },
+    "c1_whitepaper.pdf": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.1,
+      0.1031
+     ],
+     "dy_p50": [
+      2.05,
+      2.0
+     ],
+     "live_text_cov": [
+      0.9654,
+      0.9654
+     ],
+     "word_recall": [
+      0.9697,
+      0.9697
+     ],
+     "doc_recall": [
+      0.9697,
+      0.9697
+     ],
+     "raster_frac": [
+      0.0346,
+      0.0346
+     ]
+    },
+    "c2_paper2col.pdf": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.039,
+      0.039
+     ],
+     "dy_p50": [
+      4.0,
+      3.8
+     ],
+     "live_text_cov": [
+      1.0,
+      1.0
+     ],
+     "word_recall": [
+      1.0,
+      1.0
+     ],
+     "doc_recall": [
+      1.0,
+      1.0
+     ],
+     "raster_frac": [
+      0.0,
+      0.0
+     ]
+    },
+    "c3_tables.pdf": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.0,
+      0.0
+     ],
+     "dy_p50": [
+      7.45,
+      7.45
+     ],
+     "live_text_cov": [
+      0.9226,
+      0.9226
+     ],
+     "word_recall": [
+      0.8648,
+      0.8648
+     ],
+     "doc_recall": [
+      0.9359,
+      0.9359
+     ],
+     "raster_frac": [
+      0.0774,
+      0.0774
+     ]
+    },
+    "c4_i18n.pdf": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.5043,
+      0.4397
+     ],
+     "dy_p50": [
+      0.85,
+      0.8
+     ],
+     "live_text_cov": [
+      1.0,
+      0.9091
+     ],
+     "word_recall": [
+      0.9832,
+      0.9748
+     ],
+     "doc_recall": [
+      0.9832,
+      0.9748
+     ],
+     "raster_frac": [
+      0.0,
+      0.0909
+     ]
+    },
+    "c5_graphics.pdf": {
+     "page_err": [
+      1,
+      1
+     ],
+     "within2pt": [
+      0.8,
+      0.8
+     ],
+     "dy_p50": [
+      0.9,
+      0.35
+     ],
+     "live_text_cov": [
+      0.7067,
+      0.7067
+     ],
+     "word_recall": [
+      0.1667,
+      0.1667
+     ],
+     "doc_recall": [
+      0.6778,
+      0.6778
+     ],
+     "raster_frac": [
+      0.2933,
+      0.2933
+     ]
+    },
+    "c6_long.pdf": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.6738,
+      0.6738
+     ],
+     "dy_p50": [
+      1.3,
+      1.3
+     ],
+     "live_text_cov": [
+      0.9923,
+      0.9923
+     ],
+     "word_recall": [
+      1.0,
+      1.0
+     ],
+     "doc_recall": [
+      1.0,
+      1.0
+     ],
+     "raster_frac": [
+      0.0077,
+      0.0077
+     ]
+    },
+    "c7_code.pdf": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.5568,
+      0.5568
+     ],
+     "dy_p50": [
+      1.9,
+      1.9
+     ],
+     "live_text_cov": [
+      1.0,
+      1.0
+     ],
+     "word_recall": [
+      1.0,
+      1.0
+     ],
+     "doc_recall": [
+      1.0,
+      1.0
+     ],
+     "raster_frac": [
+      0.0,
+      0.0
+     ]
+    },
+    "c8_toc_links.pdf": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      1.0,
+      1.0
+     ],
+     "dy_p50": [
+      0.1,
+      0.1
+     ],
+     "live_text_cov": [
+      1.0,
+      1.0
+     ],
+     "word_recall": [
+      1.0,
+      1.0
+     ],
+     "doc_recall": [
+      1.0,
+      1.0
+     ],
+     "raster_frac": [
+      0.0,
+      0.0
+     ]
+    },
+    "f1_fpdf_brief.pdf": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.6048,
+      0.6048
+     ],
+     "dy_p50": [
+      1.2,
+      1.2
+     ],
+     "live_text_cov": [
+      1.0,
+      1.0
+     ],
+     "word_recall": [
+      1.0,
+      1.0
+     ],
+     "doc_recall": [
+      1.0,
+      1.0
+     ],
+     "raster_frac": [
+      0.0,
+      0.0
+     ]
+    },
+    "l1_word_native.pdf": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.0069,
+      0.0071
+     ],
+     "dy_p50": [
+      2.71,
+      3.31
+     ],
+     "live_text_cov": [
+      1.0,
+      0.9883
+     ],
+     "word_recall": [
+      1.0,
+      0.9792
+     ],
+     "doc_recall": [
+      1.0,
+      0.9792
+     ],
+     "raster_frac": [
+      0.0,
+      0.0117
+     ]
+    },
+    "r1_reportlab_report.pdf": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.3212,
+      0.3212
+     ],
+     "dy_p50": [
+      1.1,
+      1.1
+     ],
+     "live_text_cov": [
+      1.0,
+      1.0
+     ],
+     "word_recall": [
+      1.0,
+      1.0
+     ],
+     "doc_recall": [
+      1.0,
+      1.0
+     ],
+     "raster_frac": [
+      0.0,
+      0.0
+     ]
+    }
+   }
+  }
+ },
+ "aggregates_moved": {
+  "_note": "Recording a re-record honestly means naming the direction. Unlike the c9d36df re-record, where every moved value improved, this one is MIXED and the headline aggregates are slightly worse. That is the ratified cost of the parser swap, it was measured and adjudicated before the swap rather than discovered after it, and it is the price of a default install that carries no AGPL code.",
+  "product": {
+   "gate_pass_count": [
+    13,
+    12
+   ],
+   "mean_live_text": [
+    0.9652,
+    0.9588
+   ],
+   "mean_within2pt": [
+    0.5389,
+    0.5241
+   ],
+   "median_dy_p50": [
+    0.62,
+    1.15
+   ],
+   "n": [
+    16,
+    16
+   ],
+   "page_match_count": [
+    16,
+    16
+   ]
+  },
+  "raw": {
+   "gate_pass_count": [
+    13,
+    12
+   ],
+   "mean_live_text": [
+    0.9652,
+    0.9588
+   ],
+   "mean_within2pt": [
+    0.3604,
+    0.3471
+   ],
+   "median_dy_p50": [
+    1.975,
+    1.95
+   ],
+   "n": [
+    16,
+    16
+   ],
+   "page_match_count": [
+    15,
+    15
+   ]
+  },
+  "reading": {
+   "page_match_count": "unchanged in both lanes (16/16 product, 15/16 raw)",
+   "mean_within2pt": "product 0.5389 -> 0.5241, raw 0.3604 -> 0.3471",
+   "mean_live_text": "0.9652 -> 0.9588 in both lanes, entirely c4_i18n and l1",
+   "median_dy_p50": "product 0.62 -> 1.15, raw 1.975 -> 1.95. The product movement is the dy_p50 absolute-magnitude artifact the parity record already exempted: PyMuPDF reads the declared base-14 ascent where PDFium substitutes a generic one, so documents sitting near zero move by a fraction of one line's leading.",
+   "gate_pass_count": "13 -> 12 in both lanes, which is c4_i18n's new D10 shortfall"
+  }
+ },
+ "what_this_does_not_claim": [
+  "That the product got better. It did not; see aggregates_moved.",
+  "That the numbers describe a default install. The measurement environment installs the `mupdf` extra to run the parity reference arm, so the quality ladder is live here and inert in a base wheel. Quantified in docs/evidence/base-wheel-proof-2026-08-06.json.",
+  "Anything about Google Docs. The post-flip live qualification pass is on the release list."
+ ],
+ "ok": true,
+ "release_ready": false
+}

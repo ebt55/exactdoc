@@ -46,7 +46,13 @@ Known product limitations remain:
 
 - Complex/nested table layouts remain deferred. The ordinary striped long table
   in `c3_tables` is now assembled as one editable table.
-- D10 rasterised text regions in `c5_graphics` and `04_exec_brief`.
+- D10 rasterised text regions in `c5_graphics`, `04_exec_brief` and — since the
+  parser flip — `c4_i18n`, whose complex-script runs PDFium rasterises where
+  PyMuPDF kept them live (`live_text_cov` 1.0 → 0.9091, `raster_frac` 0.0 →
+  0.0909). Ratified as a D10 shortfall on 2026-08-04 under DEC-D2, on Google
+  evidence rather than the LibreOffice proxy, and carried into
+  `gate_baseline.json`'s `shortfall_defects` when the baseline was re-recorded.
+  The gate refused to pass until it was written down, which is the check working.
 - Heavy LaTeX and highly designed/vector pages are deferred; image-only scan/OCR
   PDFs are explicitly rejected as OCR-required rather than silently converted.
 

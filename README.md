@@ -148,18 +148,35 @@ the numbers below describe.
 
 ## Measured state
 
-Shipping profile (quality-first): `pymupdf/standard/libreoffice/refine3@240dpi`.
+Shipping profile (quality-first): `pdfium/standard/libreoffice/refine3@240dpi`.
 `raw` is the same path with refinement off. Canonical figures come from the
 pinned Linux/LibreOffice CI environment:
 
 | Canonical profile | Page match | Mean within 2pt | Mean live text | Median dy50 |
 |---|---:|---:|---:|---:|
-| product | 16/16 | 0.5161 | 0.9652 | 0.675pt |
-| raw | 14/16 | 0.3349 | 0.9652 | 2.79pt |
+| product | 16/16 | 0.5241 | 0.9588 | 1.15pt |
+| raw | 15/16 | 0.3471 | 0.9588 | 1.95pt |
 
-Measured 2026-08-04, both lanes PASS. The regression record asks "did anything
+Measured 2026-08-06, both lanes PASS. The regression record asks "did anything
 get worse?", not "is everything perfect"; the absolute qualification still
 exposes the Tier 2/3 items above.
+
+**These numbers moved when the default parser did, and slightly for the worse.**
+The baseline was re-recorded because `profile_id` changed from `pymupdf/…` to
+`pdfium/…`, which makes the old record a description of a configuration nothing
+ships. Every one of the 32 per-document movements reproduces
+`docs/evidence/parity-expanded-2026-08-05f.json` — measured and ratified
+*before* the swap — to the recorded digit, and a control run confirmed the old
+parser still reproduces the old record exactly from this tree, so the movement
+is the parser and nothing else. See
+[docs/evidence/parser-default-flip-2026-08-06.json](docs/evidence/parser-default-flip-2026-08-06.json).
+
+One caveat these figures do not carry: the measurement environment installs the
+`[mupdf]` extra, because backend parity needs the reference arm. The quality
+ladder needs that extra too, so a **default install runs an inert ladder** and
+produces measurably different output on `c1_whitepaper`, `l1_word_native` and
+`c4_i18n`. Quantified in
+[docs/evidence/base-wheel-proof-2026-08-06.json](docs/evidence/base-wheel-proof-2026-08-06.json).
 
 A separate, deliberately **non-gating** corpus of 21 further documents — 16
 generated, 5 real documents this project did not write — lives in

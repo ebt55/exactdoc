@@ -3,53 +3,53 @@
  "lanes": {
   "product": {
    "aggregate": {
-    "gate_pass_count": 13,
-    "mean_live_text": 0.9652,
-    "mean_within2pt": 0.5389,
-    "median_dy_p50": 0.62,
+    "gate_pass_count": 12,
+    "mean_live_text": 0.9588,
+    "mean_within2pt": 0.5241,
+    "median_dy_p50": 1.15,
     "n": 16,
     "page_match_count": 16
    },
    "documents": {
     "01_whitepaper_market.pdf": {
      "doc_recall": 0.9677,
-     "dy_p50": 0.5,
+     "dy_p50": 1.38,
      "live_text_cov": 0.9595,
      "page_err": 0,
      "raster_frac": 0.0405,
-     "within2pt": 0.7194,
+     "within2pt": 0.6611,
      "word_recall": 0.9677
     },
     "02_research_paper.pdf": {
      "doc_recall": 0.9586,
-     "dy_p50": 0.04,
+     "dy_p50": 1.29,
      "live_text_cov": 0.9736,
      "page_err": 0,
      "raster_frac": 0.0264,
-     "within2pt": 0.7614,
+     "within2pt": 0.6168,
      "word_recall": 0.9586
     },
     "03_tech_report_code.pdf": {
      "doc_recall": 1.0,
-     "dy_p50": 0.54,
+     "dy_p50": 1.49,
      "live_text_cov": 0.9827,
      "page_err": 0,
      "raster_frac": 0.0173,
-     "within2pt": 0.4602,
+     "within2pt": 0.2803,
      "word_recall": 1.0
     },
     "04_exec_brief.pdf": {
      "doc_recall": 0.9337,
-     "dy_p50": 3.51,
+     "dy_p50": 1.38,
      "live_text_cov": 0.9406,
      "page_err": 0,
      "raster_frac": 0.0594,
-     "within2pt": 0.2249,
+     "within2pt": 0.4201,
      "word_recall": 0.9337
     },
     "05_memo.pdf": {
      "doc_recall": 1.0,
-     "dy_p50": 0.59,
+     "dy_p50": 1.39,
      "live_text_cov": 1.0,
      "page_err": 0,
      "raster_frac": 0.0,
@@ -58,20 +58,20 @@
     },
     "c1_whitepaper.pdf": {
      "doc_recall": 0.9697,
-     "dy_p50": 2.89,
+     "dy_p50": 1.89,
      "live_text_cov": 0.9654,
      "page_err": 0,
      "raster_frac": 0.0346,
-     "within2pt": 0.1938,
+     "within2pt": 0.2812,
      "word_recall": 0.9697
     },
     "c2_paper2col.pdf": {
      "doc_recall": 1.0,
-     "dy_p50": 0.85,
+     "dy_p50": 0.55,
      "live_text_cov": 1.0,
      "page_err": 0,
      "raster_frac": 0.0,
-     "within2pt": 0.4857,
+     "within2pt": 0.574,
      "word_recall": 1.0
     },
     "c3_tables.pdf": {
@@ -84,17 +84,17 @@
      "word_recall": 0.9359
     },
     "c4_i18n.pdf": {
-     "doc_recall": 0.9832,
-     "dy_p50": 0.85,
-     "live_text_cov": 1.0,
+     "doc_recall": 0.9748,
+     "dy_p50": 0.8,
+     "live_text_cov": 0.9091,
      "page_err": 0,
-     "raster_frac": 0.0,
-     "within2pt": 0.5043,
-     "word_recall": 0.9832
+     "raster_frac": 0.0909,
+     "within2pt": 0.4397,
+     "word_recall": 0.9748
     },
     "c5_graphics.pdf": {
      "doc_recall": 0.6778,
-     "dy_p50": 0.5,
+     "dy_p50": 0.45,
      "live_text_cov": 0.7067,
      "page_err": 0,
      "raster_frac": 0.2933,
@@ -103,7 +103,7 @@
     },
     "c6_long.pdf": {
      "doc_recall": 1.0,
-     "dy_p50": 0.65,
+     "dy_p50": 0.5,
      "live_text_cov": 0.9923,
      "page_err": 0,
      "raster_frac": 0.0077,
@@ -112,383 +112,11 @@
     },
     "c7_code.pdf": {
      "doc_recall": 1.0,
-     "dy_p50": 0.7,
+     "dy_p50": 0.8,
      "live_text_cov": 1.0,
      "page_err": 0,
      "raster_frac": 0.0,
-     "within2pt": 0.9148,
-     "word_recall": 1.0
-    },
-    "c8_toc_links.pdf": {
-     "doc_recall": 1.0,
-     "dy_p50": 0.1,
-     "live_text_cov": 1.0,
-     "page_err": 0,
-     "raster_frac": 0.0,
-     "within2pt": 1.0,
-     "word_recall": 1.0
-    },
-    "f1_fpdf_brief.pdf": {
-     "doc_recall": 1.0,
-     "dy_p50": 0.0,
-     "live_text_cov": 1.0,
-     "page_err": 0,
-     "raster_frac": 0.0,
-     "within2pt": 0.621,
-     "word_recall": 1.0
-    },
-    "l1_word_native.pdf": {
-     "doc_recall": 1.0,
-     "dy_p50": 0.01,
-     "live_text_cov": 1.0,
-     "page_err": 0,
-     "raster_frac": 0.0,
-     "within2pt": 0.0556,
-     "word_recall": 1.0
-    },
-    "r1_reportlab_report.pdf": {
-     "doc_recall": 1.0,
-     "dy_p50": 1.5,
-     "live_text_cov": 1.0,
-     "page_err": 0,
-     "raster_frac": 0.0,
-     "within2pt": 0.5959,
-     "word_recall": 1.0
-    }
-   },
-   "environment": {
-    "canonical": true,
-    "canonical_mismatches": [],
-    "dependencies": {
-     "fpdf2": "2.8.7",
-     "lxml": "6.1.1",
-     "mupdf": "1.29.0",
-     "numpy": "2.5.1",
-     "pdfium": "152.0.7947.0",
-     "pillow": "12.3.0",
-     "pymupdf": "1.28.0",
-     "pypdfium2": "5.12.1",
-     "python-docx": "1.2.0",
-     "reportlab": "5.0.0"
-    },
-    "fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
-    "font_files": {
-     "count": 35,
-     "digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
-     "files": [
-      {
-       "file": "DejaVuSans-Bold.ttf",
-       "sha256": "5c1247acef7f2b8522a31742c76d6adcb5569bacc0be7ceaa4dc39dd252ce895"
-      },
-      {
-       "file": "DejaVuSans.ttf",
-       "sha256": "ae7b7855e115a5966d8b1b3f80f254ccc117ec86f9965e202ee2940453837280"
-      },
-      {
-       "file": "DejaVuSansMono-Bold.ttf",
-       "sha256": "3a3c502eeff669a231549e80df9f7c49de109bafe303170409e905d0b31a38fe"
-      },
-      {
-       "file": "DejaVuSansMono-BoldOblique.ttf",
-       "sha256": "a5251173370e30760e6919711dcd33e149d216ca4814eb74332bda03fcc7e834"
-      },
-      {
-       "file": "DejaVuSansMono-Oblique.ttf",
-       "sha256": "3d7955616e69721f7edb8e1b7a580f8fbd7d737111c6b54266ddc1d9ef13202f"
-      },
-      {
-       "file": "DejaVuSansMono.ttf",
-       "sha256": "c805f9436dbc268644c1d9584f01a601a653e028e08fd74b9b949f6cf8304d88"
-      },
-      {
-       "file": "DejaVuSerif-Bold.ttf",
-       "sha256": "847b33e13925f19ff87e4d934d6b3cf7cac35ce16424f6f670e40c2f377cf2df"
-      },
-      {
-       "file": "DejaVuSerif.ttf",
-       "sha256": "8f2c103bfa3fd5de71f1b92b18f21906b5a26871fb7e19a9a4c9af539c3cc7ab"
-      },
-      {
-       "file": "FreeMono.ttf",
-       "sha256": "9691040d4d89266db211cd9da1094cf1991beaaf5e01cc752bc1dab84d483534"
-      },
-      {
-       "file": "FreeMonoBold.ttf",
-       "sha256": "7a5ded6ffe5ba84c7c478de521ad0653efae4d2b92b251216bc390c6022e91ac"
-      },
-      {
-       "file": "FreeMonoBoldOblique.ttf",
-       "sha256": "04d540f1fe223d24a391f1c50f98eab6529b2a8fa670d628fad7e8443224967b"
-      },
-      {
-       "file": "FreeMonoOblique.ttf",
-       "sha256": "c350255406bf9dd314c8261d49118b2d44c38d7c2555884eba43dffea7bd7313"
-      },
-      {
-       "file": "FreeSans.ttf",
-       "sha256": "350badd6ab6a58e7fd7a0ea2ae0c10174941a08e1cd06b3c6010e10b3d5ae319"
-      },
-      {
-       "file": "FreeSansBold.ttf",
-       "sha256": "e0a07c1e9495262c430fde74e80daadd0b2a353eb444a47b265c62f5a5836af5"
-      },
-      {
-       "file": "FreeSansBoldOblique.ttf",
-       "sha256": "f26d93f22f70bd97270a6b5506497a8c9e84c64399343cf1c08a50e4016cf967"
-      },
-      {
-       "file": "FreeSansOblique.ttf",
-       "sha256": "31f2e994c6bb0f6c8a8f1d27ae25b4b754ef072154220bb4db2a69e8e3d1193f"
-      },
-      {
-       "file": "FreeSerif.ttf",
-       "sha256": "c57bf5de095af4e070c2acb5bce634316409ed4203b5098f4fdadb691dc7b3d2"
-      },
-      {
-       "file": "FreeSerifBold.ttf",
-       "sha256": "f078f2ac5d38addc71e2c123d86584341360b5bf27bc1cf238574ebe4f5a0f4d"
-      },
-      {
-       "file": "FreeSerifBoldItalic.ttf",
-       "sha256": "c59455ea29607bbf62b0cfdffdc118ade887acd86a68c2c9873fb1187b021e58"
-      },
-      {
-       "file": "FreeSerifItalic.ttf",
-       "sha256": "775b2ed7b9026f288b60f2479e07ee8e3147daa89d75848f11eb21faab662070"
-      },
-      {
-       "file": "LiberationMono-Bold.ttf",
-       "sha256": "626655e94dd82f3f42549daf995c921b0915fa8ab1f4b839559e8892ea41d240"
-      },
-      {
-       "file": "LiberationMono-BoldItalic.ttf",
-       "sha256": "15eb161953e3ecc7fc05a3fec8a59e0f4e0a54a4e375736adf8e98d65981f813"
-      },
-      {
-       "file": "LiberationMono-Italic.ttf",
-       "sha256": "a71b2c25c89da05cf0e7c4dbba8d473fdead0b181ae56165217747d2c1f39215"
-      },
-      {
-       "file": "LiberationMono-Regular.ttf",
-       "sha256": "395fa5ab8d40c8eba390ced528744ea75a7f69aabf3e68b6f925ca0e39a27370"
-      },
-      {
-       "file": "LiberationSans-Bold.ttf",
-       "sha256": "3973aa5054fb467dd5627245d3dc82e37bf16fe075756156a570455871351582"
-      },
-      {
-       "file": "LiberationSans-BoldItalic.ttf",
-       "sha256": "c80fa7f2ffa0e01d4d8dcd6a6d1e43eda665222d1b4db597dde1174c456006cf"
-      },
-      {
-       "file": "LiberationSans-Italic.ttf",
-       "sha256": "830c5fa600505fb4c1a271b4271c53c44bae43f492b2a240d0e98a3a7a380121"
-      },
-      {
-       "file": "LiberationSans-Regular.ttf",
-       "sha256": "4659bc0c58c5028dd488ec928d41d9265db43d9b669fc14ca8b0832daca7b144"
-      },
-      {
-       "file": "LiberationSerif-Bold.ttf",
-       "sha256": "9e66c25e20868756bf12eb24a520a4552727c9cd108f577f7ae33e3c0110e39c"
-      },
-      {
-       "file": "LiberationSerif-BoldItalic.ttf",
-       "sha256": "379010e87421a883f7bbfa7936d23dfe0257a54ce850819b74556e9f2c615a8a"
-      },
-      {
-       "file": "LiberationSerif-Italic.ttf",
-       "sha256": "eaeaf7f2b12544ecde64290c1fa7ec403ff70fd58b313637b265400b20249242"
-      },
-      {
-       "file": "LiberationSerif-Regular.ttf",
-       "sha256": "705903ae1382f0150f115d6f10a30f5b2f3d6ade649c474afe6366c39174fb65"
-      },
-      {
-       "file": "ipag.ttf",
-       "sha256": "503af4a8b84d1079b8e2e358dc7f7a7fb8cb7a1f212f35eaef6782dbfc75a55e"
-      },
-      {
-       "file": "ipagp.ttf",
-       "sha256": "a63f6153841e56ec9df1b31a54d98d3f41d8aaa1c3d8df30a33502296f5b8068"
-      },
-      {
-       "file": "wqy-zenhei.ttc",
-       "sha256": "79c18ebe7b811951e8311bad7103ebeae8c337ed9988ea69e8a78a66cfe029b9"
-      }
-     ],
-     "unreadable": []
-    },
-    "fonts_conf": {
-     "active_is_repo_conf": true,
-     "active_path": "/work/scripts/fonts.conf",
-     "active_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
-     "repo_path": "/work/scripts/fonts.conf",
-     "repo_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528"
-    },
-    "image": {
-     "base_digest": "sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90",
-     "digest": null,
-     "ref": null
-    },
-    "machine": "x86_64",
-    "oracles": {
-     "chrome_path": "/usr/local/bin/chrome-headless-shell",
-     "chrome_version": "Google Chrome for Testing 149.0.7827.55",
-     "font_count": 14,
-     "font_families": [
-      "DejaVu Sans",
-      "DejaVu Sans Mono",
-      "DejaVu Serif",
-      "FreeMono",
-      "FreeSans",
-      "FreeSerif",
-      "IPAGothic",
-      "IPAPGothic",
-      "Liberation Mono",
-      "Liberation Sans",
-      "Liberation Serif",
-      "WenQuanYi Zen Hei",
-      "WenQuanYi Zen Hei Mono",
-      "WenQuanYi Zen Hei Sharp"
-     ],
-     "fontconfig_file": "/work/scripts/fonts.conf",
-     "metric_fonts": [
-      "Liberation Mono",
-      "Liberation Sans",
-      "Liberation Serif"
-     ],
-     "soffice_path": "/usr/bin/soffice",
-     "soffice_version": "LibreOffice 24.2.7.2 420(Build:2)"
-    },
-    "os": "linux",
-    "os_release": "5.15.167.4-microsoft-standard-WSL2",
-    "python": "3.12.3",
-    "schema": 2
-   },
-   "profile_id": "pymupdf/standard/libreoffice/refine3@240dpi",
-   "shortfall_defects": {
-    "04_exec_brief.pdf": "D10",
-    "c3_tables.pdf": "D3",
-    "c5_graphics.pdf": "D10"
-   }
-  },
-  "raw": {
-   "aggregate": {
-    "gate_pass_count": 13,
-    "mean_live_text": 0.9652,
-    "mean_within2pt": 0.3604,
-    "median_dy_p50": 1.975,
-    "n": 16,
-    "page_match_count": 15
-   },
-   "documents": {
-    "01_whitepaper_market.pdf": {
-     "doc_recall": 0.9677,
-     "dy_p50": 3.68,
-     "live_text_cov": 0.9595,
-     "page_err": 0,
-     "raster_frac": 0.0405,
-     "within2pt": 0.2208,
-     "word_recall": 0.9677
-    },
-    "02_research_paper.pdf": {
-     "doc_recall": 0.9586,
-     "dy_p50": 1.09,
-     "live_text_cov": 0.9736,
-     "page_err": 0,
-     "raster_frac": 0.0264,
-     "within2pt": 0.6701,
-     "word_recall": 0.9586
-    },
-    "03_tech_report_code.pdf": {
-     "doc_recall": 1.0,
-     "dy_p50": 4.08,
-     "live_text_cov": 0.9827,
-     "page_err": 0,
-     "raster_frac": 0.0173,
-     "within2pt": 0.0588,
-     "word_recall": 1.0
-    },
-    "04_exec_brief.pdf": {
-     "doc_recall": 0.9337,
-     "dy_p50": 9.35,
-     "live_text_cov": 0.9406,
-     "page_err": 0,
-     "raster_frac": 0.0594,
-     "within2pt": 0.0533,
-     "word_recall": 0.9337
-    },
-    "05_memo.pdf": {
-     "doc_recall": 1.0,
-     "dy_p50": 4.29,
-     "live_text_cov": 1.0,
-     "page_err": 0,
-     "raster_frac": 0.0,
-     "within2pt": 0.1566,
-     "word_recall": 1.0
-    },
-    "c1_whitepaper.pdf": {
-     "doc_recall": 0.9697,
-     "dy_p50": 2.05,
-     "live_text_cov": 0.9654,
-     "page_err": 0,
-     "raster_frac": 0.0346,
-     "within2pt": 0.1,
-     "word_recall": 0.9697
-    },
-    "c2_paper2col.pdf": {
-     "doc_recall": 1.0,
-     "dy_p50": 4.0,
-     "live_text_cov": 1.0,
-     "page_err": 0,
-     "raster_frac": 0.0,
-     "within2pt": 0.039,
-     "word_recall": 1.0
-    },
-    "c3_tables.pdf": {
-     "doc_recall": 0.9359,
-     "dy_p50": 7.45,
-     "live_text_cov": 0.9226,
-     "page_err": 0,
-     "raster_frac": 0.0774,
-     "within2pt": 0.0,
-     "word_recall": 0.8648
-    },
-    "c4_i18n.pdf": {
-     "doc_recall": 0.9832,
-     "dy_p50": 0.85,
-     "live_text_cov": 1.0,
-     "page_err": 0,
-     "raster_frac": 0.0,
-     "within2pt": 0.5043,
-     "word_recall": 0.9832
-    },
-    "c5_graphics.pdf": {
-     "doc_recall": 0.6778,
-     "dy_p50": 0.9,
-     "live_text_cov": 0.7067,
-     "page_err": 1,
-     "raster_frac": 0.2933,
-     "within2pt": 0.8,
-     "word_recall": 0.1667
-    },
-    "c6_long.pdf": {
-     "doc_recall": 1.0,
-     "dy_p50": 1.3,
-     "live_text_cov": 0.9923,
-     "page_err": 0,
-     "raster_frac": 0.0077,
-     "within2pt": 0.6738,
-     "word_recall": 1.0
-    },
-    "c7_code.pdf": {
-     "doc_recall": 1.0,
-     "dy_p50": 1.9,
-     "live_text_cov": 1.0,
-     "page_err": 0,
-     "raster_frac": 0.0,
-     "within2pt": 0.5568,
+     "within2pt": 0.9375,
      "word_recall": 1.0
     },
     "c8_toc_links.pdf": {
@@ -510,13 +138,13 @@
      "word_recall": 1.0
     },
     "l1_word_native.pdf": {
-     "doc_recall": 1.0,
-     "dy_p50": 2.71,
-     "live_text_cov": 1.0,
+     "doc_recall": 0.9792,
+     "dy_p50": 0.01,
+     "live_text_cov": 0.9883,
      "page_err": 0,
-     "raster_frac": 0.0,
-     "within2pt": 0.0069,
-     "word_recall": 1.0
+     "raster_frac": 0.0117,
+     "within2pt": 0.1631,
+     "word_recall": 0.9792
     },
     "r1_reportlab_report.pdf": {
      "doc_recall": 1.0,
@@ -738,11 +366,385 @@
     "python": "3.12.3",
     "schema": 2
    },
-   "profile_id": "pymupdf/standard/none/refine0@240dpi",
+   "profile_id": "pdfium/standard/libreoffice/refine3@240dpi",
+   "shortfall_defects": {
+    "04_exec_brief.pdf": "D10",
+    "c3_tables.pdf": "D3",
+    "c4_i18n.pdf": "D10",
+    "c5_graphics.pdf": "D10"
+   }
+  },
+  "raw": {
+   "aggregate": {
+    "gate_pass_count": 12,
+    "mean_live_text": 0.9588,
+    "mean_within2pt": 0.3471,
+    "median_dy_p50": 1.95,
+    "n": 16,
+    "page_match_count": 15
+   },
+   "documents": {
+    "01_whitepaper_market.pdf": {
+     "doc_recall": 0.9677,
+     "dy_p50": 3.68,
+     "live_text_cov": 0.9595,
+     "page_err": 0,
+     "raster_frac": 0.0405,
+     "within2pt": 0.2069,
+     "word_recall": 0.9677
+    },
+    "02_research_paper.pdf": {
+     "doc_recall": 0.9586,
+     "dy_p50": 1.29,
+     "live_text_cov": 0.9736,
+     "page_err": 0,
+     "raster_frac": 0.0264,
+     "within2pt": 0.5685,
+     "word_recall": 0.9586
+    },
+    "03_tech_report_code.pdf": {
+     "doc_recall": 1.0,
+     "dy_p50": 4.08,
+     "live_text_cov": 0.9827,
+     "page_err": 0,
+     "raster_frac": 0.0173,
+     "within2pt": 0.0588,
+     "word_recall": 1.0
+    },
+    "04_exec_brief.pdf": {
+     "doc_recall": 0.9337,
+     "dy_p50": 9.35,
+     "live_text_cov": 0.9406,
+     "page_err": 0,
+     "raster_frac": 0.0594,
+     "within2pt": 0.0533,
+     "word_recall": 0.9337
+    },
+    "05_memo.pdf": {
+     "doc_recall": 1.0,
+     "dy_p50": 20.74,
+     "live_text_cov": 1.0,
+     "page_err": 0,
+     "raster_frac": 0.0,
+     "within2pt": 0.1205,
+     "word_recall": 1.0
+    },
+    "c1_whitepaper.pdf": {
+     "doc_recall": 0.9697,
+     "dy_p50": 2.0,
+     "live_text_cov": 0.9654,
+     "page_err": 0,
+     "raster_frac": 0.0346,
+     "within2pt": 0.1031,
+     "word_recall": 0.9697
+    },
+    "c2_paper2col.pdf": {
+     "doc_recall": 1.0,
+     "dy_p50": 3.8,
+     "live_text_cov": 1.0,
+     "page_err": 0,
+     "raster_frac": 0.0,
+     "within2pt": 0.039,
+     "word_recall": 1.0
+    },
+    "c3_tables.pdf": {
+     "doc_recall": 0.9359,
+     "dy_p50": 7.45,
+     "live_text_cov": 0.9226,
+     "page_err": 0,
+     "raster_frac": 0.0774,
+     "within2pt": 0.0,
+     "word_recall": 0.8648
+    },
+    "c4_i18n.pdf": {
+     "doc_recall": 0.9748,
+     "dy_p50": 0.8,
+     "live_text_cov": 0.9091,
+     "page_err": 0,
+     "raster_frac": 0.0909,
+     "within2pt": 0.4397,
+     "word_recall": 0.9748
+    },
+    "c5_graphics.pdf": {
+     "doc_recall": 0.6778,
+     "dy_p50": 0.35,
+     "live_text_cov": 0.7067,
+     "page_err": 1,
+     "raster_frac": 0.2933,
+     "within2pt": 0.8,
+     "word_recall": 0.1667
+    },
+    "c6_long.pdf": {
+     "doc_recall": 1.0,
+     "dy_p50": 1.3,
+     "live_text_cov": 0.9923,
+     "page_err": 0,
+     "raster_frac": 0.0077,
+     "within2pt": 0.6738,
+     "word_recall": 1.0
+    },
+    "c7_code.pdf": {
+     "doc_recall": 1.0,
+     "dy_p50": 1.9,
+     "live_text_cov": 1.0,
+     "page_err": 0,
+     "raster_frac": 0.0,
+     "within2pt": 0.5568,
+     "word_recall": 1.0
+    },
+    "c8_toc_links.pdf": {
+     "doc_recall": 1.0,
+     "dy_p50": 0.1,
+     "live_text_cov": 1.0,
+     "page_err": 0,
+     "raster_frac": 0.0,
+     "within2pt": 1.0,
+     "word_recall": 1.0
+    },
+    "f1_fpdf_brief.pdf": {
+     "doc_recall": 1.0,
+     "dy_p50": 1.2,
+     "live_text_cov": 1.0,
+     "page_err": 0,
+     "raster_frac": 0.0,
+     "within2pt": 0.6048,
+     "word_recall": 1.0
+    },
+    "l1_word_native.pdf": {
+     "doc_recall": 0.9792,
+     "dy_p50": 3.31,
+     "live_text_cov": 0.9883,
+     "page_err": 0,
+     "raster_frac": 0.0117,
+     "within2pt": 0.0071,
+     "word_recall": 0.9792
+    },
+    "r1_reportlab_report.pdf": {
+     "doc_recall": 1.0,
+     "dy_p50": 1.1,
+     "live_text_cov": 1.0,
+     "page_err": 0,
+     "raster_frac": 0.0,
+     "within2pt": 0.3212,
+     "word_recall": 1.0
+    }
+   },
+   "environment": {
+    "canonical": true,
+    "canonical_mismatches": [],
+    "dependencies": {
+     "fpdf2": "2.8.7",
+     "lxml": "6.1.1",
+     "mupdf": "1.29.0",
+     "numpy": "2.5.1",
+     "pdfium": "152.0.7947.0",
+     "pillow": "12.3.0",
+     "pymupdf": "1.28.0",
+     "pypdfium2": "5.12.1",
+     "python-docx": "1.2.0",
+     "reportlab": "5.0.0"
+    },
+    "fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "font_files": {
+     "count": 35,
+     "digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+     "files": [
+      {
+       "file": "DejaVuSans-Bold.ttf",
+       "sha256": "5c1247acef7f2b8522a31742c76d6adcb5569bacc0be7ceaa4dc39dd252ce895"
+      },
+      {
+       "file": "DejaVuSans.ttf",
+       "sha256": "ae7b7855e115a5966d8b1b3f80f254ccc117ec86f9965e202ee2940453837280"
+      },
+      {
+       "file": "DejaVuSansMono-Bold.ttf",
+       "sha256": "3a3c502eeff669a231549e80df9f7c49de109bafe303170409e905d0b31a38fe"
+      },
+      {
+       "file": "DejaVuSansMono-BoldOblique.ttf",
+       "sha256": "a5251173370e30760e6919711dcd33e149d216ca4814eb74332bda03fcc7e834"
+      },
+      {
+       "file": "DejaVuSansMono-Oblique.ttf",
+       "sha256": "3d7955616e69721f7edb8e1b7a580f8fbd7d737111c6b54266ddc1d9ef13202f"
+      },
+      {
+       "file": "DejaVuSansMono.ttf",
+       "sha256": "c805f9436dbc268644c1d9584f01a601a653e028e08fd74b9b949f6cf8304d88"
+      },
+      {
+       "file": "DejaVuSerif-Bold.ttf",
+       "sha256": "847b33e13925f19ff87e4d934d6b3cf7cac35ce16424f6f670e40c2f377cf2df"
+      },
+      {
+       "file": "DejaVuSerif.ttf",
+       "sha256": "8f2c103bfa3fd5de71f1b92b18f21906b5a26871fb7e19a9a4c9af539c3cc7ab"
+      },
+      {
+       "file": "FreeMono.ttf",
+       "sha256": "9691040d4d89266db211cd9da1094cf1991beaaf5e01cc752bc1dab84d483534"
+      },
+      {
+       "file": "FreeMonoBold.ttf",
+       "sha256": "7a5ded6ffe5ba84c7c478de521ad0653efae4d2b92b251216bc390c6022e91ac"
+      },
+      {
+       "file": "FreeMonoBoldOblique.ttf",
+       "sha256": "04d540f1fe223d24a391f1c50f98eab6529b2a8fa670d628fad7e8443224967b"
+      },
+      {
+       "file": "FreeMonoOblique.ttf",
+       "sha256": "c350255406bf9dd314c8261d49118b2d44c38d7c2555884eba43dffea7bd7313"
+      },
+      {
+       "file": "FreeSans.ttf",
+       "sha256": "350badd6ab6a58e7fd7a0ea2ae0c10174941a08e1cd06b3c6010e10b3d5ae319"
+      },
+      {
+       "file": "FreeSansBold.ttf",
+       "sha256": "e0a07c1e9495262c430fde74e80daadd0b2a353eb444a47b265c62f5a5836af5"
+      },
+      {
+       "file": "FreeSansBoldOblique.ttf",
+       "sha256": "f26d93f22f70bd97270a6b5506497a8c9e84c64399343cf1c08a50e4016cf967"
+      },
+      {
+       "file": "FreeSansOblique.ttf",
+       "sha256": "31f2e994c6bb0f6c8a8f1d27ae25b4b754ef072154220bb4db2a69e8e3d1193f"
+      },
+      {
+       "file": "FreeSerif.ttf",
+       "sha256": "c57bf5de095af4e070c2acb5bce634316409ed4203b5098f4fdadb691dc7b3d2"
+      },
+      {
+       "file": "FreeSerifBold.ttf",
+       "sha256": "f078f2ac5d38addc71e2c123d86584341360b5bf27bc1cf238574ebe4f5a0f4d"
+      },
+      {
+       "file": "FreeSerifBoldItalic.ttf",
+       "sha256": "c59455ea29607bbf62b0cfdffdc118ade887acd86a68c2c9873fb1187b021e58"
+      },
+      {
+       "file": "FreeSerifItalic.ttf",
+       "sha256": "775b2ed7b9026f288b60f2479e07ee8e3147daa89d75848f11eb21faab662070"
+      },
+      {
+       "file": "LiberationMono-Bold.ttf",
+       "sha256": "626655e94dd82f3f42549daf995c921b0915fa8ab1f4b839559e8892ea41d240"
+      },
+      {
+       "file": "LiberationMono-BoldItalic.ttf",
+       "sha256": "15eb161953e3ecc7fc05a3fec8a59e0f4e0a54a4e375736adf8e98d65981f813"
+      },
+      {
+       "file": "LiberationMono-Italic.ttf",
+       "sha256": "a71b2c25c89da05cf0e7c4dbba8d473fdead0b181ae56165217747d2c1f39215"
+      },
+      {
+       "file": "LiberationMono-Regular.ttf",
+       "sha256": "395fa5ab8d40c8eba390ced528744ea75a7f69aabf3e68b6f925ca0e39a27370"
+      },
+      {
+       "file": "LiberationSans-Bold.ttf",
+       "sha256": "3973aa5054fb467dd5627245d3dc82e37bf16fe075756156a570455871351582"
+      },
+      {
+       "file": "LiberationSans-BoldItalic.ttf",
+       "sha256": "c80fa7f2ffa0e01d4d8dcd6a6d1e43eda665222d1b4db597dde1174c456006cf"
+      },
+      {
+       "file": "LiberationSans-Italic.ttf",
+       "sha256": "830c5fa600505fb4c1a271b4271c53c44bae43f492b2a240d0e98a3a7a380121"
+      },
+      {
+       "file": "LiberationSans-Regular.ttf",
+       "sha256": "4659bc0c58c5028dd488ec928d41d9265db43d9b669fc14ca8b0832daca7b144"
+      },
+      {
+       "file": "LiberationSerif-Bold.ttf",
+       "sha256": "9e66c25e20868756bf12eb24a520a4552727c9cd108f577f7ae33e3c0110e39c"
+      },
+      {
+       "file": "LiberationSerif-BoldItalic.ttf",
+       "sha256": "379010e87421a883f7bbfa7936d23dfe0257a54ce850819b74556e9f2c615a8a"
+      },
+      {
+       "file": "LiberationSerif-Italic.ttf",
+       "sha256": "eaeaf7f2b12544ecde64290c1fa7ec403ff70fd58b313637b265400b20249242"
+      },
+      {
+       "file": "LiberationSerif-Regular.ttf",
+       "sha256": "705903ae1382f0150f115d6f10a30f5b2f3d6ade649c474afe6366c39174fb65"
+      },
+      {
+       "file": "ipag.ttf",
+       "sha256": "503af4a8b84d1079b8e2e358dc7f7a7fb8cb7a1f212f35eaef6782dbfc75a55e"
+      },
+      {
+       "file": "ipagp.ttf",
+       "sha256": "a63f6153841e56ec9df1b31a54d98d3f41d8aaa1c3d8df30a33502296f5b8068"
+      },
+      {
+       "file": "wqy-zenhei.ttc",
+       "sha256": "79c18ebe7b811951e8311bad7103ebeae8c337ed9988ea69e8a78a66cfe029b9"
+      }
+     ],
+     "unreadable": []
+    },
+    "fonts_conf": {
+     "active_is_repo_conf": true,
+     "active_path": "/work/scripts/fonts.conf",
+     "active_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+     "repo_path": "/work/scripts/fonts.conf",
+     "repo_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528"
+    },
+    "image": {
+     "base_digest": "sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90",
+     "digest": null,
+     "ref": null
+    },
+    "machine": "x86_64",
+    "oracles": {
+     "chrome_path": "/usr/local/bin/chrome-headless-shell",
+     "chrome_version": "Google Chrome for Testing 149.0.7827.55",
+     "font_count": 14,
+     "font_families": [
+      "DejaVu Sans",
+      "DejaVu Sans Mono",
+      "DejaVu Serif",
+      "FreeMono",
+      "FreeSans",
+      "FreeSerif",
+      "IPAGothic",
+      "IPAPGothic",
+      "Liberation Mono",
+      "Liberation Sans",
+      "Liberation Serif",
+      "WenQuanYi Zen Hei",
+      "WenQuanYi Zen Hei Mono",
+      "WenQuanYi Zen Hei Sharp"
+     ],
+     "fontconfig_file": "/work/scripts/fonts.conf",
+     "metric_fonts": [
+      "Liberation Mono",
+      "Liberation Sans",
+      "Liberation Serif"
+     ],
+     "soffice_path": "/usr/bin/soffice",
+     "soffice_version": "LibreOffice 24.2.7.2 420(Build:2)"
+    },
+    "os": "linux",
+    "os_release": "5.15.167.4-microsoft-standard-WSL2",
+    "python": "3.12.3",
+    "schema": 2
+   },
+   "profile_id": "pdfium/standard/none/refine0@240dpi",
    "shortfall_defects": {
     "04_exec_brief.pdf": "D10",
     "c1_whitepaper.pdf": "D4",
     "c3_tables.pdf": "D3",
+    "c4_i18n.pdf": "D10",
     "c5_graphics.pdf": "D10"
    }
   }
