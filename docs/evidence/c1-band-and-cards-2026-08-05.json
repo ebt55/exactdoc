@@ -1,0 +1,222 @@
+{
+ "_note": "Two defects on c1_whitepaper were cancelling each other, and each alone measured within2pt 0.0000 in BOTH parser arms -- on the gated fixture that stands in for the document class this converter exists for. `before` is the 7154669 converter; `after` is the same tree with `options.ladder` defaulted on and `infer.FIG_MERGE_GAP` raised 4.0 -> 6.0. The two commits between the audit and this landing (832a5eb, 7154669) touched testkit, docs and evidence only -- no file under exactdoc/ -- so the `before` column measured at 2948e4b describes 7154669 unchanged. Both columns measured in the canonical container, same corpus, same profiles. This record also carries the RAW-LANE BASELINE RE-RECORD: c1's page_err and word_recall improved past their recorded values, a gate that fails on improvement needs its record moved, and the move was made deliberately here rather than absorbed silently.",
+ "adjudicated": true,
+ "adjudication": "Landed as one commit on coordinator adjudication. The two changes are inseparable: see `cancellation` below.",
+ "schema": "exactdoc.c1-band-and-cards-evidence.v1",
+ "environment_canonical": true,
+ "environment_fingerprint": "3ca438f17d905cef",
+ "gating": true,
+ "mechanism": {
+  "D-A": {
+   "_note": "Shared by both parser arms. This is the whole of the within2pt 0.0000 -- a constant offset no word escaped.",
+   "arms": "pdfium and pymupdf, identical to 0.01pt above the card row",
+   "cause_chain": [
+    "c1's cover band is a Chromium full-bleed fill inset to y0=7.16; `detect_hf.top_bands` seeds only on y0 <= 2.5, so cover_band is None and the band ships as an ordinary in-flow `box` table.",
+    "The band cell holds ONE paragraph carrying two source lines: a 9.77pt title and an 8.0pt subtitle. `_split_lines_to_paras` splits on a dominant-size ratio over 1.3 (9.77/8.00 = 1.221) or a baseline gap over max(lead*1.55, lead+4) = 26.3pt (the gap is 16.94pt). Neither fires.",
+    "The renderer sets both runs on one line. The row renders 98.15pt against a declared 112.68pt.",
+    "Every element below inherits the lost line."
+   ],
+   "measured": {
+    "band_fill_src_y": [7.16, 119.84],
+    "band_fill_src_height": 112.68,
+    "band_fill_rendered_y": [10.0, 108.15],
+    "band_fill_rendered_height": 98.15,
+    "row_height_shortfall_pt": -14.53,
+    "band_bottom_error_pt": -11.69,
+    "first_body_line_dy_pt": -11.87,
+    "subtitle_signature": {
+     "_note": "The subtitle sitting on the title's line is the defect made visible.",
+     "dx_pt": 337.36,
+     "dy_pt": -13.6
+    }
+   },
+   "fix": "options.ladder default False -> True. The ladder already computed this case correctly (predict_lines -> 1 against src_lines 2, _lock -> True, inserts the soft break); it simply never ran in any profile."
+  },
+  "D-B": {
+   "_note": "PyMuPDF only. PDFium reports a stroke ring outside each card fill, merged the row on its own, and showed no step -- the two arms disagreeing was itself the evidence that the row is one figure.",
+   "arms": "pymupdf only",
+   "cause_chain": [
+    "c1's three rounded-corner stat cards share an exact source y-extent (222.2..279.5) and sit in 9.33pt gutters.",
+    "After `build_figure`'s own +/-2pt clip padding the surviving gap is 5.3pt; `_merge_figures` expanded by 4.0pt and missed by 1.3pt.",
+    "Three block-level FigureEls stack vertically: 171pt of flow against the source's 57pt."
+   ],
+   "measured": {
+    "card_clips_after_padding": [[59.8, 222.2, 220.5, 279.5],
+                                 [225.8, 222.2, 387.2, 279.5],
+                                 [392.5, 222.2, 553.2, 279.5]],
+    "padded_gutter_pt": 5.3,
+    "raw_source_gutter_pt": 9.33,
+    "old_merge_expansion_pt": 4.0,
+    "new_merge_expansion_pt": 6.0,
+    "step_at_card_row_pt": 115.2,
+    "excess_flow_pt": 114.0,
+    "pdfium_merged_figure": [59.0, 221.4, 554.0, 280.3],
+    "pymupdf_figure_count_before": 3,
+    "pymupdf_figure_count_after": 1
+   },
+   "fix": "infer.FIG_MERGE_GAP 4.0 -> 6.0. Clears 5.3 with margin, still far below the 9.33pt raw gutter."
+  },
+  "D-C": {
+   "_note": "OUT OF SCOPE, characterised and left. Now the sole driver of c1's remaining dy_p90.",
+   "measured_dy_pt": -53.4,
+   "finding": "Page 2's first paragraph carries space_before=1050 twips (52.5pt). The writer emits it correctly -- verified in word/document.xml, p41 -- and the renderer drops w:spacing w:before at the top of a page after a hard break. The page-break carrier paragraph (p40) is 1pt exact with before=0.",
+   "shape_of_fix": "Emit a page-top leading gap as an explicit spacer paragraph rather than relying on w:before, as the writer already does for chunk pre-gaps. Needs live Google Docs evidence to scope: whether Docs drops it too is unmeasured, and the proxy-mispredicts rule forbids promoting a gdocs compensation on LibreOffice evidence."
+  },
+  "D-D": {
+   "_note": "OUT OF SCOPE, characterised and left.",
+   "finding": "Residual horizontal drift dominates within2pt once D-A and D-B are fixed: dx_p50 2.62 overall, with justified lines at dx 25-38. This is a re-wrap problem, untouched here, and it is why c1's within2pt lands at 0.10-0.14 rather than near 1.0 despite dy_p50 2.0.",
+   "measured_dx_p50_pt": 2.62
+  }
+ },
+ "cancellation": {
+  "_note": "Why the two changes are one commit. Fixing D-A alone REMOVES a -11.7pt error that had been partly hiding a +115pt one, so the composite metric gets worse while the document gets strictly more correct at the top. Measured, not reasoned.",
+  "c1_raw_lane_dy_p50": {
+   "before": 101.0,
+   "ladder_alone": 116.2,
+   "both": 2.0
+  },
+  "c1_raw_lane_word_recall": {
+   "before": 0.797,
+   "ladder_alone": 0.7667,
+   "both": 0.9697
+  },
+  "ladder_alone_gate": "FAIL (raw): 2 findings, both REGRESSIONS on c1 -- dy_p50 101 -> 116.2 and word_recall 0.797 -> 0.7667."
+ },
+ "isolation": {
+  "_note": "Per-line displacement maps, c1 only, open loop. The field is a flat constant plus one step -- not a leading-model error and not accumulating. Measured at the standard profile (exact line mode), which is the encoding LibreOffice is calibrated for; the ramp visible at the gdocs profile is the multiple-encoding-through-LibreOffice artifact and is not a real error.",
+  "profile_id": "pymupdf/standard/none/refine0@240dpi",
+  "field_by_source_y": {
+   "_columns": ["src_y", "pdfium_dy", "pymupdf_dy"],
+   "before": [[138, -12.92, -12.92], [200, -13.55, -13.55], [296, -13.03, 101.72],
+              [453, -13.27, 101.48], [712, -10.47, null], [-2, -53.38, -53.41]],
+   "after": [[138, 2.38, 2.38], [200, 1.75, 1.75], [296, 2.27, 2.32],
+             [453, 2.03, 2.08], [712, 4.83, 4.88], [-2, -53.38, -53.38]],
+   "_note": "src_y -2 is page 2, which D-C still owns."
+  },
+  "c1_open_loop": {
+   "pdfium": {"dy_p50": {"before": 13.49, "after": 2.0},
+              "within2pt": {"before": 0.0, "after": 0.1031},
+              "pages": {"before": "2/2", "after": "2/2"},
+              "matched_words": {"before": 320, "after": 320}},
+   "pymupdf": {"dy_p50": {"before": 100.96, "after": 2.05},
+               "within2pt": {"before": 0.0, "after": 0.1},
+               "pages": {"before": "2/3", "after": "2/2"},
+               "matched_words": {"before": 263, "after": 320}}
+  },
+  "c1_gdocs_parity_profile": {
+   "profile_id": "pdfium/gdocs/none/refine0@240dpi",
+   "pdfium": {"dy_p50": {"before": 10.28, "after": 2.69},
+              "within2pt": {"before": 0.0, "after": 0.1375}},
+   "pymupdf": {"dy_p50": {"before": 102.11, "after": 2.74},
+               "within2pt": {"before": 0.0, "after": 0.1375}},
+   "arms_agree_after": true
+  }
+ },
+ "gate": {
+  "_note": "testkit/runall.py, both lanes, canonical container. Zero regressions across all 32 cells (16 documents x 2 lanes); 24 cells byte-identical. The `after` numbers are the re-recorded baseline, and the verification run below gates against them.",
+  "before": {
+   "product": {"verdict": "PASS", "page_match": "16/16", "within2pt": 0.5161,
+               "dy_p50": 0.675, "live_text_cov": 0.9652},
+   "raw": {"verdict": "PASS", "page_match": "14/16", "within2pt": 0.3349,
+           "dy_p50": 2.79, "live_text_cov": 0.9652}
+  },
+  "after": {
+   "product": {"verdict": "PASS", "page_match": "16/16", "within2pt": 0.5389,
+               "dy_p50": 0.62, "live_text_cov": 0.9652},
+   "raw": {"verdict": "PASS", "page_match": "15/16", "within2pt": 0.3604,
+           "dy_p50": 1.975, "live_text_cov": 0.9652}
+  },
+  "regressions": 0,
+  "cells_unchanged": 24,
+  "cells_total": 32
+ },
+ "baseline_rerecord": {
+  "_note": "A HEADLINE EVENT, not a footnote. Recording an improvement is still moving a gate's floor, and the reason has to survive the commit that did it.",
+  "lanes": ["product", "raw"],
+  "why": "With both fixes live the raw lane reported gate FAIL with 2 findings, both STALE rather than regressions: c1's page_err cleared 0 but was recorded as 1, and its word_recall reached 0.9697 against a recorded 0.797. A stale record re-admits the regression it exists to catch, so the gate correctly refuses to pass until the record is moved.",
+  "method": "GATE_BASELINE=update testkit/runall.py (clears the record, then gates the same run against the empty one, so its findings are informational and its exit code proves nothing), CHAINED with a second plain testkit/runall.py that gates against the record just written.",
+  "verification_run": {
+   "product": {"verdict": "PASS", "page_match": "16/16", "within2pt": 0.5389, "dy_p50": 0.62},
+   "raw": {"verdict": "PASS", "page_match": "15/16", "within2pt": 0.3604, "dy_p50": 1.975},
+   "regression_findings": 0,
+   "stale_findings": 0
+  },
+  "values_moved": {
+   "product.mean_within2pt": [0.5161, 0.5389],
+   "product.median_dy_p50": [0.675, 0.62],
+   "raw.mean_within2pt": [0.3349, 0.3604],
+   "raw.median_dy_p50": [2.79, 1.975],
+   "raw.page_match_count": [14, 15],
+   "raw.c1_whitepaper.dy_p50": [100.96, 2.05],
+   "raw.c1_whitepaper.page_err": [1, 0],
+   "raw.c1_whitepaper.within2pt": [0.0, 0.1],
+   "raw.c1_whitepaper.word_recall": [0.797, 0.9697],
+   "product.c1_whitepaper.dy_p50": [29.36, 2.89],
+   "product.c1_whitepaper.within2pt": [0.1781, 0.1938],
+   "raw.c4_i18n.within2pt": [0.1966, 0.5043],
+   "product.c4_i18n.within2pt": [0.1966, 0.5043],
+   "product.l1_word_native.dy_p50": [14.69, 0.01],
+   "product.l1_word_native.word_recall": [0.9931, 1.0],
+   "raw.l1_word_native.dy_p50": [26.69, 2.71]
+  },
+  "_direction_note": "Every moved value improves. No recorded floor was lowered."
+ },
+ "documents": {
+  "_columns": ["pages_before", "pages_after", "dy_p50_before", "dy_p50_after",
+               "within2pt_before", "within2pt_after"],
+  "product": {
+   "01_whitepaper_market.pdf": ["3/3", "3/3", 0.5, 0.5, 0.72, 0.72],
+   "02_research_paper.pdf": ["2/2", "2/2", 0.0, 0.0, 0.76, 0.76],
+   "03_tech_report_code.pdf": ["2/2", "2/2", 0.5, 0.5, 0.46, 0.46],
+   "04_exec_brief.pdf": ["2/2", "2/2", 3.5, 3.5, 0.22, 0.22],
+   "05_memo.pdf": ["1/1", "1/1", 0.6, 0.6, 0.64, 0.64],
+   "c1_whitepaper.pdf": ["2/2", "2/2", 29.4, 2.9, 0.18, 0.19],
+   "c2_paper2col.pdf": ["1/1", "1/1", 0.8, 0.8, 0.49, 0.49],
+   "c3_tables.pdf": ["3/3", "3/3", 2.8, 2.8, 0.0, 0.0],
+   "c4_i18n.pdf": ["1/1", "1/1", 0.9, 0.8, 0.2, 0.5],
+   "c5_graphics.pdf": ["1/1", "1/1", 0.5, 0.5, 0.69, 0.69],
+   "c6_long.pdf": ["7/7", "7/7", 0.7, 0.7, 0.76, 0.76],
+   "c7_code.pdf": ["1/1", "1/1", 0.7, 0.7, 0.91, 0.91],
+   "c8_toc_links.pdf": ["1/1", "1/1", 0.1, 0.1, 1.0, 1.0],
+   "f1_fpdf_brief.pdf": ["1/1", "1/1", 0.0, 0.0, 0.62, 0.62],
+   "l1_word_native.pdf": ["1/1", "1/1", 14.7, 0.0, 0.01, 0.06],
+   "r1_reportlab_report.pdf": ["1/1", "1/1", 1.5, 1.5, 0.6, 0.6]
+  },
+  "raw": {
+   "01_whitepaper_market.pdf": ["3/3", "3/3", 3.7, 3.7, 0.22, 0.22],
+   "02_research_paper.pdf": ["2/2", "2/2", 1.1, 1.1, 0.67, 0.67],
+   "03_tech_report_code.pdf": ["2/2", "2/2", 4.1, 4.1, 0.06, 0.06],
+   "04_exec_brief.pdf": ["2/2", "2/2", 9.3, 9.3, 0.05, 0.05],
+   "05_memo.pdf": ["1/1", "1/1", 4.3, 4.3, 0.16, 0.16],
+   "c1_whitepaper.pdf": ["2/3", "2/2", 101.0, 2.0, 0.0, 0.1],
+   "c2_paper2col.pdf": ["1/1", "1/1", 4.0, 4.0, 0.04, 0.04],
+   "c3_tables.pdf": ["3/3", "3/3", 7.5, 7.5, 0.0, 0.0],
+   "c4_i18n.pdf": ["1/1", "1/1", 0.9, 0.8, 0.2, 0.5],
+   "c5_graphics.pdf": ["1/2", "1/2", 0.9, 0.9, 0.8, 0.8],
+   "c6_long.pdf": ["7/7", "7/7", 1.3, 1.3, 0.67, 0.67],
+   "c7_code.pdf": ["1/1", "1/1", 1.9, 1.9, 0.56, 0.56],
+   "c8_toc_links.pdf": ["1/1", "1/1", 0.1, 0.1, 1.0, 1.0],
+   "f1_fpdf_brief.pdf": ["1/1", "1/1", 1.2, 1.2, 0.6, 0.6],
+   "l1_word_native.pdf": ["1/1", "1/1", 26.7, 2.7, 0.01, 0.01],
+   "r1_reportlab_report.pdf": ["1/1", "1/1", 1.1, 1.1, 0.32, 0.32]
+  }
+ },
+ "collateral_improvements": {
+  "_note": "Not targeted, and the reason this change is NOT c1-scoped -- which is why it needed adjudication rather than a quiet landing.",
+  "c4_i18n.pdf": "within2pt 0.1966 -> 0.5043 in BOTH lanes. Its CJK/RTL lines are re-wrap-sensitive and the ladder pins them.",
+  "l1_word_native.pdf": "product dy_p50 14.69 -> 0.01 and word_recall 0.9931 -> 1.0; raw dy_p50 26.69 -> 2.71. A PDF printed from a word processor is exactly the case where source line breaks are authoritative."
+ },
+ "live_prediction": {
+  "_note": "FOR THE LIVE-PASS LEDGER. A PREDICTION, NOT A RESULT. Per the standing rule, a gdocs-profile change is never promoted on LibreOffice-proxy evidence alone; this entry exists to be confirmed or falsified by a live pass, and must not be cited as a measurement until then.",
+  "document": "c1_whitepaper.pdf",
+  "recorded_live_dy_p50": 9.3,
+  "predicted_live_dy_p50": "~2-3pt",
+  "advisory": "c1_marginal (dy_p50 9.30 against a policy bound of 10) should clear comfortably if the prediction holds.",
+  "reasoning": "D-A is a structural line-count error in the document -- a row that renders one line shorter than the source -- not a line-metric translation. It should therefore transfer to Google Docs rather than being a proxy artifact. The proxy's own before-number at the gdocs profile (10.28) sits close to the recorded live 9.30, which is consistent with a renderer-independent cause.",
+  "confirmed": false,
+  "requires": "a live Google Docs qualification pass"
+ },
+ "residuals_out_of_scope": ["D-C", "D-D"],
+ "ok": true,
+ "release_ready": false
+}

@@ -5,8 +5,8 @@
    "aggregate": {
     "gate_pass_count": 13,
     "mean_live_text": 0.9652,
-    "mean_within2pt": 0.5161,
-    "median_dy_p50": 0.675,
+    "mean_within2pt": 0.5389,
+    "median_dy_p50": 0.62,
     "n": 16,
     "page_match_count": 16
    },
@@ -58,11 +58,11 @@
     },
     "c1_whitepaper.pdf": {
      "doc_recall": 0.9697,
-     "dy_p50": 29.36,
+     "dy_p50": 2.89,
      "live_text_cov": 0.9654,
      "page_err": 0,
      "raster_frac": 0.0346,
-     "within2pt": 0.1781,
+     "within2pt": 0.1938,
      "word_recall": 0.9697
     },
     "c2_paper2col.pdf": {
@@ -85,11 +85,11 @@
     },
     "c4_i18n.pdf": {
      "doc_recall": 0.9832,
-     "dy_p50": 0.87,
+     "dy_p50": 0.85,
      "live_text_cov": 1.0,
      "page_err": 0,
      "raster_frac": 0.0,
-     "within2pt": 0.1966,
+     "within2pt": 0.5043,
      "word_recall": 0.9832
     },
     "c5_graphics.pdf": {
@@ -138,13 +138,13 @@
      "word_recall": 1.0
     },
     "l1_word_native.pdf": {
-     "doc_recall": 0.9931,
-     "dy_p50": 14.69,
+     "doc_recall": 1.0,
+     "dy_p50": 0.01,
      "live_text_cov": 1.0,
      "page_err": 0,
      "raster_frac": 0.0,
-     "within2pt": 0.014,
-     "word_recall": 0.9931
+     "within2pt": 0.0556,
+     "word_recall": 1.0
     },
     "r1_reportlab_report.pdf": {
      "doc_recall": 1.0,
@@ -375,12 +375,12 @@
   },
   "raw": {
    "aggregate": {
-    "gate_pass_count": 12,
+    "gate_pass_count": 13,
     "mean_live_text": 0.9652,
-    "mean_within2pt": 0.3349,
-    "median_dy_p50": 2.79,
+    "mean_within2pt": 0.3604,
+    "median_dy_p50": 1.975,
     "n": 16,
-    "page_match_count": 14
+    "page_match_count": 15
    },
    "documents": {
     "01_whitepaper_market.pdf": {
@@ -430,12 +430,12 @@
     },
     "c1_whitepaper.pdf": {
      "doc_recall": 0.9697,
-     "dy_p50": 100.96,
+     "dy_p50": 2.05,
      "live_text_cov": 0.9654,
-     "page_err": 1,
+     "page_err": 0,
      "raster_frac": 0.0346,
-     "within2pt": 0.0,
-     "word_recall": 0.797
+     "within2pt": 0.1,
+     "word_recall": 0.9697
     },
     "c2_paper2col.pdf": {
      "doc_recall": 1.0,
@@ -457,11 +457,11 @@
     },
     "c4_i18n.pdf": {
      "doc_recall": 0.9832,
-     "dy_p50": 0.87,
+     "dy_p50": 0.85,
      "live_text_cov": 1.0,
      "page_err": 0,
      "raster_frac": 0.0,
-     "within2pt": 0.1966,
+     "within2pt": 0.5043,
      "word_recall": 0.9832
     },
     "c5_graphics.pdf": {
@@ -510,13 +510,13 @@
      "word_recall": 1.0
     },
     "l1_word_native.pdf": {
-     "doc_recall": 0.9931,
-     "dy_p50": 26.69,
+     "doc_recall": 1.0,
+     "dy_p50": 2.71,
      "live_text_cov": 1.0,
      "page_err": 0,
      "raster_frac": 0.0,
-     "within2pt": 0.007,
-     "word_recall": 0.9931
+     "within2pt": 0.0069,
+     "word_recall": 1.0
     },
     "r1_reportlab_report.pdf": {
      "doc_recall": 1.0,

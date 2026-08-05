@@ -13,6 +13,7 @@ from unittest import mock
 
 from exactdoc.convert import convert
 from exactdoc.errors import OracleError, OutputWriteError
+from exactdoc.layout import DocLayout
 from exactdoc.options import RAW
 from exactdoc.refine import refine
 
@@ -50,7 +51,10 @@ class AtomicConversionTests(unittest.TestCase):
         )
 
     def _convert_open_loop(self, writer):
-        lay = object()
+        # A real (empty) layout, not a bare object: the shipping profile runs
+        # the quality ladder, which walks `lay.pages`. These tests are about
+        # atomic replacement and must not double as a pin on that default.
+        lay = DocLayout()
         with mock.patch("exactdoc.convert._select_backend", return_value=_Backend()), \
              mock.patch("exactdoc.convert.parse_input", return_value=object()), \
              mock.patch("exactdoc.convert.normalize", return_value=object()), \

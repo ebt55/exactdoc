@@ -2049,6 +2049,27 @@ def _can_relax_bottom_margin(lay: DocLayout) -> bool:
     return True
 
 
+# How close two figure regions must be to be one figure. A row of cards is a
+# row, not a stack: the writer emits every FigureEl as a block, so N side-by-side
+# regions that failed to merge cost (N-1) x their height in flow the source never
+# spent.
+#
+# 4.0 was 1.3pt short of the case this converter exists for. c1's three
+# rounded-corner stat cards share an exact y-extent (222.2..279.5) and sit in
+# 9.33pt gutters; after `build_figure`'s own +/-2pt clip padding the surviving
+# gap is 5.3pt, so a 4pt expansion missed and PyMuPDF emitted three stacked
+# figures -- 171pt of flow against the source's 57pt. Measured: a +115pt step at
+# exactly the card row, page 1 overflowing to a third page, and word placement
+# 0.797. PDFium reports a stroke ring just outside each fill, merged the row into
+# one 495x59 figure on its own, and showed no step at all -- the two arms
+# disagreeing was itself the evidence that the row is one figure.
+#
+# 6.0 clears 5.3 with margin and is still far below the 9.33pt raw gutter, so
+# genuinely separate figures a source spaced normally do not collide. Measured
+# over the gated sixteen: no document's figure count changes except c1's.
+FIG_MERGE_GAP = 6.0
+
+
 def _merge_figures(elements):
     figs = [e for e in elements if isinstance(e, FigureEl)]
     other = [e for e in elements if not isinstance(e, FigureEl)]
@@ -2059,7 +2080,7 @@ def _merge_figures(elements):
         for f in figs:
             hit = None
             for g in out:
-                if bbox_overlap(_expand(f.clip, 4), g.clip) > 0:
+                if bbox_overlap(_expand(f.clip, FIG_MERGE_GAP), g.clip) > 0:
                     hit = g
                     break
             if hit:

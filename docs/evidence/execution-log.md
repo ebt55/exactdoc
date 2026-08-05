@@ -308,6 +308,83 @@ that sentence rather than beneath it: the pass became clean partly *because* a
 waiver was ratified after it was measured, and the second pass must be a fresh
 consented run.
 
+## 2026-08-05 — two defects that were hiding each other, and a re-record
+
+Canonical environment, fingerprint `3ca438f17d905cef…`, evidence at
+`docs/evidence/c1-band-and-cards-2026-08-05.json`.
+
+**1. The symptom.** `c1_whitepaper` — the gated fixture standing in for exactly
+the document class this converter exists for — measured `within2pt` **0.0000 in
+both parser arms**. Not low: zero. No word anywhere in the document landed
+within 2pt of its source position, on either backend.
+
+**2. Why it was zero, and why that was two answers.** Auditing placement per
+line rather than in aggregate showed the field is not one thing. Above the stat
+cards both arms are identical to 0.01pt at a flat **−13.5pt**; below them PyMuPDF
+jumps to **+101.7** and PDFium does not move at all. A flat constant plus one
+step — not a leading model error, not accumulation.
+
+- **The constant (both arms).** c1's cover band is a Chromium full-bleed fill
+  inset to `y0=7.16`, and `top_bands` seeds only on `y0 <= 2.5`, so it ships as
+  an ordinary in-flow box table. Its cell holds *one* paragraph carrying two
+  source lines — a 9.77pt title and an 8.0pt subtitle — because the paragraph
+  splitter wants a size ratio over 1.3 (this is **1.221**) or a baseline gap over
+  26.3pt (this is **16.94**). Neither fires, the renderer sets both runs on one
+  line, and the row comes out **98.15pt against a declared 112.68pt**. Every
+  element below inherits the lost line. The quality ladder fixes precisely this,
+  computes it correctly, and **was switched off in every profile**.
+- **The step (PyMuPDF only).** The three stat cards share an exact source
+  y-extent and sit in 9.33pt gutters; after `build_figure`'s ±2pt clip padding
+  the gap is 5.3pt and `_merge_figures` expanded by **4.0** — missing by 1.3pt.
+  Three stacked block figures cost 171pt of flow against the source's 57pt.
+  PDFium merged the row on its own and showed no step; **the two arms
+  disagreeing was itself the evidence that the row is one figure.**
+
+**3. The cancellation, which is the real lesson.** Turning the ladder on *alone*
+made c1's raw-lane `dy_p50` go **101 → 116.2** and word recall **0.797 →
+0.7667**, and the gate correctly called both regressions. Nothing had broken:
+removing the −11.7pt error stopped it partly hiding the +115pt one. THEORY §6
+recorded the ladder as a compensator that "neither improved page counts" — true
+of the ladder alone, false once the thing cancelling it was also fixed. **A
+compensator that does not pay alone has not been shown not to pay.** The two
+changes therefore land as one commit and are pinned together by
+`tests/test_card_row_and_ladder_default.py`.
+
+**4. The deliberate re-record.** With both fixes live the raw lane went red on
+two **stale** findings — c1's `page_err` cleared 0 but was recorded as 1, and
+word recall reached 0.9697 against a recorded 0.797. Same inverse failure as
+2026-08-04: the gate was red *about the record*, not about quality. Re-recorded
+with `GATE_BASELINE=update` and re-verified by a chained plain run that gates
+against the record just written — **PASS both lanes, zero regression findings,
+zero stale findings.** Every moved value improves; no floor was lowered.
+
+| lane | page match | mean within-2pt | mean live text | median dy50 |
+|---|---:|---:|---:|---:|
+| product, before | 16/16 | 0.5161 | 0.9652 | 0.675pt |
+| product, after | 16/16 | 0.5389 | 0.9652 | 0.62pt |
+| raw, before | 14/16 | 0.3349 | 0.9652 | 2.79pt |
+| raw, after | 15/16 | 0.3604 | 0.9652 | 1.975pt |
+
+**Zero regressions across all 32 cells** (16 documents × 2 lanes); 24 are
+byte-identical. c1's raw lane goes `2/3 → 2/2` pages and `dy_p50` **101.0 → 2.0**;
+the arms now agree (PDFium 2.00, PyMuPDF 2.05) where they disagreed by 87pt.
+Two documents moved without being targeted, and that is why this needed
+adjudication rather than a quiet landing: `c4_i18n` within-2pt **0.1966 →
+0.5043** in both lanes, and `l1_word_native` product `dy_p50` **14.69 → 0.01**.
+
+**5. What is left, named so nobody re-discovers it as new.** Page 2's first
+paragraph carries `space_before=1050` twips and the renderer drops `w:before` at
+a page top after a hard break — **−53.4pt**, now the sole driver of c1's residual
+`dy_p90`, and unfixed here because scoping it needs live Docs evidence rather
+than the LibreOffice proxy. And once the vertical error is gone, **horizontal**
+re-wrap drift dominates (`dx_p50` 2.62, justified lines at 25–38pt), which is why
+within-2pt lands at 0.10–0.14 rather than near 1.0 despite `dy_p50` 2.0.
+
+**Predicted, not measured:** c1's live Google Docs `dy_p50` should go **9.30 →
+~2–3pt**, clearing the `c1_marginal` advisory. D-A is a structural line-count
+error rather than a line-metric translation, so it ought to transfer — but per
+the standing rule this is a prediction awaiting a live pass, not a result.
+
 **A defect found while doing this, not yet fixed.** `assess` refuses the
 committed evidence files. It validates the evidence shape with an exact key set,
 and the stamping step that files a run into `docs/evidence/` adds a `git`

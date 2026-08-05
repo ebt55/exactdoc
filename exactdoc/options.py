@@ -135,7 +135,28 @@ class ConversionOptions:
     oracle: str = "libreoffice"
     refine_rounds: int = 3
     dpi: int = 240
-    ladder: bool = False
+    #: Pin the source line breaks of a paragraph the renderer would re-wrap.
+    #:
+    #: Off for most of this project's life, on the recorded grounds that
+    #: line-locking "neither improved page counts". That was true of the ladder
+    #: ALONE and false of the document class this converter exists for. c1's
+    #: cover band holds one paragraph carrying two source lines -- a 9.77pt
+    #: title and an 8.0pt subtitle that `_split_lines_to_paras` declines to
+    #: separate, because the size ratio is 1.221 against a 1.3 threshold and the
+    #: baseline gap is 16.94pt against a 26.3pt one. The renderer sets both runs
+    #: on ONE line, the row renders 98.15pt against a declared 112.68pt, and
+    #: every element below inherits -11.7pt. Measured on the first body line:
+    #: -11.87. That constant is why c1 scored within2pt 0.0000 in BOTH parser
+    #: arms -- no word escaped it, so no word was ever within 2pt.
+    #:
+    #: The ladder already computed this case correctly (`predict_lines` -> 1,
+    #: `_lock` -> True); it simply never ran. Turning it on takes c1's raw lane
+    #: from dy_p50 101.0 to 2.0 and its page count from 2/3 to 2/2 -- but ONLY
+    #: together with the figure-merge fix in `infer._merge_figures`. Alone it
+    #: measured c1 dy_p50 101 -> 116.2, because removing this -11.7pt stops it
+    #: cancelling the +115pt stat-card step. Two defects were hiding each other.
+    #: See docs/evidence/c1-band-and-cards-2026-08-05.json.
+    ladder: bool = True
     verbose: bool = False
     #: Per-call consent for an oracle that sends the document to a third party.
     #: Never read from the environment: an exported variable must not be able to

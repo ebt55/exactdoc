@@ -304,8 +304,15 @@ code with the converter for this reason. See STATUS.md §4.5.
   (line-locking) and the half-point wrap correction. Each fixes something real
   and measurable; neither improved page counts, and the wrap correction *costs*
   a page unless the page-capacity model knows the predicted line count before
-  the first write. Both are gated off. Shipping a measured regression is worse
-  than shipping nothing.
+  the first write. Shipping a measured regression is worse than shipping
+  nothing. **The ladder was switched back on 2026-08-05**: "neither improved
+  page counts" was measured with the ladder alone, and alone it does not,
+  because a second defect was cancelling it. c1's cover band lost a line to a
+  re-wrap (−11.7pt on every element below) while its stat-card row was emitted
+  as a vertical stack (+115pt); each error hid the other, and fixing only the
+  first made the composite metric *worse*. Landed together, c1's raw lane goes
+  2/3 → 2/2 pages and dy_p50 101.0 → 2.0. **A compensator that does not pay
+  alone has not been shown not to pay — check what is cancelling it.**
 - **Guessing at the pdfium placement gap** — "most likely baseline or line-box
   geometry" was written into the defect register and survived a full revision
   of it. Direct measurement found baselines identical on 4,734 of 4,734 lines;
