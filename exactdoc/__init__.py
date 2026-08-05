@@ -4,8 +4,10 @@
     convert("paper.pdf", "paper.docx")
 
 The public surface is deliberately small: `convert`, the options profile that
-supplies its defaults, and `__version__`. Everything else is internal and may
-move between alpha releases.
+supplies its defaults, and `__version__`. That is what 1.0.0 commits to.
+Everything else is internal and may move in a minor release -- the parser seam,
+the inference thresholds and the writer's profile constants are all measured
+values that move when a measurement moves.
 
 Names resolve lazily (PEP 562) so that `import exactdoc` costs nothing but this
 docstring. It also lets an explicitly selected candidate reach the backend seam

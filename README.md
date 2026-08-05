@@ -146,6 +146,70 @@ the numbers below describe.
   No OCR engine is bundled — by design, a wrong-but-confident transcription is
   worse than an honest refusal.
 
+### The specific ones, with numbers
+
+Generated from the ratified quality policy and the live pass-7 evidence rather
+than from recollection. Where a number is quoted it is measured.
+
+**Long, dense, multi-column documents inflate their page count — badly.** This
+is the largest known defect and it is not subtle. Real published documents,
+measured on the non-gating expansion corpus: an 80-page NIST publication comes
+out at 106 pages, a 114-page one at 161, a 126-page IRS instruction booklet at
+337. Document recall stays around 0.90 while word recall collapses toward
+0.11–0.24, because everything after the first overflow lands on the wrong page
+and stops matching. The gated corpus is 1–7 pages and cannot compound a per-page
+error into a page-count error, which is exactly why this class is measured
+separately. **If your documents are long dense booklets, this release is not for
+them yet.** Tracked as the headline post-release item (n-column reconstruction).
+
+**Interactive forms are refused, by contract.** A fillable AcroForm whose
+content lives in its field values converts to a convincing-looking non-form —
+measured at 0.085 SSIM on IRS Form 1040 while exiting zero, which is worse than
+failing. `InteractiveFormError`, **exit code 19**. The threshold is a per-page
+widget census: a page is a form page at 12+ widgets and the document is a form
+when form pages are a tenth of it.
+
+**There is a page cap, and it is a decision you can make.** 250 pages by
+default. Over it, `PageLimitError`, **exit code 20** — the one resource refusal
+you can answer: `--max-pages N` raises it, `--max-pages 0` removes it. Its own
+exit code rather than a generic resource error precisely because it is
+answerable.
+
+**Image-only scans are refused.** `OcrRequiredError`, **exit code 17**. No OCR
+engine is bundled.
+
+**Google Docs adds about 14.6pt of white above a page-one cover band, and we
+cannot remove it.** Probe-measured on Docs itself: requested top margins of
+0/4/8/14.4/20pt render as 14.55/18.83/22.83/29.23/34.83 — an *addition*, not a
+clamp, so no requested value reaches the paper edge. The writer compensates what
+is compensable and accepts the floor. It costs `01_whitepaper_market` structural
+similarity (mean_ssim 0.6909 against a 0.70 bar) and that document carries a
+bounded, self-retiring waiver in the ratified policy. Side margins, by contrast,
+Docs honours exactly, so a true side bleed is reachable and is used.
+
+**Small residual drift on cover-heavy pages.** After the band itself is placed
+correctly, a rasterised figure region can render a few points taller than its
+source (measured +5.91pt on `c1_whitepaper`'s merged stat-card row), and the
+error accumulates gently down a dense page. `c1_whitepaper` lands at dy_p50
+5.56pt live against a 10.0pt bound — inside, and not zero.
+
+**Page-top spacing after a hard break.** Renderers drop `w:spacing w:before` at
+the top of a page following a hard break, so a paragraph that should start low
+on a fresh page starts flush. Measured at −53pt on one gated document's page 2.
+Emitting an explicit spacer paragraph is the shape of the fix; it is not done.
+
+**Designed/vector pages score poorly and that is the honest outcome.**
+`c5_graphics` is a page out and recalls 17% of its words, because the page *is*
+artwork: the text is inside rasterised regions and counted as non-live by
+design. It sits in the policy's non-blocking `designed_stress` tier for that
+reason, not as an excuse.
+
+**The `[mupdf]` extra changes nothing about output.** Both installs produce
+identical DOCX content on all 16 gated fixtures, proven by content hash. It
+exists only for the legacy PyMuPDF parser path and as the reference arm for
+parity measurement — and it is AGPL-3.0-or-later, so installing it changes your
+obligations for anything you distribute.
+
 ## Measured state
 
 Shipping profile (quality-first): `pdfium/standard/libreoffice/refine3@240dpi`.

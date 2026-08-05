@@ -1,0 +1,96 @@
+{
+ "schema": "exactdoc.release.v1",
+ "_note": "The 1.0.0 release artifact and the four proofs it rests on. Built in the canonical measurement image from the release tree.",
+ "version": "1.0.0",
+ "released_on": "2026-08-06",
+ "gating": false,
+ "_gating_note": "False: this file records an artifact and points at the proofs. It measures nothing itself -- every number it cites lives in the artifact it cites.",
+ "artifact": {
+  "file": "exactdoc-1.0.0-py3-none-any.whl",
+  "bytes": 215098,
+  "sha256": "82be220399cc4038146db809dc74a08296613980a8f46bea949c5d4adf822d4d",
+  "built_in": "docker/gate.Dockerfile, base sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90",
+  "build_tooling": "a throwaway virtualenv, so no build tooling entered the pinned measurement environment"
+ },
+ "metadata": {
+  "core_requires_dist": [
+   "pypdfium2>=4.25",
+   "python-docx>=1.1",
+   "numpy>=1.24",
+   "pillow>=10.0",
+   "lxml>=4.9"
+  ],
+  "extra_requires_dist": [
+   "reportlab>=4.0; extra == \"test\"",
+   "fpdf2>=2.7; extra == \"test\"",
+   "pymupdf>=1.23; extra == \"mupdf\"",
+   "google-api-python-client>=2.100; extra == \"gdocs\"",
+   "google-auth-httplib2>=0.1; extra == \"gdocs\"",
+   "google-auth-oauthlib>=1.1; extra == \"gdocs\""
+  ],
+  "provides_extra": [
+   "test",
+   "mupdf",
+   "gdocs"
+  ],
+  "license": [
+   "License: Apache-2.0",
+   "License-File: LICENSE"
+  ],
+  "classifiers": [
+   "Development Status :: 5 - Production/Stable",
+   "Intended Audience :: Developers",
+   "License :: OSI Approved :: Apache Software License",
+   "Programming Language :: Python :: 3",
+   "Topic :: Text Processing :: Markup",
+   "Topic :: Office/Business :: Office Suites"
+  ]
+ },
+ "the_shipped_closure": {
+  "_note": "A fresh virtualenv given nothing but this wheel. This is what `pip install exactdoc` resolves.",
+  "packages": [
+   "exactdoc==1.0.0",
+   "lxml==6.1.1",
+   "numpy==2.5.1",
+   "pillow==12.3.0",
+   "pip==24.0",
+   "pypdfium2==5.12.1",
+   "python-docx==1.2.0",
+   "typing_extensions==4.16.0"
+  ],
+  "count": 8,
+  "no_copyleft_in_core": true,
+  "pymupdf_present": false
+ },
+ "the_four_release_proofs": {
+  "1_regression_gate": {
+   "artifact": "docs/evidence/cover-band-seed-rerecord-2026-08-06.json",
+   "claim": "both lanes PASS at the bound baseline, zero findings. product 16/16 within2pt 0.5274 live 0.9588 dy50 1.045; raw 15/16 0.3615 0.9588 1.6",
+   "baseline": "testkit/gate_baseline.json"
+  },
+  "2_base_wheel_proof": {
+   "artifact": "docs/evidence/base-wheel-proof-2026-08-06.json",
+   "claim": "the wheel installs and converts in a virtualenv that never had PyMuPDF: no copyleft package present, 25/25 modules import, 16/16 gated fixtures convert, suite green",
+   "and": "docs/evidence/permissive-shaper-2026-08-06.json shows the two installs produce identical DOCX content on all 16 fixtures, so the `mupdf` extra is not a quality axis"
+  },
+  "3_live_qualification": {
+   "artifact": "docs/evidence/gdocs-2026-08-06-pass7-qualification.json",
+   "raw": "docs/evidence/gdocs-2026-08-06-pass7-qualification.raw.json",
+   "assessment": "docs/evidence/gdocs-2026-08-06-pass7-assessment.json",
+   "claim": "live pass 7 against Google Docs: overall_pass true, ZERO blocking findings, 16/16 uploaded and cleaned up, zero orphans, on DOCX verified byte-identical to a PyMuPDF-free install"
+  },
+  "4_licence_audit": {
+   "artifact": "docs/license-audit.md",
+   "claim": "Apache-2.0 with PyMuPDF the sole former blocker, moved to an optional extra; the embedded AFM metrics' provenance is recorded in section 5.4",
+   "open": "section 10 items 1 and 2 -- provenance of the initial source, and legal review -- remain OPEN and were never closable by engineering. 1.0.0 does not claim them."
+  }
+ },
+ "what_1_0_0_commits_to": "The public API: `convert`, `ConversionOptions`, `PRODUCT`, `RAW` and `__version__`. Internals -- the parser seam, inference thresholds, writer profile constants -- are measured values and move when a measurement moves.",
+ "what_it_does_not_claim": [
+  "That long dense multi-column booklets convert well. They inflate their page count badly; it is the headline post-release item and it is stated in the README with numbers.",
+  "Platform coverage beyond Linux. pypdfium2 ships per-platform binaries and only Linux is proven end to end.",
+  "Legal review. None has happened."
+ ],
+ "ok": true,
+ "release_ready": true
+}

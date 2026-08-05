@@ -1,9 +1,34 @@
 # exactdoc status
 
+**RELEASED: 1.0.0, 2026-08-06.** Apache-2.0, PDFium core, live-validated against
+Google Docs. Artifact and the four proofs it rests on:
+[docs/evidence/release-1.0.0-2026-08-06.json](docs/evidence/release-1.0.0-2026-08-06.json).
+Wheel `exactdoc-1.0.0-py3-none-any.whl`, sha256
+`82be220399cc4038146db809dc74a08296613980a8f46bea949c5d4adf822d4d`.
+
 This is the current measured state. The corpus is 16 frozen fixtures pinned by
 SHA-256; canonical figures come from the pinned Linux/LibreOffice environment.
 Regression baselines answer “did this get worse?” They are not an absolute claim
 that every document meets release quality.
+
+## Post-release queue
+
+1.0.0 ships with known limitations, stated with numbers in the README. What is
+queued against them, headline first:
+
+| # | Item | Why it leads |
+|---|---|---|
+| **#38** | **n-column reconstruction** | **The headline.** Long dense multi-column booklets inflate their page count — an 80-page NIST publication comes out at 106, a 126-page IRS booklet at 337 — and word recall collapses to 0.11–0.24 because everything after the first overflow lands on the wrong page. It is the largest measured defect in the product. |
+| #20 | `_para_box` boundary arithmetic | The remaining 2.30pt of c2's continuous-section over-emission. Touches every paragraph's `space_before`, so it moves the whole corpus and both lanes. |
+| #23 | assess/stamp schema | `assess` rejects the git stamp, so every qualification is committed twice (raw beside stamped). Cosmetic but it costs a file per pass. |
+| #37 | figure-region height | A rasterised figure renders a few points taller than its source (+5.91pt measured on c1's stat-card row); the residual accumulates down cover-heavy pages. |
+| #42 | page-top spacing after a hard break | Renderers drop `w:spacing w:before` at the top of a page after a hard break; −53pt measured on one gated page 2. An explicit spacer paragraph is the shape of the fix. |
+| #43 | platform coverage | The base-wheel proof is Linux-only; pypdfium2 ships per-platform binaries, so Windows and macOS wheels are unproven end to end. |
+| #44 | `test_font_metrics_probe` on non-pinned hosts | Now searches platform font directories, but one test still skips where Noto Serif is absent. |
+
+Two items from the licence audit (§10) are **not** engineering work and remain
+open: the provenance of the initial source (LIC-01), and legal review. 1.0.0
+does not claim either.
 
 ## Shipping quality
 
