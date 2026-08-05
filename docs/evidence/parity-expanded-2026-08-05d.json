@@ -1,0 +1,7252 @@
+{
+ "_methodology_change": "parity_policy.json's ratified `dy_absolute_exemption` (2.0pt both arms, conditioned on within2pt) did not exist when -05 was written. Applying it only to the new numbers would manufacture improvements out of a policy change, so EVERY snapshot in `history` is re-banded through the same rule from the dimensions each file already stores. The delta therefore isolates the code change.",
+ "_note": "BINDING expanded backend-parity evidence for migration gate (a) -- the measurement every ratification entry is written from. Fifth point in a series; -04, -04b, -05, -05b and -05c are left untouched. Every gating-relevant key here is false: this measures a migration decision, it does not authorise one. gate.py never saw the expansion corpus, and no per-document floor or waiver was read or applied.",
+ "adjudicated": false,
+ "canonical_gate": {
+  "_note": "testkit/runall.py run on this exact tree and container BEFORE any parity measurement, as the environment sanity check. Both lanes passed, so the parity numbers that follow describe a healthy environment rather than a broken one.",
+  "baseline_event": "none -- no baseline was re-recorded, and none was needed",
+  "product": "PASS -- pagematch 16/16, within2pt 0.5161, live 0.9652, dy_p50 0.675",
+  "raw": "PASS -- pagematch 14/16, within2pt 0.3349, live 0.9652, dy_p50 2.79",
+  "unchanged_from_05": "Both lanes report the same figures as the -05 snapshot's gate run, so the gated product lanes did not move across the campaign."
+ },
+ "claim_checks": {
+  "63ca9e1_restores_c7_code": {
+   "_note": "Confirmed means no measured framing still reports MAJOR for this document. The per-framing numbers are given so the call can be checked rather than trusted.",
+   "claim": "the marker baseline-run guard restores c7_code to `same` on all five dimensions it lost at -05b",
+   "commit": "63ca9e1",
+   "document": "c7_code.pdf",
+   "lost_at_05b": [
+    "doc_recall",
+    "word_recall",
+    "within2pt",
+    "dy_p50",
+    "raster_frac"
+   ],
+   "measured": {
+    "gated16_candidate": {
+     "dy_p50_05c": 2.0,
+     "dy_p50_now": 2.0,
+     "verdict_05c": "same",
+     "verdict_now": "same",
+     "within2pt_05c": 0.4091,
+     "within2pt_now": 0.4091,
+     "worse_05c": [],
+     "worse_now": []
+    },
+    "gated16_product": {
+     "dy_p50_05c": 0.8,
+     "dy_p50_now": 0.8,
+     "verdict_05c": "minor",
+     "verdict_now": "minor",
+     "within2pt_05c": 0.9375,
+     "within2pt_now": 0.9375,
+     "worse_05c": [],
+     "worse_now": []
+    }
+   },
+   "result": "CONFIRMED"
+  },
+  "63ca9e1_restores_x11": {
+   "_note": "Confirmed means no measured framing still reports MAJOR for this document. The per-framing numbers are given so the call can be checked rather than trusted.",
+   "claim": "x11 returns to same/better",
+   "commit": "63ca9e1",
+   "document": "x11_chrome_toc_headings.pdf",
+   "measured": {
+    "expansion_candidate": {
+     "dy_p50_05c": 46.6,
+     "dy_p50_now": 57.85,
+     "verdict_05c": "better",
+     "verdict_now": "minor",
+     "within2pt_05c": 0.0052,
+     "within2pt_now": 0.0054,
+     "worse_05c": [],
+     "worse_now": []
+    },
+    "expansion_product_sample": {
+     "dy_p50_05c": 72.28,
+     "dy_p50_now": 93.25,
+     "verdict_05c": "better",
+     "verdict_now": "minor",
+     "within2pt_05c": 0.0055,
+     "within2pt_now": 0.0043,
+     "worse_05c": [],
+     "worse_now": []
+    }
+   },
+   "result": "CONFIRMED"
+  },
+  "e7f5e64_restores_02_research": {
+   "_note": "Confirmed means no measured framing still reports MAJOR for this document. The per-framing numbers are given so the call can be checked rather than trusted.",
+   "claim": "the pitch-floor firing condition restores 02_research_paper",
+   "commit": "e7f5e64",
+   "document": "02_research_paper.pdf",
+   "measured": {
+    "gated16_candidate": {
+     "dy_p50_05c": 0.69,
+     "dy_p50_now": 0.69,
+     "verdict_05c": "minor",
+     "verdict_now": "minor",
+     "within2pt_05c": 0.6675,
+     "within2pt_now": 0.7157,
+     "worse_05c": [],
+     "worse_now": []
+    },
+    "gated16_product": {
+     "dy_p50_05c": 1.29,
+     "dy_p50_now": 1.29,
+     "verdict_05c": "MAJOR",
+     "verdict_now": "MAJOR",
+     "within2pt_05c": 0.5685,
+     "within2pt_now": 0.6168,
+     "worse_05c": [
+      "within2pt",
+      "dy_p50"
+     ],
+     "worse_now": [
+      "within2pt",
+      "dy_p50"
+     ]
+    }
+   },
+   "result": "REFUTED",
+   "target_candidate_within2pt": 0.6675,
+   "target_product_within2pt": 0.5685
+  }
+ },
+ "dy_exemption": {
+  "pdfium/gdocs/none/refine0@240dpi": {
+   "both_arms_below_pt": 2.0,
+   "clears_at_record": [
+    "x13_rl_report_running.pdf"
+   ],
+   "conditioned_on": [
+    "within2pt"
+   ],
+   "evidence": "docs/evidence/parity-expanded-2026-08-05.json, measurement `expansion_candidate`",
+   "measured_on": "2026-08-05",
+   "reason": "At the candidate profile the rule clears exactly one document: x13_rl_report_running, dy 0.85 -> 1.36 with within2pt 0.4825 -> 0.4389 (inside its 0.08 margin) and no other dimension worse. It is the only base-14 document in its class here. Every other dy regression at this profile is an order of magnitude larger and structural."
+  },
+  "pymupdf/standard/libreoffice/refine3@240dpi": {
+   "both_arms_below_pt": 2.0,
+   "clears_at_record": [
+    "01_whitepaper_market.pdf",
+    "05_memo.pdf",
+    "f1_fpdf_brief.pdf"
+   ],
+   "conditioned_on": [
+    "within2pt"
+   ],
+   "evidence": "docs/evidence/parity-expanded-2026-08-05.json, measurement `gated16_product`",
+   "measured_on": "2026-08-05",
+   "reason": "At the shipping settings FIVE gated base-14 documents carry a dy_p50 regression inside the 2.0pt ceiling -- 01 (0.5 -> 1.38), 02 (0.04 -> 1.29), 03 (0.54 -> 1.49), 05 (0.59 -> 1.39) and f1 (0.0 -> 1.2) -- but the rule clears only THREE of them. 02_research_paper and 03_tech_report_code are held back by the condition: their within2pt collapses 0.7614 -> 0.5685 and 0.4602 -> 0.2803, far outside the 0.08 margin, so their placement really did degrade and the magnitude rule must not excuse it. Both keep a MAJOR verdict on within2pt with or without this exemption, so the condition costs nothing in outcome and states the truth instead of a convenient count. This entry is recorded for the product-bound policy that does not yet exist; this file is bound to the candidate profile, so `adjudicate` never selects it here."
+  }
+ },
+ "environment": {
+  "canonical": true,
+  "canonical_mismatches": [],
+  "fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+  "os": "linux",
+  "pdfium": "152.0.7947.0",
+  "pymupdf": "1.28.0",
+  "python": "3.12.3",
+  "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+ },
+ "gating": false,
+ "git": {
+  "available": true,
+  "branch": "worktree-agent-adae05b1e3167d675",
+  "clean": true,
+  "commit": "c9d36df19f085c001f25647a385c05af1d1e264b",
+  "dirty": false,
+  "dirty_paths": [],
+  "short": "c9d36df"
+ },
+ "history": {
+  "expansion_candidate": [
+   {
+    "callout": false,
+    "document": "x01_lo_memo_pageno.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 2,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "better",
+    "verdict_04b": "better",
+    "verdict_05": "better",
+    "verdict_05b": "better",
+    "verdict_05c": "better",
+    "verdict_now": "MAJOR",
+    "worse_now": [
+     "within2pt",
+     "dy_p50"
+    ]
+   },
+   {
+    "callout": false,
+    "document": "x02_lo_report_toc.pdf",
+    "major_dims_04": 1,
+    "major_dims_04b": 1,
+    "major_dims_05": 1,
+    "major_dims_05b": 1,
+    "major_dims_05c": 1,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "MAJOR",
+    "verdict_04b": "MAJOR",
+    "verdict_05": "MAJOR",
+    "verdict_05b": "MAJOR",
+    "verdict_05c": "MAJOR",
+    "verdict_now": "better",
+    "worse_now": []
+   },
+   {
+    "callout": true,
+    "document": "x03_lo_lists_nested.pdf",
+    "major_dims_04": 3,
+    "major_dims_04b": 3,
+    "major_dims_05": 3,
+    "major_dims_05b": 3,
+    "major_dims_05c": 3,
+    "major_dims_now": 3,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "MAJOR",
+    "verdict_04b": "MAJOR",
+    "verdict_05": "MAJOR",
+    "verdict_05b": "MAJOR",
+    "verdict_05c": "MAJOR",
+    "verdict_now": "MAJOR",
+    "worse_now": [
+     "doc_recall",
+     "word_recall",
+     "raster_frac"
+    ]
+   },
+   {
+    "callout": false,
+    "document": "x04_lo_tables_plain.pdf",
+    "major_dims_04": 2,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 1,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "MAJOR",
+    "verdict_04b": "better",
+    "verdict_05": "better",
+    "verdict_05b": "better",
+    "verdict_05c": "better",
+    "verdict_now": "better",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "x05_lo_quotes_notes.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "minor",
+    "verdict_04b": "minor",
+    "verdict_05": "minor",
+    "verdict_05b": "minor",
+    "verdict_05c": "minor",
+    "verdict_now": "minor",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "x06_lo_euro_scripts.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 2,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "better",
+    "verdict_04b": "better",
+    "verdict_05": "better",
+    "verdict_05b": "better",
+    "verdict_05c": "better",
+    "verdict_now": "MAJOR",
+    "worse_now": [
+     "within2pt",
+     "dy_p50"
+    ]
+   },
+   {
+    "callout": false,
+    "document": "x07_chrome_memo_running.pdf",
+    "major_dims_04": 1,
+    "major_dims_04b": 1,
+    "major_dims_05": 1,
+    "major_dims_05b": 1,
+    "major_dims_05c": 1,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": -1,
+    "verdict_04": "MAJOR",
+    "verdict_04b": "MAJOR",
+    "verdict_05": "MAJOR",
+    "verdict_05b": "MAJOR",
+    "verdict_05c": "MAJOR",
+    "verdict_now": "minor",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "x08_chrome_print_default.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "same",
+    "verdict_04b": "same",
+    "verdict_05": "same",
+    "verdict_05b": "same",
+    "verdict_05c": "same",
+    "verdict_now": "same",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "x09_chrome_lists_nested.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "same",
+    "verdict_04b": "same",
+    "verdict_05": "same",
+    "verdict_05b": "same",
+    "verdict_05c": "same",
+    "verdict_now": "same",
+    "worse_now": []
+   },
+   {
+    "callout": true,
+    "document": "x10_chrome_tables_plain.pdf",
+    "major_dims_04": 2,
+    "major_dims_04b": 1,
+    "major_dims_05": 1,
+    "major_dims_05b": 1,
+    "major_dims_05c": 1,
+    "major_dims_now": 2,
+    "page_gap_04": 2,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 1,
+    "verdict_04": "MAJOR",
+    "verdict_04b": "MAJOR",
+    "verdict_05": "MAJOR",
+    "verdict_05b": "MAJOR",
+    "verdict_05c": "MAJOR",
+    "verdict_now": "MAJOR",
+    "worse_now": [
+     "page_err",
+     "word_recall"
+    ]
+   },
+   {
+    "callout": false,
+    "document": "x11_chrome_toc_headings.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "better",
+    "verdict_04b": "better",
+    "verdict_05": "better",
+    "verdict_05b": "minor",
+    "verdict_05c": "better",
+    "verdict_now": "minor",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "x12_chrome_euro_scripts.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "same",
+    "verdict_04b": "same",
+    "verdict_05": "same",
+    "verdict_05b": "same",
+    "verdict_05c": "same",
+    "verdict_now": "same",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "x13_rl_report_running.pdf",
+    "major_dims_04": 1,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 1,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "MAJOR",
+    "verdict_04b": "minor",
+    "verdict_05": "minor",
+    "verdict_05b": "minor",
+    "verdict_05c": "minor",
+    "verdict_now": "minor",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "x14_rl_statement_lines.pdf",
+    "major_dims_04": 1,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "MAJOR",
+    "verdict_04b": "same",
+    "verdict_05": "same",
+    "verdict_05b": "same",
+    "verdict_05c": "same",
+    "verdict_now": "same",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "x15_rl_handbook_toc.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "better",
+    "verdict_04b": "better",
+    "verdict_05": "better",
+    "verdict_05b": "better",
+    "verdict_05c": "better",
+    "verdict_now": "better",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "x16_fpdf_bulletin.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "better",
+    "verdict_04b": "better",
+    "verdict_05": "better",
+    "verdict_05b": "better",
+    "verdict_05c": "better",
+    "verdict_now": "better",
+    "worse_now": []
+   },
+   {
+    "callout": true,
+    "document": "y01_nist_sp80063b.pdf",
+    "major_dims_04": 3,
+    "major_dims_04b": 1,
+    "major_dims_05": 1,
+    "major_dims_05b": 1,
+    "major_dims_05c": 1,
+    "major_dims_now": 1,
+    "page_gap_04": 134,
+    "page_gap_04b": 4,
+    "page_gap_05": 9,
+    "page_gap_05b": 5,
+    "page_gap_05c": 5,
+    "page_gap_now": 6,
+    "verdict_04": "MAJOR",
+    "verdict_04b": "MAJOR",
+    "verdict_05": "MAJOR",
+    "verdict_05b": "MAJOR",
+    "verdict_05c": "MAJOR",
+    "verdict_now": "MAJOR",
+    "worse_now": [
+     "page_err"
+    ]
+   },
+   {
+    "callout": true,
+    "document": "y02_nist_sp800171r2.pdf",
+    "major_dims_04": null,
+    "major_dims_04b": 1,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": null,
+    "page_gap_04b": 2,
+    "page_gap_05": -11,
+    "page_gap_05b": -6,
+    "page_gap_05c": -6,
+    "page_gap_now": -11,
+    "verdict_04": null,
+    "verdict_04b": "MAJOR",
+    "verdict_05": "minor",
+    "verdict_05b": "minor",
+    "verdict_05c": "minor",
+    "verdict_now": "minor",
+    "worse_now": []
+   },
+   {
+    "callout": true,
+    "document": "y03_nist_fips197.pdf",
+    "major_dims_04": 3,
+    "major_dims_04b": 3,
+    "major_dims_05": 3,
+    "major_dims_05b": 3,
+    "major_dims_05c": 3,
+    "major_dims_now": 3,
+    "page_gap_04": 8,
+    "page_gap_04b": 5,
+    "page_gap_05": 8,
+    "page_gap_05b": 9,
+    "page_gap_05c": 10,
+    "page_gap_now": 7,
+    "verdict_04": "MAJOR",
+    "verdict_04b": "MAJOR",
+    "verdict_05": "MAJOR",
+    "verdict_05b": "MAJOR",
+    "verdict_05c": "MAJOR",
+    "verdict_now": "MAJOR",
+    "worse_now": [
+     "page_err",
+     "word_recall",
+     "dy_p50"
+    ]
+   },
+   {
+    "callout": true,
+    "document": "y06_irs_1040_instructions.pdf",
+    "major_dims_04": null,
+    "major_dims_04b": null,
+    "major_dims_05": null,
+    "major_dims_05b": 2,
+    "major_dims_05c": 2,
+    "major_dims_now": 1,
+    "page_gap_04": null,
+    "page_gap_04b": null,
+    "page_gap_05": null,
+    "page_gap_05b": 84,
+    "page_gap_05c": 85,
+    "page_gap_now": 89,
+    "verdict_04": null,
+    "verdict_04b": null,
+    "verdict_05": null,
+    "verdict_05b": "MAJOR",
+    "verdict_05c": "MAJOR",
+    "verdict_now": "MAJOR",
+    "worse_now": [
+     "page_err"
+    ]
+   },
+   {
+    "callout": false,
+    "document": "y07_irs_f1040_form.pdf",
+    "major_dims_04": null,
+    "major_dims_04b": null,
+    "major_dims_05": null,
+    "major_dims_05b": null,
+    "major_dims_05c": null,
+    "major_dims_now": null,
+    "page_gap_04": null,
+    "page_gap_04b": null,
+    "page_gap_05": null,
+    "page_gap_05b": null,
+    "page_gap_05c": null,
+    "page_gap_now": null,
+    "verdict_04": "refusal-parity",
+    "verdict_04b": "refusal-parity",
+    "verdict_05": "refusal-parity",
+    "verdict_05b": "refusal-parity",
+    "verdict_05c": "refusal-parity",
+    "verdict_now": "refusal-parity",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "y08_nist_sp80088r1.pdf",
+    "major_dims_04": 1,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 1,
+    "page_gap_04b": -1,
+    "page_gap_05": -1,
+    "page_gap_05b": -1,
+    "page_gap_05c": -1,
+    "page_gap_now": -1,
+    "verdict_04": "MAJOR",
+    "verdict_04b": "minor",
+    "verdict_05": "minor",
+    "verdict_05b": "minor",
+    "verdict_05c": "minor",
+    "verdict_now": "minor",
+    "worse_now": []
+   },
+   {
+    "callout": true,
+    "document": "y09_nist_sp800207.pdf",
+    "major_dims_04": 3,
+    "major_dims_04b": 1,
+    "major_dims_05": 1,
+    "major_dims_05b": 1,
+    "major_dims_05c": 1,
+    "major_dims_now": 1,
+    "page_gap_04": 54,
+    "page_gap_04b": 3,
+    "page_gap_05": 6,
+    "page_gap_05b": 1,
+    "page_gap_05c": 1,
+    "page_gap_now": 2,
+    "verdict_04": "MAJOR",
+    "verdict_04b": "MAJOR",
+    "verdict_05": "MAJOR",
+    "verdict_05b": "MAJOR",
+    "verdict_05c": "MAJOR",
+    "verdict_now": "MAJOR",
+    "worse_now": [
+     "page_err"
+    ]
+   },
+   {
+    "callout": false,
+    "document": "y10_nist_fips180.pdf",
+    "major_dims_04": 2,
+    "major_dims_04b": 1,
+    "major_dims_05": 1,
+    "major_dims_05b": 1,
+    "major_dims_05c": 1,
+    "major_dims_now": 0,
+    "page_gap_04": 1,
+    "page_gap_04b": -2,
+    "page_gap_05": -2,
+    "page_gap_05b": -1,
+    "page_gap_05c": -1,
+    "page_gap_now": -2,
+    "verdict_04": "MAJOR",
+    "verdict_04b": "MAJOR",
+    "verdict_05": "MAJOR",
+    "verdict_05b": "MAJOR",
+    "verdict_05c": "MAJOR",
+    "verdict_now": "minor",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "y11_nist_sp80053r5_overcap.pdf",
+    "major_dims_04": null,
+    "major_dims_04b": null,
+    "major_dims_05": null,
+    "major_dims_05b": null,
+    "major_dims_05c": null,
+    "major_dims_now": null,
+    "page_gap_04": null,
+    "page_gap_04b": null,
+    "page_gap_05": null,
+    "page_gap_05b": null,
+    "page_gap_05c": null,
+    "page_gap_now": null,
+    "verdict_04": "refusal-parity",
+    "verdict_04b": "refusal-parity",
+    "verdict_05": "refusal-parity",
+    "verdict_05b": "refusal-parity",
+    "verdict_05c": "refusal-parity",
+    "verdict_now": "refusal-parity",
+    "worse_now": []
+   },
+   {
+    "callout": true,
+    "document": "y12_irs_pub15.pdf",
+    "major_dims_04": 2,
+    "major_dims_04b": 2,
+    "major_dims_05": 1,
+    "major_dims_05b": 2,
+    "major_dims_05c": 2,
+    "major_dims_now": 1,
+    "page_gap_04": 37,
+    "page_gap_04b": 37,
+    "page_gap_05": 16,
+    "page_gap_05b": 13,
+    "page_gap_05c": 14,
+    "page_gap_now": 18,
+    "verdict_04": "MAJOR",
+    "verdict_04b": "MAJOR",
+    "verdict_05": "MAJOR",
+    "verdict_05b": "MAJOR",
+    "verdict_05c": "MAJOR",
+    "verdict_now": "MAJOR",
+    "worse_now": [
+     "page_err"
+    ]
+   },
+   {
+    "callout": true,
+    "document": "y13_irs_pub501.pdf",
+    "major_dims_04": 1,
+    "major_dims_04b": 1,
+    "major_dims_05": 2,
+    "major_dims_05b": 1,
+    "major_dims_05c": 1,
+    "major_dims_now": 2,
+    "page_gap_04": 10,
+    "page_gap_04b": 9,
+    "page_gap_05": 23,
+    "page_gap_05b": 19,
+    "page_gap_05c": 19,
+    "page_gap_now": 19,
+    "verdict_04": "MAJOR",
+    "verdict_04b": "MAJOR",
+    "verdict_05": "MAJOR",
+    "verdict_05b": "MAJOR",
+    "verdict_05c": "MAJOR",
+    "verdict_now": "MAJOR",
+    "worse_now": [
+     "page_err",
+     "dy_p50"
+    ]
+   },
+   {
+    "callout": true,
+    "document": "y14_irs_fw9_form.pdf",
+    "major_dims_04": null,
+    "major_dims_04b": null,
+    "major_dims_05": null,
+    "major_dims_05b": null,
+    "major_dims_05c": null,
+    "major_dims_now": null,
+    "page_gap_04": null,
+    "page_gap_04b": null,
+    "page_gap_05": null,
+    "page_gap_05b": null,
+    "page_gap_05c": null,
+    "page_gap_now": null,
+    "verdict_04": "refusal-parity",
+    "verdict_04b": "refusal-parity",
+    "verdict_05": "refusal-parity",
+    "verdict_05b": "refusal-parity",
+    "verdict_05c": "refusal-parity",
+    "verdict_now": "refusal-parity",
+    "worse_now": []
+   },
+   {
+    "callout": true,
+    "document": "y17_rfc9110.pdf",
+    "major_dims_04": 2,
+    "major_dims_04b": 1,
+    "major_dims_05": 1,
+    "major_dims_05b": 1,
+    "major_dims_05c": 1,
+    "major_dims_now": 1,
+    "page_gap_04": 80,
+    "page_gap_04b": -12,
+    "page_gap_05": -12,
+    "page_gap_05b": -12,
+    "page_gap_05c": -12,
+    "page_gap_now": -12,
+    "verdict_04": "MAJOR",
+    "verdict_04b": "MAJOR",
+    "verdict_05": "MAJOR",
+    "verdict_05b": "MAJOR",
+    "verdict_05c": "MAJOR",
+    "verdict_now": "MAJOR",
+    "worse_now": [
+     "dy_p50"
+    ]
+   }
+  ],
+  "expansion_product_sample": [
+   {
+    "callout": false,
+    "document": "x01_lo_memo_pageno.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "better",
+    "verdict_04b": "better",
+    "verdict_05": "better",
+    "verdict_05b": "better",
+    "verdict_05c": "better",
+    "verdict_now": "better",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "x02_lo_report_toc.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "better",
+    "verdict_04b": "better",
+    "verdict_05": "better",
+    "verdict_05b": "better",
+    "verdict_05c": "better",
+    "verdict_now": "better",
+    "worse_now": []
+   },
+   {
+    "callout": true,
+    "document": "x03_lo_lists_nested.pdf",
+    "major_dims_04": 5,
+    "major_dims_04b": 5,
+    "major_dims_05": 3,
+    "major_dims_05b": 3,
+    "major_dims_05c": 3,
+    "major_dims_now": 3,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "MAJOR",
+    "verdict_04b": "MAJOR",
+    "verdict_05": "MAJOR",
+    "verdict_05b": "MAJOR",
+    "verdict_05c": "MAJOR",
+    "verdict_now": "MAJOR",
+    "worse_now": [
+     "doc_recall",
+     "word_recall",
+     "raster_frac"
+    ]
+   },
+   {
+    "callout": false,
+    "document": "x04_lo_tables_plain.pdf",
+    "major_dims_04": 1,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "MAJOR",
+    "verdict_04b": "better",
+    "verdict_05": "better",
+    "verdict_05b": "better",
+    "verdict_05c": "better",
+    "verdict_now": "minor",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "x05_lo_quotes_notes.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "minor",
+    "verdict_04b": "minor",
+    "verdict_05": "minor",
+    "verdict_05b": "minor",
+    "verdict_05c": "minor",
+    "verdict_now": "minor",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "x06_lo_euro_scripts.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 2,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "better",
+    "verdict_04b": "better",
+    "verdict_05": "better",
+    "verdict_05b": "better",
+    "verdict_05c": "better",
+    "verdict_now": "MAJOR",
+    "worse_now": [
+     "within2pt",
+     "dy_p50"
+    ]
+   },
+   {
+    "callout": false,
+    "document": "x07_chrome_memo_running.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "minor",
+    "verdict_04b": "minor",
+    "verdict_05": "minor",
+    "verdict_05b": "minor",
+    "verdict_05c": "minor",
+    "verdict_now": "minor",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "x08_chrome_print_default.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "same",
+    "verdict_04b": "same",
+    "verdict_05": "same",
+    "verdict_05b": "same",
+    "verdict_05c": "same",
+    "verdict_now": "same",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "x09_chrome_lists_nested.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "same",
+    "verdict_04b": "same",
+    "verdict_05": "same",
+    "verdict_05b": "same",
+    "verdict_05c": "same",
+    "verdict_now": "better",
+    "worse_now": []
+   },
+   {
+    "callout": true,
+    "document": "x10_chrome_tables_plain.pdf",
+    "major_dims_04": 2,
+    "major_dims_04b": 1,
+    "major_dims_05": 1,
+    "major_dims_05b": 1,
+    "major_dims_05c": 1,
+    "major_dims_now": 2,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "MAJOR",
+    "verdict_04b": "MAJOR",
+    "verdict_05": "MAJOR",
+    "verdict_05b": "MAJOR",
+    "verdict_05c": "MAJOR",
+    "verdict_now": "MAJOR",
+    "worse_now": [
+     "within2pt",
+     "dy_p50"
+    ]
+   },
+   {
+    "callout": false,
+    "document": "x11_chrome_toc_headings.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "better",
+    "verdict_04b": "better",
+    "verdict_05": "better",
+    "verdict_05b": "minor",
+    "verdict_05c": "better",
+    "verdict_now": "minor",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "x12_chrome_euro_scripts.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "same",
+    "verdict_04b": "same",
+    "verdict_05": "same",
+    "verdict_05b": "same",
+    "verdict_05c": "same",
+    "verdict_now": "same",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "x13_rl_report_running.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "minor",
+    "verdict_04b": "minor",
+    "verdict_05": "minor",
+    "verdict_05b": "minor",
+    "verdict_05c": "minor",
+    "verdict_now": "minor",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "x14_rl_statement_lines.pdf",
+    "major_dims_04": 2,
+    "major_dims_04b": 2,
+    "major_dims_05": 2,
+    "major_dims_05b": 2,
+    "major_dims_05c": 2,
+    "major_dims_now": 2,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "MAJOR",
+    "verdict_04b": "MAJOR",
+    "verdict_05": "MAJOR",
+    "verdict_05b": "MAJOR",
+    "verdict_05c": "MAJOR",
+    "verdict_now": "MAJOR",
+    "worse_now": [
+     "within2pt",
+     "dy_p50"
+    ]
+   },
+   {
+    "callout": false,
+    "document": "x15_rl_handbook_toc.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "minor",
+    "verdict_04b": "minor",
+    "verdict_05": "minor",
+    "verdict_05b": "minor",
+    "verdict_05c": "minor",
+    "verdict_now": "minor",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "x16_fpdf_bulletin.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "better",
+    "verdict_04b": "better",
+    "verdict_05": "better",
+    "verdict_05b": "better",
+    "verdict_05c": "better",
+    "verdict_now": "minor",
+    "worse_now": []
+   },
+   {
+    "callout": true,
+    "document": "y01_nist_sp80063b.pdf",
+    "major_dims_04": null,
+    "major_dims_04b": null,
+    "major_dims_05": 1,
+    "major_dims_05b": 1,
+    "major_dims_05c": 1,
+    "major_dims_now": 1,
+    "page_gap_04": null,
+    "page_gap_04b": null,
+    "page_gap_05": 3,
+    "page_gap_05b": 3,
+    "page_gap_05c": 3,
+    "page_gap_now": 4,
+    "verdict_04": null,
+    "verdict_04b": null,
+    "verdict_05": "MAJOR",
+    "verdict_05b": "MAJOR",
+    "verdict_05c": "MAJOR",
+    "verdict_now": "MAJOR",
+    "worse_now": [
+     "page_err"
+    ]
+   },
+   {
+    "callout": true,
+    "document": "y03_nist_fips197.pdf",
+    "major_dims_04": 2,
+    "major_dims_04b": 2,
+    "major_dims_05": 2,
+    "major_dims_05b": 2,
+    "major_dims_05c": 2,
+    "major_dims_now": 3,
+    "page_gap_04": 9,
+    "page_gap_04b": 10,
+    "page_gap_05": 10,
+    "page_gap_05b": 9,
+    "page_gap_05c": 10,
+    "page_gap_now": 10,
+    "verdict_04": "MAJOR",
+    "verdict_04b": "MAJOR",
+    "verdict_05": "MAJOR",
+    "verdict_05b": "MAJOR",
+    "verdict_05c": "MAJOR",
+    "verdict_now": "MAJOR",
+    "worse_now": [
+     "page_err",
+     "word_recall",
+     "dy_p50"
+    ]
+   },
+   {
+    "callout": true,
+    "document": "y09_nist_sp800207.pdf",
+    "major_dims_04": null,
+    "major_dims_04b": null,
+    "major_dims_05": 1,
+    "major_dims_05b": null,
+    "major_dims_05c": null,
+    "major_dims_now": null,
+    "page_gap_04": null,
+    "page_gap_04b": null,
+    "page_gap_05": 1,
+    "page_gap_05b": null,
+    "page_gap_05c": null,
+    "page_gap_now": null,
+    "verdict_04": null,
+    "verdict_04b": null,
+    "verdict_05": "MAJOR",
+    "verdict_05b": null,
+    "verdict_05c": null,
+    "verdict_now": null,
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "y10_nist_fips180.pdf",
+    "major_dims_04": 1,
+    "major_dims_04b": 1,
+    "major_dims_05": 1,
+    "major_dims_05b": 1,
+    "major_dims_05c": 1,
+    "major_dims_now": 0,
+    "page_gap_04": -1,
+    "page_gap_04b": -3,
+    "page_gap_05": -3,
+    "page_gap_05b": -1,
+    "page_gap_05c": -2,
+    "page_gap_now": -4,
+    "verdict_04": "MAJOR",
+    "verdict_04b": "MAJOR",
+    "verdict_05": "MAJOR",
+    "verdict_05b": "MAJOR",
+    "verdict_05c": "MAJOR",
+    "verdict_now": "minor",
+    "worse_now": []
+   },
+   {
+    "callout": true,
+    "document": "y13_irs_pub501.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 2,
+    "major_dims_05b": 2,
+    "major_dims_05c": 2,
+    "major_dims_now": 2,
+    "page_gap_04": -6,
+    "page_gap_04b": -7,
+    "page_gap_05": 22,
+    "page_gap_05b": 13,
+    "page_gap_05c": 14,
+    "page_gap_now": 16,
+    "verdict_04": "minor",
+    "verdict_04b": "minor",
+    "verdict_05": "MAJOR",
+    "verdict_05b": "MAJOR",
+    "verdict_05c": "MAJOR",
+    "verdict_now": "MAJOR",
+    "worse_now": [
+     "page_err",
+     "dy_p50"
+    ]
+   }
+  ],
+  "gated16_candidate": [
+   {
+    "callout": false,
+    "document": "01_whitepaper_market.pdf",
+    "major_dims_04": 1,
+    "major_dims_04b": 1,
+    "major_dims_05": 1,
+    "major_dims_05b": 1,
+    "major_dims_05c": 1,
+    "major_dims_now": 1,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "MAJOR",
+    "verdict_04b": "MAJOR",
+    "verdict_05": "MAJOR",
+    "verdict_05b": "MAJOR",
+    "verdict_05c": "MAJOR",
+    "verdict_now": "MAJOR",
+    "worse_now": [
+     "dy_p50"
+    ]
+   },
+   {
+    "callout": true,
+    "document": "02_research_paper.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 2,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "minor",
+    "verdict_04b": "minor",
+    "verdict_05": "minor",
+    "verdict_05b": "MAJOR",
+    "verdict_05c": "minor",
+    "verdict_now": "minor",
+    "worse_now": []
+   },
+   {
+    "callout": true,
+    "document": "03_tech_report_code.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "minor",
+    "verdict_04b": "same",
+    "verdict_05": "same",
+    "verdict_05b": "same",
+    "verdict_05c": "same",
+    "verdict_now": "same",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "04_exec_brief.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "same",
+    "verdict_04b": "same",
+    "verdict_05": "same",
+    "verdict_05b": "same",
+    "verdict_05c": "same",
+    "verdict_now": "same",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "05_memo.pdf",
+    "major_dims_04": 1,
+    "major_dims_04b": 1,
+    "major_dims_05": 1,
+    "major_dims_05b": 1,
+    "major_dims_05c": 1,
+    "major_dims_now": 1,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "MAJOR",
+    "verdict_04b": "MAJOR",
+    "verdict_05": "MAJOR",
+    "verdict_05b": "MAJOR",
+    "verdict_05c": "MAJOR",
+    "verdict_now": "MAJOR",
+    "worse_now": [
+     "within2pt"
+    ]
+   },
+   {
+    "callout": true,
+    "document": "c1_whitepaper.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": -1,
+    "page_gap_04b": -1,
+    "page_gap_05": -1,
+    "page_gap_05b": -1,
+    "page_gap_05c": -1,
+    "page_gap_now": 0,
+    "verdict_04": "better",
+    "verdict_04b": "better",
+    "verdict_05": "better",
+    "verdict_05b": "better",
+    "verdict_05c": "better",
+    "verdict_now": "better",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "c2_paper2col.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "better",
+    "verdict_04b": "better",
+    "verdict_05": "better",
+    "verdict_05b": "better",
+    "verdict_05c": "better",
+    "verdict_now": "better",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "c3_tables.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "same",
+    "verdict_04b": "same",
+    "verdict_05": "same",
+    "verdict_05b": "same",
+    "verdict_05c": "same",
+    "verdict_now": "same",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "c4_i18n.pdf",
+    "major_dims_04": 3,
+    "major_dims_04b": 3,
+    "major_dims_05": 3,
+    "major_dims_05b": 3,
+    "major_dims_05c": 3,
+    "major_dims_now": 2,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "MAJOR",
+    "verdict_04b": "MAJOR",
+    "verdict_05": "MAJOR",
+    "verdict_05b": "MAJOR",
+    "verdict_05c": "MAJOR",
+    "verdict_now": "MAJOR",
+    "worse_now": [
+     "live_text_cov",
+     "raster_frac"
+    ]
+   },
+   {
+    "callout": false,
+    "document": "c5_graphics.pdf",
+    "major_dims_04": 2,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "MAJOR",
+    "verdict_04b": "better",
+    "verdict_05": "better",
+    "verdict_05b": "better",
+    "verdict_05c": "better",
+    "verdict_now": "better",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "c6_long.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "same",
+    "verdict_04b": "same",
+    "verdict_05": "same",
+    "verdict_05b": "same",
+    "verdict_05c": "same",
+    "verdict_now": "same",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "c7_code.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 5,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "same",
+    "verdict_04b": "same",
+    "verdict_05": "same",
+    "verdict_05b": "MAJOR",
+    "verdict_05c": "same",
+    "verdict_now": "same",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "c8_toc_links.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "same",
+    "verdict_04b": "same",
+    "verdict_05": "same",
+    "verdict_05b": "same",
+    "verdict_05c": "same",
+    "verdict_now": "same",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "f1_fpdf_brief.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "same",
+    "verdict_04b": "same",
+    "verdict_05": "same",
+    "verdict_05b": "same",
+    "verdict_05c": "same",
+    "verdict_now": "same",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "l1_word_native.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 1,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "minor",
+    "verdict_04b": "minor",
+    "verdict_05": "minor",
+    "verdict_05b": "minor",
+    "verdict_05c": "minor",
+    "verdict_now": "MAJOR",
+    "worse_now": [
+     "dy_p50"
+    ]
+   },
+   {
+    "callout": true,
+    "document": "r1_reportlab_report.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "same",
+    "verdict_04b": "same",
+    "verdict_05": "same",
+    "verdict_05b": "same",
+    "verdict_05c": "same",
+    "verdict_now": "same",
+    "worse_now": []
+   }
+  ],
+  "gated16_product": [
+   {
+    "callout": false,
+    "document": "01_whitepaper_market.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "minor",
+    "verdict_04b": "minor",
+    "verdict_05": "minor",
+    "verdict_05b": "minor",
+    "verdict_05c": "minor",
+    "verdict_now": "minor",
+    "worse_now": []
+   },
+   {
+    "callout": true,
+    "document": "02_research_paper.pdf",
+    "major_dims_04": 2,
+    "major_dims_04b": 2,
+    "major_dims_05": 2,
+    "major_dims_05b": 2,
+    "major_dims_05c": 2,
+    "major_dims_now": 2,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "MAJOR",
+    "verdict_04b": "MAJOR",
+    "verdict_05": "MAJOR",
+    "verdict_05b": "MAJOR",
+    "verdict_05c": "MAJOR",
+    "verdict_now": "MAJOR",
+    "worse_now": [
+     "within2pt",
+     "dy_p50"
+    ]
+   },
+   {
+    "callout": true,
+    "document": "03_tech_report_code.pdf",
+    "major_dims_04": 2,
+    "major_dims_04b": 2,
+    "major_dims_05": 2,
+    "major_dims_05b": 2,
+    "major_dims_05c": 2,
+    "major_dims_now": 2,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "MAJOR",
+    "verdict_04b": "MAJOR",
+    "verdict_05": "MAJOR",
+    "verdict_05b": "MAJOR",
+    "verdict_05c": "MAJOR",
+    "verdict_now": "MAJOR",
+    "worse_now": [
+     "within2pt",
+     "dy_p50"
+    ]
+   },
+   {
+    "callout": false,
+    "document": "04_exec_brief.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "better",
+    "verdict_04b": "better",
+    "verdict_05": "better",
+    "verdict_05b": "better",
+    "verdict_05c": "better",
+    "verdict_now": "better",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "05_memo.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "minor",
+    "verdict_04b": "minor",
+    "verdict_05": "minor",
+    "verdict_05b": "minor",
+    "verdict_05c": "minor",
+    "verdict_now": "minor",
+    "worse_now": []
+   },
+   {
+    "callout": true,
+    "document": "c1_whitepaper.pdf",
+    "major_dims_04": 1,
+    "major_dims_04b": 1,
+    "major_dims_05": 1,
+    "major_dims_05b": 1,
+    "major_dims_05c": 1,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "MAJOR",
+    "verdict_04b": "MAJOR",
+    "verdict_05": "MAJOR",
+    "verdict_05b": "MAJOR",
+    "verdict_05c": "MAJOR",
+    "verdict_now": "better",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "c2_paper2col.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "better",
+    "verdict_04b": "better",
+    "verdict_05": "better",
+    "verdict_05b": "better",
+    "verdict_05c": "better",
+    "verdict_now": "better",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "c3_tables.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "same",
+    "verdict_04b": "same",
+    "verdict_05": "same",
+    "verdict_05b": "same",
+    "verdict_05c": "same",
+    "verdict_now": "same",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "c4_i18n.pdf",
+    "major_dims_04": 2,
+    "major_dims_04b": 2,
+    "major_dims_05": 2,
+    "major_dims_05b": 2,
+    "major_dims_05c": 2,
+    "major_dims_now": 2,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "MAJOR",
+    "verdict_04b": "MAJOR",
+    "verdict_05": "MAJOR",
+    "verdict_05b": "MAJOR",
+    "verdict_05c": "MAJOR",
+    "verdict_now": "MAJOR",
+    "worse_now": [
+     "live_text_cov",
+     "raster_frac"
+    ]
+   },
+   {
+    "callout": false,
+    "document": "c5_graphics.pdf",
+    "major_dims_04": 2,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "MAJOR",
+    "verdict_04b": "better",
+    "verdict_05": "better",
+    "verdict_05b": "better",
+    "verdict_05c": "better",
+    "verdict_now": "better",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "c6_long.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "same",
+    "verdict_04b": "same",
+    "verdict_05": "better",
+    "verdict_05b": "better",
+    "verdict_05c": "better",
+    "verdict_now": "better",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "c7_code.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 3,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "minor",
+    "verdict_04b": "minor",
+    "verdict_05": "minor",
+    "verdict_05b": "MAJOR",
+    "verdict_05c": "minor",
+    "verdict_now": "minor",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "c8_toc_links.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "same",
+    "verdict_04b": "same",
+    "verdict_05": "same",
+    "verdict_05b": "same",
+    "verdict_05c": "same",
+    "verdict_now": "same",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "f1_fpdf_brief.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "minor",
+    "verdict_04b": "minor",
+    "verdict_05": "minor",
+    "verdict_05b": "minor",
+    "verdict_05c": "minor",
+    "verdict_now": "minor",
+    "worse_now": []
+   },
+   {
+    "callout": false,
+    "document": "l1_word_native.pdf",
+    "major_dims_04": 0,
+    "major_dims_04b": 0,
+    "major_dims_05": 0,
+    "major_dims_05b": 0,
+    "major_dims_05c": 0,
+    "major_dims_now": 0,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "minor",
+    "verdict_04b": "minor",
+    "verdict_05": "minor",
+    "verdict_05b": "minor",
+    "verdict_05c": "minor",
+    "verdict_now": "minor",
+    "worse_now": []
+   },
+   {
+    "callout": true,
+    "document": "r1_reportlab_report.pdf",
+    "major_dims_04": 1,
+    "major_dims_04b": 1,
+    "major_dims_05": 1,
+    "major_dims_05b": 1,
+    "major_dims_05c": 1,
+    "major_dims_now": 1,
+    "page_gap_04": 0,
+    "page_gap_04b": 0,
+    "page_gap_05": 0,
+    "page_gap_05b": 0,
+    "page_gap_05c": 0,
+    "page_gap_now": 0,
+    "verdict_04": "MAJOR",
+    "verdict_04b": "MAJOR",
+    "verdict_05": "MAJOR",
+    "verdict_05b": "MAJOR",
+    "verdict_05c": "MAJOR",
+    "verdict_now": "MAJOR",
+    "worse_now": [
+     "within2pt"
+    ]
+   }
+  ]
+ },
+ "margins": {
+  "doc_recall": 0.05,
+  "dy_p50": 0.5,
+  "live_text_cov": 0.05,
+  "page_err": 0,
+  "raster_frac": 0.02,
+  "within2pt": 0.08,
+  "word_recall": 0.05
+ },
+ "margins_source": {
+  "path": "parity_policy.json",
+  "policy_profile_id": "pdfium/gdocs/none/refine0@240dpi",
+  "sections_read": [
+   "margins"
+  ],
+  "waivers_applied": false
+ },
+ "measured_on": "2026-08-05",
+ "measurements": {
+  "expansion_candidate": {
+   "_note": "All 29 expansion documents at the candidate profile.",
+   "candidate_backend": "pdfium",
+   "candidate_profile_id": "pdfium/gdocs/none/refine0@240dpi",
+   "command": "testkit/parity_expansion.py --profile candidate  (8 batches)",
+   "corpus": "corpus_expansion.json",
+   "corpus_documents": 29,
+   "coverage": {
+    "manifest_documents": 29,
+    "measured": 29,
+    "missing": []
+   },
+   "documents": [
+    {
+     "better": [],
+     "better_raw": [],
+     "candidate": {
+      "doc_recall": 0.9969,
+      "dy_p50": 1.35,
+      "live_text_cov": 0.9665,
+      "page_err": 0,
+      "raster_frac": 0.0335,
+      "within2pt": 0.316,
+      "word_recall": 0.9969
+     },
+     "deltas": {
+      "dy_p50": 0.65,
+      "within2pt": -0.1027
+     },
+     "document": "x01_lo_memo_pageno.pdf",
+     "reference": {
+      "doc_recall": 0.9969,
+      "dy_p50": 0.7,
+      "live_text_cov": 0.9665,
+      "page_err": 0,
+      "raster_frac": 0.0335,
+      "within2pt": 0.4187,
+      "word_recall": 0.9969
+     },
+     "tier": "ordinary_digital",
+     "verdict": "MAJOR",
+     "worse": [
+      "within2pt",
+      "dy_p50"
+     ],
+     "worse_raw": [
+      "within2pt",
+      "dy_p50"
+     ]
+    },
+    {
+     "better": [
+      "within2pt"
+     ],
+     "better_raw": [
+      "within2pt",
+      "dy_p50"
+     ],
+     "candidate": {
+      "doc_recall": 0.9492,
+      "dy_p50": 0.4,
+      "live_text_cov": 0.9523,
+      "page_err": 0,
+      "raster_frac": 0.0477,
+      "within2pt": 1.0,
+      "word_recall": 0.9492
+     },
+     "deltas": {
+      "doc_recall": -0.0508,
+      "dy_p50": -0.45,
+      "live_text_cov": -0.0286,
+      "raster_frac": 0.0286,
+      "within2pt": 0.4609,
+      "word_recall": -0.0508
+     },
+     "document": "x03_lo_lists_nested.pdf",
+     "reference": {
+      "doc_recall": 1.0,
+      "dy_p50": 0.85,
+      "live_text_cov": 0.9809,
+      "page_err": 0,
+      "raster_frac": 0.0191,
+      "within2pt": 0.5391,
+      "word_recall": 1.0
+     },
+     "tier": "ordinary_digital",
+     "verdict": "MAJOR",
+     "worse": [
+      "doc_recall",
+      "word_recall",
+      "raster_frac"
+     ],
+     "worse_raw": [
+      "live_text_cov",
+      "doc_recall",
+      "word_recall",
+      "raster_frac"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [],
+     "candidate": {
+      "doc_recall": 1.0,
+      "dy_p50": 13.0,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.2184,
+      "word_recall": 1.0
+     },
+     "deltas": {
+      "dy_p50": 10.2,
+      "within2pt": -0.0874
+     },
+     "document": "x06_lo_euro_scripts.pdf",
+     "reference": {
+      "doc_recall": 1.0,
+      "dy_p50": 2.8,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.3058,
+      "word_recall": 1.0
+     },
+     "tier": "ordinary_digital",
+     "verdict": "MAJOR",
+     "worse": [
+      "within2pt",
+      "dy_p50"
+     ],
+     "worse_raw": [
+      "within2pt",
+      "dy_p50"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [
+      "within2pt",
+      "dy_p50"
+     ],
+     "candidate": {
+      "doc_recall": 1.0,
+      "dy_p50": 1.65,
+      "live_text_cov": 1.0,
+      "page_err": 1,
+      "raster_frac": 0.0,
+      "within2pt": 0.0991,
+      "word_recall": 0.8657
+     },
+     "deltas": {
+      "dy_p50": -0.05,
+      "page_err": 1,
+      "within2pt": 0.0095,
+      "word_recall": -0.1343
+     },
+     "document": "x10_chrome_tables_plain.pdf",
+     "reference": {
+      "doc_recall": 1.0,
+      "dy_p50": 1.7,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.0896,
+      "word_recall": 1.0
+     },
+     "tier": "ordinary_digital",
+     "verdict": "MAJOR",
+     "worse": [
+      "page_err",
+      "word_recall"
+     ],
+     "worse_raw": [
+      "page_err",
+      "word_recall"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [
+      "within2pt",
+      "dy_p50"
+     ],
+     "candidate": {
+      "doc_recall": 0.9288,
+      "dy_p50": 55.76,
+      "live_text_cov": 0.916,
+      "page_err": 27,
+      "raster_frac": 0.084,
+      "within2pt": 0.0006,
+      "word_recall": 0.184
+     },
+     "deltas": {
+      "doc_recall": -0.0036,
+      "dy_p50": -4.51,
+      "live_text_cov": -0.0008,
+      "page_err": 6,
+      "raster_frac": 0.0008,
+      "within2pt": 0.0006,
+      "word_recall": -0.0149
+     },
+     "document": "y01_nist_sp80063b.pdf",
+     "reference": {
+      "doc_recall": 0.9324,
+      "dy_p50": 60.27,
+      "live_text_cov": 0.9168,
+      "page_err": 21,
+      "raster_frac": 0.0832,
+      "within2pt": 0.0,
+      "word_recall": 0.1989
+     },
+     "tier": "ordinary_digital",
+     "verdict": "MAJOR",
+     "worse": [
+      "page_err"
+     ],
+     "worse_raw": [
+      "page_err",
+      "live_text_cov",
+      "doc_recall",
+      "word_recall",
+      "raster_frac"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [
+      "within2pt"
+     ],
+     "candidate": {
+      "doc_recall": 0.9139,
+      "dy_p50": 76.68,
+      "live_text_cov": 0.9205,
+      "page_err": 29,
+      "raster_frac": 0.0795,
+      "within2pt": 0.008,
+      "word_recall": 0.1447
+     },
+     "deltas": {
+      "doc_recall": -0.0459,
+      "dy_p50": 71.84,
+      "live_text_cov": -0.0106,
+      "page_err": 7,
+      "raster_frac": 0.0106,
+      "within2pt": 0.0051,
+      "word_recall": -0.2472
+     },
+     "document": "y03_nist_fips197.pdf",
+     "reference": {
+      "doc_recall": 0.9598,
+      "dy_p50": 4.84,
+      "live_text_cov": 0.9311,
+      "page_err": 22,
+      "raster_frac": 0.0689,
+      "within2pt": 0.0029,
+      "word_recall": 0.3919
+     },
+     "tier": "ordinary_digital",
+     "verdict": "MAJOR",
+     "worse": [
+      "page_err",
+      "word_recall",
+      "dy_p50"
+     ],
+     "worse_raw": [
+      "page_err",
+      "live_text_cov",
+      "doc_recall",
+      "word_recall",
+      "dy_p50",
+      "raster_frac"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [
+      "within2pt"
+     ],
+     "candidate": {
+      "doc_recall": 0.8768,
+      "dy_p50": 51.1,
+      "live_text_cov": 0.9579,
+      "page_err": 236,
+      "raster_frac": 0.0421,
+      "within2pt": 0.0008,
+      "word_recall": 0.1082
+     },
+     "deltas": {
+      "doc_recall": -0.0182,
+      "dy_p50": 2.74,
+      "live_text_cov": -0.0035,
+      "page_err": 89,
+      "raster_frac": 0.0035,
+      "within2pt": 0.0003,
+      "word_recall": -0.0004
+     },
+     "document": "y06_irs_1040_instructions.pdf",
+     "reference": {
+      "doc_recall": 0.895,
+      "dy_p50": 48.36,
+      "live_text_cov": 0.9614,
+      "page_err": 147,
+      "raster_frac": 0.0386,
+      "within2pt": 0.0005,
+      "word_recall": 0.1086
+     },
+     "tier": "designed_stress",
+     "verdict": "MAJOR",
+     "worse": [
+      "page_err"
+     ],
+     "worse_raw": [
+      "page_err",
+      "live_text_cov",
+      "doc_recall",
+      "word_recall",
+      "dy_p50",
+      "raster_frac"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [
+      "word_recall",
+      "within2pt",
+      "dy_p50"
+     ],
+     "candidate": {
+      "doc_recall": 0.9541,
+      "dy_p50": 59.15,
+      "live_text_cov": 0.9473,
+      "page_err": 9,
+      "raster_frac": 0.0527,
+      "within2pt": 0.0009,
+      "word_recall": 0.241
+     },
+     "deltas": {
+      "doc_recall": -0.0023,
+      "dy_p50": -0.44,
+      "live_text_cov": -0.0003,
+      "page_err": 2,
+      "raster_frac": 0.0003,
+      "within2pt": 0.0001,
+      "word_recall": 0.002
+     },
+     "document": "y09_nist_sp800207.pdf",
+     "reference": {
+      "doc_recall": 0.9564,
+      "dy_p50": 59.59,
+      "live_text_cov": 0.9476,
+      "page_err": 7,
+      "raster_frac": 0.0524,
+      "within2pt": 0.0008,
+      "word_recall": 0.239
+     },
+     "tier": "ordinary_digital",
+     "verdict": "MAJOR",
+     "worse": [
+      "page_err"
+     ],
+     "worse_raw": [
+      "page_err",
+      "live_text_cov",
+      "doc_recall",
+      "raster_frac"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [
+      "doc_recall"
+     ],
+     "candidate": {
+      "doc_recall": 0.956,
+      "dy_p50": 46.3,
+      "live_text_cov": 0.9761,
+      "page_err": 77,
+      "raster_frac": 0.0239,
+      "within2pt": 0.0007,
+      "word_recall": 0.1887
+     },
+     "deltas": {
+      "doc_recall": 0.0007,
+      "dy_p50": 2.8,
+      "live_text_cov": -0.0048,
+      "page_err": 18,
+      "raster_frac": 0.0048,
+      "within2pt": -0.0002,
+      "word_recall": -0.0109
+     },
+     "document": "y12_irs_pub15.pdf",
+     "reference": {
+      "doc_recall": 0.9553,
+      "dy_p50": 43.5,
+      "live_text_cov": 0.9809,
+      "page_err": 59,
+      "raster_frac": 0.0191,
+      "within2pt": 0.0009,
+      "word_recall": 0.1996
+     },
+     "tier": "ordinary_digital",
+     "verdict": "MAJOR",
+     "worse": [
+      "page_err"
+     ],
+     "worse_raw": [
+      "page_err",
+      "live_text_cov",
+      "word_recall",
+      "within2pt",
+      "dy_p50",
+      "raster_frac"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [
+      "doc_recall"
+     ],
+     "candidate": {
+      "doc_recall": 0.9613,
+      "dy_p50": 38.01,
+      "live_text_cov": 0.9705,
+      "page_err": 56,
+      "raster_frac": 0.0295,
+      "within2pt": 0.0006,
+      "word_recall": 0.1428
+     },
+     "deltas": {
+      "doc_recall": 0.014,
+      "dy_p50": 4.51,
+      "live_text_cov": -0.007,
+      "page_err": 19,
+      "raster_frac": 0.007,
+      "within2pt": -0.0001,
+      "word_recall": -0.0178
+     },
+     "document": "y13_irs_pub501.pdf",
+     "reference": {
+      "doc_recall": 0.9473,
+      "dy_p50": 33.5,
+      "live_text_cov": 0.9775,
+      "page_err": 37,
+      "raster_frac": 0.0225,
+      "within2pt": 0.0007,
+      "word_recall": 0.1606
+     },
+     "tier": "designed_stress",
+     "verdict": "MAJOR",
+     "worse": [
+      "page_err",
+      "dy_p50"
+     ],
+     "worse_raw": [
+      "page_err",
+      "live_text_cov",
+      "word_recall",
+      "within2pt",
+      "dy_p50",
+      "raster_frac"
+     ]
+    },
+    {
+     "better": [
+      "page_err",
+      "word_recall"
+     ],
+     "better_raw": [
+      "page_err",
+      "word_recall"
+     ],
+     "candidate": {
+      "doc_recall": 0.9511,
+      "dy_p50": 67.3,
+      "live_text_cov": 0.9643,
+      "page_err": 13,
+      "raster_frac": 0.0357,
+      "within2pt": 0.0006,
+      "word_recall": 0.5313
+     },
+     "deltas": {
+      "doc_recall": -0.0267,
+      "dy_p50": 11.81,
+      "live_text_cov": -0.0063,
+      "page_err": -12,
+      "raster_frac": 0.0063,
+      "within2pt": -0.0163,
+      "word_recall": 0.1946
+     },
+     "document": "y17_rfc9110.pdf",
+     "reference": {
+      "doc_recall": 0.9778,
+      "dy_p50": 55.49,
+      "live_text_cov": 0.9706,
+      "page_err": 25,
+      "raster_frac": 0.0294,
+      "within2pt": 0.0169,
+      "word_recall": 0.3367
+     },
+     "tier": "ordinary_digital",
+     "verdict": "MAJOR",
+     "worse": [
+      "dy_p50"
+     ],
+     "worse_raw": [
+      "live_text_cov",
+      "doc_recall",
+      "within2pt",
+      "dy_p50",
+      "raster_frac"
+     ]
+    },
+    {
+     "better": [
+      "within2pt",
+      "dy_p50"
+     ],
+     "better_raw": [
+      "within2pt",
+      "dy_p50"
+     ],
+     "candidate": {
+      "doc_recall": 0.9928,
+      "dy_p50": 1.55,
+      "live_text_cov": 0.9943,
+      "page_err": 0,
+      "raster_frac": 0.0057,
+      "within2pt": 0.3686,
+      "word_recall": 0.9928
+     },
+     "deltas": {
+      "dy_p50": -1.4,
+      "live_text_cov": -0.0038,
+      "raster_frac": 0.0038,
+      "within2pt": 0.354
+     },
+     "document": "x05_lo_quotes_notes.pdf",
+     "reference": {
+      "doc_recall": 0.9928,
+      "dy_p50": 2.95,
+      "live_text_cov": 0.9981,
+      "page_err": 0,
+      "raster_frac": 0.0019,
+      "within2pt": 0.0146,
+      "word_recall": 0.9928
+     },
+     "tier": "ordinary_digital",
+     "verdict": "minor",
+     "worse": [],
+     "worse_raw": [
+      "live_text_cov",
+      "raster_frac"
+     ]
+    },
+    {
+     "better": [
+      "page_err"
+     ],
+     "better_raw": [
+      "page_err",
+      "word_recall",
+      "within2pt"
+     ],
+     "candidate": {
+      "doc_recall": 0.981,
+      "dy_p50": 3.05,
+      "live_text_cov": 0.9834,
+      "page_err": 0,
+      "raster_frac": 0.0166,
+      "within2pt": 0.0242,
+      "word_recall": 0.981
+     },
+     "deltas": {
+      "doc_recall": -0.0142,
+      "dy_p50": 0.45,
+      "live_text_cov": -0.0149,
+      "page_err": -1,
+      "raster_frac": 0.0149,
+      "within2pt": 0.0004,
+      "word_recall": 0.0298
+     },
+     "document": "x07_chrome_memo_running.pdf",
+     "reference": {
+      "doc_recall": 0.9952,
+      "dy_p50": 2.6,
+      "live_text_cov": 0.9983,
+      "page_err": 1,
+      "raster_frac": 0.0017,
+      "within2pt": 0.0238,
+      "word_recall": 0.9512
+     },
+     "tier": "ordinary_digital",
+     "verdict": "minor",
+     "worse": [],
+     "worse_raw": [
+      "live_text_cov",
+      "doc_recall",
+      "dy_p50",
+      "raster_frac"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [],
+     "candidate": {
+      "doc_recall": 0.9874,
+      "dy_p50": 57.85,
+      "live_text_cov": 0.9877,
+      "page_err": 2,
+      "raster_frac": 0.0123,
+      "within2pt": 0.0054,
+      "word_recall": 0.3339
+     },
+     "deltas": {
+      "dy_p50": 0.2
+     },
+     "document": "x11_chrome_toc_headings.pdf",
+     "reference": {
+      "doc_recall": 0.9874,
+      "dy_p50": 57.65,
+      "live_text_cov": 0.9877,
+      "page_err": 2,
+      "raster_frac": 0.0123,
+      "within2pt": 0.0054,
+      "word_recall": 0.3339
+     },
+     "tier": "ordinary_digital",
+     "verdict": "minor",
+     "worse": [],
+     "worse_raw": [
+      "dy_p50"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [],
+     "candidate": {
+      "doc_recall": 0.9963,
+      "dy_p50": 1.36,
+      "live_text_cov": 0.9794,
+      "page_err": 0,
+      "raster_frac": 0.0206,
+      "within2pt": 0.4389,
+      "word_recall": 0.9963
+     },
+     "deltas": {
+      "dy_p50": 0.51,
+      "within2pt": -0.0436
+     },
+     "document": "x13_rl_report_running.pdf",
+     "dy_exemption_applied": true,
+     "reference": {
+      "doc_recall": 0.9963,
+      "dy_p50": 0.85,
+      "live_text_cov": 0.9794,
+      "page_err": 0,
+      "raster_frac": 0.0206,
+      "within2pt": 0.4825,
+      "word_recall": 0.9963
+     },
+     "tier": "ordinary_digital",
+     "verdict": "minor",
+     "worse": [],
+     "worse_raw": [
+      "within2pt",
+      "dy_p50"
+     ]
+    },
+    {
+     "better": [
+      "page_err"
+     ],
+     "better_raw": [
+      "page_err",
+      "word_recall"
+     ],
+     "candidate": {
+      "doc_recall": 0.907,
+      "dy_p50": 58.03,
+      "live_text_cov": 0.8699,
+      "page_err": 48,
+      "raster_frac": 0.1301,
+      "within2pt": 0.0011,
+      "word_recall": 0.2039
+     },
+     "deltas": {
+      "doc_recall": -0.0055,
+      "dy_p50": 1.44,
+      "live_text_cov": -0.0069,
+      "page_err": -11,
+      "raster_frac": 0.0069,
+      "within2pt": -0.0005,
+      "word_recall": 0.0082
+     },
+     "document": "y02_nist_sp800171r2.pdf",
+     "reference": {
+      "doc_recall": 0.9125,
+      "dy_p50": 56.59,
+      "live_text_cov": 0.8768,
+      "page_err": 59,
+      "raster_frac": 0.1232,
+      "within2pt": 0.0016,
+      "word_recall": 0.1957
+     },
+     "tier": "ordinary_digital",
+     "verdict": "minor",
+     "worse": [],
+     "worse_raw": [
+      "live_text_cov",
+      "doc_recall",
+      "within2pt",
+      "dy_p50",
+      "raster_frac"
+     ]
+    },
+    {
+     "better": [
+      "page_err"
+     ],
+     "better_raw": [
+      "page_err",
+      "word_recall",
+      "dy_p50"
+     ],
+     "candidate": {
+      "doc_recall": 0.9683,
+      "dy_p50": 58.0,
+      "live_text_cov": 0.9766,
+      "page_err": 21,
+      "raster_frac": 0.0234,
+      "within2pt": 0.0004,
+      "word_recall": 0.2289
+     },
+     "deltas": {
+      "doc_recall": -0.0033,
+      "dy_p50": -1.11,
+      "live_text_cov": -0.0004,
+      "page_err": -1,
+      "raster_frac": 0.0004,
+      "word_recall": 0.0052
+     },
+     "document": "y08_nist_sp80088r1.pdf",
+     "reference": {
+      "doc_recall": 0.9716,
+      "dy_p50": 59.11,
+      "live_text_cov": 0.977,
+      "page_err": 22,
+      "raster_frac": 0.023,
+      "within2pt": 0.0004,
+      "word_recall": 0.2237
+     },
+     "tier": "ordinary_digital",
+     "verdict": "minor",
+     "worse": [],
+     "worse_raw": [
+      "live_text_cov",
+      "doc_recall",
+      "raster_frac"
+     ]
+    },
+    {
+     "better": [
+      "page_err",
+      "word_recall",
+      "within2pt",
+      "dy_p50"
+     ],
+     "better_raw": [
+      "page_err",
+      "word_recall",
+      "within2pt",
+      "dy_p50"
+     ],
+     "candidate": {
+      "doc_recall": 0.7675,
+      "dy_p50": 13.72,
+      "live_text_cov": 0.9398,
+      "page_err": 9,
+      "raster_frac": 0.0602,
+      "within2pt": 0.1284,
+      "word_recall": 0.4166
+     },
+     "deltas": {
+      "doc_recall": -0.0385,
+      "dy_p50": -35.76,
+      "live_text_cov": -0.0018,
+      "page_err": -2,
+      "raster_frac": 0.0018,
+      "within2pt": 0.122,
+      "word_recall": 0.1023
+     },
+     "document": "y10_nist_fips180.pdf",
+     "reference": {
+      "doc_recall": 0.806,
+      "dy_p50": 49.48,
+      "live_text_cov": 0.9416,
+      "page_err": 11,
+      "raster_frac": 0.0584,
+      "within2pt": 0.0064,
+      "word_recall": 0.3143
+     },
+     "tier": "ordinary_digital",
+     "verdict": "minor",
+     "worse": [],
+     "worse_raw": [
+      "live_text_cov",
+      "doc_recall",
+      "raster_frac"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [],
+     "candidate": {
+      "doc_recall": 1.0,
+      "dy_p50": 1.45,
+      "live_text_cov": 0.9767,
+      "page_err": 0,
+      "raster_frac": 0.0233,
+      "within2pt": 0.0634,
+      "word_recall": 1.0
+     },
+     "deltas": {},
+     "document": "x08_chrome_print_default.pdf",
+     "reference": {
+      "doc_recall": 1.0,
+      "dy_p50": 1.45,
+      "live_text_cov": 0.9767,
+      "page_err": 0,
+      "raster_frac": 0.0233,
+      "within2pt": 0.0634,
+      "word_recall": 1.0
+     },
+     "tier": "ordinary_digital",
+     "verdict": "same",
+     "worse": [],
+     "worse_raw": []
+    },
+    {
+     "better": [],
+     "better_raw": [],
+     "candidate": {
+      "doc_recall": 1.0,
+      "dy_p50": 0.85,
+      "live_text_cov": 0.9894,
+      "page_err": 0,
+      "raster_frac": 0.0106,
+      "within2pt": 0.1883,
+      "word_recall": 1.0
+     },
+     "deltas": {},
+     "document": "x09_chrome_lists_nested.pdf",
+     "reference": {
+      "doc_recall": 1.0,
+      "dy_p50": 0.85,
+      "live_text_cov": 0.9894,
+      "page_err": 0,
+      "raster_frac": 0.0106,
+      "within2pt": 0.1883,
+      "word_recall": 1.0
+     },
+     "tier": "ordinary_digital",
+     "verdict": "same",
+     "worse": [],
+     "worse_raw": []
+    },
+    {
+     "better": [],
+     "better_raw": [],
+     "candidate": {
+      "doc_recall": 1.0,
+      "dy_p50": 1.55,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.1379,
+      "word_recall": 1.0
+     },
+     "deltas": {},
+     "document": "x12_chrome_euro_scripts.pdf",
+     "reference": {
+      "doc_recall": 1.0,
+      "dy_p50": 1.55,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.1379,
+      "word_recall": 1.0
+     },
+     "tier": "ordinary_digital",
+     "verdict": "same",
+     "worse": [],
+     "worse_raw": []
+    },
+    {
+     "better": [],
+     "better_raw": [],
+     "candidate": {
+      "doc_recall": 0.9942,
+      "dy_p50": 4.01,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.0471,
+      "word_recall": 0.9942
+     },
+     "deltas": {},
+     "document": "x14_rl_statement_lines.pdf",
+     "reference": {
+      "doc_recall": 0.9942,
+      "dy_p50": 4.01,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.0471,
+      "word_recall": 0.9942
+     },
+     "tier": "ordinary_digital",
+     "verdict": "same",
+     "worse": [],
+     "worse_raw": []
+    },
+    {
+     "better": [
+      "within2pt",
+      "dy_p50"
+     ],
+     "better_raw": [
+      "doc_recall",
+      "word_recall",
+      "within2pt",
+      "dy_p50"
+     ],
+     "candidate": {
+      "doc_recall": 0.9883,
+      "dy_p50": 1.4,
+      "live_text_cov": 0.976,
+      "page_err": 0,
+      "raster_frac": 0.024,
+      "within2pt": 0.1979,
+      "word_recall": 0.9883
+     },
+     "deltas": {
+      "doc_recall": 0.0013,
+      "dy_p50": -6.9,
+      "within2pt": 0.1371,
+      "word_recall": 0.0013
+     },
+     "document": "x02_lo_report_toc.pdf",
+     "reference": {
+      "doc_recall": 0.987,
+      "dy_p50": 8.3,
+      "live_text_cov": 0.976,
+      "page_err": 0,
+      "raster_frac": 0.024,
+      "within2pt": 0.0608,
+      "word_recall": 0.987
+     },
+     "tier": "ordinary_digital",
+     "verdict": "better",
+     "worse": [],
+     "worse_raw": []
+    },
+    {
+     "better": [
+      "within2pt",
+      "dy_p50"
+     ],
+     "better_raw": [
+      "within2pt",
+      "dy_p50"
+     ],
+     "candidate": {
+      "doc_recall": 0.9926,
+      "dy_p50": 3.15,
+      "live_text_cov": 0.998,
+      "page_err": 0,
+      "raster_frac": 0.002,
+      "within2pt": 0.1004,
+      "word_recall": 0.9926
+     },
+     "deltas": {
+      "dy_p50": -3.6,
+      "within2pt": 0.093
+     },
+     "document": "x04_lo_tables_plain.pdf",
+     "reference": {
+      "doc_recall": 0.9926,
+      "dy_p50": 6.75,
+      "live_text_cov": 0.998,
+      "page_err": 0,
+      "raster_frac": 0.002,
+      "within2pt": 0.0074,
+      "word_recall": 0.9926
+     },
+     "tier": "ordinary_digital",
+     "verdict": "better",
+     "worse": [],
+     "worse_raw": []
+    },
+    {
+     "better": [
+      "within2pt",
+      "dy_p50"
+     ],
+     "better_raw": [
+      "within2pt",
+      "dy_p50"
+     ],
+     "candidate": {
+      "doc_recall": 0.9982,
+      "dy_p50": 0.75,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.7587,
+      "word_recall": 0.9982
+     },
+     "deltas": {
+      "dy_p50": -0.85,
+      "within2pt": 0.2249
+     },
+     "document": "x15_rl_handbook_toc.pdf",
+     "reference": {
+      "doc_recall": 0.9982,
+      "dy_p50": 1.6,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.5338,
+      "word_recall": 0.9982
+     },
+     "tier": "ordinary_digital",
+     "verdict": "better",
+     "worse": [],
+     "worse_raw": []
+    },
+    {
+     "better": [
+      "dy_p50"
+     ],
+     "better_raw": [
+      "dy_p50"
+     ],
+     "candidate": {
+      "doc_recall": 1.0,
+      "dy_p50": 2.35,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.013,
+      "word_recall": 1.0
+     },
+     "deltas": {
+      "dy_p50": -2.1
+     },
+     "document": "x16_fpdf_bulletin.pdf",
+     "reference": {
+      "doc_recall": 1.0,
+      "dy_p50": 4.45,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.013,
+      "word_recall": 1.0
+     },
+     "tier": "ordinary_digital",
+     "verdict": "better",
+     "worse": [],
+     "worse_raw": []
+    },
+    {
+     "candidate": {
+      "code": "interactive-form",
+      "error_class": "InteractiveFormError",
+      "refused": true
+     },
+     "detail": "both refuse with InteractiveFormError (exit code interactive-form)",
+     "document": "y07_irs_f1040_form.pdf",
+     "reference": {
+      "code": "interactive-form",
+      "error_class": "InteractiveFormError",
+      "refused": true
+     },
+     "tier": "unsupported",
+     "verdict": "refusal-parity"
+    },
+    {
+     "candidate": {
+      "code": "page-limit",
+      "error_class": "PageLimitError",
+      "refused": true
+     },
+     "detail": "both refuse with PageLimitError (exit code page-limit)",
+     "document": "y11_nist_sp80053r5_overcap.pdf",
+     "reference": {
+      "code": "page-limit",
+      "error_class": "PageLimitError",
+      "refused": true
+     },
+     "tier": "unsupported",
+     "verdict": "refusal-parity"
+    },
+    {
+     "candidate": {
+      "code": "interactive-form",
+      "error_class": "InteractiveFormError",
+      "refused": true
+     },
+     "detail": "both refuse with InteractiveFormError (exit code interactive-form)",
+     "document": "y14_irs_fw9_form.pdf",
+     "reference": {
+      "code": "interactive-form",
+      "error_class": "InteractiveFormError",
+      "refused": true
+     },
+     "tier": "unsupported",
+     "verdict": "refusal-parity"
+    }
+   ],
+   "dy_exemption_cleared": [
+    "x13_rl_report_running.pdf"
+   ],
+   "elapsed_s": 733.7,
+   "margins": {
+    "doc_recall": 0.05,
+    "dy_p50": 0.5,
+    "live_text_cov": 0.05,
+    "page_err": 0,
+    "raster_frac": 0.02,
+    "within2pt": 0.08,
+    "word_recall": 0.05
+   },
+   "margins_source": {
+    "path": "parity_policy.json",
+    "policy_profile_id": "pdfium/gdocs/none/refine0@240dpi",
+    "sections_read": [
+     "margins"
+    ],
+    "waivers_applied": false
+   },
+   "only": [
+    "x0",
+    "x1",
+    "y01",
+    "y02",
+    "y03",
+    "y06",
+    "y07",
+    "y08",
+    "y09",
+    "y10",
+    "y11",
+    "y12",
+    "y13",
+    "y14",
+    "y17"
+   ],
+   "profile": "candidate",
+   "profile_id": "pdfium/gdocs/none/refine0@240dpi",
+   "reference_backend": "pymupdf",
+   "reference_profile_id": "pymupdf/gdocs/none/refine0@240dpi",
+   "subset": true,
+   "summary": {
+    "MAJOR": 11,
+    "adjudicated": false,
+    "better": 4,
+    "blocking": [
+     "x01_lo_memo_pageno.pdf",
+     "x03_lo_lists_nested.pdf",
+     "x06_lo_euro_scripts.pdf",
+     "x10_chrome_tables_plain.pdf",
+     "y01_nist_sp80063b.pdf",
+     "y03_nist_fips197.pdf",
+     "y06_irs_1040_instructions.pdf",
+     "y09_nist_sp800207.pdf",
+     "y12_irs_pub15.pdf",
+     "y13_irs_pub501.pdf",
+     "y17_rfc9110.pdf"
+    ],
+    "documents": 29,
+    "gating": false,
+    "minor": 7,
+    "ok": false,
+    "refusal-parity": 3,
+    "release_ready": false,
+    "same": 4
+   }
+  },
+  "expansion_product_sample": {
+   "_note": "The expansion corpus at the SHIPPING profile.",
+   "candidate_backend": "pdfium",
+   "candidate_profile_id": "pdfium/standard/libreoffice/refine3@240dpi",
+   "command": "testkit/parity_expansion.py --profile product  (batched)",
+   "corpus": "corpus_expansion.json",
+   "corpus_documents": 20,
+   "coverage": {
+    "manifest_documents": 29,
+    "measured": 20,
+    "missing": [
+     "y02_nist_sp800171r2.pdf",
+     "y06_irs_1040_instructions.pdf",
+     "y07_irs_f1040_form.pdf",
+     "y08_nist_sp80088r1.pdf",
+     "y09_nist_sp800207.pdf",
+     "y11_nist_sp80053r5_overcap.pdf",
+     "y12_irs_pub15.pdf",
+     "y14_irs_fw9_form.pdf",
+     "y17_rfc9110.pdf"
+    ]
+   },
+   "documents": [
+    {
+     "better": [
+      "within2pt"
+     ],
+     "better_raw": [
+      "within2pt",
+      "dy_p50"
+     ],
+     "candidate": {
+      "doc_recall": 0.9492,
+      "dy_p50": 0.23,
+      "live_text_cov": 0.9523,
+      "page_err": 0,
+      "raster_frac": 0.0477,
+      "within2pt": 1.0,
+      "word_recall": 0.9492
+     },
+     "deltas": {
+      "doc_recall": -0.0508,
+      "dy_p50": -0.12,
+      "live_text_cov": -0.0286,
+      "raster_frac": 0.0286,
+      "within2pt": 0.4492,
+      "word_recall": -0.0508
+     },
+     "document": "x03_lo_lists_nested.pdf",
+     "reference": {
+      "doc_recall": 1.0,
+      "dy_p50": 0.35,
+      "live_text_cov": 0.9809,
+      "page_err": 0,
+      "raster_frac": 0.0191,
+      "within2pt": 0.5508,
+      "word_recall": 1.0
+     },
+     "tier": "ordinary_digital",
+     "verdict": "MAJOR",
+     "worse": [
+      "doc_recall",
+      "word_recall",
+      "raster_frac"
+     ],
+     "worse_raw": [
+      "live_text_cov",
+      "doc_recall",
+      "word_recall",
+      "raster_frac"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [],
+     "candidate": {
+      "doc_recall": 1.0,
+      "dy_p50": 14.55,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.2718,
+      "word_recall": 1.0
+     },
+     "deltas": {
+      "dy_p50": 14.27,
+      "within2pt": -0.3447
+     },
+     "document": "x06_lo_euro_scripts.pdf",
+     "reference": {
+      "doc_recall": 1.0,
+      "dy_p50": 0.28,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.6165,
+      "word_recall": 1.0
+     },
+     "tier": "ordinary_digital",
+     "verdict": "MAJOR",
+     "worse": [
+      "within2pt",
+      "dy_p50"
+     ],
+     "worse_raw": [
+      "within2pt",
+      "dy_p50"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [],
+     "candidate": {
+      "doc_recall": 1.0,
+      "dy_p50": 16.9,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.1082,
+      "word_recall": 1.0
+     },
+     "deltas": {
+      "dy_p50": 16.05,
+      "within2pt": -0.1493
+     },
+     "document": "x10_chrome_tables_plain.pdf",
+     "reference": {
+      "doc_recall": 1.0,
+      "dy_p50": 0.85,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.2575,
+      "word_recall": 1.0
+     },
+     "tier": "ordinary_digital",
+     "verdict": "MAJOR",
+     "worse": [
+      "within2pt",
+      "dy_p50"
+     ],
+     "worse_raw": [
+      "within2pt",
+      "dy_p50"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [],
+     "candidate": {
+      "doc_recall": 0.9942,
+      "dy_p50": 1.38,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.1471,
+      "word_recall": 0.9942
+     },
+     "deltas": {
+      "dy_p50": 1.0,
+      "within2pt": -0.0882
+     },
+     "document": "x14_rl_statement_lines.pdf",
+     "reference": {
+      "doc_recall": 0.9942,
+      "dy_p50": 0.38,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.2353,
+      "word_recall": 0.9942
+     },
+     "tier": "ordinary_digital",
+     "verdict": "MAJOR",
+     "worse": [
+      "within2pt",
+      "dy_p50"
+     ],
+     "worse_raw": [
+      "within2pt",
+      "dy_p50"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [
+      "within2pt",
+      "dy_p50"
+     ],
+     "candidate": {
+      "doc_recall": 0.9288,
+      "dy_p50": 54.15,
+      "live_text_cov": 0.916,
+      "page_err": 16,
+      "raster_frac": 0.084,
+      "within2pt": 0.0005,
+      "word_recall": 0.2192
+     },
+     "deltas": {
+      "doc_recall": -0.0035,
+      "dy_p50": -0.58,
+      "live_text_cov": -0.0008,
+      "page_err": 4,
+      "raster_frac": 0.0008,
+      "within2pt": 0.0002,
+      "word_recall": -0.0008
+     },
+     "document": "y01_nist_sp80063b.pdf",
+     "reference": {
+      "doc_recall": 0.9323,
+      "dy_p50": 54.73,
+      "live_text_cov": 0.9168,
+      "page_err": 12,
+      "raster_frac": 0.0832,
+      "within2pt": 0.0003,
+      "word_recall": 0.22
+     },
+     "tier": "ordinary_digital",
+     "verdict": "MAJOR",
+     "worse": [
+      "page_err"
+     ],
+     "worse_raw": [
+      "page_err",
+      "live_text_cov",
+      "doc_recall",
+      "word_recall",
+      "raster_frac"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [
+      "within2pt"
+     ],
+     "candidate": {
+      "doc_recall": 0.9139,
+      "dy_p50": 7.91,
+      "live_text_cov": 0.9205,
+      "page_err": 18,
+      "raster_frac": 0.0795,
+      "within2pt": 0.1023,
+      "word_recall": 0.3805
+     },
+     "deltas": {
+      "doc_recall": -0.0458,
+      "dy_p50": 1.35,
+      "live_text_cov": -0.0106,
+      "page_err": 10,
+      "raster_frac": 0.0106,
+      "within2pt": 0.0779,
+      "word_recall": -0.1385
+     },
+     "document": "y03_nist_fips197.pdf",
+     "reference": {
+      "doc_recall": 0.9597,
+      "dy_p50": 6.56,
+      "live_text_cov": 0.9311,
+      "page_err": 8,
+      "raster_frac": 0.0689,
+      "within2pt": 0.0244,
+      "word_recall": 0.519
+     },
+     "tier": "ordinary_digital",
+     "verdict": "MAJOR",
+     "worse": [
+      "page_err",
+      "word_recall",
+      "dy_p50"
+     ],
+     "worse_raw": [
+      "page_err",
+      "live_text_cov",
+      "doc_recall",
+      "word_recall",
+      "dy_p50",
+      "raster_frac"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [
+      "doc_recall"
+     ],
+     "candidate": {
+      "doc_recall": 0.9598,
+      "dy_p50": 41.13,
+      "live_text_cov": 0.97,
+      "page_err": 43,
+      "raster_frac": 0.03,
+      "within2pt": 0.0002,
+      "word_recall": 0.179
+     },
+     "deltas": {
+      "doc_recall": 0.0134,
+      "dy_p50": 8.31,
+      "live_text_cov": -0.0072,
+      "page_err": 16,
+      "raster_frac": 0.0072,
+      "within2pt": -0.0007,
+      "word_recall": -0.0145
+     },
+     "document": "y13_irs_pub501.pdf",
+     "reference": {
+      "doc_recall": 0.9464,
+      "dy_p50": 32.82,
+      "live_text_cov": 0.9772,
+      "page_err": 27,
+      "raster_frac": 0.0228,
+      "within2pt": 0.0009,
+      "word_recall": 0.1935
+     },
+     "tier": "designed_stress",
+     "verdict": "MAJOR",
+     "worse": [
+      "page_err",
+      "dy_p50"
+     ],
+     "worse_raw": [
+      "page_err",
+      "live_text_cov",
+      "word_recall",
+      "within2pt",
+      "dy_p50",
+      "raster_frac"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [
+      "within2pt"
+     ],
+     "candidate": {
+      "doc_recall": 0.9926,
+      "dy_p50": 0.55,
+      "live_text_cov": 0.998,
+      "page_err": 0,
+      "raster_frac": 0.002,
+      "within2pt": 0.5576,
+      "word_recall": 0.9926
+     },
+     "deltas": {
+      "dy_p50": 0.2,
+      "within2pt": 0.0074
+     },
+     "document": "x04_lo_tables_plain.pdf",
+     "reference": {
+      "doc_recall": 0.9926,
+      "dy_p50": 0.35,
+      "live_text_cov": 0.998,
+      "page_err": 0,
+      "raster_frac": 0.002,
+      "within2pt": 0.5502,
+      "word_recall": 0.9926
+     },
+     "tier": "ordinary_digital",
+     "verdict": "minor",
+     "worse": [],
+     "worse_raw": [
+      "dy_p50"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [],
+     "candidate": {
+      "doc_recall": 0.9928,
+      "dy_p50": 0.05,
+      "live_text_cov": 0.9943,
+      "page_err": 0,
+      "raster_frac": 0.0057,
+      "within2pt": 0.3723,
+      "word_recall": 0.9928
+     },
+     "deltas": {
+      "live_text_cov": -0.0038,
+      "raster_frac": 0.0038,
+      "within2pt": -0.0073
+     },
+     "document": "x05_lo_quotes_notes.pdf",
+     "reference": {
+      "doc_recall": 0.9928,
+      "dy_p50": 0.05,
+      "live_text_cov": 0.9981,
+      "page_err": 0,
+      "raster_frac": 0.0019,
+      "within2pt": 0.3796,
+      "word_recall": 0.9928
+     },
+     "tier": "ordinary_digital",
+     "verdict": "minor",
+     "worse": [],
+     "worse_raw": [
+      "live_text_cov",
+      "within2pt",
+      "raster_frac"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [
+      "within2pt"
+     ],
+     "candidate": {
+      "doc_recall": 0.981,
+      "dy_p50": 0.65,
+      "live_text_cov": 0.9834,
+      "page_err": 0,
+      "raster_frac": 0.0166,
+      "within2pt": 0.0776,
+      "word_recall": 0.981
+     },
+     "deltas": {
+      "doc_recall": -0.0142,
+      "live_text_cov": -0.0149,
+      "raster_frac": 0.0149,
+      "within2pt": 0.0023,
+      "word_recall": -0.0142
+     },
+     "document": "x07_chrome_memo_running.pdf",
+     "reference": {
+      "doc_recall": 0.9952,
+      "dy_p50": 0.65,
+      "live_text_cov": 0.9983,
+      "page_err": 0,
+      "raster_frac": 0.0017,
+      "within2pt": 0.0753,
+      "word_recall": 0.9952
+     },
+     "tier": "ordinary_digital",
+     "verdict": "minor",
+     "worse": [],
+     "worse_raw": [
+      "live_text_cov",
+      "doc_recall",
+      "word_recall",
+      "raster_frac"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [],
+     "candidate": {
+      "doc_recall": 0.9874,
+      "dy_p50": 93.25,
+      "live_text_cov": 0.9877,
+      "page_err": 1,
+      "raster_frac": 0.0123,
+      "within2pt": 0.0043,
+      "word_recall": 0.4219
+     },
+     "deltas": {
+      "dy_p50": 0.2
+     },
+     "document": "x11_chrome_toc_headings.pdf",
+     "reference": {
+      "doc_recall": 0.9874,
+      "dy_p50": 93.05,
+      "live_text_cov": 0.9877,
+      "page_err": 1,
+      "raster_frac": 0.0123,
+      "within2pt": 0.0043,
+      "word_recall": 0.4219
+     },
+     "tier": "ordinary_digital",
+     "verdict": "minor",
+     "worse": [],
+     "worse_raw": [
+      "dy_p50"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [
+      "dy_p50"
+     ],
+     "candidate": {
+      "doc_recall": 0.9963,
+      "dy_p50": 0.6,
+      "live_text_cov": 0.9794,
+      "page_err": 0,
+      "raster_frac": 0.0206,
+      "within2pt": 0.4389,
+      "word_recall": 0.9963
+     },
+     "deltas": {
+      "dy_p50": -0.2,
+      "within2pt": -0.0648
+     },
+     "document": "x13_rl_report_running.pdf",
+     "reference": {
+      "doc_recall": 0.9963,
+      "dy_p50": 0.8,
+      "live_text_cov": 0.9794,
+      "page_err": 0,
+      "raster_frac": 0.0206,
+      "within2pt": 0.5037,
+      "word_recall": 0.9963
+     },
+     "tier": "ordinary_digital",
+     "verdict": "minor",
+     "worse": [],
+     "worse_raw": [
+      "within2pt"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [],
+     "candidate": {
+      "doc_recall": 0.9982,
+      "dy_p50": 0.9,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.7971,
+      "word_recall": 0.9982
+     },
+     "deltas": {
+      "dy_p50": 0.1,
+      "within2pt": -0.0566
+     },
+     "document": "x15_rl_handbook_toc.pdf",
+     "reference": {
+      "doc_recall": 0.9982,
+      "dy_p50": 0.8,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.8537,
+      "word_recall": 0.9982
+     },
+     "tier": "ordinary_digital",
+     "verdict": "minor",
+     "worse": [],
+     "worse_raw": [
+      "within2pt",
+      "dy_p50"
+     ]
+    },
+    {
+     "better": [
+      "within2pt"
+     ],
+     "better_raw": [
+      "within2pt"
+     ],
+     "candidate": {
+      "doc_recall": 1.0,
+      "dy_p50": 1.8,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.5285,
+      "word_recall": 1.0
+     },
+     "deltas": {
+      "dy_p50": 0.6,
+      "within2pt": 0.2176
+     },
+     "document": "x16_fpdf_bulletin.pdf",
+     "dy_exemption_applied": true,
+     "reference": {
+      "doc_recall": 1.0,
+      "dy_p50": 1.2,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.3109,
+      "word_recall": 1.0
+     },
+     "tier": "ordinary_digital",
+     "verdict": "minor",
+     "worse": [],
+     "worse_raw": [
+      "dy_p50"
+     ]
+    },
+    {
+     "better": [
+      "page_err",
+      "word_recall",
+      "within2pt",
+      "dy_p50"
+     ],
+     "better_raw": [
+      "page_err",
+      "word_recall",
+      "within2pt",
+      "dy_p50"
+     ],
+     "candidate": {
+      "doc_recall": 0.7675,
+      "dy_p50": 13.92,
+      "live_text_cov": 0.9398,
+      "page_err": 1,
+      "raster_frac": 0.0602,
+      "within2pt": 0.1132,
+      "word_recall": 0.4672
+     },
+     "deltas": {
+      "doc_recall": -0.0385,
+      "dy_p50": -40.84,
+      "live_text_cov": -0.0018,
+      "page_err": -4,
+      "raster_frac": 0.0018,
+      "within2pt": 0.0997,
+      "word_recall": 0.1152
+     },
+     "document": "y10_nist_fips180.pdf",
+     "reference": {
+      "doc_recall": 0.806,
+      "dy_p50": 54.76,
+      "live_text_cov": 0.9416,
+      "page_err": 5,
+      "raster_frac": 0.0584,
+      "within2pt": 0.0135,
+      "word_recall": 0.352
+     },
+     "tier": "ordinary_digital",
+     "verdict": "minor",
+     "worse": [],
+     "worse_raw": [
+      "live_text_cov",
+      "doc_recall",
+      "raster_frac"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [],
+     "candidate": {
+      "doc_recall": 1.0,
+      "dy_p50": 0.45,
+      "live_text_cov": 0.9767,
+      "page_err": 0,
+      "raster_frac": 0.0233,
+      "within2pt": 0.0938,
+      "word_recall": 1.0
+     },
+     "deltas": {},
+     "document": "x08_chrome_print_default.pdf",
+     "reference": {
+      "doc_recall": 1.0,
+      "dy_p50": 0.45,
+      "live_text_cov": 0.9767,
+      "page_err": 0,
+      "raster_frac": 0.0233,
+      "within2pt": 0.0938,
+      "word_recall": 1.0
+     },
+     "tier": "ordinary_digital",
+     "verdict": "same",
+     "worse": [],
+     "worse_raw": []
+    },
+    {
+     "better": [],
+     "better_raw": [],
+     "candidate": {
+      "doc_recall": 1.0,
+      "dy_p50": 0.75,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.1921,
+      "word_recall": 1.0
+     },
+     "deltas": {},
+     "document": "x12_chrome_euro_scripts.pdf",
+     "reference": {
+      "doc_recall": 1.0,
+      "dy_p50": 0.75,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.1921,
+      "word_recall": 1.0
+     },
+     "tier": "ordinary_digital",
+     "verdict": "same",
+     "worse": [],
+     "worse_raw": []
+    },
+    {
+     "better": [],
+     "better_raw": [
+      "within2pt",
+      "dy_p50"
+     ],
+     "candidate": {
+      "doc_recall": 0.9969,
+      "dy_p50": 0.25,
+      "live_text_cov": 0.9665,
+      "page_err": 0,
+      "raster_frac": 0.0335,
+      "within2pt": 0.4586,
+      "word_recall": 0.9969
+     },
+     "deltas": {
+      "dy_p50": -0.3,
+      "within2pt": 0.023
+     },
+     "document": "x01_lo_memo_pageno.pdf",
+     "reference": {
+      "doc_recall": 0.9969,
+      "dy_p50": 0.55,
+      "live_text_cov": 0.9665,
+      "page_err": 0,
+      "raster_frac": 0.0335,
+      "within2pt": 0.4356,
+      "word_recall": 0.9969
+     },
+     "tier": "ordinary_digital",
+     "verdict": "better",
+     "worse": [],
+     "worse_raw": []
+    },
+    {
+     "better": [
+      "within2pt",
+      "dy_p50"
+     ],
+     "better_raw": [
+      "doc_recall",
+      "word_recall",
+      "within2pt",
+      "dy_p50"
+     ],
+     "candidate": {
+      "doc_recall": 0.9883,
+      "dy_p50": 0.55,
+      "live_text_cov": 0.976,
+      "page_err": 0,
+      "raster_frac": 0.024,
+      "within2pt": 0.19,
+      "word_recall": 0.9883
+     },
+     "deltas": {
+      "doc_recall": 0.0013,
+      "dy_p50": -15.8,
+      "within2pt": 0.1068,
+      "word_recall": 0.0013
+     },
+     "document": "x02_lo_report_toc.pdf",
+     "reference": {
+      "doc_recall": 0.987,
+      "dy_p50": 16.35,
+      "live_text_cov": 0.976,
+      "page_err": 0,
+      "raster_frac": 0.024,
+      "within2pt": 0.0832,
+      "word_recall": 0.987
+     },
+     "tier": "ordinary_digital",
+     "verdict": "better",
+     "worse": [],
+     "worse_raw": []
+    },
+    {
+     "better": [],
+     "better_raw": [
+      "dy_p50"
+     ],
+     "candidate": {
+      "doc_recall": 1.0,
+      "dy_p50": 0.35,
+      "live_text_cov": 0.9894,
+      "page_err": 0,
+      "raster_frac": 0.0106,
+      "within2pt": 0.2134,
+      "word_recall": 1.0
+     },
+     "deltas": {
+      "dy_p50": -0.05
+     },
+     "document": "x09_chrome_lists_nested.pdf",
+     "reference": {
+      "doc_recall": 1.0,
+      "dy_p50": 0.4,
+      "live_text_cov": 0.9894,
+      "page_err": 0,
+      "raster_frac": 0.0106,
+      "within2pt": 0.2134,
+      "word_recall": 1.0
+     },
+     "tier": "ordinary_digital",
+     "verdict": "better",
+     "worse": [],
+     "worse_raw": []
+    }
+   ],
+   "dy_exemption_cleared": [
+    "x16_fpdf_bulletin.pdf"
+   ],
+   "elapsed_s": 613.9,
+   "margins": {
+    "doc_recall": 0.05,
+    "dy_p50": 0.5,
+    "live_text_cov": 0.05,
+    "page_err": 0,
+    "raster_frac": 0.02,
+    "within2pt": 0.08,
+    "word_recall": 0.05
+   },
+   "margins_source": {
+    "path": "parity_policy.json",
+    "policy_profile_id": "pdfium/gdocs/none/refine0@240dpi",
+    "sections_read": [
+     "margins"
+    ],
+    "waivers_applied": false
+   },
+   "only": [
+    "x0",
+    "x1",
+    "y01",
+    "y03",
+    "y10",
+    "y13"
+   ],
+   "profile": "product",
+   "profile_id": "pymupdf/standard/libreoffice/refine3@240dpi",
+   "reference_backend": "pymupdf",
+   "reference_profile_id": "pymupdf/standard/libreoffice/refine3@240dpi",
+   "subset": true,
+   "summary": {
+    "MAJOR": 7,
+    "adjudicated": false,
+    "better": 3,
+    "blocking": [
+     "x03_lo_lists_nested.pdf",
+     "x06_lo_euro_scripts.pdf",
+     "x10_chrome_tables_plain.pdf",
+     "x14_rl_statement_lines.pdf",
+     "y01_nist_sp80063b.pdf",
+     "y03_nist_fips197.pdf",
+     "y13_irs_pub501.pdf"
+    ],
+    "documents": 20,
+    "gating": false,
+    "minor": 8,
+    "ok": false,
+    "release_ready": false,
+    "same": 2
+   }
+  },
+  "gated16_candidate": {
+   "_note": "The gated 16 at the candidate profile.",
+   "candidate_backend": "pdfium",
+   "command": "testkit/backend_parity.py --profile candidate --measure",
+   "corpus": "corpus_manifest.json",
+   "corpus_documents": 16,
+   "documents": [
+    {
+     "better": [],
+     "better_raw": [],
+     "candidate": {
+      "doc_recall": 0.9677,
+      "dy_p50": 7.89,
+      "live_text_cov": 0.9595,
+      "page_err": 0,
+      "raster_frac": 0.0405,
+      "within2pt": 0.0028,
+      "word_recall": 0.9677
+     },
+     "deltas": {
+      "dy_p50": 1.31
+     },
+     "document": "01_whitepaper_market.pdf",
+     "reference": {
+      "doc_recall": 0.9677,
+      "dy_p50": 6.58,
+      "live_text_cov": 0.9595,
+      "page_err": 0,
+      "raster_frac": 0.0405,
+      "within2pt": 0.0028,
+      "word_recall": 0.9677
+     },
+     "tier": null,
+     "verdict": "MAJOR",
+     "worse": [
+      "dy_p50"
+     ],
+     "worse_raw": [
+      "dy_p50"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [],
+     "candidate": {
+      "doc_recall": 1.0,
+      "dy_p50": 4.64,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.3253,
+      "word_recall": 1.0
+     },
+     "deltas": {
+      "within2pt": -0.1205
+     },
+     "document": "05_memo.pdf",
+     "reference": {
+      "doc_recall": 1.0,
+      "dy_p50": 4.64,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.4458,
+      "word_recall": 1.0
+     },
+     "tier": null,
+     "verdict": "MAJOR",
+     "worse": [
+      "within2pt"
+     ],
+     "worse_raw": [
+      "within2pt"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [
+      "dy_p50"
+     ],
+     "candidate": {
+      "doc_recall": 0.9832,
+      "dy_p50": 1.14,
+      "live_text_cov": 0.9091,
+      "page_err": 0,
+      "raster_frac": 0.0909,
+      "within2pt": 0.2479,
+      "word_recall": 0.9832
+     },
+     "deltas": {
+      "dy_p50": -0.04,
+      "live_text_cov": -0.0909,
+      "raster_frac": 0.0909,
+      "within2pt": -0.0342
+     },
+     "document": "c4_i18n.pdf",
+     "reference": {
+      "doc_recall": 0.9832,
+      "dy_p50": 1.18,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.2821,
+      "word_recall": 0.9832
+     },
+     "tier": null,
+     "verdict": "MAJOR",
+     "worse": [
+      "live_text_cov",
+      "raster_frac"
+     ],
+     "worse_raw": [
+      "live_text_cov",
+      "within2pt",
+      "raster_frac"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [],
+     "candidate": {
+      "doc_recall": 0.9792,
+      "dy_p50": 9.89,
+      "live_text_cov": 0.9883,
+      "page_err": 0,
+      "raster_frac": 0.0117,
+      "within2pt": 0.0142,
+      "word_recall": 0.9792
+     },
+     "deltas": {
+      "doc_recall": -0.0208,
+      "dy_p50": 1.4,
+      "live_text_cov": -0.0117,
+      "raster_frac": 0.0117,
+      "within2pt": -0.0066,
+      "word_recall": -0.0208
+     },
+     "document": "l1_word_native.pdf",
+     "reference": {
+      "doc_recall": 1.0,
+      "dy_p50": 8.49,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.0208,
+      "word_recall": 1.0
+     },
+     "tier": null,
+     "verdict": "MAJOR",
+     "worse": [
+      "dy_p50"
+     ],
+     "worse_raw": [
+      "live_text_cov",
+      "doc_recall",
+      "word_recall",
+      "within2pt",
+      "dy_p50",
+      "raster_frac"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [
+      "dy_p50"
+     ],
+     "candidate": {
+      "doc_recall": 0.9586,
+      "dy_p50": 0.69,
+      "live_text_cov": 0.9736,
+      "page_err": 0,
+      "raster_frac": 0.0264,
+      "within2pt": 0.7157,
+      "word_recall": 0.9586
+     },
+     "deltas": {
+      "dy_p50": -0.15,
+      "within2pt": -0.028
+     },
+     "document": "02_research_paper.pdf",
+     "reference": {
+      "doc_recall": 0.9586,
+      "dy_p50": 0.84,
+      "live_text_cov": 0.9736,
+      "page_err": 0,
+      "raster_frac": 0.0264,
+      "within2pt": 0.7437,
+      "word_recall": 0.9586
+     },
+     "tier": null,
+     "verdict": "minor",
+     "worse": [],
+     "worse_raw": [
+      "within2pt"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [],
+     "candidate": {
+      "doc_recall": 1.0,
+      "dy_p50": 3.17,
+      "live_text_cov": 0.9827,
+      "page_err": 0,
+      "raster_frac": 0.0173,
+      "within2pt": 0.1142,
+      "word_recall": 1.0
+     },
+     "deltas": {},
+     "document": "03_tech_report_code.pdf",
+     "reference": {
+      "doc_recall": 1.0,
+      "dy_p50": 3.17,
+      "live_text_cov": 0.9827,
+      "page_err": 0,
+      "raster_frac": 0.0173,
+      "within2pt": 0.1142,
+      "word_recall": 1.0
+     },
+     "tier": null,
+     "verdict": "same",
+     "worse": [],
+     "worse_raw": []
+    },
+    {
+     "better": [],
+     "better_raw": [],
+     "candidate": {
+      "doc_recall": 0.9337,
+      "dy_p50": 6.99,
+      "live_text_cov": 0.9406,
+      "page_err": 0,
+      "raster_frac": 0.0594,
+      "within2pt": 0.0059,
+      "word_recall": 0.9337
+     },
+     "deltas": {},
+     "document": "04_exec_brief.pdf",
+     "reference": {
+      "doc_recall": 0.9337,
+      "dy_p50": 6.99,
+      "live_text_cov": 0.9406,
+      "page_err": 0,
+      "raster_frac": 0.0594,
+      "within2pt": 0.0059,
+      "word_recall": 0.9337
+     },
+     "tier": null,
+     "verdict": "same",
+     "worse": [],
+     "worse_raw": []
+    },
+    {
+     "better": [],
+     "better_raw": [],
+     "candidate": {
+      "doc_recall": 0.9359,
+      "dy_p50": 8.4,
+      "live_text_cov": 0.9226,
+      "page_err": 0,
+      "raster_frac": 0.0774,
+      "within2pt": 0.0,
+      "word_recall": 0.8648
+     },
+     "deltas": {},
+     "document": "c3_tables.pdf",
+     "reference": {
+      "doc_recall": 0.9359,
+      "dy_p50": 8.4,
+      "live_text_cov": 0.9226,
+      "page_err": 0,
+      "raster_frac": 0.0774,
+      "within2pt": 0.0,
+      "word_recall": 0.8648
+     },
+     "tier": null,
+     "verdict": "same",
+     "worse": [],
+     "worse_raw": []
+    },
+    {
+     "better": [],
+     "better_raw": [],
+     "candidate": {
+      "doc_recall": 1.0,
+      "dy_p50": 1.8,
+      "live_text_cov": 0.9923,
+      "page_err": 0,
+      "raster_frac": 0.0077,
+      "within2pt": 0.5329,
+      "word_recall": 1.0
+     },
+     "deltas": {},
+     "document": "c6_long.pdf",
+     "reference": {
+      "doc_recall": 1.0,
+      "dy_p50": 1.8,
+      "live_text_cov": 0.9923,
+      "page_err": 0,
+      "raster_frac": 0.0077,
+      "within2pt": 0.5329,
+      "word_recall": 1.0
+     },
+     "tier": null,
+     "verdict": "same",
+     "worse": [],
+     "worse_raw": []
+    },
+    {
+     "better": [],
+     "better_raw": [],
+     "candidate": {
+      "doc_recall": 1.0,
+      "dy_p50": 2.0,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.4091,
+      "word_recall": 1.0
+     },
+     "deltas": {},
+     "document": "c7_code.pdf",
+     "reference": {
+      "doc_recall": 1.0,
+      "dy_p50": 2.0,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.4091,
+      "word_recall": 1.0
+     },
+     "tier": null,
+     "verdict": "same",
+     "worse": [],
+     "worse_raw": []
+    },
+    {
+     "better": [],
+     "better_raw": [],
+     "candidate": {
+      "doc_recall": 1.0,
+      "dy_p50": 1.85,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.5612,
+      "word_recall": 1.0
+     },
+     "deltas": {},
+     "document": "c8_toc_links.pdf",
+     "reference": {
+      "doc_recall": 1.0,
+      "dy_p50": 1.85,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.5612,
+      "word_recall": 1.0
+     },
+     "tier": null,
+     "verdict": "same",
+     "worse": [],
+     "worse_raw": []
+    },
+    {
+     "better": [],
+     "better_raw": [],
+     "candidate": {
+      "doc_recall": 1.0,
+      "dy_p50": 0.2,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.6048,
+      "word_recall": 1.0
+     },
+     "deltas": {},
+     "document": "f1_fpdf_brief.pdf",
+     "reference": {
+      "doc_recall": 1.0,
+      "dy_p50": 0.2,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.6048,
+      "word_recall": 1.0
+     },
+     "tier": null,
+     "verdict": "same",
+     "worse": [],
+     "worse_raw": []
+    },
+    {
+     "better": [],
+     "better_raw": [],
+     "candidate": {
+      "doc_recall": 1.0,
+      "dy_p50": 0.65,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.2591,
+      "word_recall": 1.0
+     },
+     "deltas": {},
+     "document": "r1_reportlab_report.pdf",
+     "reference": {
+      "doc_recall": 1.0,
+      "dy_p50": 0.65,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.2591,
+      "word_recall": 1.0
+     },
+     "tier": null,
+     "verdict": "same",
+     "worse": [],
+     "worse_raw": []
+    },
+    {
+     "better": [],
+     "better_raw": [
+      "dy_p50"
+     ],
+     "candidate": {
+      "doc_recall": 0.9697,
+      "dy_p50": 2.69,
+      "live_text_cov": 0.9654,
+      "page_err": 0,
+      "raster_frac": 0.0346,
+      "within2pt": 0.1375,
+      "word_recall": 0.9697
+     },
+     "deltas": {
+      "dy_p50": -0.05
+     },
+     "document": "c1_whitepaper.pdf",
+     "reference": {
+      "doc_recall": 0.9697,
+      "dy_p50": 2.74,
+      "live_text_cov": 0.9654,
+      "page_err": 0,
+      "raster_frac": 0.0346,
+      "within2pt": 0.1375,
+      "word_recall": 0.9697
+     },
+     "tier": null,
+     "verdict": "better",
+     "worse": [],
+     "worse_raw": []
+    },
+    {
+     "better": [
+      "within2pt"
+     ],
+     "better_raw": [
+      "within2pt",
+      "dy_p50"
+     ],
+     "candidate": {
+      "doc_recall": 1.0,
+      "dy_p50": 2.05,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.4545,
+      "word_recall": 1.0
+     },
+     "deltas": {
+      "dy_p50": -0.2,
+      "within2pt": 0.1454
+     },
+     "document": "c2_paper2col.pdf",
+     "reference": {
+      "doc_recall": 1.0,
+      "dy_p50": 2.25,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.3091,
+      "word_recall": 1.0
+     },
+     "tier": null,
+     "verdict": "better",
+     "worse": [],
+     "worse_raw": []
+    },
+    {
+     "better": [
+      "dy_p50"
+     ],
+     "better_raw": [
+      "dy_p50"
+     ],
+     "candidate": {
+      "doc_recall": 0.6778,
+      "dy_p50": 0.15,
+      "live_text_cov": 0.7067,
+      "page_err": 1,
+      "raster_frac": 0.2933,
+      "within2pt": 0.8,
+      "word_recall": 0.1667
+     },
+     "deltas": {
+      "dy_p50": -0.8
+     },
+     "document": "c5_graphics.pdf",
+     "reference": {
+      "doc_recall": 0.6778,
+      "dy_p50": 0.95,
+      "live_text_cov": 0.7067,
+      "page_err": 1,
+      "raster_frac": 0.2933,
+      "within2pt": 0.8,
+      "word_recall": 0.1667
+     },
+     "tier": null,
+     "verdict": "better",
+     "worse": [],
+     "worse_raw": []
+    }
+   ],
+   "dy_exemption_cleared": [],
+   "profile": "candidate",
+   "profile_id": "pdfium/gdocs/none/refine0@240dpi",
+   "raw_summary": {
+    "better": 2,
+    "measurement_only": true,
+    "missing": 0,
+    "ok": false,
+    "regressions": 5,
+    "release_ready": false,
+    "same": 9
+   },
+   "reference_backend": "pymupdf",
+   "summary": {
+    "MAJOR": 4,
+    "adjudicated": false,
+    "better": 3,
+    "blocking": [
+     "01_whitepaper_market.pdf",
+     "05_memo.pdf",
+     "c4_i18n.pdf",
+     "l1_word_native.pdf"
+    ],
+    "documents": 16,
+    "gating": false,
+    "minor": 1,
+    "ok": false,
+    "release_ready": false,
+    "same": 8
+   }
+  },
+  "gated16_product": {
+   "_note": "The gated 16 at the SHIPPING profile.",
+   "candidate_backend": "pdfium",
+   "command": "testkit/backend_parity.py --profile product --measure",
+   "corpus": "corpus_manifest.json",
+   "corpus_documents": 16,
+   "documents": [
+    {
+     "better": [],
+     "better_raw": [],
+     "candidate": {
+      "doc_recall": 0.9586,
+      "dy_p50": 1.29,
+      "live_text_cov": 0.9736,
+      "page_err": 0,
+      "raster_frac": 0.0264,
+      "within2pt": 0.6168,
+      "word_recall": 0.9586
+     },
+     "deltas": {
+      "dy_p50": 1.25,
+      "within2pt": -0.1446
+     },
+     "document": "02_research_paper.pdf",
+     "reference": {
+      "doc_recall": 0.9586,
+      "dy_p50": 0.04,
+      "live_text_cov": 0.9736,
+      "page_err": 0,
+      "raster_frac": 0.0264,
+      "within2pt": 0.7614,
+      "word_recall": 0.9586
+     },
+     "tier": null,
+     "verdict": "MAJOR",
+     "worse": [
+      "within2pt",
+      "dy_p50"
+     ],
+     "worse_raw": [
+      "within2pt",
+      "dy_p50"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [],
+     "candidate": {
+      "doc_recall": 1.0,
+      "dy_p50": 1.49,
+      "live_text_cov": 0.9827,
+      "page_err": 0,
+      "raster_frac": 0.0173,
+      "within2pt": 0.2803,
+      "word_recall": 1.0
+     },
+     "deltas": {
+      "dy_p50": 0.95,
+      "within2pt": -0.1799
+     },
+     "document": "03_tech_report_code.pdf",
+     "reference": {
+      "doc_recall": 1.0,
+      "dy_p50": 0.54,
+      "live_text_cov": 0.9827,
+      "page_err": 0,
+      "raster_frac": 0.0173,
+      "within2pt": 0.4602,
+      "word_recall": 1.0
+     },
+     "tier": null,
+     "verdict": "MAJOR",
+     "worse": [
+      "within2pt",
+      "dy_p50"
+     ],
+     "worse_raw": [
+      "within2pt",
+      "dy_p50"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [
+      "dy_p50"
+     ],
+     "candidate": {
+      "doc_recall": 0.9748,
+      "dy_p50": 0.8,
+      "live_text_cov": 0.9091,
+      "page_err": 0,
+      "raster_frac": 0.0909,
+      "within2pt": 0.4741,
+      "word_recall": 0.9748
+     },
+     "deltas": {
+      "doc_recall": -0.0084,
+      "dy_p50": -0.05,
+      "live_text_cov": -0.0909,
+      "raster_frac": 0.0909,
+      "within2pt": -0.0302,
+      "word_recall": -0.0084
+     },
+     "document": "c4_i18n.pdf",
+     "reference": {
+      "doc_recall": 0.9832,
+      "dy_p50": 0.85,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.5043,
+      "word_recall": 0.9832
+     },
+     "tier": null,
+     "verdict": "MAJOR",
+     "worse": [
+      "live_text_cov",
+      "raster_frac"
+     ],
+     "worse_raw": [
+      "live_text_cov",
+      "doc_recall",
+      "word_recall",
+      "within2pt",
+      "raster_frac"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [
+      "dy_p50"
+     ],
+     "candidate": {
+      "doc_recall": 1.0,
+      "dy_p50": 1.1,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.3212,
+      "word_recall": 1.0
+     },
+     "deltas": {
+      "dy_p50": -0.4,
+      "within2pt": -0.2747
+     },
+     "document": "r1_reportlab_report.pdf",
+     "reference": {
+      "doc_recall": 1.0,
+      "dy_p50": 1.5,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.5959,
+      "word_recall": 1.0
+     },
+     "tier": null,
+     "verdict": "MAJOR",
+     "worse": [
+      "within2pt"
+     ],
+     "worse_raw": [
+      "within2pt"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [],
+     "candidate": {
+      "doc_recall": 0.9677,
+      "dy_p50": 1.38,
+      "live_text_cov": 0.9595,
+      "page_err": 0,
+      "raster_frac": 0.0405,
+      "within2pt": 0.6611,
+      "word_recall": 0.9677
+     },
+     "deltas": {
+      "dy_p50": 0.88,
+      "within2pt": -0.0583
+     },
+     "document": "01_whitepaper_market.pdf",
+     "dy_exemption_applied": true,
+     "reference": {
+      "doc_recall": 0.9677,
+      "dy_p50": 0.5,
+      "live_text_cov": 0.9595,
+      "page_err": 0,
+      "raster_frac": 0.0405,
+      "within2pt": 0.7194,
+      "word_recall": 0.9677
+     },
+     "tier": null,
+     "verdict": "minor",
+     "worse": [],
+     "worse_raw": [
+      "within2pt",
+      "dy_p50"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [],
+     "candidate": {
+      "doc_recall": 1.0,
+      "dy_p50": 1.39,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.6386,
+      "word_recall": 1.0
+     },
+     "deltas": {
+      "dy_p50": 0.8
+     },
+     "document": "05_memo.pdf",
+     "dy_exemption_applied": true,
+     "reference": {
+      "doc_recall": 1.0,
+      "dy_p50": 0.59,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.6386,
+      "word_recall": 1.0
+     },
+     "tier": null,
+     "verdict": "minor",
+     "worse": [],
+     "worse_raw": [
+      "dy_p50"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [
+      "within2pt"
+     ],
+     "candidate": {
+      "doc_recall": 1.0,
+      "dy_p50": 0.8,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.9375,
+      "word_recall": 1.0
+     },
+     "deltas": {
+      "dy_p50": 0.1,
+      "within2pt": 0.0227
+     },
+     "document": "c7_code.pdf",
+     "reference": {
+      "doc_recall": 1.0,
+      "dy_p50": 0.7,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.9148,
+      "word_recall": 1.0
+     },
+     "tier": null,
+     "verdict": "minor",
+     "worse": [],
+     "worse_raw": [
+      "dy_p50"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [],
+     "candidate": {
+      "doc_recall": 1.0,
+      "dy_p50": 1.2,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.6048,
+      "word_recall": 1.0
+     },
+     "deltas": {
+      "dy_p50": 1.2,
+      "within2pt": -0.0162
+     },
+     "document": "f1_fpdf_brief.pdf",
+     "dy_exemption_applied": true,
+     "reference": {
+      "doc_recall": 1.0,
+      "dy_p50": 0.0,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.621,
+      "word_recall": 1.0
+     },
+     "tier": null,
+     "verdict": "minor",
+     "worse": [],
+     "worse_raw": [
+      "within2pt",
+      "dy_p50"
+     ]
+    },
+    {
+     "better": [
+      "within2pt"
+     ],
+     "better_raw": [
+      "within2pt"
+     ],
+     "candidate": {
+      "doc_recall": 0.9792,
+      "dy_p50": 0.01,
+      "live_text_cov": 0.9883,
+      "page_err": 0,
+      "raster_frac": 0.0117,
+      "within2pt": 0.1631,
+      "word_recall": 0.9792
+     },
+     "deltas": {
+      "doc_recall": -0.0208,
+      "live_text_cov": -0.0117,
+      "raster_frac": 0.0117,
+      "within2pt": 0.1075,
+      "word_recall": -0.0208
+     },
+     "document": "l1_word_native.pdf",
+     "reference": {
+      "doc_recall": 1.0,
+      "dy_p50": 0.01,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.0556,
+      "word_recall": 1.0
+     },
+     "tier": null,
+     "verdict": "minor",
+     "worse": [],
+     "worse_raw": [
+      "live_text_cov",
+      "doc_recall",
+      "word_recall",
+      "raster_frac"
+     ]
+    },
+    {
+     "better": [],
+     "better_raw": [],
+     "candidate": {
+      "doc_recall": 0.9359,
+      "dy_p50": 2.75,
+      "live_text_cov": 0.9226,
+      "page_err": 0,
+      "raster_frac": 0.0774,
+      "within2pt": 0.0,
+      "word_recall": 0.9359
+     },
+     "deltas": {},
+     "document": "c3_tables.pdf",
+     "reference": {
+      "doc_recall": 0.9359,
+      "dy_p50": 2.75,
+      "live_text_cov": 0.9226,
+      "page_err": 0,
+      "raster_frac": 0.0774,
+      "within2pt": 0.0,
+      "word_recall": 0.9359
+     },
+     "tier": null,
+     "verdict": "same",
+     "worse": [],
+     "worse_raw": []
+    },
+    {
+     "better": [],
+     "better_raw": [],
+     "candidate": {
+      "doc_recall": 1.0,
+      "dy_p50": 0.1,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 1.0,
+      "word_recall": 1.0
+     },
+     "deltas": {},
+     "document": "c8_toc_links.pdf",
+     "reference": {
+      "doc_recall": 1.0,
+      "dy_p50": 0.1,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 1.0,
+      "word_recall": 1.0
+     },
+     "tier": null,
+     "verdict": "same",
+     "worse": [],
+     "worse_raw": []
+    },
+    {
+     "better": [
+      "within2pt",
+      "dy_p50"
+     ],
+     "better_raw": [
+      "within2pt",
+      "dy_p50"
+     ],
+     "candidate": {
+      "doc_recall": 0.9337,
+      "dy_p50": 1.38,
+      "live_text_cov": 0.9406,
+      "page_err": 0,
+      "raster_frac": 0.0594,
+      "within2pt": 0.4201,
+      "word_recall": 0.9337
+     },
+     "deltas": {
+      "dy_p50": -2.13,
+      "within2pt": 0.1952
+     },
+     "document": "04_exec_brief.pdf",
+     "reference": {
+      "doc_recall": 0.9337,
+      "dy_p50": 3.51,
+      "live_text_cov": 0.9406,
+      "page_err": 0,
+      "raster_frac": 0.0594,
+      "within2pt": 0.2249,
+      "word_recall": 0.9337
+     },
+     "tier": null,
+     "verdict": "better",
+     "worse": [],
+     "worse_raw": []
+    },
+    {
+     "better": [
+      "within2pt",
+      "dy_p50"
+     ],
+     "better_raw": [
+      "within2pt",
+      "dy_p50"
+     ],
+     "candidate": {
+      "doc_recall": 0.9697,
+      "dy_p50": 1.89,
+      "live_text_cov": 0.9654,
+      "page_err": 0,
+      "raster_frac": 0.0346,
+      "within2pt": 0.2812,
+      "word_recall": 0.9697
+     },
+     "deltas": {
+      "dy_p50": -1.0,
+      "within2pt": 0.0874
+     },
+     "document": "c1_whitepaper.pdf",
+     "reference": {
+      "doc_recall": 0.9697,
+      "dy_p50": 2.89,
+      "live_text_cov": 0.9654,
+      "page_err": 0,
+      "raster_frac": 0.0346,
+      "within2pt": 0.1938,
+      "word_recall": 0.9697
+     },
+     "tier": null,
+     "verdict": "better",
+     "worse": [],
+     "worse_raw": []
+    },
+    {
+     "better": [
+      "within2pt"
+     ],
+     "better_raw": [
+      "within2pt",
+      "dy_p50"
+     ],
+     "candidate": {
+      "doc_recall": 1.0,
+      "dy_p50": 0.55,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.574,
+      "word_recall": 1.0
+     },
+     "deltas": {
+      "dy_p50": -0.3,
+      "within2pt": 0.0883
+     },
+     "document": "c2_paper2col.pdf",
+     "reference": {
+      "doc_recall": 1.0,
+      "dy_p50": 0.85,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.4857,
+      "word_recall": 1.0
+     },
+     "tier": null,
+     "verdict": "better",
+     "worse": [],
+     "worse_raw": []
+    },
+    {
+     "better": [],
+     "better_raw": [
+      "dy_p50"
+     ],
+     "candidate": {
+      "doc_recall": 0.6778,
+      "dy_p50": 0.45,
+      "live_text_cov": 0.7067,
+      "page_err": 0,
+      "raster_frac": 0.2933,
+      "within2pt": 0.6885,
+      "word_recall": 0.6778
+     },
+     "deltas": {
+      "dy_p50": -0.05
+     },
+     "document": "c5_graphics.pdf",
+     "reference": {
+      "doc_recall": 0.6778,
+      "dy_p50": 0.5,
+      "live_text_cov": 0.7067,
+      "page_err": 0,
+      "raster_frac": 0.2933,
+      "within2pt": 0.6885,
+      "word_recall": 0.6778
+     },
+     "tier": null,
+     "verdict": "better",
+     "worse": [],
+     "worse_raw": []
+    },
+    {
+     "better": [],
+     "better_raw": [
+      "dy_p50"
+     ],
+     "candidate": {
+      "doc_recall": 1.0,
+      "dy_p50": 0.5,
+      "live_text_cov": 0.9923,
+      "page_err": 0,
+      "raster_frac": 0.0077,
+      "within2pt": 0.758,
+      "word_recall": 1.0
+     },
+     "deltas": {
+      "dy_p50": -0.15
+     },
+     "document": "c6_long.pdf",
+     "reference": {
+      "doc_recall": 1.0,
+      "dy_p50": 0.65,
+      "live_text_cov": 0.9923,
+      "page_err": 0,
+      "raster_frac": 0.0077,
+      "within2pt": 0.758,
+      "word_recall": 1.0
+     },
+     "tier": null,
+     "verdict": "better",
+     "worse": [],
+     "worse_raw": []
+    }
+   ],
+   "dy_exemption_cleared": [
+    "01_whitepaper_market.pdf",
+    "05_memo.pdf",
+    "f1_fpdf_brief.pdf"
+   ],
+   "profile": "product",
+   "profile_id": "pymupdf/standard/libreoffice/refine3@240dpi",
+   "raw_summary": {
+    "better": 4,
+    "measurement_only": true,
+    "missing": 0,
+    "ok": false,
+    "regressions": 9,
+    "release_ready": false,
+    "same": 3
+   },
+   "reference_backend": "pymupdf",
+   "summary": {
+    "MAJOR": 4,
+    "adjudicated": false,
+    "better": 5,
+    "blocking": [
+     "02_research_paper.pdf",
+     "03_tech_report_code.pdf",
+     "c4_i18n.pdf",
+     "r1_reportlab_report.pdf"
+    ],
+    "documents": 16,
+    "gating": false,
+    "minor": 5,
+    "ok": false,
+    "release_ready": false,
+    "same": 2
+   }
+  }
+ },
+ "ok": false,
+ "ratification_binding": {
+  "01_whitepaper_market.pdf": {
+   "gated16_candidate": {
+    "_authored_by_a_human": [
+     "defect",
+     "reason",
+     "ratified_by",
+     "ratified_on",
+     "issue",
+     "review_condition"
+    ],
+    "corpus_manifest_sha256": "e6e4a15986bd5ba002e31a64c5366144245d1146bd464551295b06dd9310e539",
+    "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "floors": {
+     "doc_recall": 0.9677,
+     "dy_p50": 7.89,
+     "live_text_cov": 0.9595,
+     "page_err": 0,
+     "raster_frac": 0.0405,
+     "within2pt": 0.0028,
+     "word_recall": 0.9677
+    },
+    "measured_commit": null,
+    "measured_on": "2026-08-05",
+    "profile_id": "pdfium/gdocs/none/refine0@240dpi",
+    "recorded_on": {
+     "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+     "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+     "os": "linux",
+     "pdfium": "152.0.7947.0",
+     "pymupdf": "1.28.0",
+     "python": "3.12.3",
+     "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+    },
+    "reference_at_record": {
+     "doc_recall": 0.9677,
+     "dy_p50": 6.58,
+     "live_text_cov": 0.9595,
+     "page_err": 0,
+     "raster_frac": 0.0405,
+     "within2pt": 0.0028,
+     "word_recall": 0.9677
+    },
+    "worse_at_record": [
+     "dy_p50"
+    ]
+   }
+  },
+  "02_research_paper.pdf": {
+   "gated16_product": {
+    "_authored_by_a_human": [
+     "defect",
+     "reason",
+     "ratified_by",
+     "ratified_on",
+     "issue",
+     "review_condition"
+    ],
+    "corpus_manifest_sha256": "e6e4a15986bd5ba002e31a64c5366144245d1146bd464551295b06dd9310e539",
+    "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "floors": {
+     "doc_recall": 0.9586,
+     "dy_p50": 1.29,
+     "live_text_cov": 0.9736,
+     "page_err": 0,
+     "raster_frac": 0.0264,
+     "within2pt": 0.6168,
+     "word_recall": 0.9586
+    },
+    "measured_commit": null,
+    "measured_on": "2026-08-05",
+    "profile_id": "pymupdf/standard/libreoffice/refine3@240dpi",
+    "recorded_on": {
+     "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+     "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+     "os": "linux",
+     "pdfium": "152.0.7947.0",
+     "pymupdf": "1.28.0",
+     "python": "3.12.3",
+     "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+    },
+    "reference_at_record": {
+     "doc_recall": 0.9586,
+     "dy_p50": 0.04,
+     "live_text_cov": 0.9736,
+     "page_err": 0,
+     "raster_frac": 0.0264,
+     "within2pt": 0.7614,
+     "word_recall": 0.9586
+    },
+    "worse_at_record": [
+     "within2pt",
+     "dy_p50"
+    ]
+   }
+  },
+  "03_tech_report_code.pdf": {
+   "gated16_product": {
+    "_authored_by_a_human": [
+     "defect",
+     "reason",
+     "ratified_by",
+     "ratified_on",
+     "issue",
+     "review_condition"
+    ],
+    "corpus_manifest_sha256": "e6e4a15986bd5ba002e31a64c5366144245d1146bd464551295b06dd9310e539",
+    "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "floors": {
+     "doc_recall": 1.0,
+     "dy_p50": 1.49,
+     "live_text_cov": 0.9827,
+     "page_err": 0,
+     "raster_frac": 0.0173,
+     "within2pt": 0.2803,
+     "word_recall": 1.0
+    },
+    "measured_commit": null,
+    "measured_on": "2026-08-05",
+    "profile_id": "pymupdf/standard/libreoffice/refine3@240dpi",
+    "recorded_on": {
+     "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+     "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+     "os": "linux",
+     "pdfium": "152.0.7947.0",
+     "pymupdf": "1.28.0",
+     "python": "3.12.3",
+     "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+    },
+    "reference_at_record": {
+     "doc_recall": 1.0,
+     "dy_p50": 0.54,
+     "live_text_cov": 0.9827,
+     "page_err": 0,
+     "raster_frac": 0.0173,
+     "within2pt": 0.4602,
+     "word_recall": 1.0
+    },
+    "worse_at_record": [
+     "within2pt",
+     "dy_p50"
+    ]
+   }
+  },
+  "05_memo.pdf": {
+   "gated16_candidate": {
+    "_authored_by_a_human": [
+     "defect",
+     "reason",
+     "ratified_by",
+     "ratified_on",
+     "issue",
+     "review_condition"
+    ],
+    "corpus_manifest_sha256": "e6e4a15986bd5ba002e31a64c5366144245d1146bd464551295b06dd9310e539",
+    "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "floors": {
+     "doc_recall": 1.0,
+     "dy_p50": 4.64,
+     "live_text_cov": 1.0,
+     "page_err": 0,
+     "raster_frac": 0.0,
+     "within2pt": 0.3253,
+     "word_recall": 1.0
+    },
+    "measured_commit": null,
+    "measured_on": "2026-08-05",
+    "profile_id": "pdfium/gdocs/none/refine0@240dpi",
+    "recorded_on": {
+     "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+     "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+     "os": "linux",
+     "pdfium": "152.0.7947.0",
+     "pymupdf": "1.28.0",
+     "python": "3.12.3",
+     "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+    },
+    "reference_at_record": {
+     "doc_recall": 1.0,
+     "dy_p50": 4.64,
+     "live_text_cov": 1.0,
+     "page_err": 0,
+     "raster_frac": 0.0,
+     "within2pt": 0.4458,
+     "word_recall": 1.0
+    },
+    "worse_at_record": [
+     "within2pt"
+    ]
+   }
+  },
+  "c4_i18n.pdf": {
+   "gated16_candidate": {
+    "_authored_by_a_human": [
+     "defect",
+     "reason",
+     "ratified_by",
+     "ratified_on",
+     "issue",
+     "review_condition"
+    ],
+    "corpus_manifest_sha256": "e6e4a15986bd5ba002e31a64c5366144245d1146bd464551295b06dd9310e539",
+    "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "floors": {
+     "doc_recall": 0.9832,
+     "dy_p50": 1.14,
+     "live_text_cov": 0.9091,
+     "page_err": 0,
+     "raster_frac": 0.0909,
+     "within2pt": 0.2479,
+     "word_recall": 0.9832
+    },
+    "measured_commit": null,
+    "measured_on": "2026-08-05",
+    "profile_id": "pdfium/gdocs/none/refine0@240dpi",
+    "recorded_on": {
+     "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+     "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+     "os": "linux",
+     "pdfium": "152.0.7947.0",
+     "pymupdf": "1.28.0",
+     "python": "3.12.3",
+     "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+    },
+    "reference_at_record": {
+     "doc_recall": 0.9832,
+     "dy_p50": 1.18,
+     "live_text_cov": 1.0,
+     "page_err": 0,
+     "raster_frac": 0.0,
+     "within2pt": 0.2821,
+     "word_recall": 0.9832
+    },
+    "worse_at_record": [
+     "live_text_cov",
+     "raster_frac"
+    ]
+   },
+   "gated16_product": {
+    "_authored_by_a_human": [
+     "defect",
+     "reason",
+     "ratified_by",
+     "ratified_on",
+     "issue",
+     "review_condition"
+    ],
+    "corpus_manifest_sha256": "e6e4a15986bd5ba002e31a64c5366144245d1146bd464551295b06dd9310e539",
+    "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "floors": {
+     "doc_recall": 0.9748,
+     "dy_p50": 0.8,
+     "live_text_cov": 0.9091,
+     "page_err": 0,
+     "raster_frac": 0.0909,
+     "within2pt": 0.4741,
+     "word_recall": 0.9748
+    },
+    "measured_commit": null,
+    "measured_on": "2026-08-05",
+    "profile_id": "pymupdf/standard/libreoffice/refine3@240dpi",
+    "recorded_on": {
+     "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+     "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+     "os": "linux",
+     "pdfium": "152.0.7947.0",
+     "pymupdf": "1.28.0",
+     "python": "3.12.3",
+     "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+    },
+    "reference_at_record": {
+     "doc_recall": 0.9832,
+     "dy_p50": 0.85,
+     "live_text_cov": 1.0,
+     "page_err": 0,
+     "raster_frac": 0.0,
+     "within2pt": 0.5043,
+     "word_recall": 0.9832
+    },
+    "worse_at_record": [
+     "live_text_cov",
+     "raster_frac"
+    ]
+   }
+  },
+  "l1_word_native.pdf": {
+   "gated16_candidate": {
+    "_authored_by_a_human": [
+     "defect",
+     "reason",
+     "ratified_by",
+     "ratified_on",
+     "issue",
+     "review_condition"
+    ],
+    "corpus_manifest_sha256": "e6e4a15986bd5ba002e31a64c5366144245d1146bd464551295b06dd9310e539",
+    "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "floors": {
+     "doc_recall": 0.9792,
+     "dy_p50": 9.89,
+     "live_text_cov": 0.9883,
+     "page_err": 0,
+     "raster_frac": 0.0117,
+     "within2pt": 0.0142,
+     "word_recall": 0.9792
+    },
+    "measured_commit": null,
+    "measured_on": "2026-08-05",
+    "profile_id": "pdfium/gdocs/none/refine0@240dpi",
+    "recorded_on": {
+     "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+     "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+     "os": "linux",
+     "pdfium": "152.0.7947.0",
+     "pymupdf": "1.28.0",
+     "python": "3.12.3",
+     "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+    },
+    "reference_at_record": {
+     "doc_recall": 1.0,
+     "dy_p50": 8.49,
+     "live_text_cov": 1.0,
+     "page_err": 0,
+     "raster_frac": 0.0,
+     "within2pt": 0.0208,
+     "word_recall": 1.0
+    },
+    "worse_at_record": [
+     "dy_p50"
+    ]
+   }
+  },
+  "r1_reportlab_report.pdf": {
+   "gated16_product": {
+    "_authored_by_a_human": [
+     "defect",
+     "reason",
+     "ratified_by",
+     "ratified_on",
+     "issue",
+     "review_condition"
+    ],
+    "corpus_manifest_sha256": "e6e4a15986bd5ba002e31a64c5366144245d1146bd464551295b06dd9310e539",
+    "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "floors": {
+     "doc_recall": 1.0,
+     "dy_p50": 1.1,
+     "live_text_cov": 1.0,
+     "page_err": 0,
+     "raster_frac": 0.0,
+     "within2pt": 0.3212,
+     "word_recall": 1.0
+    },
+    "measured_commit": null,
+    "measured_on": "2026-08-05",
+    "profile_id": "pymupdf/standard/libreoffice/refine3@240dpi",
+    "recorded_on": {
+     "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+     "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+     "os": "linux",
+     "pdfium": "152.0.7947.0",
+     "pymupdf": "1.28.0",
+     "python": "3.12.3",
+     "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+    },
+    "reference_at_record": {
+     "doc_recall": 1.0,
+     "dy_p50": 1.5,
+     "live_text_cov": 1.0,
+     "page_err": 0,
+     "raster_frac": 0.0,
+     "within2pt": 0.5959,
+     "word_recall": 1.0
+    },
+    "worse_at_record": [
+     "within2pt"
+    ]
+   }
+  },
+  "x01_lo_memo_pageno.pdf": {
+   "expansion_candidate": {
+    "_authored_by_a_human": [
+     "defect",
+     "reason",
+     "ratified_by",
+     "ratified_on",
+     "issue",
+     "review_condition"
+    ],
+    "corpus_manifest_sha256": "9b9e66e7f77b4f9f3001dad11333e6e741c483b72313e9daf84f92e7bf57fa05",
+    "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "floors": {
+     "doc_recall": 0.9969,
+     "dy_p50": 1.35,
+     "live_text_cov": 0.9665,
+     "page_err": 0,
+     "raster_frac": 0.0335,
+     "within2pt": 0.316,
+     "word_recall": 0.9969
+    },
+    "measured_commit": null,
+    "measured_on": "2026-08-05",
+    "profile_id": "pdfium/gdocs/none/refine0@240dpi",
+    "recorded_on": {
+     "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+     "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+     "os": "linux",
+     "pdfium": "152.0.7947.0",
+     "pymupdf": "1.28.0",
+     "python": "3.12.3",
+     "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+    },
+    "reference_at_record": {
+     "doc_recall": 0.9969,
+     "dy_p50": 0.7,
+     "live_text_cov": 0.9665,
+     "page_err": 0,
+     "raster_frac": 0.0335,
+     "within2pt": 0.4187,
+     "word_recall": 0.9969
+    },
+    "worse_at_record": [
+     "within2pt",
+     "dy_p50"
+    ]
+   }
+  },
+  "x03_lo_lists_nested.pdf": {
+   "expansion_candidate": {
+    "_authored_by_a_human": [
+     "defect",
+     "reason",
+     "ratified_by",
+     "ratified_on",
+     "issue",
+     "review_condition"
+    ],
+    "corpus_manifest_sha256": "9b9e66e7f77b4f9f3001dad11333e6e741c483b72313e9daf84f92e7bf57fa05",
+    "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "floors": {
+     "doc_recall": 0.9492,
+     "dy_p50": 0.4,
+     "live_text_cov": 0.9523,
+     "page_err": 0,
+     "raster_frac": 0.0477,
+     "within2pt": 1.0,
+     "word_recall": 0.9492
+    },
+    "measured_commit": null,
+    "measured_on": "2026-08-05",
+    "profile_id": "pdfium/gdocs/none/refine0@240dpi",
+    "recorded_on": {
+     "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+     "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+     "os": "linux",
+     "pdfium": "152.0.7947.0",
+     "pymupdf": "1.28.0",
+     "python": "3.12.3",
+     "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+    },
+    "reference_at_record": {
+     "doc_recall": 1.0,
+     "dy_p50": 0.85,
+     "live_text_cov": 0.9809,
+     "page_err": 0,
+     "raster_frac": 0.0191,
+     "within2pt": 0.5391,
+     "word_recall": 1.0
+    },
+    "worse_at_record": [
+     "doc_recall",
+     "word_recall",
+     "raster_frac"
+    ]
+   },
+   "expansion_product_sample": {
+    "_authored_by_a_human": [
+     "defect",
+     "reason",
+     "ratified_by",
+     "ratified_on",
+     "issue",
+     "review_condition"
+    ],
+    "corpus_manifest_sha256": "9b9e66e7f77b4f9f3001dad11333e6e741c483b72313e9daf84f92e7bf57fa05",
+    "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "floors": {
+     "doc_recall": 0.9492,
+     "dy_p50": 0.23,
+     "live_text_cov": 0.9523,
+     "page_err": 0,
+     "raster_frac": 0.0477,
+     "within2pt": 1.0,
+     "word_recall": 0.9492
+    },
+    "measured_commit": null,
+    "measured_on": "2026-08-05",
+    "profile_id": "pymupdf/standard/libreoffice/refine3@240dpi",
+    "recorded_on": {
+     "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+     "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+     "os": "linux",
+     "pdfium": "152.0.7947.0",
+     "pymupdf": "1.28.0",
+     "python": "3.12.3",
+     "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+    },
+    "reference_at_record": {
+     "doc_recall": 1.0,
+     "dy_p50": 0.35,
+     "live_text_cov": 0.9809,
+     "page_err": 0,
+     "raster_frac": 0.0191,
+     "within2pt": 0.5508,
+     "word_recall": 1.0
+    },
+    "worse_at_record": [
+     "doc_recall",
+     "word_recall",
+     "raster_frac"
+    ]
+   }
+  },
+  "x06_lo_euro_scripts.pdf": {
+   "expansion_candidate": {
+    "_authored_by_a_human": [
+     "defect",
+     "reason",
+     "ratified_by",
+     "ratified_on",
+     "issue",
+     "review_condition"
+    ],
+    "corpus_manifest_sha256": "9b9e66e7f77b4f9f3001dad11333e6e741c483b72313e9daf84f92e7bf57fa05",
+    "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "floors": {
+     "doc_recall": 1.0,
+     "dy_p50": 13.0,
+     "live_text_cov": 1.0,
+     "page_err": 0,
+     "raster_frac": 0.0,
+     "within2pt": 0.2184,
+     "word_recall": 1.0
+    },
+    "measured_commit": null,
+    "measured_on": "2026-08-05",
+    "profile_id": "pdfium/gdocs/none/refine0@240dpi",
+    "recorded_on": {
+     "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+     "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+     "os": "linux",
+     "pdfium": "152.0.7947.0",
+     "pymupdf": "1.28.0",
+     "python": "3.12.3",
+     "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+    },
+    "reference_at_record": {
+     "doc_recall": 1.0,
+     "dy_p50": 2.8,
+     "live_text_cov": 1.0,
+     "page_err": 0,
+     "raster_frac": 0.0,
+     "within2pt": 0.3058,
+     "word_recall": 1.0
+    },
+    "worse_at_record": [
+     "within2pt",
+     "dy_p50"
+    ]
+   },
+   "expansion_product_sample": {
+    "_authored_by_a_human": [
+     "defect",
+     "reason",
+     "ratified_by",
+     "ratified_on",
+     "issue",
+     "review_condition"
+    ],
+    "corpus_manifest_sha256": "9b9e66e7f77b4f9f3001dad11333e6e741c483b72313e9daf84f92e7bf57fa05",
+    "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "floors": {
+     "doc_recall": 1.0,
+     "dy_p50": 14.55,
+     "live_text_cov": 1.0,
+     "page_err": 0,
+     "raster_frac": 0.0,
+     "within2pt": 0.2718,
+     "word_recall": 1.0
+    },
+    "measured_commit": null,
+    "measured_on": "2026-08-05",
+    "profile_id": "pymupdf/standard/libreoffice/refine3@240dpi",
+    "recorded_on": {
+     "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+     "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+     "os": "linux",
+     "pdfium": "152.0.7947.0",
+     "pymupdf": "1.28.0",
+     "python": "3.12.3",
+     "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+    },
+    "reference_at_record": {
+     "doc_recall": 1.0,
+     "dy_p50": 0.28,
+     "live_text_cov": 1.0,
+     "page_err": 0,
+     "raster_frac": 0.0,
+     "within2pt": 0.6165,
+     "word_recall": 1.0
+    },
+    "worse_at_record": [
+     "within2pt",
+     "dy_p50"
+    ]
+   }
+  },
+  "x10_chrome_tables_plain.pdf": {
+   "expansion_candidate": {
+    "_authored_by_a_human": [
+     "defect",
+     "reason",
+     "ratified_by",
+     "ratified_on",
+     "issue",
+     "review_condition"
+    ],
+    "corpus_manifest_sha256": "9b9e66e7f77b4f9f3001dad11333e6e741c483b72313e9daf84f92e7bf57fa05",
+    "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "floors": {
+     "doc_recall": 1.0,
+     "dy_p50": 1.65,
+     "live_text_cov": 1.0,
+     "page_err": 1,
+     "raster_frac": 0.0,
+     "within2pt": 0.0991,
+     "word_recall": 0.8657
+    },
+    "measured_commit": null,
+    "measured_on": "2026-08-05",
+    "profile_id": "pdfium/gdocs/none/refine0@240dpi",
+    "recorded_on": {
+     "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+     "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+     "os": "linux",
+     "pdfium": "152.0.7947.0",
+     "pymupdf": "1.28.0",
+     "python": "3.12.3",
+     "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+    },
+    "reference_at_record": {
+     "doc_recall": 1.0,
+     "dy_p50": 1.7,
+     "live_text_cov": 1.0,
+     "page_err": 0,
+     "raster_frac": 0.0,
+     "within2pt": 0.0896,
+     "word_recall": 1.0
+    },
+    "worse_at_record": [
+     "page_err",
+     "word_recall"
+    ]
+   },
+   "expansion_product_sample": {
+    "_authored_by_a_human": [
+     "defect",
+     "reason",
+     "ratified_by",
+     "ratified_on",
+     "issue",
+     "review_condition"
+    ],
+    "corpus_manifest_sha256": "9b9e66e7f77b4f9f3001dad11333e6e741c483b72313e9daf84f92e7bf57fa05",
+    "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "floors": {
+     "doc_recall": 1.0,
+     "dy_p50": 16.9,
+     "live_text_cov": 1.0,
+     "page_err": 0,
+     "raster_frac": 0.0,
+     "within2pt": 0.1082,
+     "word_recall": 1.0
+    },
+    "measured_commit": null,
+    "measured_on": "2026-08-05",
+    "profile_id": "pymupdf/standard/libreoffice/refine3@240dpi",
+    "recorded_on": {
+     "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+     "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+     "os": "linux",
+     "pdfium": "152.0.7947.0",
+     "pymupdf": "1.28.0",
+     "python": "3.12.3",
+     "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+    },
+    "reference_at_record": {
+     "doc_recall": 1.0,
+     "dy_p50": 0.85,
+     "live_text_cov": 1.0,
+     "page_err": 0,
+     "raster_frac": 0.0,
+     "within2pt": 0.2575,
+     "word_recall": 1.0
+    },
+    "worse_at_record": [
+     "within2pt",
+     "dy_p50"
+    ]
+   }
+  },
+  "x14_rl_statement_lines.pdf": {
+   "expansion_product_sample": {
+    "_authored_by_a_human": [
+     "defect",
+     "reason",
+     "ratified_by",
+     "ratified_on",
+     "issue",
+     "review_condition"
+    ],
+    "corpus_manifest_sha256": "9b9e66e7f77b4f9f3001dad11333e6e741c483b72313e9daf84f92e7bf57fa05",
+    "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "floors": {
+     "doc_recall": 0.9942,
+     "dy_p50": 1.38,
+     "live_text_cov": 1.0,
+     "page_err": 0,
+     "raster_frac": 0.0,
+     "within2pt": 0.1471,
+     "word_recall": 0.9942
+    },
+    "measured_commit": null,
+    "measured_on": "2026-08-05",
+    "profile_id": "pymupdf/standard/libreoffice/refine3@240dpi",
+    "recorded_on": {
+     "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+     "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+     "os": "linux",
+     "pdfium": "152.0.7947.0",
+     "pymupdf": "1.28.0",
+     "python": "3.12.3",
+     "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+    },
+    "reference_at_record": {
+     "doc_recall": 0.9942,
+     "dy_p50": 0.38,
+     "live_text_cov": 1.0,
+     "page_err": 0,
+     "raster_frac": 0.0,
+     "within2pt": 0.2353,
+     "word_recall": 0.9942
+    },
+    "worse_at_record": [
+     "within2pt",
+     "dy_p50"
+    ]
+   }
+  },
+  "y01_nist_sp80063b.pdf": {
+   "expansion_candidate": {
+    "_authored_by_a_human": [
+     "defect",
+     "reason",
+     "ratified_by",
+     "ratified_on",
+     "issue",
+     "review_condition"
+    ],
+    "corpus_manifest_sha256": "9b9e66e7f77b4f9f3001dad11333e6e741c483b72313e9daf84f92e7bf57fa05",
+    "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "floors": {
+     "doc_recall": 0.9288,
+     "dy_p50": 55.76,
+     "live_text_cov": 0.916,
+     "page_err": 27,
+     "raster_frac": 0.084,
+     "within2pt": 0.0006,
+     "word_recall": 0.184
+    },
+    "measured_commit": null,
+    "measured_on": "2026-08-05",
+    "profile_id": "pdfium/gdocs/none/refine0@240dpi",
+    "recorded_on": {
+     "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+     "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+     "os": "linux",
+     "pdfium": "152.0.7947.0",
+     "pymupdf": "1.28.0",
+     "python": "3.12.3",
+     "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+    },
+    "reference_at_record": {
+     "doc_recall": 0.9324,
+     "dy_p50": 60.27,
+     "live_text_cov": 0.9168,
+     "page_err": 21,
+     "raster_frac": 0.0832,
+     "within2pt": 0.0,
+     "word_recall": 0.1989
+    },
+    "worse_at_record": [
+     "page_err"
+    ]
+   },
+   "expansion_product_sample": {
+    "_authored_by_a_human": [
+     "defect",
+     "reason",
+     "ratified_by",
+     "ratified_on",
+     "issue",
+     "review_condition"
+    ],
+    "corpus_manifest_sha256": "9b9e66e7f77b4f9f3001dad11333e6e741c483b72313e9daf84f92e7bf57fa05",
+    "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "floors": {
+     "doc_recall": 0.9288,
+     "dy_p50": 54.15,
+     "live_text_cov": 0.916,
+     "page_err": 16,
+     "raster_frac": 0.084,
+     "within2pt": 0.0005,
+     "word_recall": 0.2192
+    },
+    "measured_commit": null,
+    "measured_on": "2026-08-05",
+    "profile_id": "pymupdf/standard/libreoffice/refine3@240dpi",
+    "recorded_on": {
+     "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+     "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+     "os": "linux",
+     "pdfium": "152.0.7947.0",
+     "pymupdf": "1.28.0",
+     "python": "3.12.3",
+     "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+    },
+    "reference_at_record": {
+     "doc_recall": 0.9323,
+     "dy_p50": 54.73,
+     "live_text_cov": 0.9168,
+     "page_err": 12,
+     "raster_frac": 0.0832,
+     "within2pt": 0.0003,
+     "word_recall": 0.22
+    },
+    "worse_at_record": [
+     "page_err"
+    ]
+   }
+  },
+  "y03_nist_fips197.pdf": {
+   "expansion_candidate": {
+    "_authored_by_a_human": [
+     "defect",
+     "reason",
+     "ratified_by",
+     "ratified_on",
+     "issue",
+     "review_condition"
+    ],
+    "corpus_manifest_sha256": "9b9e66e7f77b4f9f3001dad11333e6e741c483b72313e9daf84f92e7bf57fa05",
+    "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "floors": {
+     "doc_recall": 0.9139,
+     "dy_p50": 76.68,
+     "live_text_cov": 0.9205,
+     "page_err": 29,
+     "raster_frac": 0.0795,
+     "within2pt": 0.008,
+     "word_recall": 0.1447
+    },
+    "measured_commit": null,
+    "measured_on": "2026-08-05",
+    "profile_id": "pdfium/gdocs/none/refine0@240dpi",
+    "recorded_on": {
+     "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+     "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+     "os": "linux",
+     "pdfium": "152.0.7947.0",
+     "pymupdf": "1.28.0",
+     "python": "3.12.3",
+     "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+    },
+    "reference_at_record": {
+     "doc_recall": 0.9598,
+     "dy_p50": 4.84,
+     "live_text_cov": 0.9311,
+     "page_err": 22,
+     "raster_frac": 0.0689,
+     "within2pt": 0.0029,
+     "word_recall": 0.3919
+    },
+    "worse_at_record": [
+     "page_err",
+     "word_recall",
+     "dy_p50"
+    ]
+   },
+   "expansion_product_sample": {
+    "_authored_by_a_human": [
+     "defect",
+     "reason",
+     "ratified_by",
+     "ratified_on",
+     "issue",
+     "review_condition"
+    ],
+    "corpus_manifest_sha256": "9b9e66e7f77b4f9f3001dad11333e6e741c483b72313e9daf84f92e7bf57fa05",
+    "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "floors": {
+     "doc_recall": 0.9139,
+     "dy_p50": 7.91,
+     "live_text_cov": 0.9205,
+     "page_err": 18,
+     "raster_frac": 0.0795,
+     "within2pt": 0.1023,
+     "word_recall": 0.3805
+    },
+    "measured_commit": null,
+    "measured_on": "2026-08-05",
+    "profile_id": "pymupdf/standard/libreoffice/refine3@240dpi",
+    "recorded_on": {
+     "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+     "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+     "os": "linux",
+     "pdfium": "152.0.7947.0",
+     "pymupdf": "1.28.0",
+     "python": "3.12.3",
+     "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+    },
+    "reference_at_record": {
+     "doc_recall": 0.9597,
+     "dy_p50": 6.56,
+     "live_text_cov": 0.9311,
+     "page_err": 8,
+     "raster_frac": 0.0689,
+     "within2pt": 0.0244,
+     "word_recall": 0.519
+    },
+    "worse_at_record": [
+     "page_err",
+     "word_recall",
+     "dy_p50"
+    ]
+   }
+  },
+  "y06_irs_1040_instructions.pdf": {
+   "expansion_candidate": {
+    "_authored_by_a_human": [
+     "defect",
+     "reason",
+     "ratified_by",
+     "ratified_on",
+     "issue",
+     "review_condition"
+    ],
+    "corpus_manifest_sha256": "9b9e66e7f77b4f9f3001dad11333e6e741c483b72313e9daf84f92e7bf57fa05",
+    "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "floors": {
+     "doc_recall": 0.8768,
+     "dy_p50": 51.1,
+     "live_text_cov": 0.9579,
+     "page_err": 236,
+     "raster_frac": 0.0421,
+     "within2pt": 0.0008,
+     "word_recall": 0.1082
+    },
+    "measured_commit": null,
+    "measured_on": "2026-08-05",
+    "profile_id": "pdfium/gdocs/none/refine0@240dpi",
+    "recorded_on": {
+     "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+     "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+     "os": "linux",
+     "pdfium": "152.0.7947.0",
+     "pymupdf": "1.28.0",
+     "python": "3.12.3",
+     "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+    },
+    "reference_at_record": {
+     "doc_recall": 0.895,
+     "dy_p50": 48.36,
+     "live_text_cov": 0.9614,
+     "page_err": 147,
+     "raster_frac": 0.0386,
+     "within2pt": 0.0005,
+     "word_recall": 0.1086
+    },
+    "worse_at_record": [
+     "page_err"
+    ]
+   }
+  },
+  "y09_nist_sp800207.pdf": {
+   "expansion_candidate": {
+    "_authored_by_a_human": [
+     "defect",
+     "reason",
+     "ratified_by",
+     "ratified_on",
+     "issue",
+     "review_condition"
+    ],
+    "corpus_manifest_sha256": "9b9e66e7f77b4f9f3001dad11333e6e741c483b72313e9daf84f92e7bf57fa05",
+    "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "floors": {
+     "doc_recall": 0.9541,
+     "dy_p50": 59.15,
+     "live_text_cov": 0.9473,
+     "page_err": 9,
+     "raster_frac": 0.0527,
+     "within2pt": 0.0009,
+     "word_recall": 0.241
+    },
+    "measured_commit": null,
+    "measured_on": "2026-08-05",
+    "profile_id": "pdfium/gdocs/none/refine0@240dpi",
+    "recorded_on": {
+     "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+     "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+     "os": "linux",
+     "pdfium": "152.0.7947.0",
+     "pymupdf": "1.28.0",
+     "python": "3.12.3",
+     "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+    },
+    "reference_at_record": {
+     "doc_recall": 0.9564,
+     "dy_p50": 59.59,
+     "live_text_cov": 0.9476,
+     "page_err": 7,
+     "raster_frac": 0.0524,
+     "within2pt": 0.0008,
+     "word_recall": 0.239
+    },
+    "worse_at_record": [
+     "page_err"
+    ]
+   }
+  },
+  "y12_irs_pub15.pdf": {
+   "expansion_candidate": {
+    "_authored_by_a_human": [
+     "defect",
+     "reason",
+     "ratified_by",
+     "ratified_on",
+     "issue",
+     "review_condition"
+    ],
+    "corpus_manifest_sha256": "9b9e66e7f77b4f9f3001dad11333e6e741c483b72313e9daf84f92e7bf57fa05",
+    "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "floors": {
+     "doc_recall": 0.956,
+     "dy_p50": 46.3,
+     "live_text_cov": 0.9761,
+     "page_err": 77,
+     "raster_frac": 0.0239,
+     "within2pt": 0.0007,
+     "word_recall": 0.1887
+    },
+    "measured_commit": null,
+    "measured_on": "2026-08-05",
+    "profile_id": "pdfium/gdocs/none/refine0@240dpi",
+    "recorded_on": {
+     "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+     "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+     "os": "linux",
+     "pdfium": "152.0.7947.0",
+     "pymupdf": "1.28.0",
+     "python": "3.12.3",
+     "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+    },
+    "reference_at_record": {
+     "doc_recall": 0.9553,
+     "dy_p50": 43.5,
+     "live_text_cov": 0.9809,
+     "page_err": 59,
+     "raster_frac": 0.0191,
+     "within2pt": 0.0009,
+     "word_recall": 0.1996
+    },
+    "worse_at_record": [
+     "page_err"
+    ]
+   }
+  },
+  "y13_irs_pub501.pdf": {
+   "expansion_candidate": {
+    "_authored_by_a_human": [
+     "defect",
+     "reason",
+     "ratified_by",
+     "ratified_on",
+     "issue",
+     "review_condition"
+    ],
+    "corpus_manifest_sha256": "9b9e66e7f77b4f9f3001dad11333e6e741c483b72313e9daf84f92e7bf57fa05",
+    "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "floors": {
+     "doc_recall": 0.9613,
+     "dy_p50": 38.01,
+     "live_text_cov": 0.9705,
+     "page_err": 56,
+     "raster_frac": 0.0295,
+     "within2pt": 0.0006,
+     "word_recall": 0.1428
+    },
+    "measured_commit": null,
+    "measured_on": "2026-08-05",
+    "profile_id": "pdfium/gdocs/none/refine0@240dpi",
+    "recorded_on": {
+     "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+     "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+     "os": "linux",
+     "pdfium": "152.0.7947.0",
+     "pymupdf": "1.28.0",
+     "python": "3.12.3",
+     "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+    },
+    "reference_at_record": {
+     "doc_recall": 0.9473,
+     "dy_p50": 33.5,
+     "live_text_cov": 0.9775,
+     "page_err": 37,
+     "raster_frac": 0.0225,
+     "within2pt": 0.0007,
+     "word_recall": 0.1606
+    },
+    "worse_at_record": [
+     "page_err",
+     "dy_p50"
+    ]
+   },
+   "expansion_product_sample": {
+    "_authored_by_a_human": [
+     "defect",
+     "reason",
+     "ratified_by",
+     "ratified_on",
+     "issue",
+     "review_condition"
+    ],
+    "corpus_manifest_sha256": "9b9e66e7f77b4f9f3001dad11333e6e741c483b72313e9daf84f92e7bf57fa05",
+    "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "floors": {
+     "doc_recall": 0.9598,
+     "dy_p50": 41.13,
+     "live_text_cov": 0.97,
+     "page_err": 43,
+     "raster_frac": 0.03,
+     "within2pt": 0.0002,
+     "word_recall": 0.179
+    },
+    "measured_commit": null,
+    "measured_on": "2026-08-05",
+    "profile_id": "pymupdf/standard/libreoffice/refine3@240dpi",
+    "recorded_on": {
+     "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+     "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+     "os": "linux",
+     "pdfium": "152.0.7947.0",
+     "pymupdf": "1.28.0",
+     "python": "3.12.3",
+     "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+    },
+    "reference_at_record": {
+     "doc_recall": 0.9464,
+     "dy_p50": 32.82,
+     "live_text_cov": 0.9772,
+     "page_err": 27,
+     "raster_frac": 0.0228,
+     "within2pt": 0.0009,
+     "word_recall": 0.1935
+    },
+    "worse_at_record": [
+     "page_err",
+     "dy_p50"
+    ]
+   }
+  },
+  "y17_rfc9110.pdf": {
+   "expansion_candidate": {
+    "_authored_by_a_human": [
+     "defect",
+     "reason",
+     "ratified_by",
+     "ratified_on",
+     "issue",
+     "review_condition"
+    ],
+    "corpus_manifest_sha256": "9b9e66e7f77b4f9f3001dad11333e6e741c483b72313e9daf84f92e7bf57fa05",
+    "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "floors": {
+     "doc_recall": 0.9511,
+     "dy_p50": 67.3,
+     "live_text_cov": 0.9643,
+     "page_err": 13,
+     "raster_frac": 0.0357,
+     "within2pt": 0.0006,
+     "word_recall": 0.5313
+    },
+    "measured_commit": null,
+    "measured_on": "2026-08-05",
+    "profile_id": "pdfium/gdocs/none/refine0@240dpi",
+    "recorded_on": {
+     "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+     "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+     "os": "linux",
+     "pdfium": "152.0.7947.0",
+     "pymupdf": "1.28.0",
+     "python": "3.12.3",
+     "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+    },
+    "reference_at_record": {
+     "doc_recall": 0.9778,
+     "dy_p50": 55.49,
+     "live_text_cov": 0.9706,
+     "page_err": 25,
+     "raster_frac": 0.0294,
+     "within2pt": 0.0169,
+     "word_recall": 0.3367
+    },
+    "worse_at_record": [
+     "dy_p50"
+    ]
+   }
+  }
+ },
+ "regressions_vs_05c": {
+  "expansion_candidate": [
+   {
+    "document": "x01_lo_memo_pageno.pdf",
+    "kind": "verdict",
+    "now": "MAJOR",
+    "was": "better"
+   },
+   {
+    "candidate_now": 0.316,
+    "candidate_was": 0.3037,
+    "cause": "reference improved",
+    "dimension": "within2pt",
+    "document": "x01_lo_memo_pageno.pdf",
+    "gap_now": -0.1027,
+    "gap_was": 0.0905,
+    "kind": "parity_gap",
+    "reference_now": 0.4187,
+    "reference_was": 0.2132
+   },
+   {
+    "candidate_now": 1.35,
+    "candidate_was": 1.8,
+    "cause": "reference improved",
+    "dimension": "dy_p50",
+    "document": "x01_lo_memo_pageno.pdf",
+    "gap_now": 0.65,
+    "gap_was": -25.9,
+    "kind": "parity_gap",
+    "reference_now": 0.7,
+    "reference_was": 27.7
+   },
+   {
+    "candidate_now": 1.0,
+    "candidate_was": 1.0,
+    "cause": "reference improved",
+    "dimension": "within2pt",
+    "document": "x03_lo_lists_nested.pdf",
+    "gap_now": 0.4609,
+    "gap_was": 0.8008,
+    "kind": "parity_gap",
+    "reference_now": 0.5391,
+    "reference_was": 0.1992
+   },
+   {
+    "candidate_now": 0.4,
+    "candidate_was": 0.4,
+    "cause": "reference improved",
+    "dimension": "dy_p50",
+    "document": "x03_lo_lists_nested.pdf",
+    "gap_now": -0.45,
+    "gap_was": -25.83,
+    "kind": "parity_gap",
+    "reference_now": 0.85,
+    "reference_was": 26.23
+   },
+   {
+    "document": "x06_lo_euro_scripts.pdf",
+    "kind": "verdict",
+    "now": "MAJOR",
+    "was": "better"
+   },
+   {
+    "delta": -0.3981,
+    "dimension": "within2pt",
+    "document": "x06_lo_euro_scripts.pdf",
+    "kind": "candidate",
+    "now": 0.2184,
+    "was": 0.6165
+   },
+   {
+    "candidate_now": 0.2184,
+    "candidate_was": 0.6165,
+    "cause": "reference improved",
+    "dimension": "within2pt",
+    "document": "x06_lo_euro_scripts.pdf",
+    "gap_now": -0.0874,
+    "gap_was": 0.5582,
+    "kind": "parity_gap",
+    "reference_now": 0.3058,
+    "reference_was": 0.0583
+   },
+   {
+    "delta": 11.5,
+    "dimension": "dy_p50",
+    "document": "x06_lo_euro_scripts.pdf",
+    "kind": "candidate",
+    "now": 13.0,
+    "was": 1.5
+   },
+   {
+    "candidate_now": 13.0,
+    "candidate_was": 1.5,
+    "cause": "reference improved",
+    "dimension": "dy_p50",
+    "document": "x06_lo_euro_scripts.pdf",
+    "gap_now": 10.2,
+    "gap_was": -25.6,
+    "kind": "parity_gap",
+    "reference_now": 2.8,
+    "reference_was": 27.1
+   },
+   {
+    "delta": 1,
+    "dimension": "page_err",
+    "document": "x10_chrome_tables_plain.pdf",
+    "kind": "candidate",
+    "now": 1,
+    "was": 0
+   },
+   {
+    "candidate_now": 1,
+    "candidate_was": 0,
+    "cause": "candidate worse",
+    "dimension": "page_err",
+    "document": "x10_chrome_tables_plain.pdf",
+    "gap_now": 1,
+    "gap_was": 0,
+    "kind": "parity_gap",
+    "reference_now": 0,
+    "reference_was": 0
+   },
+   {
+    "delta": -0.1306,
+    "dimension": "word_recall",
+    "document": "x10_chrome_tables_plain.pdf",
+    "kind": "candidate",
+    "now": 0.8657,
+    "was": 0.9963
+   },
+   {
+    "candidate_now": 0.8657,
+    "candidate_was": 0.9963,
+    "cause": "reference improved",
+    "dimension": "word_recall",
+    "document": "x10_chrome_tables_plain.pdf",
+    "gap_now": -0.1343,
+    "gap_was": 0.0,
+    "kind": "parity_gap",
+    "reference_now": 1.0,
+    "reference_was": 0.9963
+   },
+   {
+    "candidate_now": 27,
+    "candidate_was": 27,
+    "cause": "reference improved",
+    "dimension": "page_err",
+    "document": "y01_nist_sp80063b.pdf",
+    "gap_now": 6,
+    "gap_was": 5,
+    "kind": "parity_gap",
+    "reference_now": 21,
+    "reference_was": 22
+   },
+   {
+    "delta": 1,
+    "dimension": "page_err",
+    "document": "y03_nist_fips197.pdf",
+    "kind": "candidate",
+    "now": 29,
+    "was": 28
+   },
+   {
+    "delta": 18,
+    "dimension": "page_err",
+    "document": "y06_irs_1040_instructions.pdf",
+    "kind": "candidate",
+    "now": 236,
+    "was": 218
+   },
+   {
+    "candidate_now": 236,
+    "candidate_was": 218,
+    "cause": "candidate worse",
+    "dimension": "page_err",
+    "document": "y06_irs_1040_instructions.pdf",
+    "gap_now": 89,
+    "gap_was": 85,
+    "kind": "parity_gap",
+    "reference_now": 147,
+    "reference_was": 133
+   },
+   {
+    "delta": 2,
+    "dimension": "page_err",
+    "document": "y09_nist_sp800207.pdf",
+    "kind": "candidate",
+    "now": 9,
+    "was": 7
+   },
+   {
+    "candidate_now": 9,
+    "candidate_was": 7,
+    "cause": "candidate worse",
+    "dimension": "page_err",
+    "document": "y09_nist_sp800207.pdf",
+    "gap_now": 2,
+    "gap_was": 1,
+    "kind": "parity_gap",
+    "reference_now": 7,
+    "reference_was": 6
+   },
+   {
+    "delta": 8,
+    "dimension": "page_err",
+    "document": "y12_irs_pub15.pdf",
+    "kind": "candidate",
+    "now": 77,
+    "was": 69
+   },
+   {
+    "candidate_now": 77,
+    "candidate_was": 69,
+    "cause": "candidate worse",
+    "dimension": "page_err",
+    "document": "y12_irs_pub15.pdf",
+    "gap_now": 18,
+    "gap_was": 14,
+    "kind": "parity_gap",
+    "reference_now": 59,
+    "reference_was": 55
+   },
+   {
+    "delta": 5,
+    "dimension": "page_err",
+    "document": "y13_irs_pub501.pdf",
+    "kind": "candidate",
+    "now": 56,
+    "was": 51
+   },
+   {
+    "candidate_now": 38.01,
+    "candidate_was": 38.46,
+    "cause": "reference improved",
+    "dimension": "dy_p50",
+    "document": "y13_irs_pub501.pdf",
+    "gap_now": 4.51,
+    "gap_was": 2.01,
+    "kind": "parity_gap",
+    "reference_now": 33.5,
+    "reference_was": 36.45
+   },
+   {
+    "candidate_now": 1.55,
+    "candidate_was": 1.55,
+    "cause": "reference improved",
+    "dimension": "dy_p50",
+    "document": "x05_lo_quotes_notes.pdf",
+    "gap_now": -1.4,
+    "gap_was": -10.05,
+    "kind": "parity_gap",
+    "reference_now": 2.95,
+    "reference_was": 11.6
+   },
+   {
+    "document": "x11_chrome_toc_headings.pdf",
+    "kind": "verdict",
+    "now": "minor",
+    "was": "better"
+   },
+   {
+    "delta": 11.25,
+    "dimension": "dy_p50",
+    "document": "x11_chrome_toc_headings.pdf",
+    "kind": "candidate",
+    "now": 57.85,
+    "was": 46.6
+   },
+   {
+    "delta": 1,
+    "dimension": "page_err",
+    "document": "y02_nist_sp800171r2.pdf",
+    "kind": "candidate",
+    "now": 48,
+    "was": 47
+   },
+   {
+    "delta": 3,
+    "dimension": "page_err",
+    "document": "y10_nist_fips180.pdf",
+    "kind": "candidate",
+    "now": 9,
+    "was": 6
+   },
+   {
+    "candidate_now": 2.35,
+    "candidate_was": 2.35,
+    "cause": "reference improved",
+    "dimension": "dy_p50",
+    "document": "x16_fpdf_bulletin.pdf",
+    "gap_now": -2.1,
+    "gap_was": -21.45,
+    "kind": "parity_gap",
+    "reference_now": 4.45,
+    "reference_was": 23.8
+   }
+  ],
+  "expansion_product_sample": [
+   {
+    "candidate_now": 1.0,
+    "candidate_was": 1.0,
+    "cause": "reference improved",
+    "dimension": "within2pt",
+    "document": "x03_lo_lists_nested.pdf",
+    "gap_now": 0.4492,
+    "gap_was": 0.5039,
+    "kind": "parity_gap",
+    "reference_now": 0.5508,
+    "reference_was": 0.4961
+   },
+   {
+    "document": "x06_lo_euro_scripts.pdf",
+    "kind": "verdict",
+    "now": "MAJOR",
+    "was": "better"
+   },
+   {
+    "delta": -0.3641,
+    "dimension": "within2pt",
+    "document": "x06_lo_euro_scripts.pdf",
+    "kind": "candidate",
+    "now": 0.2718,
+    "was": 0.6359
+   },
+   {
+    "candidate_now": 0.2718,
+    "candidate_was": 0.6359,
+    "cause": "reference improved",
+    "dimension": "within2pt",
+    "document": "x06_lo_euro_scripts.pdf",
+    "gap_now": -0.3447,
+    "gap_was": 0.398,
+    "kind": "parity_gap",
+    "reference_now": 0.6165,
+    "reference_was": 0.2379
+   },
+   {
+    "delta": 14.5,
+    "dimension": "dy_p50",
+    "document": "x06_lo_euro_scripts.pdf",
+    "kind": "candidate",
+    "now": 14.55,
+    "was": 0.05
+   },
+   {
+    "candidate_now": 14.55,
+    "candidate_was": 0.05,
+    "cause": "reference improved",
+    "dimension": "dy_p50",
+    "document": "x06_lo_euro_scripts.pdf",
+    "gap_now": 14.27,
+    "gap_was": -15.0,
+    "kind": "parity_gap",
+    "reference_now": 0.28,
+    "reference_was": 15.05
+   },
+   {
+    "candidate_now": 0.1082,
+    "candidate_was": 0.1161,
+    "cause": "reference improved",
+    "dimension": "within2pt",
+    "document": "x10_chrome_tables_plain.pdf",
+    "gap_now": -0.1493,
+    "gap_was": 0.0,
+    "kind": "parity_gap",
+    "reference_now": 0.2575,
+    "reference_was": 0.1161
+   },
+   {
+    "delta": 2.05,
+    "dimension": "dy_p50",
+    "document": "x10_chrome_tables_plain.pdf",
+    "kind": "candidate",
+    "now": 16.9,
+    "was": 14.85
+   },
+   {
+    "candidate_now": 16.9,
+    "candidate_was": 14.85,
+    "cause": "reference improved",
+    "dimension": "dy_p50",
+    "document": "x10_chrome_tables_plain.pdf",
+    "gap_now": 16.05,
+    "gap_was": 1.85,
+    "kind": "parity_gap",
+    "reference_now": 0.85,
+    "reference_was": 13.0
+   },
+   {
+    "delta": 1,
+    "dimension": "page_err",
+    "document": "y01_nist_sp80063b.pdf",
+    "kind": "candidate",
+    "now": 16,
+    "was": 15
+   },
+   {
+    "candidate_now": 16,
+    "candidate_was": 15,
+    "cause": "candidate worse",
+    "dimension": "page_err",
+    "document": "y01_nist_sp80063b.pdf",
+    "gap_now": 4,
+    "gap_was": 3,
+    "kind": "parity_gap",
+    "reference_now": 12,
+    "reference_was": 12
+   },
+   {
+    "delta": 1,
+    "dimension": "page_err",
+    "document": "y03_nist_fips197.pdf",
+    "kind": "candidate",
+    "now": 18,
+    "was": 17
+   },
+   {
+    "candidate_now": 7.91,
+    "candidate_was": 10.09,
+    "cause": "reference improved",
+    "dimension": "dy_p50",
+    "document": "y03_nist_fips197.pdf",
+    "gap_now": 1.35,
+    "gap_was": -4.15,
+    "kind": "parity_gap",
+    "reference_now": 6.56,
+    "reference_was": 14.24
+   },
+   {
+    "delta": 5,
+    "dimension": "page_err",
+    "document": "y13_irs_pub501.pdf",
+    "kind": "candidate",
+    "now": 43,
+    "was": 38
+   },
+   {
+    "candidate_now": 43,
+    "candidate_was": 38,
+    "cause": "candidate worse",
+    "dimension": "page_err",
+    "document": "y13_irs_pub501.pdf",
+    "gap_now": 16,
+    "gap_was": 14,
+    "kind": "parity_gap",
+    "reference_now": 27,
+    "reference_was": 24
+   },
+   {
+    "document": "x04_lo_tables_plain.pdf",
+    "kind": "verdict",
+    "now": "minor",
+    "was": "better"
+   },
+   {
+    "candidate_now": 0.5576,
+    "candidate_was": 0.5576,
+    "cause": "reference improved",
+    "dimension": "within2pt",
+    "document": "x04_lo_tables_plain.pdf",
+    "gap_now": 0.0074,
+    "gap_was": 0.513,
+    "kind": "parity_gap",
+    "reference_now": 0.5502,
+    "reference_was": 0.0446
+   },
+   {
+    "candidate_now": 0.55,
+    "candidate_was": 0.55,
+    "cause": "reference improved",
+    "dimension": "dy_p50",
+    "document": "x04_lo_tables_plain.pdf",
+    "gap_now": 0.2,
+    "gap_was": -8.9,
+    "kind": "parity_gap",
+    "reference_now": 0.35,
+    "reference_was": 9.45
+   },
+   {
+    "document": "x11_chrome_toc_headings.pdf",
+    "kind": "verdict",
+    "now": "minor",
+    "was": "better"
+   },
+   {
+    "delta": 1,
+    "dimension": "page_err",
+    "document": "x11_chrome_toc_headings.pdf",
+    "kind": "candidate",
+    "now": 1,
+    "was": 0
+   },
+   {
+    "delta": -0.5619,
+    "dimension": "word_recall",
+    "document": "x11_chrome_toc_headings.pdf",
+    "kind": "candidate",
+    "now": 0.4219,
+    "was": 0.9838
+   },
+   {
+    "delta": 20.97,
+    "dimension": "dy_p50",
+    "document": "x11_chrome_toc_headings.pdf",
+    "kind": "candidate",
+    "now": 93.25,
+    "was": 72.28
+   },
+   {
+    "candidate_now": 93.25,
+    "candidate_was": 72.28,
+    "cause": "candidate worse",
+    "dimension": "dy_p50",
+    "document": "x11_chrome_toc_headings.pdf",
+    "gap_now": 0.2,
+    "gap_was": -2.44,
+    "kind": "parity_gap",
+    "reference_now": 93.05,
+    "reference_was": 74.72
+   },
+   {
+    "document": "x16_fpdf_bulletin.pdf",
+    "kind": "verdict",
+    "now": "minor",
+    "was": "better"
+   },
+   {
+    "candidate_now": 1.8,
+    "candidate_was": 1.8,
+    "cause": "reference improved",
+    "dimension": "dy_p50",
+    "document": "x16_fpdf_bulletin.pdf",
+    "gap_now": 0.6,
+    "gap_was": -9.7,
+    "kind": "parity_gap",
+    "reference_now": 1.2,
+    "reference_was": 11.5
+   },
+   {
+    "candidate_now": 0.4586,
+    "candidate_was": 0.4448,
+    "cause": "reference improved",
+    "dimension": "within2pt",
+    "document": "x01_lo_memo_pageno.pdf",
+    "gap_now": 0.023,
+    "gap_was": 0.2316,
+    "kind": "parity_gap",
+    "reference_now": 0.4356,
+    "reference_was": 0.2132
+   },
+   {
+    "candidate_now": 0.25,
+    "candidate_was": 0.4,
+    "cause": "reference improved",
+    "dimension": "dy_p50",
+    "document": "x01_lo_memo_pageno.pdf",
+    "gap_now": -0.3,
+    "gap_was": -28.85,
+    "kind": "parity_gap",
+    "reference_now": 0.55,
+    "reference_was": 29.25
+   }
+  ],
+  "gated16_candidate": [
+   {
+    "document": "l1_word_native.pdf",
+    "kind": "verdict",
+    "now": "MAJOR",
+    "was": "minor"
+   },
+   {
+    "candidate_now": 9.89,
+    "candidate_was": 24.59,
+    "cause": "reference improved",
+    "dimension": "dy_p50",
+    "document": "l1_word_native.pdf",
+    "gap_now": 1.4,
+    "gap_was": -10.4,
+    "kind": "parity_gap",
+    "reference_now": 8.49,
+    "reference_was": 34.99
+   },
+   {
+    "candidate_now": 0,
+    "candidate_was": 0,
+    "cause": "reference improved",
+    "dimension": "page_err",
+    "document": "c1_whitepaper.pdf",
+    "gap_now": 0,
+    "gap_was": -1,
+    "kind": "parity_gap",
+    "reference_now": 0,
+    "reference_was": 1
+   },
+   {
+    "candidate_now": 0.9697,
+    "candidate_was": 0.9697,
+    "cause": "reference improved",
+    "dimension": "word_recall",
+    "document": "c1_whitepaper.pdf",
+    "gap_now": 0.0,
+    "gap_was": 0.1727,
+    "kind": "parity_gap",
+    "reference_now": 0.9697,
+    "reference_was": 0.797
+   },
+   {
+    "candidate_now": 2.69,
+    "candidate_was": 10.28,
+    "cause": "reference improved",
+    "dimension": "dy_p50",
+    "document": "c1_whitepaper.pdf",
+    "gap_now": -0.05,
+    "gap_was": -91.83,
+    "kind": "parity_gap",
+    "reference_now": 2.74,
+    "reference_was": 102.11
+   }
+  ],
+  "gated16_product": [
+   {
+    "candidate_now": 0.4741,
+    "candidate_was": 0.3017,
+    "cause": "reference improved",
+    "dimension": "within2pt",
+    "document": "c4_i18n.pdf",
+    "gap_now": -0.0302,
+    "gap_was": 0.1051,
+    "kind": "parity_gap",
+    "reference_now": 0.5043,
+    "reference_was": 0.1966
+   },
+   {
+    "candidate_now": 0.01,
+    "candidate_was": 11.04,
+    "cause": "reference improved",
+    "dimension": "dy_p50",
+    "document": "l1_word_native.pdf",
+    "gap_now": 0.0,
+    "gap_was": -3.65,
+    "kind": "parity_gap",
+    "reference_now": 0.01,
+    "reference_was": 14.69
+   },
+   {
+    "candidate_now": 1.89,
+    "candidate_was": 13.49,
+    "cause": "reference improved",
+    "dimension": "dy_p50",
+    "document": "c1_whitepaper.pdf",
+    "gap_now": -1.0,
+    "gap_was": -15.87,
+    "kind": "parity_gap",
+    "reference_now": 2.89,
+    "reference_was": 29.36
+   }
+  ]
+ },
+ "release_ready": false,
+ "schema": "exactdoc.parity-expanded-measurement.v1",
+ "series": {
+  "04": "docs/evidence/parity-expanded-2026-08-04.json",
+  "04b": "docs/evidence/parity-expanded-2026-08-04b.json",
+  "05": "docs/evidence/parity-expanded-2026-08-05.json",
+  "05b": "docs/evidence/parity-expanded-2026-08-05b.json",
+  "05c": "docs/evidence/parity-expanded-2026-08-05c.json"
+ }
+}
