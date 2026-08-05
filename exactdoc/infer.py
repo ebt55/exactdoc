@@ -145,6 +145,55 @@ def _margin_by_mass(vals: List[float], left=True) -> Optional[float]:
     return float(min(mass) if left else max(mass))
 
 
+# How far inside the lines it was measured from a right-edge estimate may sit
+# before it stops being a measurement and becomes a mis-cluster.
+#
+# `_margin_cluster` takes the RIGHTMOST cluster carrying 8% of the mass. On a
+# ragged-right document the true flush edge legitimately sits a little inside
+# the widest lines, because not every line reaches it. But when the flush edge
+# itself is thinner than 8% -- which is what a densely fragmented parse does to
+# a multi-column page, by turning long lines into many short ones -- the
+# rightmost cluster that DOES qualify can be an interior band of line ends, and
+# the estimate lands far inside the text it is supposed to bound.
+#
+# Measured over the expansion corpus, both arms, as (p90 of the wide-line right
+# edges) minus (the estimate). The two populations are cleanly separated:
+#
+#     ragged-right, correct     0.4 .. 22.7pt   (y01, y03, y08, y09, y11,
+#                                                y13, y17, and all 16 gated
+#                                                documents, which sit at 0.0)
+#     mis-clustered             95.8pt          y07_irs_f1040_form  [pdfium]
+#                              184.2pt          y06_irs_1040_instr. [pdfium]
+#
+# 60.0 is the midpoint of that gap: 37pt of margin above the worst correct
+# case and 36pt below the worst failure. Both parsers see the same line
+# geometry on y06 -- 747 wide lines against 340, p50 527.0 against 504.7, max
+# 571.1 against 572.6 -- and PyMuPDF's estimator happens to return None and
+# take the mirror-the-left-margin fallback, landing on the correct 42.0, while
+# PDFium's returns 385.8 and puts the content edge 184pt inside its own text.
+# The reference arm fails SAFE here only by accident; this makes it deliberate
+# on both.
+#
+# p90 rather than max, because max is a single line: y02's reference arm has a
+# wide-line max of 613.2 on a 612pt page, which is an outlier, not an edge.
+MARGIN_MISCLUSTER_PT = 60.0
+
+
+def _right_edge_misclustered(wide_x1: List[float], mr: Optional[float]) -> bool:
+    """Does this right-edge estimate sit too far inside its own evidence?
+
+    True means "not a measurement" -- the caller drops it and takes the
+    fallback, which mirrors the left margin and errs WIDE. Erring wide costs a
+    little under-wrapping; erring narrow re-wraps every paragraph in the
+    document and is what took y06 to 599 pages from 126.
+    """
+    if mr is None or not wide_x1:
+        return False
+    ordered = sorted(wide_x1)
+    p90 = ordered[int(0.9 * (len(ordered) - 1))]
+    return (p90 - mr) > MARGIN_MISCLUSTER_PT
+
+
 def _two_column_right_edge(body_lines, margin_l: float,
                            page_w: float) -> Optional[float]:
     """Right content edge from verified two-column geometry.
@@ -1661,6 +1710,13 @@ def infer(ir: DocIR) -> DocLayout:
     tc_edge = _two_column_right_edge(body_lines, lay.margin_l, lay.page_w)
     if tc_edge is not None and mr is not None and tc_edge > mr + 2.5:
         mr = tc_edge
+    # Applied AFTER the widener, not before: the widener exists to rescue an
+    # estimate that landed inside the true edge, and on y14_irs_fw9_form it
+    # does exactly that -- cluster 402.8, 171.8pt inside, lifted to the right
+    # column's flush edge. Checking first would throw that document into the
+    # fallback and discard a correct answer the next line was about to supply.
+    if _right_edge_misclustered(wide_x1, mr):
+        mr = None
     lay.margin_r = round(lay.page_w - mr, 1) if mr else lay.margin_l
     lay.margin_r = max(14.0, lay.margin_r)
 
