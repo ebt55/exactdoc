@@ -1,0 +1,406 @@
+{
+ "schema": "exactdoc.c1-live-attribution.v1",
+ "_note": "ATTRIBUTION OF c1_whitepaper's LIVE dy_p50 21.91, measured against GOOGLE'S OWN EXPORT from live pass 6. No proxy anywhere: the comparison arm is the PDF Docs produced from the uploaded DOCX. Commissioned because the previous prediction for this document was derived from the LibreOffice proxy and was falsified by 19pt.",
+ "measured_on": "2026-08-06",
+ "gating": false,
+ "adjudicated": false,
+ "_status": "DIAGNOSIS ONLY. No code is changed by this file. The proposal at the end touches the gdocs writer and/or inference and is held for adjudication.",
+ "source": "testkit/fixtures/c1_whitepaper.pdf",
+ "comparison_arm": "docs/evidence/gdocs-2026-08-06-pass6-qualification.raw.json, export c1_whitepaper.docx.gdocs.pdf",
+ "method": "harness.match_words' greedy nearest-identical-word matching, unmodified so the numbers reconcile with the recorded metric, but carrying each match's SOURCE Y so displacement is attributed to an element instead of collapsed into a median. Reproduces the recorded dy_p50 21.91 on 320 matched words exactly.",
+ "answer_1_which_elements_carry_it": {
+  "shape": "A constant inherited offset from the top of page 1, plus one step at the figure, plus steady accumulation down the page. NOT a band row rendering taller -- the band row is very nearly correct.",
+  "band_content": {
+   "title_src_y": 68.3,
+   "dy": 13.55,
+   "subtitle_src_y": 85.3,
+   "subtitle_dy": 12.31
+  },
+  "body_block_1": "src_y 137.9-200.2, dy +13.09 -> +14.05",
+  "step_at_the_figure": {
+   "between_src_y": [
+    200.2,
+    295.9
+   ],
+   "step_pt": 7.13,
+   "cause": "the merged stat-card figure renders 59.25pt tall against a 53.34pt source region, +5.91"
+  },
+  "body_block_2": "src_y 295.9-415.5, dy +18.85 -> +23.28",
+  "table_region": "src_y 481.9-561.7, dy +25.69 -> +29.32",
+  "page_1_bottom": "src_y 596.2-712.2, dy +31.01 -> +32.30",
+  "page_2": "dy about -55 on 32 matched words; the pre-existing D-C effect, unchanged and not part of this regression",
+  "per_line_profile": [
+   {
+    "page": 1,
+    "src_y": 68.3,
+    "n": 10,
+    "dy": 13.55,
+    "dx": 57.93,
+    "text": "oduction RAG degrades quietly — and what to measure "
+   },
+   {
+    "page": 1,
+    "src_y": 85.3,
+    "n": 4,
+    "dy": 12.31,
+    "dx": 49.8,
+    "text": "2026 July · Whitepaper"
+   },
+   {
+    "page": 1,
+    "src_y": 137.9,
+    "n": 3,
+    "dy": 15.42,
+    "dx": -0.09,
+    "text": "Executive 1. summary"
+   },
+   {
+    "page": 1,
+    "src_y": 160.2,
+    "n": 19,
+    "dy": 13.09,
+    "dx": 0.99,
+    "text": "and Retrieval quality calibrated, degrades non-linea"
+   },
+   {
+    "page": 1,
+    "src_y": 173.5,
+    "n": 23,
+    "dy": 13.41,
+    "dx": 12.13,
+    "text": "the failure quiet: recall stays flat while precision"
+   },
+   {
+    "page": 1,
+    "src_y": 186.8,
+    "n": 19,
+    "dy": 13.73,
+    "dx": 26.12,
+    "text": "is mitigation unglamorous. Chunk boundaries must res"
+   },
+   {
+    "page": 1,
+    "src_y": 200.2,
+    "n": 12,
+    "dy": 14.05,
+    "dx": 38.12,
+    "text": "trained on the same distribution it will serve. Ever"
+   },
+   {
+    "page": 1,
+    "src_y": 295.9,
+    "n": 5,
+    "dy": 21.18,
+    "dx": 0.09,
+    "text": "Where the 2. failure hides"
+   },
+   {
+    "page": 1,
+    "src_y": 318.2,
+    "n": 19,
+    "dy": 18.85,
+    "dx": 0.99,
+    "text": "and Retrieval quality calibrated, degrades non-linea"
+   },
+   {
+    "page": 1,
+    "src_y": 331.5,
+    "n": 22,
+    "dy": 19.17,
+    "dx": 4.33,
+    "text": "the failure is quiet: recall stays flat while precis"
+   },
+   {
+    "page": 1,
+    "src_y": 352.2,
+    "n": 9,
+    "dy": 21.4,
+    "dx": 1.53,
+    "text": "Average relevance is a lagging indicator; it moves l"
+   },
+   {
+    "page": 1,
+    "src_y": 369.5,
+    "n": 13,
+    "dy": 21.67,
+    "dx": 1.73,
+    "text": "the Tail queries carry most of the business value an"
+   },
+   {
+    "page": 1,
+    "src_y": 386.2,
+    "n": 13,
+    "dy": 21.91,
+    "dx": 2.75,
+    "text": "the Chunk boundaries drawn on token counts sever exa"
+   },
+   {
+    "page": 1,
+    "src_y": 415.5,
+    "n": 20,
+    "dy": 23.28,
+    "dx": 4.04,
+    "text": "Key finding. Precision in the bottom decile of query"
+   },
+   {
+    "page": 1,
+    "src_y": 453.2,
+    "n": 3,
+    "dy": 23.87,
+    "dx": -0.09,
+    "text": "Measured 3. results"
+   },
+   {
+    "page": 1,
+    "src_y": 481.9,
+    "n": 6,
+    "dy": 25.69,
+    "dx": -0.61,
+    "text": "nDCG@10 Configuration p95 latency Tail precision"
+   },
+   {
+    "page": 1,
+    "src_y": 501.7,
+    "n": 6,
+    "dy": 25.88,
+    "dx": -0.37,
+    "text": "dense 0.612 Baseline 410 0.301 ms"
+   },
+   {
+    "page": 1,
+    "src_y": 521.7,
+    "n": 7,
+    "dy": 27.03,
+    "dx": -0.37,
+    "text": "ms chunking 0.634 structural 425 0.447 +"
+   },
+   {
+    "page": 1,
+    "src_y": 541.7,
+    "n": 7,
+    "dy": 28.17,
+    "dx": -0.37,
+    "text": "+ ms reranker 0.671 in-domain 690 0.588"
+   },
+   {
+    "page": 1,
+    "src_y": 561.7,
+    "n": 7,
+    "dy": 29.32,
+    "dx": -0.37,
+    "text": "+ ms rewriting 0.688 query 940 0.601"
+   },
+   {
+    "page": 1,
+    "src_y": 596.2,
+    "n": 19,
+    "dy": 31.01,
+    "dx": 4.24,
+    "text": "Caveat. Latency is measured on warm caches. Cold-sta"
+   },
+   {
+    "page": 1,
+    "src_y": 633.3,
+    "n": 2,
+    "dy": 31.51,
+    "dx": -0.09,
+    "text": "Recommendations 4."
+   },
+   {
+    "page": 1,
+    "src_y": 656.2,
+    "n": 8,
+    "dy": 31.62,
+    "dx": 1.39,
+    "text": "Instrument 1. tail precision as a first-class SLO."
+   },
+   {
+    "page": 1,
+    "src_y": 672.9,
+    "n": 8,
+    "dy": 31.81,
+    "dx": 1.33,
+    "text": "Re-chunk 2. document structure, token windows. on no"
+   },
+   {
+    "page": 1,
+    "src_y": 690.2,
+    "n": 8,
+    "dy": 32.04,
+    "dx": 0.42,
+    "text": "on Train the 3. reranker the served distribution."
+   },
+   {
+    "page": 1,
+    "src_y": 712.2,
+    "n": 16,
+    "dy": 32.3,
+    "dx": 2.72,
+    "text": "not systems The that failed did fail loudly. They re"
+   },
+   {
+    "page": 2,
+    "src_y": 65.5,
+    "n": 18,
+    "dy": -55.11,
+    "dx": 8.3,
+    "text": "The mitigation is unglamorous. Chunk boundaries must"
+   },
+   {
+    "page": 2,
+    "src_y": 78.8,
+    "n": 14,
+    "dy": -54.79,
+    "dx": 17.25,
+    "text": "to be trained on the same distribution it will serve"
+   }
+  ]
+ },
+ "answer_2_the_named_suspect_is_not_the_mechanism": {
+  "suspect": "the band-cell lock emits an exact line height and Docs retranslates lineRule=exact",
+  "verdict": "NOT SUPPORTED, read from the uploaded DOCX itself.",
+  "what_the_docx_asks_for": {
+   "row": "trHeight ABSENT (a text row; the writer pins height only on rows without text)",
+   "cell": {
+    "tcMar_top_twips": 1134,
+    "tcMar_bottom_twips": 506,
+    "shd": "123A5E"
+   },
+   "paragraph": {
+    "before": 0,
+    "after": 0,
+    "line": 329,
+    "lineRule": "auto"
+   },
+   "reading": "lineRule is AUTO with a 329/240 multiple, not exact. There is no exact line height on this row for Docs to retranslate."
+  },
+  "the_locks_entire_emitted_effect": "ladder off -> on changes exactly one thing in the band cell: breaks 0 -> 1, a single <w:br/>. Row properties, cell margins, spacing and line rule are byte-identical.",
+  "the_deciding_number": {
+   "source_band_height_pt": 112.67,
+   "export_band_height_pt": 111.0,
+   "delta": -1.67,
+   "reading": "The band row renders at the LOCKED height, not the pre-lock height. The lock did what it was written to do. Whatever is wrong with c1 live, it is not that this row is the wrong height."
+  },
+  "band_interior_pitch": {
+   "source": 15.33,
+   "export": 13.88,
+   "note": "the line the lock restored, as Docs sets it"
+  }
+ },
+ "answer_3_the_discriminator_against_the_live_winners": {
+  "question": "what differs between 04_exec_brief's locked elements and c1's band cell",
+  "answer": "NOT flow-paragraph versus table-cell, and not lineRule or font. The discriminator is whether inference recognised the band as a COVER BAND at all.",
+  "cover_band_detection": {
+   "01_whitepaper_market": "PRESENT, bbox (0,0,612,174)",
+   "04_exec_brief": "PRESENT, band y0 = 0.00",
+   "c1_whitepaper": "None"
+  },
+  "why": "infer._hf.top_bands seeds its group only when the topmost full-width fill starts at y0 <= 2.5 (infer.py line 572). c1's band starts at y0 = 7.16 -- 4.66pt too low -- so top_bands returns empty and lay.cover_band is None.",
+  "what_that_predicate_gates": "docxout line 1722, `has_cover = lay.cover_band is not None`, gates BOTH treatments in one test: the zero side margin that makes the band bleed (band_bleed = 0.0 under gdocs, applied via _config_section margin_lr) and the vertical compensation _GDOCS_COVER_BEFORE_COMP_TWIPS (296 twips, 14.8pt). c1 gets neither.",
+  "the_control_measured_in_the_same_export_set": {
+   "_note": "This is the load-bearing measurement of the whole diagnosis: two recognised bands and one unrecognised band, same pass, same renderer.",
+   "columns": [
+    "band top delta",
+    "band left delta",
+    "band width delta",
+    "export right edge on a 612pt page"
+   ],
+   "01_whitepaper_market": [
+    "+14.55",
+    "+0.00",
+    "+0.00",
+    "612.00 (on page)"
+   ],
+   "04_exec_brief": [
+    "+14.55",
+    "+0.00",
+    "+0.00",
+    "612.00 (on page)"
+   ],
+   "c1_whitepaper": [
+    "+17.38",
+    "+54.52",
+    "-0.11",
+    "660.60 (48.6pt OFF PAGE)"
+   ],
+   "reading": "The recognised bands land on the documented irreducible +14.55pt Docs floor and are horizontally EXACT. c1's is 2.83pt worse vertically and relocated 54.52pt to the right, where it overflows the page. Its width is preserved to 0.11pt, so this is a relocation to the text margin, not a resize."
+  }
+ },
+ "the_inversion_explained": {
+  "_note": "Why the same change improved c1 offline and wrecked it live. The arithmetic uses ONLY export-measured numbers.",
+  "step_1": "Docs pushes the unrecognised band down +17.39pt, uncompensated, because c1 does not take the cover-band path.",
+  "step_2": "Before the lock, the band's merged title/subtitle paragraph was one line short. That line measures 13.88pt in the export.",
+  "step_3": "17.39 - 13.88 = +3.51. The missing line was cancelling the push-down.",
+  "step_4": "The lock restored the line, which is correct, and in doing so removed the cancellation. Every matched word below the band moved down by about 13.9pt and the median went 9.30 -> 21.91.",
+  "conclusion": "THE LOCK DID NOT BREAK c1. It removed a compensation that was accidentally masking a pre-existing, uncompensated Docs cover-band offset. This is the same 'two defects were hiding each other' structure as the original c1 finding, one level up and in a different renderer -- and it is why the offline evidence could not have predicted it: offline, the band is positioned correctly and only the missing line is wrong.",
+  "corollary": "c1's pass-5 dy_p50 of 9.30 was not health. It was two defects of opposite sign, and the document was visibly wrong on the page the whole time: the subtitle sat on the title's line."
+ },
+ "the_proposal": {
+  "_note": "Held for adjudication. It touches inference and/or the gdocs writer, and it deliberately rejects both shapes the brief suggested.",
+  "why_not_shape_a_stop_locking_band_rows_under_gdocs": "It would work by restoring the cancellation. The band would go back to 97.12pt against a 112.67pt source, the subtitle would sit on the title's line again, and dy_p50 would fall to about 9.3. That is improving the metric by reinstating the defect c9d36df was written to remove, on the document that is the release exemplar. The measured band height (111.00 against 112.67) says the lock is right.",
+  "why_not_shape_b_re_encode_the_locked_row": "There is nothing to re-encode. The row carries no exact line height, no trHeight, and renders within 1.67pt of source. The construct Docs is mishandling is not the row.",
+  "the_defect_to_fix": "c1's cover band is not recognised, so it receives neither the full-bleed side treatment nor the vertical compensation. One predicate, two symptoms.",
+  "proposed_change": "Relax the seed at infer.py line 572 so a page-leading full-width fill that is near-flush, not exactly flush, seeds the cover-band group. c1's band is at 7.16 on a page whose top margin is 10.0.",
+  "blast_radius_measured_on_both_corpora": {
+   "method": "re-ran top_bands' candidate filter without the y0 <= 2.5 seed over all 45 committed fixtures",
+   "documents_with_a_page_leading_full_width_fill": 4,
+   "already_seeding_at_2_5": [
+    "01_whitepaper_market (y0 0.00)",
+    "04_exec_brief (y0 0.00)",
+    "y17_rfc9110 (y0 0.00)"
+   ],
+   "rejected_by_the_seed": [
+    "c1_whitepaper (y0 7.16)"
+   ],
+   "conclusion": "Relaxing the seed to any threshold in (2.5, 220] changes EXACTLY ONE document across both corpora, and it is the one that needs it. Nothing else in 45 fixtures has a page-leading full-width fill at all.",
+   "detail": [
+    {
+     "corpus": "gated",
+     "doc": "01_whitepaper_market",
+     "top_y0": 0.0,
+     "top_y1": 170.0,
+     "height": 170.0,
+     "seeds_at_2_5": true,
+     "n_candidates": 2
+    },
+    {
+     "corpus": "gated",
+     "doc": "04_exec_brief",
+     "top_y0": 0.0,
+     "top_y1": 130.0,
+     "height": 130.0,
+     "seeds_at_2_5": true,
+     "n_candidates": 2
+    },
+    {
+     "corpus": "gated",
+     "doc": "c1_whitepaper",
+     "top_y0": 7.16,
+     "top_y1": 119.84,
+     "height": 112.67,
+     "seeds_at_2_5": false,
+     "n_candidates": 1
+    },
+    {
+     "corpus": "expansion",
+     "doc": "y17_rfc9110",
+     "top_y0": 0.0,
+     "top_y1": 841.0,
+     "height": 841.0,
+     "seeds_at_2_5": true,
+     "n_candidates": 1
+    }
+   ]
+  },
+  "the_adjudication_question": "This is an INFERENCE change, so it moves BOTH profiles. c1 becoming a cover band changes its standard-profile output too -- margin_lr 4.0, margin_t = cover_top, header distance 0 -- which is a gate baseline event on a lane the brief says is correct as-is. If the standard lane must not move, the alternative is to key the gdocs compensation and bleed on a page-leading full-width band table directly in the writer, which is narrower but duplicates the geometry test. That choice is the adjudication.",
+  "what_i_will_not_do": "Predict c1's post-fix live dy_p50. Deriving that number offline is exactly the mistake that produced this task. What the export DOES license is a structural prediction: c1's band left delta should go +54.52 -> ~0.00 and its top delta +17.38 -> ~+14.55, because that is what both recognised bands measure in this same export set. The dy consequence follows from the 14.8pt compensation being applied, but its size interacts with the +7.13 figure step and the down-page accumulation, neither of which this change touches, and neither of which is predictable from a renderer that is not Docs.",
+  "residuals_this_does_not_address": {
+   "figure_step_pt": 7.13,
+   "figure_height": "export 59.25 against a 53.34 source region, +5.91",
+   "down_page_accumulation": "+13.5 at the top of page 1 to +32.3 at the bottom",
+   "page_2": "about -55, the pre-existing D-C effect"
+  }
+ },
+ "ok": true,
+ "release_ready": false
+}
