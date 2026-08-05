@@ -215,7 +215,8 @@ def _undecoded_markers_to_text(page: PageIR) -> int:
     objects for trailing whitespace too, and x03 carries one at x=147.4 just
     past the end of 'binding constraint.' with bounds identical to a bullet's.
 
-    Measured after: x03 unchanged at 12, y01 0, y03 0, y06 68 -> 7.
+    Measured after: x03 unchanged at 12, y01 0, y03 0, y06 68 -> 7,
+    c7_code 16 -> 0, x11_chrome_toc_headings 2 -> 0.
     """
     marks = getattr(page, "undecoded", None)
     if not marks:
@@ -228,6 +229,18 @@ def _undecoded_markers_to_text(page: PageIR) -> int:
         x, y = m.origin
         near = _labelled_line((x, y, x, y), lines)
         if near is None:
+            continue
+        # A list puts ONE marker in front of an item. Several marks strung
+        # along a single baseline are spacing, and on a monospace listing they
+        # are unmistakable: c7_code reports 202 marks, in runs 5.1pt apart --
+        # exactly one character advance at its 11.3pt Courier -- which is the
+        # listing's own indentation. Only the leading mark of such a run has
+        # nothing to its left, so the left-text test above passes it and 16
+        # bullets used to land inside the code. x11_chrome_toc_headings is the
+        # same story with 492. Every one of x03's twelve is alone on its
+        # baseline, because that is what a list looks like.
+        if sum(1 for o in marks
+               if abs(o.origin[1] - y) <= BULLET_VTOL) > 1:
             continue
         # Text to the left on this baseline: the mark is inside a line, not in
         # front of one.

@@ -30,7 +30,7 @@ X03 = os.path.join(ROOT, "testkit", "fixtures_expansion",
                    "x03_lo_lists_nested.pdf")
 
 
-def _line(text, x0, y0, x1, y1, size=11.0):
+def _line(text, x0, y0, x1, y1, size=11.0):  # noqa: E302
     bb = (x0, y0, x1, y1)
     sp = Span(text=text, font="LiberationSerif", size=size, color="#000000",
               bold=False, italic=False, mono=False, serif=True,
@@ -174,6 +174,33 @@ class RefusesWhatTheCorpusCaught(unittest.TestCase):
             [UndecodedGlyph(origin=(142.3, 245.7), size=11.0, color="#000000"),
              UndecodedGlyph(origin=(159.8, 273.5), size=11.0, color="#000000")])
         self.assertEqual(_undecoded_markers_to_text(page), 0)
+
+    def test_a_run_of_marks_along_one_baseline_is_indentation(self):
+        """c7_code: 202 marks in runs 5.1pt apart -- one character advance at
+        its 11.3pt Courier -- which is the listing's own indentation. Only the
+        leading mark of a run has nothing to its left, so every other guard
+        passes it, and 16 bullets used to land inside the code."""
+        page = _page(
+            [_line("def handler(request):", 98.0, 178.0, 250.0, 190.0, size=11.3),
+             _line("return None", 108.0, 190.0, 220.0, 202.0, size=11.3)],
+            [UndecodedGlyph(origin=(72.25, 183.75), size=11.3, color="#000000"),
+             UndecodedGlyph(origin=(77.34, 183.75), size=11.3, color="#000000"),
+             UndecodedGlyph(origin=(82.44, 183.75), size=11.3, color="#000000"),
+             UndecodedGlyph(origin=(87.54, 183.75), size=11.3, color="#000000"),
+             UndecodedGlyph(origin=(82.44, 195.75), size=11.3, color="#000000"),
+             UndecodedGlyph(origin=(87.54, 195.75), size=11.3, color="#000000")])
+        self.assertEqual(_undecoded_markers_to_text(page), 0)
+        self.assertEqual(_bullets(page), [])
+
+    def test_one_mark_per_baseline_is_what_a_list_looks_like(self):
+        """The same geometry with the runs removed is a list again -- the guard
+        keys on company on the baseline, not on position alone."""
+        page = _page(
+            [_line("def handler(request):", 98.0, 178.0, 250.0, 190.0, size=11.3),
+             _line("return None", 108.0, 190.0, 220.0, 202.0, size=11.3)],
+            [UndecodedGlyph(origin=(87.54, 183.75), size=11.3, color="#000000"),
+             UndecodedGlyph(origin=(87.54, 195.75), size=11.3, color="#000000")])
+        self.assertEqual(_undecoded_markers_to_text(page), 2)
 
     def test_an_unmeasurable_host_is_not_a_licence_to_promote(self):
         page = PageIR(number=1, width=612.0, height=792.0)
