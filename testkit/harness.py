@@ -226,15 +226,30 @@ def doc_word_recall(src_pages, out_pages):
 
 
 # --------------------------------------------------------------- pixel side
+def page_array(doc, i, dpi=110):
+    """One page of an open document as an (h, w, 3) float64 array.
+
+    At 110 dpi a US-Letter page is 1210x935x3 float64 = 27.2 MB, so *which*
+    pages are alive at once is a scaling property of the caller, not a detail.
+    """
+    pix = doc[i].get_pixmap(dpi=dpi, alpha=False)
+    a = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width,
+                                                           pix.n)
+    return a[:, :, :3].astype(np.float64)
+
+
 def page_arrays(pdf_path, dpi=110):
+    """Every page at once. Costs 27.2 MB per page -- see `page_array`.
+
+    `evaluate` deliberately does NOT use this: it compares one page at a time.
+    Kept because rasterising a whole short document in one call is a reasonable
+    thing for an ad-hoc probe to want.
+    """
     doc = fitz.open(pdf_path)
-    out = []
-    for p in doc:
-        pix = p.get_pixmap(dpi=dpi, alpha=False)
-        a = np.frombuffer(pix.samples, dtype=np.uint8).reshape(pix.height, pix.width, pix.n)
-        out.append(a[:, :, :3].astype(np.float64))
-    doc.close()
-    return out
+    try:
+        return [page_array(doc, i, dpi) for i in range(doc.page_count)]
+    finally:
+        doc.close()
 
 
 def pad_to(a, h, w):
@@ -326,24 +341,40 @@ def evaluate(src_pdf, docx_path, work_dir, save_images=True, dpi=110, img_dir=No
         res["page_dy_p90"] = {p: round(float(np.percentile(v, 90)), 1)
                               for p, v in sorted(bad.items())}
 
-    A, B = page_arrays(src_pdf, dpi), page_arrays(rpdf, dpi)
+    # Page i of the source is only ever compared with page i of the render, so
+    # rasterise exactly that pair and let it go. Materialising both documents
+    # first cost (src_pages + out_pages) x 27.2 MB with nothing released until
+    # the loop ended: measured on y06_irs_1040_instructions, 126 source pages
+    # against a 591-page render asked for 3.4 GB + 16.1 GB and was OOM-killed
+    # before it scored a single page. The arrays, their order and every number
+    # below are unchanged -- only how long each one stays alive.
     rows = []
-    for i in range(max(len(A), len(B))):
-        if i >= len(A) or i >= len(B):
-            rows.append({"page": i + 1, "ssim": 0.0, "iou": 0.0, "note": "missing"})
-            continue
-        h = max(A[i].shape[0], B[i].shape[0]); w = max(A[i].shape[1], B[i].shape[1])
-        a, b = pad_to(A[i], h, w), pad_to(B[i], h, w)
-        rows.append({"page": i + 1, "ssim": round(ssim(a, b), 4),
-                     "iou": round(ink_iou(a, b), 4),
-                     "mad": round(float(np.abs(a - b).mean()), 2)})
-        if save_images:
-            import PIL.Image as Image
-            gap = 10
-            canvas = np.full((h, w * 2 + gap, 3), 180.0)
-            canvas[:, :w] = a; canvas[:, w + gap:] = b
-            Image.fromarray(canvas.astype(np.uint8)).save(
-                os.path.join(img_dir, "cmp_p%02d.png" % (i + 1)))
+    s_doc, r_doc = fitz.open(src_pdf), fitz.open(rpdf)
+    try:
+        n_src, n_out = s_doc.page_count, r_doc.page_count
+        for i in range(max(n_src, n_out)):
+            if i >= n_src or i >= n_out:
+                rows.append({"page": i + 1, "ssim": 0.0, "iou": 0.0,
+                             "note": "missing"})
+                continue
+            pa, pb = page_array(s_doc, i, dpi), page_array(r_doc, i, dpi)
+            h = max(pa.shape[0], pb.shape[0]); w = max(pa.shape[1], pb.shape[1])
+            a, b = pad_to(pa, h, w), pad_to(pb, h, w)
+            del pa, pb
+            rows.append({"page": i + 1, "ssim": round(ssim(a, b), 4),
+                         "iou": round(ink_iou(a, b), 4),
+                         "mad": round(float(np.abs(a - b).mean()), 2)})
+            if save_images:
+                import PIL.Image as Image
+                gap = 10
+                canvas = np.full((h, w * 2 + gap, 3), 180.0)
+                canvas[:, :w] = a; canvas[:, w + gap:] = b
+                Image.fromarray(canvas.astype(np.uint8)).save(
+                    os.path.join(img_dir, "cmp_p%02d.png" % (i + 1)))
+                del canvas
+            del a, b
+    finally:
+        s_doc.close(); r_doc.close()
     res["pages"] = rows
     res["mean_ssim"] = round(float(np.mean([r["ssim"] for r in rows])), 4)
     res["mean_iou"] = round(float(np.mean([r["iou"] for r in rows])), 4)
