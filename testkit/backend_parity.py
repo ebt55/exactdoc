@@ -63,6 +63,33 @@ DIMENSIONS = ("page_err", "live_text_cov", "doc_recall", "word_recall",
               "within2pt", "dy_p50", "raster_frac")
 LOWER_IS_BETTER = ("page_err", "dy_p50", "raster_frac")
 PROFILE_NAMES = ("product", "candidate", "candidate-refined")
+
+
+def profile_labels(profile, ref_name, cand_name):
+    """Profile ids for the run and for BOTH arms, each naming its own backend.
+
+    A parity run swaps the backend and holds everything else fixed, so a single
+    `profile_id` describes the settings but not the two things being compared.
+    Its backend token is whatever the named profile carries -- for `product`
+    that is `pymupdf`, the REFERENCE -- and a reader who takes it for the
+    candidate concludes the shipped configuration was measured, which is the
+    opposite of what a parity run says.
+
+    That is not hypothetical. `docs/evidence/parity-expanded-2026-08-04b.json`
+    records `gated16_product.candidate_profile_id` as
+    `pymupdf/standard/libreoffice/refine3@240dpi` while its own sibling `_note`
+    says the run was "pymupdf/... against pdfium/...", because this function did
+    not exist and the field was filled in by hand from `profile_id`. Eight
+    documents then read as MAJOR "under the shipping profile" when what was
+    measured was a PDFium swap. Emitting both arms here is what stops the label
+    and the measurement from disagreeing again; the historical files stay as
+    recorded.
+
+    `parity_expansion.py` already derives its own labels this way.
+    """
+    return {"profile_id": profile.profile_id(),
+            "reference_profile_id": profile.replace(backend=ref_name).profile_id(),
+            "candidate_profile_id": profile.replace(backend=cand_name).profile_id()}
 PROFILE_ID_RE = re.compile(r"^[^/]+/[^/]+/[^/]+/refine\d+@\d+dpi$")
 
 
@@ -748,6 +775,7 @@ def main(argv=None):
                    "profile": a.profile, "profile_id": profile_id,
                    "documents": rows,
                    "manifest_documents": len(manifest.get("documents", {}))})
+    parity.update(profile_labels(profile, ref_name, cand_name))
     evidence.merge(ev_path, parity=parity)
 
     if a.update_policy:
