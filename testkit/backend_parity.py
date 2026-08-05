@@ -136,6 +136,89 @@ def margin_for(name, margins, reference):
     return m
 
 
+DY_EXEMPTION_SECTION = "dy_absolute_exemption"
+_DY_EXEMPTION_FIELDS = {"both_arms_below_pt", "conditioned_on", "reason",
+                        "clears_at_record", "measured_on", "evidence"}
+
+
+def dy_exemption_for(policy, profile_id):
+    """-> (spec, errors): the absolute-magnitude dy rule bound to THIS profile.
+
+    Keyed by full profile ID and never borrowed across profiles, for the same
+    reason floors are not: `dy_p50` at the shipping settings and at the
+    candidate profile are different distributions measured through different
+    renderers, and a ceiling calibrated on one says nothing about the other. A
+    policy may record a section for a profile it does not govern -- the entry is
+    then simply never selected, because `adjudicate` refuses a profile mismatch
+    long before it gets here.
+
+    A malformed section is an ERROR, not an absence. Silently ignoring a rule
+    that is present but unreadable would mean the file says one thing and the
+    gate does another, which is the failure this whole policy exists to prevent.
+    """
+    block = policy.get(DY_EXEMPTION_SECTION)
+    if block is None:
+        return None, []
+    if not isinstance(block, dict):
+        return None, ["%s is not an object" % DY_EXEMPTION_SECTION]
+    spec = _clean(block).get(profile_id)
+    if spec is None:
+        return None, []
+    if not isinstance(spec, dict) or set(spec) != _DY_EXEMPTION_FIELDS:
+        return None, ["%s/%s must carry exactly %s"
+                      % (DY_EXEMPTION_SECTION, profile_id,
+                         ", ".join(sorted(_DY_EXEMPTION_FIELDS)))]
+    ceiling = spec["both_arms_below_pt"]
+    if not gate.is_number(ceiling) or ceiling <= 0:
+        return None, ["%s/%s: both_arms_below_pt must be a positive number"
+                      % (DY_EXEMPTION_SECTION, profile_id)]
+    if spec["conditioned_on"] != ["within2pt"]:
+        return None, ["%s/%s: conditioned_on must be exactly [\"within2pt\"] -- "
+                      "an unconditioned magnitude rule would excuse a document "
+                      "whose placement genuinely degraded"
+                      % (DY_EXEMPTION_SECTION, profile_id)]
+    for field in ("reason", "measured_on", "evidence"):
+        if not isinstance(spec[field], str) or not spec[field].strip():
+            return None, ["%s/%s: %s must be a non-empty string"
+                          % (DY_EXEMPTION_SECTION, profile_id, field)]
+    if not isinstance(spec["clears_at_record"], list):
+        return None, ["%s/%s: clears_at_record must be a list"
+                      % (DY_EXEMPTION_SECTION, profile_id)]
+    return spec, []
+
+
+def apply_dy_exemption(worse, da, db, spec):
+    """-> (worse, fired): drop `dy_p50` when both arms are already tiny.
+
+    `dy_p50` is a median in points, and the margin that governs it is
+    proportional (10% of the reference) with a 0.5pt floor. Near zero that floor
+    is the whole rule, so a document can move 0.04pt -> 1.29pt and be graded a
+    regression on a difference that is a fraction of one line's leading. Below
+    a couple of points the metric is measuring the ascent convention of whoever
+    reported the glyph tops, not the placement a reader would see -- see
+    docs/dy-ascent-artifact.md.
+
+    The condition is what keeps this honest, and it is not optional. `within2pt`
+    counts the words actually landing within 2pt of source, so it is the direct
+    statement of the thing `dy_p50` only proxies. If it moved adversely on the
+    same document, the placement really did degrade and the magnitude rule must
+    not excuse it -- `02_research_paper` and `03_tech_report_code` are exactly
+    that case, both inside the 2pt ceiling and both losing ~0.18 of within2pt,
+    and both keep their regression because of this clause.
+    """
+    if not spec or not any(w[0] == "dy_p50" for w in worse):
+        return worse, False
+    ceiling = spec["both_arms_below_pt"]
+    ref, cand = da.get("dy_p50"), db.get("dy_p50")
+    if not (gate.is_number(ref) and gate.is_number(cand)):
+        return worse, False
+    if not (abs(ref) < ceiling and abs(cand) < ceiling):
+        return worse, False
+    if any(w[0] == "within2pt" for w in worse):
+        return worse, False
+    return [w for w in worse if w[0] != "dy_p50"], True
+
+
 def compare(a, b, margins):
     """-> (worse, better): the dimensions that moved, each judged on its own.
 
@@ -358,12 +441,15 @@ def adjudicate(ref, cand, policy, subset=False, manifest=None, profile_id=None,
         return [], _profile_failure_summary(profile_errors, subset=subset)
 
     margins = _clean(policy.get("margins", {}))
+    dy_exemption, dy_errors = dy_exemption_for(policy, profile_id)
     divergence = _clean(policy.get("expected_divergence", {}))
     provisional = _clean(policy.get("provisional_shortfalls", {}))
     ratified = _clean(policy.get("ratified_shortfalls", {}))
     rows, failures = [], []
     counts = {"regressions": 0, "same": 0, "better": 0, "expected_div": 0,
               "provisional": 0, "ratified": 0, "accepted": 0, "missing": 0}
+    for detail in dy_errors:
+        failures.append(("malformed-exemption", "-", detail))
 
     # The retired section. Schema 1 called all four D2 documents
     # `accepted_shortfalls`, and its own note called them RATIFIED, while every
@@ -419,8 +505,15 @@ def adjudicate(ref, cand, policy, subset=False, manifest=None, profile_id=None,
             continue
 
         worse, better = compare(A, B, margins)
+        worse, dy_exempted = apply_dy_exemption(worse, dims(A), dims(B),
+                                                dy_exemption)
         row = {"document": doc_id, "reference": dims(A), "candidate": dims(B),
                "worse": [w[0] for w in worse], "better": [b[0] for b in better]}
+        if dy_exempted:
+            # Recorded on the row, never silent. An exemption that does not show
+            # up in the output is indistinguishable from a document that never
+            # moved, and the two need to be told apart by a reader.
+            row["dy_exempt"] = True
 
         if doc_id in divergence:
             row["verdict"] = "expected-div"

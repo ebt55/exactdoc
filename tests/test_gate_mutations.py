@@ -1034,6 +1034,116 @@ def test_parity_every_gated_dimension_is_compared():
           "not compared: %s" % missing)
 
 
+# --- the dy_p50 absolute-magnitude exemption (task #22) ----------------------
+# A rule that can excuse a regression has to be tested like one. The condition
+# on within2pt is the load-bearing half: without it this is "small numbers do
+# not count", which would excuse a document whose placement genuinely degraded.
+def _dy_exemption(**over):
+    spec = {"both_arms_below_pt": 2.0, "conditioned_on": ["within2pt"],
+            "reason": "base-14 ascent reporting artifact",
+            "clears_at_record": ["good.pdf"], "measured_on": "2026-08-05",
+            "evidence": "docs/evidence/parity-expanded-2026-08-05.json"}
+    spec.update(over)
+    return spec
+
+
+def _with_exemption(spec=None, profile=PARITY_PROFILE_ID):
+    ref, cand, policy = parity_fixture()
+    policy["dy_absolute_exemption"] = {profile: _dy_exemption() if spec is None
+                                       else spec}
+    return ref, cand, policy
+
+
+def test_parity_dy_exemption_clears_a_tiny_symmetric_move():
+    ref, cand, policy = _with_exemption()
+    ref["good.pdf"]["dy_p50"], cand["good.pdf"]["dy_p50"] = 0.10, 1.40
+    summary, kinds_ = parity_kinds(ref, cand, policy)
+    check("a sub-2pt dy move with within2pt steady is not a regression",
+          summary["regressions"] == 0, str(summary["failures"]))
+
+
+def test_parity_dy_exemption_refuses_when_within2pt_degraded():
+    """The x02 case: dy and within2pt move independently, so dy alone lies."""
+    ref, cand, policy = _with_exemption()
+    ref["good.pdf"]["dy_p50"], cand["good.pdf"]["dy_p50"] = 0.10, 1.40
+    cand["good.pdf"]["within2pt"] = 0.40            # from 0.60, past the margin
+    summary, kinds_ = parity_kinds(ref, cand, policy)
+    check("a tiny dy move does NOT excuse a document losing within2pt",
+          "regression" in kinds_, str(summary["failures"]))
+    dims_ = {f["detail"].split()[2] for f in summary["failures"]
+             if f["kind"] == "regression"}
+    check("and the dy regression is reported too, not swallowed",
+          "dy_p50:" in " ".join(f["detail"] for f in summary["failures"]),
+          str(summary["failures"]))
+
+
+def test_parity_dy_exemption_refuses_above_its_ceiling():
+    for ref_dy, cand_dy, label in ((2.5, 4.0, "both arms above"),
+                                   (0.1, 2.6, "candidate above"),
+                                   (2.1, 2.9, "reference above")):
+        ref, cand, policy = _with_exemption()
+        ref["good.pdf"]["dy_p50"], cand["good.pdf"]["dy_p50"] = ref_dy, cand_dy
+        summary, kinds_ = parity_kinds(ref, cand, policy)
+        check("dy exemption does not apply when %s the ceiling" % label,
+              "regression" in kinds_, str(summary["failures"]))
+
+
+def test_parity_malformed_dy_exemption_is_an_error_not_an_absence():
+    """Present-but-unreadable must fail, or the file and the gate disagree."""
+    bad = {
+        "unconditioned": _dy_exemption(conditioned_on=[]),
+        "conditioned on the wrong metric": _dy_exemption(conditioned_on=["dx_p50"]),
+        "negative ceiling": _dy_exemption(both_arms_below_pt=-1),
+        "non-numeric ceiling": _dy_exemption(both_arms_below_pt="2.0"),
+        "empty reason": _dy_exemption(reason="  "),
+        "not an object": ["nope"],
+    }
+    for label, spec in bad.items():
+        ref, cand, policy = _with_exemption(spec)
+        summary, kinds_ = parity_kinds(ref, cand, policy)
+        check("a %s dy exemption fails" % label,
+              "malformed-exemption" in kinds_, str(summary["failures"]))
+    for field in ("both_arms_below_pt", "conditioned_on", "reason",
+                  "clears_at_record", "measured_on", "evidence"):
+        spec = _dy_exemption()
+        del spec[field]
+        ref, cand, policy = _with_exemption(spec)
+        summary, kinds_ = parity_kinds(ref, cand, policy)
+        check("a dy exemption missing %s fails" % field,
+              "malformed-exemption" in kinds_, str(summary["failures"]))
+
+
+def test_parity_dy_exemption_is_bound_to_its_own_profile():
+    """A ceiling calibrated at one profile says nothing about another."""
+    ref, cand, policy = _with_exemption(
+        profile="pymupdf/standard/libreoffice/refine3@240dpi")
+    ref["good.pdf"]["dy_p50"], cand["good.pdf"]["dy_p50"] = 0.10, 1.40
+    summary, kinds_ = parity_kinds(ref, cand, policy)
+    check("an exemption recorded for another profile is inert here",
+          "regression" in kinds_, str(summary["failures"]))
+
+
+def test_committed_parity_policy_dy_exemption_is_conditioned():
+    """The shipped rule, not a fixture: it must never be unconditioned."""
+    import backend_parity
+    policy = backend_parity.load_policy()
+    block = policy.get(backend_parity.DY_EXEMPTION_SECTION) or {}
+    entries = {k: v for k, v in block.items() if not k.startswith("_")}
+    check("the committed policy records a dy exemption", bool(entries),
+          "no %s section" % backend_parity.DY_EXEMPTION_SECTION)
+    for profile, spec in sorted(entries.items()):
+        loaded, errors = backend_parity.dy_exemption_for(policy, profile)
+        check("committed dy exemption for %s is well-formed" % profile,
+              loaded is not None and not errors, repr(errors))
+        check("committed dy exemption for %s is conditioned on within2pt"
+              % profile, spec.get("conditioned_on") == ["within2pt"],
+              repr(spec.get("conditioned_on")))
+        check("committed dy exemption for %s stays at 2.0pt" % profile,
+              spec.get("both_arms_below_pt") == 2.0,
+              "widening this ceiling blinds the policy to structural "
+              "divergences an order of magnitude larger")
+
+
 def test_parity_expected_divergence_is_bounded():
     """A waiver names a known difference; it is not a licence for unknown ones.
 

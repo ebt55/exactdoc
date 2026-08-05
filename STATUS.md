@@ -205,8 +205,78 @@ drift bounds on the same pass, so this is a visual-registration cost rather than
 a conversion defect. The three stress fixtures produce eight tracked
 non-blocking findings, unchanged.
 
-**This is one clean pass, not a release.** The migration gate asks for two, and
-the second must be a fresh consented run.
+**Migration gate (b) is now MET**: passes 4 and 5 both assess clean under the
+ratified policy. That is the two consecutive clean full-corpus Google passes the
+gate asks for — and it is one gate of four, not a release.
+
+### Parity policy ratified, and the dy threshold artifact resolved
+
+The **parity** policy is now ratified too (2026-08-04, DEC-D2, on the Google
+evidence rather than on the LibreOffice proxy, which is what its own scheduling
+note required). Its two D10 findings — `c4_i18n` complex-script raster fallback
+and `c5_graphics` designed-page rasterisation — moved from `provisional_shortfalls`
+to `ratified_shortfalls`, each carrying an owner, a date, `DEC-D2`, and a review
+condition. Ratified is not fixed: both remain real divergences, both remain
+floored in both directions, and clearing either entirely still fails as a stale
+record. What changed is only that they can no longer block a swap by themselves.
+
+A `dy_p50` **absolute-magnitude exemption** landed with it, resolving task #22's
+decision item. `dy_p50` is computed on glyph tops, and PyMuPDF reads the declared
+base-14 ascent (Helvetica 1.070–1.075 em) where PDFium substitutes a generic
+~0.905 em — an apparent offset of ~0.17 × type size, 1.8pt at 10.5pt, **with the
+baselines identical**. Near zero, `dy_p50`'s proportional margin collapses to its
+0.5pt floor, so documents moved 0.04→1.29pt and were graded regressions over a
+fraction of one line's leading. The rule: a `dy_p50` delta is not a regression
+when both arms are under 2.0pt, *provided* `within2pt` did not move adversely on
+the same document. The metric definition deliberately stays glyph-tops —
+redefining it would invalidate the gate baseline, this policy's floors and every
+live-pass record simultaneously, to correct a reporting convention that moves
+nothing a reader sees. See [docs/dy-ascent-artifact.md](docs/dy-ascent-artifact.md).
+
+The condition is doing real work, not decorating the rule. Five gated base-14
+documents sit inside the 2.0pt ceiling at the shipping settings; the exemption
+clears **three** — `01_whitepaper_market`, `05_memo`, `f1_fpdf_brief`.
+`02_research_paper` and `03_tech_report_code` are held back because their
+`within2pt` collapses 0.7614→0.5685 and 0.4602→0.2803, far outside its 0.08
+margin: the dy framing was masking a real placement regression on those two, and
+they keep a MAJOR verdict on `within2pt` either way. The ceiling must not be
+raised — absorbing the next divergences up would need ~13pt, ~17pt, ~21pt and
+~68pt, which would blind the policy to four genuine structural divergences.
+
+So of the eight documents in the 8/16 shipping-placement figure — which was the
+backend-swap comparison, not the shipping product's own quality — three clear on
+the exemption, `02`/`03` remain on `within2pt`, `c1` and `r1` are real and
+tracked as task #29, and `c4_i18n` is the ratified tracked divergence.
+
+### The pagination campaign: closed, and exonerated
+
+The long-document pagination campaign is **closed**. Seven mechanisms landed,
+and the page-count improvements are large: `y01` 158→92 pages against an 80-page
+source, `y02` 314→142, `y09` 116→64, with `y13` gaining 32 pages of correction
+and `y12` 55 on a one-line wrap margin. U+0002 hyphen recovery landed alongside
+it, taking `y12`/`y13` recall past 0.996, and a `candidate_profile_id` mislabel
+in the parity tooling was fixed. The expanded-parity snapshot for 2026-08-05 is
+committed with its full regression list.
+
+**It is also exonerated, and that took ablation rather than argument.** The
+candidate-arm regressions on `y01`/`y09`/`y03` looked like campaign fallout and
+are not: reverting `parse_pdfium.py` alone restores the −04b page counts exactly
+(109/68/72), reverting all of the campaign's `infer`/`docxout` changes moves
+nothing at all, and disabling the campaign's margin guard makes `y01` markedly
+**worse** (114→162). The campaign's mechanisms measurably help the candidate
+arm. The actual culprits are three recent PDFium parse commits — `ff84556`
+list-marker split, `d3df9a0` gutter exemption, `0e96d64` hyphen — each of which
+fixed a real defect, so the answer is parse-side refinement, not revert.
+
+Migration remains blocked on, all in flight unless noted:
+
+- **task #31, pdfium line-count inflation from the parse fixes**
+  (`y01`/`y09`/`y03`/`y02`), now merged with **#34** (`y17`/`x10`/`x07`
+  segmentation) and `y13`'s gutter-crossing rate into a single **pdfium
+  line-segmentation convergence campaign**, owned by the pagination agent;
+- **#33** `y06` writer-path OOM;
+- **#28** `x03` markers;
+- **#27** `y03`/`y10` recall.
 
 Local follow-up now canonicalises only corroborated leading OpenSymbol private-use
 bullets into safe Unicode list markers. `l1_word_native` becomes three separate

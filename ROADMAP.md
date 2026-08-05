@@ -78,9 +78,38 @@ becomes a blocking `stale-waiver` the moment `01` clears 0.70 unaided — so it
 retires by mechanism rather than by memory. Two residual fixable causes are
 filed: a missing 4pt accent bar and a ~2pt band-to-body gap.
 
-**That is one clean pass of the two the migration gate requires.** The second
-must be a fresh consented run; a policy that passes today does not make a
-release.
+**Migration gate (b) is MET**: passes 4 and 5 both assess clean under the
+ratified policy, which is the two consecutive clean full-corpus passes the gate
+asks for. One gate of four is not a release.
+
+The **parity** policy is ratified as well (2026-08-04, DEC-D2, decided on the
+Google evidence rather than this LibreOffice proxy). Its two D10 findings —
+`c4_i18n` and `c5_graphics` — moved to `ratified_shortfalls` with an owner, a
+date, an issue and a review condition each; both remain floored in both
+directions and stale-checked, so ratified means "cannot block a swap by itself",
+not "fixed". A `dy_p50` absolute-magnitude exemption landed with it, resolving
+task #22: below 2.0pt on both arms the metric is reporting a base-14 ascent
+convention rather than placement, so it is exempt — but only while `within2pt`
+holds, which keeps `02_research_paper` and `03_tech_report_code` blocked on a
+real placement regression the dy framing had been masking. Details in
+[docs/dy-ascent-artifact.md](docs/dy-ascent-artifact.md).
+
+The long-document pagination campaign is **closed and exonerated**. Seven
+mechanisms landed — `y01` 158→92 pages against an 80-page source, `y02` 314→142,
+`y09` 116→64, `y13` +32, `y12` +55 on a one-line wrap margin — plus U+0002
+hyphen recovery (`y12`/`y13` recall past 0.996) and a `candidate_profile_id`
+mislabel fix. Ablation cleared it of the candidate-arm regressions that looked
+like its fallout: reverting `parse_pdfium.py` alone restores the −04b counts
+(109/68/72), reverting the campaign's `infer`/`docxout` changes moves nothing,
+and disabling its margin guard makes `y01` worse (114→162). The culprits are
+three recent PDFium parse commits, each of which fixed a real defect, so the
+work is parse-side refinement rather than revert.
+
+Still blocked, all in flight unless noted: **#31** pdfium line-count inflation
+from the parse fixes (`y01`/`y09`/`y03`/`y02`), now merged with **#34**
+(`y17`/`x10`/`x07` segmentation) and `y13`'s gutter-crossing rate into one
+**pdfium line-segmentation convergence campaign** owned by the pagination agent;
+**#33** `y06` writer-path OOM; **#28** `x03` markers; **#27** `y03`/`y10` recall.
 
 The `c2_paper2col` target is addressed. Its right column ends near 551pt while
 margin inference trusted an inset abstract ending near 509pt, narrowing content
@@ -178,11 +207,11 @@ explicit limitations; `c5_graphics` is a page out under both backends.
 The next migration decision requires all of:
 
 1. expanded same-profile parity with no unratified regressions — **partial**:
-   no unwaived regressions, but two provisional findings (`c4_i18n`,
-   `c5_graphics`) remain unratified, and parity still sees only the gated 16;
+   the gated 16 adjudicate clean (0 regressions, 0 provisional, 2 ratified), but
+   the *expanded* corpus does not: the pdfium line-segmentation campaign above
+   is exactly the set of regressions this gate means by "expanded";
 2. two clean full-corpus Google Docs passes for the exact candidate, each after
-   explicit upload consent — **1 of 2**: pass 4 assesses clean under the
-   ratified policy; the second must be a fresh consented run;
+   explicit upload consent — **MET**: passes 4 and 5;
 3. a no-PyMuPDF/base-wheel proof — **partial**: the isolation proof holds and
    the seam is one module, but a PyMuPDF-free *install* is impossible while
    PyMuPDF is core; and
