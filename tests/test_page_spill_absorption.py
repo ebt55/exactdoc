@@ -17,8 +17,18 @@ Everything here is a refusal test as much as an action test. The predicate
 declines a page it cannot predict, a page stranding more than two lines, and a
 page whose gaps cannot cover the overflow in full, and in every one of those
 cases the page is written the way it shipped.
+
+**Requires the optional `mupdf` extra**, for the whole module rather than a
+class or two. Every question here is downstream of "how many lines will this
+paragraph render as", which is `ladder.predict_lines`, which needs base-14 text
+metrics MuPDF is the only source of in this tree (see `exactdoc/metrics.py`).
+Without it `_page_spill` returns None everywhere and these tests do not measure
+a weaker predicate -- they measure an absent one. Skipping is therefore the
+honest answer and asserting would be theatre.
 """
 import unittest
+
+import mupdf_extra
 
 from exactdoc.docxout import (PAGE_BREAK_PARA_PT, SPILL_EDGE_SLACK_PT,
                               SPILL_GAP_FLOOR_PT, SPILL_MAX_LINES,
@@ -26,6 +36,11 @@ from exactdoc.docxout import (PAGE_BREAK_PARA_PT, SPILL_EDGE_SLACK_PT,
                               _absorb_page_spill, _body_capacity, _page_spill)
 from exactdoc.layout import (Chunk, ColBreak, DocLayout, HFPart, PageLayout,
                              Para, RuleEl, Run, TableEl)
+
+
+def setUpModule():
+    if not mupdf_extra.AVAILABLE:
+        raise unittest.SkipTest(mupdf_extra.REASON)
 
 CONTENT_W = 468.0
 LEAD = 11.5

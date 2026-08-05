@@ -10,7 +10,14 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "testkit"))
 
+import mupdf_extra  # noqa: E402
+
 from exactdoc.options import PRODUCT  # noqa: E402
+
+# `backend_parity` -> `harness`, which imports fitz at module level and requires
+# the `mupdf` extra by design.
+if not mupdf_extra.AVAILABLE:                                  # pragma: no cover
+    raise unittest.SkipTest(mupdf_extra.REASON)
 
 import backend_parity  # noqa: E402
 

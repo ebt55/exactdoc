@@ -1,0 +1,1028 @@
+{
+ "schema": "exactdoc.base-wheel-proof.v1",
+ "_note": "GATE (c) EVIDENCE: exactdoc installs and converts with no AGPL package present. Measured in the canonical container from a wheel built out of the tree at the parser flip, installed into virtualenvs that never had PyMuPDF -- which is the difference between this and tests/test_no_pymupdf.py, and the gap docs/license-audit.md section 8 item 1 said could not be closed while PyMuPDF was a core dependency. It is closed here.",
+ "measured_on": "2026-08-06",
+ "gating": false,
+ "_gating_note": "False: this measures installability and capability, not fidelity against a baseline. The gate lanes are testkit/runall.py and are recorded separately in docs/evidence/parser-default-flip-2026-08-06.json. The fidelity table below is a CONTROLLED COMPARISON between two installs of the same commit, not a gate run, and no floor or waiver was read or applied.",
+ "environment_canonical": true,
+ "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+ "environment": {
+  "os": "linux",
+  "python": "3.12.3",
+  "image_base_digest": "sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90",
+  "soffice": "LibreOffice 24.2.7.2 420(Build:2)",
+  "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+  "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+  "pdfium": "152.0.7947.0"
+ },
+ "the_wheel": {
+  "_note": "Built with `python -m build --wheel` in a throwaway venv, so no build tooling entered the pinned measurement environment -- the objection license-audit.md section 8 item 3 raised against writing this check at all. Reading Requires-Dist out of the BUILT artifact is what closes that item: everything asserted before it read pyproject.toml, which catches an edit to the declaration and would not catch a backend that mistranslates it. It did not mistranslate it.",
+  "file": "exactdoc-0.1.0a1-py3-none-any.whl",
+  "core_requires_dist": [
+   "pypdfium2>=4.25",
+   "python-docx>=1.1",
+   "numpy>=1.24",
+   "pillow>=10.0",
+   "lxml>=4.9"
+  ],
+  "extra_requires_dist": {
+   "test": [
+    "reportlab>=4.0",
+    "fpdf2>=2.7"
+   ],
+   "mupdf": [
+    "pymupdf>=1.23"
+   ],
+   "gdocs": [
+    "google-api-python-client>=2.100",
+    "google-auth-httplib2>=0.1",
+    "google-auth-oauthlib>=1.1"
+   ]
+  },
+  "provides_extra": [
+   "test",
+   "mupdf",
+   "gdocs"
+  ],
+  "pymupdf_in_core": false,
+  "pypdfium2_in_core": true,
+  "declared_licence_at_this_measurement": "AGPL-3.0-or-later",
+  "_licence_note": "The dependency flip and the LICENSE swap are two commits, and this wheel was built between them. Declaring AGPL while shipping no AGPL code is conservative rather than wrong; `licence_after_the_swap` below records the re-verified final state."
+ },
+ "the_clean_environment": {
+  "_note": "A virtualenv created with `python3 -m venv` and given nothing but the wheel. Not /work/.venv, not the host, and nothing was blocked or patched: PyMuPDF is simply not there.",
+  "install_command": "pip install dist/exactdoc-0.1.0a1-py3-none-any.whl",
+  "packages": [
+   "exactdoc==0.1.0a1",
+   "lxml==6.1.1",
+   "numpy==2.5.1",
+   "pillow==12.3.0",
+   "pip==24.0",
+   "pypdfium2==5.12.1",
+   "python-docx==1.2.0",
+   "typing_extensions==4.16.0"
+  ],
+  "package_count": 8,
+  "declared_licences": {
+   "exactdoc": [
+    "AGPL-3.0-or-later",
+    "GNU Affero General Public License v3 or later (AGPLv3+)"
+   ],
+   "lxml": [
+    "BSD-3-Clause"
+   ],
+   "numpy": [
+    "BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0"
+   ],
+   "pillow": [
+    "MIT-CMU"
+   ],
+   "pip": [
+    "MIT",
+    "MIT License"
+   ],
+   "pypdfium2": [
+    "BSD-3-Clause, Apache-2.0, dependency licenses"
+   ],
+   "python-docx": [
+    "MIT",
+    "MIT License"
+   ],
+   "typing_extensions": [
+    "PSF-2.0"
+   ]
+  },
+  "third_party_agpl_packages": [],
+  "no_third_party_agpl_present": true,
+  "_agpl_scan_note": "Scanned by reading License / License-Expression / `License ::` classifiers from every installed distribution, rather than by checking a list of names someone remembered. `exactdoc` itself matched at the time of measurement because its own declaration was still AGPL; it is excluded from `third_party_agpl_packages` and tracked by `licence_after_the_swap`.",
+  "fitz_findable": false,
+  "fitz_import": "ImportError: No module named 'fitz'",
+  "pymupdf_import": "ImportError: No module named 'pymupdf'",
+  "exactdoc_imports": true,
+  "exactdoc_resolved_from_site_packages": true,
+  "exactdoc_version": "0.1.0a1",
+  "package_modules_importable": "25 of 25",
+  "package_modules_failed": {},
+  "product_profile_id": "pdfium/standard/libreoffice/refine3@240dpi",
+  "raw_profile_id": "pdfium/standard/none/refine0@240dpi"
+ },
+ "asking_for_the_absent_backend": {
+  "_note": "license-audit.md section 8 item 4: 'A base wheel must make backend=\"pymupdf\" fail with a clear typed error rather than an ImportError traceback from four frames down. Nothing tests that.' All five seam operations now answer identically, through `parse.require_fitz`.",
+  "surfaces": {
+   "parse_pdf": {
+    "ok": true,
+    "code": "backend-unavailable",
+    "message": "the pymupdf backend needs PyMuPDF, which is not installed",
+    "detail": "install it with `pip install exactdoc[mupdf]`. Note that PyMuPDF is AGPL-3.0-or-later, and the default install carries no AGPL code -- so adding this extra changes your obligations for anything you distribute."
+   },
+   "form_widgets": {
+    "ok": true,
+    "code": "backend-unavailable",
+    "message": "the pymupdf backend needs PyMuPDF, which is not installed",
+    "detail": "install it with `pip install exactdoc[mupdf]`. Note that PyMuPDF is AGPL-3.0-or-later, and the default install carries no AGPL code -- so adding this extra changes your obligations for anything you distribute."
+   },
+   "render_page": {
+    "ok": true,
+    "code": "backend-unavailable",
+    "message": "the pymupdf backend needs PyMuPDF, which is not installed",
+    "detail": "install it with `pip install exactdoc[mupdf]`. Note that PyMuPDF is AGPL-3.0-or-later, and the default install carries no AGPL code -- so adding this extra changes your obligations for anything you distribute."
+   },
+   "page_lines": {
+    "ok": true,
+    "code": "backend-unavailable",
+    "message": "the pymupdf backend needs PyMuPDF, which is not installed",
+    "detail": "install it with `pip install exactdoc[mupdf]`. Note that PyMuPDF is AGPL-3.0-or-later, and the default install carries no AGPL code -- so adding this extra changes your obligations for anything you distribute."
+   },
+   "render_clip": {
+    "ok": true,
+    "code": "backend-unavailable",
+    "message": "the pymupdf backend needs PyMuPDF, which is not installed",
+    "detail": "install it with `pip install exactdoc[mupdf]`. Note that PyMuPDF is AGPL-3.0-or-later, and the default install carries no AGPL code -- so adding this extra changes your obligations for anything you distribute."
+   }
+  },
+  "all_typed_and_name_the_extra": true
+ },
+ "conversions": {
+  "_note": "All 16 gated fixtures, not the three the task required, at the shipping RAW profile (pdfium/standard/none/refine0@240dpi) -- the product's own serialisation path with only the oracle removed, because an oracle is an environment fact and this proof must not need one. Each output is checked as a ZIP, for word/document.xml, and by opening it with python-docx as a consumer would.",
+  "profile_id": "pdfium/standard/none/refine0@240dpi",
+  "documents": 16,
+  "all_succeeded": true,
+  "detail": {
+   "01_whitepaper_market": {
+    "ok": true,
+    "output_bytes": 75022,
+    "zip_ok": true,
+    "has_document_xml": true,
+    "parts": 21,
+    "paragraphs": 33,
+    "tables": 4,
+    "inline_shapes": 1,
+    "text_chars": 4261,
+    "seconds": 0.41
+   },
+   "02_research_paper": {
+    "ok": true,
+    "output_bytes": 64250,
+    "zip_ok": true,
+    "has_document_xml": true,
+    "parts": 19,
+    "paragraphs": 29,
+    "tables": 1,
+    "inline_shapes": 1,
+    "text_chars": 2570,
+    "seconds": 0.23
+   },
+   "03_tech_report_code": {
+    "ok": true,
+    "output_bytes": 40834,
+    "zip_ok": true,
+    "has_document_xml": true,
+    "parts": 19,
+    "paragraphs": 24,
+    "tables": 7,
+    "inline_shapes": 0,
+    "text_chars": 932,
+    "seconds": 0.16
+   },
+   "04_exec_brief": {
+    "ok": true,
+    "output_bytes": 72679,
+    "zip_ok": true,
+    "has_document_xml": true,
+    "parts": 21,
+    "paragraphs": 14,
+    "tables": 3,
+    "inline_shapes": 1,
+    "text_chars": 779,
+    "seconds": 0.13
+   },
+   "05_memo": {
+    "ok": true,
+    "output_bytes": 37323,
+    "zip_ok": true,
+    "has_document_xml": true,
+    "parts": 17,
+    "paragraphs": 9,
+    "tables": 0,
+    "inline_shapes": 0,
+    "text_chars": 507,
+    "seconds": 0.05
+   },
+   "c1_whitepaper": {
+    "ok": true,
+    "output_bytes": 61152,
+    "zip_ok": true,
+    "has_document_xml": true,
+    "parts": 18,
+    "paragraphs": 19,
+    "tables": 4,
+    "inline_shapes": 1,
+    "text_chars": 1480,
+    "seconds": 0.15
+   },
+   "c2_paper2col": {
+    "ok": true,
+    "output_bytes": 37907,
+    "zip_ok": true,
+    "has_document_xml": true,
+    "parts": 17,
+    "paragraphs": 24,
+    "tables": 0,
+    "inline_shapes": 0,
+    "text_chars": 2457,
+    "seconds": 0.15
+   },
+   "c3_tables": {
+    "ok": true,
+    "output_bytes": 105613,
+    "zip_ok": true,
+    "has_document_xml": true,
+    "parts": 18,
+    "paragraphs": 15,
+    "tables": 5,
+    "inline_shapes": 1,
+    "text_chars": 115,
+    "seconds": 0.81
+   },
+   "c4_i18n": {
+    "ok": true,
+    "output_bytes": 38083,
+    "zip_ok": true,
+    "has_document_xml": true,
+    "parts": 17,
+    "paragraphs": 13,
+    "tables": 0,
+    "inline_shapes": 0,
+    "text_chars": 567,
+    "seconds": 0.1
+   },
+   "c5_graphics": {
+    "ok": true,
+    "output_bytes": 75102,
+    "zip_ok": true,
+    "has_document_xml": true,
+    "parts": 19,
+    "paragraphs": 9,
+    "tables": 1,
+    "inline_shapes": 2,
+    "text_chars": 311,
+    "seconds": 0.09
+   },
+   "c6_long": {
+    "ok": true,
+    "output_bytes": 38771,
+    "zip_ok": true,
+    "has_document_xml": true,
+    "parts": 17,
+    "paragraphs": 133,
+    "tables": 0,
+    "inline_shapes": 0,
+    "text_chars": 15563,
+    "seconds": 0.77
+   },
+   "c7_code": {
+    "ok": true,
+    "output_bytes": 38113,
+    "zip_ok": true,
+    "has_document_xml": true,
+    "parts": 17,
+    "paragraphs": 6,
+    "tables": 2,
+    "inline_shapes": 0,
+    "text_chars": 501,
+    "seconds": 0.12
+   },
+   "c8_toc_links": {
+    "ok": true,
+    "output_bytes": 37641,
+    "zip_ok": true,
+    "has_document_xml": true,
+    "parts": 17,
+    "paragraphs": 12,
+    "tables": 0,
+    "inline_shapes": 0,
+    "text_chars": 899,
+    "seconds": 0.07
+   },
+   "f1_fpdf_brief": {
+    "ok": true,
+    "output_bytes": 37583,
+    "zip_ok": true,
+    "has_document_xml": true,
+    "parts": 17,
+    "paragraphs": 5,
+    "tables": 1,
+    "inline_shapes": 0,
+    "text_chars": 701,
+    "seconds": 0.06
+   },
+   "l1_word_native": {
+    "ok": true,
+    "output_bytes": 37856,
+    "zip_ok": true,
+    "has_document_xml": true,
+    "parts": 17,
+    "paragraphs": 10,
+    "tables": 1,
+    "inline_shapes": 0,
+    "text_chars": 836,
+    "seconds": 0.07
+   },
+   "r1_reportlab_report": {
+    "ok": true,
+    "output_bytes": 38041,
+    "zip_ok": true,
+    "has_document_xml": true,
+    "parts": 17,
+    "paragraphs": 11,
+    "tables": 1,
+    "inline_shapes": 0,
+    "text_chars": 1121,
+    "seconds": 0.08
+   }
+  }
+ },
+ "the_cost_of_not_installing_the_extra": {
+  "_note": "THE FINDING OF THIS PROOF, and it is not a comfortable one. The quality ladder is default-ON since c9d36df and needs base-14 text metrics that only MuPDF supplies in this tree. A default install therefore runs an INERT ladder. This section measures what that costs instead of asserting it is small, because on the exemplar document it is not.",
+  "mechanism": "`get_metrics('mupdf')` degrades to NullMetrics, `predict_lines` returns None for every paragraph, and `apply_ladder` locks nothing. Reported, not silent: `ladder_report['text_metrics']` is 'none' and --verbose prints it.",
+  "text_metrics_base_wheel": "none",
+  "text_metrics_with_extra": "mupdf",
+  "locks_lost_total": 9,
+  "locks_lost_by_document": {
+   "02_research_paper": {
+    "with_extra": 3,
+    "base_wheel": 0,
+    "locks_lost": 3
+   },
+   "04_exec_brief": {
+    "with_extra": 1,
+    "base_wheel": 0,
+    "locks_lost": 1
+   },
+   "c1_whitepaper": {
+    "with_extra": 1,
+    "base_wheel": 0,
+    "locks_lost": 1
+   },
+   "c4_i18n": {
+    "with_extra": 2,
+    "base_wheel": 0,
+    "locks_lost": 2
+   },
+   "l1_word_native": {
+    "with_extra": 2,
+    "base_wheel": 0,
+    "locks_lost": 2
+   }
+  },
+  "fidelity_comparison": {
+   "_note": "Same commit, same parser, same RAW profile, same 16 inputs, same measuring instrument -- the ONLY difference is whether the `mupdf` extra was installed in the environment that produced the DOCX. Scored with testkit/harness.py from /work/.venv in both cases; harness.py needs PyMuPDF by design and must not share an implementation with the parser it measures, so the converter under test and the oracle are deliberately different installs.",
+   "columns": [
+    "base_wheel",
+    "with_mupdf_extra"
+   ],
+   "documents_that_moved": [
+    "c1_whitepaper",
+    "c4_i18n",
+    "l1_word_native"
+   ],
+   "documents_unchanged": 13,
+   "documents": {
+    "01_whitepaper_market": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.2069,
+      0.2069
+     ],
+     "dy_p50": [
+      3.68,
+      3.68
+     ],
+     "live_text_cov": [
+      0.9595,
+      0.9595
+     ],
+     "word_recall": [
+      0.9677,
+      0.9677
+     ],
+     "doc_recall": [
+      0.9677,
+      0.9677
+     ],
+     "raster_frac": [
+      0.0405,
+      0.0405
+     ],
+     "pages": [
+      "3/3",
+      "3/3"
+     ]
+    },
+    "02_research_paper": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.5685,
+      0.5685
+     ],
+     "dy_p50": [
+      1.29,
+      1.29
+     ],
+     "live_text_cov": [
+      0.9736,
+      0.9736
+     ],
+     "word_recall": [
+      0.9586,
+      0.9586
+     ],
+     "doc_recall": [
+      0.9586,
+      0.9586
+     ],
+     "raster_frac": [
+      0.0264,
+      0.0264
+     ],
+     "pages": [
+      "2/2",
+      "2/2"
+     ]
+    },
+    "03_tech_report_code": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.0588,
+      0.0588
+     ],
+     "dy_p50": [
+      4.08,
+      4.08
+     ],
+     "live_text_cov": [
+      0.9827,
+      0.9827
+     ],
+     "word_recall": [
+      1.0,
+      1.0
+     ],
+     "doc_recall": [
+      1.0,
+      1.0
+     ],
+     "raster_frac": [
+      0.0173,
+      0.0173
+     ],
+     "pages": [
+      "2/2",
+      "2/2"
+     ]
+    },
+    "04_exec_brief": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.0533,
+      0.0533
+     ],
+     "dy_p50": [
+      9.35,
+      9.35
+     ],
+     "live_text_cov": [
+      0.9406,
+      0.9406
+     ],
+     "word_recall": [
+      0.9337,
+      0.9337
+     ],
+     "doc_recall": [
+      0.9337,
+      0.9337
+     ],
+     "raster_frac": [
+      0.0594,
+      0.0594
+     ],
+     "pages": [
+      "2/2",
+      "2/2"
+     ]
+    },
+    "05_memo": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.1205,
+      0.1205
+     ],
+     "dy_p50": [
+      20.74,
+      20.74
+     ],
+     "live_text_cov": [
+      1.0,
+      1.0
+     ],
+     "word_recall": [
+      1.0,
+      1.0
+     ],
+     "doc_recall": [
+      1.0,
+      1.0
+     ],
+     "raster_frac": [
+      0.0,
+      0.0
+     ],
+     "pages": [
+      "1/1",
+      "1/1"
+     ]
+    },
+    "c1_whitepaper": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.0,
+      0.1031
+     ],
+     "dy_p50": [
+      13.49,
+      2.0
+     ],
+     "live_text_cov": [
+      0.9654,
+      0.9654
+     ],
+     "word_recall": [
+      0.9697,
+      0.9697
+     ],
+     "doc_recall": [
+      0.9697,
+      0.9697
+     ],
+     "raster_frac": [
+      0.0346,
+      0.0346
+     ],
+     "pages": [
+      "2/2",
+      "2/2"
+     ]
+    },
+    "c2_paper2col": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.039,
+      0.039
+     ],
+     "dy_p50": [
+      3.8,
+      3.8
+     ],
+     "live_text_cov": [
+      1.0,
+      1.0
+     ],
+     "word_recall": [
+      1.0,
+      1.0
+     ],
+     "doc_recall": [
+      1.0,
+      1.0
+     ],
+     "raster_frac": [
+      0.0,
+      0.0
+     ],
+     "pages": [
+      "1/1",
+      "1/1"
+     ]
+    },
+    "c3_tables": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.0,
+      0.0
+     ],
+     "dy_p50": [
+      7.45,
+      7.45
+     ],
+     "live_text_cov": [
+      0.9226,
+      0.9226
+     ],
+     "word_recall": [
+      0.8648,
+      0.8648
+     ],
+     "doc_recall": [
+      0.9359,
+      0.9359
+     ],
+     "raster_frac": [
+      0.0774,
+      0.0774
+     ],
+     "pages": [
+      "3/3",
+      "3/3"
+     ]
+    },
+    "c4_i18n": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.3017,
+      0.4397
+     ],
+     "dy_p50": [
+      0.8,
+      0.8
+     ],
+     "live_text_cov": [
+      0.9091,
+      0.9091
+     ],
+     "word_recall": [
+      0.9748,
+      0.9748
+     ],
+     "doc_recall": [
+      0.9748,
+      0.9748
+     ],
+     "raster_frac": [
+      0.0909,
+      0.0909
+     ],
+     "pages": [
+      "1/1",
+      "1/1"
+     ]
+    },
+    "c5_graphics": {
+     "page_err": [
+      1,
+      1
+     ],
+     "within2pt": [
+      0.8,
+      0.8
+     ],
+     "dy_p50": [
+      0.35,
+      0.35
+     ],
+     "live_text_cov": [
+      0.7067,
+      0.7067
+     ],
+     "word_recall": [
+      0.1667,
+      0.1667
+     ],
+     "doc_recall": [
+      0.6778,
+      0.6778
+     ],
+     "raster_frac": [
+      0.2933,
+      0.2933
+     ],
+     "pages": [
+      "1/2",
+      "1/2"
+     ]
+    },
+    "c6_long": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.6738,
+      0.6738
+     ],
+     "dy_p50": [
+      1.3,
+      1.3
+     ],
+     "live_text_cov": [
+      0.9923,
+      0.9923
+     ],
+     "word_recall": [
+      1.0,
+      1.0
+     ],
+     "doc_recall": [
+      1.0,
+      1.0
+     ],
+     "raster_frac": [
+      0.0077,
+      0.0077
+     ],
+     "pages": [
+      "7/7",
+      "7/7"
+     ]
+    },
+    "c7_code": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.5568,
+      0.5568
+     ],
+     "dy_p50": [
+      1.9,
+      1.9
+     ],
+     "live_text_cov": [
+      1.0,
+      1.0
+     ],
+     "word_recall": [
+      1.0,
+      1.0
+     ],
+     "doc_recall": [
+      1.0,
+      1.0
+     ],
+     "raster_frac": [
+      0.0,
+      0.0
+     ],
+     "pages": [
+      "1/1",
+      "1/1"
+     ]
+    },
+    "c8_toc_links": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      1.0,
+      1.0
+     ],
+     "dy_p50": [
+      0.1,
+      0.1
+     ],
+     "live_text_cov": [
+      1.0,
+      1.0
+     ],
+     "word_recall": [
+      1.0,
+      1.0
+     ],
+     "doc_recall": [
+      1.0,
+      1.0
+     ],
+     "raster_frac": [
+      0.0,
+      0.0
+     ],
+     "pages": [
+      "1/1",
+      "1/1"
+     ]
+    },
+    "f1_fpdf_brief": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.6048,
+      0.6048
+     ],
+     "dy_p50": [
+      1.2,
+      1.2
+     ],
+     "live_text_cov": [
+      1.0,
+      1.0
+     ],
+     "word_recall": [
+      1.0,
+      1.0
+     ],
+     "doc_recall": [
+      1.0,
+      1.0
+     ],
+     "raster_frac": [
+      0.0,
+      0.0
+     ],
+     "pages": [
+      "1/1",
+      "1/1"
+     ]
+    },
+    "l1_word_native": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.0071,
+      0.0071
+     ],
+     "dy_p50": [
+      11.04,
+      3.31
+     ],
+     "live_text_cov": [
+      0.9883,
+      0.9883
+     ],
+     "word_recall": [
+      0.9792,
+      0.9792
+     ],
+     "doc_recall": [
+      0.9792,
+      0.9792
+     ],
+     "raster_frac": [
+      0.0117,
+      0.0117
+     ],
+     "pages": [
+      "1/1",
+      "1/1"
+     ]
+    },
+    "r1_reportlab_report": {
+     "page_err": [
+      0,
+      0
+     ],
+     "within2pt": [
+      0.3212,
+      0.3212
+     ],
+     "dy_p50": [
+      1.1,
+      1.1
+     ],
+     "live_text_cov": [
+      1.0,
+      1.0
+     ],
+     "word_recall": [
+      1.0,
+      1.0
+     ],
+     "doc_recall": [
+      1.0,
+      1.0
+     ],
+     "raster_frac": [
+      0.0,
+      0.0
+     ],
+     "pages": [
+      "1/1",
+      "1/1"
+     ]
+    }
+   }
+  },
+  "assessment": {
+   "blocks_gate_c": false,
+   "why_not": "Gate (c) asks whether a PyMuPDF-free install exists, installs and works. It does: 16 of 16 fixtures convert to valid DOCX, 25 of 25 modules import, and the absent backend fails with a typed error naming the extra. The degradation is bounded to 3 of 16 documents, is caused by an optional quality pass declining to run rather than by anything being broken, and is reported by the product itself.",
+   "but": "It is a RELEASE concern and should not be filed as a footnote. c1_whitepaper is the standing exemplar for the ordinary-document release bar, and without the extra its raw-lane within2pt returns to 0.0000 -- the exact pathology commit c9d36df was written to remove. l1_word_native, a PDF printed from a word processor, loses dy_p50 3.31 -> 11.04. Both are squarely the document class this converter exists for.",
+   "and_the_sharper_version": "The gate baseline is recorded in an environment that HAS the extra, because the measurement container installs it to run the parity reference arm. So the published product numbers describe a configuration a default `pip install exactdoc` does not produce. Nothing here is wrong, and the profile_id does not carry a text-metrics axis to say so. Naming it is the point; fixing it is a permissive shaper in exactdoc/metrics.py, which is release work, not migration work."
+  }
+ },
+ "tests_without_the_extra": {
+  "_note": "'A test suite that cannot run without the AGPL extra would undermine the claim.' Run against the INSTALLED wheel: the tree was staged without `exactdoc/` so that the `sys.path.insert(0, ROOT)` every test file performs cannot shadow site-packages with the source copy.",
+  "command": "cd <tree without exactdoc/> && python -m unittest discover -s tests",
+  "tests_run": 482,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 46,
+  "green": true,
+  "for_comparison_with_the_extra": {
+   "tests_run": 619,
+   "failures": 0,
+   "errors": 0,
+   "skipped": 2
+  },
+  "skips_by_module": {
+   "test_band_gap_probe": 5,
+   "test_card_row_and_ladder_default": 1,
+   "test_cover_band_probe": 4,
+   "test_expansion_policy (unittest.loader.ModuleSkipped.test_expansion_policy)": 1,
+   "test_font_metrics_probe": 6,
+   "test_gdocs_qualification (unittest.loader.ModuleSkipped.test_gdocs_qualification)": 1,
+   "test_internal_links": 2,
+   "test_ladder_gating": 5,
+   "test_parity_evidence_labels (unittest.loader.ModuleSkipped.test_parity_evidence_labels)": 1,
+   "test_parity_expansion (unittest.loader.ModuleSkipped.test_parity_expansion)": 1,
+   "test_pdfium_links": 1,
+   "test_refusals": 11,
+   "test_undecoded_markers": 1,
+   "test_xml_safe_text": 4,
+   "unittest.suite": 2
+  },
+  "skip_reasons": {
+   "PyMuPDF not installed": 15,
+   "needs the optional `mupdf` extra (PyMuPDF, AGPL-3.0)": 15,
+   "PyMuPDF is not installed": 5,
+   "PyMuPDF is the measured backend": 11
+  },
+  "which_tests_need_the_extra_and_why": {
+   "the_measurement_toolkit": {
+    "modules": [
+     "test_expansion_policy",
+     "test_gdocs_qualification",
+     "test_parity_evidence_labels",
+     "test_parity_expansion"
+    ],
+    "reason": "All four reach `testkit/harness.py`, which imports fitz at module level. That is a DESIGN constraint, not an oversight: the harness must not share an implementation with the parser it scores, or a parser that mis-groups a page would mis-group it identically on both sides and score itself perfect. PDFium is now the shipping parser, so the independent instrument has to be PyMuPDF.",
+    "consequence": "The measurement toolkit is AGPL-governed and the shipped converter is not. Nothing under exactdoc/ imports harness.py."
+   },
+   "the_quality_ladder": {
+    "modules": [
+     "test_page_spill_absorption (whole module)",
+     "test_column_break_emission (whole module)",
+     "test_ladder_gating.PageHeightBudget",
+     "test_card_row_and_ladder_default.BandParagraphKeepsItsLines.test_the_ladder_locks_a_paragraph_the_renderer_would_unwrap"
+    ],
+    "reason": "Every question is downstream of `ladder.predict_lines`, which needs base-14 metrics. Without them the predicate is constant, so these tests would not measure a weaker ladder -- they would measure an absent one."
+   },
+   "cross_backend_comparison": {
+    "modules": [
+     "test_internal_links",
+     "test_xml_safe_text",
+     "test_pdfium_links.test_matches_the_pymupdf_reference_backend",
+     "test_undecoded_markers.test_pymupdf_sees_no_undecoded_glyphs_at_all"
+    ],
+    "reason": "They compare the two parsers; one arm is not installed."
+   }
+  },
+  "the_guards_were_broken_and_this_is_how_it_was_found": "Six of these already carried `try: from exactdoc.parse import parse_pdf / except ImportError: = None`. That guard worked only because parse.py had a top-level `import fitz`. Making it lazy -- the change that empties the seam -- also made every one of those guards a no-op: the module imports fine and raises at call time, so they bound a live function and the failure moved into the assertion, where it read as a product defect. The first run of this proof measured 13 failures and 24 errors, and that is how the defect surfaced. `tests/mupdf_extra.py` now asks the question by probing `parse.require_fitz()` -- the same door the product uses, so the guard cannot disagree with the code it guards.",
+  "pre_existing_skips_not_caused_by_this_work": {
+   "test_refusals": "11 -- parametrised over both backends, already guarded",
+   "test_band_gap_probe / test_cover_band_probe / test_font_metrics_probe": "15 -- these import fitz directly and their own guards already fired"
+  }
+ },
+ "what_this_does_not_prove": [
+  "Platform coverage. Linux only. pypdfium2 ships per-platform binaries and a Windows or macOS wheel is unproven (license-audit.md section 8 item 5).",
+  "That the base wheel is as GOOD as a [mupdf] install. It is measurably not, on 3 of 16 documents; see the_cost_of_not_installing_the_extra.",
+  "Anything about Google Docs. Gate (b) is a separate artifact and the post-flip live qualification pass is on the release list, not this one."
+ ],
+ "licence_after_the_swap": {
+  "_note": "Re-verified after the LICENSE commit; see that commit for the diff.",
+  "status": "pending at the time this file was first written"
+ },
+ "ok": true,
+ "release_ready": false
+}

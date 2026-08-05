@@ -130,10 +130,13 @@ class PdfiumLinksOnC8(unittest.TestCase):
             "team@example.com": "mailto:team@example.com"})
 
     def test_matches_the_pymupdf_reference_backend(self):
-        try:
-            from exactdoc.parse import parse_pdf as parse_reference
-        except ImportError:                            # pragma: no cover
-            self.skipTest("PyMuPDF is not installed")
+        # Probed, not imported: `exactdoc.parse` imports fine without the extra
+        # and raises at parse time, so the old `except ImportError` skip never
+        # fired and this failed instead. See tests/mupdf_extra.py.
+        import mupdf_extra
+        parse_reference = mupdf_extra.parse_pymupdf()
+        if parse_reference is None:                    # pragma: no cover
+            self.skipTest(mupdf_extra.REASON)
         want = parse_reference(C8, keep_image_data=False)
         got = self.ir
         for a, b in zip(want.pages, got.pages):

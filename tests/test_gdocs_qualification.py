@@ -16,6 +16,14 @@ from unittest import mock
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "testkit"))
 
+import mupdf_extra  # noqa: E402
+
+# `gdocs_oracle` -> `harness`, which imports fitz at module level and requires
+# the `mupdf` extra by design. Checked before the import so a real breakage in
+# gdocs_oracle still surfaces as an error.
+if not mupdf_extra.AVAILABLE:                                  # pragma: no cover
+    raise unittest.SkipTest(mupdf_extra.REASON)
+
 import gdocs_oracle as oracle  # noqa: E402
 
 

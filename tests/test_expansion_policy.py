@@ -21,6 +21,16 @@ import unittest
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "testkit"))
 
+import mupdf_extra  # noqa: E402
+
+# `expansion_policy` -> `backend_parity` -> `harness`, which imports fitz at
+# module level and requires the `mupdf` extra by design (it must not share an
+# implementation with the parser it measures). Checked BEFORE the import, so a
+# genuine breakage in expansion_policy still surfaces as an error rather than
+# being swallowed by a blanket `except ImportError`.
+if not mupdf_extra.AVAILABLE:                                  # pragma: no cover
+    raise unittest.SkipTest(mupdf_extra.REASON)
+
 import expansion_policy as EP  # noqa: E402
 
 CANDIDATE = "pdfium/gdocs/none/refine0@240dpi"

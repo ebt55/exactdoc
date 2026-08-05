@@ -29,6 +29,8 @@ reverted quietly.
 """
 import unittest
 
+import mupdf_extra
+
 from exactdoc import ladder
 from exactdoc.infer import FIG_MERGE_GAP, _merge_figures, _split_lines_to_paras
 from exactdoc.layout import FigureEl, Para, Run
@@ -95,7 +97,15 @@ class BandParagraphKeepsItsLines(unittest.TestCase):
         self.assertEqual(len(groups), 1,
                          "if this ever splits, re-derive the ladder's necessity")
 
+    @mupdf_extra.needs_extra
     def test_the_ladder_locks_a_paragraph_the_renderer_would_unwrap(self):
+        # The one test in this class that needs the extra, and it is worth
+        # saying why rather than skipping quietly: this IS the c1 defect, and
+        # without base-14 metrics `predict_lines` returns None, so a default
+        # install does not get this fix. That is not a gap in the test -- it is
+        # a measured product difference, quantified per document in
+        # docs/evidence/base-wheel-proof-2026-08-06.json (c1 raw-lane dy_p50
+        # 13.49 without the extra against 2.00 with it).
         p = Para(runs=[Run(text="oduction RAG degrades quietly - and what to "
                                 "measure instead ", font="LiberationSans",
                            size=9.77, color="#ffffff"),

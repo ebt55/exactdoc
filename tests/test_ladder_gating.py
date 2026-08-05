@@ -29,6 +29,8 @@ though the same locks improved its dy_p50 17.2 -> 1.65.
 """
 import unittest
 
+import mupdf_extra
+
 from exactdoc import ladder
 from exactdoc.ladder import (PAGE_SLACK_FRAC, UNMEASURED_MAX_FRAC,
                              _continuum_frac, _lockable_text, _measurable,
@@ -111,8 +113,16 @@ def _layout(elements, used_filler=0.0, page_h=792.0, margin=36.0):
     return lay
 
 
+@mupdf_extra.needs_extra
 class PageHeightBudget(unittest.TestCase):
-    """A flow lock may add lines only while the page stays a quarter empty."""
+    """A flow lock may add lines only while the page stays a quarter empty.
+
+    Needs the extra: every case here is "the metrics predict FEWER lines than
+    the source has, so locking ADDS height -- is there room?". With no metrics
+    there is no prediction, nothing locks, and the budget is never consulted.
+    The sibling classes stay unguarded because they test the repertoire and
+    report shape, which hold with either metrics implementation.
+    """
 
     def _one_flow_lock(self, filler):
         # src 4 lines that the metrics predict will fit in fewer: short text,

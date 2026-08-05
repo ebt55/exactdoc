@@ -244,10 +244,12 @@ class OnTheRealDocument(unittest.TestCase):
 
     def test_pymupdf_sees_no_undecoded_glyphs_at_all(self):
         """The side channel is PDFium-only: the reference arm cannot move."""
-        try:
-            from exactdoc.parse import parse_pdf as parse_mupdf
-        except ImportError:
-            self.skipTest("pymupdf not installed")
+        # Probed, not imported: see tests/mupdf_extra.py for why the old
+        # `except ImportError` skip stopped firing after the parser flip.
+        import mupdf_extra
+        parse_mupdf = mupdf_extra.parse_pymupdf()
+        if parse_mupdf is None:
+            self.skipTest(mupdf_extra.REASON)
         from exactdoc.dialect import normalize
 
         ir = normalize(parse_mupdf(X03))

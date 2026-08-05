@@ -20,8 +20,20 @@ the behaviour that shipped.
 """
 import unittest
 
+import mupdf_extra
+
 from exactdoc.docxout import COL_OVERFLOW_SLACK_PT, _column_one_overflows
 from exactdoc.layout import Chunk, ColBreak, DocLayout, Para, Run
+
+
+def setUpModule():
+    # `_column_one_overflows` is `ladder.predict_lines` with a column width, and
+    # the docstring above already says an unpredictable paragraph keeps its
+    # break. Without the `mupdf` extra EVERY paragraph is unpredictable, so the
+    # predicate is constant and the module measures nothing.
+    if not mupdf_extra.AVAILABLE:
+        raise unittest.SkipTest(mupdf_extra.REASON)
+
 
 PAGE_H = 792.0
 CONTENT_W = 528.0

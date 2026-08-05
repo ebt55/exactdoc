@@ -2,6 +2,21 @@
 
 Deliberately shares no code with the converter under test.
 
+**This module requires the optional `mupdf` extra, and that is a design
+constraint rather than an oversight.** PDFium is the shipping parser, so reading
+the source PDF back through PDFium to score PDFium's own output would make the
+measurement circular: a parser that mis-groups a page would mis-group it
+identically on both sides and score itself perfect. The instrument has to be a
+different implementation from the thing under test, which is exactly what
+PyMuPDF now is.
+
+The consequence, stated so it is not mistaken for a licence problem: the
+measurement toolkit is AGPL-governed and the shipped converter is not. Nothing
+under `exactdoc/` imports this file. Test modules that reach it -- currently
+test_expansion_policy, test_gdocs_qualification, test_parity_evidence_labels and
+test_parity_expansion -- skip without the extra rather than fail; see
+`tests/mupdf_extra.py`.
+
 Metrics
 -------
 page_match        pages(src) == pages(rendered)

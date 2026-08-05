@@ -37,10 +37,11 @@ try:
     from reportlab.pdfgen import canvas as _canvas
 except ImportError:                                        # pragma: no cover
     _canvas = None
-try:
-    from exactdoc.parse import parse_pdf as parse_pymupdf
-except ImportError:                                        # pragma: no cover
-    parse_pymupdf = None
+# Probed rather than imported: `exactdoc.parse` imports fine without the extra
+# and raises at parse time. See tests/mupdf_extra.py.
+import mupdf_extra                                         # noqa: E402
+
+parse_pymupdf = mupdf_extra.parse_pymupdf()
 
 
 class XmlSafeTextContract(unittest.TestCase):
@@ -207,10 +208,12 @@ class SoftHyphenRecovery(unittest.TestCase):
         self.assertEqual(chars[1].u, "\x02")
 
     def test_the_document_that_found_it_matches_the_reference(self):
-        try:
-            from exactdoc.parse import parse_pdf as reference
-        except ImportError:                            # pragma: no cover
-            self.skipTest("PyMuPDF is not installed")
+        # A second `except ImportError` guard that stopped firing when
+        # `exactdoc.parse` went lazy. Probed through the same door the product
+        # uses; see tests/mupdf_extra.py.
+        reference = mupdf_extra.parse_pymupdf()
+        if reference is None:                          # pragma: no cover
+            self.skipTest(mupdf_extra.REASON)
         y10 = os.path.join(EXPANSION, "y10_nist_fips180.pdf")
 
         def hyphen_lines(fn):

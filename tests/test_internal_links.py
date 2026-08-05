@@ -35,10 +35,11 @@ try:
     from reportlab.pdfgen import canvas as _canvas
 except ImportError:                                        # pragma: no cover
     _canvas = None
-try:
-    from exactdoc.parse import parse_pdf as parse_pymupdf
-except ImportError:                                        # pragma: no cover
-    parse_pymupdf = None
+# Probed rather than imported: `exactdoc.parse` imports fine without the extra
+# and raises at parse time. See tests/mupdf_extra.py.
+import mupdf_extra                                         # noqa: E402
+
+parse_pymupdf = mupdf_extra.parse_pymupdf()
 
 
 def _goto_pdf(path):

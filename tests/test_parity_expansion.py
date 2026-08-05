@@ -26,6 +26,13 @@ from contextlib import redirect_stdout
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "testkit"))
 
+import mupdf_extra  # noqa: E402
+
+# `backend_parity` -> `harness`, which imports fitz at module level and requires
+# the `mupdf` extra by design.
+if not mupdf_extra.AVAILABLE:                                  # pragma: no cover
+    raise unittest.SkipTest(mupdf_extra.REASON)
+
 import backend_parity            # noqa: E402
 import corpus_manifest           # noqa: E402
 import evidence                  # noqa: E402
