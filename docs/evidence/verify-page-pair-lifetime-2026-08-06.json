@@ -1,0 +1,78 @@
+{
+ "schema": "exactdoc.verify-lifetime-evidence.v1",
+ "gating": false,
+ "adjudicated": false,
+ "ok": false,
+ "release_ready": false,
+ "_note": "Task #45: exactdoc/verify.py materialised both documents' page arrays before comparing any, the shape testkit/harness.py carried until b0762a2. Unlike the harness this module ships in the wheel. `before` is verify.py restored byte-exactly from a3dd2ef with git checkout; `after` is the same tree with the fix. Both measured in the canonical container at a3dd2ef. A measurement, not an authorisation.",
+ "measured_at": "a3dd2ef",
+ "scope": {
+  "files_changed": ["exactdoc/verify.py", "tests/test_verify_pair_at_a_time.py"],
+  "_note": "Deliberately nothing else. The concurrent dependency flip owns pyproject.toml, exactdoc/parse.py, LICENSE, the testkit profile constants and the gate baseline, and none of them is touched here."
+ },
+
+ "the_defect": {
+  "site": "exactdoc/verify.py, compare()",
+  "was": "A = _page_arrays(src_pdf); B = _page_arrays(converted_pdf) -- every page of both documents rasterised before any pair was compared, with nothing released until the loop ended.",
+  "cost": "(src_pages + out_pages) x 20.7 MB held simultaneously at 96 dpi, where a US-Letter page is 816x1056x3 float64.",
+  "why_it_matters_more_than_its_twin": "testkit/harness.py had the identical shape and was fixed in b0762a2 after being OOM-killed on a 126-page source against a 591-page render, having asked for 19.5 GB and scored nothing. The harness is a dev oracle. verify.py ships in the wheel and is what `--verify` runs, so the same arithmetic lands on a user converting their own long document.",
+  "the_fix": "Rasterise page i of each document, compare, release. Same arrays, same order, same numbers by construction -- only the lifetime changes."
+ },
+
+ "equivalence": {
+  "argument": "compare() only ever looks at page i against page i, so nothing but retention was load-bearing.",
+  "subtlety_preserved": "_page_arrays stopped at the first page the backend refused to render, which truncated that document, and the loop then ran to max(len(A), len(B)). The streaming form ends each side on its own first refusal, which reproduces both lengths and therefore every row, including the `page count mismatch` rows.",
+  "proof_by_test": "tests/test_verify_pair_at_a_time.py scores a fake backend both ways and asserts row equality across equal counts, render longer than source, source longer than render, one side refusing mid-document, both sides refusing, a single page, and an empty document.",
+  "proof_by_measurement": "On the real pair below the rows hash identically: sha256 53ef8d61dfafc60fa3c0fefd02b39909... before and after."
+ },
+
+ "memory_profile": {
+  "_note": "Peak RSS via getrusage(RUSAGE_SELF).ru_maxrss, one fresh process per variant, same pair, same backend.",
+  "document": "y02_nist_sp800171r2.pdf",
+  "conversion_profile": "pymupdf/standard/libreoffice/refine3@240dpi (PRODUCT)",
+  "source_pages": 114,
+  "rendered_pages": 145,
+  "pages_held_by_the_old_shape": 259,
+  "predicted_from_the_arithmetic_gb": 5.24,
+  "before": {"peak_rss_mb": 5340.0, "rows": 145, "wall_s": 23.3},
+  "after": {"peak_rss_mb": 236.9, "rows": 145, "wall_s": 22.0},
+  "reduction": "22.5x",
+  "rows_sha256_before": "53ef8d61dfafc60fa3c0fefd02b39909",
+  "rows_sha256_after": "53ef8d61dfafc60fa3c0fefd02b39909",
+  "reading": "The measured 5,340 MB peak sits within 2% of the 5.24 GB the page arithmetic predicts, which is what identifies this function rather than anything around it as the holder. Wall clock is unchanged -- the same pages are rasterised, once each."
+ },
+
+ "gate": {
+  "_note": "testkit/runall.py, both lanes, run TWICE in the same container at the same tip with only verify.py swapped, so the comparison isolates this change from everything else that landed at a3dd2ef.",
+  "before": {"product": {"verdict": "PASS", "page_match": "16/16",
+                         "within2pt": 0.5389, "live_text_cov": 0.9652,
+                         "dy_p50": 0.62},
+             "raw": {"verdict": "PASS", "page_match": "15/16",
+                     "within2pt": 0.3604, "live_text_cov": 0.9652,
+                     "dy_p50": 1.975}},
+  "after": {"product": {"verdict": "PASS", "page_match": "16/16",
+                        "within2pt": 0.5389, "live_text_cov": 0.9652,
+                        "dy_p50": 0.62},
+            "raw": {"verdict": "PASS", "page_match": "15/16",
+                    "within2pt": 0.3604, "live_text_cov": 0.9652,
+                    "dy_p50": 1.975}},
+  "artifacts_compared": {
+   "lane_product/results.json": "identical",
+   "lane_product/verdict.json": "identical",
+   "lane_raw/results.json": "identical",
+   "lane_raw/verdict.json": "identical"},
+  "volatile_fields_excluded": ["convert_s"],
+  "_reading": "The refine loop reaches verify.py only through docx_to_pdf and SOFFICE, never through compare, so the gate was expected to be untouched and is. Running it both ways at one tip is what turns that expectation into evidence."
+ },
+
+ "tests": {"suite": 630, "result": "green",
+           "new_file": "tests/test_verify_pair_at_a_time.py",
+           "count": 12,
+           "_note": "Written in b0762a2's style: the numbers are pinned against a reference implementation of the old whole-document shape, and the lifetime is pinned separately by watching the order of renders and comparisons. `test_at_most_one_pair_is_rendered_before_the_first_comparison` is the one that fails if the old shape ever returns. `test_the_page_count_is_read_once_per_document` guards the obvious wrong fix: _page_count goes through page_lines, which extracts text for the whole document, so calling it per page would trade memory for something worse."},
+
+ "instrument_caveats": [
+  "ru_maxrss is a high-water mark for the whole process, so it includes the interpreter and the backend's own allocations -- that is why `after` reads 237 MB rather than the ~41 MB two pages occupy. The comparison between the two variants is like for like and the delta is the retention.",
+  "The `before` variant is verify.py restored with `git checkout a3dd2ef -- exactdoc/verify.py` and copied byte-exactly into the container, never through shell redirection.",
+  "The gate's absolute numbers at this tip differ from those in earlier records in this series because a3dd2ef carries other work; the before/after pair here was run at one tip precisely so that difference cannot be confused with this change."
+ ]
+}

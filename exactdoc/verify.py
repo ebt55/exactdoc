@@ -95,27 +95,41 @@ def _page_count(pdf_path: str, backend) -> int:
     return len(backend.page_lines(pdf_path))
 
 
-def _page_arrays(pdf_path: str, dpi: int = 96, backend=None) -> List[np.ndarray]:
-    """Rasterise every page to an RGB array, through the backend.
+def _page_array(pdf_path: str, i: int, dpi: int, backend) -> Optional[np.ndarray]:
+    """One page as an RGB array, or None if the backend will not render it.
+
+    At 96 dpi a US-Letter page is 816x1056x3 float64 = 20.7 MB, so *which* pages
+    are alive at once is a scaling property of the caller, not a detail.
 
     Decoding the backend's PNG with Pillow costs one encode/decode per page that
     reading a MuPDF pixmap's raw samples did not. That is the price of the seam
     being a byte format both backends can honestly produce, and it is paid by a
-    diagnostic path, not by conversion. The independent harness in `testkit/` is
-    where render performance would matter, and it is free to use whatever it likes
-    -- it is not shipped.
+    diagnostic path, not by conversion.
+    """
+    data = backend.render_page(pdf_path, i + 1, dpi=dpi)
+    if not data:
+        return None
+    import PIL.Image as Image
+    return np.asarray(Image.open(io.BytesIO(data)).convert("RGB")).astype(
+        np.float64)
+
+
+def _page_arrays(pdf_path: str, dpi: int = 96, backend=None) -> List[np.ndarray]:
+    """Every page at once. Costs 20.7 MB per page -- see `_page_array`.
+
+    `compare` deliberately does NOT use this: it rasterises one pair at a time.
+    Kept because rasterising a whole short document in one call is a reasonable
+    thing for an ad-hoc caller to want.
     """
     if backend is None:
         from .backend import get_backend
         backend = get_backend()
-    import PIL.Image as Image
     out = []
     for i in range(_page_count(pdf_path, backend)):
-        data = backend.render_page(pdf_path, i + 1, dpi=dpi)
-        if not data:
+        arr = _page_array(pdf_path, i, dpi, backend)
+        if arr is None:
             break
-        arr = np.asarray(Image.open(io.BytesIO(data)).convert("RGB"))
-        out.append(arr.astype(np.float64))
+        out.append(arr)
     return out
 
 
@@ -147,19 +161,45 @@ def ssim(a: np.ndarray, b: np.ndarray) -> float:
 
 def compare(src_pdf: str, converted_pdf: str, out_dir: Optional[str] = None,
             dpi: int = 96, backend=None):
-    A = _page_arrays(src_pdf, dpi, backend=backend)
-    B = _page_arrays(converted_pdf, dpi, backend=backend)
-    n = max(len(A), len(B))
+    # Page i of the source is only ever compared with page i of the render, so
+    # rasterise exactly that pair and let it go. Materialising both documents
+    # first cost (src_pages + out_pages) x 20.7 MB with nothing released until
+    # the loop ended -- a property of the documents, not of the comparison.
+    # `testkit/harness.py` carried the identical shape and was OOM-killed on a
+    # 591-page render before it scored a single page (b0762a2); this module
+    # ships in the wheel and drives `--verify`, so the same arithmetic lands on
+    # a user converting a long document. The arrays, their order and every
+    # number below are unchanged -- only how long each one stays alive.
+    if backend is None:
+        from .backend import get_backend
+        backend = get_backend()
+    n_a = _page_count(src_pdf, backend)
+    n_b = _page_count(converted_pdf, backend)
     rows = []
-    for i in range(n):
-        a = A[i] if i < len(A) else None
-        b = B[i] if i < len(B) else None
+    i = 0
+    a_ended = b_ended = False
+    while True:
+        # `_page_arrays` stopped at the first page the backend would not render
+        # and the loop then ran to max(len(A), len(B)). Ending each side on its
+        # own first refusal reproduces both lengths, and therefore every row.
+        a = None if (a_ended or i >= n_a) else _page_array(src_pdf, i, dpi,
+                                                           backend)
+        if a is None:
+            a_ended = True
+        b = None if (b_ended or i >= n_b) else _page_array(converted_pdf, i,
+                                                           dpi, backend)
+        if b is None:
+            b_ended = True
+        if a is None and b is None:
+            break
         if a is None or b is None:
             rows.append({"page": i + 1, "ssim": 0.0, "note": "page count mismatch"})
+            i += 1
             continue
         h = max(a.shape[0], b.shape[0])
         w = max(a.shape[1], b.shape[1])
         a2, b2 = _pad_to(a, h, w), _pad_to(b, h, w)
+        del a, b
         s = ssim(a2, b2)
         mad = float(np.abs(a2 - b2).mean())
         rows.append({"page": i + 1, "ssim": round(s, 4), "mad": round(mad, 2)})
@@ -172,6 +212,9 @@ def compare(src_pdf: str, converted_pdf: str, out_dir: Optional[str] = None,
             canvas[:, w + gapw:, :] = b2
             Image.fromarray(canvas.astype(np.uint8)).save(
                 os.path.join(out_dir, "cmp_p%02d.png" % (i + 1)))
+            del canvas
+        del a2, b2
+        i += 1
     return rows
 
 
