@@ -256,7 +256,48 @@ def _page_chars(textpage, page_h) -> List[_Char]:
             continue
         adv = (MONO_ADV_EM if c.mono_hint else SPACE_ADV_EM) * max(c.size, 1.0)
         c.x1 = min(nxt.x0, max(c.x1, c.x0 + adv))
+    _restore_soft_hyphens(out)
     return out
+
+
+def _restore_soft_hyphens(chars: List[_Char]) -> int:
+    """Acrobat PDFMaker's end-of-line hyphen arrives as U+0002. Put it back.
+
+    When a font gives PDFium no usable ToUnicode entry it returns the raw
+    character code, and PDFMaker's soft hyphen is code 2. Downstream that is a
+    control character: model.xml_safe_text has to drop it, so the hyphen was
+    lost entirely and infer._soft_join then rejoined the wrapped word with a
+    SPACE -- `SHA 512` where the reference reads `SHA-512`.
+
+    The recovery is positional, because position is what identifies it.
+    Measured over y10_nist_fips180, all 15 occurrences:
+
+        font        Times New Roman, every one
+        width       3.02pt, every one -- a hyphen's advance at this size
+        x           536.5-539.8, every one: the right text edge
+        neighbours  `A`->`5`, `A`->`2`, `w`->`b`, `t`->`m` -- the next
+                    character always begins the following line
+
+    So U+0002 is restored to U+002D only when it is the LAST character on its
+    own baseline: nothing sits to its right on the same line. That is what makes
+    it an end-of-line hyphen rather than a stray code, and it is the reading
+    PyMuPDF gives for the same rows (`...SHA-384, SHA-`). A U+0002 anywhere else
+    is left alone and dropped downstream, because nothing identifies what glyph
+    it stood for.
+
+    Deliberately not keyed on the font name: `Times New Roman` is this
+    producer's body face, not a property of the defect.
+    """
+    restored = 0
+    for i, c in enumerate(chars):
+        if c.u != "\x02":
+            continue
+        if any(abs(o.oy - c.oy) < 0.5 and o.x0 >= c.x1 - 0.1 and o.u.strip()
+               for o in chars[i + 1:i + 40]):
+            continue                      # something follows it on this line
+        c.u = "-"
+        restored += 1
+    return restored
 
 
 def _is_rtl(ch: str) -> bool:

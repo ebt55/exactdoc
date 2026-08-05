@@ -164,6 +164,62 @@ class GatedCorpusIsUnaffected(unittest.TestCase):
                         self.assertEqual(xml_safe_text(s.text), s.text)
 
 
+class SoftHyphenRecovery(unittest.TestCase):
+    """U+0002 at a line end is PDFMaker's end-of-line hyphen, not noise.
+
+    It used to be dropped with the other control characters, and
+    infer._soft_join then rejoined the wrapped word with a space -- `SHA 512`
+    where the reference reads `SHA-512`.
+    """
+
+    def _chars(self, spec):
+        """spec: [(text, x0, x1, baseline)] -> _Char list."""
+        from exactdoc.parse_pdfium import _Char
+        out = []
+        for text, x0, x1, base in spec:
+            c = _Char()
+            c.u = text
+            c.x0, c.x1 = x0, x1
+            c.y0, c.y1 = base - 10.0, base
+            c.ox, c.oy = x0, base
+            c.size = 10.0
+            c.font = "Times New Roman"
+            c.flags = 0
+            c.color = "#000000"
+            c.gen = False
+            out.append(c)
+        return out
+
+    def test_a_line_final_u0002_becomes_a_hyphen(self):
+        from exactdoc.parse_pdfium import _restore_soft_hyphens
+        chars = self._chars([("A", 500.0, 506.0, 100.0),
+                             ("\x02", 536.6, 539.7, 100.0),
+                             ("5", 60.0, 66.0, 115.0)])   # next line
+        self.assertEqual(_restore_soft_hyphens(chars), 1)
+        self.assertEqual(chars[1].u, "-")
+
+    def test_a_u0002_with_text_after_it_on_the_line_is_left_alone(self):
+        from exactdoc.parse_pdfium import _restore_soft_hyphens
+        chars = self._chars([("A", 500.0, 506.0, 100.0),
+                             ("\x02", 510.0, 513.0, 100.0),
+                             ("5", 520.0, 526.0, 100.0)])  # same baseline
+        self.assertEqual(_restore_soft_hyphens(chars), 0)
+        self.assertEqual(chars[1].u, "\x02")
+
+    def test_the_document_that_found_it_matches_the_reference(self):
+        try:
+            from exactdoc.parse import parse_pdf as reference
+        except ImportError:                            # pragma: no cover
+            self.skipTest("PyMuPDF is not installed")
+        y10 = os.path.join(EXPANSION, "y10_nist_fips180.pdf")
+
+        def hyphen_lines(fn):
+            ir = fn(y10, keep_image_data=False)
+            return sum(1 for p in ir.pages for b in p.blocks for l in b.lines
+                       if l.text.rstrip().endswith("-"))
+        self.assertEqual(hyphen_lines(parse_pdfium), hyphen_lines(reference))
+
+
 class GotoDestRobustness(unittest.TestCase):
     """PyMuPDF's link dict does not promise the shapes the happy path assumes."""
 
