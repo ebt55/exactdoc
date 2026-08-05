@@ -1,0 +1,144 @@
+{
+ "schema": "exactdoc.n-column-split-evidence.v1",
+ "gating": false,
+ "adjudicated": false,
+ "ok": false,
+ "release_ready": false,
+ "_note": "Stage 2 of parity bug B (task #39): _column_split returns every gutter it can evidence, and _build_blocks assembles each band separately. Diagnosis is docs/evidence/pdfium-block-synthesis-2026-08-05.json; Stage 1 is docs/evidence/pdfium-pitch-floor-2026-08-05.json. `before` here is Stage 1 (commit d7f0583), so the movement attributed below is this change alone. Measured in the canonical container. A measurement, not an authorisation.",
+ "corpus": "corpus_manifest.json (gated 16, byte-verified) + corpus_expansion.json (29, non-gating)",
+ "profile_id": "pdfium/gdocs/none/refine0@240dpi",
+ "reference_profile_id": "pymupdf/gdocs/none/refine0@240dpi",
+ "baseline_commit": "d7f0583",
+
+ "what_changed": {
+  "return": "_column_split returned Optional[float] -- at most one gutter. It now returns List[float], every gutter it can evidence, left to right.",
+  "assembly": "_build_blocks partitions the page into len(gutters)+1 bands by line centre and assembles each separately. _band_of keeps the two-column convention that a boundary belongs to the LEFT band.",
+  "straddle_test": "_build_blocks_one's same-baseline column check now asks whether ANY gutter falls between the two lines, not whether the single one does."
+ },
+
+ "three_findings_that_shaped_it": {
+  "1_the_width_bar_was_not_one_bar": {
+   "was": "0.25 * content_w, applied to every member of the row",
+   "problem": "Expressed against the whole page it tightened as the column count grew: half a column at N=2, three quarters at N=3. It refused 166 of y06's 224 three-line rows, which is why generalising the SEARCH alone moved y06 only 12254 -> 12118 blocks.",
+   "now": "COLUMN_MEMBER_FRAC * content_w / N, with COLUMN_MEMBER_FRAC = 0.5. At N=2 that is arithmetically the literal 0.25 * content_w it replaces, so two-column pages are judged exactly as before. A unit test pins that identity.",
+   "cap": "COLUMN_MAX = 3. The old per-page form capped the arity implicitly by arithmetic; the per-column form does not, so the cap is now explicit. The corpus's widest text setting is y06's three, and four or more wide groups on one baseline is the table shape this module refuses elsewhere -- y06 alone carries 1511 baselines of arity 6."
+  },
+  "2_arity_is_not_a_popularity_vote": {
+   "problem": "Believing the arity most of the page's rows agree on picks the WRONG reading on a three-column page, because a baseline where the middle column is empty carries two lines and votes for a gutter in the middle of that column.",
+   "measured_on_y06_page_6": {
+    "two_line_rows": 21, "their_vote": "308 with 14 of 21, against 216 with 4",
+    "three_line_rows": 10, "their_vote": "216 with 10 and 396 with 9, both clearing the 6.0 bar",
+    "true_gutters": [216.0, 396.0],
+    "_note": "308 sits inside the middle column. This is the diagnosis's page-62 case -- `column_split 308.0, one gutter cannot separate three columns` -- seen at its cause."
+   },
+   "rule": "A row of K wide groups is positive evidence for K columns; a row with fewer is not evidence against them. So the most specific reading the page can evidence wins, falling back to the simpler one.",
+   "independent_corroboration": {
+    "statistic": "fraction of the page's own lines that strictly straddle a proposed gutter",
+    "contested_pages_corpus_wide": 6,
+    "low_arity_proposal": {"p50": 0.050, "max": 0.310},
+    "high_arity_proposal": {"p50": 0.028, "max": 0.189},
+    "_note": "The higher reading is the one the text actually respects. Recorded as corroboration only -- the two populations are NOT separated (everything sits under 0.4), so no threshold was built on this statistic and no crossing filter was added."
+   }
+  },
+  "3_a_partial_reading_is_not_a_reading": {
+   "rule": "An N-column reading must produce all N-1 of its gutters after adjacent 4pt buckets are merged, or it is refused and the simpler arity is tried.",
+   "why": "Accepting one gutter of a three-column page cuts it into two bands with the middle column's lines falling on both sides of the cut, which shatters that column instead of assembling it -- the failure this function exists to prevent."
+  }
+ },
+
+ "column_detection_before_and_after": {
+  "_note": "Pages by number of gutters returned, whole document, candidate arm. `before` is the original Optional[float] function restored byte-exactly from 0cf76ed via git checkout.",
+  "y06_irs_1040_instructions": {"before": {"0": 96, "1": 30},
+                                "after": {"0": 91, "1": 25, "2": 10}},
+  "y13_irs_pub501": {"before": {"0": 22, "1": 9},
+                     "after": {"0": 21, "1": 8, "2": 2}},
+  "y12_irs_pub15": {"before": {"0": 40, "1": 19}, "after": {"0": 40, "1": 19}},
+  "y14_irs_fw9_form": {"before": {"0": 5, "1": 1}, "after": {"0": 5, "1": 1}}
+ },
+
+ "signature_documents_candidate_arm": {
+  "_note": "blocks / lines-per-block / Paras / lines-per-para. `baseline` is 0cf76ed, `stage1` is d7f0583, `after` is this change.",
+  "y06_irs_1040_instructions": {
+   "reference": {"blocks": 4203, "lines_per_block": 9.696, "paras": 2402, "lines_per_para": 4.736},
+   "baseline": {"blocks": 12878, "lines_per_block": 3.085, "paras": 5807, "lines_per_para": 1.874},
+   "stage1": {"blocks": 12254, "lines_per_block": 3.240, "paras": 5625, "lines_per_para": 1.940},
+   "after": {"blocks": 11620, "lines_per_block": 3.419, "paras": 5514, "lines_per_para": 1.974}},
+  "y07_irs_f1040_form": {
+   "_note": "Tier `unsupported`, refused, so geometry only.",
+   "reference": {"blocks": 101, "lines_per_block": 10.921},
+   "baseline": {"blocks": 359, "lines_per_block": 1.006},
+   "stage1": {"blocks": 337, "lines_per_block": 1.071},
+   "after": {"blocks": 337, "lines_per_block": 1.071}},
+  "y12_irs_pub15": {
+   "reference": {"blocks": 1291, "lines_per_block": 5.360, "paras": 1042, "lines_per_para": 5.226},
+   "baseline": {"blocks": 4518, "lines_per_block": 1.528, "paras": 3639, "lines_per_para": 1.478},
+   "stage1": {"blocks": 4182, "lines_per_block": 1.651, "paras": 3333, "lines_per_para": 1.614},
+   "after": {"blocks": 4182, "lines_per_block": 1.651, "paras": 3333, "lines_per_para": 1.614}},
+  "y13_irs_pub501": {
+   "reference": {"blocks": 1225, "lines_per_block": 4.348, "paras": 1120, "lines_per_para": 4.147},
+   "baseline": {"blocks": 4296, "lines_per_block": 1.198, "paras": 2765, "lines_per_para": 1.540},
+   "stage1": {"blocks": 3986, "lines_per_block": 1.291, "paras": 2578, "lines_per_para": 1.651},
+   "after": {"blocks": 3773, "lines_per_block": 1.364, "paras": 2494, "lines_per_para": 1.707}},
+  "y14_irs_fw9_form": {
+   "reference": {"blocks": 177, "lines_per_block": 4.130, "paras": 96, "lines_per_para": 6.323},
+   "baseline": {"blocks": 608, "lines_per_block": 1.161, "paras": 246, "lines_per_para": 2.378},
+   "stage1": {"blocks": 546, "lines_per_block": 1.293, "paras": 218, "lines_per_para": 2.683},
+   "after": {"blocks": 546, "lines_per_block": 1.293, "paras": 218, "lines_per_para": 2.683}},
+  "x10_chrome_tables_plain": {
+   "_note": "The control. Unmoved by both stages, as the diagnosis predicted -- its splits are `shared baseline, too far apart`, the table-cell limit, a different rule at the same site.",
+   "reference": {"blocks": 22, "lines_per_block": 3.545, "paras": 16},
+   "baseline": {"blocks": 34, "lines_per_block": 2.294, "paras": 25},
+   "stage1": {"blocks": 34, "lines_per_block": 2.294, "paras": 25},
+   "after": {"blocks": 34, "lines_per_block": 2.294, "paras": 25}}
+ },
+
+ "magnitude_against_the_predicted_bounds": {
+  "_note": "The diagnosis gave bounds, not point predictions. Both stages together:",
+  "y06_blocks": "12878 -> 11620, toward the reference's 4203 -- 15% of the distance",
+  "y06_paras": "5807 -> 5514, toward the reference's 2402 -- 9% of the distance",
+  "y13_blocks": "4296 -> 3773, toward 1225 -- 17%",
+  "y12_blocks": "4518 -> 4182, toward 1291 -- 10%",
+  "y14_blocks": "608 -> 546, toward 177 -- 14%",
+  "honest_reading": "Real, measured, in the right direction on every signature document, and well short of the bound. The residual is diagnosed below rather than left as a gap."
+ },
+
+ "residual_and_what_it_is": {
+  "finding": "91 of y06's 126 pages still return NO gutter, on a document the diagnosis describes as two- and three-column throughout.",
+  "mechanism": "The evidence model is baseline-coincident rows: `rows.setdefault(round(ln.baseline, 0), ...)` groups lines that share a baseline to within half a point. Columns that are not set on a shared vertical grid never co-occur in a row, so they generate no gutter evidence at all -- on the y06 pages that still return nothing, most baselines carry exactly ONE line (call 5 of the probe: 83 single-line rows against 35 two-line and 4 three-line).",
+  "why_it_was_not_fixed_here": "Detecting a gutter without baseline coincidence needs a different evidence model -- a vertical projection or empty-corridor search. The function's own docstring records that page-wide empty-band detection was tried and fails, because a full-width title sits across the gutter. Replacing the evidence model is a larger and more geometry-sensitive change than generalising the search, and it belongs in its own measured step rather than bolted onto this one.",
+  "next_step_is_therefore_specified": "Make row formation tolerant, or add a corridor test that survives full-width titles, and re-measure the same table. The instrument is testkit-independent and reproduced in this record."
+ },
+
+ "reference_arm_did_not_move": {
+  "method": "counters on _build_blocks, _build_blocks_one, _column_split and _pitch_reference, over the full parse+infer path on the PyMuPDF arm for all six signature documents",
+  "entries": {"_build_blocks": 0, "_build_blocks_one": 0, "_column_split": 0,
+              "_pitch_reference": 0},
+  "census_unchanged": true
+ },
+
+ "gated_16": {
+  "gate": {
+   "_note": "testkit/runall.py, both lanes, canonical container. Both lanes run the PyMuPDF backend.",
+   "product": {"verdict": "PASS", "page_match": "16/16", "within2pt": 0.5161,
+               "live_text_cov": 0.9652, "dy_p50": 0.675},
+   "raw": {"verdict": "PASS", "page_match": "14/16", "within2pt": 0.3349,
+           "live_text_cov": 0.9652, "dy_p50": 2.79},
+   "identical_to_tip": true
+  },
+  "candidate_arm_ir": {
+   "moved_by_this_stage": [],
+   "_note": "All 16 documents produce the same blocks and Paras as at Stage 1 -- this change moves nothing on the gated corpus at all, on either arm. c2_paper2col, the two-column gated document and the one most exposed to a column-detection change, is unchanged at 18 blocks / 18 Paras across baseline, Stage 1 and Stage 2, which is the intended consequence of the N=2 width bar being arithmetically identical."
+  },
+  "l1_word_native": {"blocks": 12, "paras": 8, "moved": false,
+                     "_note": "Unchanged by both stages; see the Stage 1 record for the block-count transcription discrepancy against the diagnosis."}
+ },
+
+ "tests": {"suite": 533, "result": "green",
+           "new_file": "tests/test_pdfium_column_split.py",
+           "_note": "517 after Stage 1 plus 16. Pins the N=2 identity, the three-column detection, the y06 page-6 shape where the more numerous two-line rows must NOT win, the completeness rule together with its premise, the table refusals at both arities, and the band-boundary convention."},
+
+ "instrument_caveats": [
+  "The `before` column-detection figures come from the original parse_pdfium.py restored with `git checkout 0cf76ed -- exactdoc/parse_pdfium.py` and verified by hash on the way back, never by shell redirection -- a redirected extraction silently corrupts non-ASCII bytes and has burned this repository before.",
+  "The per-page probes wrap the live _column_split rather than reimplementing it, so the arity and vote figures quoted are the ones the shipped function computes. Where a probe kept its own copy of a filter that copy is not the source of any number reported here."
+ ]
+}

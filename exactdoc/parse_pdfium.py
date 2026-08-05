@@ -74,6 +74,19 @@ SCRIPT_REACH_EM = 0.5     # ...and it sits against the host's text, not adrift
 SCRIPT_RAISE_EM = 0.12    # raised by more than this: a superscript
 # Table-row regrouping (see _group_table_rows). Repetition, not width, is the
 # evidence: a table repeats its columns and a coincidence does not.
+# Column detection (see _column_split). A row's member must substantially FILL
+# its own column -- that is what tells a page's columns from a table's cells.
+# 0.5 of a column is the bar the two-column form always applied, written so it
+# means the same thing at three: at N=2, `0.5 * content_w / 2` is the literal
+# `0.25 * content_w` it replaces. Written against the whole page instead, the
+# bar silently tightened as N grew -- it demanded three quarters of a column at
+# N=3 and refused 166 of y06's 224 three-line rows, which is why generalising
+# the search alone changed almost nothing.
+COLUMN_MEMBER_FRAC = 0.5
+# Nothing wider than three text columns is proposed. The corpus's widest is
+# y06's three; four or more wide groups on one baseline is the table shape this
+# module refuses elsewhere, and y06 alone carries 1511 baselines of arity 6.
+COLUMN_MAX = 3
 TABLE_MIN_ROWS = 3        # three aligned baselines; two is a coincidence
 TABLE_ROW_PITCH_MAX = 60  # pt between consecutive rows of one band
 TABLE_COL_TOL = 3.0       # x-starts of one column agree to about a character
@@ -904,8 +917,8 @@ def _reconstruct_indents(lines: List[Line]) -> None:
     flush(run)
 
 
-def _column_split(lines: List[Line]) -> Optional[float]:
-    """The x of a genuine column gutter on this page, or None.
+def _column_split(lines: List[Line]) -> List[float]:
+    """Every genuine column gutter on this page, left to right.
 
     Deciding whether two lines that share a baseline belong together is the
     difference between a table row (join: they are cells) and a two-column page
@@ -914,10 +927,35 @@ def _column_split(lines: List[Line]) -> Optional[float]:
     threshold fixes one document and breaks the other, and page-wide empty-band
     detection fails too because a full-width title sits across the gutter.
 
-    Structure decides it. A two-column page splits into exactly TWO groups, both
-    wide, at the same x, for most of its rows. A table row splits into several
-    narrow cells at x positions that differ per table. So look for that shape
-    and nothing else.
+    Structure decides it. An N-column page splits into exactly N groups, all
+    wide, at the same x positions, for most of its rows. A table row splits into
+    several narrow cells at x positions that differ per table. So look for that
+    shape and nothing else.
+
+    This used to look only for N == 2 and return the single best gutter, which
+    is why a three-column page came back with one gutter or none: on y06 -- two-
+    and three-column throughout -- it found a gutter on 8 of 40 sampled pages,
+    and on page 62 the one gutter it did find left a 99-line group still
+    holding two interleaved columns, whose pitch reference then read 1.72pt.
+    Unseparated columns interleave in reading order, consecutive lines stop
+    overlapping horizontally, and every line becomes a block of its own.
+
+    Two things keep the generalisation from lowering the evidence bar:
+
+    * The width test still demands that EVERY member substantially fill its own
+      column, which is what refuses a table. It is now written per column --
+      `COLUMN_MEMBER_FRAC * content_w / N` -- because written against the whole
+      page it was not one bar but N of them: half a column at N=2 and three
+      quarters at N=3. At N=2 the expression is arithmetically the old
+      `0.25 * content_w`, so a two-column page is judged exactly as before.
+
+    * Rows are judged WITHIN their own arity, and only the arity that describes
+      most of the page is believed. A two-line row can never dilute the
+      evidence for a three-column reading, or the reverse -- which is what
+      pooling them would do, and it would have lost gutters that the previous
+      code found on pages carrying both shapes. When two-line rows dominate,
+      this function sees exactly what it saw before, from exactly the same
+      rows, against exactly the same threshold.
     """
     rows = {}
     for ln in lines:
@@ -926,58 +964,109 @@ def _column_split(lines: List[Line]) -> Optional[float]:
     span_hi = max(l.bbox[2] for l in lines)
     content_w = max(1.0, span_hi - span_lo)
 
-    votes = {}
-    pairs = 0
+    by_arity = {}
     for _, row in rows.items():
         row.sort(key=lambda l: l.bbox[0])
-        # EXACTLY two groups. This is the whole discriminator: a two-column
-        # baseline carries one line from each column, while a table row carries
-        # one per cell -- four to seven on the corpus's tables. Taking the
-        # widest gap of an arbitrary-length row instead let a wide first table
-        # column masquerade as a gutter.
-        if len(row) != 2:
+        if not 2 <= len(row) <= COLUMN_MAX:
             continue
-        a, b = row
-        g = b.bbox[0] - a.bbox[2]
-        if g < 6.0:
+        # every member substantially fills its own column: columns are wide,
+        # cells are not
+        floor = COLUMN_MEMBER_FRAC * content_w / len(row)
+        if any(l.bbox[2] - l.bbox[0] < floor for l in row):
             continue
-        left_w = a.bbox[2] - a.bbox[0]
-        right_w = b.bbox[2] - b.bbox[0]
-        # both halves substantial: columns are wide, cells are not
-        if left_w < 0.25 * content_w or right_w < 0.25 * content_w:
+        # every division a real gutter, not a word space
+        if any(b.bbox[0] - a.bbox[2] < 6.0 for a, b in zip(row, row[1:])):
             continue
-        pairs += 1
-        bx = (a.bbox[2] + b.bbox[0]) / 2
-        votes[round(bx / 4.0)] = votes.get(round(bx / 4.0), 0) + 1
+        slot = by_arity.setdefault(len(row), {"rows": 0, "votes": {}})
+        slot["rows"] += 1
+        for a, b in zip(row, row[1:]):
+            bx = (a.bbox[2] + b.bbox[0]) / 2
+            k = round(bx / 4.0)
+            slot["votes"][k] = slot["votes"].get(k, 0) + 1
 
-    if not votes or pairs < 3:
-        return None
-    bx4, n = max(votes.items(), key=lambda kv: kv[1])
-    # a gutter is consistent; a coincidence is not
-    return bx4 * 4.0 if n >= max(3, 0.6 * pairs) else None
+    # A row of K wide groups is positive evidence for K columns. A row with
+    # FEWER is not evidence against them: it is a baseline on which one column
+    # happens to be empty, and its midpoint is then a gutter that does not
+    # exist. Measured on y06, whose three-column pages gutter at 216 and 396:
+    # the two-line rows of page 6 vote 14-to-4 for 308, the midpoint of a
+    # missing middle column, and that is the single gutter the previous code
+    # returned there. So take the most specific reading the page can evidence
+    # and fall back to the simpler one, rather than letting the more numerous
+    # rows win.
+    #
+    # Corroborated independently: over the whole corpus only six pages have two
+    # arities to choose between, and on those the higher-arity gutters are
+    # crossed by fewer of the page's own lines than the lower-arity ones
+    # (median 0.028 against 0.050, worst 0.189 against 0.310) -- the higher
+    # reading is the one the text actually respects.
+    for arity in sorted(by_arity, reverse=True):
+        slot = by_arity[arity]
+        if slot["rows"] < 3:
+            continue
+        # a gutter is consistent; a coincidence is not
+        need = max(3, 0.6 * slot["rows"])
+        kept = sorted(k for k, n in slot["votes"].items() if n >= need)
+        if not kept:
+            continue
+        # One gutter can straddle two 4pt buckets. Collapse each run of
+        # adjacent buckets to its best-supported member rather than emitting
+        # both and cutting a column in half between them.
+        runs, run = [], [kept[0]]
+        for k in kept[1:]:
+            if k - run[-1] <= 1:
+                run.append(k)
+            else:
+                runs.append(run)
+                run = [k]
+        runs.append(run)
+        # An N-column reading needs all N-1 of its gutters. A partial one would
+        # cut some column in half and shatter it, which is the failure this
+        # function exists to prevent.
+        if len(runs) != arity - 1:
+            continue
+        return [max(r, key=lambda k: slot["votes"][k]) * 4.0 for r in runs]
+    return []
 
 
 def _build_blocks(lines: List[Line], page_w: float = 612.0) -> List[TextBlock]:
     """lines -> blocks, by vertical pitch and horizontal adjacency.
 
-    On a two-column page each column is blocked SEPARATELY. Blocking the page
+    On a multi-column page each column is blocked SEPARATELY. Blocking the page
     as one stream sorts the lines by baseline, which interleaves the columns --
     left line 1, right line 1, left line 2 -- so consecutive lines never
     overlap horizontally and every one becomes a block, and then a paragraph,
     of its own. Measured: 20 paragraphs holding 23 source lines where PyMuPDF
     had 16 holding 47, and 106pt of extra space_before, which cost a page.
+
+    `_column_split` returns every gutter it can evidence, so a three-column
+    page is assembled as three bands. It used to return at most one, and a
+    three-column page then kept two of its columns interleaved inside a single
+    band -- the same failure, one column narrower.
     """
     if not lines:
         return []
-    col_x = _column_split(lines)
-    if col_x is not None:
-        left = [l for l in lines if (l.bbox[0] + l.bbox[2]) / 2 <= col_x]
-        right = [l for l in lines if (l.bbox[0] + l.bbox[2]) / 2 > col_x]
-        if left and right:
-            out = _build_blocks_one(left, col_x) + _build_blocks_one(right, col_x)
+    cols = _column_split(lines)
+    if cols:
+        bands = [[] for _ in range(len(cols) + 1)]
+        for l in lines:
+            bands[_band_of((l.bbox[0] + l.bbox[2]) / 2, cols)].append(l)
+        bands = [b for b in bands if b]
+        if len(bands) > 1:
+            out = []
+            for b in bands:
+                out += _build_blocks_one(b, cols)
             out.sort(key=lambda b: (round(b.bbox[1], 1), b.bbox[0]))
             return _group_table_rows(out)
-    return _group_table_rows(_build_blocks_one(lines, col_x))
+    return _group_table_rows(_build_blocks_one(lines, cols))
+
+
+def _band_of(centre: float, cols: List[float]) -> int:
+    """Which column band an x-centre falls in. Boundaries belong to the LEFT
+    band, which is the convention the two-column form used."""
+    i = 0
+    while i < len(cols) and centre > cols[i]:
+        i += 1
+    return i
 
 
 def _group_table_rows(blocks: List[TextBlock]) -> List[TextBlock]:
@@ -1221,7 +1310,7 @@ def _pitch_reference(by_size: dict, typical: float, size: float) -> float:
     return PITCH_DEFAULT_EM * size
 
 
-def _build_blocks_one(lines: List[Line], col_x) -> List[TextBlock]:
+def _build_blocks_one(lines: List[Line], col_xs) -> List[TextBlock]:
     if not lines:
         return []
     typical = _body_pitch(lines)
@@ -1263,9 +1352,10 @@ def _build_blocks_one(lines: List[Line], col_x) -> List[TextBlock]:
             hgap = max(ln.bbox[0], prev.bbox[0]) - min(ln.bbox[2], prev.bbox[2])
             em = max(_line_size(prev), _line_size(ln), 1.0)
             same = hgap <= BLOCK_SAME_ROW_EM * em
-            if same and col_x is not None:
-                same = not (min(prev.bbox[2], ln.bbox[2]) <= col_x <=
-                            max(prev.bbox[0], ln.bbox[0]))
+            if same and col_xs:
+                lo = min(prev.bbox[2], ln.bbox[2])
+                hi = max(prev.bbox[0], ln.bbox[0])
+                same = not any(lo <= c <= hi for c in col_xs)
         else:
             ref = _pitch_reference(by_size, typical, _line_size(prev))
             same = (0 < gap <= ref * BLOCK_GAP_FACTOR) and overlap > 0
