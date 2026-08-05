@@ -1,0 +1,159 @@
+{
+ "schema": "exactdoc.gutter-profile-evidence.v1",
+ "gating": false,
+ "adjudicated": false,
+ "ok": false,
+ "release_ready": false,
+ "_note": "Stage 3 of parity bug B (task #39): the gutter evidence model itself. Stage 1 is docs/evidence/pdfium-pitch-floor-2026-08-05.json (d7f0583), Stage 2 is docs/evidence/pdfium-n-column-split-2026-08-05.json (89e023a). `before` here is 89e023a, so the movement attributed below is this change alone. Measured in the canonical container. A measurement, not an authorisation.",
+ "corpus": "corpus_manifest.json (gated 16, byte-verified) + corpus_expansion.json (29, non-gating)",
+ "profile_id": "pdfium/gdocs/none/refine0@240dpi",
+ "reference_profile_id": "pymupdf/gdocs/none/refine0@240dpi",
+ "baseline_commit": "89e023a",
+
+ "the_residual_this_addresses": {
+  "finding": "_column_split reads column structure off baselines carrying one line per column. That is strong evidence where it exists and NO evidence where it does not: columns set on independent vertical grids never co-occur on a baseline.",
+  "measured": "91 of y06's 126 pages returned nothing at 89e023a, and on those pages most baselines carry a single line."
+ },
+
+ "the_model": {
+  "shape": "Project every line onto the x axis as a SOLID interval and look for x where almost nothing is drawn. A line's internal word gaps are not white space in this sense and cannot open a corridor.",
+  "why_the_earlier_empty_band_attempt_failed": "The module has warned since it was tried that a full-width title sits across the gutter and closes it. Two changes answer that:",
+  "spanning_exclusion": {
+   "constant": "GUTTER_SPAN_FRAC = 0.6",
+   "rule": "A line wider than this share of the content is excluded from the profile. A title crossing a gutter is not evidence the gutter is absent -- it is not evidence about columns at all.",
+   "bounds": "Must exceed 0.5 so a two-column member survives, and stay under 1.0 so a full-width banner does not."
+  },
+  "tolerant_corridor": {
+   "constant": "GUTTER_CROSS_FRAC = 0.02",
+   "problem": "A strict white band is a page-wide AND: one stray line closes it. Measured, that missed 31 of the 45 gutters the row model finds on y06.",
+   "ground_truth": "the gutters the row model evidences (positives) and the centre of every column they imply (negatives), measured in place over the expansion corpus",
+   "populations": {
+    "real_gutters": {"n": 77, "crossing_frac_p50": 0.0082, "p75": 0.0123, "p90": 0.0480},
+    "column_centres": {"n": 142, "crossing_frac_p50": 0.3036, "p75": 0.3814, "p90": 0.4513}},
+   "placement": "0.02 sits above the gutters' p75 and fifteen times below the column centres' median.",
+   "safety_of_the_choice": "Swept against the GATED 16: 0.01 and 0.05 each disturb gated documents (01_whitepaper_market at 0.01; 02_research_paper and 03_tech_report_code at 0.05). 0.02 and 0.03 disturb none. 0.02 is the lower, and therefore more conservative, of the two clean values.",
+   "non_monotonic_note": "Gutter counts are NOT monotonic in the tolerance: a looser tolerance merges open runs and can push a page past COLUMN_MAX, so it finds fewer. That is why the sweep was read per document rather than assumed to be ordered."
+  },
+  "min_lines": {"constant": "GUTTER_MIN_LINES = 3",
+                "why": "a column carries at least three lines; two is a coincidence, the same bar this module uses for table rows and for column votes"},
+  "stage_2_rules_reused_unchanged": [
+   "every band must be a real column by the same COLUMN_MEMBER_FRAC bar",
+   "no more than COLUMN_MAX bands",
+   "an N-column reading needs all N-1 of its gutters or it is refused",
+   "a gutter must clear the same 6.0pt width a row-evidenced gutter must"]
+ },
+
+ "supplement_never_replace": {
+  "rule": "_build_blocks takes `_column_split(lines) or _projection_gutters(lines)`. The row answer wins wherever it is non-empty; the profile is a fallback for silence, not a second opinion.",
+  "consequence": "A page the row model already reads correctly cannot move. Verified: on y06 all 35 row-answered pages keep exactly their row answer, and the gated 16 do not move at all.",
+  "c2_paper2col": "The gated two-column document, and the one most exposed. Its gutter is row-evidenced, so it is untouched: 18 blocks / 18 Paras at baseline, Stage 1, Stage 2 and Stage 3 alike."
+ },
+
+ "gutters_found_per_page": {
+  "_note": "The answer assembly actually uses, so row and profile combined. `source` counts which model supplied it.",
+  "y06_irs_1040_instructions": {
+   "before": {"0": 91, "1": 25, "2": 10},
+   "after": {"0": 48, "1": 42, "2": 36},
+   "source": {"row": 35, "projection": 43, "none": 48},
+   "reading": "pages with any gutter 35 -> 78 of 126; pages with both gutters 10 -> 36"},
+  "y12_irs_pub15": {"before": {"0": 40, "1": 19}, "after": {"0": 10, "1": 48, "2": 1},
+                    "source": {"row": 19, "projection": 30, "none": 10}},
+  "y13_irs_pub501": {"before": {"0": 22, "1": 9}, "after": {"0": 8, "1": 13, "2": 10},
+                     "source": {"row": 10, "projection": 13, "none": 8}},
+  "y14_irs_fw9_form": {"before": {"0": 5, "1": 1}, "after": {"0": 1, "1": 5},
+                       "source": {"row": 1, "projection": 4, "none": 1}},
+  "x10_chrome_tables_plain": {"before": {"0": 2}, "after": {"0": 2},
+                              "_note": "unmoved, as in every stage"}
+ },
+
+ "render_verification": {
+  "_note": "The acceptance question is whether a found gutter is a VISIBLE column break, which no other number answers. y06 pages rendered at 1.4x with the proposed gutters drawn on and read by eye.",
+  "pages_inspected": 8,
+  "found_correct": {
+   "p2": "two-column table of contents; gutter between the two Contents/Page columns",
+   "p13": "three-column body; both gutters exactly in the corridors",
+   "p15": "three-column body; both exact",
+   "p16": "three-column body; both exact",
+   "p17": "two-column, prose left and flowchart right; gutter exactly on the break"},
+  "found_wrong": {
+   "p3": "FALSE POSITIVE. A single-column intro over a two-column IF-YOU/THEN-USE table; the proposed gutter is the table's cell boundary, not a page column break, and it crosses the intro prose."},
+  "refused_correct": {
+   "p5": "genuinely single-column",
+   "p10": "single-column chart"},
+  "tally": "5 of 6 proposed gutters are real column breaks; 2 of 2 refusals are correct; 1 false positive.",
+  "the_false_positive_is_a_known_limit": "A two-column TABLE whose cells are wide enough to pass the column bar reads as a two-column page. This is the same cell-versus-column limit x10 already carries and which _group_table_rows -- which runs AFTER band assembly -- is the rule that answers. It is reported rather than tuned away: no threshold in the corpus separates a wide cell gap from a gutter, which is the finding the module has recorded since BLOCK_SAME_ROW_EM."
+ },
+
+ "signature_documents_candidate_arm": {
+  "_note": "blocks / lines-per-block / Paras / lines-per-para across all three stages.",
+  "y06_irs_1040_instructions": {
+   "reference": {"blocks": 4203, "lines_per_block": 9.696, "paras": 2402, "lines_per_para": 4.736},
+   "baseline": {"blocks": 12878, "lines_per_block": 3.085, "paras": 5807, "lines_per_para": 1.874},
+   "stage1": {"blocks": 12254, "lines_per_block": 3.240, "paras": 5625, "lines_per_para": 1.940},
+   "stage2": {"blocks": 11620, "lines_per_block": 3.419, "paras": 5514, "lines_per_para": 1.974},
+   "stage3": {"blocks": 8604, "lines_per_block": 4.617, "paras": 4626, "lines_per_para": 2.354},
+   "distance_closed": {"blocks": "49%", "paras": "35%"}},
+  "y07_irs_f1040_form": {
+   "_note": "Tier `unsupported`, refused, geometry only. Its two pages are a form, not a column layout, and no stage after the pitch floor touches it.",
+   "reference": {"blocks": 101, "lines_per_block": 10.921},
+   "baseline": {"blocks": 359, "lines_per_block": 1.006},
+   "stage3": {"blocks": 337, "lines_per_block": 1.071}},
+  "y12_irs_pub15": {
+   "reference": {"blocks": 1291, "lines_per_block": 5.360, "paras": 1042, "lines_per_para": 5.226},
+   "baseline": {"blocks": 4518, "lines_per_block": 1.528, "paras": 3639, "lines_per_para": 1.478},
+   "stage1": {"blocks": 4182, "lines_per_block": 1.651, "paras": 3333, "lines_per_para": 1.614},
+   "stage2": {"blocks": 4182, "lines_per_block": 1.651, "paras": 3333, "lines_per_para": 1.614},
+   "stage3": {"blocks": 1989, "lines_per_block": 3.471, "paras": 1222, "lines_per_para": 4.406},
+   "distance_closed": {"blocks": "78%", "paras": "93%"}},
+  "y13_irs_pub501": {
+   "reference": {"blocks": 1225, "lines_per_block": 4.348, "paras": 1120, "lines_per_para": 4.147},
+   "baseline": {"blocks": 4296, "lines_per_block": 1.198, "paras": 2765, "lines_per_para": 1.540},
+   "stage1": {"blocks": 3986, "lines_per_block": 1.291, "paras": 2578, "lines_per_para": 1.651},
+   "stage2": {"blocks": 3773, "lines_per_block": 1.364, "paras": 2494, "lines_per_para": 1.707},
+   "stage3": {"blocks": 2606, "lines_per_block": 1.974, "paras": 1892, "lines_per_para": 2.251},
+   "distance_closed": {"blocks": "55%", "paras": "53%"}},
+  "y14_irs_fw9_form": {
+   "reference": {"blocks": 177, "lines_per_block": 4.130, "paras": 96, "lines_per_para": 6.323},
+   "baseline": {"blocks": 608, "lines_per_block": 1.161, "paras": 246, "lines_per_para": 2.378},
+   "stage1": {"blocks": 546, "lines_per_block": 1.293, "paras": 218, "lines_per_para": 2.683},
+   "stage2": {"blocks": 546, "lines_per_block": 1.293, "paras": 218, "lines_per_para": 2.683},
+   "stage3": {"blocks": 336, "lines_per_block": 2.101, "paras": 173, "lines_per_para": 3.382},
+   "distance_closed": {"blocks": "63%", "paras": "49%"}},
+  "x10_chrome_tables_plain": {
+   "_note": "The control, unmoved by all three stages. Its splits are `shared baseline, too far apart` -- the table-cell limit, a different rule at the same site. Its pages propose no gutter at any stage.",
+   "reference": {"blocks": 22, "lines_per_block": 3.545, "paras": 16},
+   "baseline": {"blocks": 34, "lines_per_block": 2.294, "paras": 25},
+   "stage3": {"blocks": 34, "lines_per_block": 2.294, "paras": 25}}
+ },
+
+ "reference_arm_did_not_move": {
+  "method": "counters on _build_blocks, _build_blocks_one, _column_split and _pitch_reference over the full parse+infer path on the PyMuPDF arm, all six signature documents",
+  "entries": {"_build_blocks": 0, "_build_blocks_one": 0, "_column_split": 0,
+              "_pitch_reference": 0},
+  "census_unchanged": true
+ },
+
+ "gated_16": {
+  "gate": {
+   "_note": "testkit/runall.py, both lanes, canonical container. Both lanes run the PyMuPDF backend.",
+   "product": {"verdict": "PASS", "page_match": "16/16", "within2pt": 0.5161,
+               "live_text_cov": 0.9652, "dy_p50": 0.675},
+   "raw": {"verdict": "PASS", "page_match": "14/16", "within2pt": 0.3349,
+           "live_text_cov": 0.9652, "dy_p50": 2.79},
+   "identical_to_tip": true
+  },
+  "candidate_arm_ir": {
+   "moved_by_this_stage": [],
+   "_note": "All 16 documents produce the same blocks and Paras as at Stage 2, which are the same as at Stage 1. This stage moves nothing on the gated corpus on either arm -- by construction, since every gated page that has column structure has ROW-evidenced column structure, and the row answer wins."}
+ },
+
+ "tests": {"suite": 552, "result": "green",
+           "new_file": "tests/test_pdfium_gutter_profile.py",
+           "_note": "533 after Stage 2 plus 19. Pins the threshold against both measured populations; the premise that staggered columns really do defeat the row model; the spanning-title cases that sank the earlier attempt; that a word gap inside a line and a ragged right margin cannot open a corridor; the Stage 2 rules; and that the row answer wins where it exists."},
+
+ "instrument_caveats": [
+  "The tolerance is a FRACTION of the page's body lines, so what counts as a stray crossing depends on how much else is on the page: one crossing line is absorbed on a 60-line page and is not on a 30-line page. That is intended -- on a sparse page a single crossing really is a meaningful share of the evidence -- and two unit tests initially encoded the wrong premise here before being corrected against the measured behaviour.",
+  "The `gutters found per page` figures come from wrapping _build_blocks, not _column_split, because the fallback lives above _column_split. A probe that wraps _column_split alone reports the row model only and shows this stage as changing nothing.",
+  "The render check reads the page by eye at 1.4x with gutters drawn on. It is a spot check of 8 pages, not a census, and its one false positive is reported as a rate over that sample rather than extrapolated."
+ ]
+}

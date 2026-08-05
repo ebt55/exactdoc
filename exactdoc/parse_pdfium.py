@@ -87,6 +87,19 @@ COLUMN_MEMBER_FRAC = 0.5
 # y06's three; four or more wide groups on one baseline is the table shape this
 # module refuses elsewhere, and y06 alone carries 1511 baselines of arity 6.
 COLUMN_MAX = 3
+# Projection fallback (see _projection_gutters), consulted ONLY on pages whose
+# baselines carry no column evidence at all.
+GUTTER_SPAN_FRAC = 0.6    # a line wider than this much of the content crosses
+                          # the columns -- a title or a rule. It says nothing
+                          # about where they are, so it is excluded from the
+                          # profile rather than allowed to close every band.
+GUTTER_CROSS_FRAC = 0.02  # a corridor may be crossed by this share of the
+                          # page's body lines and still be a corridor. Measured
+                          # over 77 known gutters and 142 known column centres:
+                          # gutters cross at p50 0.008 and p75 0.012, column
+                          # centres at p50 0.304. See _projection_gutters.
+GUTTER_MIN_LINES = 3      # a column carries at least three lines; two is a
+                          # coincidence, as everywhere else in this module
 TABLE_MIN_ROWS = 3        # three aligned baselines; two is a coincidence
 TABLE_ROW_PITCH_MAX = 60  # pt between consecutive rows of one band
 TABLE_COL_TOL = 3.0       # x-starts of one column agree to about a character
@@ -1028,6 +1041,105 @@ def _column_split(lines: List[Line]) -> List[float]:
     return []
 
 
+def _projection_gutters(lines: List[Line]) -> List[float]:
+    """Gutters from a whitespace profile, for pages whose baselines are silent.
+
+    `_column_split` reads column structure off baselines that carry one line
+    per column. That is strong evidence when it exists and no evidence at all
+    when it does not: columns set on independent vertical grids never share a
+    baseline, so nothing is ever proposed. Measured on y06, 91 of 126 pages
+    returned nothing, and on those pages most baselines carry a single line.
+
+    So look at the page from the other direction. Project every line onto the
+    x axis as a SOLID interval -- the gaps between a line's own words are not
+    white space in this sense and must not be able to open a corridor -- and
+    look for x where almost nothing is drawn.
+
+    Two things make that work where an earlier empty-band attempt failed, which
+    the module has warned about since:
+
+    * A line wider than GUTTER_SPAN_FRAC of the content is excluded. A
+      full-width title crossing the gutter is not evidence that the gutter is
+      absent; it is not evidence about columns at all. Excluding it is what
+      stops one banner closing the corridor for the whole page.
+
+    * The corridor is tolerant rather than empty. A strict white band is a
+      page-wide AND, so a single stray line closes it -- measured, that missed
+      31 of the 45 gutters the row model finds. Ground-truthed against those
+      gutters and against the centre of every column they imply:
+
+          real gutters      crossed by p50 0.008, p75 0.012 of body lines
+          column centres    crossed by p50 0.304
+
+      GUTTER_CROSS_FRAC = 0.02 sits above the gutters' p75 and fifteen times
+      below the column centres' median.
+
+    Stage 2's rules then apply unchanged: every band must be a real column by
+    the same COLUMN_MEMBER_FRAC bar, no more than COLUMN_MAX bands, and an
+    N-column reading needs all N-1 of its gutters or it is refused.
+
+    Known limit, measured rather than assumed: a two-column TABLE whose cells
+    are wide enough to pass the column bar reads as a two-column page. On a
+    ten-page render check of y06 this was 1 of 6 proposals (page 3, whose
+    "gutter" is the boundary of an IF-YOU/THEN-USE table). `_group_table_rows`
+    runs after band assembly and is the rule that answers tables; this is the
+    same documented cell-versus-column limit that x10 already carries, not a
+    new one.
+    """
+    if len(lines) < 2 * GUTTER_MIN_LINES:
+        return []
+    lo = min(l.bbox[0] for l in lines)
+    hi = max(l.bbox[2] for l in lines)
+    content_w = max(1.0, hi - lo)
+    body = [l for l in lines
+            if (l.bbox[2] - l.bbox[0]) <= GUTTER_SPAN_FRAC * content_w]
+    if len(body) < 2 * GUTTER_MIN_LINES:
+        return []
+
+    tol = GUTTER_CROSS_FRAC * len(body)
+    n = int(content_w) + 1
+    cover = [0] * n
+    for l in body:
+        a = max(0, int(l.bbox[0] - lo) + 1)
+        b = min(n - 1, int(l.bbox[2] - lo) - 1)
+        for i in range(a, b + 1):
+            cover[i] += 1
+
+    cands, run = [], None
+    for i, c in enumerate(cover):
+        if c <= tol:
+            run = [i, i] if run is None else [run[0], i]
+        elif run is not None:
+            cands.append(run)
+            run = None
+    if run is not None:
+        cands.append(run)
+
+    gutters = []
+    for a, b in cands:
+        x0, x1 = lo + a, lo + b
+        # 6.0 is the same width a row-evidenced gutter must clear
+        if x1 - x0 < 6.0:
+            continue
+        # the page's own margins are not gutters
+        if x0 <= lo + 0.5 or x1 >= hi - 0.5:
+            continue
+        gutters.append((x0 + x1) / 2.0)
+
+    if not gutters or len(gutters) + 1 > COLUMN_MAX:
+        return []
+    edges = [lo] + gutters + [hi]
+    floor = COLUMN_MEMBER_FRAC * content_w / (len(gutters) + 1)
+    for a, b in zip(edges, edges[1:]):
+        mem = [l for l in body
+               if a - 0.5 <= (l.bbox[0] + l.bbox[2]) / 2 <= b + 0.5]
+        if len(mem) < GUTTER_MIN_LINES:
+            return []
+        if max(l.bbox[2] for l in mem) - min(l.bbox[0] for l in mem) < floor:
+            return []
+    return gutters
+
+
 def _build_blocks(lines: List[Line], page_w: float = 612.0) -> List[TextBlock]:
     """lines -> blocks, by vertical pitch and horizontal adjacency.
 
@@ -1045,7 +1157,11 @@ def _build_blocks(lines: List[Line], page_w: float = 612.0) -> List[TextBlock]:
     """
     if not lines:
         return []
-    cols = _column_split(lines)
+    # Baseline coincidence first, and it wins whenever it says anything: it is
+    # the stronger evidence, and a page the row model already reads correctly
+    # must not be able to move. The profile is a fallback for silence, not a
+    # second opinion.
+    cols = _column_split(lines) or _projection_gutters(lines)
     if cols:
         bands = [[] for _ in range(len(cols) + 1)]
         for l in lines:
