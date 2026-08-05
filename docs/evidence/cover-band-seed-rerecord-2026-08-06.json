@@ -1,0 +1,216 @@
+{
+ "schema": "exactdoc.cover-band-seed-rerecord.v1",
+ "_note": "Baseline re-record following the cover-band seed relaxation (commit 8c79574). Authorised on the numbers reported in docs/evidence/c1-live-attribution-2026-08-06.json, which are reproduced here as the before column.",
+ "adjudicated": true,
+ "adjudication": "Authorised explicitly, with this justification: the gate passed against the OLD record only because that record is PESSIMISTIC on c1. A record that does not bind the improved values would let c1 silently regress back toward them without ever failing. Recording an improvement is still moving a gate's floor, so it is done deliberately and in the open.",
+ "measured_on": "2026-08-06",
+ "gating": true,
+ "environment_canonical": true,
+ "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+ "environment": {
+  "os": "linux",
+  "python": "3.12.3",
+  "image_base_digest": "sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90",
+  "soffice": "LibreOffice 24.2.7.2 420(Build:2)",
+  "pdfium": "152.0.7947.0"
+ },
+ "why_the_record_had_to_move": "c1_whitepaper improved on both lanes and nothing else moved. The gate PASSED against the old record, because a gate fails on things getting worse -- so an unmoved record is not an error today. It is a liability tomorrow: with the floor left at dy_p50 1.89/2.00 and within2pt 0.2812/0.1031, c1 could lose everything this change bought and still be green. Binding the improved values is what makes the improvement a guarantee rather than a coincidence.",
+ "method": "GATE_BASELINE=update testkit/runall.py -- which clears the record and then gates the same run against the empty one, so its findings are informational and its exit code proves nothing -- CHAINED with a plain testkit/runall.py that gates against the record just written. Identical ceremony to the c9d36df re-record and the parser flip.",
+ "the_record_run": {
+  "_note": "Informational by construction: gating against an empty record produces one finding per document per metric. Not cited as a pass.",
+  "product": {
+   "ok": false,
+   "findings": 28,
+   "kinds": [
+    "threshold",
+    "unrecorded"
+   ]
+  },
+  "raw": {
+   "ok": false,
+   "findings": 30,
+   "kinds": [
+    "threshold",
+    "unrecorded"
+   ]
+  }
+ },
+ "the_verification_run": {
+  "_note": "The run that proves anything: plain runall.py against the fresh record.",
+  "product": {
+   "verdict": "PASS",
+   "ok": true,
+   "findings": 0,
+   "page_match": "16/16",
+   "within2pt": 0.5274,
+   "live_text_cov": 0.9588,
+   "dy_p50": 1.045
+  },
+  "raw": {
+   "verdict": "PASS",
+   "ok": true,
+   "findings": 0,
+   "page_match": "15/16",
+   "within2pt": 0.3615,
+   "live_text_cov": 0.9588,
+   "dy_p50": 1.6
+  },
+  "both_lanes_pass": true,
+  "regression_findings": 0,
+  "stale_findings": 0
+ },
+ "values_moved": {
+  "_direction_note": "Every moved value improves. No recorded floor is lowered, no page match lost, no live-text change, and gate_pass_count is unchanged at 12 on both lanes.",
+  "product.c1_whitepaper.dy_p50": [
+   1.89,
+   0.99
+  ],
+  "product.c1_whitepaper.within2pt": [
+   0.2812,
+   0.3344
+  ],
+  "product.mean_within2pt": [
+   0.5241,
+   0.5274
+  ],
+  "product.median_dy_p50": [
+   1.15,
+   1.045
+  ],
+  "raw.c1_whitepaper.dy_p50": [
+   2.0,
+   0.99
+  ],
+  "raw.c1_whitepaper.within2pt": [
+   0.1031,
+   0.3344
+  ],
+  "raw.mean_within2pt": [
+   0.3471,
+   0.3615
+  ],
+  "raw.median_dy_p50": [
+   1.95,
+   1.6
+  ]
+ },
+ "lanes": {
+  "product": {
+   "profile_id": "pdfium/standard/libreoffice/refine3@240dpi",
+   "aggregate": {
+    "gate_pass_count": [
+     12,
+     12
+    ],
+    "mean_live_text": [
+     0.9588,
+     0.9588
+    ],
+    "mean_within2pt": [
+     0.5241,
+     0.5274
+    ],
+    "median_dy_p50": [
+     1.15,
+     1.045
+    ],
+    "n": [
+     16,
+     16
+    ],
+    "page_match_count": [
+     16,
+     16
+    ]
+   },
+   "documents_moved": {
+    "c1_whitepaper.pdf": {
+     "within2pt": [
+      0.2812,
+      0.3344
+     ],
+     "dy_p50": [
+      1.89,
+      0.99
+     ]
+    }
+   },
+   "documents_unchanged": 15,
+   "shortfall_defects_before": {
+    "04_exec_brief.pdf": "D10",
+    "c3_tables.pdf": "D3",
+    "c4_i18n.pdf": "D10",
+    "c5_graphics.pdf": "D10"
+   },
+   "shortfall_defects_after": {
+    "04_exec_brief.pdf": "D10",
+    "c3_tables.pdf": "D3",
+    "c4_i18n.pdf": "D10",
+    "c5_graphics.pdf": "D10"
+   }
+  },
+  "raw": {
+   "profile_id": "pdfium/standard/none/refine0@240dpi",
+   "aggregate": {
+    "gate_pass_count": [
+     12,
+     12
+    ],
+    "mean_live_text": [
+     0.9588,
+     0.9588
+    ],
+    "mean_within2pt": [
+     0.3471,
+     0.3615
+    ],
+    "median_dy_p50": [
+     1.95,
+     1.6
+    ],
+    "n": [
+     16,
+     16
+    ],
+    "page_match_count": [
+     15,
+     15
+    ]
+   },
+   "documents_moved": {
+    "c1_whitepaper.pdf": {
+     "within2pt": [
+      0.1031,
+      0.3344
+     ],
+     "dy_p50": [
+      2.0,
+      0.99
+     ]
+    }
+   },
+   "documents_unchanged": 15,
+   "shortfall_defects_before": {
+    "04_exec_brief.pdf": "D10",
+    "c1_whitepaper.pdf": "D4",
+    "c3_tables.pdf": "D3",
+    "c4_i18n.pdf": "D10",
+    "c5_graphics.pdf": "D10"
+   },
+   "shortfall_defects_after": {
+    "04_exec_brief.pdf": "D10",
+    "c1_whitepaper.pdf": "D4",
+    "c3_tables.pdf": "D3",
+    "c4_i18n.pdf": "D10",
+    "c5_graphics.pdf": "D10"
+   }
+  }
+ },
+ "defect_ids_survived": "gate.save_lanes carries shortfall_defects across a re-record by design -- 'defect IDs are human knowledge and survive a re-record; numbers do not'. All entries are unchanged, and the verification run raised no stale finding, so every recorded shortfall still corresponds to a real one.",
+ "what_this_does_not_claim": [
+  "That c1 is fixed live. This is the LibreOffice gate. c1's live blocker was dy_p50 21.91 in pass 6 and only a live pass can grade the fix.",
+  "That the offline improvement predicts the live one. The evidence file for the seed change records a STRUCTURAL prediction only, deliberately."
+ ],
+ "ok": true,
+ "release_ready": false
+}
