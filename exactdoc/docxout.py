@@ -835,15 +835,66 @@ _GDOCS_COVER_BEFORE_COMP_TWIPS = 296  # 14.8pt, measured above
 COL_OVERFLOW_SLACK_PT = 6.0
 
 
+def _line_height(p: Para) -> float:
+    """The height one rendered line of this paragraph occupies.
+
+    `leading` is the source's own measured line pitch and is preferred whenever
+    it is a real measurement; the 1.15 fallback is Word's default single spacing
+    for a paragraph that arrived without one.
+    """
+    return p.leading if (p.leading and p.leading > 1) else \
+        (max((r.size for r in p.runs if r.text), default=10.0) * 1.15)
+
+
+def _element_height(el, avail_w: float, metrics) -> Optional[float]:
+    """How tall `el` is predicted to render, gap included. None = unpredictable.
+
+    A Para is measured by re-wrapping it: `predict_lines` is the greedy
+    first-fit Word itself uses, so this is how many lines the WRITER will
+    produce, which is the whole point -- the source's own line count is what
+    the layout already budgeted for. Anything else is measured by its source
+    bbox, which is what it will occupy because the writer pins its size.
+    """
+    if not isinstance(el, Para):
+        bb = getattr(el, "bbox", None) or getattr(el, "clip", None) \
+            or getattr(el, "_bbox", None)
+        if bb is None:
+            return None
+        return (el.space_before or 0.0) + (bb[3] - bb[1]) + (el.space_after or 0.0)
+    n = predict_lines_for(el, avail_w, metrics)
+    if n is None:
+        return None
+    return el.space_before + n * _line_height(el) + el.space_after
+
+
+def predict_lines_for(p: Para, avail_w: float, metrics) -> Optional[int]:
+    """`ladder.predict_lines` against a positive available width."""
+    from .ladder import predict_lines
+    if avail_w <= 1.0:
+        return None
+    return predict_lines(p, avail_w, metrics)
+
+
+def _text_metrics():
+    """Shaping metrics, or None when this installation cannot shape text.
+
+    None is the answer a non-base-14 font has always produced, and every caller
+    here already treats it as "do not act": the permissive backend degrades to
+    `NullMetrics` rather than raising, and the predictions above then decline.
+    """
+    try:
+        from .metrics import get_metrics
+        return get_metrics("mupdf")
+    except Exception:
+        return None
+
+
 def _column_one_overflows(ch, content_w: float, lay: DocLayout) -> bool:
     """Is the first column's content predicted to outgrow its column?"""
     if ch.n_cols < 2:
         return False
-    try:
-        from .ladder import predict_lines
-        from .metrics import get_metrics
-        metrics = get_metrics("mupdf")
-    except Exception:
+    metrics = _text_metrics()
+    if metrics is None:
         return False
     gap = ch.col_gap or 0.0
     col_w = (content_w - gap * (ch.n_cols - 1)) / ch.n_cols
@@ -859,13 +910,169 @@ def _column_one_overflows(ch, content_w: float, lay: DocLayout) -> bool:
                 or getattr(el, "_bbox", None)
             used += (bb[3] - bb[1]) if bb else 0.0
             continue
-        n = predict_lines(el, col_w - el.left_indent - el.right_indent, metrics)
+        n = predict_lines_for(el, col_w - el.left_indent - el.right_indent,
+                              metrics)
         if n is None:
             return False          # not predictable: leave the break alone
-        lead = el.leading if (el.leading and el.leading > 1) else \
-            (max((r.size for r in el.runs if r.text), default=10.0) * 1.15)
-        used += el.space_before + n * lead + el.space_after
+        used += el.space_before + n * _line_height(el) + el.space_after
     return used > capacity + COL_OVERFLOW_SLACK_PT
+
+
+# --- page-spill absorption ---------------------------------------------------
+# Every source page ends in an explicit page break, so the reconstruction has no
+# slack at the bottom. When a page's content renders one or two lines taller
+# than the page box, those lines flow to a new rendered page -- and the hard
+# break then fires and advances again, stranding them there alone. A one-line
+# overflow costs a whole page. Measured on the expansion corpus at e5e7f30
+# (testkit/probe_thin_pages.py), the excess pages ARE those stranded lines:
+#
+#     document   arm       page_err  thin  <=2 body lines
+#     y02        pymupdf        +59    59             35
+#     y02        pdfium         +48    47             30
+#     y01        pdfium         +34    40             15
+#
+# `refine.py` already corrects this from a render -- reclaim the page's gap
+# slack, largest gaps first, each keeping a floor. That correction is right and
+# arrives too late for the profiles that ship no loop at all (the gdocs profile
+# is refine0 by construction). So the same correction is made here from a
+# PREDICTION instead of a measurement, spending the same currency by the same
+# rule, and it is gated the way `_column_one_overflows` is gated: predict, act
+# only on a prediction we trust, and bias the boundary toward doing nothing.
+#
+# The cap is on the STRANDED LINES, not on the overflow in points, and that
+# distinction is the whole design. Measured on y02 source page 20, the flow runs
+# 38pt past the page box -- three lines' worth -- and exactly ONE line is
+# stranded, because 91pt of that 38 is the gap in front of the last element and
+# a gap at the top of a page is dropped rather than rendered. Capping on the
+# overflow refused that page and 57 others like it on y02 alone; capping on what
+# is actually stranded accepts it, and "stranded lines" is the same quantity
+# testkit/probe_thin_pages.py counts on the render -- predicted here, observed
+# there, so the fix can be held to the sizing.
+#
+# Two lines is where the mass is. On y02's reference arm the rendered spill
+# pages carry one body line 32 times and two body lines twice; past that a page
+# is not spilling, it is a page that genuinely does not fit.
+SPILL_MAX_LINES = 2
+# Bias at the page boundary, in the spirit of COL_OVERFLOW_SLACK_PT. A line
+# poking this far past the bottom is read as fitting, so a prediction that is
+# marginally pessimistic finds nothing stranded and the page keeps the
+# behaviour that shipped.
+SPILL_EDGE_SLACK_PT = 6.0
+# Pay slightly more than predicted. Sizes are quantised to the half point and
+# gaps to a tenth, so a payment of exactly the predicted overflow lands the page
+# on the boundary it was trying to clear.
+SPILL_SAFETY_PT = 2.0
+# The gap floors are `refine.MIN_GAP_SCALE` and its absolute companion, kept
+# numerically identical so the open- and closed-loop corrections cannot crush a
+# page to two different depths.
+SPILL_MIN_GAP_SCALE = 0.30
+SPILL_GAP_FLOOR_PT = 2.0
+# The page-break paragraph carries `line_spacing exactly 1pt` and continues onto
+# the page it opens, so the body box is that much shorter than the margins say.
+PAGE_BREAK_PARA_PT = 1.0
+
+
+def _page_spill(pg, content_w: float, lay: DocLayout):
+    """-> (overflow_pt, stranded_lines) for one source page, or None.
+
+    `overflow_pt` is how far the whole flow runs past the page box -- what the
+    page's gaps would have to give up for nothing to be stranded.
+    `stranded_lines` is how many rendered lines land past the bottom, which is
+    what actually appears on the extra page. The two are different numbers and
+    the second is the one that says whether this is a spill: see SPILL_MAX_LINES.
+
+    `None` means the page cannot be predicted and must be left exactly as it is
+    written today. Only single-column, non-continuation pages are answered: a
+    multi-column page is already governed by `_column_one_overflows`, and two
+    predictions correcting the same page against different capacity models is
+    how a fix starts fighting itself; a continuation page has had its break
+    dropped deliberately and has nothing to strand.
+    """
+    if getattr(pg, "continuation_only", False) or not pg.chunks:
+        return None
+    if any(ch.n_cols > 1 for ch in pg.chunks):
+        return None
+    metrics = _text_metrics()
+    if metrics is None:
+        return None
+    capacity = lay.page_h - lay.margin_t - lay.margin_b - PAGE_BREAK_PARA_PT
+    bottom = capacity + SPILL_EDGE_SLACK_PT
+    used, stranded = 0.0, 0
+    for ch in pg.chunks:
+        used += max(0.0, ch.pre_gap)
+        for el in ch.elements:
+            if isinstance(el, ColBreak):
+                return None       # a column break on a one-column page: unmodelled
+            if not isinstance(el, Para):
+                h = _element_height(el, content_w, metrics)
+                if h is None:
+                    return None   # no box to measure: leave the page alone
+                used += h
+                if used > bottom:
+                    # A table or figure crossing the boundary is not a two-line
+                    # spill, and how a renderer splits one is not modelled here.
+                    return None
+                continue
+            n = predict_lines_for(
+                el, content_w - el.left_indent - el.right_indent, metrics)
+            if n is None:
+                return None       # not predictable: leave the page alone
+            lead = _line_height(el)
+            used += el.space_before
+            for _ in range(n):
+                used += lead
+                if used > bottom:
+                    stranded += 1
+            used += el.space_after
+    return used - capacity, stranded
+
+
+def _absorb_page_spill(pg, content_w: float, lay: DocLayout) -> dict:
+    """Plan the gap reductions that keep a small spill on its own page.
+
+    Returns `{id(element): new_space_before}`, empty when the page is to be
+    written exactly as it is today. **Nothing is mutated**: the refine loop
+    writes the same layout once per round and a correction applied in place
+    would compound on every pass, which is the same reason `write_para` keeps
+    its wrap correction local.
+
+    Slack is taken from paragraph gaps only. They are the bulk of a text page's
+    slack, they are the gaps whose loss the eye forgives, and confining the plan
+    to them keeps the whole change inside one writer signature. A page whose
+    paragraph gaps cannot cover the overflow in full is left alone: a partial
+    payment spends the spacing and still loses the page.
+    """
+    got = _page_spill(pg, content_w, lay)
+    if got is None:
+        return {}
+    overflow, stranded = got
+    if stranded <= 0 or stranded > SPILL_MAX_LINES or overflow <= 0.0:
+        return {}
+    paras = [el for ch in pg.chunks for el in ch.elements
+             if isinstance(el, Para)]
+    if not paras:
+        return {}
+    want = overflow + SPILL_SAFETY_PT
+    slack = []
+    for p in paras:
+        gap = p.space_before or 0.0
+        floor = max(SPILL_GAP_FLOOR_PT, gap * SPILL_MIN_GAP_SCALE)
+        take = gap - floor
+        if take > 0.05:
+            slack.append((take, gap, p))
+    if sum(t for t, _, _ in slack) < want:
+        return {}
+    plan = {}
+    # Largest gaps first, exactly as `refine._apply` reclaims them: a 40pt
+    # section break and a 4pt paragraph gap are not equally elastic, and the eye
+    # notices the section break shrinking long after it notices the other.
+    for take, gap, p in sorted(slack, key=lambda t: -t[1]):
+        if want <= 0.05:
+            break
+        paid = min(take, want)
+        plan[id(p)] = round(gap - paid, 1)
+        want -= paid
+    return plan
 
 
 def _band_accent_as_row(t: TableEl) -> TableEl:

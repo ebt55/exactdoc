@@ -135,6 +135,74 @@ def measure_arm(backend, doc_ids, profile, out_root):
     return res
 
 
+def layout_of(src, options):
+    """The inferred layout, without writing anything. Mirrors `convert`."""
+    from exactdoc.backend import get_backend
+    from exactdoc.dialect import normalize
+    from exactdoc.infer import infer
+    from exactdoc.input import parse as parse_input
+
+    backend = get_backend(options.backend)
+    return infer(normalize(parse_input(backend, src)))
+
+
+def firing_set(src, options):
+    """Which source pages the spill predicate answers, and how. -> counts.
+
+    Costs a parse and an inference and no render at all, so the firing set can
+    be read off every document in the corpus before any behaviour depends on
+    it. `window` is the count inside the absorbable band; `fires` is the subset
+    whose own paragraph gaps can actually pay for it, which is the number that
+    predicts pages recovered.
+    """
+    from exactdoc.docxout import (SPILL_MAX_LINES, _absorb_page_spill,
+                                  _page_spill)
+
+    lay = layout_of(src, options)
+    counts = {"pages": len(lay.pages), "unpredictable": 0, "fits": 0,
+              "window": 0, "too_big": 0, "fires": 0, "no_slack": 0,
+              "cover_skipped": 0, "overflow_pt": []}
+    for pi, pg in enumerate(lay.pages):
+        if pi == 0 and lay.cover_band is not None:
+            counts["cover_skipped"] += 1      # the writer's own bleed geometry
+            continue
+        got = _page_spill(pg, lay.content_w, lay)
+        if got is None:
+            counts["unpredictable"] += 1
+            continue
+        overflow, stranded = got
+        if stranded <= 0:
+            counts["fits"] += 1
+            continue
+        if stranded > SPILL_MAX_LINES:
+            counts["too_big"] += 1
+            continue
+        counts["window"] += 1
+        if _absorb_page_spill(pg, lay.content_w, lay):
+            counts["fires"] += 1
+            counts["overflow_pt"].append(round(overflow, 1))
+        else:
+            counts["no_slack"] += 1
+    return counts
+
+
+def report_firing(rows, arms):
+    out = ["", "%-30s %-8s %6s %6s %6s %6s %8s %7s %6s"
+           % ("document", "arm", "pages", "fits", "window", "FIRES", "no_slack",
+              "too_big", "unpred")]
+    for doc_id in sorted(rows):
+        for arm in arms:
+            c = rows[doc_id].get(arm) or {}
+            if "error" in c:
+                out.append("%-30s %-8s %s" % (doc_id[:30], arm, c["error"]))
+                continue
+            out.append("%-30s %-8s %6d %6d %6d %6d %8d %7d %6d"
+                       % (doc_id[:30], arm, c["pages"], c["fits"], c["window"],
+                          c["fires"], c["no_slack"], c["too_big"],
+                          c["unpredictable"]))
+    return "\n".join(out)
+
+
 def report(rows, arms):
     out = ["", "%-30s %-8s %5s %5s %6s %6s %6s %6s"
            % ("document", "arm", "src", "out", "err", "thin", "spill", "short")]
@@ -159,29 +227,67 @@ def main(argv=None):
     ap.add_argument("--arm", nargs="+", default=["pymupdf", "pdfium"])
     ap.add_argument("--out", default=None)
     ap.add_argument("--json", default=None)
+    ap.add_argument("--firing", action="store_true",
+                    help="report the spill predicate's firing set instead. "
+                         "Costs a parse and an inference per document and no "
+                         "render at all, so it can be read before any "
+                         "behaviour depends on it.")
+    ap.add_argument("--gated", action="store_true",
+                    help="read the GATED 16 rather than the expansion corpus. "
+                         "Only meaningful with --firing: it answers whether the "
+                         "predicate touches a document the gate governs.")
     a = ap.parse_args(argv)
 
-    manifest = corpus_manifest.load_expansion()
-    problems = corpus_manifest.verify_expansion(manifest)
+    if a.gated:
+        manifest = corpus_manifest.load()
+        problems = list(corpus_manifest.verify(manifest))
+        fixture_path = corpus_manifest.fixture_path
+    else:
+        manifest = corpus_manifest.load_expansion()
+        problems = corpus_manifest.verify_expansion(manifest)
+        fixture_path = corpus_manifest.expansion_fixture_path
     if problems:
-        print("expansion corpus does not match corpus_expansion.json:")
+        print("corpus does not match its manifest:")
         for kind, doc, why in problems:
             print("  %-11s %-30s %s" % (kind, doc[:30], why))
         return 1
+    only = ["."] if a.gated and a.only == ["y01", "y02", "y03", "y09"] else a.only
     doc_ids = [d for d in sorted(manifest["documents"])
-               if any(k in d for k in a.only)]
+               if any(k in d for k in only)]
     if not doc_ids:
-        print("--only matched no document in corpus_expansion.json")
+        print("--only matched no document in the manifest")
         return 1
 
     profile = backend_parity.conversion_profile(a.profile)
     out_root = os.path.join(a.out or OUT, a.profile)
     os.makedirs(out_root, exist_ok=True)
     print("profile    %s (arms differ only in backend)" % profile.profile_id())
+    print("corpus     %s" % ("gated 16" if a.gated else "expansion"))
     print("documents  %s" % ", ".join(doc_ids))
+
+    if a.firing:
+        rows = {}
+        for arm in a.arm:
+            options = profile.replace(backend=arm)
+            for doc_id in doc_ids:
+                try:
+                    counts = firing_set(fixture_path(doc_id), options)
+                except Exception as e:              # noqa: BLE001
+                    counts = {"error": "%s: %s" % (type(e).__name__, e)}
+                rows.setdefault(doc_id, {})[arm] = counts
+        print(report_firing(rows, a.arm))
+        payload = {"schema": "exactdoc.spill-firing-set.v1", "gating": False,
+                   "profile_id": profile.profile_id(),
+                   "corpus": "gated16" if a.gated else "expansion",
+                   "documents": rows}
+        path = a.json or os.path.join(out_root, "firing_set.json")
+        with open(path, "w") as f:
+            json.dump(payload, f, indent=1, sort_keys=True)
+        print("\nwrote %s" % path)
+        return 0
+
     print("thin       < %d lines;  spill  <= %d body lines"
           % (THIN_LINES, SPILL_LINES))
-
     rows = {}
     for arm in a.arm:
         for doc_id, summary in measure_arm(arm, doc_ids, profile, out_root).items():
