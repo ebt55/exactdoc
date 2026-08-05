@@ -947,12 +947,14 @@ def _column_one_overflows(ch, content_w: float, lay: DocLayout) -> bool:
 # only on a prediction we trust, and bias the boundary toward doing nothing.
 #
 # The cap is on the STRANDED LINES, not on the overflow in points, and that
-# distinction is the whole design. Measured on y02 source page 20, the flow runs
-# 38pt past the page box -- three lines' worth -- and exactly ONE line is
-# stranded, because 91pt of that 38 is the gap in front of the last element and
-# a gap at the top of a page is dropped rather than rendered. Capping on the
-# overflow refused that page and 57 others like it on y02 alone; capping on what
-# is actually stranded accepts it, and "stranded lines" is the same quantity
+# distinction is the whole design. Measured on y02 source page 20: the flow runs
+# 38pt past the page box -- three lines' worth -- yet exactly ONE line is
+# stranded, because the last element is a running head sitting behind a 91pt
+# gap, and that gap is what carries it over. A gap at the top of a page is
+# dropped rather than rendered, so the overflow in points says nothing about how
+# much content actually lands on the extra page. Capping on the overflow refused
+# that page and 57 others like it on y02 alone; capping on what is stranded
+# accepts it, and "stranded lines" is the same quantity
 # testkit/probe_thin_pages.py counts on the render -- predicted here, observed
 # there, so the fix can be held to the sizing.
 #
@@ -1003,12 +1005,16 @@ def _body_capacity(lay: DocLayout) -> float:
     Not `page_h - margin_t - margin_b`. `w:pgMar/@footer` is the distance from
     the bottom of the page to the bottom of the footer, and the footer grows
     upward: when it reaches past the bottom margin the renderer shortens the
-    BODY to make room. Inferred bottom margins are routinely smaller than the
-    footer distance -- y02 comes out at 14pt against a footer sitting 36pt off
-    the edge -- so a capacity taken from the margins alone is ~35pt too
-    generous on exactly the documents that spill. Paying an overflow measured
-    against it leaves the page still over, which is what the first landing did:
-    35 pages fired on y02 and 6 pages came back.
+    BODY to make room. An inferred bottom margin can easily be smaller than the
+    footer distance -- y02 comes out at 14pt against the writer's default 36pt
+    -- and a capacity taken from the margins alone would then be some 35pt too
+    generous.
+
+    It changes no firing on the four documents measured for this fix: none of
+    them ends up with a footer part at all, because inference leaves their
+    running heads in the body. It is here because the margins are not the box,
+    and a document whose footer IS lifted would otherwise be modelled with a
+    page that does not exist.
 
     The header is the same construct upside down and is modelled the same way.
     """
