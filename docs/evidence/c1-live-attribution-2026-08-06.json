@@ -523,7 +523,50 @@
     "predicted_pass_7": "612.00, on the page"
    },
    "no_dy_p50_prediction": "None is offered. The 14.8pt compensation now applies to c1, which must move dy, but its size interacts with the +7.13 figure step and the down-page accumulation -- neither of which this change touches, and neither of which any renderer that is not Docs can price. Pass 7 measures it.",
-   "falsification": "If c1's band still lands ~54pt right of source in the pass-7 export, recognition did not reach the writer's bleed path and this diagnosis is wrong at the mechanism, not merely at the magnitude."
+   "falsification": "If c1's band still lands ~54pt right of source in the pass-7 export, recognition did not reach the writer's bleed path and this diagnosis is wrong at the mechanism, not merely at the magnitude.",
+   "graded": {
+    "verdict": "CONFIRMED, with one wording correction of mine",
+    "graded_against": "docs/evidence/gdocs-2026-08-06-pass7-qualification.raw.json",
+    "graded_on": "2026-08-06",
+    "band_top_delta": {
+     "predicted": "~+14.55",
+     "measured": 14.58,
+     "verdict": "CONFIRMED to 0.03pt, and it is exactly the value both recognised bands measure"
+    },
+    "band_right_edge": {
+     "predicted": 612.0,
+     "measured": 612.0,
+     "verdict": "CONFIRMED exactly; it was 660.60, i.e. 48.6pt off a 612pt page"
+    },
+    "band_left": {
+     "predicted_as_worded": "delta +54.52 -> ~0.00",
+     "measured_delta": -6.83,
+     "measured_absolute": "x0 0.00, x1 612.00",
+     "verdict": "CONFIRMED IN MECHANISM; my wording was imprecise. I predicted the delta against SOURCE would go to ~0, but c1's source band is itself inset 6.83pt, and a recognised cover band bleeds to the PAPER edge -- so the correct delta is -6.83, not 0.00. The band now spans 0.00..612.00, identical to 01 and 04. Predicting against the source position rather than the page edge was the error; the mechanism claim was right.",
+     "falsification_criterion": "still ~54pt right of source",
+     "falsified": false
+    },
+    "controls_in_the_same_export": {
+     "01_whitepaper_market": "left +0.00 top +14.55",
+     "04_exec_brief": "left +0.00 top +14.55"
+    }
+   },
+   "c1_dy_p50_observed": {
+    "_note": "Recorded as an OBSERVATION. No scalar was predicted, deliberately; the policy bound is what adjudicates.",
+    "pass_6": 21.91,
+    "pass_7": 5.56,
+    "policy_bound": 10.0,
+    "verdict": "INSIDE the bound",
+    "also": {
+     "page_match": true,
+     "mean_ssim": [
+      0.7923,
+      0.8263
+     ],
+     "word_recall": 0.9697
+    },
+    "residual_decomposition": "5.56 is what remains after the compensation reached c1. The named residuals are unchanged and now carry the whole of it: the +7.13 figure step (export image 59.25 against a 53.34 source region), the down-page accumulation, and page 2's -55 on 32 matched words (task #42). None was touched by this change, and the fix queue continues from those numbers rather than from a fresh diagnosis."
+   }
   },
   "residuals_unchanged_by_this_landing": {
    "_note": "Named, untouched, with their export numbers, so pass 7's reading has the full decomposition to grade against.",

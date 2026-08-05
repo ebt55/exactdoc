@@ -96,13 +96,30 @@ PyMuPDF is the optional `mupdf` extra, the gate baseline was re-recorded at the
 new profile identity, and the licence is Apache-2.0. Commits `900f0ab`,
 `f457567`, `017c1e1`, `160b831`.
 
-**Four of four gates is not a release, and the release gate has now failed
-once.** The migration is complete and correct; the product is not releasable
-while `c1_whitepaper` sits at more than twice its policy bound in Google Docs.
-The remaining work is release work rather than migration work:
+**Four of four gates, and the release gate now passes live.** The migration is
+complete and the migrated product qualifies against the ratified policy in
+Google Docs. The release gate failed once first, at pass 6, and the record of
+that failure is kept below rather than tidied away. Remaining work is release
+work rather than migration work:
 
-1. **A post-flip live Google Docs qualification pass — RUN, AND IT FAILED.**
-   Live pass 6 (2026-08-06, consented, tip `38720b6`) is the migrated product's
+1. ~~**A post-flip live Google Docs qualification pass.**~~ **PASSED at live
+   pass 7** (2026-08-06, consented, tip `a3e5670`).
+   [Qualification](docs/evidence/gdocs-2026-08-06-pass7-qualification.json) ·
+   [assessment](docs/evidence/gdocs-2026-08-06-pass7-assessment.json).
+   `overall_pass: true`, **zero blocking findings**, on DOCX verified
+   byte-identical to what a PyMuPDF-free install produces. Operationally clean:
+   16/16 uploaded, converted, exported and deleted, zero orphans.
+
+   `c1_whitepaper` went **21.91 → 5.56**, inside its 10.0 bound. Every other
+   gated document is byte-identical to pass 6 — only c1 moved, which is exactly
+   what the cover-band seed change touches. The `01` waiver **holds**,
+   unchanged at 0.6909 and still 0.0091 short of the 0.70 that would retire it.
+
+   Pass 6 is kept below because a gate that only records its passes is not a
+   record.
+
+   **Live pass 6 — the failure this fixed.**
+   Live pass 6 (2026-08-06, consented, tip `38720b6`) was the migrated product's
    first live contact.
    [Qualification](docs/evidence/gdocs-2026-08-06-pass6-qualification.json) ·
    [assessment](docs/evidence/gdocs-2026-08-06-pass6-assessment.json).
@@ -123,7 +140,17 @@ The remaining work is release work rather than migration work:
    falsified and recorded as such** in
    [c1-band-and-cards-2026-08-05.json](docs/evidence/c1-band-and-cards-2026-08-05.json)
    `live_prediction.graded`. c1 is the standing exemplar for the
-   ordinary-document release bar, so this blocks release.
+   ordinary-document release bar, so this blocked release.
+
+   **And the lock was innocent.** Attribution against Google's own export
+   ([c1-live-attribution-2026-08-06.json](docs/evidence/c1-live-attribution-2026-08-06.json))
+   found the band rendering at 111.00pt against a 112.67pt source — the *locked*
+   height, not the pre-lock one — with `lineRule="auto"` and no `trHeight`. The
+   real defect was that c1's band was never recognised as a cover band
+   (`infer`'s seed required `y0 ≤ 2.5`; c1's starts at 7.16), so it received
+   neither the full-bleed side treatment nor the 14.8pt Docs compensation. The
+   lock had merely removed a missing line that was cancelling the offset. Fixed
+   at `8c79574` by relaxing the seed; pass 7 confirms it.
 
    The same change is *not* uniformly bad live: it took `04_exec_brief` 7.35 →
    2.40, `02_research_paper` 6.80 → 6.53 and `c4_i18n` 3.07 → 2.73, and left

@@ -644,14 +644,14 @@
       "tier": "ordinary_digital",
       "src_pages": 2,
       "n_matched_words": 320,
-      "baseline_dy_p50": 9.3,
-      "predicted_dy_p50": 2.7,
+      "baseline_dy_p50": 5.56,
+      "predicted_dy_p50": 5.56,
       "tolerance_pt": 3.0,
       "discriminating": false,
       "falsifies_A0_above_pt": null,
-      "expect": "improves",
-      "confidence": "falsified",
-      "note": "FALSIFIED at pass 6: predicted 2.70, measured 21.91. Do not re-predict this document from the LibreOffice proxy again -- the proxy said 2.69. Any next prediction needs a probe on Google's own export.",
+      "expect": "unchanged",
+      "confidence": "medium",
+      "note": "Re-anchored on pass 7. The pass-6 prediction was falsified and its cause found and fixed; this entry is now an ordinary regression expectation again.",
       "baseline_source": "live pass 5 (2026-08-04)",
       "ladder_default": {
         "reaches_this_document": true,
@@ -686,6 +686,11 @@
         "actual": 21.91,
         "verdict": "MISS -- falsified",
         "evidence": "docs/evidence/c1-band-and-cards-2026-08-05.json live_prediction.graded"
+      },
+      "graded_pass7": {
+        "pass_6": 21.91,
+        "pass_7": 5.56,
+        "verdict": "inside the 10.0 bound"
       }
     },
     "l1_word_native": {
@@ -1075,5 +1080,24 @@
     },
     "reading": "The ladder default is NOT uniformly bad live -- it helped three of the five documents it reaches and left one alone. It is catastrophic on exactly one, and that one is the document it was introduced for. The LibreOffice proxy predicted the sign correctly for none of them.",
     "05_memo_control": "5.13 on passes 3, 4, 5 and 6. The document flagged as 'checked and not superseded' held exactly, which is the control this file needed."
+  },
+  "_pass7_result": {
+    "graded_on": "2026-08-06",
+    "evidence": "docs/evidence/gdocs-2026-08-06-pass7-qualification.raw.json",
+    "headline": "THE RELEASE GATE PASSES. overall_pass true, zero blocking findings, on the migrated product.",
+    "c1_whitepaper": {
+      "pass_6": 21.91,
+      "pass_7": 5.56,
+      "bound": 10.0,
+      "verdict": "inside",
+      "note": "The pass-6 falsification is answered: the cause was an unrecognised cover band, not the ladder lock. The lock was never the problem and was not reverted."
+    },
+    "every_other_document": "byte-identical to pass 6 on every gated metric. Only c1 moved, which is what the seed change touches.",
+    "01_waiver": {
+      "mean_ssim": 0.6909,
+      "floor": 0.65,
+      "retire_at": 0.7,
+      "verdict": "HOLDS -- unchanged at 0.6909, still 0.0091 short"
+    }
   }
 }
