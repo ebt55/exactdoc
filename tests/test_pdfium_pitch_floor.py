@@ -129,6 +129,56 @@ class TheGuard(unittest.TestCase):
         self.assertEqual(_pitch_reference({}, 2.67, 0.0), 2.67)
 
 
+class TheFiringCondition(unittest.TestCase):
+    """The constant is a guess, and a guess needs a reason (task #40).
+
+    When this guard was written `_column_split` returned at most one gutter and
+    usually none, so a collapsed reference on a page with no gutter was
+    overwhelmingly an undetected column. The N-column split and the whitespace
+    profile then made detection succeed, and the no-gutter population is no
+    longer that.
+
+    Measured over 4,132 firings: 72% of the y family's sit on pages where a
+    gutter WAS found; 0% of 02_research_paper's do, and there the fallback was
+    the bare constant every time because the page-wide value had collapsed too.
+    Joining on that guess gave blocks that are geometrically right and a render
+    that is worse -- within2pt 0.6675 -> 0.5685 at candidate, 0.5685 -> 0.0178
+    at shipping.
+    """
+
+    def test_the_constant_is_not_reached_without_column_evidence(self):
+        self.assertEqual(_pitch_reference({10.0: 1.2}, 2.67, 10.0,
+                                          columnar=False), 1.2)
+
+    def test_the_constant_is_reached_with_column_evidence(self):
+        self.assertAlmostEqual(_pitch_reference({10.0: 1.2}, 2.67, 10.0,
+                                                columnar=True),
+                               PITCH_DEFAULT_EM * 10.0)
+
+    def test_a_surviving_page_wide_measurement_is_taken_either_way(self):
+        # A measurement is not a guess: it does not need the column evidence.
+        for columnar in (True, False):
+            self.assertEqual(
+                _pitch_reference({10.0: 1.2}, 14.0, 10.0, columnar=columnar),
+                14.0)
+
+    def test_it_still_never_lowers_a_reference(self):
+        for columnar in (True, False):
+            for size in (8.0, 10.0, 12.0):
+                for ref in (0.05, 1.5, 11.5, 40.0):
+                    got = _pitch_reference({round(size, 1): ref}, ref, size,
+                                           columnar=columnar)
+                    self.assertGreaterEqual(got + 1e-9, ref)
+
+    def test_a_polluted_page_with_no_columns_is_left_alone(self):
+        # 02_research_paper's shape: the guard must not reflow it.
+        lines, body = _polluted_page()
+        blocks = _build_blocks(lines)
+        held = max(sum(1 for l in b.lines if l in body) for b in blocks)
+        self.assertEqual(held, 1,
+                         "the constant fired on a page with no column evidence")
+
+
 def _line(x0, x1, baseline, size=10.0, text="word"):
     bbox = (x0, baseline - size, x1, baseline + 2.0)
     span = Span(text=text, font="Helvetica", size=size, color="#000000",
@@ -165,12 +215,28 @@ def _polluted_page(pitch=11.5, top=100.0):
     return lines + body, body
 
 
+def _columnar(lines, n=4, top=60.0, pitch=14.0):
+    """Give a page real column structure, so `_column_split` evidences it.
+
+    Four baselines each carrying two wide members either side of x=300 -- the
+    shape the row model reads. Needed because the constant fallback only fires
+    on a page whose columns were actually found (task #40).
+    """
+    out = list(lines)
+    for i in range(n):
+        y = top + i * pitch
+        out.append(_line(60.0, 290.0, y))
+        out.append(_line(310.0, 589.0, y))
+    out.sort(key=lambda l: (l.baseline, l.bbox[0]))
+    return out
+
+
 class AgainstTheRealAssembly(unittest.TestCase):
     """The guard has to survive `_build_blocks`, not just its own arithmetic."""
 
     def test_a_polluted_pitch_bucket_no_longer_shatters_the_body(self):
         lines, body = _polluted_page()
-        blocks = _build_blocks(lines)
+        blocks = _build_blocks(_columnar(lines))
         # The ten body lines share a left edge, a size and an 11.5pt step.
         # Before the guard the reference read 1.5, the gate came out 1.7, and
         # each of them became a block of its own.

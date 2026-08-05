@@ -1378,7 +1378,8 @@ def _pitch_by_size(lines: List[Line]) -> dict:
     return out
 
 
-def _pitch_reference(by_size: dict, typical: float, size: float) -> float:
+def _pitch_reference(by_size: dict, typical: float, size: float,
+                     columnar: bool = True) -> float:
     """The block-continuation reference for text of `size`, or a default.
 
     `_body_pitch` and `_pitch_by_size` both take the 20th percentile of the
@@ -1415,14 +1416,37 @@ def _pitch_reference(by_size: dict, typical: float, size: float) -> float:
     and often survives, and only then takes PITCH_DEFAULT_EM * size.
 
     This can only ever RAISE a reference, so it can only ever JOIN lines. It
-    does not detect columns and does not pretend to -- it makes a column-split
-    failure survivable instead of fatal.
+    does not detect columns and does not pretend to.
+
+    `columnar` is the firing condition, and it is a correction (task #40). The
+    constant fallback is only taken on a page where a gutter was actually
+    found. When the guard was written `_column_split` returned at most one
+    gutter and usually none, so a collapsed reference on a page with no gutter
+    was overwhelmingly an undetected column; the N-column split and the
+    whitespace profile then made detection succeed, and what is left in the
+    no-gutter population is no longer that.
+
+    Measured over 4,132 firings: on the y family, which the guard was built
+    for, 72% sit on pages where a gutter WAS found. On 02_research_paper, whose
+    render regressed, 0% do -- and there the fallback was the bare constant
+    100% of the time, because the page-wide value had collapsed too. Joining on
+    that guess produced blocks that are geometrically right (two-line
+    paragraph fragments, 74 -> 63 against a reference of 45) and a render that
+    is worse: within2pt 0.6675 -> 0.5685 at candidate and 0.5685 -> 0.0178 at
+    shipping. A guess good enough to improve the IR is not good enough to
+    reflow the page.
+
+    A page-wide measurement, when it survives, is still taken either way: that
+    is a measurement rather than a guess, and it is what most of the gated
+    corpus uses.
     """
     ref = by_size.get(round(size, 1), typical)
     if size <= 0 or ref >= PITCH_FLOOR_EM * size:
         return ref
     if typical >= PITCH_FLOOR_EM * size:
         return typical
+    if not columnar:
+        return ref
     return PITCH_DEFAULT_EM * size
 
 
@@ -1473,7 +1497,8 @@ def _build_blocks_one(lines: List[Line], col_xs) -> List[TextBlock]:
                 hi = max(prev.bbox[0], ln.bbox[0])
                 same = not any(lo <= c <= hi for c in col_xs)
         else:
-            ref = _pitch_reference(by_size, typical, _line_size(prev))
+            ref = _pitch_reference(by_size, typical, _line_size(prev),
+                                   columnar=bool(col_xs))
             same = (0 < gap <= ref * BLOCK_GAP_FACTOR) and overlap > 0
         if same:
             cur.append(ln)

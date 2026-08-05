@@ -1,0 +1,155 @@
+{
+ "schema": "exactdoc.regression-attribution.v1",
+ "gating": false,
+ "adjudicated": false,
+ "ok": false,
+ "release_ready": false,
+ "_note": "Task #40: four documents regressed between parity-expanded-2026-08-05.json and -05b.json. This attributes each one to the commit that caused it and fixes the one that is attributable to the block-synthesis batch. Measured in the canonical container. A measurement, not an authorisation.",
+ "measured_at": "ee30c99",
+
+ "the_window_is_wider_than_the_batch": {
+  "_note": "This is the central finding and it changes the task.",
+  "minus_05_measured_at": "f02d701",
+  "minus_05b_measured_at": "b8f5e31",
+  "commits_between": 18,
+  "commits_belonging_to_the_block_synthesis_batch": 3,
+  "commits_not_in_the_batch": 15,
+  "non_batch_commits_touching_the_converter": [
+   "0e96d64 pdfium: restore PDFMaker's end-of-line hyphen, which arrives as U+0002",
+   "75548c5 pdfium: a glyph the text page dropped is still a position, and a bullet has one",
+   "e5e7f30 dialect: a marker is ink at the item's size with nothing to its left",
+   "afcba62 docxout: a spill is what lands past the bottom, not how far the flow runs over",
+   "0090bf2 docxout: a two-line spill costs two lines, not a page",
+   "0f1ed4d docxout: say what the footer model was measured to do, which is nothing here",
+   "dc32a97 infer: a right edge measured 184pt inside its own text is not a measurement"],
+  "non_batch_commit_touching_the_instrument": "b0762a2 harness: score one page pair at a time, not both documents at once",
+  "consequence": "A delta taken across that window cannot be attributed to the batch without bisection. Three of the four regressions are already present at 0cf76ed, the batch's own branch point."
+ },
+
+ "method": {
+  "stage_bisection": "The four regressed documents converted and scored on the real path at each of 0cf76ed (branch point), d7f0583 (stage 1), 89e023a (stage 2), ee30c99 (stage 3). parse_pdfium.py restored per commit with `git checkout`, never by shell redirection.",
+  "commit_scan": "Then the same four documents at each converter-touching commit in f02d701..0cf76ed, checking out the whole `exactdoc/` tree per commit and holding `testkit/` FIXED at current, so only converter changes vary and the instrument does not move underneath the comparison.",
+  "validation": "The method is sensitive: 02_research_paper does move between 0cf76ed and d7f0583, and x04's two endpoints reproduce the -05 and -05b numbers exactly."
+ },
+
+ "attribution": {
+  "c7_code.pdf": {
+   "first_regressing_commit": "75548c5",
+   "in_the_batch": false,
+   "commits_before_the_branch_point": 6,
+   "series": {
+    "f02d701": {"doc_recall": 1.0, "word_recall": 1.0, "within2pt": 0.142,
+                "dy_p50": 2.0, "raster_frac": 0.0, "live_text_cov": 1.0},
+    "0e96d64": {"doc_recall": 1.0, "word_recall": 1.0, "within2pt": 0.142,
+                "dy_p50": 2.0, "raster_frac": 0.0, "live_text_cov": 1.0},
+    "75548c5": {"doc_recall": 0.9261, "word_recall": 0.9261, "within2pt": 0.0859,
+                "dy_p50": 26.6, "raster_frac": 0.0271, "live_text_cov": 0.9729},
+    "0cf76ed_through_ee30c99_and_the_fix": {
+     "doc_recall": 0.9261, "word_recall": 0.9261, "within2pt": 0.0859,
+     "dy_p50": 26.6, "raster_frac": 0.0271, "live_text_cov": 0.9729}},
+   "mechanism": "All five MAJOR dimensions move at one commit, the one that gives a dropped glyph a position. raster_frac appearing from zero and live_text_cov leaving 1.0 is that commit's own subject: ink the text page could not decode is now emitted, so some of the page stops being live text. The batch's three commits do not move any of the five.",
+   "reproduces_the_record": "doc_recall, word_recall, live_text_cov, dy_p50 and raster_frac match the -05 `was` and the -05b `now` values EXACTLY on both sides."},
+
+  "x04_lo_tables_plain.pdf": {
+   "first_regressing_commit": "0e96d64",
+   "in_the_batch": false,
+   "commits_before_the_branch_point": 7,
+   "series": {"f02d701": {"within2pt": 0.2333, "doc_recall": 0.9963},
+              "0e96d64_onward_including_the_fix": {"within2pt": 0.1004,
+                                                   "doc_recall": 0.9926}},
+   "reproduces_the_record": "within2pt 0.2333 -> 0.1004 is exactly the regression the record reports, and both endpoints reproduce to four decimals."},
+
+  "x11_chrome_toc_headings.pdf": {
+   "first_regressing_commit": "75548c5",
+   "in_the_batch": false,
+   "series": {"f02d701": {"doc_recall": 0.9838, "raster_frac": 0.0123,
+                          "live_text_cov": 0.9877},
+              "75548c5_onward_including_the_fix": {
+                  "doc_recall": 0.9803, "raster_frac": 0.014,
+                  "live_text_cov": 0.986}},
+   "_note": "within2pt (0.0052), word_recall (0.3465) and dy_p50 (46.6) are unchanged across every commit measured, including the whole batch. The better -> minor verdict rides on the three dimensions above."},
+
+  "02_research_paper.pdf": {
+   "first_regressing_commit": "d7f0583",
+   "in_the_batch": true,
+   "stage": "1, the pitch floor",
+   "series_candidate": {"0cf76ed": {"within2pt": 0.6675, "dy_p50": 0.69},
+                        "d7f0583": {"within2pt": 0.5685, "dy_p50": 1.49},
+                        "89e023a": {"within2pt": 0.5685, "dy_p50": 1.49},
+                        "ee30c99": {"within2pt": 0.5685, "dy_p50": 1.49},
+                        "fix": {"within2pt": 0.6675, "dy_p50": 0.69}},
+   "series_product": {"before_the_fix": {"within2pt": 0.0178, "dy_p50": 2.59},
+                      "fix": {"within2pt": 0.5685, "dy_p50": 1.29}},
+   "_note": "This is the one the batch owns, and the stage-1 record already flagged its IR movement (74 -> 63 blocks, 23 -> 22 Paras) as a reported movement rather than a waived one."}
+ },
+
+ "the_fix": {
+  "site": "exactdoc/parse_pdfium.py, _pitch_reference, new `columnar` argument supplied by _build_blocks_one from its own col_xs",
+  "rule": "The CONSTANT fallback (PITCH_DEFAULT_EM * size) is taken only on a page where a gutter was actually found. A surviving page-wide measurement is still taken either way, because that is a measurement rather than a guess.",
+  "why_this_is_the_right_condition": "When the guard was written _column_split returned at most one gutter and usually none, so a collapsed reference on a gutterless page was overwhelmingly an undetected column and the guess was well-founded. Stages 2 and 3 then made detection succeed -- y06 went from 35 to 78 pages with gutters -- so the residual gutterless population is no longer that, and the guess no longer has its premise.",
+  "measured_populations": {
+   "_note": "4,132 floor firings instrumented in place across the gated 16 and the y family.",
+   "y_family_gained": {"firings": 4083, "on_pages_where_a_gutter_was_found": "72%"},
+   "02_research_paper_regressed": {"firings": 26,
+                                   "on_pages_where_a_gutter_was_found": "0%",
+                                   "took_the_bare_constant": "100%"},
+   "other_gated_unmoved": {"firings": 23,
+                           "on_pages_where_a_gutter_was_found": "0%",
+                           "took_the_page_wide_measurement": "70%",
+                           "_note": "which is why they neither gained nor regressed, and why they still do not move under the fix"}},
+  "what_the_joins_looked_like": "Traced rather than inferred. On 02_research_paper the floor joined pairs of consecutive lines that ARE the same paragraph -- 'by drafting tokens with a small model and verifying them' + 'with a large one...' -- so the IR moved toward the reference (74 -> 63 blocks against a reference of 45) while the render moved away from it. A guess good enough to improve the IR is not good enough to reflow the page. That asymmetry is the finding."
+ },
+
+ "after_the_fix": {
+  "regressions": {
+   "02_research_paper": {"candidate_within2pt": "0.5685 -> 0.6675 (restored)",
+                         "candidate_dy_p50": "1.49 -> 0.69 (restored)",
+                         "product_within2pt": "0.0178 -> 0.5685 (restored)",
+                         "product_dy_p50": "2.59 -> 1.29 (restored)",
+                         "gated_ir": "63 -> 74 blocks, 22 -> 23 Paras, both back to the branch-point values"},
+   "c7_code": "unchanged, and correctly so -- not caused by this batch",
+   "x04_lo_tables_plain": "unchanged, not caused by this batch",
+   "x11_chrome_toc_headings": "unchanged, not caused by this batch"},
+  "y_family_retention": {
+   "_note": "stage 3 -> after the fix. The gains are kept; the give-back is 1-2%.",
+   "y06": {"blocks": [8604, 8755], "paras": [4626, 4695], "give_back": "1.8% / 1.5%"},
+   "y12": {"blocks": [1989, 2004], "paras": [1222, 1235], "give_back": "0.8% / 1.1%"},
+   "y13": {"blocks": [2606, 2656], "paras": [1892, 1908], "give_back": "1.9% / 0.8%"},
+   "y14": {"blocks": [336, 336], "paras": [173, 173], "give_back": "none"},
+   "y07": {"blocks": [337, 359],
+           "_note": "reverts fully to the branch-point value. Its two pages are a form with no column structure, so the constant no longer fires. Tier `unsupported`, refused, contributes no pages -- geometry only."},
+   "against_the_branch_point": {
+    "y06": "12878 -> 8755 blocks, 5807 -> 4695 Paras",
+    "y12": "4518 -> 2004, 3639 -> 1235",
+    "y13": "4296 -> 2656, 2765 -> 1908",
+    "y14": "608 -> 336, 246 -> 173"}},
+  "x10_chrome_tables_plain": {"blocks": 34, "paras": 25, "moved": false},
+  "gated_16": {
+   "gate": {"product": {"verdict": "PASS", "page_match": "16/16",
+                        "within2pt": 0.5161, "live_text_cov": 0.9652,
+                        "dy_p50": 0.675},
+            "raw": {"verdict": "PASS", "page_match": "14/16",
+                    "within2pt": 0.3349, "live_text_cov": 0.9652,
+                    "dy_p50": 2.79},
+            "identical_to_tip": true},
+   "candidate_arm_ir_moved": ["02_research_paper, back to 74 blocks / 23 Paras"],
+   "_note": "01_whitepaper_market keeps its stage-1 improvement (68 blocks) because its firings take the surviving page-wide measurement, not the constant."},
+  "reference_arm": {"_build_blocks": 0, "_build_blocks_one": 0,
+                    "_column_split": 0, "_pitch_reference": 0},
+  "tests": {"suite": 557, "result": "green",
+            "_note": "552 plus 5. One existing test had to change: it asserted the constant fires on a single-column polluted page, which is exactly the behaviour being withdrawn. It now builds column evidence for the firing case, and a new test pins the refusal."}
+ },
+
+ "not_reproduced": {
+  "c7_within2pt_absolute_level": {
+   "record": {"minus_05": 0.4091, "minus_05b": 0.1534},
+   "this_container": {"f02d701": 0.142, "75548c5_onward": 0.0859},
+   "_note": "The direction, the transition commit and the other four dimensions all reproduce exactly; only this dimension's absolute level differs. `testkit/harness.py` changed inside the same window (b0762a2), which is the obvious suspect, but x04's within2pt reproduces to four decimals at BOTH endpoints under the same harness, so the harness is not a sufficient explanation and the residue is more likely a render difference specific to c7. Recorded as unresolved rather than explained away; it does not affect the attribution, which rests on the four dimensions that do reproduce."
+  }
+ },
+
+ "instrument_caveats": [
+  "The commit scan holds testkit/ fixed at current and varies only exactdoc/. That isolates converter changes by construction, and it is why absolute levels here need not equal the -05 record's, which was scored by the harness of its own day.",
+  "Floor firings were instrumented by wrapping _pitch_reference, _build_blocks_one and _build_blocks in place, so the gutter count attributed to each firing is the one assembly actually used, including the stage-3 projection fallback that lives above _column_split."
+ ]
+}
