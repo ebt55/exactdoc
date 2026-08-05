@@ -178,6 +178,40 @@ def _margin_by_mass(vals: List[float], left=True) -> Optional[float]:
 # wide-line max of 613.2 on a 612pt page, which is an outlier, not an edge.
 MARGIN_MISCLUSTER_PT = 60.0
 
+# --- cover-band seeding -----------------------------------------------------
+# How far below the paper edge a full-width fill may start and still seed the
+# cover-band group (`_hf.top_bands`). This was 2.5pt, and 2.5 is not a measured
+# number -- it is "flush, allowing for rounding". A cover band that a producer
+# insets by a few points is still a cover band, and treating it as ordinary body
+# content costs BOTH of the treatments `docxout.has_cover` gates: the zero side
+# margin that makes it bleed, and the Google Docs vertical compensation.
+#
+# It cost exactly that on c1_whitepaper, whose band starts at 7.16 and was
+# therefore not recognised. Measured in Google's own export from live pass 6
+# (docs/evidence/c1-live-attribution-2026-08-06.json): its band landed 54.52pt
+# right of source, overflowing a 612pt page to 660.60, and 17.38pt low against
+# the +14.55 that both RECOGNISED bands measured in the same export.
+#
+# The two populations this has to separate, measured over all 45 committed
+# fixtures with no y0 cap:
+#
+#   must seed (real cover bands)          y0 = 0.00, 0.00, 7.16
+#   must NOT seed (nearest other fill)    y0 = 130.0   (04_exec_brief's 8pt
+#                                         accent stripe; 01's 4pt one is at
+#                                         170.0)
+#
+# 36.0 sits in that gap with margin in both directions: 5.0x above the worst
+# real inset, 3.6x below the nearest fill that must not seed. It is also half an
+# inch -- the narrowest top margin in common use -- so a full-width fill
+# starting above it cannot be inside the text area of an ordinary page, which is
+# the property that actually distinguishes a bleed from a body block.
+#
+# The accent stripes never seed in practice regardless: `cands` is sorted by y0,
+# so a band at 0.00 always claims the group first and the stripe continues it
+# through the 3.0pt adjacency rule. The bound is there for the document that has
+# a full-width fill part-way down page 1 and no band above it.
+COVER_BAND_SEED_PT = 36.0
+
 
 def _right_edge_misclustered(wide_x1: List[float], mr: Optional[float]) -> bool:
     """Does this right-edge estimate sit too far inside its own evidence?
@@ -569,7 +603,7 @@ def detect_hf(ir: DocIR):
         grp, last_y1 = [], None
         for i, d in cands:
             if last_y1 is None:
-                if d.bbox[1] <= 2.5:
+                if d.bbox[1] <= COVER_BAND_SEED_PT:
                     grp.append((i, d))
                     last_y1 = d.bbox[3]
             elif d.bbox[1] - last_y1 <= 3.0:
