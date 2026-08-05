@@ -1,10 +1,15 @@
 """How much of the tuning is coupled to PyMuPDF?
 
-The licence question (PyMuPDF is AGPL, so exactdoc must be) is really a
+The licence question -- PyMuPDF was AGPL, so exactdoc had to be -- was really a
 risk question: every threshold in dialect.py and infer.py was calibrated
 against what `page.get_text("dict")` returns, and a different parser returns
 a different shape. Swapping first wastes tuning; tuning first raises the cost
 of swapping. Neither argument settles it -- a measurement does.
+
+The measurement settled it. exactdoc is Apache-2.0 as of 2026-08-06 and PDFium
+ships; this probe is kept as the record of how the question was asked, and
+because the two arms are still both installed in the measurement environment,
+so it still detects them drifting apart.
 
 This compares the permissive candidates against PyMuPDF on the corpus, on the
 axes the converter actually consumes:

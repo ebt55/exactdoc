@@ -250,6 +250,33 @@ class PackagingMetadataTests(unittest.TestCase):
                 "the dependency moved without this file following."
                 % (text.strip(), sorted(AUDITED_AGPL & self.core)))
 
+    def test_the_declared_licence_is_the_migration_target(self):
+        """Apache-2.0, in the three places that have to agree.
+
+        The metadata, the classifier and the LICENSE file are three independent
+        statements of the same fact, and any one of them can be updated alone.
+        A wheel whose METADATA says Apache-2.0 while its bundled LICENSE is the
+        AGPL text ships a contradiction to every user, and neither half would
+        look wrong on its own.
+        """
+        declared = re.search(r"^license\s*=\s*(.+)$", self.text, re.M)
+        self.assertIn("Apache-2.0", declared.group(1),
+                      "pyproject's license field is %s" % declared.group(1).strip())
+
+        classifiers = re.findall(r'"(License :: [^"]+)"', self.text)
+        self.assertEqual(
+            classifiers, ["License :: OSI Approved :: Apache Software License"],
+            "the licence classifiers are %r" % classifiers)
+
+        with open(os.path.join(ROOT, "LICENSE"), encoding="utf-8") as fh:
+            body = fh.read()
+        self.assertIn("Apache License", body[:200],
+                      "LICENSE does not open with the Apache License text")
+        self.assertIn("Copyright 2026 Ebin Babu Thomas", body)
+        for banned in ("GNU AFFERO", "Affero General Public"):
+            self.assertNotIn(banned, body,
+                             "LICENSE still contains %r" % banned)
+
     # -- the hand-rolled parser, checked against a real one ----------------
     def test_both_parsers_agree(self):
         viaint = parse_pyproject_tomllib(self.text)

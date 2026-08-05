@@ -1020,8 +1020,26 @@
   "Anything about Google Docs. Gate (b) is a separate artifact and the post-flip live qualification pass is on the release list, not this one."
  ],
  "licence_after_the_swap": {
-  "_note": "Re-verified after the LICENSE commit; see that commit for the diff.",
-  "status": "pending at the time this file was first written"
+  "_note": "Re-verified after the LICENSE commit, in a SECOND clean virtualenv built from a wheel rebuilt out of the relicensed tree. Only the metadata half of this proof was re-run, and deliberately so: the licence commit changed no code under exactdoc/, so the conversions, the module imports and the test run above are unaffected by it. What the swap CAN change is what a licence scan of the environment reports, and that is what was pending.",
+  "status": "verified",
+  "wheel_metadata": {
+   "License": "Apache-2.0",
+   "Classifier": "License :: OSI Approved :: Apache Software License",
+   "bundled_license_file": "exactdoc-0.1.0a1.dist-info/licenses/LICENSE",
+   "bundled_license_opens_with_apache_text": true,
+   "bundled_license_mentions_affero": false,
+   "bundled_copyright_line": "Copyright 2026 Ebin Babu Thomas",
+   "requires_dist_unchanged_by_the_swap": true
+  },
+  "clean_environment_rescan": {
+   "packages": ["exactdoc==0.1.0a1", "lxml==6.1.1", "numpy==2.5.1",
+                "pillow==12.3.0", "pip==24.0", "pypdfium2==5.12.1",
+                "python-docx==1.2.0", "typing_extensions==4.16.0"],
+   "exactdoc_declared_licence": ["Apache-2.0", "Apache Software License"],
+   "agpl_packages_anywhere": [],
+   "no_agpl_present_at_all": true
+  },
+  "_the_claim_now_holds_without_an_exclusion": "The first scan reported `agpl_packages: ['exactdoc']` -- exactdoc's own still-AGPL declaration -- and the claim had to be stated as 'no THIRD-PARTY AGPL package'. It no longer needs the qualifier: the scan finds no AGPL term anywhere in the environment, including on exactdoc itself. Three statements of the same fact were checked rather than one, because any of them can be updated alone: the wheel's METADATA, its classifier, and the LICENSE file bundled inside it. A wheel whose metadata says Apache-2.0 while its bundled LICENSE is the AGPL text ships a contradiction to every user, and neither half looks wrong on its own. `tests/test_packaging_metadata.py::test_the_declared_licence_is_the_migration_target` now asserts all three."
  },
  "ok": true,
  "release_ready": false

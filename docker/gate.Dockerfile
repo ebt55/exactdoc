@@ -101,7 +101,7 @@ RUN { echo "# exactdoc canonical gate image"; \
 LABEL org.opencontainers.image.title="exactdoc canonical gate environment" \
       org.opencontainers.image.description="Pinned LibreOffice + font set for the exactdoc fidelity gate. Referenced by digest; a new digest is a new environment." \
       org.opencontainers.image.source="https://github.com/ebt55/exactdoc" \
-      org.opencontainers.image.licenses="AGPL-3.0-or-later"
+      org.opencontainers.image.licenses="Apache-2.0"
 
 WORKDIR /work
 CMD ["bash"]

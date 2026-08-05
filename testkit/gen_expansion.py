@@ -51,7 +51,14 @@ OUT = sys.argv[1] if len(sys.argv) > 1 else "expansion_build"
 HTML = os.path.join(OUT, "_html")
 WORK = os.path.join(OUT, "_work")
 
-LICENSE = "AGPL-3.0-or-later"
+# Stamped into `provenance.license` on every fixture this script generates, so
+# it must track the repository's own LICENSE. Changed with the Apache-2.0
+# migration; the 16 already-generated entries in corpus_expansion.json were
+# relabelled in the same commit, because an AGPL-labelled corpus inside an
+# Apache-2.0 repository is a contradiction a reader trips over long before a
+# lawyer does. Sole authorship is what makes relabelling a correction rather
+# than a re-licence of someone else's work.
+LICENSE = "Apache-2.0"
 ACQUIRED = os.environ.get("EXPANSION_DATE") or datetime.date.today().isoformat()
 
 # Prose deliberately unlike gen_corpus.py's retrieval/RAG material, so the two

@@ -8,10 +8,21 @@ shipped inside the package — not from memory, and not from a web search. Where
 the basis for a claim is weaker than an explicit written grant, this document
 says so rather than rounding up.
 
-The relicensing question is narrow: exactdoc is AGPL-3.0-or-later **only**
-because PyMuPDF is a core dependency. The target is Apache-2.0. This audit asks
-one question of everything the project touches: *does this constrain that
+The relicensing question was narrow: exactdoc was AGPL-3.0-or-later **only**
+because PyMuPDF was a core dependency. The target was Apache-2.0. This audit
+asks one question of everything the project touches: *does this constrain that
 change?*
+
+> **STATUS, 2026-08-06: the change has been made.** PyMuPDF moved to an optional
+> `mupdf` extra, pypdfium2 became the core parser and the default backend, and
+> `LICENSE` is now Apache-2.0. §§1–6 below are preserved as the audit that was
+> performed *before* the switch — they are the reasoning the decision rested on
+> and are deliberately not rewritten into the past tense, because an audit
+> edited to agree with its own conclusion is not evidence. What changed is
+> recorded in §7 (gates), §8 (what the base-wheel proof now proves) and §9
+> (which switch steps are done). **§10's open items are still open**, and two of
+> them — the provenance of the source itself, and legal review — were never
+> gates this work could close.
 
 ---
 
@@ -215,11 +226,18 @@ the re-pinned quality policy and the re-pinned parity policy together.
 
 16 generated, 13 downloaded, none gating.
 
-**Generated (16).** `provenance.license` records `AGPL-3.0-or-later`, stamped
+**Generated (16).** `provenance.license` recorded `AGPL-3.0-or-later`, stamped
 from `LICENSE` in `testkit/gen_expansion.py`. Sole authorship means these can be
 relabelled at will, but the label is a mechanical switch step (§9) — an
 AGPL-labelled corpus inside an Apache-2.0 repository is a contradiction a reader
 will trip over long before a lawyer does.
+
+> *Done 2026-08-06: all 16 now record `Apache-2.0`, and
+> `expansion_parity_policy.json`'s content pin was moved in the same commit. The
+> policy's rule that re-pinning means re-checking every entry was discharged by
+> proof rather than re-measurement — the manifest diff is exactly 16
+> `provenance/license` leaves and every per-document `sha256` and `bytes` is
+> identical, so no floor can describe different bytes than it did.*
 
 **Downloaded (13).** The corpus agent recorded, per document, both the licence
 claimed *and* whether the document itself says so — a distinction this audit
@@ -329,40 +347,67 @@ concluding it: confirm at legal review which fonts are actually embedded in the
 
 ## 7. Relicense gate status
 
-ROADMAP names four gates. None is met; two have moved.
+ROADMAP names four gates. **All four are met, and the switch has landed.**
 
-| # | Gate | Status | Evidence, and what is missing |
+| # | Gate | Status | Evidence |
 |---|---|---|---|
-| **(a)** | Expanded same-profile parity with no unratified regressions | **PARTIAL** | **0 unwaived regressions.** 2 provisional findings remain — `c4_i18n` (D10, complex-script raster fallback) and `c5_graphics` (D10, designed-page rasterisation) — both bounded, attributed, and **unratified**, so `adjudicate()` cannot report a pass by construction. Ratification is an owner decision (DEC-D2). Separately, **"expanded" is not met**: parity runs over the gated 16 only; the 29 expansion fixtures are non-gating and parity cannot see them. |
-| **(b)** | Two clean full-corpus Google Docs passes | **1 of 2** | Four consented passes ran on 2026-08-04, all operationally clean, with blocking findings falling 11 → 4 → 3 → 1. The policy was **ratified** that day (schema v3) with one bounded waiver — `01_whitepaper_market` `mean_ssim`, floored at 0.65 against a measured 0.6589. Assessed against pass 4 it returns `overall_pass: true` with zero blocking findings, so **pass 4 is clean pass 1**. Two caveats belong on this row and not in a footnote: the pass became clean partly *because* a waiver was ratified after it was measured, and the waiver retires itself by mechanism (a `stale-waiver` blocks once `01` clears 0.70 unaided). The second pass must be a fresh consented run. |
-| **(c)** | No-PyMuPDF / base-wheel proof | **PARTIAL** | See §8 — the isolation proof is real and now stronger; the *installability* proof does not exist and cannot exist while PyMuPDF is core. |
-| **(d)** | Dependency, provenance and licence audit | **FIRST PASS — this document** | §§1–6 complete. Open items in §10. Not reviewed by anyone qualified to sign it off. |
+| **(a)** | Expanded same-profile parity with no unratified regressions | **MET** (commit `a3dd2ef`) | Zero unratified findings across all four adjudication paths. `docs/evidence/parity-expanded-2026-08-05f.json` is the binding measurement; the two formerly-provisional D10 findings — `c4_i18n` complex-script raster fallback and `c5_graphics` designed-page rasterisation — were **ratified** on 2026-08-04 under DEC-D2, on Google's own exports rather than the LibreOffice proxy. "Expanded" is met: the 29 expansion fixtures are measured through `parity_expansion.py` against `expansion_parity_policy.json`, which annotates and never adjudicates. Ratified is not fixed: every finding stays floored in both directions and clearing one entirely still fails as a stale record. |
+| **(b)** | Two clean full-corpus Google Docs passes | **MET** | Pass 4 of 2026-08-04 assessed clean against the ratified policy (schema v3, one bounded waiver: `01_whitepaper_market` `mean_ssim` floored at 0.65 against a measured 0.6589), and a second fresh consented run followed. The caveat that belonged on this row still belongs in the record: the first pass became clean partly *because* a waiver was ratified after it was measured, and that waiver retires itself by mechanism — a `stale-waiver` blocks once `01` clears 0.70 unaided. |
+| **(c)** | No-PyMuPDF / base-wheel proof | **MET** | `docs/evidence/base-wheel-proof-2026-08-06.json`. The gap this row used to describe — "cannot exist while PyMuPDF is core" — is closed: a wheel built from the flipped tree, installed into a virtualenv that never had PyMuPDF, 8 packages with no third-party copyleft term, 25/25 modules importing, 16/16 gated fixtures converting to valid DOCX, and the test suite green. See §8 for what it does and does not prove. |
+| **(d)** | Dependency, provenance and licence audit | **FIRST PASS — this document** | §§1–6 complete and unrevised. Open items in §10 remain open, including the two that were never closable by engineering. **Still not reviewed by anyone qualified to sign it off**, and the switch landed on the repository owner's standing authorization rather than on legal review. |
+
+### What the switch did *not* settle
+
+Three things, stated here because a green gate table is exactly where they would
+otherwise disappear:
+
+1. **§10 item 1 (LIC-01, provenance of the source itself) is untouched.** This
+   audit covers dependencies and corpus. It does not establish where the initial
+   code came from or the right to relicense it, and the execution log calls that
+   a hard blocker. Nothing in §§7–9 substitutes for it.
+2. **No legal review has happened.** §10 item 2.
+3. **The default install is measurably worse than a `[mupdf]` one** on three of
+   the sixteen gated documents, because the quality ladder needs base-14 metrics
+   only MuPDF supplies here. That is a product consequence of the licence work,
+   quantified in the base-wheel proof, and it is release work rather than
+   migration work — but it is the honest price of the change and is not filed as
+   a footnote.
 
 ---
 
 ## 8. What a true no-PyMuPDF proof still needs
 
-`tests/test_no_pymupdf.py` is the current proof. It is a real test, not a
-gesture: it installs a `sys.meta_path` blocker that makes `fitz` and `pymupdf`
-raise `ImportError` and evicts anything already imported, which is *stricter*
-than a clean virtualenv because it also catches a module some other import
-already pulled in.
+`tests/test_no_pymupdf.py` is the *isolation* proof, and
+`docs/evidence/base-wheel-proof-2026-08-06.json` is the *installability* one.
+They are different claims and the distinction is the whole of this section.
 
-**What it proves today** (all passing, exit 0):
+The test is real, not a gesture: it installs a `sys.meta_path` blocker that
+makes `fitz` and `pymupdf` raise `ImportError` and evicts anything already
+imported, which is *stricter* than a clean virtualenv in one specific way — it
+also catches PyMuPDF arriving transitively through some other package in an
+environment that never asked for it. It is *weaker* in the way that matters
+most: it proves nothing about what `pip install` resolves.
+
+**What the test proves today** (all passing, exit 0):
 
 1. `fitz` and `pymupdf` are unimportable, under both spellings, before and after
    conversion.
-2. **23 of the 24 package modules import with PyMuPDF unimportable.** The seam
-   is exactly one module — `exactdoc/parse.py`, the shipping parser. Every other
-   PyMuPDF reference in the package is lazy, inside a function, on the PyMuPDF
-   backend's own path.
+2. **25 of 25 package modules import with PyMuPDF unimportable — the seam is
+   EMPTY.** It was one module, `exactdoc/parse.py`, whose top-level `import
+   fitz` was the entire declared seam; it is now `parse.require_fitz()`, called
+   at parse time. Every PyMuPDF reference in the package is lazy, inside a
+   function, on the PyMuPDF backend's own path.
 3. Eight capability fixtures (text, tables, inline image, rasterised vector
    region, multi-page/refinement, multi-column, CJK+RTL, cover band/callouts)
-   convert end to end through `PDFIUM_GDOCS_CANDIDATE`, and the *count* is
+   convert end to end through the **shipping** profile — not the Google-safe
+   diagnostic one, which is what it used to exercise — and the *count* is
    asserted, so a loop over an empty list cannot report success.
-4. Refinement through the candidate where LibreOffice is present, and the
-   Google-Docs-safe static writer profile.
-5. Shipping defaults are unchanged by any of it.
+4. Asking for `backend="pymupdf"` anyway raises `BackendUnavailableError` naming
+   the extra, across four surfaces.
+5. Refinement where LibreOffice is present, and the Google-Docs-safe static
+   writer profile.
+6. The shipping defaults are the permissive ones: `PRODUCT.backend` is `pdfium`
+   and `get_backend(PRODUCT.backend).license` is `Apache-2.0`.
 
 The seam check is a **subset** rule, deliberately: the seam may shrink without a
 test edit (that is progress), but it cannot grow by one module without going
@@ -370,99 +415,121 @@ red and naming the module. A stray top-level `import fitz` is how a
 PyMuPDF-free wheel breaks *while importing the writer*, before any conversion —
 which has happened here before, in `docxout.py`.
 
-**What it still does not prove, in priority order:**
+**Four of the five items below are now closed. Each is left in place with its
+resolution, because the list is more useful as a record of what had to be true
+than as a list of things that happen to be done.**
 
-1. **Installability — the actual base-wheel claim.** The test blocks an import
-   inside an interpreter that still has PyMuPDF on disk. It never installs
-   anything. Today this gap **cannot** be closed, because `pymupdf>=1.23` sits in
-   `[project].dependencies`, so `pip install exactdoc[pdfium]` necessarily
-   installs AGPL PyMuPDF. The test now asserts that state explicitly and will go
-   red with instructions if PyMuPDF leaves core without a real proof replacing
-   it — so the gap is executable rather than a note in a document.
-2. **The real proof, concretely.** Build the wheel; create a fresh virtualenv;
-   `pip install dist/exactdoc-*.whl[pdfium]`; assert
-   `importlib.util.find_spec("fitz") is None` *in that environment*; then
-   convert all 16 gated fixtures and compare against the pinned candidate
-   baseline. That needs PyMuPDF moved to an extra, a default path that does not
-   route through `exactdoc/parse.py`, and CI running it in a clean container.
-3. **The built artifact's own metadata — partially closed.**
-   `tests/test_packaging_metadata.py` now turns §1 and §2 into executable
-   comparisons: the declared core set and every extra must match the audited
-   sets, no package may be declared in both core and an extra, PyMuPDF must
-   still be core, and the project licence must still say AGPL while it is.
-   Verified to bite — seven mutations of the declaration (a dependency added,
-   one removed, PyMuPDF moved to an extra, an extra gaining a package, an extra
-   renamed, a package declared twice, the licence flipped) are each caught.
-   **What remains open is the wheel itself.** The strongest check reads
-   `Requires-Dist` from a freshly built wheel, because that is the artifact a
-   user installs and the only one whose metadata is guaranteed to have been
-   generated from the current `pyproject.toml`. `build`, `setuptools` and
-   `wheel` are all absent from the pinned virtualenv, and installing them into
-   a shared environment to satisfy a test is not a change to make silently.
-   What is asserted today therefore catches every edit to the declaration and
-   would not catch a build backend that mistranslates it. Closing it needs
-   build tooling in the environment.
-4. **Runtime failure mode.** Even with the seam at zero modules,
-   `backend.py`'s `PyMuPDFBackend` lazily imports `fitz` in its methods. A base
-   wheel must make `backend="pymupdf"` fail with a clear typed error rather than
-   an `ImportError` traceback from four frames down. Nothing tests that.
-5. **Platform coverage.** The proof runs on Linux CI only; pypdfium2 ships
-   per-platform binaries, so a Windows or macOS wheel is unproven.
+1. **Installability — the actual base-wheel claim. CLOSED.** The test blocks an
+   import inside an interpreter that still has PyMuPDF on disk; it never
+   installs anything. That gap could not be closed while `pymupdf>=1.23` sat in
+   `[project].dependencies`, and the test asserted that state explicitly so it
+   would go red with instructions the moment PyMuPDF left core without a real
+   proof replacing it. **It went red exactly as designed, and the proof
+   replacing it is `docs/evidence/base-wheel-proof-2026-08-06.json`.**
+2. **The real proof, concretely. CLOSED, and done more strictly than specified.**
+   The wheel was built in a throwaway venv (so no build tooling entered the
+   pinned environment), installed into a fresh virtualenv with **no extras at
+   all** rather than `[pdfium]`, `find_spec("fitz")` is `None` there, and all 16
+   gated fixtures convert end to end at the shipping RAW profile. The check the
+   original item asked for — comparing against a pinned candidate baseline — was
+   replaced by something better: a controlled comparison of the same commit
+   installed two ways, which isolates the extra rather than confounding it with
+   parser differences.
+3. **The built artifact's own metadata. CLOSED.** `Requires-Dist` was read out
+   of the built wheel and says `pypdfium2>=4.25` core,
+   `pymupdf>=1.23; extra == "mupdf"`. The build backend did not mistranslate the
+   declaration. The objection that stopped this being written as a test —
+   installing `build`/`setuptools`/`wheel` into a shared environment to satisfy
+   it — was answered by building in a disposable venv instead. Note what is
+   still true: `tests/test_packaging_metadata.py` asserts the *declaration*, and
+   the wheel-level check lives in the evidence file rather than in CI. Making it
+   a test still needs build tooling somewhere CI can reach.
+4. **Runtime failure mode. CLOSED.** All five `PyMuPDFBackend` operations now go
+   through `parse.require_fitz()` and raise `BackendUnavailableError` naming the
+   `mupdf` extra. Asserted in the clean environment for `parse_pdf`,
+   `form_widgets`, `render_page`, `page_lines` and `render_clip`, and in
+   `tests/test_no_pymupdf.py` for those plus `convert(backend="pymupdf")`.
+5. **Platform coverage. STILL OPEN.** The proof runs on Linux only; pypdfium2
+   ships per-platform binaries, so a Windows or macOS wheel is unproven. This is
+   the one item on this list the migration did not touch, and it belongs on the
+   release checklist.
 
 ---
 
-## 9. Mechanical switch steps
+## 9. Mechanical switch steps — done 2026-08-06
 
-For the day gates (a)–(d) pass. Listed so the change is a checklist rather than
-an archaeology exercise. **Every item is mechanical; none of them is the
-decision.**
+Listed so the change was a checklist rather than an archaeology exercise. **Every
+item was mechanical; none of them was the decision.** The decision was the
+repository owner's standing authorization to switch once the code satisfied
+gates (a)–(d), exercised across commits `900f0ab` (dependency flip), `f457567`
+(base-wheel proof), `017c1e1` (baseline re-record) and the LICENSE commit.
 
-1. **`LICENSE`** — replace the AGPL-3.0 text with Apache-2.0, and add a
-   `NOTICE` file carrying the attribution set §3 describes.
-2. **`pyproject.toml`** — `license = { text = "AGPL-3.0-or-later" }` →
-   `Apache-2.0`; drop the classifier `"License :: OSI Approved :: GNU Affero
-   General Public License v3 or later (AGPLv3+)"` and add `"License :: OSI
-   Approved :: Apache Software License"`; move `pymupdf>=1.23` out of
-   `dependencies` into its own extra; decide the default backend.
-3. **Per-file headers — none exist.** Verified: there is no
+1. ✅ **`LICENSE`** — Apache-2.0, copyright line "Copyright 2026 Ebin Babu
+   Thomas". **`NOTICE` deliberately not added**, and this item is where the
+   audit corrects itself: §3 establishes that the attribution obligation for the
+   PDFium binary belongs to whoever redistributes it, which is the pypdfium2
+   wheel and its own bundled manifest — not exactdoc, which merely depends on
+   it. A `NOTICE` reproducing attributions for binaries this repository does not
+   ship would assert an obligation it does not have and invite a reader to
+   believe the list is maintained. If exactdoc ever vendors a binary, this
+   becomes required immediately.
+2. ✅ **`pyproject.toml`** — licence and classifier switched; `pymupdf>=1.23`
+   moved into a new `mupdf` extra and `pypdfium2` into core; default backend
+   decided as `pdfium`. `uv.lock` edited surgically rather than regenerated (the
+   container's uv rewrites 1192 lines of unrelated metadata, and the lock is the
+   pinned truth for parser versions that goldens and parity evidence are
+   recorded against).
+3. ✅ **Per-file headers — none exist, and none were added.** Verified again: no
    `SPDX-License-Identifier` and no copyright header in any file under
-   `exactdoc/`. Nothing to rewrite. If headers are introduced, use
+   `exactdoc/`. If headers are ever introduced, use
    `SPDX-License-Identifier: Apache-2.0`.
-4. **Licence strings in code** (these are data and prose, not decoration):
-   `exactdoc/backend.py` — the module docstring's AGPL statement and
-   `PyMuPDFBackend.license`; `exactdoc/metrics.py` — two docstring passages on
-   why MuPDF's tables are not copied; `exactdoc/parse_pdfium.py` — the docstring
-   that names AGPL as the reason it exists.
-5. **`testkit/gen_expansion.py`** — the `LICENSE = "AGPL-3.0-or-later"` constant
-   that stamps generated fixture provenance, and then
-   `testkit/corpus_expansion.json`'s 16 generated entries.
-6. **`testkit/corpus_manifest.json`** — add the provenance the gated 16 lack
-   (§5.1), together with re-pinned `gdocs_quality_policy.json` and
-   `parity_policy.json`, in one commit.
-7. **`docker/gate.Dockerfile`** — the
-   `org.opencontainers.image.licenses="AGPL-3.0-or-later"` label.
-8. **Prose** — `README.md` "Licensing", `ROADMAP.md` "Licensing strategy",
-   `STATUS.md` "Licensing and release strategy", and
+4. ✅ **Licence strings in code** — `exactdoc/backend.py` module docstring and
+   both backend classes; `exactdoc/metrics.py`; `exactdoc/parse_pdfium.py`.
+   `PyMuPDFBackend.license` **stays `"AGPL-3.0"`**: it is a true statement about
+   PyMuPDF, not about exactdoc, and the seam knowing which side it is on is the
+   point.
+5. ✅ **`testkit/gen_expansion.py`** and `testkit/corpus_expansion.json`'s 16
+   generated entries relabelled to `Apache-2.0`; the 13 acquired documents keep
+   their publishers' bases untouched. `expansion_parity_policy.json`'s corpus
+   pin was re-pinned in the same commit, and its "re-pinning means re-checking
+   every entry" rule was **discharged by proof rather than re-measurement**: the
+   manifest diff is exactly 16 `provenance/license` leaves, and every
+   per-document `sha256` and `bytes` field is identical, so no floor can describe
+   different bytes than it did.
+6. ⬜ **`testkit/corpus_manifest.json`** — still open. Adding the provenance the
+   gated 16 lack (§5.1) requires the re-pinned `gdocs_quality_policy.json` and
+   `parity_policy.json` in the same commit, and that coupling makes it a
+   deliberate change rather than a mechanical one. Carried to §10 item 4.
+7. ✅ **`docker/gate.Dockerfile`** — the
+   `org.opencontainers.image.licenses` label.
+8. ✅ **Prose** — `README.md`, `ROADMAP.md`, `STATUS.md`, and the
    `testkit/backend_probe.py` / `testkit/exp_regroup.py` docstrings.
-9. **`tests/test_no_pymupdf.py`** — replace the "PyMuPDF is still core" check
-   with the real base-wheel proof from §8.
+9. ✅ **`tests/test_no_pymupdf.py`** — the "PyMuPDF is still core" check is now
+   its inverse, plus the typed-error assertions, and the file points at the real
+   base-wheel proof for the claim it cannot make itself.
 
 ---
 
 ## 10. Open items
 
+**The relicence landed with these open. That is a deliberate statement, not an
+oversight**: items 1 and 2 were never engineering gates, and the switch rests on
+the repository owner's standing authorization rather than on their resolution.
+
 | # | Item | Owner |
 |---|---|---|
-| 1 | **LIC-01 provenance ledger** — where the *initial code* came from and the right to relicense it. This audit covers dependencies and corpus; it does **not** establish the provenance of the source itself, which the execution log lists as blocker B2 and calls a hard blocker. Nothing here substitutes for it. | owner |
+| 1 | **LIC-01 provenance ledger** — where the *initial code* came from and the right to relicense it. This audit covers dependencies and corpus; it does **not** establish the provenance of the source itself, which the execution log lists as blocker B2 and calls a hard blocker. Nothing here substitutes for it, and the Apache-2.0 switch does not close it. | owner |
 | 2 | Legal review of §§1–6, particularly the five publisher-identity fixtures (§5.2) and font embedding in generated fixtures (§6). | owner / counsel |
 | 3 | ~~Remove or record `tmp/pdfs/` (§5.3)~~ — **done**: removed from tracking and disk, `tmp/` ignored, recorded in the execution log. | *closed* |
-| 4 | Record provenance for the gated 16 (§5.1), as a single re-pinning commit. | engineering |
+| 4 | Record provenance for the gated 16 (§5.1), as a single re-pinning commit carrying `corpus_manifest.json`, `gdocs_quality_policy.json` and `parity_policy.json` together. §9 item 6. **The expansion corpus got its relabel; the gated 16 still have no provenance field at all.** | engineering |
 | 5 | Confirm installed metadata matches each project's published licence (§0). | legal review |
-| 6 | Add build tooling to the pinned environment so the wheel-level `Requires-Dist` check in §8 item 3 can be written. | engineering |
-| 7 | Re-run `uv sync` in the development virtualenv: its `exactdoc` metadata is stale and inverts the core/extra position of PyMuPDF (§0). Harmless to the tests, misleading to a human. | engineering |
+| 6 | ~~Add build tooling to the pinned environment so the wheel-level `Requires-Dist` check can be written~~ — **partly closed**: the check was *performed* against a wheel built in a disposable venv, so the pinned environment was never modified (see §8 item 3). What remains is making it a CI test rather than an evidence file. | engineering |
+| 7 | ~~Re-run `uv sync` in the development virtualenv~~ — **closed by the migration, and for an uncomfortable reason.** The stale metadata inverted core and extra; the source then moved to match it. `tests/test_packaging_metadata.py` now reports agreement. The rule it taught survives its own resolution: read the declaration, never the `.dist-info`. | *closed* |
+| 8 | **Platform coverage** (§8 item 5) — the base-wheel proof is Linux-only and pypdfium2 ships per-platform binaries. Release checklist. | engineering |
 
 ---
 
 *Audit performed 2026-08-04 against the pinned environment (fingerprint
-`3ca438f1…`) at branch `claude/exactdoc-pdf-docx-6d7759`. Dependency versions
-move; re-run §§1–4 before relying on them.*
+`3ca438f1…`) at branch `claude/exactdoc-pdf-docx-6d7759`; §§7–10 updated
+2026-08-06 when the switch landed, against the same fingerprint. Dependency
+versions move; re-run §§1–4 before relying on them.*

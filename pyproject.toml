@@ -8,7 +8,7 @@ version = "0.1.0a1"
 description = "High-fidelity PDF to DOCX that survives Google Docs, with a render-back diff that proves it"
 readme = "README.md"
 requires-python = ">=3.9"
-license = { text = "AGPL-3.0-or-later" }
+license = { text = "Apache-2.0" }
 authors = [{ name = "Ebin Babu Thomas" }]
 keywords = [
     "pdf", "docx", "pdf-to-docx", "pdf-to-word", "google-docs",
@@ -18,7 +18,7 @@ keywords = [
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+    "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
     "Topic :: Text Processing :: Markup",
     "Topic :: Office/Business :: Office Suites",

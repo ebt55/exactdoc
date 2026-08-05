@@ -1,7 +1,8 @@
 """PDF -> IR parser built on pypdfium2 (Apache-2.0 / BSD-3).
 
-The permissive replacement for parse.py. exactdoc is AGPL only because
-PyMuPDF is; this module exists so the project can relicense.
+The shipping parser, and the permissive replacement for parse.py. exactdoc was
+AGPL only because PyMuPDF was a core dependency; this module is what let the
+project relicense to Apache-2.0, which it did on 2026-08-06.
 
 PDFium exposes glyphs, not documents: characters with a font, a size, a colour
 and a box, and nothing that says which of them form a word, a line or a

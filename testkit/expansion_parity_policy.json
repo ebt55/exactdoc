@@ -29,9 +29,10 @@
  "candidate_backend": "pdfium",
  "corpus": {
   "_note": "Pinned by content, not by name. A corpus that has moved invalidates every floor measured over it, so the reader refuses rather than comparing against numbers that describe other bytes. Re-pinning means re-checking every entry, which is the point.",
+  "_repin_2026_08_06": "Re-pinned for the Apache-2.0 migration, and the re-check the note above demands was DISCHARGED BY PROOF rather than by re-measurement. The manifest's diff against the previous pin is exactly 16 differing leaves, every one of them `documents/<doc>/provenance/license` moving AGPL-3.0-or-later -> Apache-2.0 on a fixture this repository generated. Every per-document `sha256` and `bytes` field is identical across all 29 documents, so the FIXTURE BYTES each floor below was measured over are unchanged and no recorded number can now describe different bytes than it did. Re-measuring would have been theatre: the inputs did not move. Previous pin: 446ce8a3bed802cd6e4d2a5cd15575e3b01d8cf7e7b5106e1b52f2af6284aa20. The 13 acquired documents keep their publishers' bases untouched -- those are not ours to relabel.",
   "documents": 29,
   "name": "corpus_expansion.json",
-  "sha256": "446ce8a3bed802cd6e4d2a5cd15575e3b01d8cf7e7b5106e1b52f2af6284aa20"
+  "sha256": "b8b2bf76816bd641169d5070c7b6262056f1375a3fddbc68158c2dfd150cce15"
  },
  "gating": false,
  "profiles": {

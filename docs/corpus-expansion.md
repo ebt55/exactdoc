@@ -264,7 +264,7 @@ such field and does not gain one.
     "origin": "generated",
     "recipe": "testkit/gen_expansion.py::x01_lo_memo_pageno",
     "source_url": null,
-    "license": "AGPL-3.0-or-later",
+    "license": "Apache-2.0",
     "acquired": "2026-08-04",
     "toolchain": "exactdoc-gate:dev / LibreOffice 24.2.7.2 / Chrome 149.0.7827.55 / Python 3.12.3"
   }

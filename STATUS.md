@@ -411,16 +411,39 @@ evidence.
 
 ## Licensing and release strategy
 
-The project is AGPL-3.0-or-later today. PyMuPDF is core, which is the current
-licensing blocker. PDFium is optional and is the migration path, not proof that
-the switch is ready.
+**The project is Apache-2.0 as of 2026-08-06.** PDFium via pypdfium2 is the core
+dependency and the shipping backend; PyMuPDF moved to an optional `mupdf` extra
+and is still the reference arm every parity measurement is written against. A
+default `pip install exactdoc` resolves eight packages, none carrying a copyleft
+term. Apache-2.0 was chosen because its patent grant and business-friendly terms
+better suit the intended distribution.
 
-Apache-2.0 is the preferred future target because its patent grant and
-business-friendly terms better suit the intended distribution. It remains
-contingent on removing PyMuPDF from the core/default path, expanded PDFium
-parity and two clean Google passes, plus dependency/provenance/license audit
-(including bundled PDFium dependencies) and appropriate legal review. This is
-project strategy, not legal advice.
+All four migration gates were met before the switch: expanded same-profile
+parity ratified with zero unratified findings (`a3dd2ef`), two clean consented
+Google Docs passes, the base-wheel proof
+([docs/evidence/base-wheel-proof-2026-08-06.json](docs/evidence/base-wheel-proof-2026-08-06.json)),
+and the dependency/provenance/licence audit
+([docs/license-audit.md](docs/license-audit.md)).
+
+**Three things the switch did not do, listed here because a completed migration
+is exactly where they would otherwise vanish:**
+
+1. **No legal review has happened**, and LIC-01 — the provenance of the initial
+   source itself and the right to relicense it — is untouched and still called a
+   hard blocker. Apache-2.0 in `LICENSE` does not settle either. This is project
+   strategy, not legal advice.
+2. **The default install is measurably worse than a `[mupdf]` one.** The quality
+   ladder is on by default and needs base-14 text metrics that only MuPDF
+   supplies in this tree, so a base wheel runs an inert ladder: `c1_whitepaper`
+   raw-lane `within2pt` returns to 0.0000 and `dy_p50` to 13.49 (against 0.1031
+   and 2.00 with the extra), `l1_word_native` `dy_p50` 3.31 → 11.04, `c4_i18n`
+   `within2pt` 0.4397 → 0.3017. The other 13 documents are identical. c1 is the
+   standing exemplar for the ordinary-document release bar, so this is a release
+   blocker in all but name; the fix is a permissive shaper in
+   `exactdoc/metrics.py`.
+3. **The canonical numbers describe the `[mupdf]` configuration**, because the
+   measurement container installs the extra to run the parity reference arm, and
+   `profile_id` carries no text-metrics axis to say so.
 
 ## Reproduce safely
 

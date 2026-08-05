@@ -197,10 +197,13 @@ keep, and not flatteringly:
   page and byte ceilings are enforced, but nothing rejects interactive form
   logic.
 
-### PDFium / Google Docs candidate — not shipping
+### The Google Docs profile — measured live, still not the shipping profile
 
-`pdfium/gdocs/none/refine0@240dpi` is the explicit non-shipping migration
-candidate. **Four** consented live Google qualifications ran on 2026-08-04, all
+`pdfium/gdocs/none/refine0@240dpi`. The parser in that name is now simply the
+default; what still makes this profile non-shipping is the pair of axes after
+it — Google-safe serialisation with the correction loop off.
+
+**Four** consented live Google qualifications ran on 2026-08-04, all
 operationally successful — 16/16 documents attempted and succeeded, zero
 failures, zero orphaned Drive objects — with blocking quality findings falling
 **11 → 4 → 3 → 1** across the day. The vertical-drift blockers were a 3pt
@@ -220,17 +223,20 @@ below the measured value, and it retires itself: if `01` reaches the bar unaided
 the waiver goes stale and blocks until it is deleted.
 
 Assessed against the fourth pass, the ratified policy returns `overall_pass:
-true` with zero blocking findings. **That is one clean pass. The migration gate
-asks for two, and the second must be a fresh consented run** — so this is
-progress toward a decision, not a release.
+true` with zero blocking findings, and a second fresh consented run made two
+clean passes — which is what the migration gate asked for.
 
-Same-profile PDFium/PyMuPDF parity is 7 regressions, 6 same, 3 better as raw
-measurement; adjudicated against the profile-bound policy that is no unwaived
-regressions and two tracked provisional findings, neither of them ratified —
-that is a separate file and a separate decision from the Google Docs quality
-policy above. The candidate is neither adopted nor releasable, and no policy
-here gets ratified merely to turn a gate green. See [STATUS.md](STATUS.md) for
-the full numbers.
+Same-profile PDFium/PyMuPDF parity is **ratified and closed**
+([docs/evidence/parity-expanded-2026-08-05f.json](docs/evidence/parity-expanded-2026-08-05f.json)),
+which is what let the parser default change. Four findings sit at the shipping
+profile — `02_research_paper` and `03_tech_report_code` (within-2pt and drift),
+`r1_reportlab_report` (within-2pt), and `c4_i18n` (complex-script runs becoming
+raster, a D10 shortfall). Those four are why the gate baseline moved, and all of
+them were measured and adjudicated *before* the swap, against Google's own
+exports rather than the LibreOffice proxy. **No policy here was ratified merely
+to turn a gate green**, and a ratified finding is not a fixed one: each stays
+floored in both directions, and clearing one entirely still fails as a stale
+record. See [STATUS.md](STATUS.md) for the full numbers.
 
 Google qualification is separate, two-step and consent-gated:
 
@@ -242,20 +248,36 @@ python testkit/gdocs_oracle.py assess <gdocs_qualification.json> # re-assess wit
 
 ## Licensing
 
-exactdoc is [AGPL-3.0-or-later](LICENSE) today because PyMuPDF is core. The
-preferred future target is Apache-2.0, but not yet: PyMuPDF must first be absent
-from the core/default path, and the project needs a dependency, provenance, and
-license audit (including bundled PDFium dependencies). pypdfium2/PDFium are
-liberally licensed, but that alone does not settle distribution obligations.
-The author being the sole project author does not remove third-party obligations.
-This is project strategy, not legal advice.
+**exactdoc is [Apache-2.0](LICENSE).** A default `pip install exactdoc` resolves
+eight packages and none of them carries a copyleft term — the shipping PDF
+parser is PDFium via pypdfium2 (Apache-2.0/BSD-3).
 
-[docs/license-audit.md](docs/license-audit.md) is the first pass at that audit:
+**The optional `[mupdf]` extra pulls in PyMuPDF, which is AGPL-3.0-or-later.**
+Installing it changes your obligations for anything you distribute. Nothing
+installs it for you and nothing needs it to convert a PDF: it exists because it
+is the independent reference arm every parity measurement is written against,
+and because it is the only source in this tree of the base-14 text metrics the
+quality ladder shapes with. Asking for `backend="pymupdf"` without the extra
+raises a typed error naming it rather than failing obscurely.
+
+That distinction is verified rather than asserted. `tests/test_no_pymupdf.py`
+makes `fitz` unimportable and converts the corpus through the shipping profile
+anyway, and
+[docs/evidence/base-wheel-proof-2026-08-06.json](docs/evidence/base-wheel-proof-2026-08-06.json)
+goes further: it builds the wheel, installs it into a virtualenv that never had
+PyMuPDF, and records the package list, the conversions and the test run there.
+It also records the honest cost — without the extra the quality ladder is inert,
+which is measurably worse on three of the sixteen gated documents.
+
+[docs/license-audit.md](docs/license-audit.md) is the audit the switch rests on:
 every dependency licence read from installed metadata, the 16 components inside
-the PDFium binary, the redistribution basis of all 47 committed corpus PDFs, and
-the four migration gates as a live status table. Its finding is that PyMuPDF is
-the only code-licence blocker in the dependency graph — which narrows the work
-without doing it.
+the PDFium binary (including the AGG 2.3-vs-2.4 question, which had to be
+checked rather than recalled), the redistribution basis of every committed
+corpus PDF, and the four migration gates. **Its open items did not close with
+the migration** — in particular the provenance of the source itself, and legal
+review of the corpus bases — and neither did the fact that this is engineering
+work rather than legal advice. Sole authorship removes no third-party
+obligation.
 
 ## Verification
 

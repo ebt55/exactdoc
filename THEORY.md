@@ -521,6 +521,22 @@ Do these first:
    until it lands, **do not accept external contributions to `parse.py`**:
    relicensing needs every contributor's consent, and the swap is confined to
    that one module, so contributions anywhere else cost nothing.
+
+   > **Landed, 2026-08-06.** exactdoc is Apache-2.0; PDFium ships and PyMuPDF is
+   > the optional `mupdf` extra. Two corrections this passage earns.
+   >
+   > "Held to not-worse" was the right instinct and the wrong bar, and it was
+   > not met literally: four ratified findings at the shipping profile made the
+   > aggregate slightly worse, and they were adjudicated as an acceptable price
+   > *before* the swap rather than argued away after it
+   > (`docs/evidence/parser-default-flip-2026-08-06.json`). A rule that admits
+   > no priced exceptions gets quietly reinterpreted instead of applied.
+   >
+   > "The port is correct when it reproduces the frozen golden IR" was
+   > **abandoned**, and `exactdoc/backend.py` records why in full: the golden
+   > moves with PyMuPDF's own releases, so it cannot be a specification. The
+   > parity gate is the contract; the golden IR is a microscope for locating
+   > disagreements.
 2. Package properly: `pyproject.toml`, console entry point, pinned deps,
    `pip install exactdoc`.
 3. CI: run the corpus + a WeasyPrint sample through the verification loop and

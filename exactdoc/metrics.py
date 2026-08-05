@@ -19,8 +19,8 @@ Where a caller genuinely needs to shape text that has no source line -- the
 ladder's greedy first-fit over words, predicting a re-wrap that by definition did
 not occur in the source -- there is no permissive answer available in this tree.
 MuPDF's base-14 tables are not copied here: they are AGPL, they are measurably
-version-dependent (STATUS §5), and vendoring them would defeat the point of the
-licence work. So `NullMetrics` reports "unmeasurable", every caller already has
+version-dependent (STATUS §5), and vendoring them into an Apache-2.0 package
+would undo the licence work rather than complete it. So `NullMetrics` reports "unmeasurable", every caller already has
 that path because a non-base-14 font always produced it, and they degrade to
 doing nothing rather than to guessing.
 

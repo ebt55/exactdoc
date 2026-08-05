@@ -6,7 +6,7 @@
    "dialect": "libreoffice",
    "provenance": {
     "acquired": "2026-08-04",
-    "license": "AGPL-3.0-or-later",
+    "license": "Apache-2.0",
     "origin": "generated",
     "recipe": "testkit/gen_expansion.py::x01_lo_memo_pageno",
     "source_url": null,
@@ -23,7 +23,7 @@
    "dialect": "libreoffice",
    "provenance": {
     "acquired": "2026-08-04",
-    "license": "AGPL-3.0-or-later",
+    "license": "Apache-2.0",
     "origin": "generated",
     "recipe": "testkit/gen_expansion.py::x02_lo_report_toc",
     "source_url": null,
@@ -40,7 +40,7 @@
    "dialect": "libreoffice",
    "provenance": {
     "acquired": "2026-08-04",
-    "license": "AGPL-3.0-or-later",
+    "license": "Apache-2.0",
     "origin": "generated",
     "recipe": "testkit/gen_expansion.py::x03_lo_lists_nested",
     "source_url": null,
@@ -57,7 +57,7 @@
    "dialect": "libreoffice",
    "provenance": {
     "acquired": "2026-08-04",
-    "license": "AGPL-3.0-or-later",
+    "license": "Apache-2.0",
     "origin": "generated",
     "recipe": "testkit/gen_expansion.py::x04_lo_tables_plain",
     "source_url": null,
@@ -74,7 +74,7 @@
    "dialect": "libreoffice",
    "provenance": {
     "acquired": "2026-08-04",
-    "license": "AGPL-3.0-or-later",
+    "license": "Apache-2.0",
     "origin": "generated",
     "recipe": "testkit/gen_expansion.py::x05_lo_quotes_notes",
     "source_url": null,
@@ -91,7 +91,7 @@
    "dialect": "libreoffice",
    "provenance": {
     "acquired": "2026-08-04",
-    "license": "AGPL-3.0-or-later",
+    "license": "Apache-2.0",
     "origin": "generated",
     "recipe": "testkit/gen_expansion.py::x06_lo_euro_scripts",
     "source_url": null,
@@ -108,7 +108,7 @@
    "dialect": "chromium",
    "provenance": {
     "acquired": "2026-08-04",
-    "license": "AGPL-3.0-or-later",
+    "license": "Apache-2.0",
     "origin": "generated",
     "recipe": "testkit/gen_expansion.py::x07_chrome_memo_running",
     "source_url": null,
@@ -125,7 +125,7 @@
    "dialect": "chromium",
    "provenance": {
     "acquired": "2026-08-04",
-    "license": "AGPL-3.0-or-later",
+    "license": "Apache-2.0",
     "origin": "generated",
     "recipe": "testkit/gen_expansion.py::x08_chrome_print_default",
     "source_url": null,
@@ -142,7 +142,7 @@
    "dialect": "chromium",
    "provenance": {
     "acquired": "2026-08-04",
-    "license": "AGPL-3.0-or-later",
+    "license": "Apache-2.0",
     "origin": "generated",
     "recipe": "testkit/gen_expansion.py::x09_chrome_lists_nested",
     "source_url": null,
@@ -159,7 +159,7 @@
    "dialect": "chromium",
    "provenance": {
     "acquired": "2026-08-04",
-    "license": "AGPL-3.0-or-later",
+    "license": "Apache-2.0",
     "origin": "generated",
     "recipe": "testkit/gen_expansion.py::x10_chrome_tables_plain",
     "source_url": null,
@@ -176,7 +176,7 @@
    "dialect": "chromium",
    "provenance": {
     "acquired": "2026-08-04",
-    "license": "AGPL-3.0-or-later",
+    "license": "Apache-2.0",
     "origin": "generated",
     "recipe": "testkit/gen_expansion.py::x11_chrome_toc_headings",
     "source_url": null,
@@ -193,7 +193,7 @@
    "dialect": "chromium",
    "provenance": {
     "acquired": "2026-08-04",
-    "license": "AGPL-3.0-or-later",
+    "license": "Apache-2.0",
     "origin": "generated",
     "recipe": "testkit/gen_expansion.py::x12_chrome_euro_scripts",
     "source_url": null,
@@ -210,7 +210,7 @@
    "dialect": "reportlab",
    "provenance": {
     "acquired": "2026-08-04",
-    "license": "AGPL-3.0-or-later",
+    "license": "Apache-2.0",
     "origin": "generated",
     "recipe": "testkit/gen_expansion.py::x13_rl_report_running",
     "source_url": null,
@@ -227,7 +227,7 @@
    "dialect": "reportlab",
    "provenance": {
     "acquired": "2026-08-04",
-    "license": "AGPL-3.0-or-later",
+    "license": "Apache-2.0",
     "origin": "generated",
     "recipe": "testkit/gen_expansion.py::x14_rl_statement_lines",
     "source_url": null,
@@ -244,7 +244,7 @@
    "dialect": "reportlab",
    "provenance": {
     "acquired": "2026-08-04",
-    "license": "AGPL-3.0-or-later",
+    "license": "Apache-2.0",
     "origin": "generated",
     "recipe": "testkit/gen_expansion.py::x15_rl_handbook_toc",
     "source_url": null,
@@ -261,7 +261,7 @@
    "dialect": "fpdf2",
    "provenance": {
     "acquired": "2026-08-04",
-    "license": "AGPL-3.0-or-later",
+    "license": "Apache-2.0",
     "origin": "generated",
     "recipe": "testkit/gen_expansion.py::x16_fpdf_bulletin",
     "source_url": null,

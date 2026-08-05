@@ -17,9 +17,9 @@ If hybrid scores like pymupdf, grouping is the entire cause and the remaining
 port work is `_build_blocks` alone. If it scores like pdfium, something outside
 both geometry and grouping is at fault and the port needs a different search.
 
-The hybrid is a MEASUREMENT DEVICE, not a candidate implementation -- it runs
-both parsers, so it inherits AGPL and buys nothing. Its only job is to split
-the difference between two hypotheses.
+The hybrid is a MEASUREMENT DEVICE, not a shippable implementation -- it runs
+both parsers, so it needs the AGPL `mupdf` extra and buys nothing a user could
+install. Its only job is to split the difference between two hypotheses.
 
     python testkit/exp_regroup.py
     python testkit/exp_regroup.py --refine 3
