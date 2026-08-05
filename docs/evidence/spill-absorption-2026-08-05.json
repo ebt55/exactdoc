@@ -1,0 +1,464 @@
+{
+ "_note": "Before/after for the page-spill absorption in docxout. `before` is the e5e7f30 writer, `after` is the same tree with the absorption live; both measured in the canonical container with the same corpus and profile. The expansion corpus gates nothing and parity_policy.json governs none of it -- this record is a measurement, not an authorisation.",
+ "adjudicated": false,
+ "candidate_profile_id": "pdfium/gdocs/none/refine0@240dpi",
+ "corpus": "corpus_expansion.json",
+ "documents": {
+  "y01_nist_sp80063b.pdf": {
+   "pdfium": {
+    "pages": {
+     "rendered_after": 107,
+     "rendered_before": 114,
+     "spill_after": 9,
+     "spill_before": 15,
+     "src": 80,
+     "thin_after": 33,
+     "thin_before": 40
+    },
+    "parity": {
+     "doc_recall": {
+      "after": 0.9286,
+      "before": 0.9286
+     },
+     "dy_p50": {
+      "after": 55.56,
+      "before": 54.98
+     },
+     "live_text_cov": {
+      "after": 0.916,
+      "before": 0.916
+     },
+     "page_err": {
+      "after": 27,
+      "before": 34
+     },
+     "raster_frac": {
+      "after": 0.084,
+      "before": 0.084
+     },
+     "within2pt": {
+      "after": 0.0008,
+      "before": 0.0004
+     },
+     "word_recall": {
+      "after": 0.1938,
+      "before": 0.174
+     }
+    },
+    "predicate": {
+     "fires": 9,
+     "fits": 57,
+     "no_slack": 1,
+     "pages": 80,
+     "too_big": 2,
+     "unpredictable": 11,
+     "window": 10
+    }
+   },
+   "pymupdf": {
+    "pages": {
+     "rendered_after": 102,
+     "rendered_before": 105,
+     "spill_after": 8,
+     "spill_before": 11,
+     "src": 80,
+     "thin_after": 27,
+     "thin_before": 30
+    },
+    "parity": {
+     "doc_recall": {
+      "after": 0.9323,
+      "before": 0.9323
+     },
+     "dy_p50": {
+      "after": 59.45,
+      "before": 57.13
+     },
+     "live_text_cov": {
+      "after": 0.9168,
+      "before": 0.9168
+     },
+     "page_err": {
+      "after": 22,
+      "before": 25
+     },
+     "raster_frac": {
+      "after": 0.0832,
+      "before": 0.0832
+     },
+     "within2pt": {
+      "after": 0.0002,
+      "before": 0.0004
+     },
+     "word_recall": {
+      "after": 0.1935,
+      "before": 0.1946
+     }
+    },
+    "predicate": {
+     "fires": 3,
+     "fits": 65,
+     "no_slack": 0,
+     "pages": 80,
+     "too_big": 2,
+     "unpredictable": 10,
+     "window": 3
+    }
+   },
+   "verdict": {
+    "after": "MAJOR",
+    "before": "MAJOR"
+   }
+  },
+  "y02_nist_sp800171r2.pdf": {
+   "pdfium": {
+    "pages": {
+     "rendered_after": 161,
+     "rendered_before": 162,
+     "spill_after": 29,
+     "spill_before": 30,
+     "src": 114,
+     "thin_after": 46,
+     "thin_before": 47
+    },
+    "parity": {
+     "doc_recall": {
+      "after": 0.9069,
+      "before": 0.9069
+     },
+     "dy_p50": {
+      "after": 57.96,
+      "before": 57.24
+     },
+     "live_text_cov": {
+      "after": 0.87,
+      "before": 0.87
+     },
+     "page_err": {
+      "after": 47,
+      "before": 48
+     },
+     "raster_frac": {
+      "after": 0.13,
+      "before": 0.13
+     },
+     "within2pt": {
+      "after": 0.0011,
+      "before": 0.0011
+     },
+     "word_recall": {
+      "after": 0.2038,
+      "before": 0.2032
+     }
+    },
+    "predicate": {
+     "fires": 38,
+     "fits": 50,
+     "no_slack": 2,
+     "pages": 114,
+     "too_big": 16,
+     "unpredictable": 8,
+     "window": 40
+    }
+   },
+   "pymupdf": {
+    "pages": {
+     "rendered_after": 167,
+     "rendered_before": 173,
+     "spill_after": 29,
+     "spill_before": 35,
+     "src": 114,
+     "thin_after": 53,
+     "thin_before": 59
+    },
+    "parity": {
+     "doc_recall": {
+      "after": 0.9121,
+      "before": 0.9121
+     },
+     "dy_p50": {
+      "after": 56.07,
+      "before": 56.61
+     },
+     "live_text_cov": {
+      "after": 0.8768,
+      "before": 0.8768
+     },
+     "page_err": {
+      "after": 53,
+      "before": 59
+     },
+     "raster_frac": {
+      "after": 0.1232,
+      "before": 0.1232
+     },
+     "within2pt": {
+      "after": 0.0014,
+      "before": 0.0009
+     },
+     "word_recall": {
+      "after": 0.1984,
+      "before": 0.191
+     }
+    },
+    "predicate": {
+     "fires": 35,
+     "fits": 64,
+     "no_slack": 2,
+     "pages": 114,
+     "too_big": 6,
+     "unpredictable": 7,
+     "window": 37
+    }
+   },
+   "verdict": {
+    "after": "minor",
+    "before": "minor"
+   }
+  },
+  "y03_nist_fips197.pdf": {
+   "pdfium": {
+    "pages": {
+     "rendered_after": 75,
+     "rendered_before": 76,
+     "spill_after": 8,
+     "spill_before": 9,
+     "src": 46,
+     "thin_after": 28,
+     "thin_before": 29
+    },
+    "parity": {
+     "doc_recall": {
+      "after": 0.9142,
+      "before": 0.9142
+     },
+     "dy_p50": {
+      "after": 77.04,
+      "before": 86.79
+     },
+     "live_text_cov": {
+      "after": 0.9204,
+      "before": 0.9204
+     },
+     "page_err": {
+      "after": 29,
+      "before": 30
+     },
+     "raster_frac": {
+      "after": 0.0796,
+      "before": 0.0796
+     },
+     "within2pt": {
+      "after": 0.0079,
+      "before": 0.0013
+     },
+     "word_recall": {
+      "after": 0.1456,
+      "before": 0.1166
+     }
+    },
+    "predicate": {
+     "fires": 6,
+     "fits": 21,
+     "no_slack": 0,
+     "pages": 46,
+     "too_big": 9,
+     "unpredictable": 10,
+     "window": 6
+    }
+   },
+   "pymupdf": {
+    "pages": {
+     "rendered_after": 64,
+     "rendered_before": 67,
+     "spill_after": 7,
+     "spill_before": 10,
+     "src": 46,
+     "thin_after": 23,
+     "thin_before": 26
+    },
+    "parity": {
+     "doc_recall": {
+      "after": 0.9607,
+      "before": 0.9607
+     },
+     "dy_p50": {
+      "after": 11.06,
+      "before": 67.53
+     },
+     "live_text_cov": {
+      "after": 0.9311,
+      "before": 0.9311
+     },
+     "page_err": {
+      "after": 18,
+      "before": 21
+     },
+     "raster_frac": {
+      "after": 0.0689,
+      "before": 0.0689
+     },
+     "within2pt": {
+      "after": 0.0106,
+      "before": 0.0069
+     },
+     "word_recall": {
+      "after": 0.4001,
+      "before": 0.2105
+     }
+    },
+    "predicate": {
+     "fires": 7,
+     "fits": 32,
+     "no_slack": 0,
+     "pages": 46,
+     "too_big": 2,
+     "unpredictable": 5,
+     "window": 7
+    }
+   },
+   "verdict": {
+    "after": "MAJOR",
+    "before": "MAJOR"
+   }
+  },
+  "y09_nist_sp800207.pdf": {
+   "pdfium": {
+    "pages": {
+     "rendered_after": 66,
+     "rendered_before": 71,
+     "spill_after": 2,
+     "spill_before": 5,
+     "src": 59,
+     "thin_after": 15,
+     "thin_before": 20
+    },
+    "parity": {
+     "doc_recall": {
+      "after": 0.9541,
+      "before": 0.9541
+     },
+     "dy_p50": {
+      "after": 62.49,
+      "before": 61.77
+     },
+     "live_text_cov": {
+      "after": 0.9473,
+      "before": 0.9473
+     },
+     "page_err": {
+      "after": 7,
+      "before": 12
+     },
+     "raster_frac": {
+      "after": 0.0527,
+      "before": 0.0527
+     },
+     "within2pt": {
+      "after": 0.0004,
+      "before": 0.0004
+     },
+     "word_recall": {
+      "after": 0.2368,
+      "before": 0.2464
+     }
+    },
+    "predicate": {
+     "fires": 11,
+     "fits": 43,
+     "no_slack": 1,
+     "pages": 59,
+     "too_big": 3,
+     "unpredictable": 1,
+     "window": 12
+    }
+   },
+   "pymupdf": {
+    "pages": {
+     "rendered_after": 65,
+     "rendered_before": 65,
+     "spill_after": 2,
+     "spill_before": 2,
+     "src": 59,
+     "thin_after": 12,
+     "thin_before": 12
+    },
+    "parity": {
+     "doc_recall": {
+      "after": 0.9569,
+      "before": 0.9569
+     },
+     "dy_p50": {
+      "after": 59.73,
+      "before": 59.73
+     },
+     "live_text_cov": {
+      "after": 0.9476,
+      "before": 0.9476
+     },
+     "page_err": {
+      "after": 6,
+      "before": 6
+     },
+     "raster_frac": {
+      "after": 0.0524,
+      "before": 0.0524
+     },
+     "within2pt": {
+      "after": 0.0009,
+      "before": 0.0009
+     },
+     "word_recall": {
+      "after": 0.2398,
+      "before": 0.2398
+     }
+    },
+    "predicate": {
+     "fires": 0,
+     "fits": 51,
+     "no_slack": 0,
+     "pages": 59,
+     "too_big": 3,
+     "unpredictable": 5,
+     "window": 0
+    }
+   },
+   "verdict": {
+    "after": "MAJOR",
+    "before": "MAJOR"
+   }
+  }
+ },
+ "environment_canonical": true,
+ "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+ "gate": {
+  "_note": "testkit/runall.py, both lanes, absorption live. Every scored row is byte-identical with the e5e7f30 baseline; only convert_s wall-clock moved.",
+  "product": {
+   "dy_p50": 0.675,
+   "live_text_cov": 0.9652,
+   "page_match": "16/16",
+   "verdict": "PASS",
+   "within2pt": 0.5161
+  },
+  "raw": {
+   "dy_p50": 2.79,
+   "live_text_cov": 0.9652,
+   "page_match": "14/16",
+   "verdict": "PASS",
+   "within2pt": 0.3349
+  },
+  "scored_rows_identical": true
+ },
+ "gated16_firing_set": {
+  "_note": "The predicate is offered every page of all sixteen gated documents at the shipping profile and fires on none of them.",
+  "documents": 16,
+  "profile_id": "pymupdf/standard/libreoffice/refine3@240dpi",
+  "total_firings": 0
+ },
+ "gating": false,
+ "ok": false,
+ "profile_id": "pdfium/gdocs/none/refine0@240dpi",
+ "reference_profile_id": "pymupdf/gdocs/none/refine0@240dpi",
+ "release_ready": false,
+ "schema": "exactdoc.spill-absorption-evidence.v1"
+}
