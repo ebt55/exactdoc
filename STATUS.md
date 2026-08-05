@@ -10,19 +10,37 @@ that every document meets release quality.
 The shipping product remains quality-first:
 
 ```text
-pymupdf/standard/libreoffice/refine3@240dpi
+pdfium/standard/libreoffice/refine3@240dpi
 ```
 
-`raw` is PyMuPDF/standard with the refinement loop off. PyMuPDF is core;
-PDFium is optional through `[pdfium]`.
+`raw` is PDFium/standard with the refinement loop off. **PDFium is core; PyMuPDF
+is optional through `[mupdf]`** — the licence migration landed 2026-08-06 and
+inverted that pair.
 
 | Canonical profile | Page match | Mean within 2pt | Mean live text | Median dy50 |
 |---|---:|---:|---:|---:|
-| product | 16/16 | 0.5161 | 0.9652 | 0.675pt |
-| raw | 14/16 | 0.3349 | 0.9652 | 2.79pt |
+| product | 16/16 | 0.5241 | 0.9588 | 1.15pt |
+| raw | 15/16 | 0.3471 | 0.9588 | 1.95pt |
 
-Measured 2026-08-04 in the canonical environment, fingerprint `3ca438f1…`; both
-lanes PASS. Evidence: `docs/evidence/canonical-gate-2026-08-04.json`.
+Measured 2026-08-06 in the canonical environment, fingerprint `3ca438f1…`; both
+lanes PASS. Evidence:
+`docs/evidence/parser-default-flip-2026-08-06.json`.
+
+**These numbers are the re-recorded baseline and are slightly worse than the
+pre-flip ones** (product `<2pt` 0.5389 → 0.5241, `dy50` 0.62 → 1.15; raw 0.3604
+→ 0.3471 and 1.975 → 1.95; page match unchanged in both lanes). The record was
+re-recorded because `profile_id` changed with the default parser, which makes
+the old one a description of a configuration nothing ships. All 32 per-document
+movements reproduce the ratified parity record to the digit, and a control
+confirmed the old parser still reproduces the old record exactly from this tree,
+so the movement is the parser and nothing else.
+
+**Two caveats these figures carry and cannot express.** The measurement
+environment installs the `[mupdf]` extra to run the parity reference arm, and
+the quality ladder needs that extra, so a default install produces different —
+worse — output on `c1_whitepaper`, `l1_word_native` and `c4_i18n`; see the
+licensing section below. And `profile_id` has no text-metrics axis, so nothing
+in the name above says which of the two configurations was measured.
 
 Product page match reached 16/16 on one document: the striped-table assembler
 took `c3_tables` from one page out to exact, and its word recall 0.331→0.9359
@@ -60,9 +78,42 @@ The project prioritises ordinary digital text, multi-column pages, common
 tables, and i18n. A rasterised figure can be the honest fallback for a designed
 region, but its text is counted as non-live by the quality metrics.
 
-## PDFium migration candidate — not shipping
+## Migration gates: all four MET, migration complete
 
-`PDFIUM_GDOCS_CANDIDATE` is the explicit non-shipping profile:
+| Gate | Status | Evidence |
+|---|---|---|
+| **(a)** expanded same-profile parity, no unratified regressions | **MET** 2026-08-05 | `docs/evidence/parity-expanded-2026-08-05f.json`, closed at commit `a3dd2ef`. Zero unratified findings across all four adjudication paths. |
+| **(b)** two clean consented full-corpus Google Docs passes | **MET** 2026-08-04 | Passes 4 and 5, both assessed clean under the ratified policy. |
+| **(c)** no-PyMuPDF / base-wheel proof | **MET** 2026-08-06 | `docs/evidence/base-wheel-proof-2026-08-06.json`. Wheel built from the flipped tree, installed into a virtualenv that never had PyMuPDF: 8 packages with no copyleft term, 25/25 modules importing, 16/16 gated fixtures converting, suite green (482 run, 46 skipped, 0 failed). The PyMuPDF seam is **empty**. |
+| **(d)** dependency, provenance and licence audit | **first pass** | `docs/license-audit.md`. §10 items 1, 2, 4, 5 and 8 remain open and did not close with the migration. |
+
+The migration itself is done: PDFium is the core parser and default backend,
+PyMuPDF is the optional `mupdf` extra, the gate baseline was re-recorded at the
+new profile identity, and the licence is Apache-2.0. Commits `900f0ab`,
+`f457567`, `017c1e1`, `160b831`.
+
+**Four of four gates is not a release**, and the remaining work is release work
+rather than migration work:
+
+1. **A post-flip live Google Docs qualification pass.** Gate (b)'s two clean
+   passes were measured on the pre-flip tree. The parser default has changed
+   since, and the standing rule here is that a gdocs-profile claim is never
+   promoted on LibreOffice-proxy evidence alone — so the live numbers must be
+   re-established against Google's own exports. Consent-gated, per pass.
+2. **`verify.py`.** Outstanding and unchanged by this work.
+3. **Packaging.** The wheel builds and installs correctly (gate (c) proves it),
+   but nothing is published, and the base-wheel proof is Linux-only while
+   pypdfium2 ships per-platform binaries.
+4. **A permissive text shaper**, so the quality ladder works without the AGPL
+   extra. See the licensing section: this is the sharpest of the four, because
+   without it the *default* install is worse than the measured one on the
+   exemplar document.
+
+## The Google Docs output profile — not shipping
+
+`PDFIUM_GDOCS_CANDIDATE` names the explicit non-shipping profile. The parser in
+that name is now simply the default; what makes the profile non-shipping is the
+pair of axes after it — Google-safe serialisation with the correction loop off:
 
 ```text
 pdfium/gdocs/none/refine0@240dpi

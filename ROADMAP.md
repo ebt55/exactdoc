@@ -80,7 +80,12 @@ filed: a missing 4pt accent bar and a ~2pt band-to-body gap.
 
 **Migration gate (b) is MET**: passes 4 and 5 both assess clean under the
 ratified policy, which is the two consecutive clean full-corpus passes the gate
-asks for. One gate of four is not a release.
+asks for. All four gates are now met and the migration has landed — **and four
+of four gates is still not a release.** The gates asked whether the parser could
+be swapped and the licence changed. They did not ask whether the product is
+ready, and three things below the line say it is not: the post-flip live
+qualification pass has not been run, `verify.py` is outstanding, and a default
+install runs an inert quality ladder.
 
 The **parity** policy is ratified as well (2026-08-04, DEC-D2, decided on the
 Google evidence rather than this LibreOffice proxy). Its two D10 findings —
@@ -204,7 +209,9 @@ candidate now matches page count on 15 of 16 fixtures, one better than the
 reference arm. Complex/nested tables and `c5_graphics` designed graphics remain
 explicit limitations; `c5_graphics` is a page out under both backends.
 
-The next migration decision requires all of:
+The migration decision required all of the following. **All four are met and the
+migration has landed** (2026-08-06, commits `900f0ab`, `f457567`, `017c1e1`,
+`160b831`):
 
 1. expanded same-profile parity with no unratified regressions — **MET**
    (2026-08-05, bound to `parity-expanded-2026-08-05f.json`). All four
@@ -215,19 +222,28 @@ The next migration decision requires all of:
    artifacts;
 2. two clean full-corpus Google Docs passes for the exact candidate, each after
    explicit upload consent — **MET**: passes 4 and 5;
-3. a no-PyMuPDF/base-wheel proof — **the remaining gate, and it is the flip
-   itself**: the isolation proof holds and the seam is one module
-   (`exactdoc/parse.py`), but a PyMuPDF-free *install* is impossible while
-   PyMuPDF is a core dependency, so this closes when the dependency moves;
+3. a no-PyMuPDF/base-wheel proof — **MET** (2026-08-06,
+   [docs/evidence/base-wheel-proof-2026-08-06.json](docs/evidence/base-wheel-proof-2026-08-06.json)).
+   The dependency moved, so the install this gate asks about became possible and
+   was then performed: a wheel built from the flipped tree, installed into a
+   virtualenv that never had PyMuPDF, 8 packages with no copyleft term, 25 of 25
+   modules importing, 16 of 16 gated fixtures converting to valid DOCX, and the
+   suite green there (482 run, 46 skipped, 0 failed). The seam is now **empty**
+   rather than one module, and asking for the absent backend raises a typed
+   error naming the `mupdf` extra;
 4. a dependency, provenance, and license audit — **first pass done**,
-   [docs/license-audit.md](docs/license-audit.md).
-
-Gates (a), (b) and (d) are met. (c) is the flip.
+   [docs/license-audit.md](docs/license-audit.md). Its §10 open items did not
+   close with the migration and are not claimed to have.
 
 The live status table lives in the audit; this list is the contract.
 
-Do not replace the shipping profile, regenerate golden/numeric evidence, or
-change licensing before those gates pass.
+**The rule this list guarded is spent, and one part of it still stands.** The
+shipping profile has been replaced and the numeric evidence re-recorded, once,
+deliberately, with every movement predicted in advance by the ratified parity
+record and checked against it before recording
+([docs/evidence/parser-default-flip-2026-08-06.json](docs/evidence/parser-default-flip-2026-08-06.json)).
+Do not do either again outside a decision of that kind — and in particular, never
+regenerate numeric evidence to silence a failure.
 
 ## Third: release only after quality gates
 
