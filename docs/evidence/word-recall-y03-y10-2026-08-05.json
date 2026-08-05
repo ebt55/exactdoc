@@ -1,0 +1,122 @@
+{
+ "schema": "exactdoc.word-recall-ratification.v1",
+ "gating": false,
+ "adjudicated": false,
+ "ok": false,
+ "release_ready": false,
+ "_note": "Task #27, fix-or-ratify for word_recall on y03_nist_fips197 and y10_nist_fips180. No code changed by this record. Measured in the canonical container at 63ca9e1. A measurement and a proposed ratification, not an authorisation.",
+ "measured_at": "63ca9e1",
+ "corpus": "corpus_expansion.json (non-gating)",
+ "candidate_profile_id": "pdfium/gdocs/none/refine0@240dpi",
+ "reference_profile_id": "pymupdf/gdocs/none/refine0@240dpi",
+
+ "attribution_of_the_y03_movement": {
+  "_note": "Asked first, because a drop that has to be explained and a gap that has always been there are different objects.",
+  "finding": "There is no candidate drop to attribute. `0.40 -> 0.14` is the REFERENCE's current word_recall against the CANDIDATE's current word_recall -- a cross-arm gap at one instant, not a time series. The -05b record states the cause itself, in the same row: `\"cause\": \"reference improved\"`, with reference_was 0.2105 and reference_now 0.4001.",
+  "candidate_series_measured": {
+   "_method": "exactdoc/ swapped per commit, testkit/ held FIXED at tip so the instrument does not move underneath the comparison",
+   "y03_word_recall": {"f02d701": 0.1171, "0cf76ed": 0.1456, "63ca9e1": 0.1399},
+   "y03_doc_recall": {"f02d701": 0.915, "0cf76ed": 0.9142, "63ca9e1": 0.9139},
+   "y10_word_recall": {"f02d701": 0.4165, "0cf76ed": 0.4248, "63ca9e1": 0.4256},
+   "y10_doc_recall": {"f02d701": 0.768, "0cf76ed": 0.7675, "63ca9e1": 0.7681},
+   "reading": "The candidate rose on both documents across the whole window. The block-synthesis batch (0cf76ed -> 63ca9e1) moves y03 by -0.0057 and y10 by +0.0008, both inside the wobble."},
+  "reference_series_measured": {
+   "y03_word_recall": {"f02d701": 0.2105, "0cf76ed": 0.4001, "63ca9e1": 0.4001},
+   "y03_dy_p50": {"f02d701": 67.53, "0cf76ed": 11.06, "63ca9e1": 11.06},
+   "y10_word_recall": {"f02d701": 0.4858, "0cf76ed": 0.4872, "63ca9e1": 0.4872},
+   "reading": "y03's reference arm nearly DOUBLED its word_recall in the pre-batch window, with dy_p50 falling 67.53 -> 11.06. That is what widened the gap. y10's reference is flat, so y10's gap is long-standing rather than new."},
+  "conclusion": "The y03 gap widened because the reference arm improved on a shared code path, not because the candidate regressed. Nothing in the block-synthesis batch is implicated on either document."
+ },
+
+ "what_the_metric_measures": {
+  "tokeniser": "harness.page_words uses PyMuPDF for BOTH sides -- it tokenises the SOURCE pdf and the RENDERED-BACK pdf. The truth being matched is therefore PyMuPDF's whitespace tokenisation of the source, and a candidate that renders the same characters with different intra-expression spacing fails the exact match without having lost anything.",
+  "doc_recall": "multiset of tokens, page-agnostic: is the text present anywhere",
+  "word_recall": "the same tokens, but positionally, per page index",
+  "why_word_recall_is_so_much_lower": "On y03 the candidate scores doc_recall 0.9139 and word_recall 0.1395. The 77-point difference is pagination, not extraction -- page_err is 27 -- so word_recall on these documents is largely a restatement of the page-count gap and not an extraction measurement at all."
+ },
+
+ "token_class_split": {
+  "_note": "THE DELIVERABLE. Source tokens are missing from an arm when the multiset difference says so, which is exactly what doc_recall scores. `shared` are missed by BOTH arms, so they are not a candidate defect; `candidate_only` is the candidate's own deficit. Each candidate-only miss is then checked against the rendered text stream with spaces removed: if the token survives as a substring, the characters reached the page and only the token boundary moved.",
+  "y03_nist_fips197": {
+   "src_tokens": 13027,
+   "missing_reference": 512, "reference_doc_recall": 0.9607,
+   "missing_candidate": 1121, "candidate_doc_recall": 0.9139,
+   "shared_miss": 439, "candidate_only_miss": 682, "reference_only_miss": 73,
+   "candidate_only_present_as_text_anyway": 634,
+   "candidate_only_genuinely_absent": 48,
+   "artifact_share_of_candidate_only": "93.0%",
+   "genuine_share_of_candidate_only": "7.0%",
+   "genuine_deficit_as_share_of_document": "0.37%",
+   "classes_candidate_only": {"ascii_word": 330, "ascii_number": 143,
+                              "math_operator": 107, "ascii_punct": 84,
+                              "typographic_punct": 10, "other_nonascii": 8},
+   "top_candidate_only_tokens": ["'+' x56", "'⊕' x52", "'=' x26",
+                                 "'−' x25", "'0' x22", "'x' x18",
+                                 "'w[i' x14", "'Nk]' x10", "'0s' x9",
+                                 "'b0' x7", "'s0,c)' x5", "'b0)' x4"],
+   "reading": "FIPS 197 is the AES specification and these are equation fragments -- XOR signs, array subscripts, and the pieces of `w[i]`, `s0,c`, `b0`. `w[i` is a token only because PyMuPDF's whitespace split of the SOURCE fell inside the bracket expression; re-render it with a hair more or less space and the boundary moves."},
+  "y10_nist_fips180": {
+   "src_tokens": 8392,
+   "missing_reference": 1621, "reference_doc_recall": 0.8068,
+   "missing_candidate": 1946, "candidate_doc_recall": 0.7681,
+   "shared_miss": 1485, "candidate_only_miss": 461, "reference_only_miss": 136,
+   "candidate_only_present_as_text_anyway": 458,
+   "candidate_only_genuinely_absent": 3,
+   "artifact_share_of_candidate_only": "99.3%",
+   "genuine_share_of_candidate_only": "0.7%",
+   "genuine_deficit_as_share_of_document": "0.04%",
+   "genuinely_absent_tokens": ["'When' x1", "'\\uf0d9,' x1", "'\\uf0da,' x1"],
+   "reading": "Two of the three are PUA codepoints -- U+F0D9 and U+F0DA, a Symbol font's own private mapping -- which is the class this lens predicted. 1485 of the reference's own 1621 misses are shared with the candidate, so 92% of y10's loss is common to both arms and is the metric charging for re-tokenisation, not either backend failing."}
+ },
+
+ "the_decisive_comparison": {
+  "_note": "Score the same renders three ways. If characters survive while tokens do not, the metric is measuring tokenisation.",
+  "y03_nist_fips197": {
+   "reference": {"token_recall": 0.9607, "char_recall": 0.9608, "gram3_recall": 0.8982},
+   "candidate": {"token_recall": 0.9139, "char_recall": 0.9561, "gram3_recall": 0.8905},
+   "token_gap_pp": 4.68, "char_gap_pp": 0.47},
+  "y10_nist_fips180": {
+   "reference": {"token_recall": 0.8068, "char_recall": 0.9984, "gram3_recall": 0.9407},
+   "candidate": {"token_recall": 0.7681, "char_recall": 0.9982, "gram3_recall": 0.9274},
+   "token_gap_pp": 3.87, "char_gap_pp": 0.02},
+  "the_sharpest_number": "On y10 the REFERENCE's own token_recall is 0.8068 while its char_recall is 0.9984. The metric charges the incumbent 19.3% for re-tokenisation on a document where it loses 0.16% of the characters. Whatever that dimension is measuring on these two documents, it is not whether the text arrived."
+ },
+
+ "scoping_the_genuine_deficit": {
+  "_note": "Asked because 48 tokens on y03 is small but not zero, and `fix` was on the table.",
+  "what_they_are": "Matrix bracket scaffolding: runs of U+23A2/U+23A5 (square bracket extension) and U+23A3/U+23A6 (lower corners), the stacked pieces that draw the tall brackets around AES state matrices, plus a handful of subscripted register names.",
+  "parsed_counts_in_the_IR": {
+   "U+23A2 LEFT SQ BRACKET EXTENSION": {"reference": 56, "candidate": 14},
+   "U+23A5 RIGHT SQ BRACKET EXTENSION": {"reference": 56, "candidate": 12},
+   "U+23A3 LEFT SQ BRACKET LOWER CORNER": {"reference": 13, "candidate": 7},
+   "U+23A6 RIGHT SQ BRACKET LOWER CORNER": {"reference": 13, "candidate": 6},
+   "U+23A1 / U+23A4 upper corners": {"reference": 13, "candidate": 13},
+   "U+2022 BULLET": {"reference": 71, "candidate": 71}},
+  "mechanism": "PDFium extracts these codepoints -- it is not a decode failure -- but returns fewer of the EXTENSION pieces, which are the ones drawn as a vertical stack of identical glyphs at one x. The corners, drawn once each, come back at parity. That is the same text-page behaviour commit 75548c5 addressed, and this document's parse already records 3,633 undecoded glyphs against the reference's 0.",
+  "why_not_fixed_here": [
+   "It cannot move the verdict: 48 tokens is 0.37% of y03 and 3 tokens is 0.04% of y10, against a metric whose own token-versus-character divergence on these documents is 4 to 19 percentage points.",
+   "The content is bracket-drawing scaffolding, not words. Recovering it would raise the exact-token score without making the document more readable.",
+   "The change would land in the undecoded-glyph path, which is precisely where 75548c5 took c7_code from `same` to MAJOR on five dimensions (task #40). That is a poor risk to accept for 0.37% of one non-gating document."]
+ },
+
+ "proposed_ratification": {
+  "y10_nist_fips180": {
+   "verdict": "RATIFY",
+   "paragraph": "y10's word_recall gap is a metric artifact. Of the 461 tokens the candidate misses and the reference does not, 458 (99.3%) are present in the candidate's own rendered text and fail only because PyMuPDF re-tokenised them at a different boundary; 3 are genuinely absent, two of those being PUA codepoints from a Symbol font's private mapping. Character recall is 0.9982 against the reference's 0.9984 -- a gap of two hundredths of a percentage point against a token gap of 3.87. The incumbent scores 0.8068 on tokens and 0.9984 on characters over the same document, so the dimension penalises re-tokenisation on both arms and merely penalises the candidate slightly more."},
+  "y03_nist_fips197": {
+   "verdict": "RATIFY, with a named residual",
+   "paragraph": "y03's word_recall gap is a metric artifact plus a small, scoped, non-content residual. Of the 682 tokens the candidate misses and the reference does not, 634 (93.0%) are present in its rendered text and fail on token boundaries inside AES equations -- `w[i`, `s0,c)`, `b0)`, and the XOR and minus signs those expressions are built from. The remaining 48 (0.37% of the document) are genuinely absent and are the stacked extension pieces that draw tall matrix brackets: PDFium returns 14 of 56 U+23A2 and 12 of 56 U+23A5 where it returns the once-drawn corner pieces at full parity. The separate `0.40 -> 0.14` figure is not a regression: it is the reference's current score against the candidate's, and the candidate rose from 0.1171 to 0.1399 across the window while the reference rose from 0.2105 to 0.4001.",
+   "residual_recorded_not_waived": "48 tokens of matrix bracket scaffolding on one non-gating document, mechanism identified, fix declined on risk-versus-value grounds stated above."}
+ },
+
+ "gate_discipline": {
+  "code_changed": false,
+  "_note": "This record changes no code, so the gate cannot move and the reference arm cannot be touched. The working tree was verified clean at 63ca9e1 before and after the measurement, and every number here comes from converting the two documents on each arm in the canonical container."
+ },
+
+ "instrument_caveats": [
+  "`present as text` is a substring test against the rendered stream with whitespace removed. It is deliberately generous in one direction -- a short token like `0` will nearly always be found somewhere -- so it is an upper bound on the artifact share. The genuinely-absent set is the trustworthy half of the split, and it is the half the fix-or-ratify decision rests on.",
+  "The attribution series holds testkit/ fixed at tip and varies only exactdoc/, so its absolute values need not equal those in parity-expanded-2026-08-05b.json, which were scored by the harness of their own day. The candidate's y03 word_recall of 0.1399 here against 0.1395 there is that difference, and it is smaller than the movement being attributed.",
+  "page_err is reported as None by the direct harness call used for the series because that field is filled in by the parity driver rather than by evaluate(); the page gap quoted in the reading comes from the -05b record."
+ ]
+}
