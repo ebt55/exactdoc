@@ -17,9 +17,15 @@
     "Every element below inherits the lost line."
    ],
    "measured": {
-    "band_fill_src_y": [7.16, 119.84],
+    "band_fill_src_y": [
+     7.16,
+     119.84
+    ],
     "band_fill_src_height": 112.68,
-    "band_fill_rendered_y": [10.0, 108.15],
+    "band_fill_rendered_y": [
+     10.0,
+     108.15
+    ],
     "band_fill_rendered_height": 98.15,
     "row_height_shortfall_pt": -14.53,
     "band_bottom_error_pt": -11.69,
@@ -41,16 +47,38 @@
     "Three block-level FigureEls stack vertically: 171pt of flow against the source's 57pt."
    ],
    "measured": {
-    "card_clips_after_padding": [[59.8, 222.2, 220.5, 279.5],
-                                 [225.8, 222.2, 387.2, 279.5],
-                                 [392.5, 222.2, 553.2, 279.5]],
+    "card_clips_after_padding": [
+     [
+      59.8,
+      222.2,
+      220.5,
+      279.5
+     ],
+     [
+      225.8,
+      222.2,
+      387.2,
+      279.5
+     ],
+     [
+      392.5,
+      222.2,
+      553.2,
+      279.5
+     ]
+    ],
     "padded_gutter_pt": 5.3,
     "raw_source_gutter_pt": 9.33,
     "old_merge_expansion_pt": 4.0,
     "new_merge_expansion_pt": 6.0,
     "step_at_card_row_pt": 115.2,
     "excess_flow_pt": 114.0,
-    "pdfium_merged_figure": [59.0, 221.4, 554.0, 280.3],
+    "pdfium_merged_figure": [
+     59.0,
+     221.4,
+     554.0,
+     280.3
+    ],
     "pymupdf_figure_count_before": 3,
     "pymupdf_figure_count_after": 1
    },
@@ -86,45 +114,173 @@
   "_note": "Per-line displacement maps, c1 only, open loop. The field is a flat constant plus one step -- not a leading-model error and not accumulating. Measured at the standard profile (exact line mode), which is the encoding LibreOffice is calibrated for; the ramp visible at the gdocs profile is the multiple-encoding-through-LibreOffice artifact and is not a real error.",
   "profile_id": "pymupdf/standard/none/refine0@240dpi",
   "field_by_source_y": {
-   "_columns": ["src_y", "pdfium_dy", "pymupdf_dy"],
-   "before": [[138, -12.92, -12.92], [200, -13.55, -13.55], [296, -13.03, 101.72],
-              [453, -13.27, 101.48], [712, -10.47, null], [-2, -53.38, -53.41]],
-   "after": [[138, 2.38, 2.38], [200, 1.75, 1.75], [296, 2.27, 2.32],
-             [453, 2.03, 2.08], [712, 4.83, 4.88], [-2, -53.38, -53.38]],
+   "_columns": [
+    "src_y",
+    "pdfium_dy",
+    "pymupdf_dy"
+   ],
+   "before": [
+    [
+     138,
+     -12.92,
+     -12.92
+    ],
+    [
+     200,
+     -13.55,
+     -13.55
+    ],
+    [
+     296,
+     -13.03,
+     101.72
+    ],
+    [
+     453,
+     -13.27,
+     101.48
+    ],
+    [
+     712,
+     -10.47,
+     null
+    ],
+    [
+     -2,
+     -53.38,
+     -53.41
+    ]
+   ],
+   "after": [
+    [
+     138,
+     2.38,
+     2.38
+    ],
+    [
+     200,
+     1.75,
+     1.75
+    ],
+    [
+     296,
+     2.27,
+     2.32
+    ],
+    [
+     453,
+     2.03,
+     2.08
+    ],
+    [
+     712,
+     4.83,
+     4.88
+    ],
+    [
+     -2,
+     -53.38,
+     -53.38
+    ]
+   ],
    "_note": "src_y -2 is page 2, which D-C still owns."
   },
   "c1_open_loop": {
-   "pdfium": {"dy_p50": {"before": 13.49, "after": 2.0},
-              "within2pt": {"before": 0.0, "after": 0.1031},
-              "pages": {"before": "2/2", "after": "2/2"},
-              "matched_words": {"before": 320, "after": 320}},
-   "pymupdf": {"dy_p50": {"before": 100.96, "after": 2.05},
-               "within2pt": {"before": 0.0, "after": 0.1},
-               "pages": {"before": "2/3", "after": "2/2"},
-               "matched_words": {"before": 263, "after": 320}}
+   "pdfium": {
+    "dy_p50": {
+     "before": 13.49,
+     "after": 2.0
+    },
+    "within2pt": {
+     "before": 0.0,
+     "after": 0.1031
+    },
+    "pages": {
+     "before": "2/2",
+     "after": "2/2"
+    },
+    "matched_words": {
+     "before": 320,
+     "after": 320
+    }
+   },
+   "pymupdf": {
+    "dy_p50": {
+     "before": 100.96,
+     "after": 2.05
+    },
+    "within2pt": {
+     "before": 0.0,
+     "after": 0.1
+    },
+    "pages": {
+     "before": "2/3",
+     "after": "2/2"
+    },
+    "matched_words": {
+     "before": 263,
+     "after": 320
+    }
+   }
   },
   "c1_gdocs_parity_profile": {
    "profile_id": "pdfium/gdocs/none/refine0@240dpi",
-   "pdfium": {"dy_p50": {"before": 10.28, "after": 2.69},
-              "within2pt": {"before": 0.0, "after": 0.1375}},
-   "pymupdf": {"dy_p50": {"before": 102.11, "after": 2.74},
-               "within2pt": {"before": 0.0, "after": 0.1375}},
+   "pdfium": {
+    "dy_p50": {
+     "before": 10.28,
+     "after": 2.69
+    },
+    "within2pt": {
+     "before": 0.0,
+     "after": 0.1375
+    }
+   },
+   "pymupdf": {
+    "dy_p50": {
+     "before": 102.11,
+     "after": 2.74
+    },
+    "within2pt": {
+     "before": 0.0,
+     "after": 0.1375
+    }
+   },
    "arms_agree_after": true
   }
  },
  "gate": {
   "_note": "testkit/runall.py, both lanes, canonical container. Zero regressions across all 32 cells (16 documents x 2 lanes); 24 cells byte-identical. The `after` numbers are the re-recorded baseline, and the verification run below gates against them.",
   "before": {
-   "product": {"verdict": "PASS", "page_match": "16/16", "within2pt": 0.5161,
-               "dy_p50": 0.675, "live_text_cov": 0.9652},
-   "raw": {"verdict": "PASS", "page_match": "14/16", "within2pt": 0.3349,
-           "dy_p50": 2.79, "live_text_cov": 0.9652}
+   "product": {
+    "verdict": "PASS",
+    "page_match": "16/16",
+    "within2pt": 0.5161,
+    "dy_p50": 0.675,
+    "live_text_cov": 0.9652
+   },
+   "raw": {
+    "verdict": "PASS",
+    "page_match": "14/16",
+    "within2pt": 0.3349,
+    "dy_p50": 2.79,
+    "live_text_cov": 0.9652
+   }
   },
   "after": {
-   "product": {"verdict": "PASS", "page_match": "16/16", "within2pt": 0.5389,
-               "dy_p50": 0.62, "live_text_cov": 0.9652},
-   "raw": {"verdict": "PASS", "page_match": "15/16", "within2pt": 0.3604,
-           "dy_p50": 1.975, "live_text_cov": 0.9652}
+   "product": {
+    "verdict": "PASS",
+    "page_match": "16/16",
+    "within2pt": 0.5389,
+    "dy_p50": 0.62,
+    "live_text_cov": 0.9652
+   },
+   "raw": {
+    "verdict": "PASS",
+    "page_match": "15/16",
+    "within2pt": 0.3604,
+    "dy_p50": 1.975,
+    "live_text_cov": 0.9652
+   }
   },
   "regressions": 0,
   "cells_unchanged": 24,
@@ -132,73 +288,364 @@
  },
  "baseline_rerecord": {
   "_note": "A HEADLINE EVENT, not a footnote. Recording an improvement is still moving a gate's floor, and the reason has to survive the commit that did it.",
-  "lanes": ["product", "raw"],
+  "lanes": [
+   "product",
+   "raw"
+  ],
   "why": "With both fixes live the raw lane reported gate FAIL with 2 findings, both STALE rather than regressions: c1's page_err cleared 0 but was recorded as 1, and its word_recall reached 0.9697 against a recorded 0.797. A stale record re-admits the regression it exists to catch, so the gate correctly refuses to pass until the record is moved.",
   "method": "GATE_BASELINE=update testkit/runall.py (clears the record, then gates the same run against the empty one, so its findings are informational and its exit code proves nothing), CHAINED with a second plain testkit/runall.py that gates against the record just written.",
   "verification_run": {
-   "product": {"verdict": "PASS", "page_match": "16/16", "within2pt": 0.5389, "dy_p50": 0.62},
-   "raw": {"verdict": "PASS", "page_match": "15/16", "within2pt": 0.3604, "dy_p50": 1.975},
+   "product": {
+    "verdict": "PASS",
+    "page_match": "16/16",
+    "within2pt": 0.5389,
+    "dy_p50": 0.62
+   },
+   "raw": {
+    "verdict": "PASS",
+    "page_match": "15/16",
+    "within2pt": 0.3604,
+    "dy_p50": 1.975
+   },
    "regression_findings": 0,
    "stale_findings": 0
   },
   "values_moved": {
-   "product.mean_within2pt": [0.5161, 0.5389],
-   "product.median_dy_p50": [0.675, 0.62],
-   "raw.mean_within2pt": [0.3349, 0.3604],
-   "raw.median_dy_p50": [2.79, 1.975],
-   "raw.page_match_count": [14, 15],
-   "raw.c1_whitepaper.dy_p50": [100.96, 2.05],
-   "raw.c1_whitepaper.page_err": [1, 0],
-   "raw.c1_whitepaper.within2pt": [0.0, 0.1],
-   "raw.c1_whitepaper.word_recall": [0.797, 0.9697],
-   "product.c1_whitepaper.dy_p50": [29.36, 2.89],
-   "product.c1_whitepaper.within2pt": [0.1781, 0.1938],
-   "raw.c4_i18n.within2pt": [0.1966, 0.5043],
-   "product.c4_i18n.within2pt": [0.1966, 0.5043],
-   "product.l1_word_native.dy_p50": [14.69, 0.01],
-   "product.l1_word_native.word_recall": [0.9931, 1.0],
-   "raw.l1_word_native.dy_p50": [26.69, 2.71]
+   "product.mean_within2pt": [
+    0.5161,
+    0.5389
+   ],
+   "product.median_dy_p50": [
+    0.675,
+    0.62
+   ],
+   "raw.mean_within2pt": [
+    0.3349,
+    0.3604
+   ],
+   "raw.median_dy_p50": [
+    2.79,
+    1.975
+   ],
+   "raw.page_match_count": [
+    14,
+    15
+   ],
+   "raw.c1_whitepaper.dy_p50": [
+    100.96,
+    2.05
+   ],
+   "raw.c1_whitepaper.page_err": [
+    1,
+    0
+   ],
+   "raw.c1_whitepaper.within2pt": [
+    0.0,
+    0.1
+   ],
+   "raw.c1_whitepaper.word_recall": [
+    0.797,
+    0.9697
+   ],
+   "product.c1_whitepaper.dy_p50": [
+    29.36,
+    2.89
+   ],
+   "product.c1_whitepaper.within2pt": [
+    0.1781,
+    0.1938
+   ],
+   "raw.c4_i18n.within2pt": [
+    0.1966,
+    0.5043
+   ],
+   "product.c4_i18n.within2pt": [
+    0.1966,
+    0.5043
+   ],
+   "product.l1_word_native.dy_p50": [
+    14.69,
+    0.01
+   ],
+   "product.l1_word_native.word_recall": [
+    0.9931,
+    1.0
+   ],
+   "raw.l1_word_native.dy_p50": [
+    26.69,
+    2.71
+   ]
   },
   "_direction_note": "Every moved value improves. No recorded floor was lowered."
  },
  "documents": {
-  "_columns": ["pages_before", "pages_after", "dy_p50_before", "dy_p50_after",
-               "within2pt_before", "within2pt_after"],
+  "_columns": [
+   "pages_before",
+   "pages_after",
+   "dy_p50_before",
+   "dy_p50_after",
+   "within2pt_before",
+   "within2pt_after"
+  ],
   "product": {
-   "01_whitepaper_market.pdf": ["3/3", "3/3", 0.5, 0.5, 0.72, 0.72],
-   "02_research_paper.pdf": ["2/2", "2/2", 0.0, 0.0, 0.76, 0.76],
-   "03_tech_report_code.pdf": ["2/2", "2/2", 0.5, 0.5, 0.46, 0.46],
-   "04_exec_brief.pdf": ["2/2", "2/2", 3.5, 3.5, 0.22, 0.22],
-   "05_memo.pdf": ["1/1", "1/1", 0.6, 0.6, 0.64, 0.64],
-   "c1_whitepaper.pdf": ["2/2", "2/2", 29.4, 2.9, 0.18, 0.19],
-   "c2_paper2col.pdf": ["1/1", "1/1", 0.8, 0.8, 0.49, 0.49],
-   "c3_tables.pdf": ["3/3", "3/3", 2.8, 2.8, 0.0, 0.0],
-   "c4_i18n.pdf": ["1/1", "1/1", 0.9, 0.8, 0.2, 0.5],
-   "c5_graphics.pdf": ["1/1", "1/1", 0.5, 0.5, 0.69, 0.69],
-   "c6_long.pdf": ["7/7", "7/7", 0.7, 0.7, 0.76, 0.76],
-   "c7_code.pdf": ["1/1", "1/1", 0.7, 0.7, 0.91, 0.91],
-   "c8_toc_links.pdf": ["1/1", "1/1", 0.1, 0.1, 1.0, 1.0],
-   "f1_fpdf_brief.pdf": ["1/1", "1/1", 0.0, 0.0, 0.62, 0.62],
-   "l1_word_native.pdf": ["1/1", "1/1", 14.7, 0.0, 0.01, 0.06],
-   "r1_reportlab_report.pdf": ["1/1", "1/1", 1.5, 1.5, 0.6, 0.6]
+   "01_whitepaper_market.pdf": [
+    "3/3",
+    "3/3",
+    0.5,
+    0.5,
+    0.72,
+    0.72
+   ],
+   "02_research_paper.pdf": [
+    "2/2",
+    "2/2",
+    0.0,
+    0.0,
+    0.76,
+    0.76
+   ],
+   "03_tech_report_code.pdf": [
+    "2/2",
+    "2/2",
+    0.5,
+    0.5,
+    0.46,
+    0.46
+   ],
+   "04_exec_brief.pdf": [
+    "2/2",
+    "2/2",
+    3.5,
+    3.5,
+    0.22,
+    0.22
+   ],
+   "05_memo.pdf": [
+    "1/1",
+    "1/1",
+    0.6,
+    0.6,
+    0.64,
+    0.64
+   ],
+   "c1_whitepaper.pdf": [
+    "2/2",
+    "2/2",
+    29.4,
+    2.9,
+    0.18,
+    0.19
+   ],
+   "c2_paper2col.pdf": [
+    "1/1",
+    "1/1",
+    0.8,
+    0.8,
+    0.49,
+    0.49
+   ],
+   "c3_tables.pdf": [
+    "3/3",
+    "3/3",
+    2.8,
+    2.8,
+    0.0,
+    0.0
+   ],
+   "c4_i18n.pdf": [
+    "1/1",
+    "1/1",
+    0.9,
+    0.8,
+    0.2,
+    0.5
+   ],
+   "c5_graphics.pdf": [
+    "1/1",
+    "1/1",
+    0.5,
+    0.5,
+    0.69,
+    0.69
+   ],
+   "c6_long.pdf": [
+    "7/7",
+    "7/7",
+    0.7,
+    0.7,
+    0.76,
+    0.76
+   ],
+   "c7_code.pdf": [
+    "1/1",
+    "1/1",
+    0.7,
+    0.7,
+    0.91,
+    0.91
+   ],
+   "c8_toc_links.pdf": [
+    "1/1",
+    "1/1",
+    0.1,
+    0.1,
+    1.0,
+    1.0
+   ],
+   "f1_fpdf_brief.pdf": [
+    "1/1",
+    "1/1",
+    0.0,
+    0.0,
+    0.62,
+    0.62
+   ],
+   "l1_word_native.pdf": [
+    "1/1",
+    "1/1",
+    14.7,
+    0.0,
+    0.01,
+    0.06
+   ],
+   "r1_reportlab_report.pdf": [
+    "1/1",
+    "1/1",
+    1.5,
+    1.5,
+    0.6,
+    0.6
+   ]
   },
   "raw": {
-   "01_whitepaper_market.pdf": ["3/3", "3/3", 3.7, 3.7, 0.22, 0.22],
-   "02_research_paper.pdf": ["2/2", "2/2", 1.1, 1.1, 0.67, 0.67],
-   "03_tech_report_code.pdf": ["2/2", "2/2", 4.1, 4.1, 0.06, 0.06],
-   "04_exec_brief.pdf": ["2/2", "2/2", 9.3, 9.3, 0.05, 0.05],
-   "05_memo.pdf": ["1/1", "1/1", 4.3, 4.3, 0.16, 0.16],
-   "c1_whitepaper.pdf": ["2/3", "2/2", 101.0, 2.0, 0.0, 0.1],
-   "c2_paper2col.pdf": ["1/1", "1/1", 4.0, 4.0, 0.04, 0.04],
-   "c3_tables.pdf": ["3/3", "3/3", 7.5, 7.5, 0.0, 0.0],
-   "c4_i18n.pdf": ["1/1", "1/1", 0.9, 0.8, 0.2, 0.5],
-   "c5_graphics.pdf": ["1/2", "1/2", 0.9, 0.9, 0.8, 0.8],
-   "c6_long.pdf": ["7/7", "7/7", 1.3, 1.3, 0.67, 0.67],
-   "c7_code.pdf": ["1/1", "1/1", 1.9, 1.9, 0.56, 0.56],
-   "c8_toc_links.pdf": ["1/1", "1/1", 0.1, 0.1, 1.0, 1.0],
-   "f1_fpdf_brief.pdf": ["1/1", "1/1", 1.2, 1.2, 0.6, 0.6],
-   "l1_word_native.pdf": ["1/1", "1/1", 26.7, 2.7, 0.01, 0.01],
-   "r1_reportlab_report.pdf": ["1/1", "1/1", 1.1, 1.1, 0.32, 0.32]
+   "01_whitepaper_market.pdf": [
+    "3/3",
+    "3/3",
+    3.7,
+    3.7,
+    0.22,
+    0.22
+   ],
+   "02_research_paper.pdf": [
+    "2/2",
+    "2/2",
+    1.1,
+    1.1,
+    0.67,
+    0.67
+   ],
+   "03_tech_report_code.pdf": [
+    "2/2",
+    "2/2",
+    4.1,
+    4.1,
+    0.06,
+    0.06
+   ],
+   "04_exec_brief.pdf": [
+    "2/2",
+    "2/2",
+    9.3,
+    9.3,
+    0.05,
+    0.05
+   ],
+   "05_memo.pdf": [
+    "1/1",
+    "1/1",
+    4.3,
+    4.3,
+    0.16,
+    0.16
+   ],
+   "c1_whitepaper.pdf": [
+    "2/3",
+    "2/2",
+    101.0,
+    2.0,
+    0.0,
+    0.1
+   ],
+   "c2_paper2col.pdf": [
+    "1/1",
+    "1/1",
+    4.0,
+    4.0,
+    0.04,
+    0.04
+   ],
+   "c3_tables.pdf": [
+    "3/3",
+    "3/3",
+    7.5,
+    7.5,
+    0.0,
+    0.0
+   ],
+   "c4_i18n.pdf": [
+    "1/1",
+    "1/1",
+    0.9,
+    0.8,
+    0.2,
+    0.5
+   ],
+   "c5_graphics.pdf": [
+    "1/2",
+    "1/2",
+    0.9,
+    0.9,
+    0.8,
+    0.8
+   ],
+   "c6_long.pdf": [
+    "7/7",
+    "7/7",
+    1.3,
+    1.3,
+    0.67,
+    0.67
+   ],
+   "c7_code.pdf": [
+    "1/1",
+    "1/1",
+    1.9,
+    1.9,
+    0.56,
+    0.56
+   ],
+   "c8_toc_links.pdf": [
+    "1/1",
+    "1/1",
+    0.1,
+    0.1,
+    1.0,
+    1.0
+   ],
+   "f1_fpdf_brief.pdf": [
+    "1/1",
+    "1/1",
+    1.2,
+    1.2,
+    0.6,
+    0.6
+   ],
+   "l1_word_native.pdf": [
+    "1/1",
+    "1/1",
+    26.7,
+    2.7,
+    0.01,
+    0.01
+   ],
+   "r1_reportlab_report.pdf": [
+    "1/1",
+    "1/1",
+    1.1,
+    1.1,
+    0.32,
+    0.32
+   ]
   }
  },
  "collateral_improvements": {
@@ -214,9 +661,28 @@
   "advisory": "c1_marginal (dy_p50 9.30 against a policy bound of 10) should clear comfortably if the prediction holds.",
   "reasoning": "D-A is a structural line-count error in the document -- a row that renders one line shorter than the source -- not a line-metric translation. It should therefore transfer to Google Docs rather than being a proxy artifact. The proxy's own before-number at the gdocs profile (10.28) sits close to the recorded live 9.30, which is consistent with a renderer-independent cause.",
   "confirmed": false,
-  "requires": "a live Google Docs qualification pass"
+  "requires": "a live Google Docs qualification pass",
+  "graded": {
+   "verdict": "FALSIFIED",
+   "graded_against": "docs/evidence/gdocs-2026-08-06-pass6-qualification.raw.json",
+   "graded_on": "2026-08-06",
+   "measured_live_dy_p50": 21.91,
+   "predicted_live_dy_p50": "~2-3pt (2.70 as pinned in livepass_predictions.json)",
+   "baseline_live_dy_p50": 9.3,
+   "delta_vs_prediction_pt": 19.21,
+   "direction": "WRONG WAY. The prediction was that c1 improves from 9.30 to about 2.7. It got worse, to 21.91 -- 2.4x its own baseline and the single blocking finding of the pass, against a policy bound of 10.0.",
+   "advisory_outcome": "`c1_marginal` did NOT clear. It was written when c1 sat just inside 10.0 and asked which side it would land on; it lands far outside.",
+   "what_held": "page_match held at 2/2 and word_recall at 0.9697, both unchanged from pass 5, so this is placement and not pagination or text loss. mean_ssim moved only 0.8032 -> 0.7923.",
+   "what_this_falsifies": "The transfer argument, not the offline measurement. The offline numbers in this file stand: c1's gate-lane and LibreOffice-proxy improvements were real and are reproducible. What is falsified is the reasoning recorded above -- that a STRUCTURAL line-count fix must therefore transfer to Google Docs. It did not.",
+   "why_the_proxy_agreement_was_not_enough": "The argument leaned on the proxy's pre-fix 10.28 sitting within 1pt of the recorded live 9.30, and read that agreement as evidence of a renderer-independent cause. Agreement on the BROKEN state turns out not to license agreement on the FIXED state: the two renderers were close before the change and 19pt apart after it (proxy 2.69, live 21.91). This is the standing 'LibreOffice proxy mispredicts Docs' rule holding in the one direction that had looked safe.",
+   "status": "OPEN DEFECT. c1_whitepaper is the standing exemplar for the ordinary-document release bar and it is now the only blocking finding in the live gate. The ladder/figure-merge change is not hereby condemned -- it improved 04_exec_brief 7.35 -> 2.40 and 02/c4 slightly on the same pass -- so the question is what it does to c1 specifically in Docs, and that needs a probe on the export rather than another offline argument."
+  }
  },
- "residuals_out_of_scope": ["D-C", "D-D"],
+ "residuals_out_of_scope": [
+  "D-C",
+  "D-D"
+ ],
  "ok": true,
- "release_ready": false
+ "release_ready": false,
+ "_pass6_note": "The `live_prediction` block below was graded on 2026-08-06 against live pass 6 and FALSIFIED. Everything above it -- the mechanism, the cancellation analysis, the gate re-record -- was measured offline and is unaffected. Read the two parts separately: the offline account is sound, and the inference from it to Google Docs behaviour was wrong."
 }

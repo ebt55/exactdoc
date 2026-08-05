@@ -96,14 +96,51 @@ PyMuPDF is the optional `mupdf` extra, the gate baseline was re-recorded at the
 new profile identity, and the licence is Apache-2.0. Commits `900f0ab`,
 `f457567`, `017c1e1`, `160b831`.
 
-**Four of four gates is not a release**, and the remaining work is release work
-rather than migration work:
+**Four of four gates is not a release, and the release gate has now failed
+once.** The migration is complete and correct; the product is not releasable
+while `c1_whitepaper` sits at more than twice its policy bound in Google Docs.
+The remaining work is release work rather than migration work:
 
-1. **A post-flip live Google Docs qualification pass.** Gate (b)'s two clean
-   passes were measured on the pre-flip tree. The parser default has changed
-   since, and the standing rule here is that a gdocs-profile claim is never
-   promoted on LibreOffice-proxy evidence alone — so the live numbers must be
-   re-established against Google's own exports. Consent-gated, per pass.
+1. **A post-flip live Google Docs qualification pass — RUN, AND IT FAILED.**
+   Live pass 6 (2026-08-06, consented, tip `38720b6`) is the migrated product's
+   first live contact.
+   [Qualification](docs/evidence/gdocs-2026-08-06-pass6-qualification.json) ·
+   [assessment](docs/evidence/gdocs-2026-08-06-pass6-assessment.json).
+
+   **Operationally clean**: 16/16 uploaded, converted, exported and deleted;
+   zero orphaned Drive objects. The uploaded DOCX were verified byte-identical
+   to what a PyMuPDF-free install produces, so this measured the product users
+   get.
+
+   **Quality: FAIL, on one blocking finding** — `c1_whitepaper` `dy_p50`
+   **21.91** against a 10.0 bound. It was 9.30 on pass 5. `page_match` held at
+   2/2 and `word_recall` at 0.9697, so this is placement, not pagination or text
+   loss.
+
+   The cause is the change that was supposed to fix it. `c9d36df` (ladder
+   default on + figure merge) improved c1 to 2.69 on the LibreOffice proxy and
+   was predicted to reach ~2–3pt live; it measured 21.91. **The prediction is
+   falsified and recorded as such** in
+   [c1-band-and-cards-2026-08-05.json](docs/evidence/c1-band-and-cards-2026-08-05.json)
+   `live_prediction.graded`. c1 is the standing exemplar for the
+   ordinary-document release bar, so this blocks release.
+
+   The same change is *not* uniformly bad live: it took `04_exec_brief` 7.35 →
+   2.40, `02_research_paper` 6.80 → 6.53 and `c4_i18n` 3.07 → 2.73, and left
+   `l1_word_native` at 1.54. It is catastrophic on exactly one document, and
+   that document is the one it was written for. The proxy predicted the sign
+   correctly for none of them — the standing "LibreOffice proxy mispredicts
+   Docs" rule, now demonstrated in the direction that had looked safe.
+
+   Everything else improved or held: `01_whitepaper_market` 8.45 → 5.22 with
+   `mean_ssim` 0.6581 → 0.6909 (the accent-stripe carve-out landing inside its
+   predicted 0.68–0.70 band), and every other gated document reproduced its
+   pass-5 value exactly.
+
+   **The `01` waiver does not retire.** Its `mean_ssim` is 0.6909 — above the
+   0.65 floor, so the waiver holds and applies, and 0.0091 short of the 0.70 at
+   which the stale-waiver rule would have forced its retirement. Closest it has
+   been.
 2. **`verify.py`.** The page-pair lifetime fix landed (`4dc5015`); the rest is
    outstanding.
 3. **Packaging.** The wheel builds and installs correctly (gate (c) proves it),

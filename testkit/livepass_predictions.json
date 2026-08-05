@@ -650,8 +650,8 @@
       "discriminating": false,
       "falsifies_A0_above_pt": null,
       "expect": "improves",
-      "confidence": "medium",
-      "note": "THE ONE NUMERIC PREDICTION IN THIS FILE FOR PASS 6. Derived the way the c1 evidence derived it: the LibreOffice proxy at this exact profile measured 10.28 before the fix against a recorded live 9.30 -- within 1pt, which is what makes its post-fix 2.69 usable as a level prediction rather than only a direction. The cause is structural (a row one line short), not a line-metric translation, so it should transfer to Docs rather than being a proxy artifact.",
+      "confidence": "falsified",
+      "note": "FALSIFIED at pass 6: predicted 2.70, measured 21.91. Do not re-predict this document from the LibreOffice proxy again -- the proxy said 2.69. Any next prediction needs a probe on Google's own export.",
       "baseline_source": "live pass 5 (2026-08-04)",
       "ladder_default": {
         "reaches_this_document": true,
@@ -680,6 +680,12 @@
         "recorded_live_baseline": 9.3,
         "confirmed": false,
         "confirm_on": "this pass; flip `confirmed` in that file only on the live number, never on the proxy"
+      },
+      "graded_pass6": {
+        "predicted": 2.7,
+        "actual": 21.91,
+        "verdict": "MISS -- falsified",
+        "evidence": "docs/evidence/c1-band-and-cards-2026-08-05.json live_prediction.graded"
       }
     },
     "l1_word_native": {
@@ -988,5 +994,86 @@
     "the_ladder_is_a_global_default": "Checked rather than assumed, because c9d36df is a GLOBAL default and the brief only named c1. Converting the gated 16 at pdfium/gdocs/none/refine0 with the ladder off and on shows FIVE documents whose bytes change: 02_research_paper (3 locks), 04_exec_brief (1), c1_whitepaper (1), c4_i18n (2), l1_word_native (2). The other eleven are byte-identical. Only c1 gets a numeric prediction; the other four are flagged as able to move, with their confidence lowered.",
     "05_memo": "Checked and NOT superseded. Its dy_p50 is 5.13 on passes 3, 4 and 5 alike, it takes zero ladder locks, and its gdocs bytes are unchanged. Recorded so the absence of a change here reads as a check that was made rather than one that was missed.",
     "what_is_not_re_predicted": "mean_ssim for 01_whitepaper_market. The accent-stripe carve-out landed after pass 5 and its expectation already lives in cover_accent_stripe_claim.pass6_expectation (p1_ssim 0.62-0.66, mean_ssim 0.68-0.70). Restating it here would create two numbers to keep in step."
+  },
+  "_pass6_result": {
+    "graded_on": "2026-08-06",
+    "evidence": "docs/evidence/gdocs-2026-08-06-pass6-qualification.raw.json",
+    "state_detected": "POST-FIX, via c1_whitepaper moving off its baseline -- which is the mover this update introduced, so the detector worked as intended",
+    "headline": "THE PREDICTION THIS FILE WAS RE-ANCHORED FOR IS FALSIFIED. c1_whitepaper was predicted at 2.70 and measured 21.91, against a baseline of 9.30 and a policy bound of 10.0. It is the single blocking finding of the pass.",
+    "per_document_dy_p50": {
+      "01_whitepaper_market": {
+        "predicted": 8.45,
+        "actual": 5.22
+      },
+      "02_research_paper": {
+        "predicted": 6.8,
+        "actual": 6.53
+      },
+      "03_tech_report_code": {
+        "predicted": 4.1,
+        "actual": 5.33
+      },
+      "04_exec_brief": {
+        "predicted": 7.35,
+        "actual": 2.4
+      },
+      "05_memo": {
+        "predicted": 5.13,
+        "actual": 5.13
+      },
+      "c1_whitepaper": {
+        "predicted": 2.7,
+        "actual": 21.91
+      },
+      "c2_paper2col": {
+        "predicted": 2.81,
+        "actual": 2.81
+      },
+      "c3_tables": {
+        "predicted": 7.85,
+        "actual": 7.85
+      },
+      "c4_i18n": {
+        "predicted": 3.07,
+        "actual": 2.73
+      },
+      "c5_graphics": {
+        "predicted": 14.31,
+        "actual": 14.31
+      },
+      "c6_long": {
+        "predicted": 1.67,
+        "actual": 1.67
+      },
+      "c7_code": {
+        "predicted": 1.93,
+        "actual": 1.93
+      },
+      "c8_toc_links": {
+        "predicted": 1.71,
+        "actual": 1.71
+      },
+      "f1_fpdf_brief": {
+        "predicted": 0.14,
+        "actual": 0.14
+      },
+      "l1_word_native": {
+        "predicted": 1.54,
+        "actual": 1.54
+      },
+      "r1_reportlab_report": {
+        "predicted": 0.6,
+        "actual": 0.6
+      }
+    },
+    "the_four_unpredicted_movers": {
+      "_note": "Deliberately given no numeric prediction because the proxy offered none worth having. Recording what they did is the point of having flagged them.",
+      "04_exec_brief": "7.35 -> 2.40. The ladder's largest live WIN, and the proxy had said zero delta. The proxy was wrong about this document in the opposite direction from c1.",
+      "02_research_paper": "6.80 -> 6.53, a small improvement.",
+      "c4_i18n": "3.07 -> 2.73, a small improvement.",
+      "l1_word_native": "1.54 -> 1.54, exactly unchanged. The proxy had predicted a 14.7pt improvement from a level (24.59) that never described this document live."
+    },
+    "reading": "The ladder default is NOT uniformly bad live -- it helped three of the five documents it reaches and left one alone. It is catastrophic on exactly one, and that one is the document it was introduced for. The LibreOffice proxy predicted the sign correctly for none of them.",
+    "05_memo_control": "5.13 on passes 3, 4, 5 and 6. The document flagged as 'checked and not superseded' held exactly, which is the control this file needed."
   }
 }
