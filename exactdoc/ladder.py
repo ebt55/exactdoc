@@ -81,6 +81,89 @@ def _predictable(p: Para) -> bool:
     return True
 
 
+def _measurable(ch: str) -> bool:
+    """Is this character one the base-14 metrics can actually measure?
+
+    `_predictable` checks the FAMILY maps to a base-14 name. It never checked
+    that the CHARACTERS are in that font's repertoire, and base-14 faces are
+    WinAnsi. Measured with `fitz.get_text_length` at 11pt: Latin resolves glyph
+    by glyph ("aaaaaaaaaa" 48.84pt vs "mmmmmmmmmm" 85.58pt), while Cyrillic and
+    Greek return the SAME width for narrow and wide letters -- 13.75pt either
+    way, a constant fallback. Per character: Latin 4.95pt, Cyrillic 1.47pt,
+    Greek 1.64pt, CJK 1.10pt. The metrics are not approximating those scripts,
+    they are not seeing them.
+    """
+    try:
+        ch.encode("cp1252")
+    except (UnicodeEncodeError, LookupError):
+        return False
+    return True
+
+
+# Scripts written without spaces. A renderer breaking these picks its own point
+# anywhere in the run, so it cannot reproduce the source's break by luck --
+# which is the one case where pinning text the metrics cannot measure still pays.
+_CONTINUA = ((0x3040, 0x30FF),    # Hiragana + Katakana
+             (0x3400, 0x4DBF),    # CJK ext A
+             (0x4E00, 0x9FFF),    # CJK unified
+             (0xAC00, 0xD7AF),    # Hangul syllables
+             (0xF900, 0xFAFF))    # CJK compatibility
+
+# A stray unmeasurable glyph -- a Wingdings bullet in a private-use codepoint --
+# is not a script change. l1_word_native's list paragraph carries two U+F0B7
+# among ~200 Latin characters; vetoing on one character cost it word_recall
+# 1.0 -> 0.9931 for nothing. x06's Cyrillic body is 71% of its paragraph.
+UNMEASURED_MAX_FRAC = 0.05
+
+
+def _continuum_frac(text: str) -> float:
+    n = tot = 0
+    for ch in text:
+        if ch.isspace():
+            continue
+        tot += 1
+        o = ord(ch)
+        if any(lo <= o <= hi for lo, hi in _CONTINUA):
+            n += 1
+    return n / max(1, tot)
+
+
+def _lockable_text(text: str) -> bool:
+    """May a lock be placed on this text at all?
+
+    Two different reasons a lock survives, and one it does not.
+
+    **Measured text.** Every character is in the base-14 repertoire, so
+    `predict_lines` and `_seg_width` mean what they say. This is c1_whitepaper's
+    cover band and l1_word_native's headings.
+
+    **A script continuum.** CJK, Kana and Hangul are written without spaces, so
+    the renderer breaks them wherever its own measurement lands and has no way
+    to reproduce the source's break. The metrics cannot see these glyphs either
+    -- c4_i18n's CJK measures 1.10pt per character against Latin's 4.95 -- but
+    the error is UNIFORM across the run, so a width fraction still maps onto the
+    right character and the cut lands where the source broke. Measured: locking
+    c4_i18n moved within2pt 0.1966 -> 0.5043.
+
+    **Unmeasured text that wraps at spaces.** Cyrillic, Greek and Vietnamese
+    tone marks are outside WinAnsi, so the metrics are blind to them -- but they
+    break at spaces exactly like Latin, so the renderer already reproduces the
+    source's wrap on its own. There is nothing for a lock to restore and a great
+    deal for it to disturb: x06_lo_euro_scripts went dy_p50 1.5 -> 13.0 and
+    within2pt 0.6165 -> 0.2184. Refused.
+    """
+    if _continuum_frac(text) >= 0.5:
+        return True
+    tot = unmeasured = 0
+    for ch in text:
+        if ch.isspace():
+            continue
+        tot += 1
+        if not _measurable(ch):
+            unmeasured += 1
+    return (unmeasured / max(1, tot)) <= UNMEASURED_MAX_FRAC
+
+
 def predict_lines(p: Para, avail: float, metrics=None) -> Optional[int]:
     """Greedy first-fit, the way Word breaks. None if not predictable.
 
@@ -265,15 +348,94 @@ def _lock(p: Para, avail: float, metrics) -> bool:
     return True
 
 
+def _leading_of(p: Para) -> float:
+    if p.leading and p.leading > 0.5:
+        return p.leading
+    size = max((r.size for r in p.runs if r.text), default=10.0)
+    return max(4.0, size * 1.16)
+
+
+def _el_height(el, width, metrics) -> float:
+    """Flow height an element is predicted to occupy, in points.
+
+    Deliberately a rough model: it exists to answer "does this page have room
+    for another line?", not to place anything. Where a prediction is unavailable
+    the source's own line count is used, which is the honest fallback.
+    """
+    if isinstance(el, Para):
+        n = None
+        if el.runs and _predictable(el):
+            n = predict_lines(el, max(20.0, width), metrics)
+        if n is None:
+            n = max(1, el.src_lines or 1)
+        return (el.space_before or 0.0) + n * _leading_of(el) + (el.space_after or 0.0)
+    if isinstance(el, TableEl):
+        if el.bbox:
+            h = el.bbox[3] - el.bbox[1]
+        else:
+            h = sum(rh or 12.0 for rh in el.row_heights) or 12.0
+        return (el.space_before or 0.0) + h + (el.space_after or 0.0)
+    h = getattr(el, "height", None)
+    if h is None:
+        h = getattr(el, "thickness", 0.0) or 0.0
+    return (getattr(el, "space_before", 0.0) or 0.0) + h \
+        + (getattr(el, "space_after", 0.0) or 0.0)
+
+
+# How empty a page must be before a flow lock may spend height on it.
+#
+# The height model below is deliberately rough -- it uses predicted line counts,
+# which are exactly the quantity in doubt -- so an absolute "does it fit?" test
+# is not trustworthy near a full page. Measured page slack as a fraction of
+# capacity, against whether locking that page helped:
+#
+#     l1_word_native  p1   59%   3 locks, dy_p50 26.69 -> 2.71      helped
+#     c4_i18n         p1   43%   2 locks, within2pt 0.1966 -> 0.5043 helped
+#     x11 p2               22%   2 locks, dy_p50 46.6 -> 57.85       hurt
+#     x10             p1   14%   2 locks, pages 2/2 -> 2/3           hurt
+#     x11 p1                2%   3 locks                             hurt
+#
+# A quarter of a US-Letter text column is about thirteen lines of headroom. The
+# rule is not "will it fit" but "is there room to be wrong about whether it
+# fits", which is the honest question when the model's own inputs are the
+# suspect quantity. It is applied to the height REMAINING AFTER the lock, so a
+# page full of candidates stops accepting them while it is still a quarter
+# empty rather than filling itself one lock at a time.
+PAGE_SLACK_FRAC = 0.25
+
+
+def _page_capacity(lay: DocLayout, page_index: int) -> float:
+    cap = lay.page_h - lay.margin_t - lay.margin_b
+    if page_index == 0 and lay.cover_band is not None and lay.cover_band.bbox:
+        cap = lay.page_h - lay.cover_band.bbox[3] - lay.margin_b
+    return max(1.0, cap)
+
+
 def apply_ladder(lay: DocLayout, enabled: bool = True, metrics=None) -> dict:
     """Decide flow vs line-locked for every paragraph. Returns a report.
 
     `metrics` must be able to shape text (see `predict_lines`). Without it every
     paragraph counts as unpredictable and the ladder changes nothing, which the
     report says in the clear -- `text_metrics` names what was used.
+
+    Two things a lock is not allowed to do, both learned from the expansion
+    corpus after the default was turned on (docs/evidence/ladder-gating-
+    2026-08-05.json):
+
+    * **Cut blind.** The metrics are keyed on the font FAMILY and are simply
+      absent for characters outside its WinAnsi repertoire, so a prediction can
+      exist and be meaningless. See `_lockable_text`.
+    * **Spend page height the page has not got.** Locking pins the source's line
+      count, and where the renderer would have used fewer lines that is taller.
+      In a table cell the row height is declared by the source and restoring it
+      is the entire point (c1_whitepaper's cover band). In free flow it can push
+      a page over: x10_chrome_tables_plain went 2/2 -> 2/3 and its word recall
+      0.9963 -> 0.8657 even though the same locks improved its dy_p50 17.2 ->
+      1.65. So flow locks that ADD lines are taken only while the page they sit
+      on is predicted to have room, in document order.
     """
     rep = {"flow": 0, "line-locked": 0, "unpredictable": 0, "short": 0,
-           "lock_failed": 0}
+           "lock_failed": 0, "unmeasured_script": 0, "no_page_room": 0}
     if metrics is None:
         from .metrics import NullMetrics
         metrics = NullMetrics()
@@ -281,12 +443,22 @@ def apply_ladder(lay: DocLayout, enabled: bool = True, metrics=None) -> dict:
     if not enabled:
         return rep
 
-    def visit(p: Para, avail: float):
+    def visit(p: Para, avail: float, slack: Optional[list]):
+        """`slack` is [remaining_pt, capacity_pt], or None for a table cell.
+
+        None means "this height is declared by the source, not spent by me" --
+        restoring a cell's own row height is what the lock is FOR, so a full
+        page must not veto it.
+        """
         if p.src_lines < MIN_LINES or not p.runs:
             rep["short"] += 1
             return
         if not _predictable(p):
             rep["unpredictable"] += 1
+            return
+        text = "".join(r.text for r in p.runs if not r.is_tab)
+        if not _lockable_text(text):
+            rep["unmeasured_script"] += 1
             return
         pred = predict_lines(p, avail, metrics)
         if pred is None:
@@ -295,19 +467,41 @@ def apply_ladder(lay: DocLayout, enabled: bool = True, metrics=None) -> dict:
         if pred == p.src_lines:
             rep["flow"] += 1
             return
+        cost = (p.src_lines - pred) * _leading_of(p)
+        # A lock that REMOVES lines can never overflow a page, so it is never
+        # asked. One that adds them must leave the page still a quarter empty
+        # AFTERWARDS -- checking only the height before means a page with many
+        # candidates accepts them one at a time until it is full.
+        if slack is not None and cost > 0 and \
+                (slack[0] - cost) < PAGE_SLACK_FRAC * slack[1]:
+            rep["no_page_room"] += 1
+            return
         if _lock(p, avail, metrics):
             rep["line-locked"] += 1
+            if slack is not None and cost > 0:
+                slack[0] -= cost
         else:
             rep["lock_failed"] += 1
 
-    for pg in lay.pages:
+    for pi, pg in enumerate(lay.pages):
+        used = 0.0
+        for ch in pg.chunks:
+            width = lay.content_w
+            if ch.n_cols > 1:
+                width = (lay.content_w - ch.col_gap * (ch.n_cols - 1)) / ch.n_cols
+            used += ch.pre_gap or 0.0
+            for el in ch.elements:
+                used += _el_height(el, width, metrics) / max(1, ch.n_cols)
+        cap = _page_capacity(lay, pi)
+        slack = [cap - used, cap]          # [remaining height, page capacity]
         for ch in pg.chunks:
             width = lay.content_w
             if ch.n_cols > 1:
                 width = (lay.content_w - ch.col_gap * (ch.n_cols - 1)) / ch.n_cols
             for el in ch.elements:
                 if isinstance(el, Para):
-                    visit(el, max(20.0, width - el.left_indent - el.right_indent))
+                    visit(el, max(20.0, width - el.left_indent - el.right_indent),
+                          slack)
                 elif isinstance(el, TableEl):
                     for ri, row in enumerate(el.rows):
                         for ci, cell in enumerate(row):
@@ -315,7 +509,9 @@ def apply_ladder(lay: DocLayout, enabled: bool = True, metrics=None) -> dict:
                                 continue
                             cw = el.col_widths[ci] if ci < len(el.col_widths) else 100.0
                             for cp in cell.paras:
-                                visit(cp, max(20.0, cw - 8.0))
+                                # A cell's height is declared by the source; the
+                                # lock restores it rather than inventing it.
+                                visit(cp, max(20.0, cw - 8.0), None)
     return rep
 
 
@@ -326,8 +522,14 @@ def summarise(rep: dict) -> str:
     note = ("  [text metrics: none -- the ladder cannot shape text without the "
             "[mupdf] extra, so every paragraph is unpredictable]"
             if metrics == "none" else "  [text metrics: %s]" % metrics)
+    # Every refusal reason is named. They are counted in `total` either way, and
+    # a summary that folds 1,745 page-room refusals into an unexplained
+    # denominator reads as "the ladder did almost nothing" when in fact it
+    # declined to do something specific, for a stated reason.
     return ("%d paragraphs: %d flow, %d line-locked (%.0f%%), "
-            "%d single-line, %d unpredictable font, %d lock failed%s"
+            "%d single-line, %d unpredictable font, %d lock failed, "
+            "%d unmeasured script, %d no page room%s"
             % (total, rep.get("flow", 0), locked, 100.0 * locked / total,
                rep.get("short", 0), rep.get("unpredictable", 0),
-               rep.get("lock_failed", 0), note))
+               rep.get("lock_failed", 0), rep.get("unmeasured_script", 0),
+               rep.get("no_page_room", 0), note))

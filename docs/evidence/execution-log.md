@@ -457,3 +457,72 @@ the directories they describe. A file one directory away is outside the system
 entirely — not failing its checks, simply absent from them — and absence is the
 failure mode that no check reports. It took an audit that counted the tree
 rather than reading the manifests to notice.
+
+---
+
+## 2026-08-05 — the ladder flip, measured on sixteen documents, was wrong about four
+
+Canonical environment, fingerprint `3ca438f17d905cef…`. Evidence at
+`docs/evidence/ladder-gating-2026-08-05.json`; raw sweep at
+`docs/evidence/parity-expanded-2026-08-05e.json`.
+
+**The mistake, stated first.** The ladder default was turned on in `c9d36df` on
+the strength of a 32-cell sweep over the gated sixteen with zero regressions.
+That was the wrong evidence for the change. A default that every document flows
+through is not characterised by sixteen pinned documents, and
+`parity-expanded-2026-08-05d` found what they could not see: four candidate-side
+regressions, page drift across the y-series, and a degraded reference arm.
+**A change to a global default is measured on both corpora before it lands.**
+
+**Two failures, and the figure-merge was innocent of both.** Ablation
+(`ladder` / `merge` / `both`, per document) put `merge` equal to `none` on every
+affected document, so all of it is the ladder's.
+
+*It cut text it cannot measure.* `_predictable` checked that the font FAMILY
+maps to a base-14 name and never that the CHARACTERS are in that font's WinAnsi
+repertoire. Measured with `get_text_length` at 11pt, base-14 resolves Latin
+glyph by glyph — `aaaaaaaaaa` 48.84pt against `mmmmmmmmmm` 85.58pt — and returns
+an **identical 13.75pt** for narrow and wide Cyrillic. Per character: Latin
+4.95pt, Cyrillic 1.47, Greek 1.64, CJK 1.10. It was not approximating those
+scripts, it was not seeing them, and it returned a number anyway.
+
+But the rule that follows is *not* representability, because `c4_i18n`'s CJK is
+equally invisible and locking it moved within-2pt 0.1966 → 0.5043. CJK is
+written **without spaces**: the renderer breaks it wherever its own measurement
+lands and cannot reproduce the source's break by luck, and the metric error is
+uniform across the run so a width fraction still maps onto the right character.
+Cyrillic and Greek break at spaces exactly like Latin, so the renderer already
+reproduces the source wrap and a lock can only disturb it — `x06_lo_euro_scripts`
+went dy_p50 1.5 → 13.0. So: measured text, **or** a script continuum.
+
+*It spent page height the page had not got.* `x10_chrome_tables_plain` is the
+clean exhibit: the same two locks improved dy_p50 17.2 → 1.65 and within-2pt
+0.015 → 0.0991 while taking the document 2/2 → 2/3 pages and word recall 0.9963
+→ 0.8657. The placement was right and the page could not hold it. Flow locks now
+require the page to stay a quarter empty *after* the lock; table cells are
+exempt, because there the row height is declared by the source and restoring it
+is the entire point.
+
+**Result.** Gated sixteen: **identical to the recorded baseline, to every digit**,
+PASS both lanes, zero findings, no re-record. Expansion: x06, x10, x11 and x12
+back to their -05c values on every named dimension; x01 keeps an improvement it
+never lost; y-series page_err residual **+4 across eight documents against -05d's
++26**, with y03, y10 and y13 exactly back and y01 and y12 better than -05c.
+
+**Two framings worth not re-chasing.** `x01` and `l1_word_native` were reported
+as regressions and are not. Both had *zero absolute moves*: their parity verdicts
+worsened because the **reference arm improved faster**. On l1 the candidate went
+dy_p50 24.59 → 9.89 and the reference 34.99 → 8.49 — returning that document to
+its -05c verdict would mean discarding a 25pt gain on both backends.
+
+**One acceptance item not met, and why it is reported rather than fixed.**
+`y10_nist_fips180`'s reference arm does not recover: word recall 0.4872 → 0.3238,
+dy_p50 49.56 → 58.97, from one extra page early in a 43-page document. Five locks
+survive both gates and none is wrapped prose — two are tab-separated fragments
+(`(i)\t(i) j 0`), one has a 6.0pt-wide second line, two have interior line widths
+varying by 180–280pt. They are definition lists and symbol tables that `infer`
+flattened into paragraphs. The fix is an interior-width uniformity test — and it
+was measured to also refuse `l1_word_native`'s bullet list, dropping l1's word
+recall 1.0 → 0.9931 against a `gate_baseline.json` that records 1.0 in both lanes
+and a standing instruction not to re-record. **Trading a gated document's recall
+for an expansion document's is an adjudication, not an implementation detail.**

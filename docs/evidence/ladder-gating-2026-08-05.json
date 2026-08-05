@@ -1,0 +1,152 @@
+{
+ "_note": "Gating the quality ladder's locks on whether its own prediction can be trusted. The ladder default was turned on in c9d36df on the strength of a zero-regression sweep over the GATED SIXTEEN; parity-expanded-2026-08-05d then measured the same flip over the 29-document expansion corpus and found four candidate-side regressions and a degraded reference arm. `before` here is c9d36df (ladder on, ungated) and `after` is the same tree with `_lockable_text` and the page-height budget in `ladder.apply_ladder`. -05c is the pre-flip reference point and is the TARGET, not a floor: acceptance was that the regressions return to it while c1/c4/l1's gains hold. Raw sweep at docs/evidence/parity-expanded-2026-08-05e.json.",
+ "_the_lesson": "A CHANGE TO A DEFAULT THAT EVERY DOCUMENT FLOWS THROUGH IS MEASURED ON BOTH CORPORA BEFORE IT LANDS, NEVER ON THE GATED SIXTEEN ALONE. The gate is not a sample of the world; it is sixteen documents that happen to be pinned. c9d36df passed it with zero regressions and was still wrong about four expansion documents.",
+ "adjudicated": true,
+ "schema": "exactdoc.ladder-gating-evidence.v1",
+ "environment_canonical": true,
+ "environment_fingerprint": "3ca438f17d905cef",
+ "gating": false,
+ "diagnosis": {
+  "_note": "Two independent failures, both of them locks the ladder was confident about. Attribution was measured by ablation (ladder / figure-merge / both): the figure-merge change from c9d36df is innocent on every affected document -- `merge` equals `none` on x01, x06, x10, x11 and x12 -- so every expansion regression is the ladder's.",
+  "A_metric_blindness": {
+   "finding": "`_predictable` checked that the font FAMILY maps to a base-14 name and never that the CHARACTERS are in that font's WinAnsi repertoire. The metrics do not approximate the missing scripts, they do not see them, and they return a number anyway.",
+   "measured_pt_per_char_at_11pt": {
+    "latin_ascii": 4.95, "latin1_accents": 4.62, "czech": 4.05,
+    "vietnamese": 3.27, "cyrillic": 1.47, "greek": 1.64, "cjk": 1.10
+   },
+   "representability_probe": {
+    "_note": "Same-script narrow vs wide, 10 characters, tiro 11pt. Latin resolves glyph by glyph; Cyrillic and Greek return a constant.",
+    "latin": {"narrow_aaaa": 48.84, "wide_mmmm": 85.58, "distinguishes": true},
+    "cyrillic": {"narrow": 13.75, "wide": 13.75, "distinguishes": false},
+    "greek": {"narrow": 13.75, "wide": 13.75, "distinguishes": false}
+   },
+   "why_not_simply_representability": "c4_i18n's CJK is equally invisible and locking it moved within2pt 0.1966 -> 0.5043. CJK is written WITHOUT SPACES, so the renderer breaks it wherever its own measurement lands and cannot reproduce the source's break by luck; and the metric error is uniform across the run, so a width fraction still maps onto the right character. Cyrillic and Greek break at spaces exactly like Latin, so the renderer already reproduces the source wrap and a lock can only disturb it. The rule is therefore: measured text, OR a script continuum. Not representability.",
+   "tolerance": "UNMEASURED_MAX_FRAC = 0.05. l1_word_native's list paragraph carries two U+F0B7 Wingdings bullets among ~200 Latin characters; an all-or-nothing test vetoed it and cost word_recall 1.0 -> 0.9931 for nothing. x06's Cyrillic body is 71% of its paragraph."
+  },
+  "B_page_height": {
+   "finding": "A lock pins the source's line count. Where the renderer would have used fewer lines, that is TALLER -- and in free flow it pushes pages over. In a table cell the row height is declared by the source and restoring it is the entire point.",
+   "exhibit": "x10_chrome_tables_plain: the same two locks improved dy_p50 17.2 -> 1.65 and within2pt 0.015 -> 0.0991 while taking the document 2/2 -> 2/3 pages and word_recall 0.9963 -> 0.8657. The placement was right and the page could not hold it.",
+   "rule": "PAGE_SLACK_FRAC = 0.25, applied to the height REMAINING AFTER the lock so a page full of candidates cannot accept them one at a time. Table cells are exempt.",
+   "slack_against_outcome": {
+    "_note": "Page slack as a fraction of capacity, against whether locking that page helped.",
+    "l1_word_native_p1": {"slack_frac": 0.59, "locks": 3, "outcome": "helped -- dy_p50 26.69 -> 2.71"},
+    "c4_i18n_p1": {"slack_frac": 0.43, "locks": 2, "outcome": "helped -- within2pt 0.1966 -> 0.5043"},
+    "x11_p2": {"slack_frac": 0.22, "locks": 2, "outcome": "hurt -- dy_p50 46.6 -> 57.85"},
+    "x10_p1": {"slack_frac": 0.14, "locks": 2, "outcome": "hurt -- pages 2/2 -> 2/3"},
+    "x11_p1": {"slack_frac": 0.02, "locks": 3, "outcome": "hurt"}
+   }
+  }
+ },
+ "lock_census_both_corpora": {
+  "_note": "infer + ladder over all 45 fixtures, no rendering. Every refusal is now named in `ladder.summarise` rather than folded into an unexplained denominator.",
+  "line-locked": 681, "no_page_room": 1745, "unmeasured_script": 53,
+  "lock_failed": 2088, "flow": 7710, "unpredictable": 6, "short": 20541,
+  "documents_losing_all_locks": ["x10_chrome_tables_plain.pdf",
+                                 "x11_chrome_toc_headings.pdf"],
+  "documents_losing_script_locks": {"x06_lo_euro_scripts.pdf": 6,
+                                    "x12_chrome_euro_scripts.pdf": 5,
+                                    "y03_nist_fips197.pdf": 22,
+                                    "y10_nist_fips180.pdf": 20}
+ },
+ "gated16": {
+  "_note": "testkit/runall.py both lanes, canonical container. IDENTICAL to the baseline recorded in c9d36df, to every digit -- the gating removes no gated gain. Gate PASS both lanes with zero findings; NO re-record was needed or performed.",
+  "before": {
+   "product": {"verdict": "PASS", "page_match": "16/16", "within2pt": 0.5389,
+               "dy_p50": 0.62, "live_text_cov": 0.9652},
+   "raw": {"verdict": "PASS", "page_match": "15/16", "within2pt": 0.3604,
+           "dy_p50": 1.975, "live_text_cov": 0.9652}
+  },
+  "after": {
+   "product": {"verdict": "PASS", "page_match": "16/16", "within2pt": 0.5389,
+               "dy_p50": 0.62, "live_text_cov": 0.9652},
+   "raw": {"verdict": "PASS", "page_match": "15/16", "within2pt": 0.3604,
+           "dy_p50": 1.975, "live_text_cov": 0.9652}
+  },
+  "identical": true,
+  "rerecord_performed": false,
+  "gains_held": {
+   "c1_whitepaper.pdf": {"product": {"pages": "2/2", "dy_p50": 2.9, "within2pt": 0.19},
+                         "raw": {"pages": "2/2", "dy_p50": 2.0, "within2pt": 0.10}},
+   "c4_i18n.pdf": {"both_lanes": {"dy_p50": 0.8, "within2pt": 0.50}},
+   "l1_word_native.pdf": {"product": {"dy_p50": 0.0, "within2pt": 0.06, "word_recall": 1.0},
+                          "raw": {"dy_p50": 2.7}}
+  }
+ },
+ "expansion_candidate": {
+  "_note": "testkit/parity_expansion.py --profile candidate, all 29 documents, 795s. Three-way: -05c is the target. `now` equal to -05c is the acceptance condition; better than -05c is a retained gain.",
+  "profile_id": "pdfium/gdocs/none/refine0@240dpi",
+  "verdict_distribution": {
+   "-05c": {"MAJOR": 12, "better": 6, "minor": 4, "same": 4, "refusal-parity": 3},
+   "-05d": {"MAJOR": 11, "better": 4, "minor": 7, "same": 4, "refusal-parity": 3},
+   "now": {"MAJOR": 12, "better": 5, "minor": 4, "same": 5, "refusal-parity": 3}
+  },
+  "named_regressions": {
+   "_columns": ["-05c", "-05d", "now", "status"],
+   "x06_lo_euro_scripts.pdf": {
+    "within2pt": [0.6165, 0.2184, 0.6165, "back to -05c"],
+    "dy_p50": [1.5, 13.0, 1.5, "back to -05c"],
+    "verdict": ["better", "MAJOR", "better", "back to -05c"]},
+   "x10_chrome_tables_plain.pdf": {
+    "within2pt": [0.015, 0.0991, 0.015, "back to -05c"],
+    "dy_p50": [17.2, 1.65, 17.2, "back to -05c"],
+    "word_recall": [0.9963, 0.8657, 0.9963, "back to -05c"],
+    "page_err": [0, 1, 0, "back to -05c"],
+    "doc_recall": [0.9963, 1.0, 0.9963, "back to -05c"]},
+   "x11_chrome_toc_headings.pdf": {
+    "within2pt": [0.0052, 0.0054, 0.0052, "back to -05c"],
+    "dy_p50": [46.6, 57.85, 46.6, "back to -05c"],
+    "word_recall": [0.3465, 0.3339, 0.3465, "back to -05c"],
+    "doc_recall": [0.9838, 0.9874, 0.9838, "back to -05c"]},
+   "x12_chrome_euro_scripts.pdf": {
+    "within2pt": [0.1232, 0.1379, 0.1232, "back to -05c"]},
+   "x01_lo_memo_pageno.pdf": {
+    "within2pt": [0.3037, 0.316, 0.316, "BETTER than -05c, retained"],
+    "dy_p50": [1.8, 1.35, 1.35, "BETTER than -05c, retained"],
+    "_note": "x01 never regressed in absolute terms. Its -05d verdict flip was 'reference improved' -- the pymupdf arm gained more than pdfium and widened the parity gap. Both arms are better than -05c."}
+  },
+  "y_series_page_err": {
+   "_note": "The page-count drift, which was the -05d y-series finding. Residual +4 across eight documents, against -05d's +26.",
+   "_columns": ["-05c", "-05d", "now"],
+   "y01_nist_sp80063b.pdf": [27, 27, 26],
+   "y02_nist_sp800171r2.pdf": [47, 48, 48],
+   "y03_nist_fips197.pdf": [28, 29, 28],
+   "y06_irs_1040_instructions.pdf": [218, 236, 220],
+   "y09_nist_sp800207.pdf": [7, 9, 8],
+   "y10_nist_fips180.pdf": [6, 9, 6],
+   "y12_irs_pub15.pdf": [69, 77, 68],
+   "y13_irs_pub501.pdf": [51, 56, 51]
+  },
+  "sub_noise_residuals": "Several y-series dy_p50 and doc_recall values differ from -05c in the third decimal (y02 dy 57.98 -> 57.99, y08 doc_recall 0.9691 -> 0.9683, y13 dy 38.46 -> 38.5). These are documents rendering 160-350 pages against a 46-126 page source, where the metric is dominated by gross page displacement; hundredths of a point are not a signal."
+ },
+ "gated16_candidate_parity": {
+  "_note": "backend_parity.py --profile candidate. The -05d 'l1_word_native NEW gated-candidate MAJOR' is a parity-framing artifact, not a quality loss, and this records why so it is not re-chased.",
+  "l1_word_native.pdf": {
+   "-05c": {"reference_dy_p50": 34.99, "candidate_dy_p50": 24.59, "verdict": "minor"},
+   "-05d": {"reference_dy_p50": 8.49, "candidate_dy_p50": 9.89, "verdict": "MAJOR"},
+   "now": {"reference_dy_p50": 8.49, "candidate_dy_p50": 9.89, "verdict": "MAJOR"},
+   "reading": "BOTH arms improved enormously -- candidate 24.59 -> 9.89 and reference 34.99 -> 8.49. The verdict went MAJOR only because the reference improved FASTER. Returning this document to its -05c verdict would mean discarding a 25pt placement gain on both backends, which is not a repair."
+  },
+  "c4_i18n.pdf": {
+   "_note": "Its live_text_cov gap (reference 1.0, candidate 0.9091) is identical in -05c and -05d: a long-standing pdfium rasterisation difference, not caused here.",
+   "candidate_within2pt": {"-05c": 0.0769, "-05d": 0.2479, "now": 0.2137},
+   "reading": "Better than -05c, slightly below -05d: the page-height budget declines two locks the ungated ladder took in the pdfium arm."
+  }
+ },
+ "outstanding": {
+  "y10_nist_fips180_reference_arm": {
+   "_note": "THE ONE ACCEPTANCE ITEM NOT MET. Reported rather than fixed, because the obvious fix is blocked on a decision I must not take alone.",
+   "measured": {
+    "word_recall": {"-05c": 0.4872, "-05d": 0.3143, "now": 0.3238},
+    "dy_p50": {"-05c": 49.56, "-05d": 49.48, "now": 58.97},
+    "page_err": {"-05c": 7, "-05d": 11, "now": 8},
+    "doc_recall": {"-05c": 0.8068, "-05d": 0.806, "now": 0.8068}
+   },
+   "isolation": "pymupdf/gdocs/none/refine0, ladder off vs on: pages 36/43 -> 36/44, dy_p50 49.56 -> 58.97, word_recall 0.4872 -> 0.3238. One extra page early in a 43-page document puts everything after it on the wrong page, which is the whole of the recall loss.",
+   "mechanism": "Five locks survive both gates, and none of them is wrapped prose. Two are tab-separated fragments ('(i)\\t(i) j 0'); one has a second source line 6.0pt wide; two have interior line widths varying by 180-280pt ([161.5, 434.3, 250.8, 345.4] and [190.3, 470.9, 470.8, 470.8, 128.3]). These are definition lists and symbol tables that `infer` flattened into paragraphs, and the width-fraction cut model has no meaning on them.",
+   "candidate_fix": "Require the INTERIOR source line widths (dropping the first, which may be a merged heading, and the last, which is always short) to be uniform -- wrapped prose has interior lines at the column width by construction.",
+   "why_not_landed": "Measured: that test also refuses l1_word_native's bullet-list paragraph (widths [41.5, 217.2, 284.2, 284.7], interior spread 67pt), which drops l1's word_recall from 1.0 to 0.9931. testkit/gate_baseline.json records l1 word_recall 1.0 in BOTH lanes, so the fix regresses the gate against a baseline this task was instructed not to re-record. Trading a gated document's recall for an expansion document's is an adjudication, not an implementation detail."
+  }
+ },
+ "ok": true,
+ "release_ready": false
+}

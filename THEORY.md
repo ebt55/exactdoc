@@ -313,6 +313,23 @@ code with the converter for this reason. See STATUS.md §4.5.
   first made the composite metric *worse*. Landed together, c1's raw lane goes
   2/3 → 2/2 pages and dy_p50 101.0 → 2.0. **A compensator that does not pay
   alone has not been shown not to pay — check what is cancelling it.**
+- **Turning a global default on, measured against sixteen documents** — the
+  ladder flip above passed the gated corpus with zero regressions and was
+  landed on that evidence. The expansion sweep then found four candidate-side
+  regressions and a degraded reference arm that sixteen documents could not
+  see. The gate is not a sample of the world; it is sixteen documents that
+  happen to be pinned. **A change to a default that every document flows
+  through is measured on both corpora before it lands, never on the gated
+  sixteen alone.**
+- **A prediction that exists is not a prediction that is right** — the ladder's
+  `_predictable` checked that a font FAMILY maps to a base-14 name and never
+  that the CHARACTERS were in that font's WinAnsi repertoire. Measured with
+  `get_text_length` at 11pt, base-14 resolves Latin glyph by glyph
+  ("aaaaaaaaaa" 48.84pt vs "mmmmmmmmmm" 85.58pt) and returns an *identical*
+  13.75pt for narrow and wide Cyrillic. It was not approximating those scripts,
+  it was not seeing them — and returning a number anyway. The honest failure
+  mode of a metric is `None`; a metric that guesses silently is worse than one
+  that refuses, because every caller downstream believes it.
 - **Guessing at the pdfium placement gap** — "most likely baseline or line-box
   geometry" was written into the defect register and survived a full revision
   of it. Direct measurement found baselines identical on 4,734 of 4,734 lines;

@@ -1,0 +1,1172 @@
+{
+ "_note": "Backend parity over the NON-GATING expansion corpus. No baseline describes these documents, testkit/gate.py never sees them, and parity_policy.json governs none of them. Severity is computed from that policy's `margins` section alone; no gated waiver or floor was read or applied. Expansion ratifications, if any, come from the separate expansion_parity_policy.json and are ANNOTATED on rows without changing any verdict.",
+ "adjudicated": false,
+ "candidate_backend": "pdfium",
+ "candidate_profile_id": "pdfium/gdocs/none/refine0@240dpi",
+ "corpus": "corpus_expansion.json",
+ "documents": [
+  {
+   "better": [],
+   "better_raw": [],
+   "candidate": {
+    "doc_recall": 0.9969,
+    "dy_p50": 1.35,
+    "live_text_cov": 0.9665,
+    "page_err": 0,
+    "raster_frac": 0.0335,
+    "within2pt": 0.316,
+    "word_recall": 0.9969
+   },
+   "deltas": {
+    "dy_p50": 0.65,
+    "within2pt": -0.1027
+   },
+   "document": "x01_lo_memo_pageno.pdf",
+   "reference": {
+    "doc_recall": 0.9969,
+    "dy_p50": 0.7,
+    "live_text_cov": 0.9665,
+    "page_err": 0,
+    "raster_frac": 0.0335,
+    "within2pt": 0.4187,
+    "word_recall": 0.9969
+   },
+   "tier": "ordinary_digital",
+   "verdict": "MAJOR",
+   "worse": [
+    "within2pt",
+    "dy_p50"
+   ],
+   "worse_raw": [
+    "within2pt",
+    "dy_p50"
+   ]
+  },
+  {
+   "better": [
+    "within2pt",
+    "dy_p50"
+   ],
+   "better_raw": [
+    "within2pt",
+    "dy_p50"
+   ],
+   "candidate": {
+    "doc_recall": 0.9492,
+    "dy_p50": 0.4,
+    "live_text_cov": 0.9523,
+    "page_err": 0,
+    "raster_frac": 0.0477,
+    "within2pt": 1.0,
+    "word_recall": 0.9492
+   },
+   "deltas": {
+    "doc_recall": -0.0508,
+    "dy_p50": -25.83,
+    "live_text_cov": -0.0286,
+    "raster_frac": 0.0286,
+    "within2pt": 0.8008,
+    "word_recall": -0.0508
+   },
+   "document": "x03_lo_lists_nested.pdf",
+   "reference": {
+    "doc_recall": 1.0,
+    "dy_p50": 26.23,
+    "live_text_cov": 0.9809,
+    "page_err": 0,
+    "raster_frac": 0.0191,
+    "within2pt": 0.1992,
+    "word_recall": 1.0
+   },
+   "tier": "ordinary_digital",
+   "verdict": "MAJOR",
+   "worse": [
+    "doc_recall",
+    "word_recall",
+    "raster_frac"
+   ],
+   "worse_raw": [
+    "live_text_cov",
+    "doc_recall",
+    "word_recall",
+    "raster_frac"
+   ]
+  },
+  {
+   "better": [],
+   "better_raw": [],
+   "candidate": {
+    "doc_recall": 0.9786,
+    "dy_p50": 20.8,
+    "live_text_cov": 0.9834,
+    "page_err": 0,
+    "raster_frac": 0.0166,
+    "within2pt": 0.0085,
+    "word_recall": 0.9786
+   },
+   "deltas": {
+    "doc_recall": -0.0119,
+    "dy_p50": 2.4,
+    "live_text_cov": -0.0149,
+    "raster_frac": 0.0149,
+    "within2pt": -0.0023,
+    "word_recall": -0.0119
+   },
+   "document": "x07_chrome_memo_running.pdf",
+   "reference": {
+    "doc_recall": 0.9905,
+    "dy_p50": 18.4,
+    "live_text_cov": 0.9983,
+    "page_err": 0,
+    "raster_frac": 0.0017,
+    "within2pt": 0.0108,
+    "word_recall": 0.9905
+   },
+   "tier": "ordinary_digital",
+   "verdict": "MAJOR",
+   "worse": [
+    "dy_p50"
+   ],
+   "worse_raw": [
+    "live_text_cov",
+    "doc_recall",
+    "word_recall",
+    "within2pt",
+    "dy_p50",
+    "raster_frac"
+   ]
+  },
+  {
+   "better": [],
+   "better_raw": [],
+   "candidate": {
+    "doc_recall": 0.9963,
+    "dy_p50": 17.2,
+    "live_text_cov": 1.0,
+    "page_err": 0,
+    "raster_frac": 0.0,
+    "within2pt": 0.015,
+    "word_recall": 0.9963
+   },
+   "deltas": {
+    "dy_p50": 2.65
+   },
+   "document": "x10_chrome_tables_plain.pdf",
+   "reference": {
+    "doc_recall": 0.9963,
+    "dy_p50": 14.55,
+    "live_text_cov": 1.0,
+    "page_err": 0,
+    "raster_frac": 0.0,
+    "within2pt": 0.015,
+    "word_recall": 0.9963
+   },
+   "tier": "ordinary_digital",
+   "verdict": "MAJOR",
+   "worse": [
+    "dy_p50"
+   ],
+   "worse_raw": [
+    "dy_p50"
+   ]
+  },
+  {
+   "better": [],
+   "better_raw": [],
+   "candidate": {
+    "doc_recall": 0.9963,
+    "dy_p50": 1.36,
+    "live_text_cov": 0.9794,
+    "page_err": 0,
+    "raster_frac": 0.0206,
+    "within2pt": 0.4389,
+    "word_recall": 0.9963
+   },
+   "deltas": {
+    "dy_p50": 0.51,
+    "within2pt": -0.0436
+   },
+   "document": "x13_rl_report_running.pdf",
+   "reference": {
+    "doc_recall": 0.9963,
+    "dy_p50": 0.85,
+    "live_text_cov": 0.9794,
+    "page_err": 0,
+    "raster_frac": 0.0206,
+    "within2pt": 0.4825,
+    "word_recall": 0.9963
+   },
+   "tier": "ordinary_digital",
+   "verdict": "MAJOR",
+   "worse": [
+    "dy_p50"
+   ],
+   "worse_raw": [
+    "within2pt",
+    "dy_p50"
+   ]
+  },
+  {
+   "better": [],
+   "better_raw": [
+    "within2pt"
+   ],
+   "candidate": {
+    "doc_recall": 0.9288,
+    "dy_p50": 55.3,
+    "live_text_cov": 0.916,
+    "page_err": 26,
+    "raster_frac": 0.084,
+    "within2pt": 0.0004,
+    "word_recall": 0.1939
+   },
+   "deltas": {
+    "doc_recall": -0.0036,
+    "live_text_cov": -0.0008,
+    "page_err": 5,
+    "raster_frac": 0.0008,
+    "within2pt": 0.0004,
+    "word_recall": -0.005
+   },
+   "document": "y01_nist_sp80063b.pdf",
+   "reference": {
+    "doc_recall": 0.9324,
+    "dy_p50": 60.2,
+    "live_text_cov": 0.9168,
+    "page_err": 21,
+    "raster_frac": 0.0832,
+    "within2pt": 0.0,
+    "word_recall": 0.1989
+   },
+   "tier": "ordinary_digital",
+   "verdict": "MAJOR",
+   "worse": [
+    "page_err"
+   ],
+   "worse_raw": [
+    "page_err",
+    "live_text_cov",
+    "doc_recall",
+    "word_recall",
+    "raster_frac"
+   ]
+  },
+  {
+   "better": [],
+   "better_raw": [],
+   "candidate": {
+    "doc_recall": 0.9139,
+    "dy_p50": 76.99,
+    "live_text_cov": 0.9205,
+    "page_err": 28,
+    "raster_frac": 0.0795,
+    "within2pt": 0.0082,
+    "word_recall": 0.1399
+   },
+   "deltas": {
+    "doc_recall": -0.0458,
+    "dy_p50": 67.94,
+    "live_text_cov": -0.0106,
+    "page_err": 10,
+    "raster_frac": 0.0106,
+    "within2pt": -0.0024,
+    "word_recall": -0.2594
+   },
+   "document": "y03_nist_fips197.pdf",
+   "reference": {
+    "doc_recall": 0.9597,
+    "dy_p50": 9.05,
+    "live_text_cov": 0.9311,
+    "page_err": 18,
+    "raster_frac": 0.0689,
+    "within2pt": 0.0106,
+    "word_recall": 0.3993
+   },
+   "tier": "ordinary_digital",
+   "verdict": "MAJOR",
+   "worse": [
+    "page_err",
+    "word_recall",
+    "dy_p50"
+   ],
+   "worse_raw": [
+    "page_err",
+    "live_text_cov",
+    "doc_recall",
+    "word_recall",
+    "within2pt",
+    "dy_p50",
+    "raster_frac"
+   ]
+  },
+  {
+   "better": [],
+   "better_raw": [
+    "within2pt"
+   ],
+   "candidate": {
+    "doc_recall": 0.8769,
+    "dy_p50": 53.59,
+    "live_text_cov": 0.9579,
+    "page_err": 220,
+    "raster_frac": 0.0421,
+    "within2pt": 0.0007,
+    "word_recall": 0.1073
+   },
+   "deltas": {
+    "doc_recall": -0.0184,
+    "dy_p50": 7.59,
+    "live_text_cov": -0.0035,
+    "page_err": 86,
+    "raster_frac": 0.0035,
+    "within2pt": 0.0001,
+    "word_recall": -0.0085
+   },
+   "document": "y06_irs_1040_instructions.pdf",
+   "reference": {
+    "doc_recall": 0.8953,
+    "dy_p50": 46.0,
+    "live_text_cov": 0.9614,
+    "page_err": 134,
+    "raster_frac": 0.0386,
+    "within2pt": 0.0006,
+    "word_recall": 0.1158
+   },
+   "tier": "designed_stress",
+   "verdict": "MAJOR",
+   "worse": [
+    "page_err",
+    "dy_p50"
+   ],
+   "worse_raw": [
+    "page_err",
+    "live_text_cov",
+    "doc_recall",
+    "word_recall",
+    "dy_p50",
+    "raster_frac"
+   ]
+  },
+  {
+   "better": [],
+   "better_raw": [
+    "word_recall",
+    "within2pt"
+   ],
+   "candidate": {
+    "doc_recall": 0.9541,
+    "dy_p50": 59.15,
+    "live_text_cov": 0.9473,
+    "page_err": 8,
+    "raster_frac": 0.0527,
+    "within2pt": 0.0009,
+    "word_recall": 0.241
+   },
+   "deltas": {
+    "doc_recall": -0.0023,
+    "live_text_cov": -0.0003,
+    "page_err": 2,
+    "raster_frac": 0.0003,
+    "within2pt": 0.0001,
+    "word_recall": 0.0012
+   },
+   "document": "y09_nist_sp800207.pdf",
+   "reference": {
+    "doc_recall": 0.9564,
+    "dy_p50": 59.73,
+    "live_text_cov": 0.9476,
+    "page_err": 6,
+    "raster_frac": 0.0524,
+    "within2pt": 0.0008,
+    "word_recall": 0.2398
+   },
+   "tier": "ordinary_digital",
+   "verdict": "MAJOR",
+   "worse": [
+    "page_err"
+   ],
+   "worse_raw": [
+    "page_err",
+    "live_text_cov",
+    "doc_recall",
+    "raster_frac"
+   ]
+  },
+  {
+   "better": [],
+   "better_raw": [
+    "doc_recall"
+   ],
+   "candidate": {
+    "doc_recall": 0.9561,
+    "dy_p50": 49.8,
+    "live_text_cov": 0.9761,
+    "page_err": 68,
+    "raster_frac": 0.0239,
+    "within2pt": 0.0003,
+    "word_recall": 0.1981
+   },
+   "deltas": {
+    "doc_recall": 0.0005,
+    "dy_p50": 5.88,
+    "live_text_cov": -0.0048,
+    "page_err": 12,
+    "raster_frac": 0.0048,
+    "within2pt": -0.0003,
+    "word_recall": -0.0077
+   },
+   "document": "y12_irs_pub15.pdf",
+   "reference": {
+    "doc_recall": 0.9556,
+    "dy_p50": 43.92,
+    "live_text_cov": 0.9809,
+    "page_err": 56,
+    "raster_frac": 0.0191,
+    "within2pt": 0.0006,
+    "word_recall": 0.2058
+   },
+   "tier": "ordinary_digital",
+   "verdict": "MAJOR",
+   "worse": [
+    "page_err",
+    "dy_p50"
+   ],
+   "worse_raw": [
+    "page_err",
+    "live_text_cov",
+    "word_recall",
+    "within2pt",
+    "dy_p50",
+    "raster_frac"
+   ]
+  },
+  {
+   "better": [],
+   "better_raw": [
+    "doc_recall"
+   ],
+   "candidate": {
+    "doc_recall": 0.9636,
+    "dy_p50": 38.5,
+    "live_text_cov": 0.9705,
+    "page_err": 51,
+    "raster_frac": 0.0295,
+    "within2pt": 0.0007,
+    "word_recall": 0.1543
+   },
+   "deltas": {
+    "doc_recall": 0.015,
+    "live_text_cov": -0.007,
+    "page_err": 19,
+    "raster_frac": 0.007,
+    "within2pt": -0.0002,
+    "word_recall": -0.0319
+   },
+   "document": "y13_irs_pub501.pdf",
+   "reference": {
+    "doc_recall": 0.9486,
+    "dy_p50": 36.47,
+    "live_text_cov": 0.9775,
+    "page_err": 32,
+    "raster_frac": 0.0225,
+    "within2pt": 0.0009,
+    "word_recall": 0.1862
+   },
+   "tier": "designed_stress",
+   "verdict": "MAJOR",
+   "worse": [
+    "page_err"
+   ],
+   "worse_raw": [
+    "page_err",
+    "live_text_cov",
+    "word_recall",
+    "within2pt",
+    "raster_frac"
+   ]
+  },
+  {
+   "better": [
+    "page_err",
+    "word_recall"
+   ],
+   "better_raw": [
+    "page_err",
+    "word_recall"
+   ],
+   "candidate": {
+    "doc_recall": 0.9511,
+    "dy_p50": 67.3,
+    "live_text_cov": 0.9643,
+    "page_err": 13,
+    "raster_frac": 0.0357,
+    "within2pt": 0.0006,
+    "word_recall": 0.5313
+   },
+   "deltas": {
+    "doc_recall": -0.0267,
+    "dy_p50": 11.81,
+    "live_text_cov": -0.0063,
+    "page_err": -12,
+    "raster_frac": 0.0063,
+    "within2pt": -0.0163,
+    "word_recall": 0.1946
+   },
+   "document": "y17_rfc9110.pdf",
+   "reference": {
+    "doc_recall": 0.9778,
+    "dy_p50": 55.49,
+    "live_text_cov": 0.9706,
+    "page_err": 25,
+    "raster_frac": 0.0294,
+    "within2pt": 0.0169,
+    "word_recall": 0.3367
+   },
+   "tier": "ordinary_digital",
+   "verdict": "MAJOR",
+   "worse": [
+    "dy_p50"
+   ],
+   "worse_raw": [
+    "live_text_cov",
+    "doc_recall",
+    "within2pt",
+    "dy_p50",
+    "raster_frac"
+   ]
+  },
+  {
+   "better": [
+    "within2pt",
+    "dy_p50"
+   ],
+   "better_raw": [
+    "within2pt",
+    "dy_p50"
+   ],
+   "candidate": {
+    "doc_recall": 0.9928,
+    "dy_p50": 1.55,
+    "live_text_cov": 0.9943,
+    "page_err": 0,
+    "raster_frac": 0.0057,
+    "within2pt": 0.3686,
+    "word_recall": 0.9928
+   },
+   "deltas": {
+    "dy_p50": -1.4,
+    "live_text_cov": -0.0038,
+    "raster_frac": 0.0038,
+    "within2pt": 0.354
+   },
+   "document": "x05_lo_quotes_notes.pdf",
+   "reference": {
+    "doc_recall": 0.9928,
+    "dy_p50": 2.95,
+    "live_text_cov": 0.9981,
+    "page_err": 0,
+    "raster_frac": 0.0019,
+    "within2pt": 0.0146,
+    "word_recall": 0.9928
+   },
+   "tier": "ordinary_digital",
+   "verdict": "minor",
+   "worse": [],
+   "worse_raw": [
+    "live_text_cov",
+    "raster_frac"
+   ]
+  },
+  {
+   "better": [
+    "page_err"
+   ],
+   "better_raw": [
+    "page_err",
+    "word_recall"
+   ],
+   "candidate": {
+    "doc_recall": 0.907,
+    "dy_p50": 57.99,
+    "live_text_cov": 0.8699,
+    "page_err": 48,
+    "raster_frac": 0.1301,
+    "within2pt": 0.0011,
+    "word_recall": 0.2039
+   },
+   "deltas": {
+    "doc_recall": -0.0051,
+    "live_text_cov": -0.0069,
+    "page_err": -5,
+    "raster_frac": 0.0069,
+    "within2pt": -0.0004,
+    "word_recall": 0.0055
+   },
+   "document": "y02_nist_sp800171r2.pdf",
+   "reference": {
+    "doc_recall": 0.9121,
+    "dy_p50": 56.06,
+    "live_text_cov": 0.8768,
+    "page_err": 53,
+    "raster_frac": 0.1232,
+    "within2pt": 0.0015,
+    "word_recall": 0.1984
+   },
+   "tier": "ordinary_digital",
+   "verdict": "minor",
+   "worse": [],
+   "worse_raw": [
+    "live_text_cov",
+    "doc_recall",
+    "within2pt",
+    "raster_frac"
+   ]
+  },
+  {
+   "better": [
+    "page_err"
+   ],
+   "better_raw": [
+    "page_err",
+    "word_recall"
+   ],
+   "candidate": {
+    "doc_recall": 0.9683,
+    "dy_p50": 58.04,
+    "live_text_cov": 0.9766,
+    "page_err": 21,
+    "raster_frac": 0.0234,
+    "within2pt": 0.0004,
+    "word_recall": 0.2289
+   },
+   "deltas": {
+    "doc_recall": -0.0033,
+    "live_text_cov": -0.0004,
+    "page_err": -1,
+    "raster_frac": 0.0004,
+    "word_recall": 0.0052
+   },
+   "document": "y08_nist_sp80088r1.pdf",
+   "reference": {
+    "doc_recall": 0.9716,
+    "dy_p50": 59.13,
+    "live_text_cov": 0.977,
+    "page_err": 22,
+    "raster_frac": 0.023,
+    "within2pt": 0.0004,
+    "word_recall": 0.2237
+   },
+   "tier": "ordinary_digital",
+   "verdict": "minor",
+   "worse": [],
+   "worse_raw": [
+    "live_text_cov",
+    "doc_recall",
+    "raster_frac"
+   ]
+  },
+  {
+   "better": [
+    "page_err",
+    "word_recall",
+    "within2pt",
+    "dy_p50"
+   ],
+   "better_raw": [
+    "page_err",
+    "word_recall",
+    "within2pt",
+    "dy_p50"
+   ],
+   "candidate": {
+    "doc_recall": 0.7681,
+    "dy_p50": 13.86,
+    "live_text_cov": 0.9398,
+    "page_err": 6,
+    "raster_frac": 0.0602,
+    "within2pt": 0.1251,
+    "word_recall": 0.4256
+   },
+   "deltas": {
+    "doc_recall": -0.0387,
+    "dy_p50": -45.11,
+    "live_text_cov": -0.0018,
+    "page_err": -2,
+    "raster_frac": 0.0018,
+    "within2pt": 0.1192,
+    "word_recall": 0.1018
+   },
+   "document": "y10_nist_fips180.pdf",
+   "reference": {
+    "doc_recall": 0.8068,
+    "dy_p50": 58.97,
+    "live_text_cov": 0.9416,
+    "page_err": 8,
+    "raster_frac": 0.0584,
+    "within2pt": 0.0059,
+    "word_recall": 0.3238
+   },
+   "tier": "ordinary_digital",
+   "verdict": "minor",
+   "worse": [],
+   "worse_raw": [
+    "live_text_cov",
+    "doc_recall",
+    "raster_frac"
+   ]
+  },
+  {
+   "better": [],
+   "better_raw": [],
+   "candidate": {
+    "doc_recall": 0.9945,
+    "dy_p50": 30.05,
+    "live_text_cov": 0.9767,
+    "page_err": 0,
+    "raster_frac": 0.0233,
+    "within2pt": 0.0069,
+    "word_recall": 0.9945
+   },
+   "deltas": {},
+   "document": "x08_chrome_print_default.pdf",
+   "reference": {
+    "doc_recall": 0.9945,
+    "dy_p50": 30.05,
+    "live_text_cov": 0.9767,
+    "page_err": 0,
+    "raster_frac": 0.0233,
+    "within2pt": 0.0069,
+    "word_recall": 0.9945
+   },
+   "tier": "ordinary_digital",
+   "verdict": "same",
+   "worse": [],
+   "worse_raw": []
+  },
+  {
+   "better": [],
+   "better_raw": [],
+   "candidate": {
+    "doc_recall": 1.0,
+    "dy_p50": 15.5,
+    "live_text_cov": 0.9894,
+    "page_err": 0,
+    "raster_frac": 0.0106,
+    "within2pt": 0.0251,
+    "word_recall": 1.0
+   },
+   "deltas": {},
+   "document": "x09_chrome_lists_nested.pdf",
+   "reference": {
+    "doc_recall": 1.0,
+    "dy_p50": 15.5,
+    "live_text_cov": 0.9894,
+    "page_err": 0,
+    "raster_frac": 0.0106,
+    "within2pt": 0.0251,
+    "word_recall": 1.0
+   },
+   "tier": "ordinary_digital",
+   "verdict": "same",
+   "worse": [],
+   "worse_raw": []
+  },
+  {
+   "better": [],
+   "better_raw": [],
+   "candidate": {
+    "doc_recall": 0.9838,
+    "dy_p50": 46.6,
+    "live_text_cov": 0.9877,
+    "page_err": 2,
+    "raster_frac": 0.0123,
+    "within2pt": 0.0052,
+    "word_recall": 0.3465
+   },
+   "deltas": {},
+   "document": "x11_chrome_toc_headings.pdf",
+   "reference": {
+    "doc_recall": 0.9838,
+    "dy_p50": 46.7,
+    "live_text_cov": 0.9877,
+    "page_err": 2,
+    "raster_frac": 0.0123,
+    "within2pt": 0.0052,
+    "word_recall": 0.3465
+   },
+   "tier": "ordinary_digital",
+   "verdict": "same",
+   "worse": [],
+   "worse_raw": []
+  },
+  {
+   "better": [],
+   "better_raw": [],
+   "candidate": {
+    "doc_recall": 1.0,
+    "dy_p50": 1.55,
+    "live_text_cov": 1.0,
+    "page_err": 0,
+    "raster_frac": 0.0,
+    "within2pt": 0.1232,
+    "word_recall": 1.0
+   },
+   "deltas": {},
+   "document": "x12_chrome_euro_scripts.pdf",
+   "reference": {
+    "doc_recall": 1.0,
+    "dy_p50": 1.55,
+    "live_text_cov": 1.0,
+    "page_err": 0,
+    "raster_frac": 0.0,
+    "within2pt": 0.1232,
+    "word_recall": 1.0
+   },
+   "tier": "ordinary_digital",
+   "verdict": "same",
+   "worse": [],
+   "worse_raw": []
+  },
+  {
+   "better": [],
+   "better_raw": [],
+   "candidate": {
+    "doc_recall": 0.9942,
+    "dy_p50": 4.01,
+    "live_text_cov": 1.0,
+    "page_err": 0,
+    "raster_frac": 0.0,
+    "within2pt": 0.0471,
+    "word_recall": 0.9942
+   },
+   "deltas": {},
+   "document": "x14_rl_statement_lines.pdf",
+   "reference": {
+    "doc_recall": 0.9942,
+    "dy_p50": 4.01,
+    "live_text_cov": 1.0,
+    "page_err": 0,
+    "raster_frac": 0.0,
+    "within2pt": 0.0471,
+    "word_recall": 0.9942
+   },
+   "tier": "ordinary_digital",
+   "verdict": "same",
+   "worse": [],
+   "worse_raw": []
+  },
+  {
+   "better": [
+    "within2pt",
+    "dy_p50"
+   ],
+   "better_raw": [
+    "doc_recall",
+    "word_recall",
+    "within2pt",
+    "dy_p50"
+   ],
+   "candidate": {
+    "doc_recall": 0.9883,
+    "dy_p50": 1.4,
+    "live_text_cov": 0.976,
+    "page_err": 0,
+    "raster_frac": 0.024,
+    "within2pt": 0.1979,
+    "word_recall": 0.9883
+   },
+   "deltas": {
+    "doc_recall": 0.0013,
+    "dy_p50": -6.9,
+    "within2pt": 0.1371,
+    "word_recall": 0.0013
+   },
+   "document": "x02_lo_report_toc.pdf",
+   "reference": {
+    "doc_recall": 0.987,
+    "dy_p50": 8.3,
+    "live_text_cov": 0.976,
+    "page_err": 0,
+    "raster_frac": 0.024,
+    "within2pt": 0.0608,
+    "word_recall": 0.987
+   },
+   "tier": "ordinary_digital",
+   "verdict": "better",
+   "worse": [],
+   "worse_raw": []
+  },
+  {
+   "better": [
+    "within2pt",
+    "dy_p50"
+   ],
+   "better_raw": [
+    "within2pt",
+    "dy_p50"
+   ],
+   "candidate": {
+    "doc_recall": 0.9926,
+    "dy_p50": 3.15,
+    "live_text_cov": 0.998,
+    "page_err": 0,
+    "raster_frac": 0.002,
+    "within2pt": 0.1004,
+    "word_recall": 0.9926
+   },
+   "deltas": {
+    "dy_p50": -3.6,
+    "within2pt": 0.093
+   },
+   "document": "x04_lo_tables_plain.pdf",
+   "reference": {
+    "doc_recall": 0.9926,
+    "dy_p50": 6.75,
+    "live_text_cov": 0.998,
+    "page_err": 0,
+    "raster_frac": 0.002,
+    "within2pt": 0.0074,
+    "word_recall": 0.9926
+   },
+   "tier": "ordinary_digital",
+   "verdict": "better",
+   "worse": [],
+   "worse_raw": []
+  },
+  {
+   "better": [
+    "within2pt",
+    "dy_p50"
+   ],
+   "better_raw": [
+    "within2pt",
+    "dy_p50"
+   ],
+   "candidate": {
+    "doc_recall": 1.0,
+    "dy_p50": 1.5,
+    "live_text_cov": 1.0,
+    "page_err": 0,
+    "raster_frac": 0.0,
+    "within2pt": 0.6165,
+    "word_recall": 1.0
+   },
+   "deltas": {
+    "dy_p50": -10.7,
+    "within2pt": 0.3107
+   },
+   "document": "x06_lo_euro_scripts.pdf",
+   "reference": {
+    "doc_recall": 1.0,
+    "dy_p50": 12.2,
+    "live_text_cov": 1.0,
+    "page_err": 0,
+    "raster_frac": 0.0,
+    "within2pt": 0.3058,
+    "word_recall": 1.0
+   },
+   "tier": "ordinary_digital",
+   "verdict": "better",
+   "worse": [],
+   "worse_raw": []
+  },
+  {
+   "better": [
+    "within2pt",
+    "dy_p50"
+   ],
+   "better_raw": [
+    "within2pt",
+    "dy_p50"
+   ],
+   "candidate": {
+    "doc_recall": 0.9982,
+    "dy_p50": 0.75,
+    "live_text_cov": 1.0,
+    "page_err": 0,
+    "raster_frac": 0.0,
+    "within2pt": 0.7587,
+    "word_recall": 0.9982
+   },
+   "deltas": {
+    "dy_p50": -0.85,
+    "within2pt": 0.2249
+   },
+   "document": "x15_rl_handbook_toc.pdf",
+   "reference": {
+    "doc_recall": 0.9982,
+    "dy_p50": 1.6,
+    "live_text_cov": 1.0,
+    "page_err": 0,
+    "raster_frac": 0.0,
+    "within2pt": 0.5338,
+    "word_recall": 0.9982
+   },
+   "tier": "ordinary_digital",
+   "verdict": "better",
+   "worse": [],
+   "worse_raw": []
+  },
+  {
+   "better": [
+    "dy_p50"
+   ],
+   "better_raw": [
+    "dy_p50"
+   ],
+   "candidate": {
+    "doc_recall": 1.0,
+    "dy_p50": 2.35,
+    "live_text_cov": 1.0,
+    "page_err": 0,
+    "raster_frac": 0.0,
+    "within2pt": 0.013,
+    "word_recall": 1.0
+   },
+   "deltas": {
+    "dy_p50": -21.45
+   },
+   "document": "x16_fpdf_bulletin.pdf",
+   "reference": {
+    "doc_recall": 1.0,
+    "dy_p50": 23.8,
+    "live_text_cov": 1.0,
+    "page_err": 0,
+    "raster_frac": 0.0,
+    "within2pt": 0.013,
+    "word_recall": 1.0
+   },
+   "tier": "ordinary_digital",
+   "verdict": "better",
+   "worse": [],
+   "worse_raw": []
+  },
+  {
+   "candidate": {
+    "code": "interactive-form",
+    "error_class": "InteractiveFormError",
+    "refused": true
+   },
+   "detail": "both refuse with InteractiveFormError (exit code interactive-form)",
+   "document": "y07_irs_f1040_form.pdf",
+   "reference": {
+    "code": "interactive-form",
+    "error_class": "InteractiveFormError",
+    "refused": true
+   },
+   "tier": "unsupported",
+   "verdict": "refusal-parity"
+  },
+  {
+   "candidate": {
+    "code": "page-limit",
+    "error_class": "PageLimitError",
+    "refused": true
+   },
+   "detail": "both refuse with PageLimitError (exit code page-limit)",
+   "document": "y11_nist_sp80053r5_overcap.pdf",
+   "reference": {
+    "code": "page-limit",
+    "error_class": "PageLimitError",
+    "refused": true
+   },
+   "tier": "unsupported",
+   "verdict": "refusal-parity"
+  },
+  {
+   "candidate": {
+    "code": "interactive-form",
+    "error_class": "InteractiveFormError",
+    "refused": true
+   },
+   "detail": "both refuse with InteractiveFormError (exit code interactive-form)",
+   "document": "y14_irs_fw9_form.pdf",
+   "reference": {
+    "code": "interactive-form",
+    "error_class": "InteractiveFormError",
+    "refused": true
+   },
+   "tier": "unsupported",
+   "verdict": "refusal-parity"
+  }
+ ],
+ "elapsed_s": 795.4,
+ "environment_canonical": true,
+ "environment_canonical_mismatches": [],
+ "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+ "expansion_policy": {
+  "adjudicated": false,
+  "failures": [],
+  "path": "expansion_parity_policy.json",
+  "present": true,
+  "profile_id": "pdfium/gdocs/none/refine0@240dpi",
+  "ratified_documents": 0
+ },
+ "gating": false,
+ "git": {
+  "available": false,
+  "branch": null,
+  "clean": null,
+  "commit": null,
+  "note": "no git repository at the measurement location; stamp this artifact from the checkout with --stamp-git",
+  "short": null
+ },
+ "margins": {
+  "doc_recall": 0.05,
+  "dy_p50": 0.5,
+  "live_text_cov": 0.05,
+  "page_err": 0,
+  "raster_frac": 0.02,
+  "within2pt": 0.08,
+  "word_recall": 0.05
+ },
+ "margins_source": {
+  "path": "parity_policy.json",
+  "policy_profile_id": "pdfium/gdocs/none/refine0@240dpi",
+  "sections_read": [
+   "margins"
+  ],
+  "waivers_applied": false
+ },
+ "ok": false,
+ "only": null,
+ "profile": "candidate",
+ "profile_id": "pdfium/gdocs/none/refine0@240dpi",
+ "reference_backend": "pymupdf",
+ "reference_profile_id": "pymupdf/gdocs/none/refine0@240dpi",
+ "release_ready": false,
+ "schema": "exactdoc.parity-expansion-measurement.v1",
+ "subset": false,
+ "summary": {
+  "CONVERT-ASYMMETRY": 0,
+  "MAJOR": 12,
+  "REFUSAL-ASYMMETRY": 0,
+  "REFUSAL-CLASS-MISMATCH": 0,
+  "REFUSAL-CONTRACT-GAP": 0,
+  "adjudicated": false,
+  "better": 5,
+  "blocking": [
+   "x01_lo_memo_pageno.pdf",
+   "x03_lo_lists_nested.pdf",
+   "x07_chrome_memo_running.pdf",
+   "x10_chrome_tables_plain.pdf",
+   "x13_rl_report_running.pdf",
+   "y01_nist_sp80063b.pdf",
+   "y03_nist_fips197.pdf",
+   "y06_irs_1040_instructions.pdf",
+   "y09_nist_sp800207.pdf",
+   "y12_irs_pub15.pdf",
+   "y13_irs_pub501.pdf",
+   "y17_rfc9110.pdf"
+  ],
+  "documents": 29,
+  "gating": false,
+  "minor": 4,
+  "ok": false,
+  "refusal-parity": 3,
+  "release_ready": false,
+  "same": 5,
+  "unmeasurable": 0
+ },
+ "tier_filter": null
+}
