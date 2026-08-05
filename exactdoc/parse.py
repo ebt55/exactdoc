@@ -1,14 +1,47 @@
-"""PDF -> IR parser built on PyMuPDF."""
+"""PDF -> IR parser built on PyMuPDF. The optional `mupdf` extra, not the default.
+
+This module used to carry a top-level `import fitz`, and that single line was the
+whole of `tests/test_no_pymupdf.py`'s declared seam: one module in the package
+that a PyMuPDF-free install could not import. It is now lazy, so the seam is
+**empty** -- every module in the package imports with PyMuPDF absent, and the
+only thing that fails is asking for this parser by name.
+
+The laziness is not a style preference. `pypdfium2` is the core dependency and
+`backend="pdfium"` is the default, so on a base install `fitz` is genuinely not
+there; a caller who asks for `backend="pymupdf"` anyway must get
+`BackendUnavailableError` naming the extra to install, not an `ImportError`
+traceback out of a module they never mentioned.
+"""
 import re
 from typing import List, Optional
 
-import fitz
-
-from .errors import UnsupportedInputError
+from .errors import BackendUnavailableError, UnsupportedInputError
 from .model import (DocIR, PageIR, TextBlock, Line, Span, DrawCmd, ImageObj,
                     LinkDest, xml_safe_text, xml_safe_uri)
 
 _SUBSET_RE = re.compile(r"^[A-Z]{6}\+")
+
+
+def require_fitz():
+    """The PyMuPDF module, or a typed error naming the extra that supplies it.
+
+    One place, used by this parser and by `backend.PyMuPDFBackend`'s render and
+    census methods, so every door into PyMuPDF answers the same way. A
+    `BackendUnavailableError` is a `ConfigurationError`: the resolution is
+    `pip install`, the CLI maps it to exit code 7, and it is deliberately not a
+    fallback to the other backend -- silently substituting a parser would change
+    which one produced every number.
+    """
+    try:
+        import fitz
+    except ImportError as exc:
+        raise BackendUnavailableError(
+            "the pymupdf backend needs PyMuPDF, which is not installed",
+            detail="install it with `pip install exactdoc[mupdf]`. Note that "
+                   "PyMuPDF is AGPL-3.0-or-later, and the default install "
+                   "carries no AGPL code -- so adding this extra changes your "
+                   "obligations for anything you distribute.") from exc
+    return fitz
 
 
 def _goto_dest(doc, lk) -> Optional[LinkDest]:
@@ -34,6 +67,7 @@ def _goto_dest(doc, lk) -> Optional[LinkDest]:
     A destination with no point at all (`/Fit`, a whole-page view) is not an
     error and not a location: it returns None rather than inventing y=0.
     """
+    fitz = require_fitz()
     kind = lk.get("kind")
     if kind not in (getattr(fitz, "LINK_GOTO", 1), getattr(fitz, "LINK_NAMED", 4)):
         return None
@@ -134,6 +168,7 @@ def _classify_path(d) -> str:
 
 
 def parse_pdf(path: str, keep_image_data: bool = True) -> DocIR:
+    fitz = require_fitz()
     doc = fitz.open(path)
     # PyMuPDF opens an encrypted document successfully but rejects every
     # operation on it with a generic ValueError.  Check its documented status

@@ -1,8 +1,11 @@
 """The parser seam: what exactdoc requires of a PDF backend.
 
-exactdoc's declared project license remains AGPL-3.0-or-later. PyMuPDF is the
-measured shipping parser; pypdfium2 is an optional candidate evaluated through
-this seam. Licensing is decided separately from this code path.
+**PDFium is the shipping parser and the core dependency.** PyMuPDF is the
+optional `mupdf` extra: still implemented, still the reference arm every parity
+measurement is written against, and never installed unless someone asks for it
+by name. That is the whole point of the seam -- it is what made the swap a
+measurement rather than a rewrite, and what keeps the AGPL parser reachable for
+comparison without it reaching a user who did not ask.
 
 The obstacle is not the API surface -- that is about eighteen calls. It is
 that every threshold downstream was calibrated against the *shape* of what
@@ -22,8 +25,9 @@ So pdfminer.six is not a drop-in: it is materially worse on the dialect that
 is already weakest. pypdfium2 (Apache-2.0) extracts text and paths but offers
 no line or block grouping at all, which means writing that clustering here.
 
-That is the actual plan, and it is why this seam exists. Writing the
-clustering ourselves means we *control* the grouping.
+That was the plan, it is why this seam exists, and it is what shipped:
+`parse_pdfium.py` is that clustering. Writing it ourselves means we *control*
+the grouping.
 
 **What "correct" means here, and what it does not.** The port is correct when
 `testkit/backend_parity.py` finds it no worse than PyMuPDF on the rendered
@@ -46,8 +50,8 @@ The golden IR is a **microscope**: a fast, oracle-free, per-document diff for
 finding *where* two parsers disagree. The parity gate is the **contract**. When
 they disagree, the parity gate wins.
 
-Candidate changes remain isolated behind this seam so their parity can be
-measured without altering the shipping parser.
+Parser changes remain isolated behind this seam so their parity can be measured
+against the other arm rather than argued about.
 
 A backend must provide:
 
@@ -112,8 +116,9 @@ class Backend(Protocol):
     lowest-priority source.
 
     The seam covers parsing and rendering. The writer, refiner and verifier
-    receive the selected backend instead of importing `fitz` themselves, so the
-    PDFium candidate can run without importing the PyMuPDF shipping backend.
+    receive the selected backend instead of importing `fitz` themselves, which
+    is what lets the shipping PDFium path run in an installation where PyMuPDF
+    is not present at all.
     """
 
     name: str
@@ -149,10 +154,21 @@ class Backend(Protocol):
 
 
 class PyMuPDFBackend:
-    """Measured shipping backend, provided by the core PyMuPDF dependency."""
+    """The reference arm, provided by the optional `mupdf` extra.
+
+    Every parity measurement in `docs/evidence/` names this backend as its
+    reference, so it stays implemented and stays selectable -- but it is no
+    longer installed by default, and asking for it without the extra raises
+    `BackendUnavailableError` naming the extra rather than an `ImportError` from
+    four frames down. `parse.require_fitz` is the single door; all five methods
+    below go through it, because a census that raised a raw ImportError while
+    `parse_pdf` raised a typed error would be two different answers to one
+    question.
+    """
 
     name = "pymupdf"
     license = "AGPL-3.0"
+    extra = "mupdf"
 
     def parse_pdf(self, path: str, keep_image_data: bool = True) -> DocIR:
         from .parse import parse_pdf
@@ -160,7 +176,8 @@ class PyMuPDFBackend:
 
     def render_clip(self, path: str, page_no: int, clip: BBox,
                     dpi: int = 240) -> Optional[bytes]:
-        import fitz
+        from .parse import require_fitz
+        fitz = require_fitz()
         doc = fitz.open(path)
         try:
             page = doc[page_no - 1]
@@ -170,7 +187,8 @@ class PyMuPDFBackend:
             doc.close()
 
     def render_page(self, path: str, page_no: int, dpi: int = 110) -> Optional[bytes]:
-        import fitz
+        from .parse import require_fitz
+        fitz = require_fitz()
         doc = fitz.open(path)
         try:
             return doc[page_no - 1].get_pixmap(dpi=dpi, alpha=False).tobytes("png")
@@ -178,7 +196,8 @@ class PyMuPDFBackend:
             doc.close()
 
     def page_lines(self, path: str) -> PageLines:
-        import fitz
+        from .parse import require_fitz
+        fitz = require_fitz()
         doc = fitz.open(path)
         try:
             out = []
@@ -201,8 +220,9 @@ class PyMuPDFBackend:
             doc.close()
 
     def form_widgets(self, path: str) -> List[int]:
-        import fitz
         from .errors import UnsupportedInputError
+        from .parse import require_fitz
+        fitz = require_fitz()
         doc = fitz.open(path)
         try:
             # Same documented status check `parse.parse_pdf` makes, for the same
@@ -220,11 +240,12 @@ class PyMuPDFBackend:
 
 
 class PDFiumBackend:
-    """Explicit PDFium candidate, provided by the optional ``pdfium`` extra.
+    """The shipping parser, provided by the core ``pypdfium2`` dependency.
 
-    pypdfium2 is Apache-2.0/BSD-3. Selecting this candidate does not by itself
-    change exactdoc's project license. Extraction and placement remain measured
-    compatibility concerns.
+    pypdfium2 is Apache-2.0/BSD-3, and its being the *default* is what makes a
+    default install carry no AGPL code -- the licence migration's whole
+    mechanism, recorded in docs/license-audit.md and proven installable by
+    docs/evidence/base-wheel-proof-2026-08-06.json.
 
     Extraction, vs PyMuPDF (testkit/backend_geom.py, 8 documents, 4734
     matched lines):
@@ -254,12 +275,16 @@ class PDFiumBackend:
     `dialect` and `infer` recover superscript from geometry, and all 16 corpus
     documents agree at the layout level, including the one that has any.
 
-    This remains candidate work until its full profile is measured and reviewed.
+    Its full profile was measured and adjudicated before the swap, not after:
+    `docs/evidence/parity-expanded-2026-08-05f.json` is the binding record, and
+    gate (a) closed at commit a3dd2ef with every finding ratified across all
+    four adjudication paths. Four of those findings are at the shipping profile
+    (02_research_paper, 03_tech_report_code, c4_i18n, r1_reportlab_report) and
+    are the reason the gate baseline moved when the default did.
     """
 
     name = "pdfium"
     license = "Apache-2.0"
-    experimental = True
 
     def parse_pdf(self, path: str, keep_image_data: bool = True) -> DocIR:
         from .parse_pdfium import parse_pdf

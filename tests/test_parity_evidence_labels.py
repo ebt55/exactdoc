@@ -22,16 +22,40 @@ class ProfileLabelTests(unittest.TestCase):
     def test_the_candidate_label_names_the_candidate_backend(self):
         """The regression this exists for.
 
-        `profile_id` for the product profile is
-        pymupdf/standard/libreoffice/refine3@240dpi -- its backend token is the
-        REFERENCE. Recording that as the candidate's profile is what made eight
-        documents read as MAJOR "under the shipping profile" when the run had
-        measured a PDFium swap.
+        `profile_id` names the settings of the run; its backend token is
+        whatever the named profile carries. Recording that as the *candidate's*
+        profile is what made eight documents read as MAJOR "under the shipping
+        profile" when the run had measured a PDFium swap.
+
+        This used to also assert `candidate_profile_id != profile_id`, which was
+        a true statement about the world rather than about this function: the
+        product profile's backend was `pymupdf`, so the candidate token always
+        differed. The parser flip made the shipping backend `pdfium`, and the
+        two are now legitimately EQUAL -- the candidate arm of a product-profile
+        parity run is the shipping backend. Asserting inequality would have
+        demanded a wrong label.
+
+        What is checked instead is the property that was actually wanted: each
+        label carries the backend it was *given*, derived rather than copied.
+        `test_a_differing_arm_is_still_distinguished` keeps the copy-from-
+        profile_id regression itself detectable.
         """
         self.assertTrue(self.labels["candidate_profile_id"].startswith("pdfium/"),
                         self.labels["candidate_profile_id"])
-        self.assertNotEqual(self.labels["candidate_profile_id"],
-                            self.labels["profile_id"])
+        self.assertEqual(self.labels["candidate_profile_id"],
+                         PRODUCT.replace(backend="pdfium").profile_id())
+
+    def test_a_differing_arm_is_still_distinguished(self):
+        """A label must not be `profile_id` copied under another name.
+
+        Exercised through the arm that now differs from the shipping profile.
+        Copying `profile_id` into both arm fields would pass every same-backend
+        check and fail here, which is the original defect.
+        """
+        labels = backend_parity.profile_labels(PRODUCT, "pymupdf", "pdfium")
+        self.assertNotEqual(labels["reference_profile_id"], labels["profile_id"])
+        self.assertTrue(labels["reference_profile_id"].startswith("pymupdf/"),
+                        labels["reference_profile_id"])
 
     def test_the_reference_label_names_the_reference_backend(self):
         self.assertTrue(self.labels["reference_profile_id"].startswith("pymupdf/"),

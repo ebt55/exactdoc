@@ -28,9 +28,10 @@ corpus; use those measurements rather than assuming every PDF dialect works.
   stays editable — and the live-text metric counts that trade-off instead of
   hiding it. Image-only scans are rejected with an explicit OCR-required error
   rather than silently converted to blank output.
-- **Two parser backends.** PyMuPDF (core, shipping) and PDFium via pypdfium2
-  (optional `[pdfium]`, migration candidate). Shared inference contains no
-  backend conditionals; a parity harness compares the two.
+- **Two parser backends.** PDFium via pypdfium2 (core, shipping) and PyMuPDF
+  (optional `[mupdf]`, the reference arm every parity record is measured
+  against). Shared inference contains no backend conditionals; a parity harness
+  compares the two. A default install contains no AGPL code.
 - **A Google Docs output profile.** `output_profile="gdocs"` writes OOXML that
   survives Google Docs' importer (which mistranslates exact line heights,
   ignores cell margins in places, and inserts extra paragraph spacing) using a
@@ -40,9 +41,9 @@ corpus; use those measurements rather than assuming every PDF dialect works.
 
 ```bash
 git clone https://github.com/ebt55/exactdoc && cd exactdoc
-pip install -e .            # core (PyMuPDF backend)
+pip install -e .            # core (PDFium backend) — no AGPL code
 # optional extras:
-pip install -e ".[pdfium]"  # PDFium backend (migration candidate)
+pip install -e ".[mupdf]"   # PyMuPDF reference backend — AGPL-3.0, see Licensing
 pip install -e ".[gdocs]"   # exactdoc-gdocs CLI (Google auth + qualification)
 pip install -e ".[test]"    # test/measurement toolkit
 ```

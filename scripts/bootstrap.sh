@@ -152,21 +152,27 @@ fi
 #
 # This runs BEFORE Chromium on purpose: the no-root fallback for Chromium is a
 # Playwright download, and Playwright needs somewhere to be installed.
-say "Python packages (converter + test harness + PDFium candidate backend)"
+say "Python packages (converter + test harness + PyMuPDF reference backend)"
 if [ "$REPORT_ONLY" -eq 0 ]; then
   if have uv; then
     # --frozen: uv.lock is the pinned truth, and gate.yml has said so in a comment
     # since before the flag was actually passed. Without it a resolve can move a
     # parser out from under backend-specific goldens and parity evidence; parser
     # versions are part of those records because their grouping can differ.
-    # PyMuPDF ships in the core runtime. The canonical gate, evidence capture and
-    # backend-parity comparison additionally need the optional PDFium candidate;
-    # the cloud Google Docs oracle is provisioned separately when requested.
-    uv sync --frozen --extra test --extra pdfium
+    #
+    # PDFium ships in the core runtime. This environment additionally installs
+    # the `mupdf` extra -- NOT because the product needs it, but because this is
+    # the MEASUREMENT machine: backend parity compares the shipping parser
+    # against the PyMuPDF reference arm, and it cannot do that with one arm
+    # uninstalled. A user's install has no AGPL package in it; this one
+    # deliberately does, and `tests/test_no_pymupdf.py` plus the base-wheel
+    # proof are what keep the distinction honest. The cloud Google Docs oracle
+    # is provisioned separately when requested.
+    uv sync --frozen --extra test --extra mupdf
   else
     [ -d "$VENV" ] || python3 -m venv "$VENV"
     "$VENV/bin/pip" install --quiet --upgrade pip
-    "$VENV/bin/pip" install --quiet -e ".[test,pdfium]"
+    "$VENV/bin/pip" install --quiet -e ".[test,mupdf]"
   fi
 fi
 

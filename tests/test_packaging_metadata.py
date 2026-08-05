@@ -23,6 +23,12 @@ in that environment would have concluded that the AGPL dependency was already
 optional -- the single most consequential thing it is possible to be wrong about
 here, wrong in the reassuring direction.
 
+**The two have since converged, and that changes nothing about the rule.** The
+declaration now says what that stale metadata said, because the migration
+landed. Agreement reached by the source moving to meet a frozen artifact is not
+evidence that the artifact was trustworthy; it was wrong for months and happened
+to describe the destination. Read the declaration.
+
 So the installed distribution is *reported* by this module and never asserted
 against. See `test_installed_metadata_is_reported_never_trusted`.
 
@@ -51,10 +57,10 @@ PYPROJECT = os.path.join(ROOT, "pyproject.toml")
 # The audited set: docs/license-audit.md §1 (core) and §2 (extras). Names only
 # -- version floors move for reasons that are not licence reasons, and pinning
 # them here would make this test noisy about the one thing it does not audit.
-AUDITED_CORE = {"pymupdf", "python-docx", "numpy", "pillow", "lxml"}
+AUDITED_CORE = {"pypdfium2", "python-docx", "numpy", "pillow", "lxml"}
 AUDITED_EXTRAS = {
     "test": {"reportlab", "fpdf2"},
-    "pdfium": {"pypdfium2"},
+    "mupdf": {"pymupdf"},
     "gdocs": {"google-api-python-client", "google-auth-httplib2",
               "google-auth-oauthlib"},
 }
@@ -189,36 +195,60 @@ class PackagingMetadataTests(unittest.TestCase):
                 "dependency optional." % (name, sorted(overlap)))
 
     # -- the relicence position, asserted rather than described -----------
-    def test_pymupdf_is_still_core_and_is_the_licence_blocker(self):
-        """The AGPL position, in the file that decides it.
+    def test_no_agpl_package_reaches_a_default_install(self):
+        """The migration's whole claim, in the file that decides it.
 
-        Asserting today's state rather than the desired one is deliberate: when
-        this goes red, the relicence has *moved*, and moving it should require
-        looking at this test, `tests/test_no_pymupdf.py` and the audit together
-        rather than none of them.
+        This assertion is the inverse of the one it replaces. It used to read
+        "PyMuPDF is STILL core", pinning the pre-migration state so that moving
+        it forced someone to look at this test, `tests/test_no_pymupdf.py` and
+        the audit together. That happened, gate (c) closed, and the assertion is
+        now the post-migration invariant: `pip install exactdoc` must not pull
+        in an AGPL package, ever again.
+
+        The extra is checked by name rather than merely "somewhere optional".
+        An AGPL dependency parked in `test` or `gdocs` would be optional in the
+        letter and installed-by-anyone-running-the-harness in practice, and the
+        README's licensing section names `mupdf` specifically as the door.
         """
         self.assertEqual(
-            AUDITED_AGPL & self.core, AUDITED_AGPL,
-            "PyMuPDF is no longer a core dependency. That is the relicensing "
-            "goal, so this is not necessarily wrong -- but it means "
-            "docs/license-audit.md §1, its gate (c), and the base-wheel check "
-            "in tests/test_no_pymupdf.py all need updating in the same change.")
-        for extra, members in sorted(self.extras.items()):
-            self.assertFalse(
-                AUDITED_AGPL & members,
-                "an AGPL package appears in extra %r as well as core; see "
-                "test_no_dependency_is_declared_twice" % extra)
+            AUDITED_AGPL & self.core, set(),
+            "an AGPL package is a core dependency again: %s. `pip install "
+            "exactdoc` would carry AGPL code, which is exactly what the "
+            "licence migration removed -- see docs/license-audit.md and "
+            "docs/evidence/base-wheel-proof-2026-08-06.json."
+            % sorted(AUDITED_AGPL & self.core))
+        self.assertEqual(
+            AUDITED_AGPL, self.extras.get("mupdf", set()) & AUDITED_AGPL,
+            "the AGPL packages are no longer behind the `mupdf` extra: %r. "
+            "That extra is the single documented door, named in the README, in "
+            "`parse.require_fitz`'s error message and in the audit."
+            % {k: sorted(v & AUDITED_AGPL) for k, v in self.extras.items()
+               if v & AUDITED_AGPL})
 
-    def test_declared_licence_still_matches_the_dependency_position(self):
-        """AGPL in core and a non-AGPL project licence cannot both be right."""
+    def test_licence_is_at_least_as_strong_as_the_dependencies(self):
+        """Under-declaring is the dangerous direction, so only it is failed.
+
+        An AGPL package in core with a permissive project licence is a licence
+        violation. The reverse -- a stricter declared licence than the
+        dependency graph requires -- is merely conservative, and is a real
+        intermediate state: the dependency flip and the LICENSE swap are two
+        commits, and between them this repository declares AGPL while shipping
+        no AGPL code. Failing that would be failing a correct, deliberate step.
+
+        What the declared licence must positively BE is not a consequence of the
+        dependency graph at all -- it is a product decision -- so it is asserted
+        by the commit that makes it, alongside the LICENSE file it changes.
+        """
         declared = re.search(r"^license\s*=\s*(.+)$", self.text, re.M)
         self.assertIsNotNone(declared, "pyproject declares no license")
         text = declared.group(1)
-        self.assertIn(
-            "AGPL", text,
-            "the project licence is %s while PyMuPDF is still a core "
-            "dependency. Either the relicence landed without its gates, or the "
-            "dependency moved without this file following." % text.strip())
+        if AUDITED_AGPL & self.core:
+            self.assertIn(
+                "AGPL", text,
+                "the project licence is %s while an AGPL package (%s) is a core "
+                "dependency. Either the relicence landed without its gates, or "
+                "the dependency moved without this file following."
+                % (text.strip(), sorted(AUDITED_AGPL & self.core)))
 
     # -- the hand-rolled parser, checked against a real one ----------------
     def test_both_parsers_agree(self):

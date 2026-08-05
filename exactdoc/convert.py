@@ -38,7 +38,7 @@ def convert(pdf_path: str, out_path: Optional[str] = None,
             options: Optional[ConversionOptions] = None) -> str:
     """Convert a PDF to DOCX. Returns the output path.
 
-    Defaults come from `options.PRODUCT`: its PyMuPDF backend, standard output
+    Defaults come from `options.PRODUCT`: its PDFium backend, standard output
     profile, and three-round LibreOffice refinement loop. Pass
     `options=` to supply a whole profile, or individual keywords to override
     parts of it. A `None` keyword means "take the profile's value", never
@@ -112,10 +112,13 @@ def convert(pdf_path: str, out_path: Optional[str] = None,
     if opts.ladder:
         from .ladder import apply_ladder, summarise
         from .metrics import get_metrics
-        # The ladder predicts a re-wrap, so it has to shape text. The core
-        # PyMuPDF dependency supplies the base-14 metrics used by the measured
-        # shipping profile; an explicitly isolated candidate degrades to the
-        # null metrics implementation and reports that fact.
+        # The ladder predicts a re-wrap, so it has to shape text, and the only
+        # shaper in this tree is MuPDF's base-14 tables -- which now live behind
+        # the optional `mupdf` extra rather than in the core dependency. Absent
+        # it, this degrades to the null metrics implementation and the ladder
+        # changes nothing. Deliberately NOT an error: a missing optional extra
+        # must not fail a conversion. It is reported instead, in
+        # `lay.ladder_report["text_metrics"]` and under --verbose.
         rep = apply_ladder(lay, metrics=get_metrics("mupdf"))
         lay.ladder_report = rep
         if opts.verbose:

@@ -16,12 +16,18 @@ configuration is not evidence, it is a coincidence.
 `PRODUCT` below is that one configuration. Every shipping surface resolves its
 defaults from it and the gate measures it by name; published evidence must
 identify the same profile. The gate compares its open-loop `RAW` control with
-the refined shipping product. PDFium/Google-safe output remains explicitly
-named candidate work and is not silently substituted for either gate lane.
+the refined shipping product. The Google-safe *output profile* remains
+explicitly named non-shipping work and is not silently substituted for either
+gate lane.
 
 Changing `PRODUCT` changes what users get AND what the published numbers mean.
 Re-record the gate baseline in the canonical environment before publishing new
-numbers.
+numbers. That has now happened once on purpose: the licence migration moved
+`backend` from `pymupdf` to `pdfium`, which changes `profile_id()` and
+therefore what every recorded number describes. It was re-recorded rather than
+absorbed, against the four ratified shipping-profile parity findings that
+predicted exactly which documents would move -- see
+`docs/evidence/parser-default-flip-2026-08-06.json`.
 
 ## Two axes, because `target` was answering two questions
 
@@ -50,10 +56,10 @@ from typing import Optional
 
 from .errors import CloudConsentRequiredError, ConfigurationError
 
-# Every backend name the seam accepts. PyMuPDF is the measured shipping backend;
-# PDFium remains an explicit candidate for parity comparison without
-# monkey-patching `convert.parse_pdf`.
-BACKENDS = ("pymupdf", "pdfium")
+# Every backend name the seam accepts. PDFium is the shipping backend and the
+# core dependency; PyMuPDF is the reference arm every parity record is written
+# against and needs the optional `mupdf` extra.
+BACKENDS = ("pdfium", "pymupdf")
 
 # How the OOXML is written. `standard` is the Office/LibreOffice-oriented output
 # this project has always produced. It is deliberately NOT called "word": Word
@@ -70,7 +76,7 @@ ORACLES = ("none", "libreoffice", "gdocs")
 # Retained so `TARGETS` importers keep working during the deprecation window.
 TARGETS = ("none", "libreoffice", "gdocs")
 
-_BACKEND_ALIASES = {"fitz": "pymupdf", "mupdf": "pymupdf", "default": "pymupdf",
+_BACKEND_ALIASES = {"fitz": "pymupdf", "mupdf": "pymupdf", "default": "pdfium",
                     "pypdfium2": "pdfium"}
 _ORACLE_ALIASES = {"off": "none", "lo": "libreoffice", "soffice": "libreoffice",
                    "word": "libreoffice", "google": "gdocs",
@@ -130,7 +136,7 @@ class ConversionOptions:
     down instead of reading a global is the second.
     """
 
-    backend: str = "pymupdf"
+    backend: str = "pdfium"
     output_profile: str = "standard"
     oracle: str = "libreoffice"
     refine_rounds: int = 3
@@ -156,6 +162,17 @@ class ConversionOptions:
     #: measured c1 dy_p50 101 -> 116.2, because removing this -11.7pt stops it
     #: cancelling the +115pt stat-card step. Two defects were hiding each other.
     #: See docs/evidence/c1-band-and-cards-2026-08-05.json.
+    #:
+    #: **This flag needs the optional `mupdf` extra to do anything, and that is
+    #: the one place a default install differs from a `[mupdf]` one.** The
+    #: ladder predicts a re-wrap, which means shaping text that has no source
+    #: line, and the only shaper in this tree is MuPDF's base-14 tables
+    #: (`metrics.py` says why none is vendored). Without the extra
+    #: `get_metrics("mupdf")` degrades to `NullMetrics`, every paragraph counts
+    #: as unpredictable, and the ladder changes nothing. It is not silent:
+    #: `ladder_report["text_metrics"]` is `"none"` and `--verbose` prints it.
+    #: Quantified on the gated 16 in
+    #: `docs/evidence/base-wheel-proof-2026-08-06.json`.
     ladder: bool = True
     verbose: bool = False
     #: Per-call consent for an oracle that sends the document to a third party.
@@ -278,8 +295,12 @@ PRODUCT = ConversionOptions()
 # serialisation profile and DPI stay identical to PRODUCT.
 RAW = PRODUCT.replace(oracle="none", refine_rounds=0)
 
-# Explicit non-shipping candidates. The refined form is diagnostic and keeps
-# every candidate axis fixed except the local correction loop.
+# Explicit non-shipping profiles. The name predates the parser flip and the
+# `backend="pdfium"` below is now simply the default; what still makes these
+# non-shipping is the pair of axes AFTER it -- Google-safe serialisation with
+# the correction loop off. Kept under this name because every parity record and
+# evidence artifact in docs/ identifies the profile by it. The refined form is
+# diagnostic and keeps every axis fixed except the local correction loop.
 PDFIUM_GDOCS_CANDIDATE = ConversionOptions(
     backend="pdfium", output_profile="gdocs", oracle="none",
     refine_rounds=0, dpi=PRODUCT.dpi)

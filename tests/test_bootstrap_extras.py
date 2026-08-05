@@ -1,7 +1,14 @@
 """The canonical bootstrap installs both backends without cloud credentials.
 
-PyMuPDF is a core dependency, while the backend-parity harness needs the
-optional PDFium candidate backend. Keep the uv and pip fallback paths aligned.
+PDFium is a core dependency, while the backend-parity harness needs the optional
+PyMuPDF reference arm -- so the measurement environment installs the `mupdf`
+extra that a user's install deliberately does not have. Keep the uv and pip
+fallback paths aligned.
+
+The pin is exact rather than a substring check for one reason: `gdocs` must NOT
+appear here. Provisioning the cloud oracle is a separate, consented step, and a
+bootstrap that quietly installed its client would make "the canonical
+environment" a thing that can talk to Google.
 
     python tests/test_bootstrap_extras.py
 """
@@ -23,10 +30,10 @@ def install_profiles():
 
 def test_canonical_bootstrap_extras():
     uv, pip = install_profiles()
-    assert uv == ["--frozen --extra test --extra pdfium"], uv
-    assert pip == ["test,pdfium"], pip
+    assert uv == ["--frozen --extra test --extra mupdf"], uv
+    assert pip == ["test,mupdf"], pip
 
 
 if __name__ == "__main__":
     test_canonical_bootstrap_extras()
-    print("bootstrap extras: uv and pip both install test+pdfium only")
+    print("bootstrap extras: uv and pip both install test+mupdf only")

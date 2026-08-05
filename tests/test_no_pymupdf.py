@@ -1,9 +1,9 @@
-"""The explicit PDFium candidate works with PyMuPDF physically absent.
+"""The shipping PDFium path works with PyMuPDF physically absent.
 
-This candidate-isolation test is deliberately hostile: it
-does not check that `fitz` *is not used*, it makes importing it **impossible** and
-then converts real documents. A check that trusts the code to avoid an import is a
-check that passes the moment someone adds one back.
+This isolation test is deliberately hostile: it does not check that `fitz` *is
+not used*, it makes importing it **impossible** and then converts real
+documents. A check that trusts the code to avoid an import is a check that
+passes the moment someone adds one back.
 
 The mechanism is a `sys.meta_path` finder that raises ImportError for `fitz` and
 `pymupdf`, plus eviction of anything already imported. That is stricter than a
@@ -12,7 +12,15 @@ already been imported by something else in the same interpreter.
 
 It guards the backend seam end to end: writer imports, text metrics, figure
 rasterisation, refinement text extraction, verifier rasterisation and the quality
-ladder must all honor the explicitly selected PDFium candidate.
+ladder must all honor the PDFium path.
+
+**This is not the base-wheel proof, and section 1c says so in an assertion
+rather than a comment.** Blocking an import inside an interpreter that still has
+PyMuPDF on disk is strictly weaker than installing without it. The real proof --
+a wheel installed into a virtualenv where no AGPL package exists at all -- is
+`docs/evidence/base-wheel-proof-2026-08-06.json`. What this test adds on top is
+the hostility: it also catches PyMuPDF arriving transitively through some other
+package in an environment that never asked for it.
 
     python tests/test_no_pymupdf.py                # needs pypdfium2
 """
@@ -55,17 +63,24 @@ def check(name, cond, detail=""):
         FAILED.append(name)
 
 
-# The only module allowed to need PyMuPDF: the shipping parser itself. Every
-# other reference in the package is lazy -- inside a function, on the PyMuPDF
-# backend's own code path -- which is what makes a PyMuPDF-free install able to
-# import the writer at all. `docxout` carried a top-level `import fitz` once and
-# a wheel without PyMuPDF failed while *importing the writer*, before any
-# conversion was attempted.
+# **The seam is now EMPTY.** Not one module in the package needs PyMuPDF to
+# import. Every reference is lazy -- inside a function, on the PyMuPDF backend's
+# own code path -- which is what makes a PyMuPDF-free install able to import the
+# writer at all. `docxout` carried a top-level `import fitz` once and a wheel
+# without PyMuPDF failed while *importing the writer*, before any conversion was
+# attempted.
+#
+# This was `{"parse"}` until the licence migration. `exactdoc/parse.py` is the
+# PyMuPDF parser and carried the one remaining top-level `import fitz`; it is now
+# `parse.require_fitz()`, called at parse time, which both empties this set and
+# turns "PyMuPDF is missing" into a typed `BackendUnavailableError` naming the
+# extra instead of an ImportError from a module the caller never mentioned.
 #
 # The rule below is a SUBSET rule, not equality, and the asymmetry is
-# deliberate: shrinking the seam is progress toward the Apache-2.0 target and
-# must not need a test edit, while growing it by one module is red immediately.
-PYMUPDF_SEAM = {"parse"}
+# deliberate: shrinking the seam must not need a test edit, while growing it by
+# one module is red immediately. At an empty seam the subset rule and equality
+# coincide, which is the strongest form this check can take.
+PYMUPDF_SEAM = set()
 
 
 def package_modules():
@@ -215,7 +230,7 @@ def main():
     check("the whole package was enumerated", len(package_modules()) > 10,
           "found %d modules" % len(package_modules()))
     check("the PyMuPDF seam has not grown beyond %s"
-          % ", ".join(sorted(PYMUPDF_SEAM)),
+          % (", ".join(sorted(PYMUPDF_SEAM)) or "the empty set"),
           blocked_names <= PYMUPDF_SEAM,
           "these modules need PyMuPDF to import and are not the declared seam: "
           "%s. A top-level PyMuPDF import outside the parser breaks a "
@@ -227,22 +242,67 @@ def main():
           % (len(clean), len(package_modules()),
              ", ".join(sorted(blocked_names)) or "none"))
 
-    # 1c. What this test does NOT prove, stated so nobody mistakes it for the
-    # base-wheel proof. Blocking an import inside an interpreter that still has
-    # PyMuPDF on disk is not the same as installing without it -- and today it
-    # cannot be, because PyMuPDF is a hard core dependency, so a PyMuPDF-free
-    # install is impossible by construction. See docs/license-audit.md gate (c).
+    # 1c. The declaration that makes a PyMuPDF-free install POSSIBLE. This check
+    # used to assert the opposite -- "PyMuPDF is still core, so this test is not
+    # the base-wheel proof" -- because while it was core, a PyMuPDF-free install
+    # could not exist by construction and no amount of import-blocking would
+    # have made it exist. That state is over; what is asserted now is the
+    # declaration that ended it.
+    #
+    # This still is not the base-wheel proof, and nothing here should be read as
+    # one: it checks a *declaration*, in an interpreter that has PyMuPDF on
+    # disk. The proof that the wheel installs and converts with no AGPL package
+    # present is docs/evidence/base-wheel-proof-2026-08-06.json, measured in a
+    # fresh virtualenv in the canonical container.
     core = declared_core_dependencies()
     check("pyproject declares a core dependency list", core is not None,
           "could not find [project].dependencies in pyproject.toml")
-    check("PyMuPDF is still core, so this test is not the base-wheel proof",
-          bool(core) and "pymupdf" in core,
-          "pymupdf is no longer a declared core dependency, so a PyMuPDF-free "
-          "INSTALL is now possible -- and this test cannot prove it works, "
-          "because it only blocks the import in an interpreter that still has "
-          "the package on disk. Replace this check with the real proof: install "
-          "the wheel with only the [pdfium] extra into an environment where "
-          "PyMuPDF is absent, and convert the corpus there.")
+    check("PyMuPDF is not a core dependency",
+          bool(core) and "pymupdf" not in core,
+          "pymupdf is a declared core dependency again, so `pip install "
+          "exactdoc` carries AGPL code. This test's isolation would still pass "
+          "-- it blocks an import, it does not read the declaration -- which is "
+          "exactly why the declaration is checked here too. See "
+          "tests/test_packaging_metadata.py and docs/license-audit.md.")
+    check("pypdfium2 is a core dependency",
+          bool(core) and "pypdfium2" in core,
+          "the shipping parser is not declared core, so a bare `pip install "
+          "exactdoc` would install no PDF backend at all and every conversion "
+          "would fail on a missing pypdfium2.")
+
+    # 1d. Asking for the absent backend by name must be a typed, actionable
+    # error. `backend.PyMuPDFBackend` imports `fitz` lazily inside its methods,
+    # so before this the failure mode of a base wheel was an ImportError
+    # traceback out of a module the caller never mentioned -- recorded as an
+    # open item in docs/license-audit.md §8. It names the extra now.
+    from exactdoc.convert import convert as _convert
+    from exactdoc.errors import BackendUnavailableError
+    from exactdoc.backend import get_backend
+    for surface, call in (
+            ("get_backend('pymupdf').parse_pdf",
+             lambda: get_backend("pymupdf").parse_pdf("does-not-matter.pdf")),
+            ("get_backend('pymupdf').form_widgets",
+             lambda: get_backend("pymupdf").form_widgets("does-not-matter.pdf")),
+            ("get_backend('pymupdf').render_page",
+             lambda: get_backend("pymupdf").render_page("does-not-matter.pdf", 1)),
+            ("convert(backend='pymupdf')",
+             lambda: _convert("does-not-matter.pdf", "out.docx",
+                              backend="pymupdf")),
+    ):
+        try:
+            call()
+            check("%s raises rather than succeeding" % surface, False,
+                  "it returned normally with PyMuPDF unimportable")
+        except BackendUnavailableError as exc:
+            names_extra = "mupdf" in ("%s %s" % (exc.message, exc.detail or ""))
+            check("%s -> BackendUnavailableError naming the extra" % surface,
+                  names_extra,
+                  "raised the right type but did not name the `mupdf` extra: "
+                  "%r / %r" % (exc.message, exc.detail))
+        except Exception as exc:                       # noqa: BLE001
+            check("%s -> BackendUnavailableError naming the extra" % surface,
+                  False,
+                  "raised %s instead: %s" % (type(exc).__name__, exc))
 
     # 2. the writer must not be carrying a MuPDF text-metric dependency
     from exactdoc.metrics import NullMetrics, get_metrics
@@ -250,29 +310,40 @@ def main():
     check("mupdf metrics degrade rather than raise",
           isinstance(get_metrics("mupdf"), NullMetrics))
 
-    # 3. Shipping defaults stay quality-first; the candidate is independently named.
+    # 3. Shipping defaults stay quality-first, and the shipping parser is the
+    # permissive one. This block is the reason a base wheel is *usable* rather
+    # than merely importable: every check above would still pass if the default
+    # backend were PyMuPDF and every conversion raised.
     from exactdoc.cli import build_parser
     from exactdoc.options import (ConversionOptions, PDFIUM_GDOCS_CANDIDATE,
                                   PDFIUM_GDOCS_CANDIDATE_REFINED, PRODUCT, RAW,
                                   canonical_backend)
     defaults = {a.dest: a.default for a in build_parser()._actions}
-    expected = {"backend": "pymupdf", "output_profile": "standard",
+    expected = {"backend": "pdfium", "output_profile": "standard",
                 "oracle": "libreoffice", "refine_rounds": 3}
     actual = {name: getattr(PRODUCT, name) for name in expected}
-    check("default API profile is pymupdf/standard/libreoffice/refine3",
+    check("default API profile is pdfium/standard/libreoffice/refine3",
           actual == expected,
           repr(actual))
     check("bare ConversionOptions validates as PRODUCT", ConversionOptions() == PRODUCT)
     check("backend='default' resolves to the shipped backend",
           canonical_backend("default") == PRODUCT.backend)
+    check("the shipped backend is the permissively licensed one",
+          get_backend(PRODUCT.backend).license == "Apache-2.0",
+          "PRODUCT.backend is %r, licensed %r"
+          % (PRODUCT.backend, get_backend(PRODUCT.backend).license))
     check("CLI and API defaults share the exact profile",
           all(defaults[{"refine_rounds": "refine"}.get(name, name)] == value
               for name, value in expected.items()), repr(defaults))
     check("raw is the shipping open-loop control",
           RAW == PRODUCT.replace(oracle="none", refine_rounds=0))
-    check("PDFium candidate is independently named",
+    check("the Google-safe diagnostic profile is independently named",
           PDFIUM_GDOCS_CANDIDATE.profile_id()
           == "pdfium/gdocs/none/refine0@240dpi")
+    check("and is NOT the shipping profile",
+          PDFIUM_GDOCS_CANDIDATE.profile_id() != PRODUCT.profile_id(),
+          "sharing the parser is not sharing the profile; the output profile "
+          "and the correction loop still differ")
 
     # 4. real conversions through the explicitly selected candidate path
     fixtures = representative_fixtures()
@@ -299,12 +370,20 @@ def main():
         print("\n%d FAILED: %s" % (len(FAILED), ", ".join(FAILED)))
         return 1
 
+    # Converted through RAW -- the SHIPPING profile with only the oracle
+    # removed -- and not through the Google-safe diagnostic one. The two use
+    # different writer paths, and it was the diagnostic path that was being
+    # proven here while the product shipped a parser this test never exercised.
+    # Now that the shipping parser is the permissive one, the shipping
+    # serialisation path is the thing worth proving PyMuPDF-free; the gdocs
+    # writer keeps its own check in section 6. `oracle="none"` because
+    # LibreOffice is an environment fact and this test must not need one.
     converted = 0
     with tempfile.TemporaryDirectory() as td:
         for name, why, path in fixtures:
             out = os.path.join(td, name.replace(".pdf", ".docx"))
             try:
-                convert(path, out, options=PDFIUM_GDOCS_CANDIDATE)
+                convert(path, out, options=RAW)
                 ok = os.path.exists(out) and os.path.getsize(out) > 1000
                 check("convert %-26s (%s)" % (name, why), ok,
                       "no output" if not ok else "")
@@ -313,7 +392,7 @@ def main():
                 check("convert %-26s (%s)" % (name, why), False,
                       "%s: %s" % (type(e).__name__, e))
 
-        # 5. candidate refinement, if an oracle is present
+        # 5. refinement, if an oracle is present
         from exactdoc.verify import SOFFICE
         multi = [f for f in fixtures if f[0] == "c6_long.pdf"] or fixtures[:1]
         if SOFFICE and multi:
@@ -322,10 +401,10 @@ def main():
             try:
                 convert(path, out, options=PDFIUM_GDOCS_CANDIDATE_REFINED.replace(
                     refine_rounds=1))
-                check("refine %s through the PDFium candidate" % name,
+                check("refine %s without PyMuPDF" % name,
                       os.path.exists(out) and os.path.getsize(out) > 1000)
             except Exception as e:
-                check("refine %s through the PDFium candidate" % name, False,
+                check("refine %s without PyMuPDF" % name, False,
                       "%s: %s" % (type(e).__name__, e))
         else:
             print("  --   refinement skipped: no LibreOffice on this machine")
@@ -351,9 +430,11 @@ def main():
     if FAILED:
         print("\n%d FAILED: %s" % (len(FAILED), ", ".join(FAILED)))
         return 1
-    print("\nall clear -- the explicit %s candidate runs without PyMuPDF.\n"
-          "The shipping default remains %s."
-          % (PDFIUM_GDOCS_CANDIDATE.profile_id(), PRODUCT.profile_id()))
+    print("\nall clear -- the SHIPPING profile %s runs without PyMuPDF, and\n"
+          "asking for the pymupdf backend anyway names the `mupdf` extra.\n"
+          "This proves isolation, not installability: the base-wheel proof is\n"
+          "docs/evidence/base-wheel-proof-2026-08-06.json."
+          % PRODUCT.profile_id())
     return 0
 
 

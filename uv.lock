@@ -485,8 +485,7 @@ dependencies = [
     { name = "numpy", version = "2.5.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "pillow", version = "11.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "pillow", version = "12.3.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
-    { name = "pymupdf", version = "1.26.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
-    { name = "pymupdf", version = "1.28.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
+    { name = "pypdfium2" },
     { name = "python-docx" },
 ]
 
@@ -498,8 +497,9 @@ gdocs = [
     { name = "google-auth-oauthlib", version = "1.3.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "google-auth-oauthlib", version = "1.4.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
 ]
-pdfium = [
-    { name = "pypdfium2" },
+mupdf = [
+    { name = "pymupdf", version = "1.26.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "pymupdf", version = "1.28.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
 ]
 test = [
     { name = "fpdf2", version = "2.8.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
@@ -516,12 +516,12 @@ requires-dist = [
     { name = "lxml", specifier = ">=4.9" },
     { name = "numpy", specifier = ">=1.24" },
     { name = "pillow", specifier = ">=10.0" },
-    { name = "pymupdf", specifier = ">=1.23" },
-    { name = "pypdfium2", marker = "extra == 'pdfium'", specifier = ">=4.25" },
+    { name = "pymupdf", marker = "extra == 'mupdf'", specifier = ">=1.23" },
+    { name = "pypdfium2", specifier = ">=4.25" },
     { name = "python-docx", specifier = ">=1.1" },
     { name = "reportlab", marker = "extra == 'test'", specifier = ">=4.0" },
 ]
-provides-extras = ["test", "pdfium", "gdocs"]
+provides-extras = ["test", "mupdf", "gdocs"]
 
 [[package]]
 name = "fonttools"

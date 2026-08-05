@@ -12,7 +12,7 @@ license = { text = "AGPL-3.0-or-later" }
 authors = [{ name = "Ebin Babu Thomas" }]
 keywords = [
     "pdf", "docx", "pdf-to-docx", "pdf-to-word", "google-docs",
-    "document-conversion", "ooxml", "layout-analysis", "pymupdf",
+    "document-conversion", "ooxml", "layout-analysis", "pdfium",
     "whitepaper", "research-paper",
 ]
 classifiers = [
@@ -24,7 +24,7 @@ classifiers = [
     "Topic :: Office/Business :: Office Suites",
 ]
 dependencies = [
-    "pymupdf>=1.23",
+    "pypdfium2>=4.25",
     "python-docx>=1.1",
     "numpy>=1.24",
     "pillow>=10.0",
@@ -34,8 +34,12 @@ dependencies = [
 [project.optional-dependencies]
 # Test harness: adversarial corpus generation + measurement.
 test = ["reportlab>=4.0", "fpdf2>=2.7"]
-# Optional candidate parser. Selecting `backend="pdfium"` requires this extra.
-pdfium = ["pypdfium2>=4.25"]
+# The PyMuPDF parser, and the base-14 text metrics the quality ladder shapes
+# with. **PyMuPDF is AGPL-3.0-or-later; installing this extra changes your
+# obligations for anything you distribute.** Nothing in a default install
+# imports it: `backend="pymupdf"` and `--ladder` are the only doors, and both
+# say so by name when the extra is absent. See docs/license-audit.md.
+mupdf = ["pymupdf>=1.23"]
 # Google Docs oracle -- measure fidelity in the renderer actually targeted.
 gdocs = [
     "google-api-python-client>=2.100",

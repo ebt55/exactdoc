@@ -24,11 +24,23 @@ licence work. So `NullMetrics` reports "unmeasurable", every caller already has
 that path because a non-base-14 font always produced it, and they degrade to
 doing nothing rather than to guessing.
 
-That is a real, stated limitation and not a silent one: with the permissive
-backend and no `[mupdf]` extra installed, the quality ladder cannot run. It is
-off by default and has been since it was measured and left switched off, so the
-shipped product is unaffected -- but `--ladder` needs the extra until a permissive
-shaper lands here.
+That is a real, stated limitation and not a silent one: with no `[mupdf]` extra
+installed, the quality ladder cannot run.
+
+**And that now costs something, which it did not when this module was written.**
+The sentence here used to be "it is off by default, so the shipped product is
+unaffected". The ladder was switched ON by default at commit c9d36df, because on
+`c1_whitepaper` it is half of the fix that takes dy_p50 from 101.0 to 2.0. So a
+default install and a `[mupdf]` install produce measurably different documents,
+and the difference is concentrated in exactly the class of PDF this converter
+exists for -- a cover band whose row height depends on pinning the source's line
+count.
+
+The gap is bounded, reported and measured rather than assumed:
+`ladder_report["text_metrics"]` is `"none"` on a default install, `--verbose`
+prints it in the clear, and the per-document cost over the gated 16 is recorded
+in `docs/evidence/base-wheel-proof-2026-08-06.json`. Closing it needs a
+permissive shaper here, which is release work and not migration work.
 """
 from typing import Optional, Protocol
 
@@ -67,8 +79,9 @@ class MuPDFMetrics:
     """Base-14 shaping via MuPDF. Requires the `[mupdf]` extra.
 
     Kept because it is what every published ladder measurement was taken with,
-    so archiving it would make those numbers unreproducible. Never the default:
-    selecting it is what makes the combination AGPL-governed for distribution.
+    so archiving it would make those numbers unreproducible. Never installed
+    unless asked for: adding the extra is what makes the combination
+    AGPL-governed for distribution.
     """
 
     name = "mupdf"

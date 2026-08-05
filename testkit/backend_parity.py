@@ -70,10 +70,15 @@ def profile_labels(profile, ref_name, cand_name):
 
     A parity run swaps the backend and holds everything else fixed, so a single
     `profile_id` describes the settings but not the two things being compared.
-    Its backend token is whatever the named profile carries -- for `product`
-    that is `pymupdf`, the REFERENCE -- and a reader who takes it for the
-    candidate concludes the shipped configuration was measured, which is the
-    opposite of what a parity run says.
+    Its backend token is whatever the named profile carries, and a reader who
+    takes it for the arm it is not concludes the wrong configuration was
+    measured.
+
+    Which arm it coincides with is not fixed and must not be assumed. Before the
+    parser flip the `product` profile carried `pymupdf`, so `profile_id` read as
+    the REFERENCE; it now carries `pdfium`, so it reads as the CANDIDATE. Both
+    arm labels are derived from their own backend name here precisely so that
+    neither reading is ever load-bearing.
 
     That is not hypothetical. `docs/evidence/parity-expanded-2026-08-04b.json`
     records `gated16_product.candidate_profile_id` as
