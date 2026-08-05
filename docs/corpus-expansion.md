@@ -104,13 +104,37 @@ the gate. A sibling cannot be reached by a mistake of that shape.
 |---|---|---|---|
 | `testkit/corpus_manifest.json` | the 16 metric inputs | `runall.py`, `gate.py`, `gdocs_oracle.py` | **yes** |
 | `testkit/corpus_expansion.json` | the expansion inputs | `expansion.py`, `corpus_manifest.py verify` | **no** |
+| `testkit/parity_policy.json` | acceptance for the gated 16 | `backend_parity.py`; `parity_expansion.py` reads its `margins` and nothing else | **yes** |
+| `testkit/expansion_parity_policy.json` | acceptance for the expansion corpus | `expansion_policy.py`, via `parity_expansion.py` | **no** |
 
-`corpus_manifest.py` verifies both. It does so through two separate functions:
-`verify()` is untouched and still answers only for the 16, so `runall.py` — which
-calls `verify(manifest)` directly — cannot see an expansion problem. The CLI
-`verify` command calls both and reports them in separate sections. That is the
-whole coupling: identity is checked in one place, and the gate reads one half of
-it.
+`corpus_manifest.py` verifies both corpora. It does so through two separate
+functions: `verify()` is untouched and still answers only for the 16, so
+`runall.py` — which calls `verify(manifest)` directly — cannot see an expansion
+problem. The CLI `verify` command calls both and reports them in separate
+sections. That is the whole coupling: identity is checked in one place, and the
+gate reads one half of it.
+
+**The two acceptance policies are separate for the same reason, and the readers
+enforce it in both directions.** An expansion finding written into
+`parity_policy.json` would have been unreachable — `backend_parity.adjudicate`
+never sees a document outside the gated manifest, and `parity_expansion.py`
+refuses the waiver sections by design — while carrying `corpus_manifest_sha256`,
+a binding naming a manifest that does not contain the document. So
+`expansion_parity_policy.json` pins `corpus_expansion.json` by its own hash and
+keys its entries by full profile ID, because the expansion corpus is measured at
+two profiles and a finding at one says nothing about the other.
+`expansion_policy.load()` refuses a file carrying the gated policy's sections,
+and `parity_expansion.load_margins()` refuses a file carrying the expansion
+schema. Neither artifact can be read as the other by accident.
+
+That policy **annotates and never adjudicates**: a ratified row keeps the
+verdict the measurement produced, with `ratified: true` beside it, and
+`parity_expansion.py`'s exit code still reports only whether every document
+could be measured. What the reader does enforce is the policy's own integrity —
+a moved corpus, a malformed section, an entry naming an absent document, a floor
+breached, a finding that has stopped describing anything, or an entry no run
+measured are all errors, in the same class as a corpus that does not match its
+manifest.
 
 ---
 

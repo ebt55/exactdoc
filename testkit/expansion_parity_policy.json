@@ -1,0 +1,43 @@
+{
+ "_note": "The acceptance record for the EXPANSION corpus, kept deliberately separate from `parity_policy.json`. That file governs the gated 16 and pins `corpus_manifest.json`; this one governs the 29 expansion documents and pins `corpus_expansion.json`. An expansion finding written into the gated policy would be unreachable (adjudicate never sees a document outside the gated manifest, and parity_expansion.py refuses the waiver sections by design), falsely bound (it would carry `corpus_manifest_sha256` for a document that manifest does not contain), and cross-contaminating (one record for two corpora, so a re-record of either could not be told from the other). The reader in `testkit/expansion_policy.py` refuses to read either artifact as the other, in both directions. See docs/corpus-expansion.md section 2 for the separation this preserves, and section 7 for what promotion into the gate would require instead.",
+ "_empty_on_purpose": "NO ENTRIES YET, and the emptiness is the current honest state rather than a placeholder. The artifact was created before its first entry so that ratification content has somewhere to land that a tool actually reads -- the missing artifact was itself the finding. Entries are added only against a committed measurement, naming the evidence file that produced their floors. Nothing here is authorised by the existence of this file.",
+ "_what_this_does_not_do": "It does not adjudicate. `parity_expansion.py` measures and never authorises, and applying an entry from this file annotates a measured row with `ratified: true` beside the verdict the measurement produced -- it never converts a verdict into a pass and never changes that module's exit code. What IS enforced is this file's own integrity: a moved corpus, a malformed section, an entry naming a document the corpus does not contain, a floor breached, a finding that stopped describing anything, or an entry no run measured are all errors, in the same class as a corpus that does not match its manifest.",
+ "_entry_shape": {
+  "_note": "The shape every entry must carry, recorded here so it is visible before anyone has to invent it. All thirteen fields are required and each is checked on its own by `expansion_policy.entries_for`. `dimensions` is what makes a ratification cover a known divergence WITHOUT covering the document: a dimension not named here stays a reported divergence, so a new defect on a ratified document still shows.",
+  "authorization_provenance": "how the authorization reached the session that wrote the entry, and from whom -- never an implied direct interaction",
+  "defect": "defect ID",
+  "dimensions": ["the gated dimensions this entry covers, and only these"],
+  "evidence": "path to the committed measurement whose numbers these are",
+  "floors": {"<dimension>": "the bound past which this becomes a regression again"},
+  "issue": "tracking identifier",
+  "measured_on": "ISO date of the measurement",
+  "ratified_by": "named owner taking responsibility",
+  "ratified_on": "ISO date of the decision",
+  "reason": "the attributed cause, in enough detail to re-check",
+  "reference_at_record": {"<dimension>": "the reference arm at the same measurement"},
+  "review_condition": "what retires this entry, expressed so the stale rule enforces it",
+  "tier": "the document's tier in corpus_expansion.json"
+ },
+ "candidate_backend": "pdfium",
+ "corpus": {
+  "_note": "Pinned by content, not by name. A corpus that has moved invalidates every floor measured over it, so the reader refuses rather than comparing against numbers that describe other bytes. Re-pinning means re-checking every entry, which is the point.",
+  "documents": 29,
+  "name": "corpus_expansion.json",
+  "sha256": "446ce8a3bed802cd6e4d2a5cd15575e3b01d8cf7e7b5106e1b52f2af6284aa20"
+ },
+ "gating": false,
+ "profiles": {
+  "_note": "Keyed by the FULL profile ID of the run -- the named profile both arms share, with only the backend differing. The expansion corpus is measured at two, and a finding at one says nothing about the other: different renderer, different distribution, different numbers. Only the section matching the run is ever selected and nothing is borrowed across the boundary, which is the rule `backend_parity._policy_profile_errors` enforces for the gated policy, applied to a file that has to serve two profiles at once.",
+  "pdfium/gdocs/none/refine0@240dpi": {
+   "_note": "The migration candidate profile. Findings here are what migration gate (a) means by expanded parity.",
+   "ratified_findings": {}
+  },
+  "pymupdf/standard/libreoffice/refine3@240dpi": {
+   "_note": "The shipping settings, measured over the expansion corpus as a backend-swap comparison. A finding here is about the swap, not about the shipping product's own quality.",
+   "ratified_findings": {}
+  }
+ },
+ "reference_backend": "pymupdf",
+ "schema": "exactdoc.expansion-parity-policy.v1",
+ "status": "empty"
+}

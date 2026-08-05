@@ -70,6 +70,7 @@ import _paths  # noqa: F401
 import backend_parity
 import corpus_manifest
 import evidence
+import expansion_policy
 import harness
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -85,15 +86,24 @@ SEVERITY_ORDER = ("REFUSAL-CONTRACT-GAP", "REFUSAL-ASYMMETRY",
 
 
 def load_margins(path=None):
-    """The margins section of the parity policy, and nothing else.
+    """The margins section of the GATED parity policy, and nothing else.
 
     Returns (margins, source). Every other section of that file is a waiver
     naming a document in the gated 16; this corpus contains none of them, so
     reading one here could only ever excuse a document it does not describe.
+    Expansion ratifications live in `expansion_parity_policy.json` and are read
+    by `expansion_policy.py`, which is a different artifact with its own corpus
+    pin -- see that module for why the two cannot be merged.
     """
     path = path or backend_parity.POLICY_PATH
     with open(path) as f:
         policy = json.load(f)
+    if policy.get("schema") == expansion_policy.SCHEMA:
+        raise expansion_policy.PolicyError(
+            "refusing to read the EXPANSION policy as the gated one: margins "
+            "here are the gated policy's general statement about how far two "
+            "correct parsers drift, and the expansion artifact does not carry "
+            "them. The two files are separate on purpose.")
     margins = {k: v for k, v in (policy.get("margins") or {}).items()
                if not k.startswith("_")}
     return margins, {"path": os.path.basename(path),
@@ -409,9 +419,43 @@ def main(argv=None):
     cand = run_arm(cand_name, paths, specs, profile, out_root)
     rows, summary = adjudicate(ref, cand, specs, margins)
 
+    # Ratifications are ANNOTATED, never applied as a pass. This module measures
+    # and does not adjudicate; what the policy enforces here is its own
+    # integrity, and a breach of that is infrastructure -- the same class as a
+    # corpus that does not match its manifest -- not a fidelity verdict.
+    policy_failures = []
+    try:
+        policy = expansion_policy.load()
+        rows, policy_failures = expansion_policy.apply(
+            rows, policy, profile.profile_id(), documents=specs)
+        ratified_count = sum(1 for r in rows if r.get("ratified"))
+        policy_state = {
+            "path": os.path.basename(expansion_policy.POLICY_PATH),
+            "present": policy is not None,
+            "profile_id": profile.profile_id(),
+            "ratified_documents": ratified_count,
+            "adjudicated": False,
+            "failures": [{"document": d, "kind": k, "detail": v}
+                         for d, k, v in policy_failures],
+        }
+    except expansion_policy.PolicyError as exc:
+        policy_state = {"path": os.path.basename(expansion_policy.POLICY_PATH),
+                        "present": True, "error": str(exc),
+                        "adjudicated": False}
+        policy_failures = [("-", "policy-error", str(exc))]
+
     print(report(rows, ref_name, cand_name))
     print("\n" + ", ".join("%d %s" % (summary[k], k)
                            for k in SEVERITY_ORDER if summary.get(k)))
+    if policy_state.get("error"):
+        print("\nEXPANSION POLICY ERROR -- not applied:\n  %s"
+              % policy_state["error"])
+    elif policy_state.get("ratified_documents"):
+        print("\n%d document(s) carry a ratified finding at this profile "
+              "(annotated, NOT adjudicated -- this run authorises nothing)"
+              % policy_state["ratified_documents"])
+    for doc, kind, detail in policy_failures:
+        print("  policy %-11s %-30s %s" % (kind, doc[:30], detail[:90]))
 
     env = evidence.environment()
     payload = {
@@ -424,8 +468,12 @@ def main(argv=None):
                  "baseline describes these documents, testkit/gate.py never "
                  "sees them, and parity_policy.json governs none of them. "
                  "Severity is computed from that policy's `margins` section "
-                 "alone; no waiver or floor was read or applied.",
+                 "alone; no gated waiver or floor was read or applied. "
+                 "Expansion ratifications, if any, come from the separate "
+                 "expansion_parity_policy.json and are ANNOTATED on rows "
+                 "without changing any verdict.",
         "corpus": "corpus_expansion.json",
+        "expansion_policy": policy_state,
         "profile": a.profile,
         "profile_id": profile.profile_id(),
         "reference_backend": ref_name,
