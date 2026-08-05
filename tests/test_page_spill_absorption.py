@@ -23,9 +23,9 @@ import unittest
 from exactdoc.docxout import (PAGE_BREAK_PARA_PT, SPILL_EDGE_SLACK_PT,
                               SPILL_GAP_FLOOR_PT, SPILL_MAX_LINES,
                               SPILL_MIN_GAP_SCALE, SPILL_SAFETY_PT,
-                              _absorb_page_spill, _page_spill)
-from exactdoc.layout import (Chunk, ColBreak, DocLayout, PageLayout, Para,
-                             RuleEl, Run)
+                              _absorb_page_spill, _body_capacity, _page_spill)
+from exactdoc.layout import (Chunk, ColBreak, DocLayout, HFPart, PageLayout,
+                             Para, RuleEl, Run, TableEl)
 
 CONTENT_W = 468.0
 LEAD = 11.5
@@ -38,7 +38,7 @@ def _lay():
 
 
 def _capacity(lay):
-    return lay.page_h - lay.margin_t - lay.margin_b - PAGE_BREAK_PARA_PT
+    return _body_capacity(lay)
 
 
 def _para(gap=0.0, lead=LEAD, font="Arial", text="alpha beta gamma"):
@@ -101,6 +101,45 @@ class Prediction(unittest.TestCase):
         self.assertAlmostEqual(sum(_gaps(pg)) + 30 * LEAD, _capacity(lay),
                                delta=0.2)
 
+
+class TheBodyBox(unittest.TestCase):
+    """`w:pgMar/@footer` measures the bottom of the footer from the bottom of
+    the page, and the footer grows upward. When it reaches past the bottom
+    margin the renderer shortens the body, and an inferred bottom margin is
+    routinely smaller than the footer distance."""
+
+    def test_margins_alone_when_there_is_no_header_or_footer(self):
+        lay = _lay()
+        self.assertAlmostEqual(
+            _body_capacity(lay),
+            lay.page_h - lay.margin_t - lay.margin_b - PAGE_BREAK_PARA_PT,
+            delta=0.01)
+
+    def test_a_footer_reaching_past_a_thin_bottom_margin_shortens_the_body(self):
+        lay = _lay()
+        lay.margin_b = 14.0
+        roomy = _body_capacity(lay)
+        lay.footer_default = HFPart(elements=[_para()], distance=36.0)
+        self.assertLess(_body_capacity(lay), roomy)
+        # 36pt to the bottom of the footer plus one line of footer, against the
+        # 14pt margin the layout asked for.
+        self.assertAlmostEqual(roomy - _body_capacity(lay), 36.0 + LEAD - 14.0,
+                               delta=0.2)
+
+    def test_a_footer_inside_a_generous_margin_costs_nothing(self):
+        lay = _lay()                       # 72pt bottom margin
+        roomy = _body_capacity(lay)
+        lay.footer_default = HFPart(elements=[_para()], distance=36.0)
+        self.assertAlmostEqual(_body_capacity(lay), roomy, delta=0.01)
+
+    def test_the_header_is_the_same_construct_upside_down(self):
+        lay = _lay()
+        lay.margin_t = 10.0
+        roomy = _body_capacity(lay)
+        lay.header_default = HFPart(elements=[_para()], distance=30.0)
+        self.assertAlmostEqual(roomy - _body_capacity(lay), 30.0 + LEAD - 10.0,
+                               delta=0.2)
+
     def test_a_non_paragraph_element_counts_its_own_box(self):
         lay = _lay()
         pg = _page(lay, -60.0)
@@ -151,9 +190,9 @@ class Refusals(unittest.TestCase):
                                             color="#000000"))
         self.assertIsNone(_page_spill(pg, CONTENT_W, lay))
 
-    def test_a_table_crossing_the_boundary_declines(self):
-        # How a renderer splits a table across a page is not modelled here, and
-        # a half-stranded table is not a two-line spill.
+    def test_a_block_crossing_the_boundary_declines(self):
+        # How a renderer splits a block across a page is not modelled here, and
+        # a half-stranded block is not a two-line spill.
         lay = _lay()
         pg = _page(lay, -20.0)
         rule = RuleEl(width_pct=100.0, thickness=1.0, color="#000000")
@@ -161,6 +200,23 @@ class Refusals(unittest.TestCase):
         rule.space_before = 0.0
         pg.chunks[0].elements.append(rule)
         self.assertIsNone(_page_spill(pg, CONTENT_W, lay))
+
+    def test_a_table_is_measured_by_the_box_it_had_in_the_source(self):
+        # Not a refusal, and that was measured rather than assumed. Refusing
+        # every page carrying a table -- on the theory that a content-driven
+        # row height cannot be predicted from a source box -- cost more real
+        # pages than it saved: y01 recovered 3 pages and 7 with tables counted,
+        # 1 and 2 with them refused, while y02's false firings only fell from
+        # 27 to 21. The source box is a rough model of a table and a rough
+        # model is better here than none.
+        lay = _lay()
+        pg = _page(lay, -60.0)
+        base = _page_spill(pg, CONTENT_W, lay)[0]
+        table = TableEl(rows=[[None]], col_widths=[100.0], space_before=4.0)
+        table.bbox = (0.0, 0.0, 100.0, 30.0)
+        pg.chunks[0].elements.insert(0, table)
+        self.assertAlmostEqual(_page_spill(pg, CONTENT_W, lay)[0], base + 34.0,
+                               delta=0.2)
 
     def test_an_empty_page_is_never_answered(self):
         lay = _lay()
@@ -275,6 +331,69 @@ class ThePlan(unittest.TestCase):
         self.assertEqual(_gaps(pg), before)
         self.assertEqual(_absorb_page_spill(pg, CONTENT_W, lay),
                          _absorb_page_spill(pg, CONTENT_W, lay))
+
+
+class TheWriter(unittest.TestCase):
+    """The plan has to reach the file, and `lay` has to survive the write."""
+
+    @staticmethod
+    def _befores(path):
+        import re
+        import zipfile
+        with zipfile.ZipFile(path) as z:
+            xml = z.read("word/document.xml").decode("utf-8")
+        return [int(v) for v in re.findall(r'w:before="(\d+)"', xml)]
+
+    def _write(self, lay):
+        import os
+        import tempfile
+        from exactdoc.docxout import write_docx
+        fd, path = tempfile.mkstemp(suffix=".docx")
+        os.close(fd)
+        self.addCleanup(lambda: os.path.exists(path) and os.remove(path))
+        write_docx(lay, path)
+        return path
+
+    def _two_page_layout(self, over_pt):
+        # The second page settles comfortably, so it never fires and every gap
+        # it contributes is its own. -40pt is as slack as this builder goes
+        # while keeping the tail gap positive; a negative gap is written as
+        # zero and would show up as the writer adding space it was not asked
+        # for.
+        lay = _lay()
+        lay.pages = [_page(lay, over_pt), _page(lay, -40.0)]
+        for i, pg in enumerate(lay.pages):
+            pg.number = i + 1
+        return lay
+
+    def test_a_spilling_page_is_written_with_less_space_than_it_carries(self):
+        lay = self._two_page_layout(OVER)
+        asked = sum(g for pg in lay.pages for g in _gaps(pg))
+        emitted = sum(self._befores(self._write(lay))) / 20.0
+        # Exactly the overflow plus the safety margin, and nothing else, is
+        # missing from the file. Only the first page spills.
+        self.assertAlmostEqual(asked - emitted, OVER + SPILL_SAFETY_PT,
+                               delta=0.5)
+
+    def test_the_write_does_not_modify_the_layout(self):
+        # write_docx documents itself as pure and the refine loop depends on it:
+        # a gap reduced in place would compound on every round.
+        lay = self._two_page_layout(OVER)
+        before = [_gaps(pg) for pg in lay.pages]
+        self._write(lay)
+        self.assertEqual([_gaps(pg) for pg in lay.pages], before)
+
+    def test_writing_twice_produces_the_same_gaps(self):
+        lay = self._two_page_layout(OVER)
+        self.assertEqual(self._befores(self._write(lay)),
+                         self._befores(self._write(lay)))
+
+    def test_a_settled_document_is_written_exactly_as_before(self):
+        # Nothing fires, so every emitted gap is the layout's own.
+        lay = self._two_page_layout(-40.0)
+        emitted = [v for v in self._befores(self._write(lay)) if v]
+        asked = sum(g for pg in lay.pages for g in _gaps(pg) if g > 0.05)
+        self.assertAlmostEqual(sum(emitted) / 20.0, asked, delta=0.5)
 
 
 if __name__ == "__main__":

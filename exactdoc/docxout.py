@@ -522,8 +522,14 @@ def _wrap_correction(p: Para, content_w: float) -> float:
     return wrap_w * (1.0 - k)
 
 
-def write_para(container, p: Para, content_w: float, par=None, ctx=None):
-    """Write a Para into container (doc/cell/header). Returns the paragraph."""
+def write_para(container, p: Para, content_w: float, par=None, ctx=None,
+               space_before: Optional[float] = None):
+    """Write a Para into container (doc/cell/header). Returns the paragraph.
+
+    `space_before` overrides the paragraph's own gap for this write only. It is
+    how `_absorb_page_spill` spends a page's slack without touching the layout
+    -- see the note below on why nothing here may be mutated.
+    """
     ctx = ctx or _DEFAULT_CTX
     if par is None:
         par = container.add_paragraph()
@@ -534,8 +540,9 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None):
     right_indent = 0.0 if gdocs_rows else p.right_indent + _wrap_correction(p, content_w)
     pf = par.paragraph_format
     par.alignment = ALIGN.get("left" if gdocs_rows else p.align, WD_ALIGN_PARAGRAPH.LEFT)
-    if p.space_before > 0.05:
-        pf.space_before = Pt(round(p.space_before, 1))
+    gap = p.space_before if space_before is None else space_before
+    if gap > 0.05:
+        pf.space_before = Pt(round(gap, 1))
     else:
         pf.space_before = Pt(0)
     pf.space_after = Pt(round(max(0.0, p.space_after), 1))
@@ -972,6 +979,46 @@ SPILL_GAP_FLOOR_PT = 2.0
 PAGE_BREAK_PARA_PT = 1.0
 
 
+def _hf_height(part) -> float:
+    """How much of the margin a header or footer part actually claims."""
+    if part is None:
+        return 0.0
+    h = 0.0
+    for el in part.elements:
+        if isinstance(el, Para):
+            n = max(1, el.src_lines or 1)
+            h += (el.space_before or 0.0) + n * _line_height(el) \
+                + (el.space_after or 0.0)
+            continue
+        bb = getattr(el, "bbox", None) or getattr(el, "clip", None) \
+            or getattr(el, "_bbox", None)
+        h += ((bb[3] - bb[1]) if bb else 0.0) \
+            + (getattr(el, "space_before", 0.0) or 0.0)
+    return h
+
+
+def _body_capacity(lay: DocLayout) -> float:
+    """The flow height a page really offers, footer and header included.
+
+    Not `page_h - margin_t - margin_b`. `w:pgMar/@footer` is the distance from
+    the bottom of the page to the bottom of the footer, and the footer grows
+    upward: when it reaches past the bottom margin the renderer shortens the
+    BODY to make room. Inferred bottom margins are routinely smaller than the
+    footer distance -- y02 comes out at 14pt against a footer sitting 36pt off
+    the edge -- so a capacity taken from the margins alone is ~35pt too
+    generous on exactly the documents that spill. Paying an overflow measured
+    against it leaves the page still over, which is what the first landing did:
+    35 pages fired on y02 and 6 pages came back.
+
+    The header is the same construct upside down and is modelled the same way.
+    """
+    hd = lay.header_default.distance if lay.header_default else 0.0
+    fd = lay.footer_default.distance if lay.footer_default else 0.0
+    top = max(lay.margin_t, hd + _hf_height(lay.header_default))
+    bottom = max(lay.margin_b, fd + _hf_height(lay.footer_default))
+    return lay.page_h - top - bottom - PAGE_BREAK_PARA_PT
+
+
 def _page_spill(pg, content_w: float, lay: DocLayout):
     """-> (overflow_pt, stranded_lines) for one source page, or None.
 
@@ -995,7 +1042,7 @@ def _page_spill(pg, content_w: float, lay: DocLayout):
     metrics = _text_metrics()
     if metrics is None:
         return None
-    capacity = lay.page_h - lay.margin_t - lay.margin_b - PAGE_BREAK_PARA_PT
+    capacity = _body_capacity(lay)
     bottom = capacity + SPILL_EDGE_SLACK_PT
     used, stranded = 0.0, 0
     for ch in pg.chunks:
@@ -1009,8 +1056,8 @@ def _page_spill(pg, content_w: float, lay: DocLayout):
                     return None   # no box to measure: leave the page alone
                 used += h
                 if used > bottom:
-                    # A table or figure crossing the boundary is not a two-line
-                    # spill, and how a renderer splits one is not modelled here.
+                    # A block crossing the boundary is not a two-line spill,
+                    # and how a renderer splits one is not modelled here.
                     return None
                 continue
             n = predict_lines_for(
@@ -1787,6 +1834,14 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                 pf.line_spacing = Pt(1)
                 par.add_run().add_break(WD_BREAK.PAGE)
         cw_ctx = (lay.page_w - 2 * band_bleed) if (has_cover and pi == 0) else content_w
+        # A one- or two-line spill is absorbed into this page rather than
+        # stranded on one of its own by the break that follows. The plan is
+        # `{id(element): gap}` and is applied at write time only: `lay` is
+        # written once per refine round and a gap reduced in place would
+        # compound on every pass. The cover page keeps its own bleed geometry
+        # and is never asked. See `_absorb_page_spill`.
+        spill_plan = {} if (has_cover and pi == 0) \
+            else _absorb_page_spill(pg, cw_ctx, lay)
         for ci, ch in enumerate(pg.chunks):
             if ch.n_cols != cur_cols:
                 if ch.pre_gap > 0.5:
@@ -1811,7 +1866,8 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                     par.add_run().add_break(WD_BREAK.COLUMN)
                     continue
                 if isinstance(el, Para):
-                    write_para(doc, el, cw_ctx, ctx=ctx)
+                    write_para(doc, el, cw_ctx, ctx=ctx,
+                               space_before=spill_plan.get(id(el)))
                     continue
                 bookmark = getattr(el, "_bookmark", None)
                 if bookmark and bookmark in ctx.anchor_ids:
