@@ -90,15 +90,35 @@
     }
   },
   "baseline_evidence": {
-    "name": "gdocs-2026-08-04-pass3-qualification.json",
-    "sha256": "5f21757e6c40ff2a5a1ebe2d3a0556c0fb54032516b4f9585d45cf6abf4fb466",
+    "name": "gdocs-2026-08-04-pass5-qualification.raw.json",
+    "sha256": "5e22b5f5736aedcc0dc00520b917926617245d93d0d328b426d66cebbf21e219",
     "run_date": "2026-08-04",
     "candidate_profile": "pdfium/gdocs/none/refine0@240dpi",
-    "manifest_sha256": "cc4dd4c1c449ddabe85d7538454ed4a3d6163d762f68d2e59d97801e11c3c7da",
-    "state": "pre-fix",
-    "note": "Live pass 3. It confirmed the Noto Serif line-height correction (l1 dy_p50 15.19 -> 1.93) and the cover-band side bleed. It is the run any pass-4 predictions are measured FROM."
+    "state": "post-pass-5, pre-ladder-default",
+    "note": "Live pass 5, the most recent run and the one every baseline below is now measured FROM. It was pinned at pass 3 while passes 4 and 5 had since landed, so `02_research_paper` and `c2_paper2col` were graded against numbers the section-break fix had already moved. The RAW copy is pinned because `assess` rejects the git stamp (task #23) and the raw file is the machine-readable one; the stamped copy is listed as superseded so either grades as a baseline."
   },
   "superseded_baselines": [
+    {
+      "name": "gdocs-2026-08-04-pass5-qualification.json",
+      "sha256": "a798c84c258c3b388a988524b71cd469a412e8b16c7f5ccb8b2f0610b3a1ace8",
+      "run_date": "2026-08-04",
+      "state": "pass 5, git-stamped copy of the current baseline",
+      "note": "Same run as `baseline_evidence`, with the git stamp task #23 keeps out of the assessable copy. Listed so grading the stamped file is not mistaken for a post-fix run."
+    },
+    {
+      "name": "gdocs-2026-08-04-pass4-qualification.json",
+      "sha256": "311389ab11e48186c6e28831703f7f3eeffbac4ad932cdfc42257c9d2471c406",
+      "run_date": "2026-08-04",
+      "state": "pass 4, pre-accent-stripe",
+      "note": "Superseded by pass 5. Pass 4 landed the Libre Baskerville substitution (l1 dy 1.93 -> 1.54, dx 39.82 -> 1.35) and the gdocs section-break correction (c2 3.88 -> 2.81, 02 7.87 -> 6.80)."
+    },
+    {
+      "name": "gdocs-2026-08-04-pass3-qualification.json",
+      "sha256": "5f21757e6c40ff2a5a1ebe2d3a0556c0fb54032516b4f9585d45cf6abf4fb466",
+      "run_date": "2026-08-04",
+      "state": "pass 3, pre-Libre-Baskerville and pre-section-break-fix",
+      "note": "Was `baseline_evidence` until 2026-08-06. Every per-document entry below claimed `baseline_source: live pass 3` while two further passes had run."
+    },
     {
       "name": "gdocs-2026-08-04-pass2-qualification.json",
       "sha256": "0d3e87afee065848568a1e5b1c83b62e3039a2bb9ae756fc2f7e9fb3f7dbb015",
@@ -228,15 +248,23 @@
         "v1_measurement_was_wrong": "The v1 analyzer reported one matched line per family, a nan pitch, and controls drifting +3.57/+4.33/+5.28%. Docs does NOT collapse explicit line breaks -- it preserves them and appends U+200B at each one, so five of six segments failed an exact-text match. The sixth matched but its bounding box carried a trailing space and an 11pt Cambria paragraph mark, which is the whole of the inflation. Merriweather's headline -0.91% was that artefact.",
         "v2_measurement": "Word-box extents (first word x0 to last word x1) with zero-width marks stripped, faces counted over visible characters only. All six lines match for every family, pitch is recovered, and controls drift +0.58/+0.78/+0.76% -- systematic at +0.70% with a 0.2% spread, so decide() calibrates candidates on them.",
         "calibrated_deviations": {
-          "Libre Baskerville": -0.0004, "Merriweather": -0.0608,
-          "Noto Serif": -0.063, "IBM Plex Serif": -0.0799, "Lora": -0.0897,
-          "Bitter": -0.0989, "PT Serif": -0.1326, "Georgia": -0.1382,
+          "Libre Baskerville": -0.0004,
+          "Merriweather": -0.0608,
+          "Noto Serif": -0.063,
+          "IBM Plex Serif": -0.0799,
+          "Lora": -0.0897,
+          "Bitter": -0.0989,
+          "PT Serif": -0.1326,
+          "Georgia": -0.1382,
           "Times New Roman": -0.2156
         },
         "calibration_self_check": "Noto Serif calibrates to -6.30% against the -6.18% measured from its own font file, so the calibration is validated by a family whose true value is known independently.",
         "verdict": "Libre Baskerville is within 0.04% of DejaVu Serif -- effectively an exact metric match, and far inside the 2% adopt bar. Merriweather is -6.08%, no better than the Noto Serif already in use.",
         "registration_required": {
-          "fonts.FAMILY_METRICS['librebaskerville']": [0.520687, "serif"],
+          "fonts.FAMILY_METRICS['librebaskerville']": [
+            0.520687,
+            "serif"
+          ],
           "fonts._CANDIDATES['serif']": "add 'Libre Baskerville'",
           "docxout.NATURAL_FACTORS['libre baskerville']": 1.24,
           "note": "The advance is the calibrated probe value rescaled onto METRIC_REFERENCE, which is what the rest of FAMILY_METRICS is measured over. Its provenance differs from every other entry -- measured in Docs rather than from a local font file, because Libre Baskerville is not installed here -- and that should be stated where it is written down."
@@ -245,7 +273,11 @@
         "applied": {
           "commit_note": "Registered for pass 4 in all three sites, and the substitution rule now picks it for DejaVu Serif on measured distance alone: -0.04% against Noto Serif's -6.29%.",
           "verified_offline": {
-            "l1_gdocs_fonts": ["Arial", "Libre Baskerville", "Verdana"],
+            "l1_gdocs_fonts": [
+              "Arial",
+              "Libre Baskerville",
+              "Verdana"
+            ],
             "body_multiple": 1.0792,
             "predicted_docs_pitch_pt": 14.72,
             "source_pitch_pt": 14.7,
@@ -257,30 +289,37 @@
       }
     }
   },
-
   "band_gap_claim": {
     "id": "band-to-body-gap",
     "status": "ledger balanced; probe built and controlled; awaiting its live run in pass 5",
     "measured_by": "testkit/probe_band_gap.py",
-
     "measurement_note": "Everything below is measured on BASELINES, not glyph tops. PyMuPDF derives a span's bbox top from the font's own reported ascender, and 01's source Helvetica reports 1.070-1.075 em where Docs' ArialMT reports 0.905. That is 0.17 x size of apparent drift with the baseline identical -- 1.8pt at 10.5pt and 4.1pt at 25pt. It is why my earlier 'uniform +6.30pt offset' was too large: the true baseline displacement is +3.43 to +5.76, and roughly 1.8pt of 01's dy_p50 8.18 is font metadata rather than misplaced text.",
-
     "page1_ledger_01_whitepaper": {
       "basis": "baseline displacement, pass 3 and pass 4 (identical), against testkit/fixtures/01_whitepaper_market.pdf",
-      "inside_the_band": {"title": -0.6, "subtitle": -0.32, "date_line": -0.28,
-                          "reading": "the band's own content is within 0.6pt; the 14.8pt top compensation and the exact->multiple translation are both working"},
+      "inside_the_band": {
+        "title": -0.6,
+        "subtitle": -0.32,
+        "date_line": -0.28,
+        "reading": "the band's own content is within 0.6pt; the 14.8pt top compensation and the exact->multiple translation are both working"
+      },
       "step_at_the_lower_boundary": 3.71,
-      "accumulation_below_it": {"executive_summary": 3.43, "modern_inference": 3.59,
-                                "the_remainder": 4.24, "key_insight": 5.76,
-                                "reading": "a further +2.33 accrues down the page, which is the known small line-height residual and not this claim"},
+      "accumulation_below_it": {
+        "executive_summary": 3.43,
+        "modern_inference": 3.59,
+        "the_remainder": 4.24,
+        "key_insight": 5.76,
+        "reading": "a further +2.33 accrues down the page, which is the known small line-height residual and not this claim"
+      },
       "step_decomposed": {
         "below_the_band_last_line": {
-          "source": 26.0, "docs": 27.33,
+          "source": 26.0,
+          "docs": 27.33,
           "requested": "tcMar bottom 24.0 + that line's own descent 2.09",
           "unexplained_pt": 1.12
         },
         "band_bottom_to_body_baseline": {
-          "source": 52.0, "docs": 54.38,
+          "source": 52.0,
+          "docs": 54.38,
           "requested": "space_before 36.8 + that line's own ascent 14.81",
           "unexplained_pt": 2.77
         },
@@ -288,7 +327,6 @@
         "balances": "1.12 + 2.77 = 3.89 against the 3.71 measured step, closing to 0.18pt."
       }
     },
-
     "probe_design": {
       "families": {
         "tcmar": "band cell tcMar bottom in {0, 12, 24}pt with space_before fixed -- isolates the 1.12",
@@ -298,7 +336,6 @@
       },
       "reads": "band rectangle, the last baseline inside the band, the first baseline after it, and each line's own reported ascent/descent, so a residual is what Docs added beyond what the OOXML asked for"
     },
-
     "libreoffice_control": {
       "resid_bottom": "flat at -0.05 across tcMar 0/12/24 -- honoured exactly, and flat means a renderer that adds nothing",
       "resid_gap": "flat at +0.62 across space_before 0/18/36 -- honoured exactly",
@@ -306,7 +343,6 @@
       "deliberate_perturbations_detected": "the 6pt spacer variant moved the gap by exactly +6.00, and the 1pt bottom border by +1.00",
       "reading": "every requested quantity is recovered exactly, so any non-flat residual in a Google export is Docs' doing and not the probe's"
     },
-
     "pass5_must_grade": {
       "resid_bottom_flat": "If the tcMar family's residual is flat and near +1.1, Docs adds a constant below a band cell regardless of tcMar, and that constant is compensable in the writer.",
       "resid_gap_flat": "If the space family's residual is flat and near +2.8, Docs adds a constant at the boundary; if it scales with the request, it is a proportion and needs a different rule.",
@@ -315,12 +351,17 @@
       "no_constant_yet": "No writer change was made in this chunk. The offline evidence alone does not justify one: it says where the space is, not who adds it."
     }
   },
-
   "l1_pass4_expectation": {
-    "packing_ratio": {"predicted": 1.0004, "was": 1.0637,
-                      "falsified_above": 1.02},
-    "dy_p50": {"predicted": 1.93, "tolerance": 3.0,
-               "note": "already cleared in pass 3; the family swap changes advance width, and its natural line height is registered, so dy should hold."},
+    "packing_ratio": {
+      "predicted": 1.0004,
+      "was": 1.0637,
+      "falsified_above": 1.02
+    },
+    "dy_p50": {
+      "predicted": 1.93,
+      "tolerance": 3.0,
+      "note": "already cleared in pass 3; the family swap changes advance width, and its natural line height is registered, so dy should hold."
+    },
     "dx_p50": {
       "predicted": 6.0,
       "tolerance": 4.0,
@@ -520,8 +561,8 @@
       "falsifies_A0_above_pt": null,
       "expect": "unchanged",
       "confidence": "high",
-      "note": "No pass-4 change is staged for this document; it should reproduce its pass-3 value.",
-      "baseline_source": "live pass 3 (2026-08-04)"
+      "note": "No change since pass 5 reaches this document; it should reproduce its pass-5 value.",
+      "baseline_source": "live pass 5 (2026-08-04)"
     },
     "c8_toc_links": {
       "tier": "ordinary_digital",
@@ -534,22 +575,28 @@
       "falsifies_A0_above_pt": null,
       "expect": "unchanged",
       "confidence": "high",
-      "baseline_source": "live pass 3 (2026-08-04)",
-      "note": "No pass-4 change is staged for this document; it should reproduce its pass-3 value."
+      "baseline_source": "live pass 5 (2026-08-04)",
+      "note": "No change since pass 5 reaches this document; it should reproduce its pass-5 value."
     },
     "c2_paper2col": {
       "tier": "ordinary_digital",
       "src_pages": 1,
       "n_matched_words": 382,
-      "baseline_dy_p50": 3.88,
-      "predicted_dy_p50": 3.88,
+      "baseline_dy_p50": 2.81,
+      "predicted_dy_p50": 2.81,
       "tolerance_pt": 3.0,
       "discriminating": false,
       "falsifies_A0_above_pt": null,
       "expect": "unchanged",
       "confidence": "high",
-      "note": "No pass-4 change is staged for this document; it should reproduce its pass-3 value.",
-      "baseline_source": "live pass 3 (2026-08-04)"
+      "note": "No change since pass 5 reaches this document; it should reproduce its pass-5 value.",
+      "baseline_source": "live pass 5 (2026-08-04)",
+      "superseded": {
+        "previous_baseline_dy_p50": 3.88,
+        "previous_baseline_source": "live pass 3 (2026-08-04)",
+        "reason": "The baseline was two passes stale. gdocs-scoped section-break correction, recorded in this file at c2_ssim_diagnosis.sect_break_fix_attempt.resolution moved this document between pass 3 and pass 5.",
+        "superseded_by": "live pass 5 (2026-08-04)"
+      }
     },
     "r1_reportlab_report": {
       "tier": "ordinary_digital",
@@ -562,8 +609,8 @@
       "falsifies_A0_above_pt": null,
       "expect": "unchanged",
       "confidence": "high",
-      "baseline_source": "live pass 3 (2026-08-04)",
-      "note": "No pass-4 change is staged for this document; it should reproduce its pass-3 value."
+      "baseline_source": "live pass 5 (2026-08-04)",
+      "note": "No change since pass 5 reaches this document; it should reproduce its pass-5 value."
     },
     "03_tech_report_code": {
       "tier": "ordinary_digital",
@@ -576,8 +623,8 @@
       "falsifies_A0_above_pt": null,
       "expect": "unchanged",
       "confidence": "high",
-      "baseline_source": "live pass 3 (2026-08-04)",
-      "note": "No pass-4 change is staged for this document; it should reproduce its pass-3 value."
+      "baseline_source": "live pass 5 (2026-08-04)",
+      "note": "No change since pass 5 reaches this document; it should reproduce its pass-5 value."
     },
     "c7_code": {
       "tier": "ordinary_digital",
@@ -590,70 +637,138 @@
       "falsifies_A0_above_pt": null,
       "expect": "unchanged",
       "confidence": "high",
-      "note": "No pass-4 change is staged for this document; it should reproduce its pass-3 value.",
-      "baseline_source": "live pass 3 (2026-08-04)"
+      "note": "No change since pass 5 reaches this document; it should reproduce its pass-5 value.",
+      "baseline_source": "live pass 5 (2026-08-04)"
     },
     "c1_whitepaper": {
       "tier": "ordinary_digital",
       "src_pages": 2,
       "n_matched_words": 320,
       "baseline_dy_p50": 9.3,
-      "predicted_dy_p50": 9.3,
+      "predicted_dy_p50": 2.7,
       "tolerance_pt": 3.0,
       "discriminating": false,
       "falsifies_A0_above_pt": null,
-      "expect": "unchanged",
-      "confidence": "high",
-      "note": "No pass-4 change is staged for this document; it should reproduce its pass-3 value.",
-      "baseline_source": "live pass 3 (2026-08-04)"
+      "expect": "improves",
+      "confidence": "medium",
+      "note": "THE ONE NUMERIC PREDICTION IN THIS FILE FOR PASS 6. Derived the way the c1 evidence derived it: the LibreOffice proxy at this exact profile measured 10.28 before the fix against a recorded live 9.30 -- within 1pt, which is what makes its post-fix 2.69 usable as a level prediction rather than only a direction. The cause is structural (a row one line short), not a line-metric translation, so it should transfer to Docs rather than being a proxy artifact.",
+      "baseline_source": "live pass 5 (2026-08-04)",
+      "ladder_default": {
+        "reaches_this_document": true,
+        "commit": "c9d36df",
+        "evidence": "docs/evidence/c1-band-and-cards-2026-08-05.json",
+        "locks": 1,
+        "gdocs_docx_changed": true,
+        "libreoffice_proxy_dy_p50": {
+          "ladder_off": 10.28,
+          "ladder_on": 2.69,
+          "delta": -7.59
+        },
+        "note": "Measured 2026-08-06 by converting at pdfium/gdocs/none/refine0 with the ladder off and on and scoring both against the canonical LibreOffice. A PROXY: it grades nothing and promotes nothing, it only says whether this document can move."
+      },
+      "superseded": {
+        "previous_predicted_dy_p50": 9.3,
+        "previous_expect": "unchanged",
+        "previous_note": "'No pass-4 change is staged for this document; it should reproduce its pass-3 value.' True when written, and false from c9d36df onward.",
+        "reason": "Two defects on c1 were cancelling each other and were fixed together: the cover band's title/subtitle paragraph now keeps its two source lines (the ladder, defaulted on), and the three stat cards merge into one figure (FIG_MERGE_GAP 4.0 -> 6.0). The band row was rendering 98.15pt against a declared 112.68pt and every element below inherited -11.7pt, which is why c1 scored within2pt 0.0000 in BOTH parser arms.",
+        "superseded_by": "c9d36df (ladder default off -> on, plus infer.FIG_MERGE_GAP 4.0 -> 6.0), evidence docs/evidence/c1-band-and-cards-2026-08-05.json"
+      },
+      "prediction_source": {
+        "evidence": "docs/evidence/c1-band-and-cards-2026-08-05.json",
+        "field": "live_prediction",
+        "recorded_predicted_live_dy_p50": "~2-3pt",
+        "recorded_live_baseline": 9.3,
+        "confirmed": false,
+        "confirm_on": "this pass; flip `confirmed` in that file only on the live number, never on the proxy"
+      }
     },
     "l1_word_native": {
       "tier": "ordinary_digital",
       "src_pages": 1,
       "n_matched_words": 141,
-      "baseline_dy_p50": 1.93,
-      "predicted_dy_p50": 1.93,
+      "baseline_dy_p50": 1.54,
+      "predicted_dy_p50": 1.54,
       "tolerance_pt": 3.0,
       "discriminating": false,
       "falsifies_A0_above_pt": null,
       "expect": "unchanged",
-      "confidence": "high",
+      "confidence": "low",
       "superseded": {
-        "previous_predicted_dy_p50": 12.26,
-        "previous_expect": "improves-but-still-blocking",
-        "reason": "That prediction assumed only the boundary compensation was removed and the font mapping was left alone, so it still carried l1's re-wrap. The metric fit now substitutes the family and tracks out the residual, which restores the source line breaks and with them the lines the paragraphs were losing.",
-        "superseded_by": "gdocs metric fit (exactdoc/fonts.metric_fit)"
+        "previous_baseline_dy_p50": 1.93,
+        "previous_baseline_source": "live pass 3 (2026-08-04)",
+        "reason": "The baseline was two passes stale. Libre Baskerville substitution, recorded in this file at font_metric_claim.residual_after_pass3.pass3_result.applied moved this document between pass 3 and pass 5.",
+        "superseded_by": "live pass 5 (2026-08-04)"
       },
-      "note": "No pass-4 change is staged for this document; it should reproduce its pass-3 value.",
-      "baseline_source": "live pass 3 (2026-08-04)"
+      "note": "The ladder default (c9d36df) changes this document's gdocs DOCX bytes, so it CAN move; no numeric prediction is offered because the proxy gives no usable one (see `ladder_default`). Predicted = pass-5 baseline so a move is reported rather than scored as a falsification.",
+      "baseline_source": "live pass 5 (2026-08-04)",
+      "ladder_default": {
+        "reaches_this_document": true,
+        "commit": "c9d36df",
+        "evidence": "docs/evidence/c1-band-and-cards-2026-08-05.json",
+        "locks": 2,
+        "gdocs_docx_changed": true,
+        "libreoffice_proxy_dy_p50": {
+          "ladder_off": 24.59,
+          "ladder_on": 9.89,
+          "delta": -14.7
+        },
+        "note": "Measured 2026-08-06 by converting at pdfium/gdocs/none/refine0 with the ladder off and on and scoring both against the canonical LibreOffice. A PROXY: it grades nothing and promotes nothing, it only says whether this document can move.",
+        "proxy_caveat": "DO NOT read this delta as a prediction. The proxy puts l1 at 24.59pt where live pass 5 measured 1.54pt -- the proxy is wrong about this document by an order of magnitude more than the change it is measuring, which is the standing 'LibreOffice proxy mispredicts Docs' rule in its sharpest form. l1 is the document whose family substitution behaves differently in the two renderers (font_metric_claim). Its predicted value stays at the live baseline and its confidence is lowered instead."
+      }
     },
     "02_research_paper": {
       "tier": "ordinary_digital",
       "src_pages": 2,
       "n_matched_words": 394,
-      "baseline_dy_p50": 7.87,
-      "predicted_dy_p50": 7.87,
+      "baseline_dy_p50": 6.8,
+      "predicted_dy_p50": 6.8,
       "tolerance_pt": 3.0,
       "discriminating": false,
       "falsifies_A0_above_pt": null,
       "expect": "unchanged",
-      "confidence": "high",
-      "note": "No pass-4 change is staged for this document; it should reproduce its pass-3 value.",
-      "baseline_source": "live pass 3 (2026-08-04)"
+      "confidence": "low",
+      "note": "The ladder default (c9d36df) changes this document's gdocs DOCX bytes, so it CAN move; no numeric prediction is offered because the proxy gives no usable one (see `ladder_default`). Predicted = pass-5 baseline so a move is reported rather than scored as a falsification.",
+      "baseline_source": "live pass 5 (2026-08-04)",
+      "superseded": {
+        "previous_baseline_dy_p50": 7.87,
+        "previous_baseline_source": "live pass 3 (2026-08-04)",
+        "reason": "The baseline was two passes stale. gdocs-scoped section-break correction, recorded in this file at c2_ssim_diagnosis.sect_break_fix_attempt.resolution moved this document between pass 3 and pass 5.",
+        "superseded_by": "live pass 5 (2026-08-04)"
+      },
+      "ladder_default": {
+        "reaches_this_document": true,
+        "commit": "c9d36df",
+        "evidence": "docs/evidence/c1-band-and-cards-2026-08-05.json",
+        "locks": 3,
+        "gdocs_docx_changed": true,
+        "libreoffice_proxy_dy_p50": {
+          "ladder_off": 0.69,
+          "ladder_on": 0.69,
+          "delta": 0.0
+        },
+        "note": "Measured 2026-08-06 by converting at pdfium/gdocs/none/refine0 with the ladder off and on and scoring both against the canonical LibreOffice. A PROXY: it grades nothing and promotes nothing, it only says whether this document can move."
+      }
     },
     "01_whitepaper_market": {
       "tier": "ordinary_digital",
       "src_pages": 3,
       "n_matched_words": 705,
-      "baseline_dy_p50": 8.18,
-      "predicted_dy_p50": 8.18,
+      "baseline_dy_p50": 8.45,
+      "predicted_dy_p50": 8.45,
       "tolerance_pt": 3.0,
       "discriminating": false,
       "falsifies_A0_above_pt": null,
       "expect": "unchanged",
       "confidence": "high",
-      "note": "No pass-4 change is staged for this document; it should reproduce its pass-3 value.",
-      "baseline_source": "live pass 3 (2026-08-04)"
+      "note": "No change since pass 5 reaches this document; it should reproduce its pass-5 value.",
+      "baseline_source": "live pass 5 (2026-08-04)",
+      "superseded": {
+        "previous_baseline_dy_p50": 8.18,
+        "previous_baseline_source": "live pass 3 (2026-08-04)",
+        "reason": "The baseline was two passes stale. 8.18 -> 8.45 is a 0.27pt drift across passes 4 and 5, below the 0.51pt window `detect_state` treats as movement, so nothing was misgraded by it -- but it is the pass-3 number and pass 5 is the run this file now measures from. Pass 5 is the accent-stripe pass, whose carve-out defect (recorded at cover_accent_stripe_claim.pass5_result) grew this document's page-1 step from +3.43 to +4.25; that is the change of the right size and sign to explain 0.27pt of median drift, and the carve-out fix landed afterwards.",
+        "superseded_by": "live pass 5 (2026-08-04)",
+        "expectation_for_pass6": "not restated here -- cover_accent_stripe_claim.pass6_expectation owns 01's numbers, and it predicts the page-1 step returning to ~+0.25"
+      }
     },
     "04_exec_brief": {
       "tier": "ordinary_digital",
@@ -665,9 +780,22 @@
       "discriminating": false,
       "falsifies_A0_above_pt": null,
       "expect": "unchanged",
-      "confidence": "high",
-      "baseline_source": "live pass 3 (2026-08-04)",
-      "note": "No pass-4 change is staged for this document; it should reproduce its pass-3 value."
+      "confidence": "low",
+      "baseline_source": "live pass 5 (2026-08-04)",
+      "note": "The ladder default (c9d36df) changes this document's gdocs DOCX bytes, so it CAN move; no numeric prediction is offered because the proxy gives no usable one (see `ladder_default`). Predicted = pass-5 baseline so a move is reported rather than scored as a falsification.",
+      "ladder_default": {
+        "reaches_this_document": true,
+        "commit": "c9d36df",
+        "evidence": "docs/evidence/c1-band-and-cards-2026-08-05.json",
+        "locks": 1,
+        "gdocs_docx_changed": true,
+        "libreoffice_proxy_dy_p50": {
+          "ladder_off": 6.99,
+          "ladder_on": 6.99,
+          "delta": 0.0
+        },
+        "note": "Measured 2026-08-06 by converting at pdfium/gdocs/none/refine0 with the ladder off and on and scoring both against the canonical LibreOffice. A PROXY: it grades nothing and promotes nothing, it only says whether this document can move."
+      }
     },
     "05_memo": {
       "tier": "ordinary_digital",
@@ -680,8 +808,8 @@
       "falsifies_A0_above_pt": null,
       "expect": "unchanged",
       "confidence": "high",
-      "baseline_source": "live pass 3 (2026-08-04)",
-      "note": "No pass-4 change is staged for this document; it should reproduce its pass-3 value."
+      "baseline_source": "live pass 5 (2026-08-04)",
+      "note": "No change since pass 5 reaches this document; it should reproduce its pass-5 value."
     },
     "f1_fpdf_brief": {
       "tier": "ordinary_digital",
@@ -694,8 +822,8 @@
       "falsifies_A0_above_pt": null,
       "expect": "unchanged",
       "confidence": "high",
-      "note": "No pass-4 change is staged for this document; it should reproduce its pass-3 value.",
-      "baseline_source": "live pass 3 (2026-08-04)"
+      "note": "No change since pass 5 reaches this document; it should reproduce its pass-5 value.",
+      "baseline_source": "live pass 5 (2026-08-04)"
     },
     "c3_tables": {
       "tier": "designed_stress",
@@ -708,8 +836,8 @@
       "falsifies_A0_above_pt": null,
       "expect": "unchanged",
       "confidence": "high",
-      "note": "No pass-4 change is staged for this document; it should reproduce its pass-3 value.",
-      "baseline_source": "live pass 3 (2026-08-04)"
+      "note": "No change since pass 5 reaches this document; it should reproduce its pass-5 value.",
+      "baseline_source": "live pass 5 (2026-08-04)"
     },
     "c4_i18n": {
       "tier": "designed_stress",
@@ -721,9 +849,22 @@
       "discriminating": false,
       "falsifies_A0_above_pt": null,
       "expect": "unchanged",
-      "confidence": "high",
-      "note": "No pass-4 change is staged for this document; it should reproduce its pass-3 value.",
-      "baseline_source": "live pass 3 (2026-08-04)"
+      "confidence": "low",
+      "note": "The ladder default (c9d36df) changes this document's gdocs DOCX bytes, so it CAN move; no numeric prediction is offered because the proxy gives no usable one (see `ladder_default`). Predicted = pass-5 baseline so a move is reported rather than scored as a falsification.",
+      "baseline_source": "live pass 5 (2026-08-04)",
+      "ladder_default": {
+        "reaches_this_document": true,
+        "commit": "c9d36df",
+        "evidence": "docs/evidence/c1-band-and-cards-2026-08-05.json",
+        "locks": 2,
+        "gdocs_docx_changed": true,
+        "libreoffice_proxy_dy_p50": {
+          "ladder_off": 2.1,
+          "ladder_on": 1.84,
+          "delta": -0.26
+        },
+        "note": "Measured 2026-08-06 by converting at pdfium/gdocs/none/refine0 with the ladder off and on and scoring both against the canonical LibreOffice. A PROXY: it grades nothing and promotes nothing, it only says whether this document can move."
+      }
     },
     "c5_graphics": {
       "tier": "designed_stress",
@@ -736,8 +877,8 @@
       "falsifies_A0_above_pt": null,
       "expect": "unchanged",
       "confidence": "high",
-      "note": "No pass-4 change is staged for this document; it should reproduce its pass-3 value.",
-      "baseline_source": "live pass 3 (2026-08-04)"
+      "note": "No change since pass 5 reaches this document; it should reproduce its pass-5 value.",
+      "baseline_source": "live pass 5 (2026-08-04)"
     }
   },
   "checks": [
@@ -757,12 +898,19 @@
     {
       "id": "c1_marginal",
       "kind": "dy_prediction",
-      "description": "c1_whitepaper is predicted at 10.44 against a 10.0 bound. Report which side it lands on; a miss here is model error, not falsification, because its page 2 matched only 32 words at dy -55 (suspected pagination effect).",
+      "description": "SUPERSEDED PREMISE, REWRITTEN 2026-08-06. This read 'c1_whitepaper is predicted at 10.44 against a 10.0 bound' -- an artefact of the boundary-compensation era, when c1 sat just outside its dy bound and the question was which side of 10.0 it landed. c9d36df changed the expectation: c1 is now predicted at 2.70 and should clear the bound comfortably rather than marginally. Advisory is kept, because a miss here is still model error rather than falsification of any claim.",
       "documents": [
         "c1_whitepaper"
       ],
       "bound_pt": 10.0,
-      "advisory": true
+      "advisory": true,
+      "predicted_pt": 2.7,
+      "expect": "clears the bound comfortably",
+      "superseded": {
+        "previous_description_predicted_pt": 10.44,
+        "previous_bound_pt": 10.0,
+        "superseded_by": "c9d36df (ladder default off -> on, plus infer.FIG_MERGE_GAP 4.0 -> 6.0), evidence docs/evidence/c1-band-and-cards-2026-08-05.json"
+      }
     },
     {
       "id": "overflow_page_match",
@@ -833,5 +981,12 @@
       },
       "advisory": true
     }
-  ]
+  ],
+  "_pass6_note": {
+    "updated": "2026-08-06",
+    "why": "Re-anchored for the first live pass of the MIGRATED product (PDFium core, Apache-2.0, tip bd20450). Two things had gone stale: every baseline still cited live pass 3 although passes 4 and 5 had run, and c1's entry still said 'expect unchanged' although c9d36df had changed what it should do.",
+    "the_ladder_is_a_global_default": "Checked rather than assumed, because c9d36df is a GLOBAL default and the brief only named c1. Converting the gated 16 at pdfium/gdocs/none/refine0 with the ladder off and on shows FIVE documents whose bytes change: 02_research_paper (3 locks), 04_exec_brief (1), c1_whitepaper (1), c4_i18n (2), l1_word_native (2). The other eleven are byte-identical. Only c1 gets a numeric prediction; the other four are flagged as able to move, with their confidence lowered.",
+    "05_memo": "Checked and NOT superseded. Its dy_p50 is 5.13 on passes 3, 4 and 5 alike, it takes zero ladder locks, and its gdocs bytes are unchanged. Recorded so the absence of a change here reads as a check that was made rather than one that was missed.",
+    "what_is_not_re_predicted": "mean_ssim for 01_whitepaper_market. The accent-stripe carve-out landed after pass 5 and its expectation already lives in cover_accent_stripe_claim.pass6_expectation (p1_ssim 0.62-0.66, mean_ssim 0.68-0.70). Restating it here would create two numbers to keep in step."
+  }
 }
