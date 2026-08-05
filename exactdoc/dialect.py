@@ -161,23 +161,61 @@ def _markers_to_text(page: PageIR) -> int:
     return len(hits)
 
 
+# A marker set far smaller than the text it labels is not a marker. Measured
+# across the expansion corpus, the two populations do not overlap and do not
+# come close to it: every mark x03 promotes is 11.0pt against 11.0pt body text
+# (ratio 1.0), while all 345 on y01 and all 623 on y03 report 1.0pt against
+# ~10pt body (ratio 0.1). Those are PDF's default text size on an object whose
+# font size was never set -- a positioning artifact, not ink anybody sees.
+# The threshold sits in the empty middle of that gap.
+UNDECODED_MIN_SIZE_RATIO = 0.5
+
+# What a line already starting with a marker looks like. Narrower than
+# infer.BULLET_CHARS on purpose: '-' and '*' start ordinary prose and code.
+_MARKER_HEADS = set("•◦▪‣·○●♦")
+
+
+def _line_text_size(ln: Line) -> float:
+    """The size of the visible text on a line, 0.0 when there is none."""
+    return max((s.size for s in ln.spans if s.text.strip()), default=0.0)
+
+
+def _starts_with_marker(ln: Line) -> bool:
+    head = ln.text.strip()[:1]
+    return bool(head) and head in _MARKER_HEADS
+
+
 def _undecoded_markers_to_text(page: PageIR) -> int:
     """Rewrite undecodable glyphs that sit in a list-marker slot as bullets.
 
     A glyph PDFium could not decode leaves nothing in `page.blocks` to
     normalise -- the text page does not report it at all -- so the only
     evidence is the position `parse_pdfium` recorded in `page.undecoded`.
-    Position therefore has to carry the whole decision, and it is held to
-    exactly the standard a drawn marker is held to: it must sit to the left of
-    a line's start, within a marker's distance of it, on that line's baseline
-    band, and at least two such marks must agree before any of them is
-    rewritten. A list repeats; a stray glyph does not.
+    Position alone turned out to be far too weak a test, and the corpus said so
+    loudly: on its first form this promoted 345 marks on y01 and 623 on y03,
+    against 12 on x03, and sampling every one of them showed essentially none
+    were list markers. y03 is the AES specification; its promotions were the
+    column gaps of the S-box tables ('63 7c 77 7b f2...'), the operators of
+    displayed equations ('= ({02} . s0,c)+({03} . s1,c)...') and matrix
+    brackets. y01's were table-of-contents leaders between a section number and
+    its title, and label/value separators whose 'item' was an existing bullet.
 
-    Anything that fails is left dropped, deliberately. Producers emit empty
-    text objects for trailing whitespace as well -- x03_lo_lists_nested has one
-    at x=147.4, just past the end of 'binding constraint.' -- and it has the
-    same collapsed bounds as a bullet. It is not to the left of any line start,
-    so it is not a marker, and no amount of it repeating would make it one.
+    So a mark has to bring the evidence a real list marker leaves, and three
+    tests carry it. **Nothing may end to its left on its own baseline**: a
+    marker's line starts after it, whereas a symbol inside running text has
+    text on both sides -- that alone was 85% of the false promotions on both
+    documents. **It must be ink at the item's own scale** (see
+    UNDECODED_MIN_SIZE_RATIO); the remainder were 1pt artifacts. And **its host
+    must be item text rather than another marker**, because a bullet in front
+    of a bullet is not a list, it is a duplicate.
+
+    What survives still has to repeat: at least two marks on the page must
+    agree, the same corroboration `_markers_to_text` demands of a drawn one.
+    Everything else stays dropped, deliberately -- producers emit empty text
+    objects for trailing whitespace too, and x03 carries one at x=147.4 just
+    past the end of 'binding constraint.' with bounds identical to a bullet's.
+
+    Measured after: x03 unchanged at 12, y01 0, y03 0, y06 68 -> 7.
     """
     marks = getattr(page, "undecoded", None)
     if not marks:
@@ -189,8 +227,22 @@ def _undecoded_markers_to_text(page: PageIR) -> int:
     for m in marks:
         x, y = m.origin
         near = _labelled_line((x, y, x, y), lines)
-        if near is not None:
-            hits.append((m, near))
+        if near is None:
+            continue
+        # Text to the left on this baseline: the mark is inside a line, not in
+        # front of one.
+        if any(ln.bbox[2] <= x + 0.5 and
+               ln.bbox[1] - BULLET_VTOL <= y <= ln.bbox[3] + BULLET_VTOL
+               for ln in lines):
+            continue
+        host_size = _line_text_size(near)
+        # An unmeasurable host is not a licence to promote: absent evidence is
+        # not evidence.
+        if host_size <= 0 or m.size < UNDECODED_MIN_SIZE_RATIO * host_size:
+            continue
+        if _starts_with_marker(near):
+            continue
+        hits.append((m, near))
     if len(hits) < 2:
         return 0
     for m, near in hits:

@@ -120,6 +120,73 @@ class RefusesEverythingElse(unittest.TestCase):
         self.assertEqual(_undecoded_markers_to_text(page), 0)
 
 
+class RefusesWhatTheCorpusCaught(unittest.TestCase):
+    """The three guards the expansion corpus forced, each with its own case.
+
+    The first form of this rule tested position only. It promoted 345 marks on
+    y01 and 623 on y03 against 12 on x03, and sampling showed essentially none
+    were markers.
+    """
+
+    def test_a_mark_with_text_to_its_left_is_inside_a_line(self):
+        """y03's S-box tables: '63 7c 77 7b' with a mark in every column gap.
+
+        The mark finds the next cell to its right and looks like a marker until
+        you notice the previous cell ends on the same baseline just to its left.
+        """
+        page = _page(
+            [_line("Character 0", 120.0, 430.0, 195.3, 442.0),
+             _line("1", 229.2, 430.0, 236.4, 442.0),
+             _line("Character 8", 120.0, 462.0, 195.3, 474.0),
+             _line("9", 229.1, 462.0, 236.3, 474.0)],
+            [UndecodedGlyph(origin=(195.3, 439.9), size=11.0, color="#000000"),
+             UndecodedGlyph(origin=(195.3, 471.1), size=11.0, color="#000000")])
+        self.assertEqual(_undecoded_markers_to_text(page), 0)
+        self.assertEqual(_bullets(page), [])
+
+    def test_a_one_point_glyph_is_a_positioning_artifact_not_ink(self):
+        """Every one of y01's 345 and y03's 623 reported 1.0pt against ~10pt
+        body text -- PDF's default size on an object whose font size was never
+        set. Nobody can see a 1pt bullet."""
+        page = _page(
+            [_line("Authenticator Assurance Level 1", 127.0, 176.0, 300.0, 188.0),
+             _line("Authenticator Assurance Level 2", 127.0, 295.0, 300.0, 307.0)],
+            [UndecodedGlyph(origin=(115.9, 182.2), size=1.0, color="#000000"),
+             UndecodedGlyph(origin=(115.9, 301.0), size=1.0, color="#000000")])
+        self.assertEqual(_undecoded_markers_to_text(page), 0)
+
+    def test_a_mark_at_the_item_s_own_scale_still_passes(self):
+        """The size guard must not be a blanket refusal: same geometry, real
+        size, and it is a marker again."""
+        page = _page(
+            [_line("Authenticator Assurance Level 1", 127.0, 176.0, 300.0, 188.0),
+             _line("Authenticator Assurance Level 2", 127.0, 295.0, 300.0, 307.0)],
+            [UndecodedGlyph(origin=(115.9, 182.2), size=11.0, color="#000000"),
+             UndecodedGlyph(origin=(115.9, 301.0), size=11.0, color="#000000")])
+        self.assertEqual(_undecoded_markers_to_text(page), 2)
+
+    def test_a_bullet_in_front_of_a_bullet_is_a_duplicate(self):
+        """y01's metadata rows put a mark before a line that already starts
+        with a real bullet. Two markers on one item is not a list."""
+        page = _page(
+            [_line("• Series/Number", 179.5, 240.0, 300.0, 252.0),
+             _line("• Publication Date", 179.5, 268.0, 300.0, 280.0)],
+            [UndecodedGlyph(origin=(142.3, 245.7), size=11.0, color="#000000"),
+             UndecodedGlyph(origin=(159.8, 273.5), size=11.0, color="#000000")])
+        self.assertEqual(_undecoded_markers_to_text(page), 0)
+
+    def test_an_unmeasurable_host_is_not_a_licence_to_promote(self):
+        page = PageIR(number=1, width=612.0, height=792.0)
+        blank = _line("", 82.9, 191.3, 152.8, 203.5)
+        blank2 = _line("", 82.9, 279.3, 118.3, 291.5)
+        page.blocks = [TextBlock(lines=[blank], bbox=blank.bbox),
+                       TextBlock(lines=[blank2], bbox=blank2.bbox)]
+        page.undecoded = [
+            UndecodedGlyph(origin=(64.9, 201.2), size=11.0, color="#000000"),
+            UndecodedGlyph(origin=(64.9, 289.1), size=11.0, color="#000000")]
+        self.assertEqual(_undecoded_markers_to_text(page), 0)
+
+
 class OnTheRealDocument(unittest.TestCase):
     """The end-to-end shape, against the reference the other arm reports."""
 
