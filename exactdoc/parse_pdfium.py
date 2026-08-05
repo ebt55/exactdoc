@@ -45,6 +45,16 @@ LINE_SPLIT_EM = 1.10      # gap that ends the LINE, not merely the span:
 BLOCK_GAP_FACTOR = 1.15   # multiple of the BODY pitch that ends a block. See
                           # _body_pitch: the reference is the 20th-percentile
                           # gap, not the median, so the factor is close to 1.
+# A pitch reference below this fraction of the text's own size is not a
+# measurement, and _pitch_reference refuses it. See that function for the
+# populations; the short version is that a line of size S cannot advance by
+# half its own em, so anything under 0.5em is arithmetic on a polluted sample
+# rather than a leading anybody set.
+PITCH_FLOOR_EM = 0.5
+# What to use instead. Measured over the corpus's healthy references, the
+# line-weighted mode of ref/size is 1.10-1.20em and holds 57% of the mass, so
+# 1.15 is the corpus's own ordinary leading rather than a guess.
+PITCH_DEFAULT_EM = 1.15
 # Horizontal reach for joining lines that share a baseline. Deliberately
 # SHORT: it now only has to catch genuinely adjacent text, such as a list
 # marker and its item. Table rows are joined later by dialect._join_ruled_rows,
@@ -1163,6 +1173,54 @@ def _pitch_by_size(lines: List[Line]) -> dict:
     return out
 
 
+def _pitch_reference(by_size: dict, typical: float, size: float) -> float:
+    """The block-continuation reference for text of `size`, or a default.
+
+    `_body_pitch` and `_pitch_by_size` both take the 20th percentile of the
+    consecutive baseline deltas. That is the right statistic on a list of lines
+    that is in reading order WITHIN one column, and the wrong one on a list
+    where two columns interleave -- left line 1, right line 1, left line 2 --
+    because half of those deltas are then the vertical offset between the
+    columns rather than a line step, and they sit near zero. The percentile
+    lands in that population and collapses, the gate `gap <= ref * 1.15`
+    rejects every genuine line step, and each line becomes its own block.
+
+    `_column_split` returns at most one gutter and under-detects, so this is
+    reached often: on y06 it found a gutter on 8 of 40 sampled pages of a
+    document that is two- and three-column throughout, and on its page 20 the
+    reference came out 2.67pt for 10pt text whose true in-column pitch is
+    11.50pt.
+
+    So refuse the impossible answer rather than the specific cause. Measured
+    over the whole corpus in place -- 3,291 (page, column-group, size) buckets
+    carrying 105,000 lines -- ref/size is bimodal:
+
+        healthy      1.10 .. 1.20em   57% of the line mass, the modal leading
+                     0.69em           the tightest healthy case measured
+        collapsed    0.00 .. 0.42em   the interleaved-column population
+
+    The floor sits at 0.5em, inside that valley and below anything a
+    typesetter sets: solid setting is 1.0em and even that is rare. On the
+    GATED 16 the statistic leaves 0.422em..0.647em completely empty, so the
+    floor has 0.078em of margin below and 0.147em above on the only corpus
+    that authorises anything.
+
+    Fallback order keeps real measurement ahead of the constant: a collapsed
+    size bucket first tries the page-wide value, which is a different sample
+    and often survives, and only then takes PITCH_DEFAULT_EM * size.
+
+    This can only ever RAISE a reference, so it can only ever JOIN lines. It
+    does not detect columns and does not pretend to -- it makes a column-split
+    failure survivable instead of fatal.
+    """
+    ref = by_size.get(round(size, 1), typical)
+    if size <= 0 or ref >= PITCH_FLOOR_EM * size:
+        return ref
+    if typical >= PITCH_FLOOR_EM * size:
+        return typical
+    return PITCH_DEFAULT_EM * size
+
+
 def _build_blocks_one(lines: List[Line], col_x) -> List[TextBlock]:
     if not lines:
         return []
@@ -1209,7 +1267,7 @@ def _build_blocks_one(lines: List[Line], col_x) -> List[TextBlock]:
                 same = not (min(prev.bbox[2], ln.bbox[2]) <= col_x <=
                             max(prev.bbox[0], ln.bbox[0]))
         else:
-            ref = by_size.get(round(_line_size(prev), 1), typical)
+            ref = _pitch_reference(by_size, typical, _line_size(prev))
             same = (0 < gap <= ref * BLOCK_GAP_FACTOR) and overlap > 0
         if same:
             cur.append(ln)

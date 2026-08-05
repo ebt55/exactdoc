@@ -1,0 +1,136 @@
+{
+ "schema": "exactdoc.pitch-floor-evidence.v1",
+ "gating": false,
+ "adjudicated": false,
+ "ok": false,
+ "release_ready": false,
+ "_note": "Stage 1 of parity bug B (task #39): sanity-floor the block-continuation pitch reference in parse_pdfium. Diagnosis is docs/evidence/pdfium-block-synthesis-2026-08-05.json and is not re-derived here. `before` is the same tree with PITCH_FLOOR_EM = 0.0, which makes _pitch_reference the identity -- verified to reproduce the pre-change numbers on every signature document. Both measured in the canonical container, same corpus, same profile. This record is a measurement, not an authorisation.",
+ "corpus": "corpus_manifest.json (gated 16, byte-verified) + corpus_expansion.json (29, non-gating)",
+ "profile_id": "pdfium/gdocs/none/refine0@240dpi",
+ "reference_profile_id": "pymupdf/gdocs/none/refine0@240dpi",
+ "measured_at": "0cf76ed",
+
+ "threshold": {
+  "constants": {"PITCH_FLOOR_EM": 0.5, "PITCH_DEFAULT_EM": 1.15},
+  "statistic": "the block-continuation reference divided by the text size that will be tested against it (ref/size, in em)",
+  "instrument": "_build_blocks_one wrapped in place, so the real _column_split above it still chose the groups. The diagnosis records why: a census that re-sorts a page's blocks by (y, x) before re-running assembly interleaves the columns BY CONSTRUCTION.",
+  "population": "3291 (page, column-group, size) buckets carrying ~105000 lines, over all 29 expansion + 16 gated documents on the candidate arm",
+  "distribution_line_weighted": {
+   "healthy_mode_em": "1.10 .. 1.20, holding 57% of the line mass",
+   "healthy_p50_em": 1.32,
+   "healthy_p90_em": 1.554,
+   "collapsed_population_em": "0.00 .. 0.42",
+   "_note": "Broad and shallow between 0.35 and 1.05 across the whole corpus -- this is NOT the clean two-lobe separation MARGIN_MISCLUSTER_PT enjoyed, and the floor is not claimed to be one."
+  },
+  "why_0_5_em": [
+   "Physical, not fitted: a line of size S cannot advance by half its own em. Solid setting is 1.0em and is already rare; the corpus's modal leading is 1.10-1.20em.",
+   "On the GATED 16 -- the only corpus that authorises anything -- the statistic is EMPTY between 0.422em and 0.647em. 0.5 sits inside that gap with 0.078em of margin below and 0.147em above.",
+   "Insensitive: floors of 0.45, 0.50 and 0.60 give y06 12284 / 12254 / 12214 blocks, and defaults of 1.00, 1.15 and 1.30 give 12345 / 12254 / 12218. The result is not knife-edge tuned."
+  ],
+  "why_default_1_15_em": "The line-weighted mode of the healthy references. It has to clear y06's true 11.50pt in-column pitch at size 10 -- 1.15 * 1.15 = 1.32em admits it -- without reaching a paragraph boundary, which on that document is pitch plus at least half a line again.",
+  "gated_16_collapsed_records_em": {
+   "02_research_paper 9.0pt": 0.026,
+   "01_whitepaper_market 10.5pt": 0.143,
+   "03_tech_report_code 10.5pt": 0.143,
+   "04_exec_brief 10.5pt": 0.143,
+   "05_memo 10.5pt": 0.143,
+   "02_research_paper 8.5pt": 0.412
+  },
+  "gated_16_healthy_records_em": {
+   "04_exec_brief 8.5pt": 0.647,
+   "04_exec_brief 7.5pt": 0.733,
+   "c1_whitepaper 16.9pt": 0.828
+  }
+ },
+
+ "fallback_order": [
+  "the size bucket's own 20th percentile, unchanged, whenever it clears the floor",
+  "the page-wide 20th percentile, if THAT clears the floor -- a different sample, and often healthy when a bucket is not",
+  "PITCH_DEFAULT_EM * size"
+ ],
+ "safety_property": "The function can only ever RAISE a reference, so it can only ever JOIN lines. A unit test asserts this over a grid of sizes and references rather than arguing it.",
+ "what_it_does_not_do": "It does not detect columns. Two columns that interleave without overlapping horizontally are refused by the `overlap > 0` term before the pitch is consulted, so no pitch fix reaches them -- that is the N-column split's job. This guard makes a column-split failure survivable rather than fatal, and the magnitude below is bounded by exactly that.",
+
+ "signature_documents_candidate_arm": {
+  "_note": "parse+infer only, both arms, at the profile above. `blocks`/`paras` are whole-document counts; l/blk and l/para are lines per block and source lines per flow paragraph.",
+  "y06_irs_1040_instructions": {
+   "reference": {"blocks": 4203, "lines_per_block": 9.70, "paras": 2402, "lines_per_para": 4.74},
+   "before": {"blocks": 12878, "lines_per_block": 3.08, "paras": 5807, "lines_per_para": 1.87},
+   "after": {"blocks": 12254, "lines_per_block": 3.24, "paras": 5625, "lines_per_para": 1.94}},
+  "y07_irs_f1040_form": {
+   "_note": "Tier `unsupported`, refused, so geometry only -- no page count.",
+   "reference": {"blocks": 101, "lines_per_block": 10.92},
+   "before": {"blocks": 359, "lines_per_block": 1.01},
+   "after": {"blocks": 337, "lines_per_block": 1.07}},
+  "y12_irs_pub15": {
+   "reference": {"blocks": 1291, "lines_per_block": 5.36, "paras": 1042, "lines_per_para": 5.23},
+   "before": {"blocks": 4518, "lines_per_block": 1.53, "paras": 3639, "lines_per_para": 1.48},
+   "after": {"blocks": 4182, "lines_per_block": 1.65, "paras": 3333, "lines_per_para": 1.61}},
+  "y13_irs_pub501": {
+   "reference": {"blocks": 1225, "lines_per_block": 4.35, "paras": 1120, "lines_per_para": 4.15},
+   "before": {"blocks": 4296, "lines_per_block": 1.20, "paras": 2765, "lines_per_para": 1.54},
+   "after": {"blocks": 3986, "lines_per_block": 1.29, "paras": 2578, "lines_per_para": 1.65}},
+  "y14_irs_fw9_form": {
+   "reference": {"blocks": 177, "lines_per_block": 4.13, "paras": 96, "lines_per_para": 6.32},
+   "before": {"blocks": 608, "lines_per_block": 1.16, "paras": 246, "lines_per_para": 2.38},
+   "after": {"blocks": 546, "lines_per_block": 1.29, "paras": 218, "lines_per_para": 2.68}},
+  "x10_chrome_tables_plain": {
+   "_note": "The control. Its splits are 70% `shared baseline, too far apart` -- the documented table-cell limit, a different rule at the same site -- and the diagnosis predicted no movement. It moved by nothing at every point of the constant sweep.",
+   "reference": {"blocks": 22, "lines_per_block": 3.54, "paras": 16},
+   "before": {"blocks": 34, "lines_per_block": 2.29, "paras": 25},
+   "after": {"blocks": 34, "lines_per_block": 2.29, "paras": 25}}
+ },
+ "magnitude_against_the_predicted_bounds": {
+  "y06_blocks": "12878 -> 12254, against a reference of 4203. Stage 1 closes 7% of that distance.",
+  "y06_paras": "5807 -> 5625, against a reference of 2402.",
+  "reading": "Small, and expected to be. The diagnosis attributes the bulk of the shattering to `no horizontal overlap` (2140 splits on the y06 sample) rather than to the pitch gate (491), and the overlap term is upstream of the pitch. Stage 2 is where the root is addressed."
+ },
+
+ "reference_arm_did_not_move": {
+  "method": "_build_blocks, _build_blocks_one, _column_split and _pitch_reference wrapped with counters, then the full parse+infer path run on the PyMuPDF arm over all six signature documents.",
+  "entries": {"_build_blocks": 0, "_build_blocks_one": 0, "_column_split": 0,
+              "_pitch_reference": 0},
+  "census_unchanged": true,
+  "why": "parse.py takes blocks straight from MuPDF's structured-text analysis; this module is never imported into that path."
+ },
+
+ "gated_16": {
+  "gate": {
+   "_note": "testkit/runall.py, both lanes, in the canonical container. Both lanes run the PyMuPDF backend -- the shipping one -- so this is a proof that a candidate-arm change did not leak, not a measurement of the candidate.",
+   "product": {"verdict": "PASS", "page_match": "16/16", "within2pt": 0.5161,
+               "live_text_cov": 0.9652, "dy_p50": 0.675},
+   "raw": {"verdict": "PASS", "page_match": "14/16", "within2pt": 0.3349,
+           "live_text_cov": 0.9652, "dy_p50": 2.79},
+   "identical_to_tip": true
+  },
+  "candidate_arm_ir": {
+   "_note": "Where a pdfium-side block change would actually show. Blocks/paras per document, before -> after, candidate arm. 14 of 16 are unchanged.",
+   "moved": {
+    "01_whitepaper_market": {"blocks": [78, 68], "paras": [26, 26],
+                             "reference": {"blocks": 56, "paras": 26},
+                             "reading": "blocks move 22 of the way toward the reference; the Para count was already equal to the reference and stayed there"},
+    "02_research_paper": {"blocks": [74, 63], "paras": [23, 22],
+                          "reference": {"blocks": 45, "paras": 26},
+                          "reading": "blocks move toward the reference. The Para count moves one FURTHER below it: joining blocks removes a paragraph boundary, and this document's candidate count was already under the reference. Reported rather than waived -- it is one Para on a document the diagnosis already lists as differing slightly."}
+   },
+   "unchanged": ["c1_whitepaper", "c2_paper2col", "c3_tables", "c4_i18n",
+                 "c5_graphics", "c6_long", "c7_code", "c8_toc_links",
+                 "f1_fpdf_brief", "l1_word_native", "r1_reportlab_report",
+                 "03_tech_report_code", "04_exec_brief", "05_memo"]
+  },
+  "l1_word_native": {
+   "before": {"blocks": 12, "paras": 8}, "after": {"blocks": 12, "paras": 8},
+   "reference": {"blocks": 4, "paras": 4},
+   "_note": "Unmoved by this stage. Recorded because the diagnosis names it as the one gated document whose Para count differs (4 -> 8), and that difference is unchanged here. Its block count measures 12 on this instrument at BOTH before and after, where the diagnosis's blast-radius table records 10; the discrepancy is in the transcription, not in this change, since the before-run reproduces every other figure in that table exactly."
+  }
+ },
+
+ "tests": {"suite": 517, "result": "green",
+           "new_file": "tests/test_pdfium_pitch_floor.py",
+           "_note": "500 at tip plus 17. The threshold tests pin the measured gated populations on both sides; the guard tests pin the fallback order and assert the only-ever-raises property over a grid; the assembly tests run the real _build_blocks and include the premise (that the polluted page really does compute an impossible pitch) rather than assuming it."},
+
+ "instrument_caveats": [
+  "The `before` arm is the same tree with PITCH_FLOOR_EM set to 0.0 rather than a separate checkout. That makes _pitch_reference return `by_size.get(size, typical)` -- textually the expression it replaced -- and the constant sweep confirms it reproduces the pre-change block and Para counts on all six signature documents.",
+  "`paras` counts FLOW paragraphs only. Table-cell paragraphs are counted separately, because a cell holds one short Para by construction and including them dilutes the lines-per-para signal. The reference figures in `signature_documents_candidate_arm` reproduce the diagnosis's blast-radius table exactly on this definition, which is how the instrument was validated before any change was made."
+ ]
+}
