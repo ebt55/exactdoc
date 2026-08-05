@@ -183,6 +183,28 @@ class DrawCmd:
 
 
 @dataclass
+class UndecodedGlyph:
+    """A glyph the parser saw drawn but could not decode to a character.
+
+    PDFium's text page omits a glyph whose font offers it no usable charcode --
+    not as U+0000, not as a PUA value, but by leaving it out of the page's
+    character list entirely. The page-object layer still reports that something
+    was drawn: where, at what size, in what colour, and nothing else.
+
+    That is too little to put in `blocks` (there is no text) and it is not a
+    path, so it is deliberately not put in `drawings` either -- inference reads
+    `drawings` to find rules, table borders and figure regions, and a stream of
+    positionless ink would corrupt all three. It travels here instead, where
+    only `dialect` looks for it, and only to answer one question: is this a list
+    marker? Everything that cannot be answered stays dropped.
+    """
+    origin: Tuple[float, float]   # baseline origin, top-left page coordinates
+    size: float
+    color: str                    # '#rrggbb'
+    font: str = ""
+
+
+@dataclass
 class ImageObj:
     bbox: BBox
     xref: int
@@ -203,6 +225,8 @@ class PageIR:
     # one of {'bbox':..., 'uri': str} or {'bbox':..., 'dest': LinkDest}
     links: List[Dict[str, Any]] = field(default_factory=list)
     rotated: List[Line] = field(default_factory=list)  # non-horizontal, out of flow
+    # Ink whose character the parser could not recover. See UndecodedGlyph.
+    undecoded: List[UndecodedGlyph] = field(default_factory=list)
 
 
 @dataclass

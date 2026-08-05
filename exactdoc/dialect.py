@@ -79,10 +79,16 @@ def _is_marker_glyph(d: DrawCmd) -> bool:
     return abs(w - h) <= BULLET_ASPECT
 
 
-def _labels_a_line(d: DrawCmd, lines: List[Line]) -> bool:
-    """True if this glyph sits just left of a text line it plausibly labels."""
-    x0, y0, x1, y1 = d.bbox
+def _labelled_line(bbox, lines: List[Line]) -> Optional[Line]:
+    """The leftmost text line this glyph plausibly labels, or None.
+
+    Takes a bbox rather than a DrawCmd because the same geometric question is
+    asked of two different kinds of evidence: a drawn marker glyph, and a
+    position where a glyph was drawn that could not be decoded.
+    """
+    x0, y0, x1, y1 = bbox
     cy, h = (y0 + y1) / 2, max(1.0, y1 - y0)
+    best = None
     for ln in lines:
         lb = ln.bbox
         if lb[0] < x1 - 0.5:                       # text must start to the right
@@ -90,8 +96,25 @@ def _labels_a_line(d: DrawCmd, lines: List[Line]) -> bool:
         if lb[0] - x1 > BULLET_GAP:
             continue
         if lb[1] - BULLET_VTOL * h <= cy <= lb[3] + BULLET_VTOL * h:
-            return True
-    return False
+            if best is None or lb[0] < best.bbox[0]:
+                best = ln
+    return best
+
+
+def _labels_a_line(d: DrawCmd, lines: List[Line]) -> bool:
+    """True if this glyph sits just left of a text line it plausibly labels."""
+    return _labelled_line(d.bbox, lines) is not None
+
+
+def _bullet_block(x0: float, baseline: float, size: float,
+                  color: Optional[str]) -> TextBlock:
+    """The canonical form both marker recoveries produce: a one-span block."""
+    bb = (x0, baseline - size * 0.94, x0 + size * 0.5, baseline)
+    sp = Span(text="•", font="Arial", size=size,
+              color=color or "#000000", bold=False, italic=False,
+              mono=False, serif=False, superscript=False,
+              bbox=bb, origin=(x0, baseline))
+    return TextBlock(lines=[Line(spans=[sp], bbox=bb)], bbox=bb)
 
 
 def _drop_backdrops(page: PageIR) -> int:
@@ -133,13 +156,52 @@ def _markers_to_text(page: PageIR) -> int:
                     near = ln
         if near is not None and near.spans:
             size = near.spans[0].size
-        bb = (x0, cy - size * 0.72, x0 + size * 0.5, cy + size * 0.22)
-        sp = Span(text="•", font="Arial", size=size,
-                  color=d.fill or "#000000", bold=False, italic=False,
-                  mono=False, serif=False, superscript=False,
-                  bbox=bb, origin=(x0, cy + size * 0.22))
-        page.blocks.append(TextBlock(lines=[Line(spans=[sp], bbox=bb)], bbox=bb))
+        page.blocks.append(_bullet_block(x0, cy + size * 0.22, size, d.fill))
     page.blocks.sort(key=lambda b: (round(b.bbox[1], 1), b.bbox[0]))
+    return len(hits)
+
+
+def _undecoded_markers_to_text(page: PageIR) -> int:
+    """Rewrite undecodable glyphs that sit in a list-marker slot as bullets.
+
+    A glyph PDFium could not decode leaves nothing in `page.blocks` to
+    normalise -- the text page does not report it at all -- so the only
+    evidence is the position `parse_pdfium` recorded in `page.undecoded`.
+    Position therefore has to carry the whole decision, and it is held to
+    exactly the standard a drawn marker is held to: it must sit to the left of
+    a line's start, within a marker's distance of it, on that line's baseline
+    band, and at least two such marks must agree before any of them is
+    rewritten. A list repeats; a stray glyph does not.
+
+    Anything that fails is left dropped, deliberately. Producers emit empty
+    text objects for trailing whitespace as well -- x03_lo_lists_nested has one
+    at x=147.4, just past the end of 'binding constraint.' -- and it has the
+    same collapsed bounds as a bullet. It is not to the left of any line start,
+    so it is not a marker, and no amount of it repeating would make it one.
+    """
+    marks = getattr(page, "undecoded", None)
+    if not marks:
+        return 0
+    lines = [l for b in page.blocks for l in b.lines if l.horizontal]
+    if not lines:
+        return 0
+    hits = []
+    for m in marks:
+        x, y = m.origin
+        near = _labelled_line((x, y, x, y), lines)
+        if near is not None:
+            hits.append((m, near))
+    if len(hits) < 2:
+        return 0
+    for m, near in hits:
+        size = m.size
+        if size <= 0.4 and near.spans:
+            size = near.spans[0].size
+        page.blocks.append(_bullet_block(m.origin[0], m.origin[1],
+                                         size or 10.0, m.color))
+    page.blocks.sort(key=lambda b: (round(b.bbox[1], 1), b.bbox[0]))
+    page.undecoded = [m for m in marks
+                      if all(m is not h for h, _ in hits)]
     return len(hits)
 
 
@@ -485,13 +547,15 @@ def fingerprint(ir: DocIR) -> dict:
 def normalize(ir: DocIR) -> DocIR:
     """Rewrite producer idioms into canonical form. Mutates and returns `ir`."""
     stats = {"backdrops": 0, "vector_markers": 0, "symbol_markers": 0,
-             "rotated": 0, "row_joins": 0, "ruled_rows": 0}
+             "undecoded_markers": 0, "rotated": 0, "row_joins": 0,
+             "ruled_rows": 0}
     for p in ir.pages:
         if not hasattr(p, "rotated"):
             p.rotated = []
         stats["backdrops"] += _drop_backdrops(p)
         stats["rotated"] += _split_rotated(p)
         stats["vector_markers"] += _markers_to_text(p)
+        stats["undecoded_markers"] += _undecoded_markers_to_text(p)
         stats["symbol_markers"] += _normalize_symbol_list_markers(p)
         stats["row_joins"] += _coalesce_row_fragments(p)
         stats["ruled_rows"] += _join_ruled_rows(p)

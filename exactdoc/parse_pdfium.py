@@ -21,7 +21,7 @@ import pypdfium2 as pdfium
 import pypdfium2.raw as raw
 
 from .model import (DocIR, PageIR, TextBlock, Line, Span, DrawCmd, ImageObj,
-                    LinkDest, xml_safe_text, xml_safe_uri)
+                    LinkDest, UndecodedGlyph, xml_safe_text, xml_safe_uri)
 
 _SUBSET_RE = re.compile(r"^[A-Z]{6}\+")
 
@@ -1462,6 +1462,81 @@ def _page_paths(page, page_h) -> List[DrawCmd]:
     return out
 
 
+# A glyph the text page kept nothing of leaves a text page-object whose bounds
+# have collapsed to a point: PDFium could not measure what it could not
+# identify. Anything with real extent is ink we can see and therefore not this
+# case, so the threshold is tight on purpose.
+_DEGENERATE_EXTENT = 0.5
+
+
+def _obj_text(obj, textpage) -> str:
+    """The characters PDFium recovered for one text page-object, if any."""
+    try:
+        n = raw.FPDFTextObj_GetText(obj.raw, textpage, None, 0)
+    except Exception:
+        return ""
+    if n <= 0:
+        return ""
+    buf = ctypes.create_string_buffer(n * 2)
+    raw.FPDFTextObj_GetText(obj.raw, textpage,
+                            ctypes.cast(buf, ctypes.POINTER(ctypes.c_ushort)), n)
+    return buf.raw[:n * 2].decode("utf-16-le", "replace").rstrip("\x00")
+
+
+def _page_undecoded(page, page_h, textpage) -> List[UndecodedGlyph]:
+    """Text page-objects the text page dropped entirely.
+
+    LibreOffice writes its list bullets as a symbol-font glyph that PDFium
+    cannot map to any character: measured on x03_lo_lists_nested, the text page
+    reports 1320 characters, none with U+0000 and none in the private-use area,
+    while the page-object layer still shows the ten bullets as text objects with
+    empty text and bounds collapsed to a point. PyMuPDF reports U+F0B7 for the
+    same glyphs, which is why only one arm loses the lists.
+
+    Recovering the *position* is all this can honestly do; deciding whether a
+    position is a list marker is `dialect`'s job, and it refuses every mark it
+    cannot corroborate. Empty text alone is not evidence of a lost glyph -- a
+    producer also emits empty text objects for trailing whitespace -- so the
+    collapsed bounds are required too, and even then the mark is only a
+    candidate.
+    """
+    out = []
+    tp_raw = getattr(textpage, "raw", textpage)
+    for obj in page.get_objects():
+        try:
+            if raw.FPDFPageObj_GetType(obj.raw) != raw.FPDF_PAGEOBJ_TEXT:
+                continue
+        except Exception:
+            continue
+        if _obj_text(obj, tp_raw).strip():
+            continue                      # decoded fine; already in the blocks
+        l = ctypes.c_float(); b = ctypes.c_float()
+        r_ = ctypes.c_float(); t = ctypes.c_float()
+        if not raw.FPDFPageObj_GetBounds(obj.raw, ctypes.byref(l), ctypes.byref(b),
+                                         ctypes.byref(r_), ctypes.byref(t)):
+            continue
+        if (float(r_.value) - float(l.value)) > _DEGENERATE_EXTENT or \
+                (float(t.value) - float(b.value)) > _DEGENERATE_EXTENT:
+            continue                      # has extent: visible ink, not this
+        size = ctypes.c_float()
+        try:
+            raw.FPDFTextObj_GetFontSize(obj.raw, ctypes.byref(size))
+        except Exception:
+            pass
+        fr = ctypes.c_uint(); fg = ctypes.c_uint()
+        fb = ctypes.c_uint(); fa = ctypes.c_uint()
+        try:
+            raw.FPDFPageObj_GetFillColor(obj.raw, ctypes.byref(fr), ctypes.byref(fg),
+                                         ctypes.byref(fb), ctypes.byref(fa))
+        except Exception:
+            pass
+        out.append(UndecodedGlyph(
+            origin=(float(l.value), page_h - float(t.value)),
+            size=float(size.value) or 0.0,
+            color=_hexcol(fr.value, fg.value, fb.value)))
+    return out
+
+
 def _page_images(page, page_h, keep_data) -> List[ImageObj]:
     out = []
     for obj in page.get_objects():
@@ -1642,6 +1717,9 @@ def parse_pdf(path: str, keep_image_data: bool = True) -> DocIR:
                 try:
                     _flow, pir.rotated = _split_vertical_runs(_page_chars(tp, h))
                     lines = _build_lines(_flow)
+                    # Needs the text page open: the question is precisely which
+                    # objects it kept nothing of.
+                    pir.undecoded = _page_undecoded(page, h, tp)
                 finally:
                     tp.close()
                 for sp in (s for l in lines for s in l.spans):
