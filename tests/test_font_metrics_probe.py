@@ -23,7 +23,43 @@ except ImportError:  # pragma: no cover - optional-backend installs
     fitz = None
 
 W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
-FONTS = r"C:\Windows\Fonts"
+
+# Where to look for the face a probe page is DRAWN in. This was the single path
+# `C:\Windows\Fonts`, and `_pdf` reacted to a missing file with `continue` --
+# clearly meaning "degrade quietly", except that the assertions after it were
+# not guarded. On Linux every page came out with a marker and no probe text, so
+# five tests failed with `lines_found 0` and `KeyError: 'advance'` rather than
+# skipping. CI never saw it because gate.yml runs five named files, not
+# `discover`; the analyser is hermetic and needs no renderer, so nothing else
+# was going to catch it either.
+#
+# DejaVu is in the canonical container's pinned font set, so the four tests that
+# use it now RUN on Linux instead of skipping -- which is the point. Noto Serif
+# is not in that set, and its one test skips by name.
+FONT_DIRS = [
+    r"C:\Windows\Fonts",
+    "/usr/share/fonts/truetype/dejavu",
+    "/usr/share/fonts/truetype/liberation",
+    "/usr/share/fonts/truetype",
+    "/usr/share/fonts",
+    "/Library/Fonts",
+    os.path.expanduser("~/.fonts"),
+]
+
+
+def find_face(filename):
+    """Absolute path to a font file, or None. Searched, not assumed."""
+    for d in FONT_DIRS:
+        direct = os.path.join(d, filename)
+        if os.path.exists(direct):
+            return direct
+    for d in FONT_DIRS:
+        if not os.path.isdir(d):
+            continue
+        for root, _dirs, files in os.walk(d):
+            if filename in files:
+                return os.path.join(root, filename)
+    return None
 
 
 class ReferenceTests(unittest.TestCase):
@@ -125,9 +161,14 @@ class AnalyseTests(unittest.TestCase):
                 page.insert_text((P.MARGIN, 40), "%s  %s"
                                  % (P.marker(idx), P.CANDIDATES[idx]),
                                  fontsize=9)
-            src = os.path.join(FONTS, ff or fontfile)
-            if not os.path.exists(src):
-                continue
+            src = find_face(ff or fontfile)
+            if src is None:
+                # A skip, not a `continue`. Carrying on here produced a page
+                # with a marker and no probe text, and the assertions then read
+                # the absence as a product defect.
+                doc.close()
+                self.skipTest("font %r not installed on this machine"
+                              % (ff or fontfile))
             page.insert_font(fontname="probe", fontfile=src)
             for j, seg in enumerate(segs):
                 text = seg + trailing

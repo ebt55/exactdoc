@@ -290,12 +290,15 @@ it vendors 2.3, which predates AGG's move to GPL.
   blocker.** The audit covers dependencies and corpus; it does not establish
   where the code came from or the right to relicense it, and Apache-2.0 in
   `LICENSE` does not change that. Neither has legal review happened.
-- The default install is measurably **worse** than one with `[mupdf]` on three
+- ~~The default install is measurably **worse** than one with `[mupdf]` on three
   of the sixteen gated documents, because the quality ladder needs base-14 text
-  metrics only MuPDF supplies here. Quantified in
-  [docs/evidence/base-wheel-proof-2026-08-06.json](docs/evidence/base-wheel-proof-2026-08-06.json).
-  A permissive text shaper in `exactdoc/metrics.py` is what closes it, and it is
-  release work.
+  metrics only MuPDF supplies here.~~ **Closed 2026-08-06.** The premise was
+  wrong in a specific way worth remembering: it conflated MuPDF's *copy* of the
+  base-14 metrics with the metrics themselves, which are published Adobe AFM
+  data. `metrics.Base14Metrics` carries them with no dependency, both installs
+  now produce identical DOCX content on all 16 fixtures, and the extra is no
+  longer a quality axis.
+  [docs/evidence/permissive-shaper-2026-08-06.json](docs/evidence/permissive-shaper-2026-08-06.json)
 - The gate baseline moved with the parser and is slightly worse in aggregate.
   Every movement was predicted by the ratified parity record and checked against
   it before recording:

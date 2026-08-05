@@ -163,16 +163,19 @@ class ConversionOptions:
     #: cancelling the +115pt stat-card step. Two defects were hiding each other.
     #: See docs/evidence/c1-band-and-cards-2026-08-05.json.
     #:
-    #: **This flag needs the optional `mupdf` extra to do anything, and that is
-    #: the one place a default install differs from a `[mupdf]` one.** The
-    #: ladder predicts a re-wrap, which means shaping text that has no source
-    #: line, and the only shaper in this tree is MuPDF's base-14 tables
-    #: (`metrics.py` says why none is vendored). Without the extra
-    #: `get_metrics("mupdf")` degrades to `NullMetrics`, every paragraph counts
-    #: as unpredictable, and the ladder changes nothing. It is not silent:
-    #: `ladder_report["text_metrics"]` is `"none"` and `--verbose` prints it.
-    #: Quantified on the gated 16 in
-    #: `docs/evidence/base-wheel-proof-2026-08-06.json`.
+    #: **This flag used to need the optional `mupdf` extra to do anything, and
+    #: that was the one place a default install differed from a `[mupdf]` one.**
+    #: The ladder predicts a re-wrap, which means shaping text that has no
+    #: source line; while the only shaper was MuPDF's base-14 tables, a default
+    #: install degraded to `NullMetrics`, every paragraph counted as
+    #: unpredictable, and the ladder changed nothing -- costing `c1_whitepaper`
+    #: its cover-band fix on the configuration most users run.
+    #:
+    #: Closed 2026-08-06 by `metrics.Base14Metrics`, which carries the published
+    #: Adobe AFM widths and needs no extra. **The extra is no longer a quality
+    #: axis**: both installs shape text with the same tables and produce
+    #: identical output, so `profile_id` needs no text-metrics term. Measured in
+    #: `docs/evidence/permissive-shaper-2026-08-06.json`.
     ladder: bool = True
     verbose: bool = False
     #: Per-call consent for an oracle that sends the document to a third party.

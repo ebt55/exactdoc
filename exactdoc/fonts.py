@@ -47,10 +47,17 @@ _STYLE_RE = re.compile(
 #   because letter frequency is what decides how much text fits on a line.
 #   method: fitz.Font(fontfile=...).text_length(REF, fontsize=1.0) / len(REF)
 #
-# The table exists because the writer cannot shape text at run time: metrics
-# are NullMetrics by default (see exactdoc/metrics.py -- MuPDF's base-14 tables
-# are AGPL and deliberately not vendored). So the ratio has to arrive as a
-# measured constant, the same way NATURAL_FACTORS carries Docs' line heights.
+# The table exists because these are not base-14 families and no table of
+# advance widths covers them. `metrics.Base14Metrics` shapes Arial, Times New
+# Roman and Courier New from the published Adobe metrics and answers None for
+# everything else, which is exactly the set below -- Libre Baskerville, Noto
+# Serif, the Docs-native faces. So the ratio has to arrive as a measured
+# constant, the same way NATURAL_FACTORS carries Docs' line heights.
+#
+# (This comment used to say metrics were NullMetrics by default and that MuPDF's
+# tables were AGPL and unvendorable. The second half conflated MuPDF's copy with
+# the published data; see exactdoc/metrics.py. The first half is no longer true
+# at all. Neither changes the case for this table.)
 #
 # A family that is absent here is UNMEASURED, which is not the same as
 # "deviation zero": `metric_fit` declines to act on it rather than guessing.

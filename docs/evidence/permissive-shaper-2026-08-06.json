@@ -1,0 +1,1215 @@
+{
+ "schema": "exactdoc.permissive-shaper-evidence.v1",
+ "_note": "THE LAST RELEASE-QUALITY ITEM OF THE LICENCE MIGRATION. The quality ladder needs to shape text; the only shaper was MuPDF's base-14 tables; so a default `pip install exactdoc` ran an INERT ladder and produced measurably worse output than the configuration every published number was measured on -- c1_whitepaper, the standing exemplar for the ordinary-document release bar, back to within2pt 0.0000. `exactdoc.metrics.Base14Metrics` closes it. The extra is no longer a quality axis.",
+ "measured_on": "2026-08-06",
+ "gating": false,
+ "_gating_note": "False: this is a controlled comparison of implementations, not a gate run. The gate result is reported under `the_gate` and is a PASS with every scored cell identical to the record -- which is the point, not a coincidence.",
+ "environment_canonical": true,
+ "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+ "environment": {
+  "os": "linux",
+  "python": "3.12.3",
+  "image_base_digest": "sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90",
+  "soffice": "LibreOffice 24.2.7.2 420(Build:2)",
+  "pdfium": "152.0.7947.0",
+  "pymupdf": "1.28.0",
+  "reportlab": "5.0.0"
+ },
+ "the_premise_that_was_wrong": {
+  "_note": "`metrics.py` said 'there is no permissive answer available in this tree' and gave the reason: MuPDF's base-14 tables are AGPL. Both halves of that were true and the conclusion did not follow. It conflated MuPDF's COPY of the metrics with the metrics THEMSELVES.",
+  "what_the_data_actually_is": "The advance widths of the 14 standard PostScript faces are published Adobe Font Metrics, reproduced in the PDF specification and shipped by every PDF toolkit. What was unavailable was permission to copy MuPDF's copy.",
+  "source_used": "reportlab's `reportlab.pdfbase._fontdata` (BSD-3-Clause), a `test`-extra dependency, so the generator runs in the measurement environment and only its output ships. Nothing at runtime imports reportlab.",
+  "generator": "testkit/gen_base14_widths.py, with --check for staleness",
+  "table": "exactdoc/_base14_widths.py, 6 tables for 10 faces, 218 codepoints each"
+ },
+ "cross_check_against_mupdf": {
+  "_note": "Two independent implementations of the same published data. Agreement everywhere MuPDF can see is what lets the table be described as the AFM metrics rather than as numbers of unknown provenance.",
+  "codepoints_compared": 2190,
+  "identical_cells": 1972,
+  "divergent_cells": 218,
+  "out_of_repertoire_rule": {
+   "_note": "Both implementations charge the face's own SPACE width for a codepoint it has no glyph for. That was measured, not chosen: it is what MuPDF does, and matching it means the two agree on unrepresentable text as well.",
+   "per_face": {
+    "helv": {
+     "mupdf_constant": 278.0,
+     "afm_space": 278,
+     "afm_bullet": 350
+    },
+    "hebo": {
+     "mupdf_constant": 278.0,
+     "afm_space": 278,
+     "afm_bullet": 350
+    },
+    "heit": {
+     "mupdf_constant": 278.0,
+     "afm_space": 278,
+     "afm_bullet": 350
+    },
+    "hebi": {
+     "mupdf_constant": 278.0,
+     "afm_space": 278,
+     "afm_bullet": 350
+    },
+    "tiro": {
+     "mupdf_constant": 250.0,
+     "afm_space": 250,
+     "afm_bullet": 350
+    },
+    "tibo": {
+     "mupdf_constant": 250.0,
+     "afm_space": 250,
+     "afm_bullet": 350
+    },
+    "tiit": {
+     "mupdf_constant": 250.0,
+     "afm_space": 250,
+     "afm_bullet": 350
+    },
+    "tibi": {
+     "mupdf_constant": 250.0,
+     "afm_space": 250,
+     "afm_bullet": 350
+    },
+    "cour": {
+     "mupdf_constant": 600.0,
+     "afm_space": 600,
+     "afm_bullet": 600
+    },
+    "cobo": {
+     "mupdf_constant": 600.0,
+     "afm_space": 600,
+     "afm_bullet": 600
+    }
+   }
+  }
+ },
+ "the_deliberate_divergence": {
+  "_note": "REQUIREMENT: report divergences, do not force agreement by fudging. Here is the divergence, and it is not a rounding difference -- it is MuPDF being wrong.",
+  "what": "MuPDF's base-14 lookup resolves Latin-1 only. For the 27 WinAnsi codepoints above U+00FF it silently charges the face's space width instead of the glyph's advance.",
+  "worked_example": "An em dash (U+2014) in Helvetica is 1000 units. MuPDF answers 278, the space width -- 72% short. Base14Metrics answers 1000, which is what the AFM says and what the renderer will do.",
+  "codepoints": [
+   "U+0152",
+   "U+0153",
+   "U+0160",
+   "U+0161",
+   "U+0178",
+   "U+017D",
+   "U+017E",
+   "U+0192",
+   "U+02C6",
+   "U+02DC",
+   "U+2013",
+   "U+2014",
+   "U+2018",
+   "U+2019",
+   "U+201A",
+   "U+201C",
+   "U+201D",
+   "U+201E",
+   "U+2020",
+   "U+2021",
+   "U+2022",
+   "U+2026",
+   "U+2030",
+   "U+2039",
+   "U+203A",
+   "U+20AC",
+   "U+2122"
+  ],
+  "plus_one_more": "U+007F. WinAnsiEncoding fills its unused BYTE codes with `bullet` and 0x7F is one of them, so reportlab's table answers 350 for code 127. U+007F the CHARACTER is DEL, so the generated table omits the control range and DEL takes the fallback -- which is also MuPDF's answer. The tables are keyed on characters, not on byte codes, and this is where that distinction bites.",
+  "why_this_is_a_fix_and_not_a_regression": "`ladder._measurable` gates on `ch.encode('cp1252')` -- it has always claimed the WinAnsi repertoire is measurable. Text carrying an en dash therefore passed the gate and was then mis-shaped. That is the same defect commit 6575118 was written about, in the same function, one repertoire further out: IT RETURNED A NUMBER ANYWAY. Correct widths make `_measurable`'s stated contract true rather than aspirational.",
+  "not_made_bug_compatible": "Reproducing MuPDF's quirk would have made the two installs agree by deliberately mis-measuring an em dash. `tests/test_base14_metrics.py` asserts the divergence EXISTS, in the AFM's direction, so it cannot be quietly 'fixed' back."
+ },
+ "the_two_installs_are_now_one_product": {
+  "_note": "REQUIREMENT: default install and mupdf-extra install must produce byte-identical metrics; the extra must stop being a quality axis. Proven at a stronger level than metrics -- the DOCX CONTENT is the same file.",
+  "method": "A wheel built from this tree, installed into a virtualenv that never had PyMuPDF, against the measurement venv which has the `mupdf` extra. Both convert all 16 gated fixtures at the shipping RAW profile. Compared on the ladder report and on a SHA-256 over every ZIP member in name order.",
+  "_archive_bytes_note": "The raw archive bytes differ and that is not a finding: every ZIP local header carries a write timestamp, so two runs of the SAME install differ too. `tests/test_purity.py` already digests parts rather than archives for this reason. File sizes were identical to the byte in all 16 cases.",
+  "base": {
+   "prefix": "/tmp/basewheel",
+   "pymupdf_installed": false,
+   "default_metrics": "base14",
+   "em_dash_helvetica_at_1000": 1000.0
+  },
+  "extra": {
+   "prefix": "/work/.venv",
+   "pymupdf_installed": true,
+   "default_metrics": "base14",
+   "em_dash_helvetica_at_1000": 1000.0
+  },
+  "documents": 16,
+  "documents_that_differ": [],
+  "content_identical_everywhere": true,
+  "ladder_reports_identical_everywhere": true,
+  "per_document": {
+   "01_whitepaper_market": {
+    "content_sha256": "a367aa8fddfdeaac8a7b12c6aca69e1f4ae9749ab3e00957df83fd616e728a4e",
+    "bytes": 75022,
+    "ladder": {
+     "flow": 12,
+     "line-locked": 0,
+     "unpredictable": 0,
+     "short": 41,
+     "lock_failed": 0,
+     "unmeasured_script": 0,
+     "no_page_room": 0,
+     "text_metrics": "base14"
+    }
+   },
+   "02_research_paper": {
+    "content_sha256": "d01bcf3936de40c81b9d25fc1bced5426f614ce18456086da80b89be349f9c72",
+    "bytes": 64272,
+    "ladder": {
+     "flow": 8,
+     "line-locked": 3,
+     "unpredictable": 0,
+     "short": 28,
+     "lock_failed": 0,
+     "unmeasured_script": 0,
+     "no_page_room": 0,
+     "text_metrics": "base14"
+    }
+   },
+   "03_tech_report_code": {
+    "content_sha256": "bfb81d6af8322fcf4a447dd8f26c63ae01a9f69ee0d0d6d3bd0b70c71ab3b105",
+    "bytes": 40834,
+    "ladder": {
+     "flow": 4,
+     "line-locked": 0,
+     "unpredictable": 0,
+     "short": 41,
+     "lock_failed": 0,
+     "unmeasured_script": 0,
+     "no_page_room": 0,
+     "text_metrics": "base14"
+    }
+   },
+   "04_exec_brief": {
+    "content_sha256": "934a970091ea01b9057bb83e4d8af8aa64d18a6a73172404c2fbdd2ba9993147",
+    "bytes": 72684,
+    "ladder": {
+     "flow": 4,
+     "line-locked": 1,
+     "unpredictable": 0,
+     "short": 13,
+     "lock_failed": 0,
+     "unmeasured_script": 0,
+     "no_page_room": 0,
+     "text_metrics": "base14"
+    }
+   },
+   "05_memo": {
+    "content_sha256": "4166e42780c757ce0e6e67854f2a64aade0a7c00557f5244a9eaad6e9348d9e4",
+    "bytes": 37323,
+    "ladder": {
+     "flow": 1,
+     "line-locked": 0,
+     "unpredictable": 0,
+     "short": 6,
+     "lock_failed": 1,
+     "unmeasured_script": 0,
+     "no_page_room": 0,
+     "text_metrics": "base14"
+    }
+   },
+   "c1_whitepaper": {
+    "content_sha256": "1e5736c4c77ab1eb062ea7ea5a32c453103b8f599e4d76c292c05cde324c7085",
+    "bytes": 61163,
+    "ladder": {
+     "flow": 3,
+     "line-locked": 1,
+     "unpredictable": 0,
+     "short": 33,
+     "lock_failed": 0,
+     "unmeasured_script": 0,
+     "no_page_room": 0,
+     "text_metrics": "base14"
+    }
+   },
+   "c2_paper2col": {
+    "content_sha256": "0b634352bc0b2209e8e80d13b1fa2a0532d8e0241f476d522b4c22d91d857cc0",
+    "bytes": 37907,
+    "ladder": {
+     "flow": 11,
+     "line-locked": 0,
+     "unpredictable": 0,
+     "short": 7,
+     "lock_failed": 0,
+     "unmeasured_script": 0,
+     "no_page_room": 0,
+     "text_metrics": "base14"
+    }
+   },
+   "c3_tables": {
+    "content_sha256": "341b3dcc1e9b574e37380cdb8b830da8bb26253fff3962faa5bb8ee7ab20c508",
+    "bytes": 105613,
+    "ladder": {
+     "flow": 0,
+     "line-locked": 0,
+     "unpredictable": 0,
+     "short": 194,
+     "lock_failed": 0,
+     "unmeasured_script": 0,
+     "no_page_room": 0,
+     "text_metrics": "base14"
+    }
+   },
+   "c4_i18n": {
+    "content_sha256": "3308c7f0347f2b716af7af40f4b7b141a24ffb3f3c5decdb36f7322827be6cf4",
+    "bytes": 38095,
+    "ladder": {
+     "flow": 0,
+     "line-locked": 2,
+     "unpredictable": 0,
+     "short": 10,
+     "lock_failed": 0,
+     "unmeasured_script": 1,
+     "no_page_room": 0,
+     "text_metrics": "base14"
+    }
+   },
+   "c5_graphics": {
+    "content_sha256": "e888935d9dc5ab2059863cd8c607b74cbebc33b6cccb2b2418e80d385ae4227a",
+    "bytes": 75102,
+    "ladder": {
+     "flow": 1,
+     "line-locked": 0,
+     "unpredictable": 0,
+     "short": 8,
+     "lock_failed": 0,
+     "unmeasured_script": 0,
+     "no_page_room": 0,
+     "text_metrics": "base14"
+    }
+   },
+   "c6_long": {
+    "content_sha256": "dae9ccc6fdea296a54a53ad7f1d498f3b3f04519009a0f140132f6de5f61edd6",
+    "bytes": 38771,
+    "ladder": {
+     "flow": 50,
+     "line-locked": 0,
+     "unpredictable": 0,
+     "short": 77,
+     "lock_failed": 0,
+     "unmeasured_script": 0,
+     "no_page_room": 0,
+     "text_metrics": "base14"
+    }
+   },
+   "c7_code": {
+    "content_sha256": "ed9b059f972629c3df253f19b7a1a8af0193063969fd7680912d02f9aa4ae06e",
+    "bytes": 38113,
+    "ladder": {
+     "flow": 2,
+     "line-locked": 0,
+     "unpredictable": 0,
+     "short": 4,
+     "lock_failed": 0,
+     "unmeasured_script": 0,
+     "no_page_room": 0,
+     "text_metrics": "base14"
+    }
+   },
+   "c8_toc_links": {
+    "content_sha256": "72a6724d441ed9170e3c2346a5c8872c4126476f51972a0825009d31bb31b79c",
+    "bytes": 37641,
+    "ladder": {
+     "flow": 3,
+     "line-locked": 0,
+     "unpredictable": 0,
+     "short": 9,
+     "lock_failed": 0,
+     "unmeasured_script": 0,
+     "no_page_room": 0,
+     "text_metrics": "base14"
+    }
+   },
+   "f1_fpdf_brief": {
+    "content_sha256": "eb15f4f9f8f7fc503216f9847a7af83aa8673c526481b4468a0c4eb4ef9aeac2",
+    "bytes": 37583,
+    "ladder": {
+     "flow": 2,
+     "line-locked": 0,
+     "unpredictable": 0,
+     "short": 14,
+     "lock_failed": 0,
+     "unmeasured_script": 0,
+     "no_page_room": 0,
+     "text_metrics": "base14"
+    }
+   },
+   "l1_word_native": {
+    "content_sha256": "801e491a1b7cb2ef0544ff3b5b331b4279feed65a39a1924d52ca0fa00dd6be4",
+    "bytes": 37915,
+    "ladder": {
+     "flow": 0,
+     "line-locked": 2,
+     "unpredictable": 0,
+     "short": 18,
+     "lock_failed": 0,
+     "unmeasured_script": 0,
+     "no_page_room": 0,
+     "text_metrics": "base14"
+    }
+   },
+   "r1_reportlab_report": {
+    "content_sha256": "5d1277a83f0b908773b20219dfc6ee2c9fb60755121fee12a5f41a1a63e77532",
+    "bytes": 38041,
+    "ladder": {
+     "flow": 3,
+     "line-locked": 0,
+     "unpredictable": 0,
+     "short": 23,
+     "lock_failed": 0,
+     "unmeasured_script": 0,
+     "no_page_room": 0,
+     "text_metrics": "base14"
+    }
+   }
+  }
+ },
+ "no_profile_axis_is_needed": {
+  "_note": "REQUIREMENT: the gate's canonical numbers must then describe every install. They do, and that resolves the flag raised in base-wheel-proof-2026-08-06.json rather than deferring it.",
+  "the_old_problem": "The measurement container installs the `mupdf` extra to run the parity reference arm. While the extra changed the ladder, the recorded numbers described a configuration a default install did not produce, and `profile_id` carried no text-metrics term to say which one was measured.",
+  "the_resolution": "A profile axis exists to distinguish configurations that differ. These two no longer differ -- same shaper, same tables, same output, proven by content hash on all 16 documents -- so adding an axis would name a distinction that is not there. `profile_id` is left alone deliberately.",
+  "what_would_reopen_it": "Any future shaper whose availability depends on an extra. The check that would catch it is the content-hash comparison above, not the profile string."
+ },
+ "the_gate": {
+  "_note": "REQUIREMENT: gate PASS both lanes with scored rows byte-identical to the freshly recorded baseline (9baac7d), and if the shaper legitimately improves the default beyond it, report rather than re-record. **Nothing moved**, so there is no baseline event to adjudicate.",
+  "command": "testkit/runall.py",
+  "product": {
+   "verdict": "PASS",
+   "page_match": "16/16",
+   "within2pt": 0.5241,
+   "live_text_cov": 0.9588,
+   "dy_p50": 1.15
+  },
+  "raw": {
+   "verdict": "PASS",
+   "page_match": "15/16",
+   "within2pt": 0.3471,
+   "live_text_cov": 0.9588,
+   "dy_p50": 1.95
+  },
+  "rows_vs_recorded_baseline": {
+   "lanes": {
+    "product": {
+     "document_diffs": {},
+     "aggregate_diffs": {},
+     "documents": 16,
+     "identical": true
+    },
+    "raw": {
+     "document_diffs": {},
+     "aggregate_diffs": {},
+     "documents": 16,
+     "identical": true
+    }
+   },
+   "all_identical": true
+  },
+  "every_scored_cell_identical": true,
+  "baseline_event": false,
+  "why_nothing_moved": "The gated sixteen contain no paragraph whose lock decision depends on a divergent codepoint. Checked directly rather than inferred from the gate passing -- see `ladder_decisions_on_both_corpora`."
+ },
+ "ladder_decisions_on_both_corpora": {
+  "_note": "6575118's rule, applied: A CHANGE TO A GLOBAL DEFAULT IS MEASURED ON BOTH CORPORA BEFORE IT LANDS, NEVER ON THE GATED SIXTEEN ALONE. This is that measurement at the DECISION layer -- for every paragraph of all 45 documents, does the ladder do the same thing under both shapers?",
+  "method": "Build the layout twice per document, run `apply_ladder` with each shaper, and compare the report counts and the per-paragraph run texts (a lock inserts '\\n' into the runs, so the run texts are what record the decision; `Para.line_breaks` alone cannot, because `infer` sets it too).",
+  "gated_16": {
+   "documents": 16,
+   "documents_with_any_changed_decision": 0,
+   "verdict": "identical, every paragraph"
+  },
+  "expansion_29": {
+   "documents": 29,
+   "documents_with_any_changed_decision": 12,
+   "detail": {
+    "x12_chrome_euro_scripts.pdf": {
+     "paragraphs_whose_breaks_moved": 1,
+     "report_delta": {
+      "flow": [
+       1,
+       2
+      ],
+      "line-locked": [
+       1,
+       0
+      ]
+     },
+     "divergent_codepoints_in_document": [
+      "U+0161",
+      "U+2013",
+      "U+2014",
+      "U+20AC"
+     ]
+    },
+    "y01_nist_sp80063b.pdf": {
+     "paragraphs_whose_breaks_moved": 2,
+     "report_delta": {},
+     "divergent_codepoints_in_document": [
+      "U+2013",
+      "U+2014",
+      "U+2018",
+      "U+2019",
+      "U+201C",
+      "U+201D",
+      "U+2022"
+     ]
+    },
+    "y02_nist_sp800171r2.pdf": {
+     "paragraphs_whose_breaks_moved": 0,
+     "report_delta": {
+      "lock_failed": [
+       259,
+       260
+      ],
+      "no_page_room": [
+       20,
+       19
+      ]
+     },
+     "divergent_codepoints_in_document": [
+      "U+2014",
+      "U+2019",
+      "U+201C",
+      "U+201D",
+      "U+2022"
+     ]
+    },
+    "y03_nist_fips197.pdf": {
+     "paragraphs_whose_breaks_moved": 0,
+     "report_delta": {
+      "flow": [
+       95,
+       94
+      ],
+      "lock_failed": [
+       44,
+       45
+      ]
+     },
+     "divergent_codepoints_in_document": [
+      "U+02DC",
+      "U+2013",
+      "U+2014",
+      "U+2018",
+      "U+2019",
+      "U+201C",
+      "U+201D",
+      "U+2022"
+     ]
+    },
+    "y06_irs_1040_instructions.pdf": {
+     "paragraphs_whose_breaks_moved": 1,
+     "report_delta": {
+      "flow": [
+       3154,
+       3159
+      ],
+      "line-locked": [
+       224,
+       223
+      ],
+      "lock_failed": [
+       338,
+       339
+      ],
+      "no_page_room": [
+       428,
+       423
+      ]
+     },
+     "divergent_codepoints_in_document": [
+      "U+2013",
+      "U+2014",
+      "U+2019",
+      "U+201C",
+      "U+201D",
+      "U+2022",
+      "U+2026"
+     ]
+    },
+    "y08_nist_sp80088r1.pdf": {
+     "paragraphs_whose_breaks_moved": 2,
+     "report_delta": {
+      "flow": [
+       259,
+       257
+      ],
+      "lock_failed": [
+       55,
+       57
+      ]
+     },
+     "divergent_codepoints_in_document": [
+      "U+2013",
+      "U+2014",
+      "U+2018",
+      "U+2019",
+      "U+201C",
+      "U+201D",
+      "U+2022",
+      "U+2026"
+     ]
+    },
+    "y09_nist_sp800207.pdf": {
+     "paragraphs_whose_breaks_moved": 2,
+     "report_delta": {
+      "flow": [
+       208,
+       207
+      ],
+      "lock_failed": [
+       62,
+       63
+      ]
+     },
+     "divergent_codepoints_in_document": [
+      "U+2013",
+      "U+2014",
+      "U+2019",
+      "U+201C",
+      "U+201D",
+      "U+2022",
+      "U+2026"
+     ]
+    },
+    "y10_nist_fips180.pdf": {
+     "paragraphs_whose_breaks_moved": 1,
+     "report_delta": {
+      "flow": [
+       107,
+       106
+      ],
+      "line-locked": [
+       4,
+       5
+      ]
+     },
+     "divergent_codepoints_in_document": [
+      "U+2019",
+      "U+201C",
+      "U+201D",
+      "U+2022",
+      "U+2026"
+     ]
+    },
+    "y11_nist_sp80053r5_overcap.pdf": {
+     "paragraphs_whose_breaks_moved": 63,
+     "report_delta": {
+      "flow": [
+       1875,
+       1894
+      ],
+      "line-locked": [
+       422,
+       359
+      ],
+      "lock_failed": [
+       1520,
+       1564
+      ]
+     },
+     "divergent_codepoints_in_document": [
+      "U+2013",
+      "U+2014",
+      "U+2019",
+      "U+201C",
+      "U+201D",
+      "U+2022",
+      "U+2026"
+     ]
+    },
+    "y12_irs_pub15.pdf": {
+     "paragraphs_whose_breaks_moved": 7,
+     "report_delta": {
+      "flow": [
+       558,
+       547
+      ],
+      "line-locked": [
+       75,
+       78
+      ],
+      "lock_failed": [
+       104,
+       116
+      ],
+      "no_page_room": [
+       124,
+       120
+      ]
+     },
+     "divergent_codepoints_in_document": [
+      "U+2013",
+      "U+2014",
+      "U+2018",
+      "U+2019",
+      "U+201C",
+      "U+201D",
+      "U+2022",
+      "U+2026"
+     ]
+    },
+    "y13_irs_pub501.pdf": {
+     "paragraphs_whose_breaks_moved": 7,
+     "report_delta": {
+      "flow": [
+       270,
+       264
+      ],
+      "line-locked": [
+       51,
+       52
+      ],
+      "lock_failed": [
+       149,
+       154
+      ]
+     },
+     "divergent_codepoints_in_document": [
+      "U+2013",
+      "U+2014",
+      "U+2019",
+      "U+201C",
+      "U+201D",
+      "U+2022",
+      "U+2026"
+     ]
+    },
+    "y14_irs_fw9_form.pdf": {
+     "paragraphs_whose_breaks_moved": 0,
+     "report_delta": {
+      "flow": [
+       44,
+       45
+      ],
+      "lock_failed": [
+       6,
+       7
+      ],
+      "no_page_room": [
+       51,
+       49
+      ]
+     },
+     "divergent_codepoints_in_document": [
+      "U+2013",
+      "U+2014",
+      "U+2019",
+      "U+201C",
+      "U+201D",
+      "U+2022"
+     ]
+    }
+   },
+   "reading": "Concentrated in the y-series -- real published documents, which use typographic dashes and curly quotes heavily -- plus x12, the European scripts fixture. The generated x-series is almost untouched because its prose was written in ASCII. This is exactly the population the gated sixteen cannot sample, which is why the rule exists."
+  }
+ },
+ "expansion_fidelity": {
+  "_note": "The decision-layer measurement says twelve expansion documents changed. This scores them, RAW lane, open loop -- the correction loop can mask a placement change or amplify it, and the question is what the SHAPER did. The expansion corpus is non-gating and has no baseline, so this is reported, not adjudicated.",
+  "lane": "raw",
+  "profile_id": "pdfium/standard/none/refine0@240dpi",
+  "documents_measured": 12,
+  "documents_whose_scores_moved": [
+   "x12_chrome_euro_scripts",
+   "y01_nist_sp80063b",
+   "y02_nist_sp800171r2",
+   "y06_irs_1040_instructions",
+   "y08_nist_sp80088r1",
+   "y09_nist_sp800207",
+   "y11_nist_sp80053r5_overcap",
+   "y12_irs_pub15",
+   "y13_irs_pub501"
+  ],
+  "columns": [
+   "mupdf_shaper",
+   "base14_shaper"
+  ],
+  "reading": {
+   "pagination": "THE ONE MOVEMENT LARGE ENOUGH TO READ, and it is in the right direction. Three documents render one page FEWER -- y08 84->83, y09 67->66, y12 126->125 -- and none renders more. Excess pagination on long real documents is the expansion corpus's headline finding (an 80-page source coming out at 158), so a page recovered there is the metric that matters most on this corpus.",
+   "everything_else": "Noise at the fourth decimal, in both directions. These documents score within2pt around 0.000x under either shaper -- they are the long-document pagination failures, not placement successes -- so a within2pt delta of 0.0004 is not a signal about anything.",
+   "y09": "The one row worth naming as mixed rather than neutral: it gains a page (67->66) and loses word_recall 0.2410 -> 0.2368 and dy_p50 58.75 -> 61.38. On a document recalling under a quarter of its words either way, that is a rearrangement of a document that is already wrong, not a regression from a document that was right.",
+   "y14_irs_fw9_form": "Refused as an interactive form in BOTH arms, identically. Form detection is an annotation census in the preflight layer and has nothing to do with text metrics; recorded so the absence of scores is not read as a crash."
+  },
+  "verdict": "Nothing regressed materially, and the largest effect is three excess pages recovered. The expansion corpus is non-gating and has no baseline, so this is reported rather than adjudicated -- but 6575118's rule is that a global default is measured here before it lands, and it was.",
+  "documents": {
+   "x12_chrome_euro_scripts": {
+    "src_pages": [
+     1,
+     1
+    ],
+    "out_pages": [
+     1,
+     1
+    ],
+    "page_match": [
+     true,
+     true
+    ],
+    "within2pt": [
+     0.1675,
+     0.1626
+    ],
+    "dy_p50": [
+     0.8,
+     0.8
+    ],
+    "live_text_cov": [
+     1.0,
+     1.0
+    ],
+    "word_recall": [
+     1.0,
+     1.0
+    ],
+    "doc_recall": [
+     1.0,
+     1.0
+    ],
+    "raster_frac": [
+     0.0,
+     0.0
+    ],
+    "changed": [
+     "within2pt"
+    ]
+   },
+   "y01_nist_sp80063b": {
+    "src_pages": [
+     80,
+     80
+    ],
+    "out_pages": [
+     106,
+     106
+    ],
+    "page_match": [
+     false,
+     false
+    ],
+    "within2pt": [
+     0.0004,
+     0.0008
+    ],
+    "dy_p50": [
+     55.48,
+     54.69
+    ],
+    "live_text_cov": [
+     0.916,
+     0.916
+    ],
+    "word_recall": [
+     0.194,
+     0.194
+    ],
+    "doc_recall": [
+     0.9288,
+     0.9288
+    ],
+    "raster_frac": [
+     0.084,
+     0.084
+    ],
+    "changed": [
+     "dy_p50",
+     "within2pt"
+    ]
+   },
+   "y02_nist_sp800171r2": {
+    "src_pages": [
+     114,
+     114
+    ],
+    "out_pages": [
+     161,
+     161
+    ],
+    "page_match": [
+     false,
+     false
+    ],
+    "within2pt": [
+     0.0005,
+     0.0005
+    ],
+    "dy_p50": [
+     56.6,
+     56.77
+    ],
+    "live_text_cov": [
+     0.8699,
+     0.8699
+    ],
+    "word_recall": [
+     0.2031,
+     0.2031
+    ],
+    "doc_recall": [
+     0.907,
+     0.907
+    ],
+    "raster_frac": [
+     0.1301,
+     0.1301
+    ],
+    "changed": [
+     "dy_p50"
+    ]
+   },
+   "y03_nist_fips197": {
+    "src_pages": [
+     46,
+     46
+    ],
+    "out_pages": [
+     74,
+     74
+    ],
+    "page_match": [
+     false,
+     false
+    ],
+    "within2pt": [
+     0.0082,
+     0.0082
+    ],
+    "dy_p50": [
+     78.07,
+     78.07
+    ],
+    "live_text_cov": [
+     0.9205,
+     0.9205
+    ],
+    "word_recall": [
+     0.14,
+     0.14
+    ],
+    "doc_recall": [
+     0.9139,
+     0.9139
+    ],
+    "raster_frac": [
+     0.0795,
+     0.0795
+    ],
+    "changed": []
+   },
+   "y06_irs_1040_instructions": {
+    "src_pages": [
+     126,
+     126
+    ],
+    "out_pages": [
+     337,
+     337
+    ],
+    "page_match": [
+     false,
+     false
+    ],
+    "within2pt": [
+     0.0005,
+     0.0005
+    ],
+    "dy_p50": [
+     50.29,
+     49.81
+    ],
+    "live_text_cov": [
+     0.9578,
+     0.9578
+    ],
+    "word_recall": [
+     0.1116,
+     0.1112
+    ],
+    "doc_recall": [
+     0.8762,
+     0.8761
+    ],
+    "raster_frac": [
+     0.0422,
+     0.0422
+    ],
+    "changed": [
+     "doc_recall",
+     "dy_p50",
+     "word_recall"
+    ]
+   },
+   "y08_nist_sp80088r1": {
+    "src_pages": [
+     65,
+     65
+    ],
+    "out_pages": [
+     84,
+     83
+    ],
+    "page_match": [
+     false,
+     false
+    ],
+    "within2pt": [
+     0.0007,
+     0.0007
+    ],
+    "dy_p50": [
+     57.4,
+     57.35
+    ],
+    "live_text_cov": [
+     0.9766,
+     0.9766
+    ],
+    "word_recall": [
+     0.2407,
+     0.2406
+    ],
+    "doc_recall": [
+     0.9683,
+     0.9683
+    ],
+    "raster_frac": [
+     0.0234,
+     0.0234
+    ],
+    "changed": [
+     "dy_p50",
+     "out_pages",
+     "word_recall"
+    ]
+   },
+   "y09_nist_sp800207": {
+    "src_pages": [
+     59,
+     59
+    ],
+    "out_pages": [
+     67,
+     66
+    ],
+    "page_match": [
+     false,
+     false
+    ],
+    "within2pt": [
+     0.0009,
+     0.0004
+    ],
+    "dy_p50": [
+     58.75,
+     61.38
+    ],
+    "live_text_cov": [
+     0.9473,
+     0.9473
+    ],
+    "word_recall": [
+     0.241,
+     0.2368
+    ],
+    "doc_recall": [
+     0.9541,
+     0.9541
+    ],
+    "raster_frac": [
+     0.0527,
+     0.0527
+    ],
+    "changed": [
+     "dy_p50",
+     "out_pages",
+     "within2pt",
+     "word_recall"
+    ]
+   },
+   "y10_nist_fips180": {
+    "src_pages": [
+     36,
+     36
+    ],
+    "out_pages": [
+     39,
+     39
+    ],
+    "page_match": [
+     false,
+     false
+    ],
+    "within2pt": [
+     0.1237,
+     0.1237
+    ],
+    "dy_p50": [
+     14.06,
+     14.06
+    ],
+    "live_text_cov": [
+     0.9398,
+     0.9398
+    ],
+    "word_recall": [
+     0.4451,
+     0.4451
+    ],
+    "doc_recall": [
+     0.7681,
+     0.7681
+    ],
+    "raster_frac": [
+     0.0602,
+     0.0602
+    ],
+    "changed": []
+   },
+   "y11_nist_sp80053r5_overcap": {
+    "src_pages": [
+     492,
+     492
+    ],
+    "out_pages": [
+     604,
+     604
+    ],
+    "page_match": [
+     false,
+     false
+    ],
+    "within2pt": [
+     0.0035,
+     0.0033
+    ],
+    "dy_p50": [
+     53.21,
+     53.11
+    ],
+    "live_text_cov": [
+     0.8912,
+     0.8912
+    ],
+    "word_recall": [
+     0.2201,
+     0.22
+    ],
+    "doc_recall": [
+     0.9135,
+     0.9135
+    ],
+    "raster_frac": [
+     0.1088,
+     0.1088
+    ],
+    "changed": [
+     "dy_p50",
+     "within2pt",
+     "word_recall"
+    ]
+   },
+   "y12_irs_pub15": {
+    "src_pages": [
+     59,
+     59
+    ],
+    "out_pages": [
+     126,
+     125
+    ],
+    "page_match": [
+     false,
+     false
+    ],
+    "within2pt": [
+     0.0004,
+     0.0005
+    ],
+    "dy_p50": [
+     49.4,
+     49.2
+    ],
+    "live_text_cov": [
+     0.9761,
+     0.9761
+    ],
+    "word_recall": [
+     0.1979,
+     0.1969
+    ],
+    "doc_recall": [
+     0.956,
+     0.9559
+    ],
+    "raster_frac": [
+     0.0239,
+     0.0239
+    ],
+    "changed": [
+     "doc_recall",
+     "dy_p50",
+     "out_pages",
+     "within2pt",
+     "word_recall"
+    ]
+   },
+   "y13_irs_pub501": {
+    "src_pages": [
+     31,
+     31
+    ],
+    "out_pages": [
+     84,
+     84
+    ],
+    "page_match": [
+     false,
+     false
+    ],
+    "within2pt": [
+     0.0006,
+     0.0006
+    ],
+    "dy_p50": [
+     41.16,
+     41.16
+    ],
+    "live_text_cov": [
+     0.97,
+     0.97
+    ],
+    "word_recall": [
+     0.1414,
+     0.1414
+    ],
+    "doc_recall": [
+     0.962,
+     0.9621
+    ],
+    "raster_frac": [
+     0.03,
+     0.03
+    ],
+    "changed": [
+     "doc_recall"
+    ]
+   },
+   "y14_irs_fw9_form": {
+    "mupdf": {
+     "convert_error": "InteractiveFormError: this PDF is an interactive form: its content lives in fillable fields, which this converter does not preserve. Converting it would produce a document that looks like the form and is not one."
+    },
+    "base14": {
+     "convert_error": "InteractiveFormError: this PDF is an interactive form: its content lives in fillable fields, which this converter does not preserve. Converting it would produce a document that looks like the form and is not one."
+    }
+   }
+  }
+ },
+ "what_this_does_not_claim": [
+  "That the shaper is a fidelity improvement. On the gated sixteen it is exactly neutral, by measurement. Its value is that the DEFAULT install now gets the ladder at all.",
+  "That MuPDF is wrong about anything except the 27 codepoints above U+00FF. On 2190 Latin-1 cells the two are identical.",
+  "Anything about non-base-14 families. `Base14Metrics` answers None for them, exactly as before, and `exactdoc/fonts.py` still carries measured packing ratios for the Docs-native faces because no width table covers them.",
+  "Anything about Google Docs. The post-flip live qualification pass is still outstanding and is where a gdocs-profile claim would have to be settled."
+ ],
+ "ok": true,
+ "release_ready": false
+}

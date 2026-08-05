@@ -304,11 +304,25 @@ def main():
                   False,
                   "raised %s instead: %s" % (type(exc).__name__, exc))
 
-    # 2. the writer must not be carrying a MuPDF text-metric dependency
-    from exactdoc.metrics import NullMetrics, get_metrics
-    check("metrics default is backend-neutral", get_metrics().name == "none")
-    check("mupdf metrics degrade rather than raise",
-          isinstance(get_metrics("mupdf"), NullMetrics))
+    # 2. Text metrics. This block used to assert that the default MEASURES
+    # NOTHING -- `get_metrics().name == "none"` -- which was true and was the
+    # defect: the quality ladder needs to shape text, so a PyMuPDF-free install
+    # ran an inert ladder and produced worse output than the measured
+    # configuration. The default is now a real shaper that needs no extra, so
+    # what is asserted is that it WORKS here rather than that it declines.
+    from exactdoc.metrics import Base14Metrics, get_metrics
+    default = get_metrics()
+    check("the default shaper needs no extra", default.name == "base14",
+          "get_metrics() returned %r" % default.name)
+    check("and actually measures", default.text_width("Hi", "Arial", 11.0) > 0)
+    check("mupdf metrics degrade to the permissive shaper, not to nothing",
+          isinstance(get_metrics("mupdf"), Base14Metrics),
+          "a missing extra must be a difference in provenance, not capability")
+    # The em dash is the worked example of where the two deliberately differ:
+    # MuPDF charges Helvetica's space width (278), the AFM says 1000.
+    check("the AFM width is used for glyphs MuPDF cannot see",
+          abs(default.text_width("—", "Arial", 1000.0) - 1000.0) < 0.01,
+          "em dash measured %s" % default.text_width("—", "Arial", 1000.0))
 
     # 3. Shipping defaults stay quality-first, and the shipping parser is the
     # permissive one. This block is the reason a base wheel is *usable* rather

@@ -17,30 +17,49 @@ Times->Times New Roman) precisely so the two stay close.
 
 Where a caller genuinely needs to shape text that has no source line -- the
 ladder's greedy first-fit over words, predicting a re-wrap that by definition did
-not occur in the source -- there is no permissive answer available in this tree.
-MuPDF's base-14 tables are not copied here: they are AGPL, they are measurably
-version-dependent (STATUS §5), and vendoring them into an Apache-2.0 package
-would undo the licence work rather than complete it. So `NullMetrics` reports "unmeasurable", every caller already has
-that path because a non-base-14 font always produced it, and they degrade to
-doing nothing rather than to guessing.
+not occur in the source -- there has to be a shaper. `Base14Metrics` is it, and
+it is permissive.
 
-That is a real, stated limitation and not a silent one: with no `[mupdf]` extra
-installed, the quality ladder cannot run.
+**Why there is a table here at all, when the module used to say there could not
+be.** The sentence this replaces read "there is no permissive answer available in
+this tree", and it was wrong for a reason worth keeping: it conflated *MuPDF's
+tables*, which are AGPL, with *the metrics themselves*, which are not. The
+advance widths of the 14 standard PostScript faces are published Adobe data,
+reproduced in the PDF specification and shipped by every PDF toolkit. What was
+unavailable was permission to copy MuPDF's copy. `exactdoc/_base14_widths.py`
+takes them from reportlab's BSD-3 tables instead and cross-checks them against a
+second implementation, so nothing here descends from AGPL code.
 
-**And that now costs something, which it did not when this module was written.**
-The sentence here used to be "it is off by default, so the shipped product is
-unaffected". The ladder was switched ON by default at commit c9d36df, because on
-`c1_whitepaper` it is half of the fix that takes dy_p50 from 101.0 to 2.0. So a
-default install and a `[mupdf]` install produce measurably different documents,
-and the difference is concentrated in exactly the class of PDF this converter
-exists for -- a cover band whose row height depends on pinning the source's line
-count.
+That distinction is the whole fix, and it closed a gap that had become a release
+problem. The ladder was switched ON by default at c9d36df because on
+`c1_whitepaper` it is half of what takes dy_p50 from 101.0 to 2.0. While the only
+shaper needed the `[mupdf]` extra, a default install ran an inert ladder and
+produced measurably worse output on exactly the document class this converter
+exists for -- `c1_whitepaper` back to within2pt 0.0000, `l1_word_native` dy_p50
+3.31 -> 11.04. Measured in `docs/evidence/base-wheel-proof-2026-08-06.json`.
+**The extra is no longer a quality axis: both installs shape text with this
+module and produce identical output.**
 
-The gap is bounded, reported and measured rather than assumed:
-`ladder_report["text_metrics"]` is `"none"` on a default install, `--verbose`
-prints it in the clear, and the per-document cost over the gated 16 is recorded
-in `docs/evidence/base-wheel-proof-2026-08-06.json`. Closing it needs a
-permissive shaper here, which is release work and not migration work.
+**The shaper is not bug-compatible with MuPDF, and that is deliberate.** MuPDF's
+base-14 lookup resolves Latin-1 only: for the 27 WinAnsi codepoints above
+U+00FF -- en dash, em dash, curly quotes, bullet, ellipsis, Euro, trademark,
+OE/oe, the caron letters -- it silently charges the face's *space* width instead
+of the glyph's. An em dash in Helvetica is 1000 units; MuPDF answers 278. This
+module answers 1000, because that is what the AFM says and what the renderer will
+do. The two agree on every one of the 2190 Latin-1 cells checked, and disagree
+on 218 cells that MuPDF was never seeing.
+
+That is not an incidental improvement. `ladder._measurable` gates on
+`ch.encode("cp1252")` -- it has always claimed the WinAnsi repertoire is
+measurable -- so text carrying an en dash passed the gate and was then mis-shaped
+by a tenth of an em per character. It is the same defect commit 6575118 was
+written about, in the same function, one repertoire further out: *it returned a
+number anyway*. Fixing the shaper makes `_measurable`'s stated contract true
+rather than aspirational.
+
+`MuPDFMetrics` is kept and still selectable by name, because every published
+ladder measurement before 2026-08-06 was taken with it and archiving it would
+make those numbers unreproducible. The product never selects it.
 """
 from typing import Optional, Protocol
 
@@ -62,11 +81,17 @@ class TextMetrics(Protocol):
 
 
 class NullMetrics:
-    """Measures nothing, and says so. The permissive default.
+    """Measures nothing, and says so.
 
     Not a failure mode -- a declared capability boundary. Callers already handle
     it, because a font with no base-14 equivalent has always produced exactly
     this answer.
+
+    No longer the default, and no longer what a PyMuPDF-free install gets:
+    `Base14Metrics` is. It stays because "measure nothing" remains a real
+    configuration -- `get_metrics("none")` is how a caller switches the ladder
+    off at the metrics layer rather than at the option -- and because every
+    caller's null path is exercised by it.
     """
 
     name = "none"
@@ -75,13 +100,53 @@ class NullMetrics:
         return None
 
 
+class Base14Metrics:
+    """Base-14 shaping from the published Adobe AFM widths. No dependencies.
+
+    The permissive default, and after 2026-08-06 the only shaper the product
+    selects. See the module docstring for provenance and for the one place it
+    deliberately disagrees with MuPDF.
+
+    Width of a string = sum of its glyphs' advances, scaled by size/1000. Two
+    properties of the base-14 faces make that exact rather than approximate, and
+    both were measured rather than assumed (`tests/test_base14_metrics.py`):
+    advances are additive -- no kerning is applied to a simple `Tj`, so
+    `width("AV") == width("A") + width("V")` -- and the result is linear in
+    size, so one table serves every point size.
+    """
+
+    name = "base14"
+
+    def text_width(self, text, font, size, bold=False, italic=False):
+        from ._base14_widths import COURIER_WIDTH, FALLBACK, WIDTHS
+        from .ladder import _b14
+        fn = _b14(font, bold, italic)
+        if fn is None:
+            return None
+        table = WIDTHS.get(fn, "absent")
+        if table == "absent":
+            return None
+        if table is None:                       # Courier: fixed pitch
+            return len(text) * COURIER_WIDTH * size / 1000.0
+        fallback = FALLBACK[fn]
+        total = 0
+        for ch in text:
+            total += table.get(ord(ch), fallback)
+        return total * size / 1000.0
+
+
 class MuPDFMetrics:
     """Base-14 shaping via MuPDF. Requires the `[mupdf]` extra.
 
-    Kept because it is what every published ladder measurement was taken with,
-    so archiving it would make those numbers unreproducible. Never installed
-    unless asked for: adding the extra is what makes the combination
-    AGPL-governed for distribution.
+    **An archive, not a code path.** Nothing in the product selects it: it is
+    kept because every published ladder measurement before 2026-08-06 was taken
+    with it, and archiving it would make those numbers unreproducible. Asking
+    for it by name is how a reader re-derives them.
+
+    It is also the reference the permissive shaper is checked against, which is
+    the second reason to keep it installed in the measurement environment and
+    nowhere else -- adding the extra is what makes the combination AGPL-governed
+    for distribution.
     """
 
     name = "mupdf"
@@ -102,21 +167,33 @@ class MuPDFMetrics:
 
 
 def get_metrics(name: Optional[str] = None) -> TextMetrics:
-    """`None` or 'none' -> NullMetrics; 'mupdf' -> MuPDFMetrics if importable.
+    """`None` -> Base14Metrics, the default. 'none' -> NullMetrics.
 
-    Asking for MuPDF metrics on an installation without PyMuPDF degrades to
-    NullMetrics rather than raising: the caller's contract is already "act only
-    on a measurement you got", and a missing optional extra is not a conversion
-    failure.
+    **`None` and `"none"` mean different things, and the difference is the whole
+    fix.** `None` is "give me the default shaper", which every install now has.
+    `"none"` is an explicit request to measure nothing. They used to return the
+    same object, because there was no default shaper to return.
+
+    `'mupdf'` still resolves to `MuPDFMetrics` for reproducing pre-2026-08-06
+    measurements, and still degrades rather than raising when the extra is
+    absent -- but it degrades to `Base14Metrics` now, not to `NullMetrics`. That
+    is what makes a missing extra a difference in *provenance* rather than in
+    *capability*: the caller asked for base-14 widths and gets base-14 widths
+    either way.
     """
-    if name in (None, "", "none"):
+    if name is None or name == "base14":
+        return Base14Metrics()
+    if name == "":
+        return Base14Metrics()
+    if name == "none":
         return NullMetrics()
     if name in ("mupdf", "pymupdf", "fitz"):
         try:
             return MuPDFMetrics()
         except ImportError:
-            return NullMetrics()
-    raise ValueError("unknown text metrics %r (choose 'none' or 'mupdf')" % name)
+            return Base14Metrics()
+    raise ValueError("unknown text metrics %r (choose 'base14', 'none' or "
+                     "'mupdf')" % name)
 
 
 # ------------------------------------------------------------ the IR's own facts

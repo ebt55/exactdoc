@@ -35,12 +35,16 @@ movements reproduce the ratified parity record to the digit, and a control
 confirmed the old parser still reproduces the old record exactly from this tree,
 so the movement is the parser and nothing else.
 
-**Two caveats these figures carry and cannot express.** The measurement
-environment installs the `[mupdf]` extra to run the parity reference arm, and
-the quality ladder needs that extra, so a default install produces different —
-worse — output on `c1_whitepaper`, `l1_word_native` and `c4_i18n`; see the
-licensing section below. And `profile_id` has no text-metrics axis, so nothing
-in the name above says which of the two configurations was measured.
+**These figures describe every install, and for one day they did not.** The
+measurement environment installs the `[mupdf]` extra to run the parity reference
+arm; the quality ladder needed that extra to shape text; so a default install
+produced worse output on `c1_whitepaper`, `l1_word_native` and `c4_i18n`, and
+`profile_id` had no text-metrics axis to say which configuration the numbers
+described. Closed 2026-08-06 by `metrics.Base14Metrics`, which carries the
+published Adobe AFM widths and needs no extra. The two installs now produce
+identical DOCX content on all 16 fixtures, so no profile axis is needed — the
+axis has no effect. The gate re-ran with every scored cell identical to the
+record: `docs/evidence/permissive-shaper-2026-08-06.json`.
 
 Product page match reached 16/16 on one document: the striped-table assembler
 took `c3_tables` from one page out to exact, and its word recall 0.331→0.9359
@@ -100,14 +104,15 @@ rather than migration work:
    since, and the standing rule here is that a gdocs-profile claim is never
    promoted on LibreOffice-proxy evidence alone — so the live numbers must be
    re-established against Google's own exports. Consent-gated, per pass.
-2. **`verify.py`.** Outstanding and unchanged by this work.
+2. **`verify.py`.** The page-pair lifetime fix landed (`4dc5015`); the rest is
+   outstanding.
 3. **Packaging.** The wheel builds and installs correctly (gate (c) proves it),
    but nothing is published, and the base-wheel proof is Linux-only while
    pypdfium2 ships per-platform binaries.
-4. **A permissive text shaper**, so the quality ladder works without the AGPL
-   extra. See the licensing section: this is the sharpest of the four, because
-   without it the *default* install is worse than the measured one on the
-   exemplar document.
+4. ~~**A permissive text shaper**, so the quality ladder works without the AGPL
+   extra.~~ **Done 2026-08-06** — `metrics.Base14Metrics`. It was the sharpest
+   of the four, because without it the *default* install was worse than the
+   measured one on the exemplar document.
 
 ## The Google Docs output profile — not shipping
 
@@ -476,25 +481,39 @@ Google Docs passes, the base-wheel proof
 and the dependency/provenance/licence audit
 ([docs/license-audit.md](docs/license-audit.md)).
 
-**Three things the switch did not do, listed here because a completed migration
-is exactly where they would otherwise vanish:**
+**What the switch did not do, listed here because a completed migration is
+exactly where it would otherwise vanish:**
 
 1. **No legal review has happened**, and LIC-01 — the provenance of the initial
    source itself and the right to relicense it — is untouched and still called a
    hard blocker. Apache-2.0 in `LICENSE` does not settle either. This is project
    strategy, not legal advice.
-2. **The default install is measurably worse than a `[mupdf]` one.** The quality
-   ladder is on by default and needs base-14 text metrics that only MuPDF
-   supplies in this tree, so a base wheel runs an inert ladder: `c1_whitepaper`
-   raw-lane `within2pt` returns to 0.0000 and `dy_p50` to 13.49 (against 0.1031
-   and 2.00 with the extra), `l1_word_native` `dy_p50` 3.31 → 11.04, `c4_i18n`
-   `within2pt` 0.4397 → 0.3017. The other 13 documents are identical. c1 is the
-   standing exemplar for the ordinary-document release bar, so this is a release
-   blocker in all but name; the fix is a permissive shaper in
-   `exactdoc/metrics.py`.
-3. **The canonical numbers describe the `[mupdf]` configuration**, because the
-   measurement container installs the extra to run the parity reference arm, and
-   `profile_id` carries no text-metrics axis to say so.
+
+Two further items were open when the switch landed and are now closed, recorded
+here rather than deleted because the first was a release blocker in all but
+name:
+
+2. ~~**The default install is measurably worse than a `[mupdf]` one.**~~ The
+   quality ladder needed base-14 metrics that only MuPDF supplied in this tree,
+   so a base wheel ran an inert ladder and `c1_whitepaper` — the standing
+   exemplar for the ordinary-document release bar — went back to raw-lane
+   `within2pt` 0.0000 / `dy_p50` 13.49. **Closed 2026-08-06**: the metrics are
+   published Adobe AFM data, not MuPDF's property, and `metrics.Base14Metrics`
+   carries them with no dependency. The two installs now produce identical DOCX
+   content on all 16 fixtures.
+3. ~~**The canonical numbers describe the `[mupdf]` configuration.**~~ Closed by
+   the same change, and **without adding a profile axis**: an axis exists to
+   distinguish configurations that differ, these no longer do, and naming a
+   distinction that is not there would be worse than silence.
+
+Both are measured in
+[docs/evidence/permissive-shaper-2026-08-06.json](docs/evidence/permissive-shaper-2026-08-06.json),
+which also records where the new shaper deliberately disagrees with MuPDF —
+MuPDF's base-14 lookup is Latin-1 only and charges the space width for em
+dashes, curly quotes, the Euro sign and 24 other WinAnsi codepoints. The gated
+sixteen contain no paragraph whose lock decision depends on one, so the gate
+re-ran with every scored cell identical; twelve non-gating expansion documents
+do, and their movement is reported there.
 
 ## Reproduce safely
 

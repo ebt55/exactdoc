@@ -883,15 +883,21 @@ def predict_lines_for(p: Para, avail_w: float, metrics) -> Optional[int]:
 
 
 def _text_metrics():
-    """Shaping metrics, or None when this installation cannot shape text.
+    """Shaping metrics, or None if even constructing them fails.
 
-    None is the answer a non-base-14 font has always produced, and every caller
-    here already treats it as "do not act": the permissive backend degrades to
-    `NullMetrics` rather than raising, and the predictions above then decline.
+    This asked for `get_metrics("mupdf")`, so the column-overflow and page-spill
+    predictions below ran only where the AGPL extra was installed. They take the
+    default shaper now, which needs no extra -- so a base install predicts the
+    same re-wraps as the measurement environment instead of declining to
+    predict any.
+
+    The `except` stays, and is now genuinely defensive rather than the normal
+    path: `None` is the answer a non-base-14 font has always produced and every
+    caller here treats it as "do not act".
     """
     try:
         from .metrics import get_metrics
-        return get_metrics("mupdf")
+        return get_metrics()
     except Exception:
         return None
 

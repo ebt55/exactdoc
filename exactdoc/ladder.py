@@ -169,14 +169,23 @@ def predict_lines(p: Para, avail: float, metrics=None) -> Optional[int]:
 
     This is the one caller in the tree that genuinely needs to *shape* text: it
     predicts a re-wrap, so by definition there is no source line to measure and
-    `Para.src_widths` cannot answer. `metrics` is therefore a real capability
-    requirement, and `NullMetrics` -- the permissive default -- makes every
-    paragraph unpredictable, which is the same answer a non-base-14 font has
-    always produced and which turns the ladder into a no-op.
+    `Para.src_widths` cannot answer. `metrics` is a real capability requirement
+    and `NullMetrics` still makes every paragraph unpredictable -- the same
+    answer a non-base-14 font has always produced, and which turns the ladder
+    into a no-op.
 
-    That is a stated limit, not a silent one: with the permissive backend and no
-    `[mupdf]` extra, `--ladder` does nothing. It is off by default and has been
-    since it was measured and left switched off, so nothing shipped changes.
+    **That is no longer what a default install gets.** The default shaper is
+    `metrics.Base14Metrics`, which needs no extra, so this predicts on every
+    installation rather than only where PyMuPDF happened to be present. The
+    passage here used to say the ladder does nothing without the `[mupdf]` extra
+    and that nothing shipped changed because the ladder was off by default; both
+    halves stopped being true -- the first at 2026-08-06, the second at c9d36df
+    when the default was turned on.
+
+    Note the default argument below is still `NullMetrics`, deliberately: a
+    caller who passes no metrics has expressed no capability, and this function
+    must not silently reach for a shaper on their behalf. `convert` and
+    `docxout` pass one explicitly.
     """
     if metrics is None:
         from .metrics import NullMetrics
@@ -519,8 +528,11 @@ def summarise(rep: dict) -> str:
     total = sum(v for v in rep.values() if isinstance(v, int)) or 1
     locked = rep.get("line-locked", 0)
     metrics = rep.get("text_metrics", "?")
-    note = ("  [text metrics: none -- the ladder cannot shape text without the "
-            "[mupdf] extra, so every paragraph is unpredictable]"
+    # "none" no longer means "this install lacks an extra" -- the default shaper
+    # needs none. It now means someone asked for it, so the message says that
+    # rather than blaming a missing package the reader has not got.
+    note = ("  [text metrics: none -- measurement is switched off, so every "
+            "paragraph is unpredictable]"
             if metrics == "none" else "  [text metrics: %s]" % metrics)
     # Every refusal reason is named. They are counted in `total` either way, and
     # a summary that folds 1,745 page-room refusals into an unexplained
