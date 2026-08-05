@@ -76,6 +76,7 @@ _GATED_ONLY_KEYS = {"provisional_shortfalls", "ratified_shortfalls",
 # nobody can re-check; without a floor it excuses anything.
 _ENTRY_FIELDS = {"dimensions", "floors", "reference_at_record", "tier",
                  "defect", "reason", "evidence", "measured_on",
+                 "measured_commit", "environment_fingerprint", "recorded_on",
                  "ratified_by", "ratified_on", "issue", "review_condition",
                  "authorization_provenance"}
 
@@ -212,10 +213,19 @@ def entries_for(policy, profile_id, documents=None):
             raise PolicyError("%s: measured_on and ratified_on must be ISO dates"
                               % where)
         for field in ("tier", "defect", "reason", "evidence", "ratified_by",
-                      "issue", "review_condition", "authorization_provenance"):
+                      "issue", "review_condition", "authorization_provenance",
+                      "measured_commit", "environment_fingerprint"):
             if not isinstance(entry[field], str) or not entry[field].strip():
                 raise PolicyError("%s: %s must be a non-empty string"
                                   % (where, field))
+        # The toolchain the floors were measured under. A floor that does not
+        # name its environment cannot be told apart from a regression when the
+        # environment moves -- three stale `c4_i18n` floors survived a font
+        # change and failed CI as though the backend had regressed, which is
+        # why the gated policy carries this and why this one does too.
+        if not isinstance(entry["recorded_on"], dict) or not entry["recorded_on"]:
+            raise PolicyError("%s: recorded_on must be a non-empty object"
+                              % where)
         out[doc_id] = entry
     return out
 

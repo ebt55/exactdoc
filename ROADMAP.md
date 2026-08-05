@@ -206,17 +206,23 @@ explicit limitations; `c5_graphics` is a page out under both backends.
 
 The next migration decision requires all of:
 
-1. expanded same-profile parity with no unratified regressions — **partial**:
-   the gated 16 adjudicate clean (0 regressions, 0 provisional, 2 ratified), but
-   the *expanded* corpus does not: the pdfium line-segmentation campaign above
-   is exactly the set of regressions this gate means by "expanded";
+1. expanded same-profile parity with no unratified regressions — **MET**
+   (2026-08-05, bound to `parity-expanded-2026-08-05f.json`). All four
+   adjudication paths clean: gated/candidate 0 regressions 4 ratified,
+   gated/shipping 0 regressions 4 ratified, expansion/candidate 11 MAJOR all
+   ratified, expansion/shipping 7 MAJOR all ratified. Zero unratified findings,
+   zero stale entries, zero floor breaches, across three profile-bound
+   artifacts;
 2. two clean full-corpus Google Docs passes for the exact candidate, each after
    explicit upload consent — **MET**: passes 4 and 5;
-3. a no-PyMuPDF/base-wheel proof — **partial**: the isolation proof holds and
-   the seam is one module, but a PyMuPDF-free *install* is impossible while
-   PyMuPDF is core; and
+3. a no-PyMuPDF/base-wheel proof — **the remaining gate, and it is the flip
+   itself**: the isolation proof holds and the seam is one module
+   (`exactdoc/parse.py`), but a PyMuPDF-free *install* is impossible while
+   PyMuPDF is a core dependency, so this closes when the dependency moves;
 4. a dependency, provenance, and license audit — **first pass done**,
    [docs/license-audit.md](docs/license-audit.md).
+
+Gates (a), (b) and (d) are met. (c) is the flip.
 
 The live status table lives in the audit; this list is the contract.
 

@@ -907,14 +907,35 @@ def test_committed_parity_policy_is_wellformed():
         check("divergence %s carries rendered evidence" % doc_id,
               bool(spec.get("verified")))
 
-    # The two unwaived regressions are unwaived on purpose. If either appears in
-    # any waiver section, the product decision was made by an edit rather than by
-    # the owner, and that is the thing this policy exists to prevent.
-    for doc_id in ("05_memo.pdf", "f1_fpdf_brief.pdf"):
+    # `f1_fpdf_brief` is unwaived on purpose. If it appears in any waiver
+    # section, the product decision was made by an edit rather than by the
+    # owner, and that is the thing this policy exists to prevent.
+    #
+    # `05_memo` was in this list until 2026-08-05 and is deliberately no longer.
+    # The guard did its job: it held the line through three batches, and the
+    # last one was stopped BY it -- the ratification arrived, the guard refused,
+    # and the decision went back to the owner rather than being taken by an
+    # edit. It was then granted explicitly, so the entry exists because someone
+    # with the authority said so, which is exactly the outcome the guard was
+    # built to force. Removing it now is not weakening the rule; it is the rule
+    # having worked. f1 keeps its bar because no such decision has been made
+    # about f1.
+    for doc_id in ("f1_fpdf_brief.pdf",):
         check("%s is in no waiver section" % doc_id,
               doc_id not in waived and doc_id not in entries("expected_divergence"),
               "attribution is not authorisation; widening a waiver is a product "
               "decision scheduled for the Google Docs checkpoint (DEC-D2)")
+    # 05_memo may now be waived, but only with the full ratification shape --
+    # the bar moved from "never" to "only by a named owner with a way out".
+    memo = waived.get("05_memo.pdf")
+    if memo is not None:
+        for field in ("ratified_by", "ratified_on", "issue", "review_condition"):
+            check("05_memo's ratification names %s" % field, bool(memo.get(field)),
+                  "the guard was removed on an owner decision; the entry it "
+                  "allows must still carry one")
+        check("05_memo is ratified, never merely provisional",
+              "05_memo.pdf" in ratified, "a provisional 05_memo would be the "
+              "old failure wearing a new section")
 
 
 # ------------------------------------------------- value hygiene (audit round 2)

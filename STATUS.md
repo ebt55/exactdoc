@@ -209,6 +209,64 @@ non-blocking findings, unchanged.
 ratified policy. That is the two consecutive clean full-corpus Google passes the
 gate asks for — and it is one gate of four, not a release.
 
+### Migration gate (a) is GREEN — every finding ratified, none unaccounted
+
+As of 2026-08-05, bound to `docs/evidence/parity-expanded-2026-08-05f.json`, all
+four adjudication paths run clean:
+
+| path | policy | result |
+|---|---|---|
+| gated 16 / candidate | `parity_policy.json` | 0 regressions, 4 ratified, `ok=True` |
+| gated 16 / shipping | `product_parity_policy.json` | 0 regressions, 4 ratified, `ok=True` |
+| expansion / candidate | `expansion_parity_policy.json` | 11 MAJOR, all 11 ratified, 0 policy failures |
+| expansion / shipping | `expansion_parity_policy.json` | 7 MAJOR, all 7 ratified, 0 policy failures |
+
+**Zero unratified findings, zero stale entries, zero floor breaches.** That is
+gate (a) answered from enforced data rather than from a reading of the evidence:
+every number came out of the adjudicators themselves, and each of the 26
+document×profile entries cites the binding measurement it was floored against.
+
+Three artifacts, because a policy binds to one profile and one corpus:
+`parity_policy.json` (gated 16, candidate), `product_parity_policy.json` (gated
+16, shipping settings — new, read through the existing
+`backend_parity.py --profile product --policy …` with no new machinery), and
+`expansion_parity_policy.json` (29 expansion documents, both profiles, read by
+`expansion_policy.py`). None of them can be read as another; the readers refuse
+cross-binding in every direction.
+
+**Ratified is not fixed.** Every entry is a real divergence, floored in both
+directions and stale-checked, so clearing one fails until the entry is deleted
+and worsening past a floor fails immediately. Three dissolutions are recorded as
+dissolutions rather than quietly dropped: `c5_graphics` left the gated policy
+because the backends stopped differing there at all, `c1_whitepaper` because
+`c9d36df` fixed the two defects that were hiding each other on it, and
+`x02_lo_report_toc` because its divergence is gone. `y10` deliberately has **no**
+candidate-profile entry — it reads `minor` there only because the reference
+degraded (the adjudicated #44 trade), and an entry would have disguised that as
+candidate health.
+
+Two classes worth naming, because both look like regressions and neither is.
+**Reference-improved-faster** (`l1_word_native`, `x01`): both arms improved
+substantially — l1 by ~25pt on each side — and the gap widened because the
+*reference* improved more. The candidate's absolute value is the best it has
+measured; x01's candidate within2pt of 0.3160 beats the pre-improvement
+reference's 0.2132. Their review conditions are written against *absolute*
+regression so an improving candidate can never be used to hide a real loss later.
+**Token artifact** (`y03`, `y10`, `x03`): `word_recall` counts tokens at the same
+page index, so on a paginating document it largely restates pagination. y10 is
+99.3% artifact — the reference itself scores 0.807 on tokens against 0.9984 on
+characters — and y03 is 93%, with its 48 genuine absences named as U+23A2/U+23A5
+bracket pieces, 0.37% of one non-gating document, fix declined on risk against
+value with the c7 regression as precedent.
+
+`05_memo`'s waiver bar was removed, and it is worth recording why rather than
+just that. The guard held through three batches and stopped the last one: the
+ratification arrived, the guard refused, and the decision went back to the owner
+instead of being taken by an edit. It was then granted explicitly. The entry
+exists because someone with the authority said so, which is what the guard was
+built to force. `f1_fpdf_brief` keeps its bar, because no such decision has been
+made about it.
+
 ### Parity policy ratified, and the dy threshold artifact resolved
 
 The **parity** policy is now ratified too (2026-08-04, DEC-D2, on the Google

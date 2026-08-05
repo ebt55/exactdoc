@@ -36,8 +36,12 @@ def entry(**over):
          "defect": "D-cellgap",
          "reason": "cell gap and column gutter are indistinguishable at this "
                    "geometry; documented since BLOCK_SAME_ROW_EM",
-         "evidence": "docs/evidence/parity-expanded-2026-08-05c.json",
+         "evidence": "docs/evidence/parity-expanded-2026-08-05f.json",
          "measured_on": "2026-08-05",
+         "measured_commit": "0" * 40,
+         "environment_fingerprint": "3ca438f1" + "0" * 56,
+         "recorded_on": {"os": "linux", "pdfium": "152.0.7947.0",
+                         "pymupdf": "1.28.0", "python": "3.12.3"},
          "ratified_by": "Ebin Babu Thomas",
          "ratified_on": "2026-08-05",
          "issue": "DEC-D2",
@@ -227,9 +231,21 @@ class Entries(unittest.TestCase):
             with self.assertRaises(EP.PolicyError, msg=field):
                 self.entries(p)
 
+    def test_recorded_on_must_be_a_non_empty_object(self):
+        """A floor that does not name its toolchain cannot be told from a
+        regression when the toolchain moves -- three stale c4_i18n floors
+        already survived a font change and failed CI as though the backend had."""
+        for bad in ({}, "linux", None, []):
+            p = policy()
+            p["profiles"][CANDIDATE]["ratified_findings"] = {
+                DOC: entry(recorded_on=bad)}
+            with self.assertRaises(EP.PolicyError, msg=repr(bad)):
+                self.entries(p)
+
     def test_prose_fields_must_be_non_empty(self):
         for field in ("tier", "defect", "reason", "evidence", "ratified_by",
-                      "issue", "review_condition", "authorization_provenance"):
+                      "issue", "review_condition", "authorization_provenance",
+                      "measured_commit", "environment_fingerprint"):
             p = policy()
             p["profiles"][CANDIDATE]["ratified_findings"] = {
                 DOC: entry(**{field: "   "})}
@@ -299,16 +315,26 @@ class Applying(unittest.TestCase):
 class Committed(unittest.TestCase):
     """The artifact as shipped."""
 
-    def test_the_committed_policy_loads_and_is_empty(self):
+    def test_the_committed_policy_loads_and_every_entry_validates(self):
         p = EP.load()
         self.assertIsNotNone(p, "the expansion policy artifact is missing")
         self.assertEqual(p["schema"], EP.SCHEMA)
         self.assertFalse(p.get("gating"), "this corpus does not gate")
+        exp = json.load(open(EP.CORPUS_PATH, encoding="utf-8"))
+        docs = {k: v for k, v in exp["documents"].items()
+                if not k.startswith("_")}
+        total = 0
         for profile_id in (CANDIDATE, PRODUCT):
-            self.assertEqual(
-                EP.entries_for(p, profile_id), {},
-                "the artifact ships empty; entries land only against a "
-                "committed measurement")
+            got = EP.entries_for(p, profile_id, docs)   # raises if malformed
+            total += len(got)
+            for doc_id, e in got.items():
+                self.assertIn(EP.SCHEMA.split(".")[1][:9], "expansion")
+                self.assertTrue(e["evidence"].startswith("docs/evidence/"),
+                                "%s must cite a committed measurement" % doc_id)
+                for dim in e["dimensions"]:
+                    self.assertIn(dim, e["floors"],
+                                  "%s: %s unfloored" % (doc_id, dim))
+        self.assertTrue(total, "the artifact now carries entries")
 
     def test_the_committed_policy_pins_the_real_corpus(self):
         p = EP.load()

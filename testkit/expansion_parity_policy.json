@@ -1,23 +1,31 @@
 {
- "_note": "The acceptance record for the EXPANSION corpus, kept deliberately separate from `parity_policy.json`. That file governs the gated 16 and pins `corpus_manifest.json`; this one governs the 29 expansion documents and pins `corpus_expansion.json`. An expansion finding written into the gated policy would be unreachable (adjudicate never sees a document outside the gated manifest, and parity_expansion.py refuses the waiver sections by design), falsely bound (it would carry `corpus_manifest_sha256` for a document that manifest does not contain), and cross-contaminating (one record for two corpora, so a re-record of either could not be told from the other). The reader in `testkit/expansion_policy.py` refuses to read either artifact as the other, in both directions. See docs/corpus-expansion.md section 2 for the separation this preserves, and section 7 for what promotion into the gate would require instead.",
- "_empty_on_purpose": "NO ENTRIES YET, and the emptiness is the current honest state rather than a placeholder. The artifact was created before its first entry so that ratification content has somewhere to land that a tool actually reads -- the missing artifact was itself the finding. Entries are added only against a committed measurement, naming the evidence file that produced their floors. Nothing here is authorised by the existence of this file.",
- "_what_this_does_not_do": "It does not adjudicate. `parity_expansion.py` measures and never authorises, and applying an entry from this file annotates a measured row with `ratified: true` beside the verdict the measurement produced -- it never converts a verdict into a pass and never changes that module's exit code. What IS enforced is this file's own integrity: a moved corpus, a malformed section, an entry naming a document the corpus does not contain, a floor breached, a finding that stopped describing anything, or an entry no run measured are all errors, in the same class as a corpus that does not match its manifest.",
+ "_authorization_provenance": "The repository author granted this batch under a standing authorization plus an explicit path-choice delegation recorded on 2026-08-05; the orchestrating session relayed the grant and adjudicated the content, and the session that wrote this entry acted on the relay. It did not interact with the author directly and does not claim to have. The named ratifier is an attestation on a relayed authorization and should be confirmed against this file.",
+ "_dissolved": "Two absences that are fixes, recorded so they do not read as omissions. x02_lo_report_toc carried a dy finding and is gone from the binding entirely. y10_nist_fips180 has NO candidate-profile entry and that is deliberate: it reads `minor` at the candidate profile only because the REFERENCE degraded -- the adjudicated task #44 trade -- so an entry there would mask the cause and let a dissolution be mistaken for candidate health. y10's real finding is at the shipping settings and is ratified there.",
+ "_empty_on_purpose": "SUPERSEDED 2026-08-05: the artifact was created empty on 2026-08-04 so ratification content had somewhere to land that a tool actually reads, and it now carries its first entries, all bound to docs/evidence/parity-expanded-2026-08-05f.json.",
  "_entry_shape": {
   "_note": "The shape every entry must carry, recorded here so it is visible before anyone has to invent it. All thirteen fields are required and each is checked on its own by `expansion_policy.entries_for`. `dimensions` is what makes a ratification cover a known divergence WITHOUT covering the document: a dimension not named here stays a reported divergence, so a new defect on a ratified document still shows.",
   "authorization_provenance": "how the authorization reached the session that wrote the entry, and from whom -- never an implied direct interaction",
   "defect": "defect ID",
-  "dimensions": ["the gated dimensions this entry covers, and only these"],
+  "dimensions": [
+   "the gated dimensions this entry covers, and only these"
+  ],
   "evidence": "path to the committed measurement whose numbers these are",
-  "floors": {"<dimension>": "the bound past which this becomes a regression again"},
+  "floors": {
+   "<dimension>": "the bound past which this becomes a regression again"
+  },
   "issue": "tracking identifier",
   "measured_on": "ISO date of the measurement",
   "ratified_by": "named owner taking responsibility",
   "ratified_on": "ISO date of the decision",
   "reason": "the attributed cause, in enough detail to re-check",
-  "reference_at_record": {"<dimension>": "the reference arm at the same measurement"},
+  "reference_at_record": {
+   "<dimension>": "the reference arm at the same measurement"
+  },
   "review_condition": "what retires this entry, expressed so the stale rule enforces it",
   "tier": "the document's tier in corpus_expansion.json"
  },
+ "_note": "The acceptance record for the EXPANSION corpus, kept deliberately separate from `parity_policy.json`. That file governs the gated 16 and pins `corpus_manifest.json`; this one governs the 29 expansion documents and pins `corpus_expansion.json`. An expansion finding written into the gated policy would be unreachable (adjudicate never sees a document outside the gated manifest, and parity_expansion.py refuses the waiver sections by design), falsely bound (it would carry `corpus_manifest_sha256` for a document that manifest does not contain), and cross-contaminating (one record for two corpora, so a re-record of either could not be told from the other). The reader in `testkit/expansion_policy.py` refuses to read either artifact as the other, in both directions. See docs/corpus-expansion.md section 2 for the separation this preserves, and section 7 for what promotion into the gate would require instead.",
+ "_what_this_does_not_do": "It does not adjudicate. `parity_expansion.py` measures and never authorises, and applying an entry from this file annotates a measured row with `ratified: true` beside the verdict the measurement produced -- it never converts a verdict into a pass and never changes that module's exit code. What IS enforced is this file's own integrity: a moved corpus, a malformed section, an entry naming a document the corpus does not contain, a floor breached, a finding that stopped describing anything, or an entry no run measured are all errors, in the same class as a corpus that does not match its manifest.",
  "candidate_backend": "pdfium",
  "corpus": {
   "_note": "Pinned by content, not by name. A corpus that has moved invalidates every floor measured over it, so the reader refuses rather than comparing against numbers that describe other bytes. Re-pinning means re-checking every entry, which is the point.",
@@ -30,14 +38,820 @@
   "_note": "Keyed by the FULL profile ID of the run -- the named profile both arms share, with only the backend differing. The expansion corpus is measured at two, and a finding at one says nothing about the other: different renderer, different distribution, different numbers. Only the section matching the run is ever selected and nothing is borrowed across the boundary, which is the rule `backend_parity._policy_profile_errors` enforces for the gated policy, applied to a file that has to serve two profiles at once.",
   "pdfium/gdocs/none/refine0@240dpi": {
    "_note": "The migration candidate profile. Findings here are what migration gate (a) means by expanded parity.",
-   "ratified_findings": {}
+   "ratified_findings": {
+    "x01_lo_memo_pageno.pdf": {
+     "authorization_provenance": "The repository author granted this batch under a standing authorization plus an explicit path-choice delegation recorded on 2026-08-05; the orchestrating session relayed the grant and adjudicated the content, and the session that wrote this entry acted on the relay. It did not interact with the author directly and does not claim to have. The named ratifier is an attestation on a relayed authorization and should be confirmed against this file.",
+     "defect": "D-refimproved",
+     "dimensions": [
+      "within2pt",
+      "dy_p50"
+     ],
+     "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+     "evidence": "docs/evidence/parity-expanded-2026-08-05f.json",
+     "floors": {
+      "doc_recall": 0.9969,
+      "dy_p50": 1.35,
+      "live_text_cov": 0.9665,
+      "page_err": 0,
+      "raster_frac": 0.0335,
+      "within2pt": 0.316,
+      "word_recall": 0.9969
+     },
+     "issue": "DEC-D2",
+     "measured_commit": "6575118e5429af472d3051e980382019d22daf15",
+     "measured_on": "2026-08-05",
+     "ratified_by": "Ebin Babu Thomas",
+     "ratified_on": "2026-08-05",
+     "reason": "Reference-improved-faster class, the same shape as l1_word_native. The candidate's absolute within2pt of 0.3160 BEATS the pre-improvement reference of 0.2132; the gap exists because the reference improved further, not because the candidate lost anything. Review condition is written against absolute regression so an improving candidate cannot be used to hide a later real one.",
+     "recorded_on": {
+      "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+      "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+      "os": "linux",
+      "pdfium": "152.0.7947.0",
+      "pymupdf": "1.28.0",
+      "python": "3.12.3",
+      "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+     },
+     "reference_at_record": {
+      "doc_recall": 0.9969,
+      "dy_p50": 0.7,
+      "live_text_cov": 0.9665,
+      "page_err": 0,
+      "raster_frac": 0.0335,
+      "within2pt": 0.4187,
+      "word_recall": 0.9969
+     },
+     "review_condition": "Revisit if EITHER arm regresses absolutely. This entry ratifies a gap that widened while both arms improved; it does not ratify the candidate getting worse, and an absolute regression on either side is a different decision.",
+     "tier": "ordinary_digital"
+    },
+    "x03_lo_lists_nested.pdf": {
+     "authorization_provenance": "The repository author granted this batch under a standing authorization plus an explicit path-choice delegation recorded on 2026-08-05; the orchestrating session relayed the grant and adjudicated the content, and the session that wrote this entry acted on the relay. It did not interact with the author directly and does not claim to have. The named ratifier is an attestation on a relayed authorization and should be confirmed against this file.",
+     "defect": "D-tokenartifact",
+     "dimensions": [
+      "doc_recall",
+      "word_recall",
+      "raster_frac"
+     ],
+     "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+     "evidence": "docs/evidence/parity-expanded-2026-08-05f.json",
+     "floors": {
+      "doc_recall": 0.9492,
+      "dy_p50": 0.4,
+      "live_text_cov": 0.9523,
+      "page_err": 0,
+      "raster_frac": 0.0477,
+      "within2pt": 1.0,
+      "word_recall": 0.9492
+     },
+     "issue": "DEC-D2",
+     "measured_commit": "6575118e5429af472d3051e980382019d22daf15",
+     "measured_on": "2026-08-05",
+     "ratified_by": "Ebin Babu Thomas",
+     "ratified_on": "2026-08-05",
+     "reason": "Recall trio from private-use marker handling: 12 of 13 bullets are promoted, and the residual is a verbatim PUA token the reference reports as text and the candidate resolves to a marker. A token-count artifact of the same family as y03/y10, on a document whose visible output improved.",
+     "recorded_on": {
+      "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+      "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+      "os": "linux",
+      "pdfium": "152.0.7947.0",
+      "pymupdf": "1.28.0",
+      "python": "3.12.3",
+      "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+     },
+     "reference_at_record": {
+      "doc_recall": 1.0,
+      "dy_p50": 26.23,
+      "live_text_cov": 0.9809,
+      "page_err": 0,
+      "raster_frac": 0.0191,
+      "within2pt": 0.1992,
+      "word_recall": 1.0
+     },
+     "review_condition": "Retire when word_recall is measured on characters rather than page-indexed tokens, or when the named glyph absences are decoded. Re-open if doc_recall moves, which would mean text is actually missing rather than re-tokenised.",
+     "tier": "ordinary_digital"
+    },
+    "x07_chrome_memo_running.pdf": {
+     "authorization_provenance": "The repository author granted this batch under a standing authorization plus an explicit path-choice delegation recorded on 2026-08-05; the orchestrating session relayed the grant and adjudicated the content, and the session that wrote this entry acted on the relay. It did not interact with the author directly and does not claim to have. The named ratifier is an attestation on a relayed authorization and should be confirmed against this file.",
+     "defect": "D-linesegment",
+     "dimensions": [
+      "dy_p50"
+     ],
+     "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+     "evidence": "docs/evidence/parity-expanded-2026-08-05f.json",
+     "floors": {
+      "doc_recall": 0.9786,
+      "dy_p50": 20.8,
+      "live_text_cov": 0.9834,
+      "page_err": 0,
+      "raster_frac": 0.0166,
+      "within2pt": 0.0085,
+      "word_recall": 0.9786
+     },
+     "issue": "DEC-D2",
+     "measured_commit": "6575118e5429af472d3051e980382019d22daf15",
+     "measured_on": "2026-08-05",
+     "ratified_by": "Ebin Babu Thomas",
+     "ratified_on": "2026-08-05",
+     "reason": "dy only, line-segmentation class, on a document carrying browser-furnished running headers and footers -- the construct the frozen 16 barely sample and the reason the expansion corpus exists.",
+     "recorded_on": {
+      "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+      "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+      "os": "linux",
+      "pdfium": "152.0.7947.0",
+      "pymupdf": "1.28.0",
+      "python": "3.12.3",
+      "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+     },
+     "reference_at_record": {
+      "doc_recall": 0.9905,
+      "dy_p50": 18.4,
+      "live_text_cov": 0.9983,
+      "page_err": 0,
+      "raster_frac": 0.0017,
+      "within2pt": 0.0108,
+      "word_recall": 0.9905
+     },
+     "review_condition": "Retire when the pdfium line-segmentation convergence campaign closes. Re-open if page_err rises above its floor; this ratifies the measured divergence, not an open-ended licence to paginate differently.",
+     "tier": "ordinary_digital"
+    },
+    "x10_chrome_tables_plain.pdf": {
+     "authorization_provenance": "The repository author granted this batch under a standing authorization plus an explicit path-choice delegation recorded on 2026-08-05; the orchestrating session relayed the grant and adjudicated the content, and the session that wrote this entry acted on the relay. It did not interact with the author directly and does not claim to have. The named ratifier is an attestation on a relayed authorization and should be confirmed against this file.",
+     "defect": "D-tablecell",
+     "dimensions": [
+      "dy_p50"
+     ],
+     "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+     "evidence": "docs/evidence/parity-expanded-2026-08-05f.json",
+     "floors": {
+      "doc_recall": 0.9963,
+      "dy_p50": 17.2,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.015,
+      "word_recall": 0.9963
+     },
+     "issue": "DEC-D2",
+     "measured_commit": "6575118e5429af472d3051e980382019d22daf15",
+     "measured_on": "2026-08-05",
+     "ratified_by": "Ebin Babu Thomas",
+     "ratified_on": "2026-08-05",
+     "reason": "Table-cell splits, dy only. The candidate splits cells where the reference keeps them, which moves rows down the page without changing what the text says -- every content dimension is unmoved.",
+     "recorded_on": {
+      "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+      "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+      "os": "linux",
+      "pdfium": "152.0.7947.0",
+      "pymupdf": "1.28.0",
+      "python": "3.12.3",
+      "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+     },
+     "reference_at_record": {
+      "doc_recall": 0.9963,
+      "dy_p50": 14.55,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.015,
+      "word_recall": 0.9963
+     },
+     "review_condition": "Retire when the candidate stops splitting cells the reference keeps. Re-open on any content-dimension movement: this entry rests on the divergence being geometry only.",
+     "tier": "ordinary_digital"
+    },
+    "y01_nist_sp80063b.pdf": {
+     "authorization_provenance": "The repository author granted this batch under a standing authorization plus an explicit path-choice delegation recorded on 2026-08-05; the orchestrating session relayed the grant and adjudicated the content, and the session that wrote this entry acted on the relay. It did not interact with the author directly and does not claim to have. The named ratifier is an attestation on a relayed authorization and should be confirmed against this file.",
+     "defect": "D-linesegment",
+     "dimensions": [
+      "page_err"
+     ],
+     "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+     "evidence": "docs/evidence/parity-expanded-2026-08-05f.json",
+     "floors": {
+      "doc_recall": 0.9288,
+      "dy_p50": 55.3,
+      "live_text_cov": 0.916,
+      "page_err": 26,
+      "raster_frac": 0.084,
+      "within2pt": 0.0004,
+      "word_recall": 0.1939
+     },
+     "issue": "DEC-D2",
+     "measured_commit": "6575118e5429af472d3051e980382019d22daf15",
+     "measured_on": "2026-08-05",
+     "ratified_by": "Ebin Babu Thomas",
+     "ratified_on": "2026-08-05",
+     "reason": "pdfium line-segmentation convergence class. Page count diverges because the candidate segments lines differently on long structured documents; the campaign is in flight and the cause is attributed to the parse-side fixes rather than to the pagination work, which ablation exonerated.",
+     "recorded_on": {
+      "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+      "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+      "os": "linux",
+      "pdfium": "152.0.7947.0",
+      "pymupdf": "1.28.0",
+      "python": "3.12.3",
+      "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+     },
+     "reference_at_record": {
+      "doc_recall": 0.9324,
+      "dy_p50": 60.2,
+      "live_text_cov": 0.9168,
+      "page_err": 21,
+      "raster_frac": 0.0832,
+      "within2pt": 0.0,
+      "word_recall": 0.1989
+     },
+     "review_condition": "Retire when the pdfium line-segmentation convergence campaign closes. Re-open if page_err rises above its floor; this ratifies the measured divergence, not an open-ended licence to paginate differently.",
+     "tier": "ordinary_digital"
+    },
+    "y03_nist_fips197.pdf": {
+     "authorization_provenance": "The repository author granted this batch under a standing authorization plus an explicit path-choice delegation recorded on 2026-08-05; the orchestrating session relayed the grant and adjudicated the content, and the session that wrote this entry acted on the relay. It did not interact with the author directly and does not claim to have. The named ratifier is an attestation on a relayed authorization and should be confirmed against this file.",
+     "defect": "D-tokenartifact",
+     "dimensions": [
+      "page_err",
+      "word_recall",
+      "dy_p50"
+     ],
+     "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+     "evidence": "docs/evidence/parity-expanded-2026-08-05f.json",
+     "floors": {
+      "doc_recall": 0.9139,
+      "dy_p50": 76.99,
+      "live_text_cov": 0.9205,
+      "page_err": 28,
+      "raster_frac": 0.0795,
+      "within2pt": 0.0082,
+      "word_recall": 0.1399
+     },
+     "issue": "DEC-D2",
+     "measured_commit": "6575118e5429af472d3051e980382019d22daf15",
+     "measured_on": "2026-08-05",
+     "ratified_by": "Ebin Babu Thomas",
+     "ratified_on": "2026-08-05",
+     "reason": "Token-artifact class, not lost text. word_recall counts tokens at the same page index, so on a document with page_err it largely restates pagination rather than measuring text -- that is the flip-adjudication note and it applies directly here. Measured: 93% of y03's word_recall loss is re-tokenisation artifact. The 48 genuine absences are named -- U+23A2 and U+23A5 bracket extension pieces, 0.37% of the characters of one non-gating document. The fix was declined on risk against value, with the c7 regression as the precedent for what chasing undecoded glyph classes costs. Evidence: docs/evidence/word-recall-y03-y10-2026-08-05.json.",
+     "recorded_on": {
+      "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+      "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+      "os": "linux",
+      "pdfium": "152.0.7947.0",
+      "pymupdf": "1.28.0",
+      "python": "3.12.3",
+      "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+     },
+     "reference_at_record": {
+      "doc_recall": 0.9597,
+      "dy_p50": 9.05,
+      "live_text_cov": 0.9311,
+      "page_err": 18,
+      "raster_frac": 0.0689,
+      "within2pt": 0.0106,
+      "word_recall": 0.3993
+     },
+     "review_condition": "Retire when word_recall is measured on characters rather than page-indexed tokens, or when the named glyph absences are decoded. Re-open if doc_recall moves, which would mean text is actually missing rather than re-tokenised.",
+     "tier": "ordinary_digital"
+    },
+    "y06_irs_1040_instructions.pdf": {
+     "authorization_provenance": "The repository author granted this batch under a standing authorization plus an explicit path-choice delegation recorded on 2026-08-05; the orchestrating session relayed the grant and adjudicated the content, and the session that wrote this entry acted on the relay. It did not interact with the author directly and does not claim to have. The named ratifier is an attestation on a relayed authorization and should be confirmed against this file.",
+     "defect": "D-cellgutter",
+     "dimensions": [
+      "page_err",
+      "dy_p50"
+     ],
+     "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+     "evidence": "docs/evidence/parity-expanded-2026-08-05f.json",
+     "floors": {
+      "doc_recall": 0.8769,
+      "dy_p50": 53.59,
+      "live_text_cov": 0.9579,
+      "page_err": 220,
+      "raster_frac": 0.0421,
+      "within2pt": 0.0007,
+      "word_recall": 0.1073
+     },
+     "issue": "DEC-D2",
+     "measured_commit": "6575118e5429af472d3051e980382019d22daf15",
+     "measured_on": "2026-08-05",
+     "ratified_by": "Ebin Babu Thomas",
+     "ratified_on": "2026-08-05",
+     "reason": "Cell-versus-column residual. A table cell gap and a column gutter are indistinguishable at this geometry, documented since BLOCK_SAME_ROW_EM, and the three-stage block-synthesis recovery is on record -- y06 went from 35 to 78 pages with gutters found. What remains is the residual that recovery cannot separate without a rule that would mis-split real tables.",
+     "recorded_on": {
+      "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+      "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+      "os": "linux",
+      "pdfium": "152.0.7947.0",
+      "pymupdf": "1.28.0",
+      "python": "3.12.3",
+      "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+     },
+     "reference_at_record": {
+      "doc_recall": 0.8953,
+      "dy_p50": 46.0,
+      "live_text_cov": 0.9614,
+      "page_err": 134,
+      "raster_frac": 0.0386,
+      "within2pt": 0.0006,
+      "word_recall": 0.1158
+     },
+     "review_condition": "Retire when cell-gap and column-gutter separation lands. Re-open if page_err rises above its floor: this ratifies a measured residual, not the document.",
+     "tier": "designed_stress"
+    },
+    "y09_nist_sp800207.pdf": {
+     "authorization_provenance": "The repository author granted this batch under a standing authorization plus an explicit path-choice delegation recorded on 2026-08-05; the orchestrating session relayed the grant and adjudicated the content, and the session that wrote this entry acted on the relay. It did not interact with the author directly and does not claim to have. The named ratifier is an attestation on a relayed authorization and should be confirmed against this file.",
+     "defect": "D-linesegment",
+     "dimensions": [
+      "page_err"
+     ],
+     "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+     "evidence": "docs/evidence/parity-expanded-2026-08-05f.json",
+     "floors": {
+      "doc_recall": 0.9541,
+      "dy_p50": 59.15,
+      "live_text_cov": 0.9473,
+      "page_err": 8,
+      "raster_frac": 0.0527,
+      "within2pt": 0.0009,
+      "word_recall": 0.241
+     },
+     "issue": "DEC-D2",
+     "measured_commit": "6575118e5429af472d3051e980382019d22daf15",
+     "measured_on": "2026-08-05",
+     "ratified_by": "Ebin Babu Thomas",
+     "ratified_on": "2026-08-05",
+     "reason": "Same line-segmentation convergence class as y01, same campaign.",
+     "recorded_on": {
+      "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+      "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+      "os": "linux",
+      "pdfium": "152.0.7947.0",
+      "pymupdf": "1.28.0",
+      "python": "3.12.3",
+      "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+     },
+     "reference_at_record": {
+      "doc_recall": 0.9564,
+      "dy_p50": 59.73,
+      "live_text_cov": 0.9476,
+      "page_err": 6,
+      "raster_frac": 0.0524,
+      "within2pt": 0.0008,
+      "word_recall": 0.2398
+     },
+     "review_condition": "Retire when the pdfium line-segmentation convergence campaign closes. Re-open if page_err rises above its floor; this ratifies the measured divergence, not an open-ended licence to paginate differently.",
+     "tier": "ordinary_digital"
+    },
+    "y12_irs_pub15.pdf": {
+     "authorization_provenance": "The repository author granted this batch under a standing authorization plus an explicit path-choice delegation recorded on 2026-08-05; the orchestrating session relayed the grant and adjudicated the content, and the session that wrote this entry acted on the relay. It did not interact with the author directly and does not claim to have. The named ratifier is an attestation on a relayed authorization and should be confirmed against this file.",
+     "defect": "D-wrapmargin",
+     "dimensions": [
+      "page_err",
+      "dy_p50"
+     ],
+     "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+     "evidence": "docs/evidence/parity-expanded-2026-08-05f.json",
+     "floors": {
+      "doc_recall": 0.9561,
+      "dy_p50": 49.8,
+      "live_text_cov": 0.9761,
+      "page_err": 68,
+      "raster_frac": 0.0239,
+      "within2pt": 0.0003,
+      "word_recall": 0.1981
+     },
+     "issue": "DEC-D2",
+     "measured_commit": "6575118e5429af472d3051e980382019d22daf15",
+     "measured_on": "2026-08-05",
+     "ratified_by": "Ebin Babu Thomas",
+     "ratified_on": "2026-08-05",
+     "reason": "One-line wrap margin. Predicting a wrap to the line is out of model: a single line's difference in where text breaks compounds into a page difference over a long document, and the campaign already recovered 55 pages here. The residual is the last line, not a systematic error.",
+     "recorded_on": {
+      "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+      "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+      "os": "linux",
+      "pdfium": "152.0.7947.0",
+      "pymupdf": "1.28.0",
+      "python": "3.12.3",
+      "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+     },
+     "reference_at_record": {
+      "doc_recall": 0.9556,
+      "dy_p50": 43.92,
+      "live_text_cov": 0.9809,
+      "page_err": 56,
+      "raster_frac": 0.0191,
+      "within2pt": 0.0006,
+      "word_recall": 0.2058
+     },
+     "review_condition": "Retire when wrap prediction reaches line accuracy. Re-open if page_err rises above its floor.",
+     "tier": "ordinary_digital"
+    },
+    "y13_irs_pub501.pdf": {
+     "authorization_provenance": "The repository author granted this batch under a standing authorization plus an explicit path-choice delegation recorded on 2026-08-05; the orchestrating session relayed the grant and adjudicated the content, and the session that wrote this entry acted on the relay. It did not interact with the author directly and does not claim to have. The named ratifier is an attestation on a relayed authorization and should be confirmed against this file.",
+     "defect": "D-wrapmargin",
+     "dimensions": [
+      "page_err"
+     ],
+     "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+     "evidence": "docs/evidence/parity-expanded-2026-08-05f.json",
+     "floors": {
+      "doc_recall": 0.9636,
+      "dy_p50": 38.5,
+      "live_text_cov": 0.9705,
+      "page_err": 51,
+      "raster_frac": 0.0295,
+      "within2pt": 0.0007,
+      "word_recall": 0.1543
+     },
+     "issue": "DEC-D2",
+     "measured_commit": "6575118e5429af472d3051e980382019d22daf15",
+     "measured_on": "2026-08-05",
+     "ratified_by": "Ebin Babu Thomas",
+     "ratified_on": "2026-08-05",
+     "reason": "Same one-line wrap class as y12, and improving: the gap closed from 23 to 19 across the campaign. Recorded rather than fixed because the remaining distance is a line-level prediction the model does not make.",
+     "recorded_on": {
+      "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+      "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+      "os": "linux",
+      "pdfium": "152.0.7947.0",
+      "pymupdf": "1.28.0",
+      "python": "3.12.3",
+      "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+     },
+     "reference_at_record": {
+      "doc_recall": 0.9486,
+      "dy_p50": 36.47,
+      "live_text_cov": 0.9775,
+      "page_err": 32,
+      "raster_frac": 0.0225,
+      "within2pt": 0.0009,
+      "word_recall": 0.1862
+     },
+     "review_condition": "Retire when wrap prediction reaches line accuracy. Re-open if page_err rises above its floor.",
+     "tier": "designed_stress"
+    },
+    "y17_rfc9110.pdf": {
+     "authorization_provenance": "The repository author granted this batch under a standing authorization plus an explicit path-choice delegation recorded on 2026-08-05; the orchestrating session relayed the grant and adjudicated the content, and the session that wrote this entry acted on the relay. It did not interact with the author directly and does not claim to have. The named ratifier is an attestation on a relayed authorization and should be confirmed against this file.",
+     "defect": "D-linesegment",
+     "dimensions": [
+      "dy_p50"
+     ],
+     "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+     "evidence": "docs/evidence/parity-expanded-2026-08-05f.json",
+     "floors": {
+      "doc_recall": 0.9511,
+      "dy_p50": 67.3,
+      "live_text_cov": 0.9643,
+      "page_err": 13,
+      "raster_frac": 0.0357,
+      "within2pt": 0.0006,
+      "word_recall": 0.5313
+     },
+     "issue": "DEC-D2",
+     "measured_commit": "6575118e5429af472d3051e980382019d22daf15",
+     "measured_on": "2026-08-05",
+     "ratified_by": "Ebin Babu Thomas",
+     "ratified_on": "2026-08-05",
+     "reason": "Line-segmentation convergence class on the corpus's only non-public-domain fixture, a 194-page IETF document stored verbatim. dy only; the divergence is structural and an order of magnitude above the 2.0pt ascent exemption, which is why that exemption cannot absorb it.",
+     "recorded_on": {
+      "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+      "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+      "os": "linux",
+      "pdfium": "152.0.7947.0",
+      "pymupdf": "1.28.0",
+      "python": "3.12.3",
+      "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+     },
+     "reference_at_record": {
+      "doc_recall": 0.9778,
+      "dy_p50": 55.49,
+      "live_text_cov": 0.9706,
+      "page_err": 25,
+      "raster_frac": 0.0294,
+      "within2pt": 0.0169,
+      "word_recall": 0.3367
+     },
+     "review_condition": "Retire when the pdfium line-segmentation convergence campaign closes. Re-open if page_err rises above its floor; this ratifies the measured divergence, not an open-ended licence to paginate differently.",
+     "tier": "ordinary_digital"
+    }
+   }
   },
   "pymupdf/standard/libreoffice/refine3@240dpi": {
    "_note": "The shipping settings, measured over the expansion corpus as a backend-swap comparison. A finding here is about the swap, not about the shipping product's own quality.",
-   "ratified_findings": {}
+   "ratified_findings": {
+    "x03_lo_lists_nested.pdf": {
+     "authorization_provenance": "The repository author granted this batch under a standing authorization plus an explicit path-choice delegation recorded on 2026-08-05; the orchestrating session relayed the grant and adjudicated the content, and the session that wrote this entry acted on the relay. It did not interact with the author directly and does not claim to have. The named ratifier is an attestation on a relayed authorization and should be confirmed against this file.",
+     "defect": "D-tokenartifact",
+     "dimensions": [
+      "doc_recall",
+      "word_recall",
+      "raster_frac"
+     ],
+     "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+     "evidence": "docs/evidence/parity-expanded-2026-08-05f.json",
+     "floors": {
+      "doc_recall": 0.9492,
+      "dy_p50": 0.23,
+      "live_text_cov": 0.9523,
+      "page_err": 0,
+      "raster_frac": 0.0477,
+      "within2pt": 1.0,
+      "word_recall": 0.9492
+     },
+     "issue": "DEC-D2",
+     "measured_commit": "6575118e5429af472d3051e980382019d22daf15",
+     "measured_on": "2026-08-05",
+     "ratified_by": "Ebin Babu Thomas",
+     "ratified_on": "2026-08-05",
+     "reason": "The same PUA marker residual at the shipping settings.",
+     "recorded_on": {
+      "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+      "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+      "os": "linux",
+      "pdfium": "152.0.7947.0",
+      "pymupdf": "1.28.0",
+      "python": "3.12.3",
+      "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+     },
+     "reference_at_record": {
+      "doc_recall": 1.0,
+      "dy_p50": 0.35,
+      "live_text_cov": 0.9809,
+      "page_err": 0,
+      "raster_frac": 0.0191,
+      "within2pt": 0.4961,
+      "word_recall": 1.0
+     },
+     "review_condition": "Retire when word_recall is measured on characters rather than page-indexed tokens, or when the named glyph absences are decoded. Re-open if doc_recall moves, which would mean text is actually missing rather than re-tokenised.",
+     "tier": "ordinary_digital"
+    },
+    "x10_chrome_tables_plain.pdf": {
+     "authorization_provenance": "The repository author granted this batch under a standing authorization plus an explicit path-choice delegation recorded on 2026-08-05; the orchestrating session relayed the grant and adjudicated the content, and the session that wrote this entry acted on the relay. It did not interact with the author directly and does not claim to have. The named ratifier is an attestation on a relayed authorization and should be confirmed against this file.",
+     "defect": "D-tablecell",
+     "dimensions": [
+      "dy_p50"
+     ],
+     "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+     "evidence": "docs/evidence/parity-expanded-2026-08-05f.json",
+     "floors": {
+      "doc_recall": 0.9963,
+      "dy_p50": 14.85,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.1161,
+      "word_recall": 0.9963
+     },
+     "issue": "DEC-D2",
+     "measured_commit": "6575118e5429af472d3051e980382019d22daf15",
+     "measured_on": "2026-08-05",
+     "ratified_by": "Ebin Babu Thomas",
+     "ratified_on": "2026-08-05",
+     "reason": "The same table-cell split behaviour at the shipping settings.",
+     "recorded_on": {
+      "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+      "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+      "os": "linux",
+      "pdfium": "152.0.7947.0",
+      "pymupdf": "1.28.0",
+      "python": "3.12.3",
+      "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+     },
+     "reference_at_record": {
+      "doc_recall": 0.9963,
+      "dy_p50": 13.0,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.1161,
+      "word_recall": 0.9963
+     },
+     "review_condition": "Retire when the candidate stops splitting cells the reference keeps. Re-open on any content-dimension movement: this entry rests on the divergence being geometry only.",
+     "tier": "ordinary_digital"
+    },
+    "x14_rl_statement_lines.pdf": {
+     "authorization_provenance": "The repository author granted this batch under a standing authorization plus an explicit path-choice delegation recorded on 2026-08-05; the orchestrating session relayed the grant and adjudicated the content, and the session that wrote this entry acted on the relay. It did not interact with the author directly and does not claim to have. The named ratifier is an attestation on a relayed authorization and should be confirmed against this file.",
+     "defect": "D-boundarymass",
+     "dimensions": [
+      "within2pt",
+      "dy_p50"
+     ],
+     "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+     "evidence": "docs/evidence/parity-expanded-2026-08-05f.json",
+     "floors": {
+      "doc_recall": 0.9942,
+      "dy_p50": 1.38,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.1471,
+      "word_recall": 0.9942
+     },
+     "issue": "DEC-D2",
+     "measured_commit": "6575118e5429af472d3051e980382019d22daf15",
+     "measured_on": "2026-08-05",
+     "ratified_by": "Ebin Babu Thomas",
+     "ratified_on": "2026-08-05",
+     "reason": "Boundary-mass redistribution across the within2pt hard cut at the shipping settings, the same class as 05_memo: the words move a fraction of a point and cross a threshold, which the metric charges in full.",
+     "recorded_on": {
+      "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+      "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+      "os": "linux",
+      "pdfium": "152.0.7947.0",
+      "pymupdf": "1.28.0",
+      "python": "3.12.3",
+      "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+     },
+     "reference_at_record": {
+      "doc_recall": 0.9942,
+      "dy_p50": 0.38,
+      "live_text_cov": 1.0,
+      "page_err": 0,
+      "raster_frac": 0.0,
+      "within2pt": 0.2353,
+      "word_recall": 0.9942
+     },
+     "review_condition": "Retire when the arms' CDFs stop coinciding outside the metric's cut, which is what would show the placement actually moved. Re-open on any dy divergence between the arms; this entry rests on dy being identical.",
+     "tier": "ordinary_digital"
+    },
+    "y01_nist_sp80063b.pdf": {
+     "authorization_provenance": "The repository author granted this batch under a standing authorization plus an explicit path-choice delegation recorded on 2026-08-05; the orchestrating session relayed the grant and adjudicated the content, and the session that wrote this entry acted on the relay. It did not interact with the author directly and does not claim to have. The named ratifier is an attestation on a relayed authorization and should be confirmed against this file.",
+     "defect": "D-linesegment",
+     "dimensions": [
+      "page_err"
+     ],
+     "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+     "evidence": "docs/evidence/parity-expanded-2026-08-05f.json",
+     "floors": {
+      "doc_recall": 0.9288,
+      "dy_p50": 54.05,
+      "live_text_cov": 0.916,
+      "page_err": 16,
+      "raster_frac": 0.084,
+      "within2pt": 0.0005,
+      "word_recall": 0.2192
+     },
+     "issue": "DEC-D2",
+     "measured_commit": "6575118e5429af472d3051e980382019d22daf15",
+     "measured_on": "2026-08-05",
+     "ratified_by": "Ebin Babu Thomas",
+     "ratified_on": "2026-08-05",
+     "reason": "The same line-segmentation divergence at the shipping settings.",
+     "recorded_on": {
+      "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+      "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+      "os": "linux",
+      "pdfium": "152.0.7947.0",
+      "pymupdf": "1.28.0",
+      "python": "3.12.3",
+      "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+     },
+     "reference_at_record": {
+      "doc_recall": 0.9323,
+      "dy_p50": 54.37,
+      "live_text_cov": 0.9168,
+      "page_err": 12,
+      "raster_frac": 0.0832,
+      "within2pt": 0.0002,
+      "word_recall": 0.22
+     },
+     "review_condition": "Retire when the pdfium line-segmentation convergence campaign closes. Re-open if page_err rises above its floor; this ratifies the measured divergence, not an open-ended licence to paginate differently.",
+     "tier": "ordinary_digital"
+    },
+    "y03_nist_fips197.pdf": {
+     "authorization_provenance": "The repository author granted this batch under a standing authorization plus an explicit path-choice delegation recorded on 2026-08-05; the orchestrating session relayed the grant and adjudicated the content, and the session that wrote this entry acted on the relay. It did not interact with the author directly and does not claim to have. The named ratifier is an attestation on a relayed authorization and should be confirmed against this file.",
+     "defect": "D-tokenartifact",
+     "dimensions": [
+      "page_err",
+      "word_recall"
+     ],
+     "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+     "evidence": "docs/evidence/parity-expanded-2026-08-05f.json",
+     "floors": {
+      "doc_recall": 0.9139,
+      "dy_p50": 10.67,
+      "live_text_cov": 0.9205,
+      "page_err": 18,
+      "raster_frac": 0.0795,
+      "within2pt": 0.1065,
+      "word_recall": 0.3805
+     },
+     "issue": "DEC-D2",
+     "measured_commit": "6575118e5429af472d3051e980382019d22daf15",
+     "measured_on": "2026-08-05",
+     "ratified_by": "Ebin Babu Thomas",
+     "ratified_on": "2026-08-05",
+     "reason": "Token-artifact class, not lost text. word_recall counts tokens at the same page index, so on a document with page_err it largely restates pagination rather than measuring text -- that is the flip-adjudication note and it applies directly here. Same document, same cause, measured at the shipping settings.",
+     "recorded_on": {
+      "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+      "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+      "os": "linux",
+      "pdfium": "152.0.7947.0",
+      "pymupdf": "1.28.0",
+      "python": "3.12.3",
+      "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+     },
+     "reference_at_record": {
+      "doc_recall": 0.9596,
+      "dy_p50": 13.01,
+      "live_text_cov": 0.9311,
+      "page_err": 8,
+      "raster_frac": 0.0689,
+      "within2pt": 0.0272,
+      "word_recall": 0.5189
+     },
+     "review_condition": "Retire when word_recall is measured on characters rather than page-indexed tokens, or when the named glyph absences are decoded. Re-open if doc_recall moves, which would mean text is actually missing rather than re-tokenised.",
+     "tier": "ordinary_digital"
+    },
+    "y10_nist_fips180.pdf": {
+     "authorization_provenance": "The repository author granted this batch under a standing authorization plus an explicit path-choice delegation recorded on 2026-08-05; the orchestrating session relayed the grant and adjudicated the content, and the session that wrote this entry acted on the relay. It did not interact with the author directly and does not claim to have. The named ratifier is an attestation on a relayed authorization and should be confirmed against this file.",
+     "defect": "D-tokenartifact",
+     "dimensions": [
+      "word_recall"
+     ],
+     "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+     "evidence": "docs/evidence/parity-expanded-2026-08-05f.json",
+     "floors": {
+      "doc_recall": 0.7681,
+      "dy_p50": 14.06,
+      "live_text_cov": 0.9398,
+      "page_err": 1,
+      "raster_frac": 0.0602,
+      "within2pt": 0.1093,
+      "word_recall": 0.4676
+     },
+     "issue": "DEC-D2",
+     "measured_commit": "6575118e5429af472d3051e980382019d22daf15",
+     "measured_on": "2026-08-05",
+     "ratified_by": "Ebin Babu Thomas",
+     "ratified_on": "2026-08-05",
+     "reason": "Token-artifact class, not lost text. word_recall counts tokens at the same page index, so on a document with page_err it largely restates pagination rather than measuring text -- that is the flip-adjudication note and it applies directly here. Measured: 99.3% artifact. The reference itself scores 0.807 on tokens against 0.9984 on characters -- 19.3% charged for re-tokenisation on 0.16% character loss -- so the metric is reporting its own tokenizer, not the converter. Evidence: docs/evidence/word-recall-y03-y10-2026-08-05.json, task #27.",
+     "recorded_on": {
+      "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+      "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+      "os": "linux",
+      "pdfium": "152.0.7947.0",
+      "pymupdf": "1.28.0",
+      "python": "3.12.3",
+      "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+     },
+     "reference_at_record": {
+      "doc_recall": 0.8068,
+      "dy_p50": 35.74,
+      "live_text_cov": 0.9416,
+      "page_err": 3,
+      "raster_frac": 0.0584,
+      "within2pt": 0.0342,
+      "word_recall": 0.6513
+     },
+     "review_condition": "Retire when word_recall is measured on characters rather than page-indexed tokens, or when the named glyph absences are decoded. Re-open if doc_recall moves, which would mean text is actually missing rather than re-tokenised.",
+     "tier": "ordinary_digital"
+    },
+    "y13_irs_pub501.pdf": {
+     "authorization_provenance": "The repository author granted this batch under a standing authorization plus an explicit path-choice delegation recorded on 2026-08-05; the orchestrating session relayed the grant and adjudicated the content, and the session that wrote this entry acted on the relay. It did not interact with the author directly and does not claim to have. The named ratifier is an attestation on a relayed authorization and should be confirmed against this file.",
+     "defect": "D-wrapmargin",
+     "dimensions": [
+      "page_err",
+      "dy_p50"
+     ],
+     "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+     "evidence": "docs/evidence/parity-expanded-2026-08-05f.json",
+     "floors": {
+      "doc_recall": 0.9621,
+      "dy_p50": 41.45,
+      "live_text_cov": 0.97,
+      "page_err": 38,
+      "raster_frac": 0.03,
+      "within2pt": 0.0003,
+      "word_recall": 0.1794
+     },
+     "issue": "DEC-D2",
+     "measured_commit": "6575118e5429af472d3051e980382019d22daf15",
+     "measured_on": "2026-08-05",
+     "ratified_by": "Ebin Babu Thomas",
+     "ratified_on": "2026-08-05",
+     "reason": "The same wrap-margin residual measured at the shipping settings.",
+     "recorded_on": {
+      "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+      "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+      "os": "linux",
+      "pdfium": "152.0.7947.0",
+      "pymupdf": "1.28.0",
+      "python": "3.12.3",
+      "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+     },
+     "reference_at_record": {
+      "doc_recall": 0.9479,
+      "dy_p50": 34.35,
+      "live_text_cov": 0.9772,
+      "page_err": 25,
+      "raster_frac": 0.0228,
+      "within2pt": 0.0008,
+      "word_recall": 0.2128
+     },
+     "review_condition": "Retire when wrap prediction reaches line accuracy. Re-open if page_err rises above its floor.",
+     "tier": "designed_stress"
+    }
+   }
   }
  },
  "reference_backend": "pymupdf",
  "schema": "exactdoc.expansion-parity-policy.v1",
- "status": "empty"
+ "status": "ratified"
 }

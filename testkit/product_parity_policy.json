@@ -1,0 +1,237 @@
+{
+ "_authorization_provenance": "The repository author granted this batch under a standing authorization plus an explicit path-choice delegation recorded on 2026-08-05; the orchestrating session relayed the grant and adjudicated the content, and the session that wrote this entry acted on the relay. It did not interact with the author directly and does not claim to have. The named ratifier is an attestation on a relayed authorization and should be confirmed against this file.",
+ "_dissolved": "c1_whitepaper carried a within2pt finding in the previous measurement and has NO entry here, because c9d36df fixed the two defects that were hiding each other on it. It is absent from the binding measurement's product set entirely. Recorded so the absence reads as a fix rather than an omission.",
+ "_note": "The backend-swap acceptance policy at the SHIPPING settings. A third artifact, because a policy is bound to one full profile and the same swap measured through a different renderer is a different set of numbers. `parity_policy.json` governs the candidate profile and refuses to adjudicate anything else; this file is what `backend_parity.py --profile product --policy testkit/product_parity_policy.json` reads, through exactly the same machinery, with no new reader. Reachability was verified before this file was created rather than assumed. It also carries the dy_p50 absolute-magnitude exemption for these settings, moved here from the candidate policy where it had been recorded in advance and could never fire.",
+ "_scope": "These findings are about the SWAP, not about the shipping product's own quality. Both arms here run the shipping profile; only the backend differs. A finding means PDFium and PyMuPDF disagree at these settings, and says nothing about whether the shipped PyMuPDF output is good.",
+ "candidate_backend": "pdfium",
+ "dy_absolute_exemption": {
+  "_ascent_artifact": "Why small dy differences are a measurement convention rather than a placement error (task #22, decision recorded). dy is computed on GLYPH TOPS. PyMuPDF reads the declared base-14 ascent -- Helvetica is 1.070-1.075em -- while PDFium substitutes a generic ~0.905em, so the same baseline yields an apparent vertical offset of about 0.17 x type size: 1.8pt at 10.5pt text. The BASELINES are identical; only the reported tops differ. DECISION: the metric definition stays glyph-tops. Redefining it to baselines would be a simultaneous baseline event across the gate, this parity policy and every live-pass record, invalidating three independent bodies of committed evidence at once to fix a reporting convention. The artifact is instead absorbed by the 2.0pt exemption above and documented in docs/dy-ascent-artifact.md. This resolves the decision item in task #22.",
+  "_not_widened": "The ceiling is 2.0pt and must not be raised. Absorbing the next divergences up would need roughly 13pt (x02_lo_report_toc), 21pt (x07_chrome_memo_running), 17pt (x10_chrome_tables_plain) and 68pt (y17_rfc9110). Floors that large would blind the policy to four genuine structural divergences, which are tracked as the pdfium line-segmentation convergence campaign. 2.0pt was not chosen to make anything pass: at the shipping settings the exempted values top out at 1.49pt and the next dy magnitude in the corpus is c3_tables at 2.75pt, already graded `same`, so the ceiling sits in empty space rather than just above a failure.",
+  "_note": "A dy_p50 delta is not a regression when BOTH arms are already under the ceiling, PROVIDED within2pt did not move adversely on the same document. Why the magnitude rule is needed: dy_p50's margin is proportional (10% of the reference) with a 0.5pt floor, so near zero the floor is the entire rule and a document can go 0.04pt -> 1.29pt and be graded a regression over a fraction of one line's leading. Below about two points the number is reporting the ascent convention of whoever measured the glyph tops rather than any placement a reader could see -- see `_ascent_artifact` below and docs/dy-ascent-artifact.md. Why the CONDITION is not optional: within2pt counts the words actually landing within 2pt of source, so it states directly what dy_p50 only proxies, and dy and within2pt demonstrably move in opposite directions -- x02_lo_report_toc moves dy 8.3 -> 13.1 while within2pt IMPROVES 0.0608 -> 0.1877. An unconditioned magnitude rule would excuse a document whose placement genuinely degraded, which is the whole failure mode this policy exists to prevent. Keyed by FULL profile ID and never borrowed: dy at the shipping settings and at the candidate profile are different distributions through different renderers, and the refusal to adjudicate across profile boundaries stays. `adjudicate` selects only the entry matching the run's profile, so a section for a profile this policy does not govern is recorded but inert.",
+  "pymupdf/standard/libreoffice/refine3@240dpi": {
+   "both_arms_below_pt": 2.0,
+   "clears_at_record": [
+    "01_whitepaper_market.pdf",
+    "05_memo.pdf",
+    "f1_fpdf_brief.pdf"
+   ],
+   "conditioned_on": [
+    "within2pt"
+   ],
+   "evidence": "docs/evidence/parity-expanded-2026-08-05.json, measurement `gated16_product`",
+   "measured_on": "2026-08-05",
+   "reason": "At the shipping settings FIVE gated base-14 documents carry a dy_p50 regression inside the 2.0pt ceiling -- 01 (0.5 -> 1.38), 02 (0.04 -> 1.29), 03 (0.54 -> 1.49), 05 (0.59 -> 1.39) and f1 (0.0 -> 1.2) -- but the rule clears only THREE of them. 02_research_paper and 03_tech_report_code are held back by the condition: their within2pt collapses 0.7614 -> 0.5685 and 0.4602 -> 0.2803, far outside the 0.08 margin, so their placement really did degrade and the magnitude rule must not excuse it. Both keep a MAJOR verdict on within2pt with or without this exemption, so the condition costs nothing in outcome and states the truth instead of a convenient count. This entry is recorded for the product-bound policy that does not yet exist; this file is bound to the candidate profile, so `adjudicate` never selects it here."
+  }
+ },
+ "expected_divergence": {
+  "_note": "Empty. Nothing here has been verified as the candidate being the correct one at these settings, and an entry without rendered evidence would excuse a document nobody has looked at."
+ },
+ "margins": {
+  "_note": "How much worse the candidate may be on a dimension before the document counts as a regression. Every gated dimension appears here, and each is judged INDEPENDENTLY -- the comparison used to stop at the first dimension outside its margin, so one improvement suppressed every regression ordered after it. Sizing: these are deliberately looser than testkit/gate.py's run-to-run tolerances, because two correct parsers legitimately differ by more than one parser differs from itself; the ratio is about 2.5-5x on the fraction metrics. They are NOT tuned to make the current corpus pass -- a margin chosen to clear a failure is the failure, silenced. dy_p50 additionally carries gate.py's 10% relative term, since it is the one dimension that is not a fraction and runs from 0.3pt to 34pt across this corpus. UNCHANGED on 2026-08-04: rebinding a policy to a profile is not an occasion to move a margin, and moving one in the same change would make the rebinding unreviewable.",
+  "doc_recall": 0.05,
+  "dy_p50": 0.5,
+  "live_text_cov": 0.05,
+  "page_err": 0,
+  "raster_frac": 0.02,
+  "within2pt": 0.08,
+  "word_recall": 0.05
+ },
+ "measured_on": "2026-08-05",
+ "profile_id": "pymupdf/standard/libreoffice/refine3@240dpi",
+ "provisional_shortfalls": {
+  "_note": "Empty. A divergence that is attributed but not authorised belongs here the day it is measured."
+ },
+ "ratified_shortfalls": {
+  "02_research_paper.pdf": {
+   "authorization_provenance": "The repository author granted this batch under a standing authorization plus an explicit path-choice delegation recorded on 2026-08-05; the orchestrating session relayed the grant and adjudicated the content, and the session that wrote this entry acted on the relay. It did not interact with the author directly and does not claim to have. The named ratifier is an attestation on a relayed authorization and should be confirmed against this file.",
+   "corpus_manifest_sha256": "e6e4a15986bd5ba002e31a64c5366144245d1146bd464551295b06dd9310e539",
+   "defect": "D-loopconv",
+   "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+   "evidence": "docs/evidence/parity-expanded-2026-08-05f.json",
+   "floors": {
+    "doc_recall": 0.9586,
+    "dy_p50": 1.29,
+    "live_text_cov": 0.9736,
+    "page_err": 0,
+    "raster_frac": 0.0264,
+    "within2pt": 0.6168,
+    "word_recall": 0.9586
+   },
+   "issue": "DEC-D2",
+   "measured_commit": "6575118e5429af472d3051e980382019d22daf15",
+   "measured_commit_source": "the commit stamped into docs/evidence/parity-expanded-2026-08-05f.json by the run that produced these numbers",
+   "measured_on": "2026-08-05",
+   "profile_id": "pymupdf/standard/libreoffice/refine3@240dpi",
+   "ratified_by": "Ebin Babu Thomas",
+   "ratified_on": "2026-08-05",
+   "reason": "Loop-convergence class, not a placement defect. At refine0 the two backends measure bit-identical on this document; the refine loop then improves BOTH arms and converges further for PyMuPDF, so the delta is a property of how far each arm's loop ran, not of what either parser read. Boundary-mass CDF analysis shows the difference is words crossing the metric's hard 2.0pt cut rather than moving on the page. Not user-visible. Diagnosis: drift agent, 2026-08-05. 02 is a uniform ~1.25pt shift and measures a third of its refine3 delta at refine0.",
+   "recorded_on": {
+    "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+    "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+    "os": "linux",
+    "pdfium": "152.0.7947.0",
+    "pymupdf": "1.28.0",
+    "python": "3.12.3",
+    "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+   },
+   "reference_at_record": {
+    "doc_recall": 0.9586,
+    "dy_p50": 0.04,
+    "live_text_cov": 0.9736,
+    "page_err": 0,
+    "raster_frac": 0.0264,
+    "within2pt": 0.7614,
+    "word_recall": 0.9586
+   },
+   "review_condition": "Revisit if the refine loop's convergence model changes. The entry rests on the arms being bit-identical at refine0; if that stops being true the cause is no longer loop convergence and the decision must be taken again.",
+   "worse_at_record": [
+    "within2pt",
+    "dy_p50"
+   ]
+  },
+  "03_tech_report_code.pdf": {
+   "authorization_provenance": "The repository author granted this batch under a standing authorization plus an explicit path-choice delegation recorded on 2026-08-05; the orchestrating session relayed the grant and adjudicated the content, and the session that wrote this entry acted on the relay. It did not interact with the author directly and does not claim to have. The named ratifier is an attestation on a relayed authorization and should be confirmed against this file.",
+   "corpus_manifest_sha256": "e6e4a15986bd5ba002e31a64c5366144245d1146bd464551295b06dd9310e539",
+   "defect": "D-loopconv",
+   "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+   "evidence": "docs/evidence/parity-expanded-2026-08-05f.json",
+   "floors": {
+    "doc_recall": 1.0,
+    "dy_p50": 1.49,
+    "live_text_cov": 0.9827,
+    "page_err": 0,
+    "raster_frac": 0.0173,
+    "within2pt": 0.2803,
+    "word_recall": 1.0
+   },
+   "issue": "DEC-D2",
+   "measured_commit": "6575118e5429af472d3051e980382019d22daf15",
+   "measured_commit_source": "the commit stamped into docs/evidence/parity-expanded-2026-08-05f.json by the run that produced these numbers",
+   "measured_on": "2026-08-05",
+   "profile_id": "pymupdf/standard/libreoffice/refine3@240dpi",
+   "ratified_by": "Ebin Babu Thomas",
+   "ratified_on": "2026-08-05",
+   "reason": "Loop-convergence class, not a placement defect. At refine0 the two backends measure bit-identical on this document; the refine loop then improves BOTH arms and converges further for PyMuPDF, so the delta is a property of how far each arm's loop ran, not of what either parser read. Boundary-mass CDF analysis shows the difference is words crossing the metric's hard 2.0pt cut rather than moving on the page. Not user-visible. Diagnosis: drift agent, 2026-08-05. 03's arms coincide exactly from 3.0pt outward and are bit-identical at refine0 (0.1142 = 0.1142).",
+   "recorded_on": {
+    "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+    "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+    "os": "linux",
+    "pdfium": "152.0.7947.0",
+    "pymupdf": "1.28.0",
+    "python": "3.12.3",
+    "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+   },
+   "reference_at_record": {
+    "doc_recall": 1.0,
+    "dy_p50": 0.54,
+    "live_text_cov": 0.9827,
+    "page_err": 0,
+    "raster_frac": 0.0173,
+    "within2pt": 0.4602,
+    "word_recall": 1.0
+   },
+   "review_condition": "Revisit if the refine loop's convergence model changes. The entry rests on the arms being bit-identical at refine0; if that stops being true the cause is no longer loop convergence and the decision must be taken again.",
+   "worse_at_record": [
+    "within2pt",
+    "dy_p50"
+   ]
+  },
+  "_note": "Four findings at the shipping settings, each with an owner, a date, DEC-D2 and a review condition, each floored in both directions and stale-checked. Three are the loop-convergence class and one is the complex-script raster fallback measured through this renderer.",
+  "c4_i18n.pdf": {
+   "authorization_provenance": "The repository author granted this batch under a standing authorization plus an explicit path-choice delegation recorded on 2026-08-05; the orchestrating session relayed the grant and adjudicated the content, and the session that wrote this entry acted on the relay. It did not interact with the author directly and does not claim to have. The named ratifier is an attestation on a relayed authorization and should be confirmed against this file.",
+   "corpus_manifest_sha256": "e6e4a15986bd5ba002e31a64c5366144245d1146bd464551295b06dd9310e539",
+   "defect": "D10",
+   "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+   "evidence": "docs/evidence/parity-expanded-2026-08-05f.json",
+   "floors": {
+    "doc_recall": 0.9748,
+    "dy_p50": 0.8,
+    "live_text_cov": 0.9091,
+    "page_err": 0,
+    "raster_frac": 0.0909,
+    "within2pt": 0.4397,
+    "word_recall": 0.9748
+   },
+   "issue": "DEC-D2",
+   "measured_commit": "6575118e5429af472d3051e980382019d22daf15",
+   "measured_commit_source": "the commit stamped into docs/evidence/parity-expanded-2026-08-05f.json by the run that produced these numbers",
+   "measured_on": "2026-08-05",
+   "profile_id": "pymupdf/standard/libreoffice/refine3@240dpi",
+   "ratified_by": "Ebin Babu Thomas",
+   "ratified_on": "2026-08-05",
+   "reason": "The same complex-script raster fallback measured at the shipping settings. Same cause, different renderer and therefore different numbers, which is why it is recorded separately rather than borrowed across the profile boundary.",
+   "recorded_on": {
+    "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+    "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+    "os": "linux",
+    "pdfium": "152.0.7947.0",
+    "pymupdf": "1.28.0",
+    "python": "3.12.3",
+    "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+   },
+   "reference_at_record": {
+    "doc_recall": 0.9832,
+    "dy_p50": 0.85,
+    "live_text_cov": 1.0,
+    "page_err": 0,
+    "raster_frac": 0.0,
+    "within2pt": 0.5043,
+    "word_recall": 0.9832
+   },
+   "review_condition": "Retire when the raster fallback stops firing -- raster_frac returning to the reference's value makes this entry describe nothing and the stale rule blocks until it is deleted. Re-open, do not widen, if live_text_cov falls below its floor.",
+   "worse_at_record": [
+    "live_text_cov",
+    "raster_frac"
+   ]
+  },
+  "r1_reportlab_report.pdf": {
+   "authorization_provenance": "The repository author granted this batch under a standing authorization plus an explicit path-choice delegation recorded on 2026-08-05; the orchestrating session relayed the grant and adjudicated the content, and the session that wrote this entry acted on the relay. It did not interact with the author directly and does not claim to have. The named ratifier is an attestation on a relayed authorization and should be confirmed against this file.",
+   "corpus_manifest_sha256": "e6e4a15986bd5ba002e31a64c5366144245d1146bd464551295b06dd9310e539",
+   "defect": "D-loopconv",
+   "environment_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+   "evidence": "docs/evidence/parity-expanded-2026-08-05f.json",
+   "floors": {
+    "doc_recall": 1.0,
+    "dy_p50": 1.1,
+    "live_text_cov": 1.0,
+    "page_err": 0,
+    "raster_frac": 0.0,
+    "within2pt": 0.3212,
+    "word_recall": 1.0
+   },
+   "issue": "DEC-D2",
+   "measured_commit": "6575118e5429af472d3051e980382019d22daf15",
+   "measured_commit_source": "the commit stamped into docs/evidence/parity-expanded-2026-08-05f.json by the run that produced these numbers",
+   "measured_on": "2026-08-05",
+   "profile_id": "pymupdf/standard/libreoffice/refine3@240dpi",
+   "ratified_by": "Ebin Babu Thomas",
+   "ratified_on": "2026-08-05",
+   "reason": "Loop-convergence class, not a placement defect. At refine0 the two backends measure bit-identical on this document; the refine loop then improves BOTH arms and converges further for PyMuPDF, so the delta is a property of how far each arm's loop ran, not of what either parser read. Boundary-mass CDF analysis shows the difference is words crossing the metric's hard 2.0pt cut rather than moving on the page. Not user-visible. Diagnosis: drift agent, 2026-08-05. r1's arms coincide at 10pt, with 21.8% of reference words sitting in the 1.5-2.0pt band, and are bit-identical at refine0 (0.2591 = 0.2591).",
+   "recorded_on": {
+    "font_files_digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+    "fonts_conf_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+    "os": "linux",
+    "pdfium": "152.0.7947.0",
+    "pymupdf": "1.28.0",
+    "python": "3.12.3",
+    "soffice": "LibreOffice 24.2.7.2 420(Build:2)"
+   },
+   "reference_at_record": {
+    "doc_recall": 1.0,
+    "dy_p50": 1.5,
+    "live_text_cov": 1.0,
+    "page_err": 0,
+    "raster_frac": 0.0,
+    "within2pt": 0.5959,
+    "word_recall": 1.0
+   },
+   "review_condition": "Revisit if the refine loop's convergence model changes. The entry rests on the arms being bit-identical at refine0; if that stops being true the cause is no longer loop convergence and the decision must be taken again.",
+   "worse_at_record": [
+    "within2pt"
+   ]
+  }
+ },
+ "reference_backend": "pymupdf",
+ "schema": 3,
+ "status": "ratified"
+}
