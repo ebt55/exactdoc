@@ -1,0 +1,120 @@
+{
+ "schema": "exactdoc.block-synthesis-diagnosis.v1",
+ "gating": false,
+ "adjudicated": false,
+ "ok": false,
+ "release_ready": false,
+ "_note": "Diagnosis only -- no code changed by this record. Parity bug B (task #39): why PDFium's arm produces roughly one paragraph per LINE where PyMuPDF's arrives with paragraphs already formed. Measured at da15f47 in the canonical container.",
+ "question_asked": "Is the difference a units/rounding artifact in our extraction, or a real geometric difference between the parsers' lines?",
+ "answer": "Neither. The line geometry is near-identical on the two arms. The difference is that PyMuPDF NEVER RUNS our block assembly -- parse.py takes blocks straight from MuPDF's structured-text analysis (parse.py:211, `TextBlock(lines=lines, bbox=tuple(blk['bbox']))`) -- while parse_pdfium must synthesise them, and the synthesis has a defect that shatters either parser's lines equally.",
+ "line_geometry_is_not_the_variable": {
+  "_note": "y06, first 40 pages, at the IR.",
+  "line_box_height_over_font_size": {
+   "pymupdf": {"p10": 1.107, "p50": 1.107, "p90": 1.130},
+   "pdfium": {"p10": 1.107, "p50": 1.107, "p90": 1.157}},
+  "baseline_delta_pt": {
+   "pymupdf": {"p10": 1.00, "p50": 5.50, "p90": 12.00},
+   "pdfium": {"p10": 1.33, "p50": 6.00, "p90": 12.50}},
+  "gap_next_top_minus_prev_bottom_pt": {
+   "pymupdf": {"p10": -11.07, "p50": -7.57, "p90": 0.43},
+   "pdfium": {"p10": -11.07, "p50": -7.31, "p90": 0.43}},
+  "conclusion": "PDFium's char boxes are em boxes, not tight ink boxes; the earlier mode-0-versus-mode-3 difference measured at the Para level in infer is a downstream consequence of block shattering, not a cause."
+ },
+ "the_control": {
+  "_note": "parse_pdfium._build_blocks run over PyMuPDF's OWN lines. First 40 pages.",
+  "y06": {"mupdf_native": {"blocks": 1033, "lines_per_block": 4.54, "one_line_blocks": 273},
+          "our_assembly_over_mupdf_lines": {"blocks": 3966, "lines_per_block": 1.18, "one_line_blocks": 3643},
+          "pdfium_native": {"blocks": 3757, "lines_per_block": 1.19, "one_line_blocks": 3417}},
+  "x10_chrome_tables_plain": {"mupdf_native": {"blocks": 22, "lines_per_block": 3.55},
+                              "our_assembly_over_mupdf_lines": {"blocks": 34, "lines_per_block": 2.29, "one_line_blocks": 20},
+                              "pdfium_native": {"blocks": 34, "lines_per_block": 2.29, "one_line_blocks": 20},
+                              "_note": "Our assembly over PyMuPDF's lines reproduces PDFium's numbers EXACTLY. Same rule, same answer, different input -- so the rule is the variable, not the parser."},
+  "02_research_paper": {"mupdf_native": {"blocks": 45, "lines_per_block": 2.07},
+                        "our_assembly_over_mupdf_lines": {"blocks": 73, "lines_per_block": 1.27},
+                        "pdfium_native": {"blocks": 74, "lines_per_block": 1.20}}
+ },
+ "the_mechanism": {
+  "site": "exactdoc/parse_pdfium.py: _build_blocks (950), _build_blocks_one (1166), _body_pitch, _pitch_by_size (1151-1163), _column_split (~920-947)",
+  "chain": [
+   "_column_split returns AT MOST ONE gutter, and under-detects: on y06 it found a gutter on 6 of 40 pages under PyMuPDF's lines and 8 of 40 under PDFium's, on a document that is two- and three-column throughout.",
+   "When the columns are not separated, the line list handed to _build_blocks_one is interleaved in reading order -- left line 1, right line 1, left line 2 -- so consecutive baseline deltas are near zero.",
+   "_body_pitch and _pitch_by_size take the 20th PERCENTILE of those deltas as the block-continuation reference. Fed an interleaved list, that percentile lands in the near-zero population and collapses.",
+   "The continuation gate is `0 < gap <= ref * BLOCK_GAP_FACTOR` with BLOCK_GAP_FACTOR = 1.15. With a collapsed ref, every genuine line step is rejected and every line becomes its own block."],
+  "measured_on_y06_pdfium": [
+   {"page": 20, "column_split": null, "groups_assembled": 1,
+    "true_in_column_pitch_pt": 11.50, "computed_reference_pt": 2.67,
+    "gate_pt": 3.08, "verdict": "a genuine 11.50pt line step is REJECTED",
+    "lines": 117, "blocks": 107},
+   {"page": 62, "column_split": 308.0, "groups_assembled": 2,
+    "true_in_column_pitch_pt": 11.50,
+    "group_a": {"lines": 99, "computed_reference_pt": 1.72, "gate_pt": 1.98, "verdict": "REJECTED -- one gutter cannot separate three columns"},
+    "group_b": {"lines": 65, "computed_reference_pt": 11.50, "gate_pt": 13.22, "verdict": "ACCEPTED -- this group was column-clean"},
+    "lines": 164, "blocks": 111},
+   {"page": 5, "column_split": null, "groups_assembled": 1,
+    "true_in_column_pitch_pt": 11.36, "computed_reference_pt": 11.36,
+    "gate_pt": 13.06, "verdict": "ACCEPTED -- single-column region, healthy",
+    "lines": 29, "blocks": 15}],
+  "worked_example": "y06 page 20, a MuPDF block of 10 lines at x 80.7..180.7 reading 'Yes. You can claim the / credit for other / dependents for this / dependent. Check the / ...' -- all size 10.0, all left-aligned at 80.7, baselines stepping 9.5-9.9pt. We split it 9 times, every split reported as `gap 9.92 > ref 2.17 x 1.15 = 2.50`.",
+  "split_reason_census_y06_first_40_pages": {
+   "_note": "Identical ranking on both arms, which is the point.",
+   "pymupdf_lines": {"no horizontal overlap": 2404, "size change over 6 percent": 919,
+                     "shared baseline too far apart": 552, "gap exceeds ref x 1.15": 325},
+   "pdfium_lines": {"no horizontal overlap": 2140, "size change over 6 percent": 921,
+                    "gap exceeds ref x 1.15": 491, "shared baseline too far apart": 424},
+   "_reading": "`no horizontal overlap` and `gap exceeds ref` are the SAME root seen twice: interleaved columns put non-overlapping lines next to each other AND collapse the pitch reference. `size change over 6 percent` and `shared baseline too far apart` are separate, smaller causes -- the latter is the documented table-cell limit and is 70% of x10's splits."
+  }
+ },
+ "blast_radius_lines_per_para": {
+  "_note": "Whole corpus, parse+infer only, both arms. `ratio` is reference lines-per-para divided by candidate lines-per-para; 1.00 means the arms agree.",
+  "worst": [
+   {"document": "y12_irs_pub15.pdf", "ref": 5.23, "cand": 1.48, "ratio": 3.53,
+    "blocks_ref": 1291, "blocks_cand": 4518},
+   {"document": "y13_irs_pub501.pdf", "ref": 4.15, "cand": 1.54, "ratio": 2.69,
+    "blocks_ref": 1225, "blocks_cand": 4296},
+   {"document": "y14_irs_fw9_form.pdf", "ref": 6.32, "cand": 2.38, "ratio": 2.66,
+    "blocks_ref": 177, "blocks_cand": 608},
+   {"document": "y06_irs_1040_instructions.pdf", "ref": 4.74, "cand": 1.87, "ratio": 2.53,
+    "blocks_ref": 4203, "blocks_cand": 12878},
+   {"document": "l1_word_native.pdf", "ref": 3.75, "cand": 1.88, "ratio": 1.99,
+    "blocks_ref": 4, "blocks_cand": 10, "corpus": "GATED"},
+   {"document": "x01_lo_memo_pageno.pdf", "ref": 4.25, "cand": 3.00, "ratio": 1.42},
+   {"document": "x16_fpdf_bulletin.pdf", "ref": 3.00, "cand": 2.25, "ratio": 1.33},
+   {"document": "x06_lo_euro_scripts.pdf", "ref": 1.92, "cand": 1.44, "ratio": 1.33},
+   {"document": "y02_nist_sp800171r2.pdf", "ref": 2.94, "cand": 2.32, "ratio": 1.27},
+   {"document": "x05_lo_quotes_notes.pdf", "ref": 2.08, "cand": 1.69, "ratio": 1.23},
+   {"document": "y03_nist_fips197.pdf", "ref": 1.55, "cand": 1.27, "ratio": 1.22},
+   {"document": "x03_lo_lists_nested.pdf", "ref": 1.36, "cand": 1.13, "ratio": 1.20}],
+  "y07_irs_f1040_form": {"lines_per_block_ref": 10.92, "lines_per_block_cand": 1.01,
+                         "blocks_ref": 101, "blocks_cand": 359,
+                         "_note": "The purest instance of the signature: 1.01 lines per block. Tier `unsupported`, so it contributes no pages."},
+  "x10_answer": {"lines_per_para_ref": 1.56, "lines_per_para_cand": 1.36,
+                 "paras_ref": 16, "paras_cand": 25,
+                 "lines_per_block_ref": 3.55, "lines_per_block_cand": 2.29,
+                 "_note": "Yes -- x10's over-splitting is the same SITE (_build_blocks) but a different failing rule: 70% of its splits are `shared baseline, too far apart`, the documented table-cell limit, not the pitch collapse. Do not expect the pitch fix to close x10."},
+  "gated_corpus": "Ten of the sixteen gated documents come out with an identical Para count on both arms because infer._merge_flow_paras repairs the damage downstream. l1_word_native is the exception that does not (4 -> 8 Paras, 3.75 -> 1.88 lines per para), and 05_memo, c5_graphics and 02_research differ slightly. This is why the gate passes today."
+ },
+ "proposed_fix_direction": {
+  "_note": "Not implemented. Two independent changes; either helps, both is better.",
+  "a_n_column_split": {
+   "what": "_column_split returns at most one gutter. Make it return all of them and assemble each band separately, the way _build_blocks already does for two.",
+   "addresses": "the root",
+   "risk": "column detection is geometry-sensitive and every gated document goes through it"},
+  "b_sanity_floor_the_pitch_reference": {
+   "what": "A body pitch far below the text's own size is not a measurement -- 10pt text cannot step 2.67pt. Reject such a reference and fall back to a size-derived default, the same shape as the right-margin guard in infer.py.",
+   "addresses": "makes the column-split failure survivable rather than fatal",
+   "risk": "low and bounded; it only ever RAISES a reference that has collapsed, and a raised reference can only join lines that a correct measurement would have joined",
+   "why_preferred_first": "it is one site, it is defensive, and it can be gated on measured evidence exactly as MARGIN_MISCLUSTER_PT was"},
+  "predicted_magnitude": {
+   "_note": "Bounds, not point predictions -- no fix has been run.",
+   "y06_blocks": "12878 toward the reference's 4203",
+   "y06_paras": "5807 toward the reference's 2402",
+   "y06_pages_candidate": "350 toward the reference's 259, i.e. up to the 91 residual pages attributed to bug B",
+   "y12_y13_y14": "the same signature and the same expected direction; y12 and y13 are the two largest ratios in the corpus and neither has been page-measured for this fix",
+   "x10": "no change expected -- different failing rule",
+   "gated_16": "l1_word_native is the one gated document with a Para-count difference large enough to move; the others are already repaired downstream. The gate must be run, not assumed."}
+ },
+ "instrument_caveats": [
+  "The first split-reason census flattened each page's blocks and re-sorted by (y, x) before re-running the assembly, which interleaves columns by construction and made `no horizontal overlap` look like the whole story on both arms. The census recorded here instruments _build_blocks_one in place, so the real _column_split path above it is the one being measured.",
+  "The worked example on y06 page 20 quotes reference values computed page-wide by the sampler rather than per column-group. The per-group values that the real code computes are recorded separately under `measured_on_y06_pdfium` and are the authoritative ones; they tell the same story (2.67 page-wide against 11.50 true, on a page where _column_split returned None so page-wide IS the group)."
+ ]
+}
