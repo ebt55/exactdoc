@@ -263,9 +263,17 @@ def test_shipped_default_is_the_measured_default():
           repr(defaults.get("target")))
     check("the product lane is the shipped profile",
           LANES["product"] is PRODUCT)
+    # Pinned to the exact shipped profile, deliberately: this assertion exists
+    # so that changing what ships is a decision somebody makes here rather than
+    # a side effect somewhere else. It said `pymupdf/...` until 2026-08-06, when
+    # the parser default flipped to PDFium and this string was not updated with
+    # it -- so the whole mutation suite went red and stayed red through the 1.0.0
+    # release, which is the one state a guard-rail suite must never be in, since
+    # a suite nobody can run green is a suite nobody reads.
     check("the shipping profile is the measured quality-first profile",
           PRODUCT.profile_id()
-          == "pymupdf/standard/libreoffice/refine3@240dpi")
+          == "pdfium/standard/libreoffice/refine3@240dpi",
+          PRODUCT.profile_id())
     check("the gate exposes exactly raw and product",
           set(LANES) == {"raw", "product"}, repr(LANES))
     check("lane profile IDs are unique",
@@ -1338,7 +1346,14 @@ def test_parity_lanes_cannot_be_redirected_by_environment():
     check("parity passes an explicit profile to convert()",
           "convert(s, dx, options=options)" in src)
     import inspect
-    from exactdoc import convert as convert_mod
+    # The SUBMODULE, imported as one. This used to say `from exactdoc import
+    # convert as convert_mod` and reach `convert_mod.convert`, which only
+    # worked because the package's lazy loader was handing back the module
+    # instead of the function it advertises -- the same accident that made the
+    # one usage the README documents raise "'module' object is not callable".
+    # Asking for the module explicitly says what this test means and survives
+    # the fix.
+    import exactdoc.convert as convert_mod
     body = inspect.getsource(convert_mod.convert)
     check("convert() consults the environment only when nothing was supplied",
           "if backend is None and options is None:" in body, body[:400])

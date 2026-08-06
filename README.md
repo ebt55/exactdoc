@@ -15,17 +15,19 @@ Version 1.0.0, Apache-2.0. Every claim below is measured against a frozen
 measurements rather than assuming every PDF dialect works. The classes it does
 *not* handle are listed as plainly as the ones it does.
 
-## Where it works, and where it does not
+### Where to look
 
-![Support matrix for opening converted documents in Google Docs](docs/diagrams/support-google-docs.svg)
-
-![Support matrix for opening converted documents in LibreOffice or Word](docs/diagrams/support-libreoffice-word.svg)
-
-Both matrices are generated from the same evidence the release gate reads: live
-[pass 7](docs/evidence/gdocs-2026-08-06-pass7-qualification.json) for Google
-Docs, the committed gate baseline for LibreOffice/Word, and the ratified
-policies for what counts as an accepted shortfall. Numbers below repeat them in
-prose.
+| | |
+|---|---|
+| [Support matrices](#where-it-works-and-where-it-does-not) | which document classes work, and in which viewer — start here |
+| [CHANGELOG.md](CHANGELOG.md) | what shipped in 1.0.0, and what changed to get there |
+| [STATUS.md](STATUS.md) | the current measured state, defect by defect |
+| [ROADMAP.md](ROADMAP.md) | sequencing, and the gates a change has to pass |
+| [THEORY.md](THEORY.md) | the laws the codebase is built around, and what each cost to learn |
+| [What is not done](#what-is-not-done) | the post-release queue, with numbers |
+| [docs/license-audit.md](docs/license-audit.md) | every dependency licence, read from installed metadata |
+| [docs/corpus-expansion.md](docs/corpus-expansion.md) | how the test corpus grows without invalidating a number |
+| [docs/evidence/](docs/evidence/) | **the evidence system.** Every quality claim in this repository is a committed JSON artifact recording the numbers, the environment fingerprint and the commit that produced them — so any figure here traces to the run that measured it rather than to somebody's memory |
 
 ## What it does
 
@@ -69,6 +71,9 @@ Conversion is local; nothing is uploaded.
 
 ```bash
 exactdoc report.pdf -o report.docx
+
+# Google-Docs-safe OOXML, still fully offline:
+exactdoc --output-profile gdocs report.pdf -o report.docx
 ```
 
 ```python
@@ -100,6 +105,43 @@ scans exit with an explicit OCR-required code (17, or 18 for partial batch
 failures). Output publication is transactional: candidates stay private until
 structural DOCX validation succeeds, then replace the destination atomically —
 a failed conversion never corrupts an existing output.
+
+### The same DOCX everywhere — with one measured caveat
+
+Conversion consults **no system fonts**. The base-14 text metrics are the
+published Adobe AFM widths, compiled into the package
+(`exactdoc/_base14_widths.py`); PDFium reads the fonts the PDF itself embeds.
+Nothing in the layout path asks the operating system what a glyph is worth, so a
+Linux user and a Windows user get the same *text geometry* from the same input.
+The most font-sensitive fixture in the corpus, `c4_i18n` (CJK, Arabic and
+Hebrew), converts **byte-identical** across the two platforms, as do
+`l1_word_native`, `c7_code`, `c8_toc_links`, `c6_long` and `c2_paper2col`.
+
+The DOCX is **not** byte-identical in general, and it would be wrong to claim it
+is. Measured Windows-against-container on all 16 gated fixtures at the RAW
+profile: 6 match exactly, and 10 differ. All six documents carrying a rasterised
+figure region differ by hundreds of bytes — image encoders are not required to
+be reproducible across platforms — and four documents with no image at all
+differ by 2 to 11 bytes, a cause this project has not yet chased down.
+Conversion is deterministic on a *given* machine: two runs produce identical ZIP
+members on all 16.
+
+What a reader sees is a separate question from what a hash sees. Google Docs
+renders with Google's fonts, so a document opened there looks the same for
+everyone; Word and LibreOffice substitute from locally installed fonts, exactly
+as they do for any DOCX from any source.
+
+## Where it works, and where it does not
+
+![Support matrix for opening converted documents in Google Docs](docs/diagrams/support-google-docs.svg)
+
+![Support matrix for opening converted documents in LibreOffice or Word](docs/diagrams/support-libreoffice-word.svg)
+
+Both matrices are generated from the same evidence the release gate reads: live
+[pass 7](docs/evidence/gdocs-2026-08-06-pass7-qualification.json) for Google
+Docs, the committed gate baseline for LibreOffice/Word, and the ratified
+policies for what counts as an accepted shortfall. The sections below repeat
+them in prose, with the numbers.
 
 ## What to expect (quality examples)
 

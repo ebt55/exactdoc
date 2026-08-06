@@ -36,6 +36,14 @@ __version__ = _version()
 def __getattr__(name):
     if name == "convert":
         from .convert import convert
+        # Importing the submodule binds `exactdoc.convert` to the MODULE, and
+        # the module and the function it exports share a name. Without this
+        # line the attribute now exists, __getattr__ is never consulted again,
+        # and `from exactdoc import convert` hands back a module -- so the one
+        # usage this package documents raised "'module' object is not
+        # callable". Rebinding to the function is also what PEP 562 laziness is
+        # for: resolve once, then stop paying for it.
+        globals()["convert"] = convert
         return convert
     if name in ("ConversionOptions", "PRODUCT", "RAW"):
         from . import options
