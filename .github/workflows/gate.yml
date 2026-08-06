@@ -45,6 +45,9 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Manual trigger: Actions outages drop push events and never backfill them,
+  # which stranded two green-ready commits with no way to summon the gate.
+  workflow_dispatch:
 
 jobs:
   gate:
