@@ -83,3 +83,4 @@ exactdoc — *.md
 # is the same kind of document under a hyphen. Match the suffix as well: no
 # tracked doc ends in -plan.md.
 *-plan.md
+.codex/

@@ -1,8 +1,0 @@
-sandbox_mode = "workspace-write"
-
-[sandbox_workspace_write]
-network_access = true
-
-[features.network_proxy]
-enabled = true
-domains = { "**.googleapis.com" = "allow", "accounts.google.com" = "allow" }
