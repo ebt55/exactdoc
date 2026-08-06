@@ -417,6 +417,18 @@ def _marker_split_idx(spans) -> Optional[int]:
     return None
 
 
+def _is_marker_text(t: str) -> bool:
+    """Is this whole line nothing but a list marker?
+
+    `_marker_split_idx` cannot answer it: that one wants a marker AND its item
+    text inside one line, and a producer is equally free to draw the bullet as a
+    line fragment of its own beside the text. Measured on y11_nist_sp80053r5,
+    where every `•` arrives that way.
+    """
+    m = t.strip()
+    return bool(m) and (m in BULLET_CHARS or bool(NUM_RE.match(m)))
+
+
 def _line_starts_with_marker(ln: Line) -> bool:
     if len(ln.spans) < 2:
         return False
@@ -2140,11 +2152,203 @@ def _el_bbox(e):
     return None
 
 
+# A role on the left and a date hard against the right margin, sharing one
+# baseline, is the defining row of a resume and of most things shaped like one.
+# The producer simply drew two runs at two x positions; nothing in the text says
+# they belong together, and the two halves do not even reliably arrive in the
+# same block -- on the resume fixture, page 1 puts each pair in one block and
+# page 2 puts each half in a block of its own.
+#
+# Both spellings come out wrong, in different ways. Split across blocks, the
+# right half becomes its own paragraph pushed across by an ABSOLUTE INDENT
+# measured in the source's metrics: 8338 and 9308 twips against a 9026-twip
+# content width, i.e. 92% and 103%. The second is past the right margin, so it
+# wraps in any reader; the first leaves 0.34in for a date that needs more. (The
+# owner's own resume measured 94%, leaving 0.44in for a nine-character date.)
+# Inside one block, `_merge_row_lines` joins the halves with a SPACE, so the
+# date simply trails the role in mid-line and never reaches the margin at all.
+#
+# One right-aligned tab stop at the content edge says the thing both spellings
+# were trying to say, in a form that survives: the position is anchored to the
+# margin rather than to a measured x, so a reader whose font is a hair wider
+# still puts the date at the right margin instead of on the next line.
+#
+# This runs over the whole page's item stream rather than inside paragraph
+# building, because that is the only scope where both halves are in view. It is
+# also already per-column: `_assemble_chunks` calls `_to_flow` once per column
+# band, so on a genuinely two-column page the two columns are never in the same
+# stream to be paired.
+_ROW_BASELINE_TOL = 2.0   # same baseline, allowing for rounding
+_ROW_EDGE_TOL = 3.5       # how far short of the content edge the right half may stop
+_ROW_MIN_GAP = 12.0       # a real gap, not two spans of one sentence
+_ROW_LEFT_TOL = 12.0      # the left half starts the line, or it is not a row
+_ROW_MAX_SHARE = 0.35     # above this the page is columnar, not a row list
+# The right half is a FIELD -- a date, a location, a page number -- and the
+# left half is a line of text. Both bounds were measured against the documents
+# that wanted to be paired and must not be. Without them the rule fired 314
+# times on y11_nist_sp80053r5, 98 on y06_irs_1040_instructions and 42 on
+# y08_nist_sp80088r1, in three distinct wrong ways: an unsplit two-column body
+# whose columns happen to share baselines, a term/definition glossary that was
+# never recognised as a table, and bullet lists whose `•` arrives as its own
+# line fragment beside the item text.
+#
+# A field and a column are far apart, so the cut is not a knife edge. x17's
+# four right halves measure 0.097, 0.097, 0.204 and 0.097 of the content width;
+# a column in a two-column body is about 0.48 by construction, and y08's
+# definitions run past 0.60. The left bound separates the same cases from the
+# other end: x17's left halves are 0.35 to 0.80 of the content width, while a
+# glossary stub (`ATA`, `BD`) and a lone bullet are a few points wide.
+_ROW_MAX_RIGHT = 0.30     # right half wider than this is a column, not a field
+_ROW_MIN_LEFT = 0.20      # left half narrower than this is a stub or a marker
+_ROW_EDGE_BUCKET = 2.0    # how near two rows must end to be the same column
+
+
+def _row_pairs(items, col_l, col_r):
+    """-> ([(left_line, right_line)], {id(line) consumed}).
+
+    The discriminator is the RIGHT half's right edge, and it is deliberately
+    about the MARGIN rather than about the pair: two lines sharing a baseline in
+    the middle of a column are two columns of something, and only a half flush
+    to the edge is the right-aligned field this is meant to catch. The test is
+    "not short of the content edge" rather than "within a few points either
+    side", because the inferred edge can sit well INSIDE the true text edge --
+    on the resume fixture the right-edge clustering puts col_r at 495.1 while
+    the dates end at 552.7, and a symmetric test would reject every real row.
+
+    Refuses wholesale when more than a third of the page's baselines pair up.
+    That is the signature of a two-column page whose columns were not split:
+    every body baseline pairs there, and turning each into a tabbed row would
+    weld the columns together. Genuine row lists are a handful among many -- the
+    resume fixture pairs 2 baselines of 14 on page 1 and 2 of 16 on page 2.
+    """
+    if col_r - col_l <= 0:
+        return [], set()
+    lines = []
+    for kind, _bb, o in items:
+        if kind == "blk":
+            lines.extend(ln for ln in o.lines if ln.horizontal and ln.spans)
+    if len(lines) < 2:
+        return [], set()
+    lines.sort(key=lambda l: (round(l.baseline, 1), l.bbox[0]))
+    rows = []
+    for ln in lines:
+        if rows and abs(ln.baseline - rows[-1][0].baseline) <= _ROW_BASELINE_TOL:
+            rows[-1].append(ln)
+        else:
+            rows.append([ln])
+    width = col_r - col_l
+    pairs = []
+    for row in rows:
+        # a third fragment on the baseline is a grid, and a grid is a table's
+        # problem rather than this one's
+        if len(row) != 2:
+            continue
+        left, right = row
+        if left.bbox[0] > col_l + _ROW_LEFT_TOL:
+            continue
+        if right.bbox[2] < col_r - _ROW_EDGE_TOL:
+            continue
+        if right.bbox[0] - left.bbox[2] < _ROW_MIN_GAP:
+            continue
+        if right.bbox[2] - right.bbox[0] > _ROW_MAX_RIGHT * width:
+            continue            # a column of text, not a right-aligned field
+        if left.bbox[2] - left.bbox[0] < _ROW_MIN_LEFT * width:
+            continue            # a table stub or a lone marker, not a row's label
+        # a bullet already owns the paragraph's tab stop and its own tab run,
+        # and it also reaches this function as a fragment all of its own
+        if _line_starts_with_marker(left) or _is_marker_text(left.text):
+            continue
+        pairs.append((left, right))
+    # A tab STOP is a column, so require the evidence of one: at least two rows
+    # ending at the same x. A designer sets a right-aligned stop and then uses
+    # it repeatedly -- that is what makes a resume's dates or a worksheet's
+    # amounts a column -- whereas a single fragment that happens to finish at
+    # the margin is just a line that finished at the margin.
+    #
+    # This is the guard that does the real work on prose. Measured over the
+    # expansion corpus, the geometric bounds alone still paired 17 fragment
+    # pairs on y06_irs_1040_instructions and 1 on y12_irs_pub15, every one of
+    # them a sentence broken across a two-column body or a caption sitting
+    # beside a heading, and every one of them alone on its page. Requiring the
+    # column takes both to zero while keeping all four of x17's rows (two per
+    # page, sharing an edge) and all six of y13_irs_pub501's support-worksheet
+    # amounts, which are the same structure as a resume's dates and want the
+    # same treatment.
+    pairs.sort(key=lambda pr: pr[1].bbox[2])
+    kept, cur = [], []
+    for pr in pairs:
+        if cur and pr[1].bbox[2] - cur[0][1].bbox[2] <= _ROW_EDGE_BUCKET:
+            cur.append(pr)
+            continue
+        if len(cur) >= 2:
+            kept.extend(cur)
+        cur = [pr]
+    if len(cur) >= 2:
+        kept.extend(cur)
+    pairs = kept
+    if not pairs or len(pairs) > _ROW_MAX_SHARE * len(rows):
+        return [], set()
+    consumed = set()
+    for left, right in pairs:
+        consumed.add(id(left))
+        consumed.add(id(right))
+    return pairs, consumed
+
+
+def _row_para(left: Line, right: Line, col_l: float, col_r: float) -> Para:
+    """One paragraph: left runs, a tab, right runs, one right stop at the edge."""
+    p = para_from_lines([left], col_l, col_r)
+    for r in p.runs:
+        r.text = r.text.rstrip(" ")
+    p.runs = [r for r in p.runs if r.text]
+    ref = p.runs[-1] if p.runs else None
+    p.runs.append(Run(text="\t",
+                      font=ref.font if ref else left.spans[0].font,
+                      size=ref.size if ref else left.spans[0].size,
+                      color=ref.color if ref else left.spans[0].color,
+                      is_tab=True))
+    p.runs += [r for r in runs_from_spans(right.spans) if r.text]
+    # A right-aligned paragraph with a right tab stop is a contradiction, and
+    # para_from_lines could have inferred one from the left half alone.
+    p.align = "left"
+    # The stop is the CONTENT WIDTH, not the measured x of the right half:
+    # anchoring to the margin is the entire point of the change.
+    p.tab_stops = [(round(col_r - col_l, 1), "right")]
+    p.bbox = bbox_union(left.bbox, right.bbox)
+    p.src_lines = 1
+    p.src_widths = [round(right.bbox[2] - left.bbox[0], 1)]
+    return p
+
+
+def _drop_row_lines(items, consumed):
+    """items with the paired lines removed, and emptied blocks dropped."""
+    out = []
+    for kind, bb, o in items:
+        if kind != "blk":
+            out.append((kind, bb, o))
+            continue
+        keep = [ln for ln in o.lines if id(ln) not in consumed]
+        if not keep:
+            continue
+        nb = None
+        for ln in keep:
+            nb = bbox_union(nb, ln.bbox)
+        out.append((kind, nb or bb, keep))
+    return out
+
+
 def _to_flow(items, col_l, col_r):
+    pairs, consumed = _row_pairs(items, col_l, col_r)
+    if consumed:
+        items = _drop_row_lines(items, consumed) + \
+            [("row", bbox_union(l.bbox, r.bbox), (l, r)) for l, r in pairs]
     out = []
     for kind, bb, o in sorted(items, key=lambda t: (t[1][1], t[1][0])):
-        if kind == "blk":
-            out.extend(paras_from_line_list(list(o.lines), col_l, col_r))
+        if kind == "row":
+            out.append(_row_para(o[0], o[1], col_l, col_r))
+        elif kind == "blk":
+            out.extend(paras_from_line_list(
+                list(o) if isinstance(o, list) else list(o.lines), col_l, col_r))
         else:
             el = o
             if isinstance(el, TableEl):
