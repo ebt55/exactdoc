@@ -44,21 +44,26 @@ inverted that pair.
 
 | Canonical profile | Page match | Mean within 2pt | Mean live text | Median dy50 |
 |---|---:|---:|---:|---:|
-| product | 16/16 | 0.5241 | 0.9588 | 1.15pt |
-| raw | 15/16 | 0.3471 | 0.9588 | 1.95pt |
+| product | 16/16 | 0.5274 | 0.9588 | 1.045pt |
+| raw | 15/16 | 0.3615 | 0.9588 | 1.6pt |
 
 Measured 2026-08-06 in the canonical environment, fingerprint `3ca438f1…`; both
-lanes PASS. Evidence:
-`docs/evidence/parser-default-flip-2026-08-06.json`.
+lanes PASS. The table above is the **current** committed baseline, re-recorded
+after the cover-band seed fix
+(`docs/evidence/cover-band-seed-rerecord-2026-08-06.json`).
 
-**These numbers are the re-recorded baseline and are slightly worse than the
-pre-flip ones** (product `<2pt` 0.5389 → 0.5241, `dy50` 0.62 → 1.15; raw 0.3604
-→ 0.3471 and 1.975 → 1.95; page match unchanged in both lanes). The record was
-re-recorded because `profile_id` changed with the default parser, which makes
-the old one a description of a configuration nothing ships. All 32 per-document
-movements reproduce the ratified parity record to the digit, and a control
-confirmed the old parser still reproduces the old record exactly from this tree,
-so the movement is the parser and nothing else.
+**The baseline moved twice on 2026-08-06, and the parser flip was the first
+move.** At the flip the numbers went slightly *worse* than the pre-flip record
+— product `<2pt` 0.5389 → 0.5241, `dy50` 0.62 → 1.15; raw 0.3604 → 0.3471 and
+1.975 → 1.95, page match unchanged in both lanes
+(`docs/evidence/parser-default-flip-2026-08-06.json`). The cover-band seed fix
+then recovered most of it, which is where the current 0.5274 / 1.045pt and
+0.3615 / 1.6pt come from. The record was re-recorded at the flip because
+`profile_id` changed with the default parser, which makes the old one a
+description of a configuration nothing ships. All 32 per-document movements
+reproduce the ratified parity record to the digit, and a control confirmed the
+old parser still reproduces the old record exactly from this tree, so that
+movement is the parser and nothing else.
 
 **These figures describe every install, and for one day they did not.** The
 measurement environment installs the `[mupdf]` extra to run the parity reference

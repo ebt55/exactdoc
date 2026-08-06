@@ -10,8 +10,22 @@ headings, lists, tables, multi-column sections, headers/footers, hyperlinks —
 and writes real flowing Word constructs whose rendered geometry matches the
 source page to within points, verified by measurement.
 
-This is an alpha. Every claim below is measured against a frozen 16-document
-corpus; use those measurements rather than assuming every PDF dialect works.
+Version 1.0.0, Apache-2.0. Every claim below is measured against a frozen
+16-document corpus and validated live in Google Docs itself; use those
+measurements rather than assuming every PDF dialect works. The classes it does
+*not* handle are listed as plainly as the ones it does.
+
+## Where it works, and where it does not
+
+![Support matrix for opening converted documents in Google Docs](docs/diagrams/support-google-docs.svg)
+
+![Support matrix for opening converted documents in LibreOffice or Word](docs/diagrams/support-libreoffice-word.svg)
+
+Both matrices are generated from the same evidence the release gate reads: live
+[pass 7](docs/evidence/gdocs-2026-08-06-pass7-qualification.json) for Google
+Docs, the committed gate baseline for LibreOffice/Word, and the ratified
+policies for what counts as an accepted shortfall. Numbers below repeat them in
+prose.
 
 ## What it does
 
@@ -218,8 +232,8 @@ pinned Linux/LibreOffice CI environment:
 
 | Canonical profile | Page match | Mean within 2pt | Mean live text | Median dy50 |
 |---|---:|---:|---:|---:|
-| product | 16/16 | 0.5241 | 0.9588 | 1.15pt |
-| raw | 15/16 | 0.3471 | 0.9588 | 1.95pt |
+| product | 16/16 | 0.5274 | 0.9588 | 1.045pt |
+| raw | 15/16 | 0.3615 | 0.9588 | 1.6pt |
 
 Measured 2026-08-06, both lanes PASS. The regression record asks "did anything
 get worse?", not "is everything perfect"; the absolute qualification still
@@ -246,24 +260,21 @@ the DOCX content hash against the measurement environment's. Identical on all
 16, so `profile_id` needs no text-metrics term. See
 [docs/evidence/permissive-shaper-2026-08-06.json](docs/evidence/permissive-shaper-2026-08-06.json).
 
-A separate, deliberately **non-gating** corpus of 21 further documents — 16
-generated, 5 real documents this project did not write — lives in
-`testkit/fixtures_expansion/`. It is measured by `testkit/expansion.py`, has no
-baseline, and gates nothing; see
-[docs/corpus-expansion.md](docs/corpus-expansion.md). It is already earning its
-keep, and not flatteringly:
+A separate, deliberately **non-gating** corpus of 29 further documents — 16
+generated, 13 real documents this project did not write — lives in
+`testkit/fixtures_expansion/`. It is measured by `testkit/parity_expansion.py`,
+has no baseline, and gates nothing; see
+[docs/corpus-expansion.md](docs/corpus-expansion.md). It is what found the two
+limitations above, and it earned its place by embarrassing the gated corpus:
 
 - running headers, footers and browser page furniture dominate the geometry
   error in ordinary documents — a construct the frozen 16 barely sample;
-- **long documents double their pagination.** An 80-page real document came out
-  158 pages and a 114-page one came out 314. Document recall stays around
-  0.90 while word recall collapses to ~0.13, because everything after the first
-  overflow lands on the wrong page. The gated 16 are 1–7 pages and cannot
-  compound a per-page error into a page-count error, so no gated number has ever
-  moved in response to this;
-- a 199-widget fillable form classified `unsupported` **converted anyway**: the
-  page and byte ceilings are enforced, but nothing rejects interactive form
-  logic.
+- page inflation on long dense documents is invisible to a 1–7 page corpus,
+  because a per-page error cannot compound into a page-count error there. No
+  gated number has ever moved in response to it;
+- a 199-widget fillable form once converted anyway, at 0.085 SSIM while exiting
+  zero. That is the measurement that produced the refusal contract and exit
+  code 19 — the limitation became a typed error rather than staying a surprise.
 
 ### The Google Docs profile — measured live, still not the shipping profile
 
@@ -313,6 +324,118 @@ python testkit/gdocs_oracle.py prepare <dir>              # offline, hash-binds 
 python testkit/gdocs_oracle.py run <dir> --allow-cloud-upload   # the only step that uploads
 python testkit/gdocs_oracle.py assess <gdocs_qualification.json> # re-assess without uploading
 ```
+
+## How it works, and how it got here
+
+The hard part of PDF→DOCX is not parsing. It is that a PDF says *where ink went*
+and a DOCX says *what the document is*, and the second cannot be derived from the
+first without guessing. Everything below is about making those guesses
+falsifiable.
+
+**Measurement came before the converter.** The harness renders the produced DOCX
+back to PDF, matches words to the source, and reports word recall, drift
+percentiles, SSIM and ink IoU per document. That loop is not a test suite bolted
+on afterwards — it is the thing the converter is written against, and it is also
+a *closed* loop at runtime: the refinement pass reads its own rendered output and
+corrects page overflow and per-page offsets before publishing.
+
+**The corpus is frozen, and freezing it was the point.** Sixteen documents pinned
+by SHA-256, because a corpus that regenerates is a corpus whose numbers mean
+nothing across commits. That is not theoretical: a Chromium update once changed
+`c4_i18n` into a different document and moved its drift fivefold with nothing in
+the repository changing. Fixtures are bytes, not recipes
+([docs/corpus-expansion.md](docs/corpus-expansion.md)).
+
+**The environment is an artifact with a digest.** Fidelity is a property of a
+renderer as much as a converter, so "canonical" cannot mean "our CI runner" —
+`ubuntu-24.04` moves its LibreOffice build, its fonts and its Python underneath
+you. `docker/gate.Dockerfile` pins the base image by digest and the five font
+packages `scripts/fonts.conf` makes visible; an unpinned font set once moved
+`c4_i18n`'s drift 0.15pt → 2.1pt. A new digest is a new environment and a
+deliberate baseline migration, never a side effect of a rebuild.
+
+**LibreOffice is a proxy, and proxies lie.** The product targets Google Docs, so
+the project built a consented, two-step, offline-preparable oracle that uploads
+the real DOCX, converts it in Docs, exports the result and measures *that*. It
+found things no local renderer could. Docs adds ~14.6pt above a page-leading
+cover band unconditionally — probe-measured as an addition, not a clamp
+(requested 0/4/8/14.4/20pt render as 14.55/18.83/22.83/29.23/34.83). A 3pt
+per-boundary compensation that looked right against LibreOffice was, measured
+against Google's own exports across 187 boundaries, subtracting space Docs never
+added — its real contribution is about +0.1pt. Seven live passes took blocking
+findings from eleven to zero.
+
+**Acceptance is data the gate executes, not prose someone is trusted to apply.**
+Every known shortfall lives in a policy file with numeric floors in *both*
+directions: worsening past a floor fails, and so does clearing the divergence
+entirely, because a waiver describing nothing still excuses a document and hides
+the next regression on it. Waivers separate `provisional` (visible, bounded,
+authorises nothing) from `ratified` (a named owner, a date, an issue and a review
+condition — all four required and checked). Policies bind to one full profile and
+one corpus and refuse to adjudicate anything else, which is why there are three of
+them; a finding measured at the shipping settings says nothing about the
+candidate profile, and the readers refuse to borrow across that line.
+
+**The parser swap was gated on proofs, not confidence.** PyMuPDF is AGPL, which
+made the whole project AGPL, so the target was PDFium — but PDFium hands you
+glyphs, not lines and blocks, so that clustering had to be written here
+(`exactdoc/parse_pdfium.py`). Parity was measured document by document and
+dimension by dimension, and the four findings at the shipping profile were
+ratified *before* the swap, against Google's evidence rather than the proxy.
+A control run confirmed the old parser still reproduces the old record exactly
+from the same tree, so the baseline movement is the parser and nothing else
+([parity](docs/evidence/parity-expanded-2026-08-05f.json) ·
+[flip](docs/evidence/parser-default-flip-2026-08-06.json)).
+
+**The last AGPL thread was a text metric.** The quality ladder shapes text, the
+only shaper was MuPDF's base-14 width tables, and that quietly made an optional
+extra a quality axis: a default install produced worse output on three fixtures.
+Those tables are published Adobe AFM data, so they now ship
+(`exactdoc/_base14_widths.py`), and both installs produce byte-identical DOCX on
+all 16 fixtures — verified by content hash from a virtualenv that never had
+PyMuPDF ([proof](docs/evidence/base-wheel-proof-2026-08-06.json) ·
+[shaper](docs/evidence/permissive-shaper-2026-08-06.json)).
+
+**What refuses is as designed as what converts.** An interactive form whose
+content lives in field values converts into a convincing-looking non-form; it was
+measured at 0.085 SSIM *while exiting zero*, which is worse than failing. Scans,
+forms and over-cap documents now raise typed errors with stable exit codes (17,
+19, 20). A wrong-but-confident answer is the one outcome the project treats as
+unacceptable.
+
+## What is not done
+
+Honest queue, post-release. None of this is hidden in an issue tracker; the
+numbers are measured.
+
+**Headline defect — dense multi-column page inflation (#38).** Long booklets
+under-pack their columns and inflate page counts: 80pp → 106, 114pp → 161,
+126pp → 337. Everything after the first overflow lands on the wrong page, so word
+recall collapses even though document recall holds near 0.90. If your documents
+are long dense booklets, this release is not for them yet.
+
+| # | Item | Measured |
+|---|---|---|
+| **#38** | n-column under-packing | the page-inflation numbers above |
+| #20 | `c2_paper2col` paragraph-box residual | 2.3pt |
+| #23 | `assess` evidence-stamp schema | archived runs carry a `git` key the strict validator rejects, so a committed run cannot be re-assessed without de-stamping |
+| #37 | gutter accumulation | drift compounds down multi-column pages |
+| #42 | page-top spacing after a hard break | renderers drop `w:spacing w:before`; measured −53pt on one gated page 2 |
+| #43 | `05_memo` shared displacement | +4.64pt on both arms — explicitly *not* excused by the ratified within2pt entry |
+| #44 | `y10` discriminator | the metric moved because the reference degraded; the trade is adjudicated, the discriminator is not fixed |
+
+**The `01_whitepaper_market` waiver is live and nearly retired.** It sits at
+mean_ssim 0.6909 against a 0.70 bar — **0.0091 away**. It is bounded, cites its
+cause (Google's cover-band addition), and retires itself: if `01` reaches the bar
+unaided the waiver goes stale and *blocks* every assess until it is deleted.
+
+**Two items belong to the owner and cannot be closed by engineering.** LIC-01,
+the provenance of the initial source and the right to relicense it, which
+[docs/license-audit.md](docs/license-audit.md) explicitly does *not* cover; and
+legal review of that audit, in particular the five corpus fixtures whose
+public-domain basis is publisher identity rather than an explicit written grant.
+Sole authorship removes no third-party obligation, and this is engineering work
+rather than legal advice.
 
 ## Licensing
 

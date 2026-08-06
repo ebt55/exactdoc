@@ -1,0 +1,138 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 690" width="900" height="690" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" role="img" aria-label="exactdoc support matrix for opening converted documents in LibreOffice or Word">
+  <title>exactdoc support matrix — opening in LibreOffice / Word</title>
+  <desc>Support level by document class when the converted DOCX is opened in LibreOffice or Word, from the canonical gate baseline and the ratified parity policies.</desc>
+
+  <rect x="0" y="0" width="900" height="690" rx="10" fill="#eef1f5"/>
+
+  <text x="24" y="38" font-size="21" font-weight="700" fill="#16202b">Opening in LibreOffice / Word</text>
+  <text x="24" y="60" font-size="13" fill="#41505f">The standard profile. Levels from the canonical gate baseline (product lane 16/16 page match) and the ratified parity policies.</text>
+
+  <!-- legend -->
+  <g font-size="12" fill="#26313d">
+    <circle cx="34" cy="86" r="7" fill="#c3e3cb" stroke="#3c8455" stroke-width="1.6"/>
+    <text x="48" y="90" font-weight="600">FULL</text>
+    <text x="88" y="90" fill="#4a5763">converts and opens cleanly; every gated threshold met</text>
+
+    <polygon points="34,105 41,118 27,118" fill="#f8e2b4" stroke="#b8891f" stroke-width="1.6"/>
+    <text x="48" y="112" font-weight="600">PARTIAL</text>
+    <text x="106" y="112" fill="#4a5763">usable, with a measured and ratified shortfall on one axis</text>
+
+    <polygon points="34,126 42,134 34,142 26,134" fill="#f6d3bb" stroke="#b95f27" stroke-width="1.6"/>
+    <text x="48" y="138" font-weight="600">LIMITED</text>
+    <text x="106" y="138" fill="#4a5763">converts, but the result needs review or rework</text>
+
+    <g transform="translate(27,157)">
+      <rect x="0" y="0" width="14" height="14" rx="2.5" fill="#dfe3e8" stroke="#6a7482" stroke-width="1.6"/>
+      <path d="M3.5 3.5 L10.5 10.5 M10.5 3.5 L3.5 10.5" stroke="#54606d" stroke-width="1.7" stroke-linecap="round"/>
+    </g>
+    <text x="48" y="168" font-weight="600">REFUSED</text>
+    <text x="106" y="168" fill="#4a5763">rejected by contract with a typed error and stable exit code</text>
+  </g>
+
+  <line x1="24" y1="184" x2="876" y2="184" stroke="#c8d0d9" stroke-width="1"/>
+
+  <g font-size="11.5" fill="#5a6773" font-weight="600">
+    <text x="24" y="202">DOCUMENT CLASS</text>
+    <text x="432" y="202">LEVEL</text>
+    <text x="575" y="202">VERSUS GOOGLE DOCS</text>
+  </g>
+
+  <g font-size="13">
+    <rect x="24" y="212" width="852" height="30" fill="#e5eaf0"/>
+    <text x="34" y="232" fill="#16202b">Reports &amp; whitepapers (digitally generated)</text>
+    <circle cx="441" cy="227" r="7" fill="#c3e3cb" stroke="#3c8455" stroke-width="1.6"/>
+    <text x="456" y="232" fill="#2c6b43" font-weight="600">FULL</text>
+    <text x="575" y="232" fill="#2c6b43" font-size="12" font-weight="600">better — no cover-band addition here</text>
+
+    <rect x="24" y="242" width="852" height="30" fill="#eaeef3"/>
+    <text x="34" y="262" fill="#16202b">Memos, briefs, letters</text>
+    <circle cx="441" cy="257" r="7" fill="#c3e3cb" stroke="#3c8455" stroke-width="1.6"/>
+    <text x="456" y="262" fill="#2c6b43" font-weight="600">FULL</text>
+    <text x="575" y="262" fill="#41505f" font-size="12">same</text>
+
+    <rect x="24" y="272" width="852" height="30" fill="#e5eaf0"/>
+    <text x="34" y="292" fill="#16202b">Word-native exports (Word/LibreOffice → PDF)</text>
+    <circle cx="441" cy="287" r="7" fill="#c3e3cb" stroke="#3c8455" stroke-width="1.6"/>
+    <text x="456" y="292" fill="#2c6b43" font-weight="600">FULL</text>
+    <text x="575" y="292" fill="#41505f" font-size="12">same — this is the round trip the format was made for</text>
+
+    <rect x="24" y="302" width="852" height="30" fill="#eaeef3"/>
+    <text x="34" y="322" fill="#16202b">Résumés &amp; simple structured documents</text>
+    <circle cx="441" cy="317" r="7" fill="#c3e3cb" stroke="#3c8455" stroke-width="1.6"/>
+    <text x="456" y="322" fill="#2c6b43" font-weight="600">FULL</text>
+    <text x="575" y="322" fill="#41505f" font-size="12">same</text>
+
+    <rect x="24" y="332" width="852" height="30" fill="#e5eaf0"/>
+    <text x="34" y="352" fill="#16202b">Academic two-column papers</text>
+    <circle cx="441" cy="347" r="7" fill="#c3e3cb" stroke="#3c8455" stroke-width="1.6"/>
+    <text x="456" y="352" fill="#2c6b43" font-weight="600">FULL</text>
+    <text x="575" y="352" fill="#41505f" font-size="12">same — column geometry is inferred, not templated</text>
+
+    <rect x="24" y="362" width="852" height="30" fill="#eaeef3"/>
+    <text x="34" y="382" fill="#16202b">Code &amp; monospace listings</text>
+    <circle cx="441" cy="377" r="7" fill="#c3e3cb" stroke="#3c8455" stroke-width="1.6"/>
+    <text x="456" y="382" fill="#2c6b43" font-weight="600">FULL</text>
+    <text x="575" y="382" fill="#41505f" font-size="12">same</text>
+
+    <rect x="24" y="392" width="852" height="30" fill="#e5eaf0"/>
+    <text x="34" y="412" fill="#16202b">Hyperlinks &amp; internal TOC navigation</text>
+    <circle cx="441" cy="407" r="7" fill="#c3e3cb" stroke="#3c8455" stroke-width="1.6"/>
+    <text x="456" y="412" fill="#2c6b43" font-weight="600">FULL</text>
+    <text x="575" y="412" fill="#41505f" font-size="12">same</text>
+
+    <rect x="24" y="422" width="852" height="30" fill="#eaeef3"/>
+    <text x="34" y="442" fill="#16202b">CJK &amp; complex-script text</text>
+    <polygon points="441,435 448,448 434,448" fill="#f8e2b4" stroke="#b8891f" stroke-width="1.6"/>
+    <text x="456" y="442" fill="#8a6410" font-weight="600">PARTIAL</text>
+    <text x="575" y="442" fill="#41505f" font-size="12">same — the raster fallback is in the DOCX, not the renderer</text>
+
+    <rect x="24" y="452" width="852" height="30" fill="#e5eaf0"/>
+    <text x="34" y="472" fill="#16202b">Table-heavy documents</text>
+    <polygon points="441,465 448,478 434,478" fill="#f8e2b4" stroke="#b8891f" stroke-width="1.6"/>
+    <text x="456" y="472" fill="#8a6410" font-weight="600">PARTIAL</text>
+    <text x="575" y="472" fill="#41505f" font-size="12">same — striped tables assemble, nested ones are deferred</text>
+
+    <rect x="24" y="482" width="852" height="30" fill="#eaeef3"/>
+    <text x="34" y="502" fill="#16202b">Graphics / art-heavy pages</text>
+    <polygon points="441,488 449,496 441,504 433,496" fill="#f6d3bb" stroke="#b95f27" stroke-width="1.6"/>
+    <text x="456" y="502" fill="#9c4f1e" font-weight="600">LIMITED</text>
+    <text x="575" y="502" fill="#2c6b43" font-size="12" font-weight="600">better — page count matches here (16/16); text still raster</text>
+
+    <rect x="24" y="512" width="852" height="30" fill="#e5eaf0"/>
+    <text x="34" y="532" fill="#16202b">Dense multi-column booklets (NIST/IRS class)</text>
+    <polygon points="441,518 449,526 441,534 433,526" fill="#f6d3bb" stroke="#b95f27" stroke-width="1.6"/>
+    <text x="456" y="532" fill="#9c4f1e" font-weight="600">LIMITED</text>
+    <text x="575" y="532" fill="#41505f" font-size="12">same — page inflation is the converter, not the renderer</text>
+
+    <rect x="24" y="542" width="852" height="30" fill="#eaeef3"/>
+    <text x="34" y="562" fill="#16202b">Interactive / fillable forms (AcroForm)</text>
+    <g transform="translate(434,549)">
+      <rect x="0" y="0" width="14" height="14" rx="2.5" fill="#dfe3e8" stroke="#6a7482" stroke-width="1.6"/>
+      <path d="M3.5 3.5 L10.5 10.5 M10.5 3.5 L3.5 10.5" stroke="#54606d" stroke-width="1.7" stroke-linecap="round"/>
+    </g>
+    <text x="456" y="562" fill="#4b5663" font-weight="600">REFUSED</text>
+    <text x="575" y="562" fill="#41505f" font-size="12">same — refused before any renderer sees it</text>
+
+    <rect x="24" y="572" width="852" height="30" fill="#e5eaf0"/>
+    <text x="34" y="592" fill="#16202b">Scanned / image-only PDFs</text>
+    <g transform="translate(434,579)">
+      <rect x="0" y="0" width="14" height="14" rx="2.5" fill="#dfe3e8" stroke="#6a7482" stroke-width="1.6"/>
+      <path d="M3.5 3.5 L10.5 10.5 M10.5 3.5 L3.5 10.5" stroke="#54606d" stroke-width="1.7" stroke-linecap="round"/>
+    </g>
+    <text x="456" y="592" fill="#4b5663" font-weight="600">REFUSED</text>
+    <text x="575" y="592" fill="#41505f" font-size="12">same</text>
+
+    <rect x="24" y="602" width="852" height="30" fill="#eaeef3"/>
+    <text x="34" y="622" fill="#16202b">Documents over the page cap (250 pages)</text>
+    <g transform="translate(434,609)">
+      <rect x="0" y="0" width="14" height="14" rx="2.5" fill="#dfe3e8" stroke="#6a7482" stroke-width="1.6"/>
+      <path d="M3.5 3.5 L10.5 10.5 M10.5 3.5 L3.5 10.5" stroke="#54606d" stroke-width="1.7" stroke-linecap="round"/>
+    </g>
+    <text x="456" y="622" fill="#4b5663" font-weight="600">REFUSED</text>
+    <text x="575" y="622" fill="#41505f" font-size="12">same</text>
+  </g>
+
+  <line x1="24" y1="642" x2="876" y2="642" stroke="#c8d0d9" stroke-width="1"/>
+  <text x="24" y="660" font-size="11.5" fill="#5a6773">Evidence: testkit/gate_baseline.json (product 16/16 · within-2pt 0.5274 · live text 0.9588 · dy50 1.045pt) · testkit/parity_policy.json · testkit/product_parity_policy.json</text>
+  <text x="24" y="676" font-size="11.5" fill="#5a6773">Where the two renderers differ, LibreOffice/Word is the easier target: the cover-band addition is Google's own, and c5_graphics keeps its page count here.</text>
+</svg>

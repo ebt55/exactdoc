@@ -1,0 +1,139 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 690" width="900" height="690" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" role="img" aria-label="exactdoc support matrix for opening converted documents in Google Docs">
+  <title>exactdoc support matrix — opening in Google Docs</title>
+  <desc>Support level by document class when the converted DOCX is opened in Google Docs, from live pass-7 evidence and the ratified quality policy.</desc>
+
+  <rect x="0" y="0" width="900" height="690" rx="10" fill="#eef1f5"/>
+
+  <text x="24" y="38" font-size="21" font-weight="700" fill="#16202b">Opening in Google Docs</text>
+  <text x="24" y="60" font-size="13" fill="#41505f">The target renderer. Levels from live pass 7 (2026-08-06, consented, zero blocking findings) and the ratified quality policy.</text>
+
+  <!-- legend -->
+  <g font-size="12" fill="#26313d">
+    <circle cx="34" cy="86" r="7" fill="#c3e3cb" stroke="#3c8455" stroke-width="1.6"/>
+    <text x="48" y="90" font-weight="600">FULL</text>
+    <text x="88" y="90" fill="#4a5763">converts and opens cleanly; every policy threshold met</text>
+
+    <polygon points="34,105 41,118 27,118" fill="#f8e2b4" stroke="#b8891f" stroke-width="1.6"/>
+    <text x="48" y="112" font-weight="600">PARTIAL</text>
+    <text x="106" y="112" fill="#4a5763">usable, with a measured and ratified shortfall on one axis</text>
+
+    <polygon points="34,126 42,134 34,142 26,134" fill="#f6d3bb" stroke="#b95f27" stroke-width="1.6"/>
+    <text x="48" y="138" font-weight="600">LIMITED</text>
+    <text x="106" y="138" fill="#4a5763">converts, but the result needs review or rework</text>
+
+    <g transform="translate(27,157)">
+      <rect x="0" y="0" width="14" height="14" rx="2.5" fill="#dfe3e8" stroke="#6a7482" stroke-width="1.6"/>
+      <path d="M3.5 3.5 L10.5 10.5 M10.5 3.5 L3.5 10.5" stroke="#54606d" stroke-width="1.7" stroke-linecap="round"/>
+    </g>
+    <text x="48" y="168" font-weight="600">REFUSED</text>
+    <text x="106" y="168" fill="#4a5763">rejected by contract with a typed error and stable exit code</text>
+  </g>
+
+  <line x1="24" y1="184" x2="876" y2="184" stroke="#c8d0d9" stroke-width="1"/>
+
+  <g font-size="11.5" fill="#5a6773" font-weight="600">
+    <text x="24" y="202">DOCUMENT CLASS</text>
+    <text x="432" y="202">LEVEL</text>
+    <text x="575" y="202">MEASURED (live pass 7 unless noted)</text>
+  </g>
+
+  <g font-size="13">
+    <!-- 1 -->
+    <rect x="24" y="212" width="852" height="30" fill="#e5eaf0"/>
+    <text x="34" y="232" fill="#16202b">Reports &amp; whitepapers (digitally generated)</text>
+    <circle cx="441" cy="227" r="7" fill="#c3e3cb" stroke="#3c8455" stroke-width="1.6"/>
+    <text x="456" y="232" fill="#2c6b43" font-weight="600">FULL</text>
+    <text x="575" y="232" fill="#41505f" font-size="12">c1 dy 5.56pt · 01 live text 0.9595</text>
+    <!-- 2 -->
+    <rect x="24" y="242" width="852" height="30" fill="#eaeef3"/>
+    <text x="34" y="262" fill="#16202b">Memos, briefs, letters</text>
+    <circle cx="441" cy="257" r="7" fill="#c3e3cb" stroke="#3c8455" stroke-width="1.6"/>
+    <text x="456" y="262" fill="#2c6b43" font-weight="600">FULL</text>
+    <text x="575" y="262" fill="#41505f" font-size="12">04 SSIM 0.9029 · 05 live text 1.000</text>
+    <!-- 3 -->
+    <rect x="24" y="272" width="852" height="30" fill="#e5eaf0"/>
+    <text x="34" y="292" fill="#16202b">Word-native exports (Word/LibreOffice → PDF)</text>
+    <circle cx="441" cy="287" r="7" fill="#c3e3cb" stroke="#3c8455" stroke-width="1.6"/>
+    <text x="456" y="292" fill="#2c6b43" font-weight="600">FULL</text>
+    <text x="575" y="292" fill="#41505f" font-size="12">l1 dy 1.54pt · live text 0.9883</text>
+    <!-- 4 -->
+    <rect x="24" y="302" width="852" height="30" fill="#eaeef3"/>
+    <text x="34" y="322" fill="#16202b">Résumés &amp; simple structured documents</text>
+    <circle cx="441" cy="317" r="7" fill="#c3e3cb" stroke="#3c8455" stroke-width="1.6"/>
+    <text x="456" y="322" fill="#2c6b43" font-weight="600">FULL</text>
+    <text x="575" y="322" fill="#41505f" font-size="12">by class — memo/brief geometry, no fixture of its own</text>
+    <!-- 5 -->
+    <rect x="24" y="332" width="852" height="30" fill="#e5eaf0"/>
+    <text x="34" y="352" fill="#16202b">Academic two-column papers</text>
+    <circle cx="441" cy="347" r="7" fill="#c3e3cb" stroke="#3c8455" stroke-width="1.6"/>
+    <text x="456" y="352" fill="#2c6b43" font-weight="600">FULL</text>
+    <text x="575" y="352" fill="#41505f" font-size="12">c2 dy 2.81pt · dx 0.50pt · recall 1.000</text>
+    <!-- 6 -->
+    <rect x="24" y="362" width="852" height="30" fill="#eaeef3"/>
+    <text x="34" y="382" fill="#16202b">Code &amp; monospace listings</text>
+    <circle cx="441" cy="377" r="7" fill="#c3e3cb" stroke="#3c8455" stroke-width="1.6"/>
+    <text x="456" y="382" fill="#2c6b43" font-weight="600">FULL</text>
+    <text x="575" y="382" fill="#41505f" font-size="12">c7 live text 1.000 · dy 1.93pt</text>
+    <!-- 7 -->
+    <rect x="24" y="392" width="852" height="30" fill="#e5eaf0"/>
+    <text x="34" y="412" fill="#16202b">Hyperlinks &amp; internal TOC navigation</text>
+    <circle cx="441" cy="407" r="7" fill="#c3e3cb" stroke="#3c8455" stroke-width="1.6"/>
+    <text x="456" y="412" fill="#2c6b43" font-weight="600">FULL</text>
+    <text x="575" y="412" fill="#41505f" font-size="12">c8 live text 1.000 · dy 1.71pt · links stay live</text>
+    <!-- 8 -->
+    <rect x="24" y="422" width="852" height="30" fill="#eaeef3"/>
+    <text x="34" y="442" fill="#16202b">CJK &amp; complex-script text</text>
+    <polygon points="441,435 448,448 434,448" fill="#f8e2b4" stroke="#b8891f" stroke-width="1.6"/>
+    <text x="456" y="442" fill="#8a6410" font-weight="600">PARTIAL</text>
+    <text x="575" y="442" fill="#41505f" font-size="12">c4 live text 0.9091 — ratified D10 raster fallback</text>
+    <!-- 9 -->
+    <rect x="24" y="452" width="852" height="30" fill="#e5eaf0"/>
+    <text x="34" y="472" fill="#16202b">Table-heavy documents</text>
+    <polygon points="441,465 448,478 434,478" fill="#f8e2b4" stroke="#b8891f" stroke-width="1.6"/>
+    <text x="456" y="472" fill="#8a6410" font-weight="600">PARTIAL</text>
+    <text x="575" y="472" fill="#41505f" font-size="12">c3 word recall 0.8215 — non-blocking in policy</text>
+    <!-- 10 -->
+    <rect x="24" y="482" width="852" height="30" fill="#eaeef3"/>
+    <text x="34" y="502" fill="#16202b">Graphics / art-heavy pages</text>
+    <polygon points="441,488 449,496 441,504 433,496" fill="#f6d3bb" stroke="#b95f27" stroke-width="1.6"/>
+    <text x="456" y="502" fill="#9c4f1e" font-weight="600">LIMITED</text>
+    <text x="575" y="502" fill="#41505f" font-size="12">c5 recalls 17% of words — the page <tspan font-style="italic">is</tspan> artwork</text>
+    <!-- 11 -->
+    <rect x="24" y="512" width="852" height="30" fill="#e5eaf0"/>
+    <text x="34" y="532" fill="#16202b">Dense multi-column booklets (NIST/IRS class)</text>
+    <polygon points="441,518 449,526 441,534 433,526" fill="#f6d3bb" stroke="#b95f27" stroke-width="1.6"/>
+    <text x="456" y="532" fill="#9c4f1e" font-weight="600">LIMITED</text>
+    <text x="575" y="532" fill="#41505f" font-size="12">page inflation: 80pp → 106, 114pp → 161, 126pp → 337</text>
+    <!-- 12 -->
+    <rect x="24" y="542" width="852" height="30" fill="#eaeef3"/>
+    <text x="34" y="562" fill="#16202b">Interactive / fillable forms (AcroForm)</text>
+    <g transform="translate(434,549)">
+      <rect x="0" y="0" width="14" height="14" rx="2.5" fill="#dfe3e8" stroke="#6a7482" stroke-width="1.6"/>
+      <path d="M3.5 3.5 L10.5 10.5 M10.5 3.5 L3.5 10.5" stroke="#54606d" stroke-width="1.7" stroke-linecap="round"/>
+    </g>
+    <text x="456" y="562" fill="#4b5663" font-weight="600">REFUSED</text>
+    <text x="575" y="562" fill="#41505f" font-size="12">InteractiveFormError — exit 19 (0.085 SSIM if converted)</text>
+    <!-- 13 -->
+    <rect x="24" y="572" width="852" height="30" fill="#e5eaf0"/>
+    <text x="34" y="592" fill="#16202b">Scanned / image-only PDFs</text>
+    <g transform="translate(434,579)">
+      <rect x="0" y="0" width="14" height="14" rx="2.5" fill="#dfe3e8" stroke="#6a7482" stroke-width="1.6"/>
+      <path d="M3.5 3.5 L10.5 10.5 M10.5 3.5 L3.5 10.5" stroke="#54606d" stroke-width="1.7" stroke-linecap="round"/>
+    </g>
+    <text x="456" y="592" fill="#4b5663" font-weight="600">REFUSED</text>
+    <text x="575" y="592" fill="#41505f" font-size="12">OcrRequiredError — exit 17 · no OCR engine bundled</text>
+    <!-- 14 -->
+    <rect x="24" y="602" width="852" height="30" fill="#eaeef3"/>
+    <text x="34" y="622" fill="#16202b">Documents over the page cap (250 pages)</text>
+    <g transform="translate(434,609)">
+      <rect x="0" y="0" width="14" height="14" rx="2.5" fill="#dfe3e8" stroke="#6a7482" stroke-width="1.6"/>
+      <path d="M3.5 3.5 L10.5 10.5 M10.5 3.5 L3.5 10.5" stroke="#54606d" stroke-width="1.7" stroke-linecap="round"/>
+    </g>
+    <text x="456" y="622" fill="#4b5663" font-weight="600">REFUSED</text>
+    <text x="575" y="622" fill="#41505f" font-size="12">PageLimitError — exit 20 · answerable with --max-pages</text>
+  </g>
+
+  <line x1="24" y1="642" x2="876" y2="642" stroke="#c8d0d9" stroke-width="1"/>
+  <text x="24" y="660" font-size="11.5" fill="#5a6773">Evidence: docs/evidence/gdocs-2026-08-06-pass7-qualification.json · testkit/gdocs_quality_policy.json (ratified) · docs/evidence/release-1.0.0-2026-08-06.json</text>
+  <text x="24" y="676" font-size="11.5" fill="#5a6773">01_whitepaper_market carries the one bounded, self-retiring waiver (mean_ssim 0.6909 against a 0.70 bar) — Google's own ~14.6pt cover-band addition.</text>
+</svg>
