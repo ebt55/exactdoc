@@ -128,16 +128,17 @@ def _hexcol(r, g, b):
 
 class _Char:
     __slots__ = ("u", "x0", "y0", "x1", "y1", "ox", "oy", "size", "font",
-                 "flags", "color", "gen", "sup", "link", "dest")
+                 "flags", "color", "gen", "sup", "link", "dest", "tracked")
 
     def __init__(self):
-        # Only the flags that _absorb_script_rows and _tag_char_links set need
-        # defaults; every other slot is assigned by _page_chars before the
-        # character is used, and leaving them unset keeps construction as cheap
-        # as it was.
+        # Only the flags that _absorb_script_rows, _tag_char_links and
+        # _drop_tracking_spaces set need defaults; every other slot is assigned
+        # by _page_chars before the character is used, and leaving them unset
+        # keeps construction as cheap as it was.
         self.sup = False
         self.link = None
         self.dest = None
+        self.tracked = False
 
     @property
     def mono_hint(self) -> bool:
@@ -402,6 +403,12 @@ def _drop_tracking_spaces(chars: List[_Char]) -> List[_Char]:
             near = sum(1 for g in gaps if abs(g - t) <= TRACK_UNIFORM_EM)
             if near < TRACK_UNIFORM_SHARE * len(gaps):
                 continue
+            # The measurement is worth keeping, not just acting on: a
+            # letter-spaced line among un-letter-spaced ones is a heading, and
+            # infer._split_lines_to_paras uses exactly this to end the paragraph
+            # before the body that follows.
+            for c in run:
+                c.tracked = True
             for i, c in enumerate(run):
                 if not (c.gen and c.u.isspace()):
                     continue
@@ -547,9 +554,12 @@ def _style(c: _Char):
     # frozen precisely to allow -- the writer already keys its bookmark table on
     # one -- so two GoTo rects aimed at the same place merge as they should, and
     # nothing here depends on object identity outliving the page.
+    # `tracked` joins the key for the same reason as the rest: a letter-spaced
+    # heading is a different run from the body it sits above, and the boundary
+    # has to survive into the IR for inference to end the paragraph on it.
     return (c.font, round(c.size, 2), c.color, bold, italic, mono, serif,
             getattr(c, "sup", False), getattr(c, "link", None),
-            getattr(c, "dest", None))
+            getattr(c, "dest", None), getattr(c, "tracked", False))
 
 
 def _gutter_xs(exempted: List[float]) -> List[float]:
@@ -994,7 +1004,8 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
         for cs, key in spans:
             if not cs:
                 continue
-            font, size, color, bold, italic, mono, serif, sup, link, dest = key
+            (font, size, color, bold, italic, mono, serif, sup, link, dest,
+             tracked) = key
             # Sanitised here rather than in _page_chars: the glyph occupies real
             # advance width on the page, so it stays in the line's geometry even
             # though it carries no text. See model.xml_safe_text for why the
@@ -1011,7 +1022,7 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
                 text=text, font=font, size=size, color=color, bold=bold,
                 italic=italic, mono=mono, serif=serif, superscript=sup,
                 bbox=bb, origin=(cs[0].ox, cs[0].oy),
-                link=link, dest=dest))
+                link=link, dest=dest, tracked=tracked))
         if not sp_objs:
             continue
         lb = (min(s.bbox[0] for s in sp_objs), min(s.bbox[1] for s in sp_objs),

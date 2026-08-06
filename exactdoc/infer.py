@@ -435,9 +435,28 @@ def _line_starts_with_marker(ln: Line) -> bool:
     return _marker_split_idx(ln.spans) is not None
 
 
+def _line_tracked(ln: Line) -> Optional[bool]:
+    """Is this whole line letter-spaced? None when it is neither cleanly.
+
+    Measured by the parser, never guessed here. A line that mixes tracked and
+    untracked runs answers None rather than picking a side, because a run-in
+    heading followed by body text on the SAME line is one line and splitting
+    around it would be a lie about the source.
+    """
+    tot = sum(len(s.text.strip()) for s in ln.spans)
+    if not tot:
+        return None
+    n = sum(len(s.text.strip()) for s in ln.spans if getattr(s, "tracked", False))
+    if n >= 0.8 * tot:
+        return True
+    if n <= 0.2 * tot:
+        return False
+    return None
+
+
 def _split_lines_to_paras(lines: List[Line]) -> List[List[Line]]:
     """Group a flat list of lines into paragraphs on large baseline gaps,
-    dominant-size jumps, or list-marker starts."""
+    dominant-size jumps, letter-spacing changes, or list-marker starts."""
     lines = _merge_row_lines(lines)
     if len(lines) <= 1:
         return [lines] if lines else []
@@ -457,7 +476,26 @@ def _split_lines_to_paras(lines: List[Line]) -> List[List[Line]]:
         sz_prev = dom_size(cur[-1])
         sz_new = dom_size(ln)
         size_jump = max(sz_prev, sz_new) > 1.3 * max(0.1, min(sz_prev, sz_new))
-        if deltas[i] > max(lead * 1.55, lead + 4.0) or size_jump \
+        # A section heading set in letter-spaced caps at the BODY'S OWN SIZE is
+        # invisible to every test above it: measured on a resume whose headings
+        # are Georgia-Bold 9.49pt over 9.49pt body, the size ratio is 1.000
+        # against a 1.3 threshold, the baseline step is an ordinary leading, and
+        # there is no marker -- so `SUMMARY` and `TECHNICAL SKILLS` were grouped
+        # with the paragraphs beneath them and emitted as one run of text.
+        #
+        # The boundary is letter-spacing rather than bold or caps, and that is a
+        # measured choice, not a preference. Censused over all 48 documents:
+        # a bold delta would newly split 584 pairs on y11_nist_sp80053r5, 235 on
+        # y06_irs_1040_instructions and 96 on y02, because bold labels, bold
+        # table cells and bold run-in headings are everywhere in those; a caps
+        # delta would newly split a citation inside 02_research_paper, which is
+        # a GATED fixture. Tracking newly splits 2 pairs in 1 document of 48,
+        # and both are the welded headings. See parse_pdfium._drop_tracking_spaces
+        # for how the measurement is made and what it refuses to call tracking.
+        track_prev, track_new = _line_tracked(cur[-1]), _line_tracked(ln)
+        track_jump = (track_prev is not None and track_new is not None
+                      and track_prev != track_new)
+        if deltas[i] > max(lead * 1.55, lead + 4.0) or size_jump or track_jump \
                 or _line_starts_with_marker(ln):
             groups.append(cur)
             cur = [ln]

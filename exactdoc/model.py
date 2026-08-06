@@ -137,6 +137,11 @@ class Span:
     origin: Tuple[float, float]  # baseline origin
     link: Optional[str] = None   # external uri if inside a URI link rect
     dest: Optional[LinkDest] = None  # internal target if inside a GoTo rect
+    # Set when the parser measured uniform letter-spacing across this run. It is
+    # a typographic fact about the source, not a writer instruction: nothing
+    # emits tracking from it. Inference uses it as a paragraph boundary, because
+    # a letter-spaced line among un-letter-spaced ones is a heading.
+    tracked: bool = False
 
 
 @dataclass
