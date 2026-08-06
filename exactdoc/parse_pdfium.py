@@ -128,13 +128,16 @@ def _hexcol(r, g, b):
 
 class _Char:
     __slots__ = ("u", "x0", "y0", "x1", "y1", "ox", "oy", "size", "font",
-                 "flags", "color", "gen", "sup")
+                 "flags", "color", "gen", "sup", "link", "dest")
 
     def __init__(self):
-        # Only the flag that _absorb_script_rows sets needs a default; every
-        # other slot is assigned by _page_chars before the character is used,
-        # and leaving them unset keeps construction as cheap as it was.
+        # Only the flags that _absorb_script_rows and _tag_char_links set need
+        # defaults; every other slot is assigned by _page_chars before the
+        # character is used, and leaving them unset keeps construction as cheap
+        # as it was.
         self.sup = False
+        self.link = None
+        self.dest = None
 
     @property
     def mono_hint(self) -> bool:
@@ -417,8 +420,19 @@ def _style(c: _Char):
         serif = any(k in fl for k in _SERIF_NAMES)
     # A script is its own span even when it is set at the host's size: the
     # writer has to raise it, and a run cannot be half superscript.
+    #
+    # The link belongs in the style key for exactly the same reason. A run
+    # cannot be half hyperlink, so an anchor that covers part of a line has to
+    # end the span where it begins and start one where it ends. Keying on it
+    # here is what splits `See the deployment runbook for more detail.` into
+    # three spans with the middle one linked, instead of one span the tagger
+    # then has to judge as a whole. `dest` goes in by VALUE, which LinkDest is
+    # frozen precisely to allow -- the writer already keys its bookmark table on
+    # one -- so two GoTo rects aimed at the same place merge as they should, and
+    # nothing here depends on object identity outliving the page.
     return (c.font, round(c.size, 2), c.color, bold, italic, mono, serif,
-            getattr(c, "sup", False))
+            getattr(c, "sup", False), getattr(c, "link", None),
+            getattr(c, "dest", None))
 
 
 def _gutter_xs(exempted: List[float]) -> List[float]:
@@ -693,6 +707,44 @@ def _vertical_line(run: List[_Char]) -> Optional[Line]:
     return Line(spans=[span], bbox=bb, dir=(0.0, 1.0))
 
 
+def _tag_char_links(chars: List[_Char], links) -> None:
+    """Give every character the link whose rectangle covers it.
+
+    This replaces a test that ran the other way round, after spans were built:
+    a span kept a link when the SPAN was more than half inside the LINK. That
+    question only has a sensible answer when the anchor is the whole span, which
+    is true of a contact header -- `a.rivera@example.com` is its own span,
+    covering 0.939 to 0.971 of it -- and false of an anchor in prose, which is a
+    fragment of a much longer span. Measured on the resume fixture, the four
+    header anchors passed and the four prose anchors scored 0.041, 0.121, 0.191
+    and 0.462 and were all dropped. The owner saw exactly that: page 1 kept its
+    links, page 2 lost every one.
+
+    Lowering the constant is not the fix. Those four values are spread evenly
+    from 0.04 to 0.46 with no gap to cut at, and the 0.462 case sits so close to
+    0.5 that any threshold either swallows it or does not, arbitrarily -- while
+    0.041 stays broken whatever the constant is. The anchor is a property of the
+    CHARACTERS, so it is settled per character here, and `_style` then ends the
+    span wherever it changes.
+
+    A character belongs to a link when its centre is inside the rectangle.
+    Centre rather than overlap-area: producers routinely draw a link rect a
+    point or so wider than the glyphs, and a first or last character that
+    straddles the edge should follow the side it mostly sits on.
+    """
+    if not links:
+        return
+    for c in chars:
+        cx = (c.x0 + c.x1) / 2.0
+        cy = (c.y0 + c.y1) / 2.0
+        for lk in links:
+            x0, y0, x1, y1 = lk["bbox"]
+            if x0 <= cx <= x1 and y0 <= cy <= y1:
+                c.link = lk.get("uri")
+                c.dest = lk.get("dest")
+                break
+
+
 def _build_lines(chars: List[_Char]) -> List[Line]:
     """chars -> spans -> lines, by baseline then x.
 
@@ -825,7 +877,7 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
         for cs, key in spans:
             if not cs:
                 continue
-            font, size, color, bold, italic, mono, serif, sup = key
+            font, size, color, bold, italic, mono, serif, sup, link, dest = key
             # Sanitised here rather than in _page_chars: the glyph occupies real
             # advance width on the page, so it stays in the line's geometry even
             # though it carries no text. See model.xml_safe_text for why the
@@ -835,10 +887,14 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
                 continue
             bb = (min(c.x0 for c in cs), min(c.y0 for c in cs),
                   max(c.x1 for c in cs), max(c.y1 for c in cs))
+            # Both link fields ride the style key, so every character in this
+            # span agreed on them by construction; there is nothing to re-derive
+            # from cs[0].
             sp_objs.append(Span(
                 text=text, font=font, size=size, color=color, bold=bold,
                 italic=italic, mono=mono, serif=serif, superscript=sup,
-                bbox=bb, origin=(cs[0].ox, cs[0].oy)))
+                bbox=bb, origin=(cs[0].ox, cs[0].oy),
+                link=link, dest=dest))
         if not sp_objs:
             continue
         lb = (min(s.bbox[0] for s in sp_objs), min(s.bbox[1] for s in sp_objs),
@@ -1942,8 +1998,8 @@ def _page_links(page, page_h, doc):
     two it missed are the ordinary case: prose linked by a word.
 
     The rectangles agree with PyMuPDF's to the decimal once flipped into the
-    IR's top-left origin, which is what lets the existing span-tagging loop in
-    parse_pdf stay exactly as it was.
+    IR's top-left origin, which is the coordinate system `_tag_char_links` tests
+    character centres against.
 
     `FPDFLink_Enumerate` walks the annotations without the caller owning a
     handle, so unlike the weblink set there is nothing here to leak or close.
@@ -2005,23 +2061,19 @@ def parse_pdf(path: str, keep_image_data: bool = True) -> DocIR:
                 pir.links = _page_links(page, h, doc)
                 tp = page.get_textpage()
                 try:
-                    _flow, pir.rotated = _split_vertical_runs(_page_chars(tp, h))
+                    chars = _page_chars(tp, h)
+                    # Before spans exist: a link is a property of characters, and
+                    # settling it here lets _style end a span at the anchor's
+                    # edge. See _tag_char_links for what the old span-level test
+                    # got wrong and why no threshold repairs it.
+                    _tag_char_links(chars, pir.links)
+                    _flow, pir.rotated = _split_vertical_runs(chars)
                     lines = _build_lines(_flow)
                     # Needs the text page open: the question is precisely which
                     # objects it kept nothing of.
                     pir.undecoded = _page_undecoded(page, h, tp)
                 finally:
                     tp.close()
-                for sp in (s for l in lines for s in l.spans):
-                    for lk in pir.links:
-                        lb = lk["bbox"]
-                        ov = (max(0, min(sp.bbox[2], lb[2]) - max(sp.bbox[0], lb[0])) *
-                              max(0, min(sp.bbox[3], lb[3]) - max(sp.bbox[1], lb[1])))
-                        if ov > 0.5 * max(1e-6, (sp.bbox[2] - sp.bbox[0]) *
-                                          (sp.bbox[3] - sp.bbox[1])):
-                            sp.link = lk.get("uri")
-                            sp.dest = lk.get("dest")
-                            break
                 pir.blocks = _build_blocks(lines, w)
                 pir.drawings = _page_paths(page, h)
                 pir.images = _page_images(page, h, keep_image_data)
