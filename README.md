@@ -498,9 +498,9 @@ rather than legal advice.
 
 ## Licensing
 
-**exactdoc is [Apache-2.0](LICENSE).** A default `pip install exactdoc` resolves
-eight packages and none of them carries a copyleft term — the shipping PDF
-parser is PDFium via pypdfium2 (Apache-2.0/BSD-3).
+**exactdoc is [Apache-2.0](LICENSE).** A default install resolves eight packages
+and none of them carries a copyleft term — the shipping PDF parser is PDFium via
+pypdfium2 (Apache-2.0/BSD-3).
 
 **The optional `[mupdf]` extra pulls in PyMuPDF, which is AGPL-3.0-or-later.**
 Installing it changes your obligations for anything you distribute. Nothing

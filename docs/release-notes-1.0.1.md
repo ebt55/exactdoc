@@ -103,17 +103,22 @@ point; one word in ten is still around nine points out. Good, not perfect.
 ## Install
 
 ```bash
-pip install exactdoc
+git clone https://github.com/ebt55/exactdoc && cd exactdoc
+pip install -e .
+
 exactdoc report.pdf -o report.docx
 
 # Google-Docs-safe output, fully offline:
 exactdoc --output-profile gdocs report.pdf -o report.docx
 ```
 
+The refinement loop uses LibreOffice headless (`soffice`) if it is on your path,
+and works without it.
+
 Conversion is local. Nothing is uploaded unless you explicitly run the Google
 qualification tooling and consent to it.
 
-Apache-2.0. A default install carries no copyleft dependency; the optional
+Apache-2.0. A default install resolves no copyleft dependency; the optional
 `[mupdf]` extra does, and installing it changes your obligations for anything
 you distribute. It exists only as the reference arm for parity measurement and
 does not change the output.

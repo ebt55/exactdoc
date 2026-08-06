@@ -50,7 +50,10 @@ but are invisible at its scale.
 
 `x17`/`x18`, before → after: `dy_p50` 3.13 → **0.38pt**, `dy_p90` 25.43 →
 **8.92pt**, `within2pt` 0.0590 → **0.1022**, `mean_ssim` 0.8422 → **0.8733**.
-Reviewed live in Google Docs and approved.
+Reviewed live in Google Docs and approved. Both runs are committed:
+[docs/evidence/sweep-1.0.1-expansion-2026-08-06.md](docs/evidence/sweep-1.0.1-expansion-2026-08-06.md)
+indexes the two result sets and their logs, and records what they do and do not
+authenticate.
 
 `word_recall` reads 0.9443 → 0.8719 across the same change, and that is a
 **reference artifact rather than a text regression**: the harness reference was

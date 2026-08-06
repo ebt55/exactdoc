@@ -15,7 +15,7 @@
 
     <polygon points="34,105 41,118 27,118" fill="#f8e2b4" stroke="#b8891f" stroke-width="1.6"/>
     <text x="48" y="112" font-weight="600">PARTIAL</text>
-    <text x="106" y="112" fill="#4a5763">usable, with a measured and ratified shortfall on one axis</text>
+    <text x="106" y="112" fill="#4a5763">usable, with a measured shortfall on one axis</text>
 
     <polygon points="34,126 42,134 34,142 26,134" fill="#f6d3bb" stroke="#b95f27" stroke-width="1.6"/>
     <text x="48" y="138" font-weight="600">LIMITED</text>

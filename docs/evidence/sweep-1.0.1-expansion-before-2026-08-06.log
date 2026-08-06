@@ -1,0 +1,60 @@
+expansion corpus: 31 document(s)
+
+================ expansion lane: product (pdfium/standard/libreoffice/refine3@240dpi) ================
+REFUSED      y07_irs_f1040_form             InteractiveFormError: this PDF is an interactive form: its content lives in fillable fields, which this converter does not preserve. Converting it would produce a document that looks like the form and is not one.
+REFUSED      y11_nist_sp80053r5_overcap     PageLimitError: this PDF has 492 pages, over the 250-page limit. Pass --max-pages (or max_pages=) to raise it, or 0 to remove it.
+REFUSED      y14_irs_fw9_form               InteractiveFormError: this PDF is an interactive form: its content lives in fillable fields, which this converter does not preserve. Converting it would produce a document that looks like the form and is not one.
+
+-- LibreOffice batch render --
+rendered 28/28
+
+-- scoring --
+x01_lo_memo_pageno.pdf         pg 3/3 ok   | live 0.967 | keep 0.997 | place 0.997 | dy50   0.2 dy90   14.8 | <2pt 0.46 | ssim 0.902 iou 0.413 | img 0
+x02_lo_report_toc.pdf          pg 4/4 ok   | live 0.976 | keep 0.988 | place 0.988 | dy50   0.6 dy90   14.3 | <2pt 0.19 | ssim 0.862 iou 0.248 | img 0
+x03_lo_lists_nested.pdf        pg 2/2 ok   | live 0.952 | keep 0.949 | place 0.949 | dy50   0.2 dy90    0.7 | <2pt 1.00 | ssim 0.979 iou 0.721 | img 0
+x04_lo_tables_plain.pdf        pg 1/1 ok   | live 0.998 | keep 0.993 | place 0.993 | dy50   0.6 dy90    5.2 | <2pt 0.56 | ssim 0.806 iou 0.334 | img 0
+x05_lo_quotes_notes.pdf        pg 1/1 ok   | live 0.994 | keep 0.993 | place 0.993 | dy50   0.1 dy90   14.8 | <2pt 0.37 | ssim 0.836 iou 0.277 | img 0
+x06_lo_euro_scripts.pdf        pg 1/1 ok   | live 1.000 | keep 1.000 | place 1.000 | dy50   0.1 dy90    0.3 | <2pt 0.64 | ssim 0.924 iou 0.484 | img 0
+x07_chrome_memo_running.pdf    pg 3/3 ok   | live 0.983 | keep 0.979 | place 0.979 | dy50  15.5 dy90   35.9 | <2pt 0.01 | ssim 0.728 iou 0.139 | img 0
+x08_chrome_print_default.pdf   pg 2/2 ok   | live 0.977 | keep 0.995 | place 0.995 | dy50  27.7 dy90   62.7 | <2pt 0.01 | ssim 0.632 iou 0.075 | img 0
+x09_chrome_lists_nested.pdf    pg 2/2 ok   | live 0.989 | keep 1.000 | place 1.000 | dy50   4.2 dy90   31.1 | <2pt 0.11 | ssim 0.894 iou 0.173 | img 0
+x10_chrome_tables_plain.pdf    pg 2/2 ok   | live 1.000 | keep 0.996 | place 0.996 | dy50  14.8 dy90   15.7 | <2pt 0.12 | ssim 0.834 iou 0.116 | img 0
+x11_chrome_toc_headings.pdf    pg 2/2 ok   | live 0.988 | keep 0.984 | place 0.984 | dy50  72.3 dy90  238.2 | <2pt 0.01 | ssim 0.676 iou 0.065 | img 6
+x12_chrome_euro_scripts.pdf    pg 1/1 ok   | live 1.000 | keep 1.000 | place 1.000 | dy50   0.8 dy90    1.5 | <2pt 0.16 | ssim 0.850 iou 0.269 | img 0
+x13_rl_report_running.pdf      pg 2/2 ok   | live 0.979 | keep 0.996 | place 0.996 | dy50   0.6 dy90   64.3 | <2pt 0.44 | ssim 0.717 iou 0.229 | img 0
+x14_rl_statement_lines.pdf     pg 1/1 ok   | live 1.000 | keep 0.994 | place 0.994 | dy50   1.4 dy90    2.2 | <2pt 0.15 | ssim 0.875 iou 0.253 | img 0
+x15_rl_handbook_toc.pdf        pg 3/3 ok   | live 1.000 | keep 0.998 | place 0.998 | dy50   0.9 dy90    1.4 | <2pt 0.80 | ssim 0.907 iou 0.330 | img 0
+x16_fpdf_bulletin.pdf          pg 1/1 ok   | live 1.000 | keep 1.000 | place 1.000 | dy50   1.8 dy90    4.1 | <2pt 0.53 | ssim 0.817 iou 0.379 | img 0
+x17_resume_twocol.pdf          pg 2/2 ok   | live 1.000 | keep 0.947 | place 0.944 | dy50   3.1 dy90   25.4 | <2pt 0.06 | ssim 0.842 iou 0.097 | img 0
+x18_resume_twocol_tnr.pdf      pg 2/2 ok   | live 1.000 | keep 0.945 | place 0.942 | dy50   3.7 dy90   25.4 | <2pt 0.06 | ssim 0.847 iou 0.098 | img 0
+y01_nist_sp80063b.pdf          pg 80/96 BAD  | live 0.916 | keep 0.929 | place 0.219 | dy50  54.1 dy90  290.1 | <2pt 0.00 | ssim 0.480 iou 0.048 | img 52
+y02_nist_sp800171r2.pdf        pg 114/139 BAD  | live 0.870 | keep 0.907 | place 0.306 | dy50  41.9 dy90  266.1 | <2pt 0.02 | ssim 0.527 iou 0.074 | img 4
+y03_nist_fips197.pdf           pg 46/64 BAD  | live 0.920 | keep 0.914 | place 0.381 | dy50  10.7 dy90  216.8 | <2pt 0.11 | ssim 0.515 iou 0.035 | img 15
+y06_irs_1040_instructions.pdf  pg 126/335 BAD  | live 0.958 | keep 0.876 | place 0.114 | dy50  50.3 dy90  317.8 | <2pt 0.00 | ssim 0.189 iou 0.014 | img 57
+y08_nist_sp80088r1.pdf         pg 65/76 BAD  | live 0.977 | keep 0.968 | place 0.283 | dy50  60.1 dy90  303.4 | <2pt 0.00 | ssim 0.503 iou 0.052 | img 6
+y09_nist_sp800207.pdf          pg 59/65 BAD  | live 0.947 | keep 0.954 | place 0.237 | dy50  60.4 dy90  303.1 | <2pt 0.00 | ssim 0.507 iou 0.063 | img 15
+y10_nist_fips180.pdf           pg 36/37 BAD  | live 0.940 | keep 0.768 | place 0.468 | dy50  14.1 dy90  131.8 | <2pt 0.11 | ssim 0.756 iou 0.090 | img 6
+y12_irs_pub15.pdf              pg 59/110 BAD  | live 0.976 | keep 0.956 | place 0.219 | dy50  46.1 dy90  313.8 | <2pt 0.00 | ssim 0.195 iou 0.034 | img 3
+y13_irs_pub501.pdf             pg 31/69 BAD  | live 0.970 | keep 0.962 | place 0.179 | dy50  41.5 dy90  310.1 | <2pt 0.00 | ssim 0.190 iou 0.021 | img 7
+y17_rfc9110.pdf                pg 194/215 BAD  | live 0.964 | keep 0.951 | place 0.384 | dy50  49.8 dy90  258.4 | <2pt 0.00 | ssim 0.573 iou 0.040 | img 6
+
+-- product summary (NON-GATING) --
+  designed_stress: 2 document(s), 2 measured, 0 page-exact
+      median doc_recall       0.9191
+      median dy_p50          45.8600
+      median live_text_cov    0.9639
+      median mean_ssim        0.1895
+      median raster_frac      0.0361
+      median within2pt        0.0006
+      median word_recall      0.1467
+  ordinary_digital: 26 document(s), 26 measured, 18 page-exact
+      median doc_recall       0.9860
+      median dy_p50           3.9100
+      median live_text_cov    0.9814
+      median mean_ssim        0.8115
+      median raster_frac      0.0186
+      median within2pt        0.1111
+      median word_recall      0.9860
+  unsupported: 3 document(s), 0 measured, 0 page-exact, 3 refused as expected
+
+These numbers gate nothing. No baseline describes this corpus and testkit/gate.py never saw it; promotion into the gate is the deliberate commit in docs/corpus-expansion.md §7.
