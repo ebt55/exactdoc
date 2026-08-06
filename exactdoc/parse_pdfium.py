@@ -354,7 +354,16 @@ def _page_chars(textpage, page_h) -> List[_Char]:
 TRACK_MIN_EM = 0.05        # below this a run is not letter-spaced at all
 TRACK_MAX_EM = SPACE_GAP_EM  # at or above a space's width it is a real space
 TRACK_MIN_ALPHA = 0.85     # of glyphs, or the run is a table and not a word
-TRACK_UNIFORM_EM = 0.05    # how near t a gap sits to count as "the tracking"
+# Tracking is uniform in ADVANCE, and what is measurable here is the INK gap.
+# Those differ by the two glyphs' side bearings, which in a proportional face is
+# a real spread: on the fixture's `EXPERIENCE`, set with one letter-spacing
+# value throughout, the ink gaps range widely enough that a 0.05em window held
+# only 0.67 of them and 0.58 of `EXPERIENCE, CONTINUED`'s, so both were refused
+# while `SUMMARY` and `SKILLS` scored 1.00. The window has to admit the side
+# bearings of ordinary letterforms; 0.10em does, and the corpus census below is
+# unchanged by the widening, because what actually excludes tables is
+# TRACK_MAX_EM and TRACK_MIN_ALPHA rather than this.
+TRACK_UNIFORM_EM = 0.10    # how near t a gap sits to count as "the tracking"
 TRACK_UNIFORM_SHARE = 0.70  # of gaps, before a run is called letter-spaced
 
 

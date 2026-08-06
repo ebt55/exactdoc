@@ -1135,8 +1135,18 @@ body { font-family: 'Liberation Serif', serif; font-size: 9.7pt;
 .contact a { color: #14417a; text-decoration: none; }
 .contact .sep { color: #a0a0a0; }
 hr.rule { border: none; border-top: 0.9pt solid #444; margin: 8pt 0 5pt; }
-h2.sec { font-family: 'Liberation Sans', sans-serif; font-size: 9.0pt;
-         text-transform: uppercase; letter-spacing: 0.7pt; margin: 0 0 3pt;
+/* LETTER-SPACED SMALL-CAPS SECTION HEADINGS, at the measured geometry.
+   0.7pt at 9.0pt was 0.078em of tracking, which is too little for PDFium to
+   read as a word break, so the pair pinned nothing about the mechanism. The
+   owner's resume tracks its headings at 1.5pt on 9.49pt type -- 0.158em -- and
+   at that ratio PDFium synthesises a space into EVERY tracking gap, turning
+   SUMMARY into `S UMMARY` and TECHNICAL SKILLS into `T E C H N I C A L S K
+   ILLS`. 1.5pt on 9.5pt reproduces the ratio to three decimals.
+   The heading stays at the body's own size band on purpose: that is what makes
+   it invisible to infer's 1.3 dominant-size test and lets it be welded into the
+   paragraph below, which is the second mechanism the pair now carries. */
+h2.sec { font-family: 'Liberation Sans', sans-serif; font-size: 9.5pt;
+         text-transform: uppercase; letter-spacing: 1.5pt; margin: 0 0 3pt;
          color: #222; }
 .row { display: flex; justify-content: space-between; align-items: baseline;
        margin: 5pt 0 1pt; }
