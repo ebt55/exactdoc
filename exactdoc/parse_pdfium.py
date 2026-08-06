@@ -296,8 +296,125 @@ def _page_chars(textpage, page_h) -> List[_Char]:
             continue
         adv = (MONO_ADV_EM if c.mono_hint else SPACE_ADV_EM) * max(c.size, 1.0)
         c.x1 = min(nxt.x0, max(c.x1, c.x0 + adv))
+    out = _drop_tracking_spaces(out)
     _restore_soft_hyphens(out)
     return out
+
+
+# Letter-spaced text, and why PDFium's space synthesis cannot see it.
+#
+# A run set with tracking has the SAME extra advance after every glyph. PDFium
+# reads each of those gaps the way it reads a gap between words and synthesises
+# a space into it, so a tracked heading arrives already broken: measured on a
+# resume whose section headings are Georgia-Bold 9.49pt with 1.5pt of tracking,
+# `SUMMARY` arrives as `S UMMARY` and `TECHNICAL SKILLS` as
+# `T E C H N I C A L S K ILLS`. The spaces are not this parser's: it synthesises
+# none of them (every tracking gap is 0.13-0.16em, under SPACE_GAP_EM), and the
+# giveaway that they are PDFium's is that their advance OVERLAPS the following
+# glyph by 0.06-0.15em.
+#
+# Dropping generated spaces wholesale is the fix that was already tried and
+# reverted, for a good reason recorded in _page_chars: at 22pt the ink-to-ink
+# gap between two words is small, so `Implementation Notes` became
+# `ImplementationNotes`. That heading was not tracked, and this is the
+# discriminator that case was missing.
+#
+# So the test is about the run's OWN spacing rather than any absolute width. In
+# a tracked run every inter-glyph gap is t; a real word space is an ADDITIONAL
+# advance on top of it. Keep the space when the gap it occupies exceeds t by a
+# space's worth, drop it when the gap simply IS t. Measured on that resume:
+# tracking gaps 0.159em with t = 0.158, an excess of 0.001; the one real word
+# space in `TECHNICAL SKILLS` sits in 0.570em, an excess of 0.412. The two
+# populations are three orders of magnitude apart in excess, so SPACE_GAP_EM
+# serves as the cut without a new constant.
+# Two further conditions, both needed, both measured against the documents that
+# LOOK tracked to the uniformity test and must not be touched. With uniformity
+# alone the rule fired on 7 of 48 documents and removed 1582 spaces: IRS tax
+# tables whose numeric columns are evenly spaced (`68,200 68,250 0 0 0 ...`),
+# FIPS 197's bit tables (`0 0 0 1 1 0 1 1`), rows of leader dots and bullets,
+# and RFC 9110's index row (`1 2 3 4 5 A B C D E ...`). Evenly spaced columns
+# are uniform too; uniformity says nothing about whether the gap is a space.
+#
+#   * TRACK_MAX_EM -- tracking is NARROWER THAN A SPACE, which is what makes it
+#     tracking rather than spacing. Measured: the resume's headings sit at
+#     t=0.158em, all five identical, while every other firing run in the corpus
+#     is at t>=0.220em, and a space's own advance is SPACE_ADV_EM=0.28em. A gap
+#     at or above a space's width IS a word break and PDFium is right about it.
+#
+#   * TRACK_MIN_ALPHA -- tracking is letter-spacing, applied between the letters
+#     of a word. A run of digits, dots or bullets set on a grid is a table, and
+#     joining its cells would destroy the row. The resume's headings are 96-100%
+#     alphabetic (one hyphen in `OPEN-SOURCE CONTRIBUTIONS`); the false
+#     positives above are digits and punctuation.
+#
+# Neither bound is load-bearing alone, which is the point: the magnitude gap
+# between 0.158 and 0.220 is only a factor of 1.39 and was measured on ONE
+# document, so it is not something to hang a corpus-wide rule on by itself.
+TRACK_MIN_EM = 0.05        # below this a run is not letter-spaced at all
+TRACK_MAX_EM = SPACE_GAP_EM  # at or above a space's width it is a real space
+TRACK_MIN_ALPHA = 0.85     # of glyphs, or the run is a table and not a word
+TRACK_UNIFORM_EM = 0.05    # how near t a gap sits to count as "the tracking"
+TRACK_UNIFORM_SHARE = 0.70  # of gaps, before a run is called letter-spaced
+
+
+def _drop_tracking_spaces(chars: List[_Char]) -> List[_Char]:
+    """Remove PDFium's synthesised spaces from letter-spaced runs.
+
+    Only `gen` spaces are ever considered: a space the producer actually drew is
+    content and is never second-guessed here.
+
+    UNIFORMITY is required, not merely a wide median, because a wide median is
+    also what a table row has -- its cells sit in one baseline with a gutter
+    between them, and a census over the 47 corpus fixtures found 1.15% of rows
+    with a median gap above 0.05em, almost all of them exactly that. Tracking is
+    uniform by construction and a gutter is one outlier among small gaps, so
+    requiring most gaps to sit near the median separates them.
+    """
+    rows = {}
+    for c in chars:
+        rows.setdefault(round(c.oy, 1), []).append(c)
+    drop = set()
+    for row in rows.values():
+        row.sort(key=lambda c: c.x0)
+        # Per style run: a heading's tracking says nothing about the body text
+        # that may share its baseline.
+        runs, cur = [], []
+        for c in row:
+            key = (c.font, round(c.size, 2))
+            if cur and (cur[-1].font, round(cur[-1].size, 2)) != key:
+                runs.append(cur)
+                cur = []
+            cur.append(c)
+        if cur:
+            runs.append(cur)
+        for run in runs:
+            glyphs = [c for c in run if not c.u.isspace()]
+            if len(glyphs) < 4:
+                continue
+            gaps = [(b.x0 - a.x1) / max(a.size, 1.0)
+                    for a, b in zip(glyphs, glyphs[1:])]
+            t = sorted(gaps)[len(gaps) // 2]
+            if not TRACK_MIN_EM <= t < TRACK_MAX_EM:
+                continue
+            alpha = sum(1 for c in glyphs if c.u.isalpha())
+            if alpha < TRACK_MIN_ALPHA * len(glyphs):
+                continue
+            near = sum(1 for g in gaps if abs(g - t) <= TRACK_UNIFORM_EM)
+            if near < TRACK_UNIFORM_SHARE * len(gaps):
+                continue
+            for i, c in enumerate(run):
+                if not (c.gen and c.u.isspace()):
+                    continue
+                prev = next((g for g in reversed(run[:i]) if not g.u.isspace()), None)
+                nxt = next((g for g in run[i + 1:] if not g.u.isspace()), None)
+                if prev is None or nxt is None:
+                    continue
+                gap = (nxt.x0 - prev.x1) / max(prev.size, 1.0)
+                if gap - t < SPACE_GAP_EM:
+                    drop.add(id(c))
+    if not drop:
+        return chars
+    return [c for c in chars if id(c) not in drop]
 
 
 def _restore_soft_hyphens(chars: List[_Char]) -> int:
