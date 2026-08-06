@@ -1681,6 +1681,143 @@ def write_docx(lay: DocLayout, out_path: str, dpi: int = 240,
     return _write_docx(lay, out_path, ctx)
 
 
+# Families that need something other than the default proportional-serif
+# description in the font table. Everything else gets `auto`/`variable`, which is
+# what Word itself writes for a family it has no metrics opinion about.
+_FONT_DESC = {
+    "Courier New": ("modern", "fixed"),
+    "Consolas": ("modern", "fixed"),
+    "Arial": ("swiss", "variable"),
+    "Verdana": ("swiss", "variable"),
+    "Tahoma": ("swiss", "variable"),
+    "Trebuchet MS": ("swiss", "variable"),
+    "Times New Roman": ("roman", "variable"),
+    "Georgia": ("roman", "variable"),
+    "Symbol": ("decorative", "variable"),
+}
+
+
+def _declare_fonts(doc):
+    """Declare the families this document actually uses, and stop inheriting Cambria.
+
+    python-docx builds every document from one stock template, and that template's
+    `word/fontTable.xml` lists Symbol, Times New Roman, Cambria, Calibri, Courier,
+    Arial and two Japanese faces -- a set that has nothing to do with the document
+    being written. It is identical in every file this converter has ever produced,
+    including the two Japanese faces no fixture uses. Meanwhile `docDefaults`
+    carries theme references (`minorHAnsi`), the `Normal` style names no font at
+    all, and the theme resolves minor to Cambria and major to Calibri.
+
+    So a converted document could emit a family on 116 runs that the file never
+    declares anywhere, over defaults pointing at a font the source never used.
+    That was measured on a real resume whose body was Georgia: every run said
+    Georgia, the font table did not mention it, and the reader was left to decide.
+    The control document in the same pair had a Times New Roman body -- a family
+    the stock table happens to list -- and came back visibly better.
+
+    WHAT THIS DOES AND DOES NOT CLAIM. Declaring a family is correct OOXML
+    regardless of what any particular reader does with it: a font table that
+    contradicts the runs is wrong on its own terms. Whether Google Docs
+    substitutes *because* of the missing declaration is a HYPOTHESIS, consistent
+    with those two documents and not yet graded by a live contact. It is written
+    up as a hypothesis in docs/ and stays one until the next live pass grades it.
+    The fix is worth making either way, which is exactly why it should not be sold
+    on the strength of the unproven half.
+    """
+    from lxml import etree
+
+    body = doc.element.body
+    used = {}
+    for rf in body.iter(qn("w:rFonts")):
+        name = rf.get(qn("w:ascii")) or rf.get(qn("w:hAnsi"))
+        if name:
+            used[name] = used.get(name, 0) + 1
+    if not used:
+        return
+    dominant = max(sorted(used), key=lambda k: used[k])
+
+    pkg = doc.part.package
+
+    def part_named(suffix):
+        for p in pkg.iter_parts():
+            if str(p.partname).endswith(suffix):
+                return p
+        return None
+
+    # 1. the font table must name every family the runs name
+    ft = part_named("fontTable.xml")
+    if ft is not None:
+        try:
+            root = etree.fromstring(ft.blob)
+            have = {f.get(qn("w:name")) for f in root.findall(qn("w:font"))}
+            for name in sorted(set(used) - {None} - have):
+                fam, pitch = _FONT_DESC.get(name, ("auto", "variable"))
+                el = etree.SubElement(root, qn("w:font"))
+                el.set(qn("w:name"), name)
+                for tag, val in (("w:charset", "00"), ("w:family", fam),
+                                 ("w:pitch", pitch)):
+                    etree.SubElement(el, qn(tag)).set(qn("w:val"), val)
+            ft._blob = etree.tostring(root, xml_declaration=True,
+                                      encoding="UTF-8", standalone=True)
+        except Exception:
+            pass
+
+    # 2. the defaults must name a real family rather than a theme slot. Both are
+    #    set: docDefaults is what an empty run inherits, and Normal is what every
+    #    paragraph style inherits from, and a reader may consult either.
+    try:
+        styles = doc.styles.element
+        dd = styles.find(qn("w:docDefaults"))
+        if dd is not None:
+            rpr = dd.find(qn("w:rPrDefault"))
+            if rpr is not None:
+                rp = rpr.find(qn("w:rPr"))
+                if rp is not None:
+                    rf = rp.find(qn("w:rFonts"))
+                    if rf is None:
+                        rf = etree.SubElement(rp, qn("w:rFonts"))
+                    for themed in ("w:asciiTheme", "w:hAnsiTheme",
+                                   "w:eastAsiaTheme", "w:cstheme"):
+                        if rf.get(qn(themed)) is not None:
+                            del rf.attrib[qn(themed)]
+                    for attr in ("w:ascii", "w:hAnsi", "w:cs", "w:eastAsia"):
+                        rf.set(qn(attr), dominant)
+        for st in styles.findall(qn("w:style")):
+            if st.get(qn("w:styleId")) != "Normal":
+                continue
+            rp = st.find(qn("w:rPr"))
+            if rp is None:
+                rp = etree.SubElement(st, qn("w:rPr"))
+            rf = rp.find(qn("w:rFonts"))
+            if rf is None:
+                rf = etree.Element(qn("w:rFonts"))
+                rp.insert(0, rf)
+            for themed in ("w:asciiTheme", "w:hAnsiTheme", "w:eastAsiaTheme",
+                           "w:cstheme"):
+                if rf.get(qn(themed)) is not None:
+                    del rf.attrib[qn(themed)]
+            for attr in ("w:ascii", "w:hAnsi", "w:cs", "w:eastAsia"):
+                rf.set(qn(attr), dominant)
+    except Exception:
+        pass
+
+    # 3. and the theme's own latin faces, so anything still resolving through
+    #    minorHAnsi lands on this document's font instead of Cambria
+    th = part_named("theme1.xml")
+    if th is not None:
+        try:
+            a = "{http://schemas.openxmlformats.org/drawingml/2006/main}"
+            root = etree.fromstring(th.blob)
+            for which in ("majorFont", "minorFont"):
+                el = root.find(".//" + a + which + "/" + a + "latin")
+                if el is not None:
+                    el.set("typeface", dominant)
+            th._blob = etree.tostring(root, xml_declaration=True,
+                                      encoding="UTF-8", standalone=True)
+        except Exception:
+            pass
+
+
 def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
     lay = copy.deepcopy(lay)
     # After the deepcopy: the plan marks the elements this function will write.
@@ -1907,5 +2044,6 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
         if not has_content and not has_sectpr and len(list(body)) > 2:
             body.remove(p0)
 
+    _declare_fonts(doc)
     doc.save(out_path)
     return out_path
