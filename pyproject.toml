@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "exactdoc"
-version = "1.0.0"
+version = "1.0.1"
 description = "High-fidelity PDF to DOCX that survives Google Docs, with a render-back diff that proves it"
 readme = "README.md"
 requires-python = ">=3.9"

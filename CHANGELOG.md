@@ -4,6 +4,74 @@ Notable changes to exactdoc. Every quality number in this file is measured in
 the canonical environment (`docker/gate.Dockerfile`, pinned by digest) and
 traceable to a committed artifact under `docs/evidence/`.
 
+## 1.0.1 — 2026-08-07
+
+A résumé went through the converter and came out wrong in ways the 16-document
+corpus could not see, because it contained no résumé. Adding one
+(`x17_resume_twocol`, with `x18_resume_twocol_tnr` as the control that removes
+the monospaced run) exposed six defects at once. This release is those fixes and
+the fixture that found them.
+
+### Fixed
+
+- **a hyperlink is a property of characters, not of spans.** The writer asked
+  whether a span was *mostly* inside an anchor and tagged the whole span on a
+  50% majority, so a link covering less than half its span was dropped
+  entirely — which is what a contact header does when one word of a longer run
+  carries the mailto. Spans now split at anchor boundaries and each character
+  carries its own link.
+- **a role and a date on one baseline are one row.** Two runs sharing a baseline
+  were emitted as two paragraphs, stacking a right-hand date under the role it
+  belongs beside. They are now one paragraph with a right-aligned tab stop.
+- **the fontTable declares every font emitted, plus an explicit Normal
+  typeface.** An undeclared family is not an error in OOXML; it is an
+  invitation, and Google Docs accepted it by substituting its theme face —
+  Georgia arrived as something else.
+- **tracking is not word spacing.** PDFium fabricates space characters inside
+  letter-spaced runs, and those were kept as text, so a tracked heading arrived
+  with gaps in it. `_drop_tracking_spaces` removes the fabricated ones and
+  leaves real spaces alone.
+- **a tracking change ends a paragraph.** A letter-spaced line among
+  un-letter-spaced ones is a heading; without that boundary it welded to the
+  body text beneath it.
+- **hashed JSON is byte-pinned to LF in `.gitattributes`.** A checkout that
+  normalised line endings produced a different digest from the one recorded,
+  and it failed in both directions — a clean tree reading as modified, and a
+  modified tree reading as clean.
+- **CI discovers tests instead of naming five files.** The suite had grown to
+  663 while CI still ran five script-style suites by name.
+
+### Measured
+
+Confirmation sweep over 31 expansion documents: 25 unchanged, the résumé pair
+improved, and the four other movers shown to be render noise by an IR-identical
+control on `x11` that establishes a 2.3% noise floor. `y13`'s tab-stop rows fire
+but are invisible at its scale.
+
+`x17`/`x18`, before → after: `dy_p50` 3.13 → **0.38pt**, `dy_p90` 25.43 →
+**8.92pt**, `within2pt` 0.0590 → **0.1022**, `mean_ssim` 0.8422 → **0.8733**.
+Reviewed live in Google Docs and approved.
+
+`word_recall` reads 0.9443 → 0.8719 across the same change, and that is a
+**reference artifact rather than a text regression**: the harness reference was
+extracted with the same PDFium fragmentation this release fixes, so it holds no
+whole heading tokens to match against. The converted document gained the
+headings; the yardstick never had them.
+
+### Known limitations, carried
+
+- **#48 — ink-vs-advance space synthesis.** Space insertion measures ink extent
+  rather than advance width, so a narrow glyph pair can lose its space
+  (`A smaller` → `Asmaller`).
+- **#47 — cross-platform byte deltas.** Same input on the same platform gives
+  identical bytes; across platforms, 6 of 16 gated fixtures match exactly.
+  Documents carrying a rasterised region differ by hundreds of bytes, because
+  image encoders are not required to be reproducible across platforms, and four
+  image-free documents differ by 2–11 bytes for a reason not yet chased.
+- **font-style substitution.** Google Docs renders substitute faces for styles
+  it does not have. Parked by owner decision: the fontTable now declares what
+  the document uses, and what Docs does with that declaration is Docs'.
+
 ## 1.0.0 — 2026-08-06
 
 **High-fidelity PDF → DOCX, tuned for documents that have to survive Google

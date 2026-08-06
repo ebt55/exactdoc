@@ -465,6 +465,23 @@ are long dense booklets, this release is not for them yet.
 | #42 | page-top spacing after a hard break | renderers drop `w:spacing w:before`; measured −53pt on one gated page 2 |
 | #43 | `05_memo` shared displacement | +4.64pt on both arms — explicitly *not* excused by the ratified within2pt entry |
 | #44 | `y10` discriminator | the metric moved because the reference degraded; the trade is adjudicated, the discriminator is not fixed |
+| #47 | cross-platform byte deltas | 6 of 16 gated fixtures byte-identical across platforms; rasterised regions differ by hundreds of bytes, four image-free documents by 2–11 |
+| #48 | ink-vs-advance space synthesis | space insertion measures ink extent, not advance width, so a narrow glyph pair can lose its space (`A smaller` → `Asmaller`) |
+
+**Résumés got a fixture in 1.0.1, and it found six defects.** The corpus had no
+résumé, so nothing had ever exercised role/date pairs sharing a baseline,
+contact anchors covering less than half their span, or letter-spaced headings.
+All six are fixed (see [CHANGELOG.md](CHANGELOG.md)); what remains is the tail.
+Two-column résumés now land at `dy_p50` 0.38pt with `dy_p90` still 8.92pt — the
+median is excellent and one word in ten is around nine points out. Reviewed live
+in Google Docs and judged good enough to ship, not perfect. Single-column
+résumés have no fixture and are therefore unmeasured, not implied.
+
+**Font-style substitution is parked, by decision rather than by oversight.**
+The fontTable now declares every family the document emits and an explicit
+Normal typeface, so Docs is no longer guessing. What Docs then does with a style
+it does not have — substituting a face of its own — is Docs' behaviour, and this
+project does not chase it.
 
 **The `01_whitepaper_market` waiver is live and nearly retired.** It sits at
 mean_ssim 0.6909 against a 0.70 bar — **0.0091 away**. It is bounded, cites its

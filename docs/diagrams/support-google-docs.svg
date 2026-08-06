@@ -58,10 +58,10 @@
     <text x="575" y="292" fill="#41505f" font-size="12">l1 dy 1.54pt · live text 0.9883</text>
     <!-- 4 -->
     <rect x="24" y="302" width="852" height="30" fill="#eaeef3"/>
-    <text x="34" y="322" fill="#16202b">Résumés &amp; simple structured documents</text>
-    <circle cx="441" cy="317" r="7" fill="#c3e3cb" stroke="#3c8455" stroke-width="1.6"/>
-    <text x="456" y="322" fill="#2c6b43" font-weight="600">FULL</text>
-    <text x="575" y="322" fill="#41505f" font-size="12">by class — memo/brief geometry, no fixture of its own</text>
+    <text x="34" y="322" fill="#16202b">Résumés — two-column (single-column unmeasured)</text>
+    <polygon points="441,310 448,323 434,323" fill="#f8e2b4" stroke="#b8891f" stroke-width="1.6"/>
+    <text x="456" y="322" fill="#8a6410" font-weight="600">PARTIAL</text>
+    <text x="575" y="322" fill="#41505f" font-size="12">x17/x18 dy 0.38pt median, 8.92pt at p90 · reviewed live</text>
     <!-- 5 -->
     <rect x="24" y="332" width="852" height="30" fill="#e5eaf0"/>
     <text x="34" y="352" fill="#16202b">Academic two-column papers</text>
