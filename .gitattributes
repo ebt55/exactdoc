@@ -18,6 +18,28 @@
 # must have exactly one spelling.
 *.conf text eol=lf
 
+# JSON artifacts in this repository are not merely parsed, they are HASHED AS
+# FILES, so their bytes are a pinned value in exactly the way fonts.conf's are.
+# A Windows checkout with the default core.autocrlf materialised CRLF and the
+# pins stopped matching: testkit/corpus_expansion.json is pinned at
+# 7a2f15d6... and hashed ad3d2624... on the host, failing three tests in
+# test_expansion_policy while the Linux container passed. Same content,
+# different bytes per platform, which is the one thing a byte pin cannot
+# tolerate.
+#
+# The rule is every *.json rather than a path, for two reasons. It is not one
+# file: `expansion_policy._sha256` pins testkit/corpus_expansion.json,
+# `gdocs_oracle._manifest_identity` pins testkit/corpus_manifest.json by "exact
+# manifest bytes" (gdocs_quality_policy.json records cc4dd4c1...), and
+# `livepass_verify._read_json` hashes the raw bytes of whatever evidence it
+# grades, which is how testkit/livepass_predictions.json pins its baselines in
+# docs/evidence/*.json. And a path-scoped rule does not reach a subdirectory --
+# `testkit/*.json` would silently miss testkit/golden/pdfium/*.json, the same
+# trap the fixtures_expansion note below records. A JSON file has no reason to
+# want CRLF, so pinning the whole class removes the bug rather than this
+# instance of it.
+*.json text eol=lf
+
 # The frozen corpus fixtures are byte-exact inputs pinned by SHA-256. Any line
 # ending translation would change their hashes and make every gate run fail on a
 # corpus identity check -- which is precisely the check they exist to satisfy.

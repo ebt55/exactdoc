@@ -1,7 +1,7 @@
 {
   "schema": "exactdoc.gdocs-quality-policy.v3",
   "candidate_profile": "pdfium/gdocs/none/refine0@240dpi",
-  "manifest": {"name": "corpus_manifest.json", "sha256": "cc4dd4c1c449ddabe85d7538454ed4a3d6163d762f68d2e59d97801e11c3c7da"},
+  "manifest": {"name": "corpus_manifest.json", "sha256": "2bedb5bd723be4d04e835163e3a1b4e23ebbc53a54a869c5598191cf679dfac4"},
   "review": {
     "status": "ratified",
     "rationale": "RATIFIED for the pdfium/gdocs/none/refine0@240dpi candidate against live pass 4 (docs/evidence/gdocs-2026-08-04-pass4-qualification.json), with exactly one bounded waiver: 01_whitepaper_market mean_ssim. Twelve of the thirteen blocking ordinary_digital fixtures clear every threshold unaided; the thirteenth is bounded, attributed and time-limited by the `waivers` block below, and its residual fixes proceed in parallel. Thresholds themselves are UNCHANGED by this ratification -- ratifying a policy is not an occasion to move a bar, and moving one in the same change would make the ratification unreviewable. PROVENANCE OF THE DECISION, recorded precisely because ratification is the one act an executor must not perform on its own authority: the decision to ratify with a single documented waiver for 01's cover band was taken by the repository author in the coordinating session on 2026-08-04 and relayed to the session that wrote this file; it was not inferred from the measurements. The named approver below is an attestation recorded on that relay and should be confirmed by the approver against this file.",

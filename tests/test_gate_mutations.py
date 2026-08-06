@@ -576,20 +576,39 @@ def env_identity(ref, live):
 
 
 def test_hashed_files_have_one_spelling():
-    """Any file whose BYTES reach the environment fingerprint must be stored with
-    one line ending, or the fingerprint is platform-dependent.
+    """Any file whose BYTES are hashed by anything must be stored with one line
+    ending, or the digest is platform-dependent.
 
-    Measured: `scripts/fonts.conf` is hashed into the fingerprint, `.gitattributes`
-    pinned `*.sh`/`*.yml`/`*.yaml` to LF but not `*.conf`, and a Windows checkout
-    therefore produced CRLF. A canonical reference recorded from that checkout
-    hashed to 924510e8... where every Linux checkout -- CI included -- computes
-    84d4357a..., so the reference was invalid in both places it has to work.
+    Measured twice, the same way both times. First: `scripts/fonts.conf` is hashed
+    into the environment fingerprint, `.gitattributes` pinned `*.sh`/`*.yml`/
+    `*.yaml` to LF but not `*.conf`, and a Windows checkout therefore produced
+    CRLF. A canonical reference recorded from that checkout hashed to 924510e8...
+    where every Linux checkout -- CI included -- computes 84d4357a..., so the
+    reference was invalid in both places it has to work.
 
-    The file's content was never wrong; only its checkout was. That is exactly the
-    kind of defect a digest is supposed to catch and cannot catch about itself.
+    Then the identical defect in JSON, which is hashed as FILE BYTES in three
+    separate places: `expansion_policy._sha256` pins testkit/corpus_expansion.json,
+    `gdocs_oracle._manifest_identity` pins testkit/corpus_manifest.json by exact
+    bytes, and `livepass_verify._read_json` digests whatever evidence it grades.
+    It broke in BOTH directions at once, which is what makes the class worth a
+    test rather than two fixes. corpus_expansion.json was pinned from Linux at
+    7a2f15d6... and hashed ad3d2624... on Windows, failing three tests on the
+    host while the container passed; corpus_manifest.json was pinned from Windows
+    at cc4dd4c1... and hashes 2bedb5bd... on Linux, so the Google Docs
+    qualification refused outright in the canonical environment and no test on a
+    Windows desk could see it.
+
+    The content was never wrong in any of these; only the checkout was. That is
+    exactly the kind of defect a digest is supposed to catch and cannot catch
+    about itself.
     """
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    hashed = ["scripts/fonts.conf"]
+    hashed = ["scripts/fonts.conf",
+              "testkit/corpus_expansion.json",
+              "testkit/corpus_manifest.json",
+              "testkit/gdocs_quality_policy.json",
+              "testkit/expansion_parity_policy.json",
+              "testkit/livepass_predictions.json"]
     for rel in hashed:
         p = os.path.join(root, rel)
         if not os.path.exists(p):
@@ -601,13 +620,28 @@ def test_hashed_files_have_one_spelling():
               "contains CRLF, so its sha256 differs from the same file on Linux; "
               "add a `text eol=lf` rule for it in .gitattributes")
 
-    # And the rule that keeps it that way must actually be present, so the check
+    # Every committed evidence artifact too: livepass_predictions.json pins its
+    # baselines by the digest of these files, so one CRLF checkout turns a
+    # recorded baseline into an ungradeable run.
+    evid = os.path.join(root, "docs", "evidence")
+    for name in sorted(os.listdir(evid)) if os.path.isdir(evid) else []:
+        if not name.endswith(".json"):
+            continue
+        with open(os.path.join(evid, name), "rb") as fh:
+            raw = fh.read()
+        check("docs/evidence/%s is checked out LF-only" % name,
+              b"\r\n" not in raw,
+              "contains CRLF, so livepass_verify digests it differently here "
+              "than on Linux")
+
+    # And the rules that keep it that way must actually be present, so the checks
     # above cannot start passing by accident on a machine that happens to be Linux.
     ga = os.path.join(root, ".gitattributes")
     rules = open(ga).read() if os.path.exists(ga) else ""
-    check(".gitattributes pins *.conf to LF", "*.conf text eol=lf" in rules,
-          "a Linux-only CI would pass the byte check above while a Windows "
-          "contributor kept recording unreproducible digests")
+    for pattern in ("*.conf text eol=lf", "*.json text eol=lf"):
+        check(".gitattributes pins %s" % pattern.split()[0], pattern in rules,
+              "a Linux-only CI would pass the byte checks above while a Windows "
+              "contributor kept recording unreproducible digests")
 
 
 def test_env_identity_matching_pair_is_canonical():
