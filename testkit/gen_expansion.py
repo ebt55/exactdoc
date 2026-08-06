@@ -1094,6 +1094,191 @@ def x16_fpdf_bulletin():
     return out
 
 
+# ------------------------------------------------------------------- resumes
+# The corpus had no resume, and the owner's own resume is the document class the
+# release bar names as the exemplar. These two are the synthetic stand-in: no
+# personal data, fictional employers, every URL on example.com.
+#
+# They exist to hold three specific mechanisms still, all of them measured on a
+# real resume before they were written down:
+#
+#  1. SHARED-BASELINE ROWS. A resume puts the role on the left and the date hard
+#     against the right margin, on one baseline. Inference used to split that
+#     pair into two paragraphs and push the right-hand one across with an
+#     absolute indent reaching 94% of the content width, which wraps as soon as
+#     the reader's metrics differ by a hair. `.row` reproduces the pair.
+#
+#  2. LINK ANCHORS THAT ARE ONLY PART OF A SPAN. The contact header's links are
+#     each their own span, and they always survived. The links in prose are
+#     single words inside a much longer span, and they were dropped, because the
+#     tagging test asked whether the SPAN was mostly inside the LINK. `a.plain`
+#     is styled exactly like the text around it precisely so the parser does not
+#     break a span at the anchor -- an anchor that gets its own span by virtue of
+#     its colour would not reproduce the bug.
+#
+#  3. A FAMILY THE DOCX NEVER DECLARES. The real resume's body was Georgia,
+#     which python-docx's stock fontTable.xml does not list. GEORGIA IS NOT
+#     INSTALLED IN THE MEASUREMENT CONTAINER and neither is Verdana, so this
+#     fixture CANNOT reproduce the dominant-body-font case; fc-match resolves
+#     both to DejaVu Serif. The only family reachable here that the mapper emits
+#     and the stock fontTable omits is Courier New, via any installed monospace
+#     face, so x17 carries a monospaced tech line and x18 does not. That makes
+#     the pair a treatment/control for the DECLARATION mechanism while leaving
+#     the SEVERITY of the Georgia case measured only on the owner's own document.
+_R_CSS = """
+@page { size: A4; margin: 0.55in 0.6in; }
+body { font-family: 'Liberation Serif', serif; font-size: 9.7pt;
+       line-height: 1.30; color: #111; }
+.name { text-align: center; font-size: 21pt; margin: 0 0 3pt;
+        font-family: 'Liberation Serif', serif; letter-spacing: 0.4pt; }
+.contact { text-align: center; font-size: 8.7pt; margin: 0 0 2pt; }
+.contact a { color: #14417a; text-decoration: none; }
+.contact .sep { color: #a0a0a0; }
+hr.rule { border: none; border-top: 0.9pt solid #444; margin: 8pt 0 5pt; }
+h2.sec { font-family: 'Liberation Sans', sans-serif; font-size: 9.0pt;
+         text-transform: uppercase; letter-spacing: 0.7pt; margin: 0 0 3pt;
+         color: #222; }
+.row { display: flex; justify-content: space-between; align-items: baseline;
+       margin: 5pt 0 1pt; }
+.row .l { font-weight: bold; }
+.row .r { white-space: nowrap; }
+.sub { font-style: italic; margin: 0 0 2pt; font-size: 9.2pt; }
+ul.skills { list-style: none; margin: 0 0 5pt; padding-left: 12.5pt; }
+ul.skills li { text-indent: -11.5pt; margin-bottom: 1.5pt; }
+p.body { margin: 0 0 4pt; text-align: left; }
+p.body a.plain { color: inherit; text-decoration: none; }
+.stack { font-family: 'Liberation Mono', monospace; font-size: 8.6pt;
+         margin: 0 0 4pt; }
+.pagebreak { break-before: page; }
+"""
+
+# Sixty-three, eighty-two and thirty-eight characters on the left; nine and
+# twenty-four on the right. Those are the widths measured on the real document,
+# and the middle row's left member is long enough that the right member has
+# almost no room -- the case that wraps first.
+_R_ROWS = [
+    ("Senior Backend Engineer &mdash; Northwind Logistics Platform Ltd",
+     "2021&ndash;2024"),
+    ("Backend Engineer, Distributed Systems &mdash; Meridian Data Services, "
+     "Platform Reliability", "2019&ndash;2021"),
+    ("Software Engineer &mdash; Cobalt Analytics", "Bengaluru &middot; 2017&ndash;2019"),
+]
+
+
+def _resume_body(with_stack):
+    """The shared body. `with_stack` adds the monospaced line (-> Courier New)."""
+    contact = ("<a href='tel:+15550100199'>+1 555 0100 199</a>"
+               "<span class='sep'> &middot; </span>"
+               "<a href='mailto:a.rivera@example.com'>a.rivera@example.com</a>"
+               "<span class='sep'> &middot; </span>"
+               "<a href='https://code.example.com/arivera'>code.example.com/arivera</a>"
+               "<span class='sep'> &middot; </span>"
+               "<a href='https://profile.example.com/arivera'>profile.example.com/arivera</a>")
+
+    def row(i):
+        l, r = _R_ROWS[i]
+        return "<div class='row'><span class='l'>%s</span>" \
+               "<span class='r'>%s</span></div>" % (l, r)
+
+    bullets = (
+        "<ul class='skills'>"
+        "<li>&bull; Rebuilt the ingestion path so that a replayed shipment event "
+        "is idempotent, which removed the nightly reconciliation job entirely.</li>"
+        "<li>&bull; Took the p99 of the quoting endpoint from 1.9s to 240ms by "
+        "moving the tariff lookup behind a read-through cache.</li>"
+        "<li>&bull; Wrote the migration runbook the team still uses for "
+        "zero-downtime schema changes on the shipments table.</li>"
+        "</ul>")
+    bullets2 = (
+        "<ul class='skills'>"
+        "<li>&bull; Owned the message bus consumers through a broker upgrade that "
+        "changed delivery semantics under partition loss.</li>"
+        "<li>&bull; Introduced contract tests between the pricing and billing "
+        "services, which caught three breaking changes before release.</li>"
+        "</ul>")
+
+    stack = ("<p class='stack'>python &middot; postgresql &middot; kafka &middot; "
+             "redis &middot; terraform &middot; grpc &middot; pytest</p>"
+             if with_stack else "")
+
+    # The three inline anchors sit mid-sentence and are styled exactly like the
+    # prose, so each is a fragment of a longer span rather than a span of its
+    # own. Their share of the containing span is what the tagging test measures.
+    projects = (
+        "<p class='body'>The scheduling simulator behind the depot rota is "
+        "published as <a class='plain' href='https://example.com/proj/atlas'>Atlas</a>"
+        ", and the fixtures it runs against were contributed upstream.</p>"
+        "<p class='body'>A smaller tool, "
+        "<a class='plain' href='https://example.com/proj/ledger'>Ledger</a>, "
+        "reconciles the two billing exports.</p>"
+        "<p class='body'>Both are documented in "
+        "<a class='plain' href='https://example.com/handbook'>the handbook</a> "
+        "alongside the deployment notes.</p>"
+        # Deliberately just UNDER the 0.5 test: on the real document one anchor
+        # measured 0.473, and a fix that merely lowers the constant would swallow
+        # this one while still dropping the 0.04 case two paragraphs up. Keeping a
+        # near-miss in the corpus is what stops that from looking like a fix.
+        "<p class='body'>See the "
+        "<a class='plain' href='https://example.com/runbook'>deployment runbook</a>"
+        " for more detail.</p>")
+
+    return """
+<div class="name">Alex Morgan Rivera</div>
+<div class="contact">%s</div>
+<hr class="rule">
+<h2 class="sec">Summary</h2>
+<p class="body">Backend engineer working on the parts of a logistics platform
+that have to stay correct when the network does not: event ingestion, idempotent
+replay, and the billing reconciliation that sits downstream of both.</p>
+<hr class="rule">
+<h2 class="sec">Experience</h2>
+%s
+<p class="sub">Platform group, distributed team</p>
+%s
+%s
+<p class="sub">Reliability track</p>
+%s
+<hr class="rule">
+<h2 class="sec">Skills</h2>
+<ul class="skills">
+<li>&bull; Services and storage: schema design, migrations, read-through caches,
+queue consumers with at-least-once delivery.</li>
+<li>&bull; Operations: tracing, structured logs, error budgets, and the runbooks
+that make an on-call rotation survivable.</li>
+</ul>
+%s
+<div class="pagebreak"></div>
+<h2 class="sec">Experience, continued</h2>
+%s
+<p class="sub">Analytics team</p>
+%s
+<hr class="rule">
+<h2 class="sec">Projects</h2>
+%s
+<hr class="rule">
+<h2 class="sec">Education</h2>
+<div class="row"><span class="l">B.E. Computer Science &mdash; Anytown Institute
+of Technology</span><span class="r">2013&ndash;2017</span></div>
+<p class="body">Coursework in distributed systems and compilers; final year
+project on incremental query evaluation.</p>
+""" % (contact, row(0), bullets, row(1), bullets2, stack, row(2), bullets2,
+       projects)
+
+
+def x17_resume_twocol():
+    """Resume: shared-baseline role/date rows, header and mid-span anchors."""
+    return chrome_pdf(html_doc("x17_resume_twocol",
+                               _resume_body(with_stack=True), _R_CSS),
+                      os.path.join(OUT, "x17_resume_twocol.pdf"))
+
+
+def x18_resume_twocol_tnr():
+    """The same resume with no monospaced run: every emitted family declared."""
+    return chrome_pdf(html_doc("x18_resume_twocol_tnr",
+                               _resume_body(with_stack=False), _R_CSS),
+                      os.path.join(OUT, "x18_resume_twocol_tnr.pdf"))
+
+
 # --------------------------------------------------------------- the registry
 # name -> (function, tier, dialect, why). Every entry is `ordinary_digital` by
 # the rules in docs/corpus-expansion.md §4; see that file for why tranche 1 adds
@@ -1131,6 +1316,13 @@ DOCS = [
      "contents with dot leaders, heading hierarchy, block quote and notes"),
     (x16_fpdf_bulletin, "fpdf2",
      "core-14 fonts with no FontDescriptor, and a page-numbered footer"),
+    (x17_resume_twocol, "chromium",
+     "resume: role/date pairs on one baseline, contact-header anchors that own "
+     "their span and prose anchors that do not, hanging-indent lists, and a "
+     "monospaced run whose family the stock fontTable omits"),
+    (x18_resume_twocol_tnr, "chromium",
+     "the same resume with no monospaced run, so every emitted family is one "
+     "the stock fontTable already declares -- the control for x17"),
 ]
 
 
@@ -1173,8 +1365,28 @@ def main():
 
     chain = toolchain()
     print("toolchain: %s\n" % chain)
+
+    # Optional generator names after the output directory. Without them this
+    # regenerates all of DOCS, and since the existing entries are frozen by
+    # SHA-256, regenerating them under a different Chromium is precisely how the
+    # corpus stopped being reproducible the last time. Adding one fixture to a
+    # sealed tranche must touch one fixture, so name it:
+    #     python testkit/gen_expansion.py <dir> x17_resume_twocol
+    wanted = [a for a in sys.argv[2:] if not a.startswith("-")]
+    docs = DOCS
+    if wanted:
+        by_name = {fn.__name__: (fn, d, w) for fn, d, w in DOCS}
+        unknown = [n for n in wanted if n not in by_name]
+        if unknown:
+            print("no such generator: %s" % ", ".join(unknown))
+            print("known: %s" % ", ".join(sorted(by_name)))
+            return 2
+        docs = [by_name[n] for n in wanted]
+        print("generating %d of %d document(s): %s\n"
+              % (len(docs), len(DOCS), ", ".join(wanted)))
+
     made, failed, provenance = [], [], {}
-    for fn, dialect, why in DOCS:
+    for fn, dialect, why in docs:
         name = fn.__name__
         try:
             path = fn()

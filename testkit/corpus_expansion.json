@@ -272,6 +272,40 @@
    "tier": "ordinary_digital",
    "why": "core-14 fonts with no FontDescriptor, and a page-numbered footer"
   },
+  "x17_resume_twocol.pdf": {
+   "bytes": 65889,
+   "content": "b58283146b1cce09b50c71d01a4ac95a",
+   "dialect": "chromium",
+   "provenance": {
+    "acquired": "2026-08-06",
+    "license": "Apache-2.0",
+    "origin": "generated",
+    "recipe": "testkit/gen_expansion.py::x17_resume_twocol",
+    "source_url": null,
+    "toolchain": "python 3.12.3 / LibreOffice 24.2.7.2 420(Build:2) / Google Chrome for Testing 149.0.7827.55 / reportlab 5.0.0 / fpdf2 2.8.7 / python-docx 1.2.0 / image=exactdoc-gate"
+   },
+   "sha256": "f07e4cb33615f539287f522858345beca2561d8ad1ccda8f5bc9b9e86b82979d",
+   "src_pages": 2,
+   "tier": "ordinary_digital",
+   "why": "resume: role/date pairs on one baseline, contact-header anchors that own their span and prose anchors that do not, hanging-indent lists, and a monospaced run whose family the stock fontTable omits"
+  },
+  "x18_resume_twocol_tnr.pdf": {
+   "bytes": 58325,
+   "content": "d71b875e21598a63b9d31ea91252d8bb",
+   "dialect": "chromium",
+   "provenance": {
+    "acquired": "2026-08-06",
+    "license": "Apache-2.0",
+    "origin": "generated",
+    "recipe": "testkit/gen_expansion.py::x18_resume_twocol_tnr",
+    "source_url": null,
+    "toolchain": "python 3.12.3 / LibreOffice 24.2.7.2 420(Build:2) / Google Chrome for Testing 149.0.7827.55 / reportlab 5.0.0 / fpdf2 2.8.7 / python-docx 1.2.0 / image=exactdoc-gate"
+   },
+   "sha256": "54b6a4a0321820d066c3ed5651e8bb1d5427185d88135ab9bcb2926bbeb7645e",
+   "src_pages": 2,
+   "tier": "ordinary_digital",
+   "why": "the same resume with no monospaced run, so every emitted family is one the stock fontTable already declares -- the control for x17"
+  },
   "y01_nist_sp80063b.pdf": {
    "bytes": 1480377,
    "content": "3018511af85b5b8d22b9781f31aafa08",

@@ -178,6 +178,39 @@ Latin-diacritic, Cyrillic and Greek text (all inside the pinned font set, so
 unlike `c4_i18n` this is *ordinary*, not stress); multi-page memos and reports
 where a per-page offset compounds.
 
+### The resume pair, added after tranche 1
+
+`x17_resume_twocol` and `x18_resume_twocol_tnr` were added because the release
+bar names resume-class documents as the exemplar and the corpus contained no
+resume at all. That gap was found the way gaps usually are: the owner converted
+their own resume, opened it in Docs, and it was wrong in three separate ways at
+once. Their document is personal and is not in this repository and never will
+be; these two are the synthetic stand-in, with fictional employers and every URL
+on `example.com`.
+
+The pair is a treatment and its control. Both carry the same three structures:
+
+* **role/date pairs on one baseline** — two per page. Inference used to split
+  the pair and push the right-hand member across with an absolute indent, one of
+  which reached **103% of the content width**, i.e. past the right margin;
+* **two populations of link anchor** — four in the contact header, each of which
+  *is* its own span, and four in prose, each a fragment of a longer span. The
+  first four were always tagged and the second four were always dropped. One of
+  the prose anchors covers 0.462 of its span, deliberately just under the 0.5
+  test, so that lowering the constant cannot be mistaken for fixing the cause;
+* **a family the DOCX declares nowhere** — x17 has a monospaced run and x18 does
+  not, which is the only difference between them.
+
+**What this pair cannot reproduce.** The real document's body font was Georgia,
+and Georgia is not installed in the measurement container — nor is Verdana;
+`fc-match` resolves both to DejaVu Serif. Of the installed families, the only one
+the mapper emits that python-docx's stock `fontTable.xml` omits is Courier New.
+So the pair holds the *declaration* mechanism (a family on runs that the document
+never declares) but not the *severity* of the real case, where the undeclared
+family was the body text rather than one line of it. That severity is measured
+only on the owner's own document, outside this repository, and the honest place
+to say so is here.
+
 ---
 
 ## 4. Tier classification rules
