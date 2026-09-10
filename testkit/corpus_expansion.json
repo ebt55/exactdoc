@@ -565,6 +565,186 @@
    "src_pages": 194,
    "tier": "ordinary_digital",
    "why": "HTTP Semantics, 194 pages, single column measured, zero images, produced by cairo via xml2rfc -- a rendering stack unlike anything else in the corpus. At 194 pages it is under the 250-page cap, so it is the longest document the converter is expected to actually handle"
+  },
+  "y18_eurlex_ai_act.pdf": {
+   "bytes": 2583319,
+   "content": "4f754a74c0169870b88b0cf670418a70",
+   "dialect": "PDFlib+PDI 9.0.7p3 (C++/Win64)",
+   "provenance": {
+    "acquired": "2026-09-11",
+    "license": "CC-BY-4.0",
+    "license_evidence": "https://ec.europa.eu/info/legal-notice_en",
+    "origin": "downloaded",
+    "producer": "PDFlib+PDI 9.0.7p3 (C++/Win64)",
+    "recipe": null,
+    "source_url": "https://eur-lex.europa.eu/legal-content/EN/TXT/PDF/?uri=OJ:L_202401689"
+   },
+   "sha256": "bba630444b3278e881066774002a1d7824308934f49ccfa203e65be43692f55e",
+   "src_pages": 144,
+   "tier": "ordinary_digital",
+   "why": "Official Journal PDF of Regulation (EU) 2024/1689 (AI Act). Producer chain new to the corpus: PDFlib+PDI 9.0.7p3 written by Servigistics Arbortext Publishing Engine -- neither string has appeared in any fixture. EU reuse policy: Commission Decision 2011/833/EU authorises reuse under CC BY 4.0 unless otherwise noted; the notice is site-level rather than printed in this PDF, recorded here as the weaker basis."
+  },
+  "y19_scotus_loper.pdf": {
+   "bytes": 637387,
+   "content": "195341ce39bee1901c31b8aa8cfbf045",
+   "dialect": "Acrobat Distiller 23.0 (Windows)",
+   "provenance": {
+    "acquired": "2026-09-11",
+    "license": "US-Government-Public-Domain",
+    "license_evidence": "https://www.usa.gov/government-copyright",
+    "origin": "downloaded",
+    "producer": "Acrobat Distiller 23.0 (Windows)",
+    "recipe": null,
+    "source_url": "https://www.supremecourt.gov/opinions/23pdf/22-451_7m58.pdf"
+   },
+   "sha256": "12f5ea075004886774c25e7831ea1608fd0f831f0113e83bb0e85811c0a4bb6e",
+   "src_pages": 114,
+   "tier": "ordinary_digital",
+   "why": "Loper Bright Enterprises v. Raimondo (2024), 114 pages. US Supreme Court opinion: a work of the US courts, no copyright claim asserted anywhere in the document. Producer chain new to the corpus: Acrobat Distiller 23.0 from PScript5.dll PostScript -- Word printed to PostScript then distilled, deliberately distinct from the existing Acrobat PDFMaker-for-Word chain (no PDFMaker library involved)."
+  },
+  "y20_typst_report.pdf": {
+   "bytes": 68335,
+   "content": "1271d7eb15497a339594a65923b41dc7",
+   "dialect": "unknown-producer",
+   "provenance": {
+    "acquired": "2026-09-11",
+    "license": "MIT",
+    "license_evidence": "https://github.com/roland-KA/basic-report-typst-template/blob/main/LICENSE",
+    "origin": "downloaded",
+    "producer": "",
+    "recipe": null,
+    "source_url": "https://raw.githubusercontent.com/roland-KA/basic-report-typst-template/main/examples/main.pdf"
+   },
+   "sha256": "84e645128d1522b71a811a14b0b98e4d71554afe1b6bd4c9eec98669a8c2d682",
+   "src_pages": 5,
+   "tier": "ordinary_digital",
+   "why": "Typst 0.13.1 output, 5 pages. The only verified Typst specimen found; a producer chain no other fixture carries. Host serves it as application/octet-stream but the bytes are a real PDF. MIT licence read from the repository's LICENSE file."
+  },
+  "y21_worldbank_wdr24.pdf": {
+   "bytes": 2125981,
+   "content": "0fee3d303ac1f6d1e849c36c943cc542",
+   "dialect": "Adobe PDF Library 15.0 / PDF PT 4.7.24.2 (pdf-tools.com)",
+   "provenance": {
+    "acquired": "2026-09-11",
+    "license": "CC-BY-3.0-IGO",
+    "license_evidence": "https://openknowledge.worldbank.org/",
+    "origin": "downloaded",
+    "producer": "Adobe PDF Library 15.0 / PDF PT 4.7.24.2 (pdf-tools.com)",
+    "recipe": null,
+    "source_url": "https://documents1.worldbank.org/curated/en/099080824150598470/pdf/P1807451cdbcc60881afdc19c40acb2e017.pdf"
+   },
+   "sha256": "57ba648d8e7aaefd9cacd3a65b88419da619d1640dfc7b99c0ccbdca91379629",
+   "src_pages": 48,
+   "tier": "ordinary_digital",
+   "why": "World Development Report 2024 overview booklet, 48 pages. Producer chain new to the corpus: Adobe InDesign 15.1 (Macintosh) through Adobe PDF Library 15.0 / PDF Tools 4.7.24.2 -- professional publishing layout, not a word processor. World Bank Open Knowledge Repository policy: CC BY 3.0 IGO. Host requires GET; HEAD returns 404. Citation basis recorded as repository policy rather than an in-document statement."
+  },
+  "y22_lshort.pdf": {
+   "bytes": 641763,
+   "content": "27a667b5dda1b5842fbe2e80ae31f703",
+   "dialect": "xdvipdfmx (20190824)",
+   "provenance": {
+    "acquired": "2026-09-11",
+    "license": "GPL-2.0-or-later",
+    "license_evidence": "https://ctan.org/pkg/lshort",
+    "origin": "downloaded",
+    "producer": "xdvipdfmx (20190824)",
+    "recipe": null,
+    "source_url": "https://mirrors.in3.sahilister.net/ctan/info/lshort/english/lshort.pdf"
+   },
+   "sha256": "ecef13f225de55549ee5214f70cca30998f3251dee65c6b00931aae18b7736c2",
+   "src_pages": 153,
+   "tier": "ordinary_digital",
+   "why": "The Not So Short Introduction to LaTeX (v6.4), 153 pages. Engine chain new to the corpus: XeLaTeX via xdvipdfmx -- every existing TeX fixture is pdfTeX. GPL statement printed on p.2 of the document itself, quoted at fetch. CTAN mirrors 307-redirect; redirects followed."
+  },
+  "y23_luatex.pdf": {
+   "bytes": 1697207,
+   "content": "dda322e815a898cb4f347187bcc1d34d",
+   "dialect": "LuaTeX-1.24",
+   "provenance": {
+    "acquired": "2026-09-11",
+    "license": "GPL-2.0-or-later",
+    "license_evidence": "https://ctan.org/pkg/luatex",
+    "origin": "downloaded",
+    "producer": "LuaTeX-1.24",
+    "recipe": null,
+    "source_url": "https://mirror.niser.ac.in/ctan/systems/doc/luatex/luatex.pdf"
+   },
+   "sha256": "79457a8ed7fb8052bd103bdc6867f789bca5ace88c44d1a2b14f4fd72f4c0e4d",
+   "src_pages": 328,
+   "tier": "unsupported",
+   "why": "LuaTeX 1.24 reference manual, 328 pages, ConTeXt MkIV typeset. Two chains new to the corpus: the LuaTeX engine itself and ConTeXt as the macro package (all existing TeX fixtures are LaTeX). GPL stated on the CTAN luatex package page. [re-tiered 2026-09-11: 317/328 pages exceed the 250-page converter cap, which is the §4 unsupported criterion; the refusal at measurement was the contract working, the plan's ordinary_digital tier was the error]"
+  },
+  "y24_pandoc_manual.pdf": {
+   "bytes": 543095,
+   "content": "d8d6de9121e6328c9ac48cd6bfbdab9a",
+   "dialect": "LuaTeX-1.21.0",
+   "provenance": {
+    "acquired": "2026-09-11",
+    "license": "GPL-2.0-or-later",
+    "license_evidence": "https://github.com/jgm/pandoc/blob/main/COPYING",
+    "origin": "downloaded",
+    "producer": "LuaTeX-1.21.0",
+    "recipe": null,
+    "source_url": "https://pandoc.org/MANUAL.pdf"
+   },
+   "sha256": "bc638f0804e5ab5f105e4f65aa25b897be97981ebffe7470acde64139df4e636",
+   "src_pages": 180,
+   "tier": "ordinary_digital",
+   "why": "The pandoc MANUAL, 180 pages, produced by pandoc's own LaTeX template through LuaTeX 1.21. The pandoc-to-LaTeX chain is named in the Creator string ('LaTeX via pandoc'); pandoc is among the most common real-world document pipelines. GPL from the pandoc repository COPYING; no in-document statement (checked)."
+  },
+  "y25_texbytopic.pdf": {
+   "bytes": 1509267,
+   "content": "7deec6481ccc4afeaf02280c7fc8706f",
+   "dialect": "pdfeTeX-1.21a",
+   "provenance": {
+    "acquired": "2026-09-11",
+    "license": "GFDL-1.2-or-later",
+    "license_evidence": "https://ctan.org/pkg/texbytopic",
+    "origin": "downloaded",
+    "producer": "pdfeTeX-1.21a",
+    "recipe": null,
+    "source_url": "https://mirrors.in3.sahilister.net/ctan/info/texbytopic/TeXbyTopic.pdf"
+   },
+   "sha256": "6a5e8794121bf1ab4a557ec5a968077e0c1bf7b64cb03abade84c192a5443068",
+   "src_pages": 317,
+   "tier": "unsupported",
+   "why": "TeX by Topic (Eijkhout), 317 pages, pdfeTeX-1.21a -- a vintage eTeX-era producer string, older than every TeX engine the corpus holds. FDL 1.2 permission statement printed on p.2 of the document itself, quoted at fetch. [re-tiered 2026-09-11: 317/328 pages exceed the 250-page converter cap, which is the §4 unsupported criterion; the refusal at measurement was the contract working, the plan's ordinary_digital tier was the error]"
+  },
+  "y26_bash_reference.pdf": {
+   "bytes": 855783,
+   "content": "136f1333accb034ac8df4a03894a59b9",
+   "dialect": "pdfTeX-1.40.26",
+   "provenance": {
+    "acquired": "2026-09-11",
+    "license": "GFDL-1.3-or-later",
+    "license_evidence": "https://www.gnu.org/licenses/fdl-1.3.en.html",
+    "origin": "downloaded",
+    "producer": "pdfTeX-1.40.26",
+    "recipe": null,
+    "source_url": "https://www.gnu.org/software/bash/manual/bash.pdf"
+   },
+   "sha256": "6652f0353ee8027f5069afd3adabeeaa9a50347a212361736f18ad4efbe69de7",
+   "src_pages": 214,
+   "tier": "ordinary_digital",
+   "why": "GNU Bash Reference Manual, Edition 5.3, 214 pages, pdfTeX 1.40.26 from texinfo via texi2dvi -- the texinfo toolchain is a Creator string ('TeX') no other fixture carries. FDL 1.3 statement printed on p.2 of the document itself, quoted at fetch."
+  },
+  "y27_rfc9000.pdf": {
+   "bytes": 1535216,
+   "content": "18b98c3ce7b1a6b6559b192aa2ac02b6",
+   "dialect": "cairo 1.16.0 (https://cairographics.org)",
+   "provenance": {
+    "acquired": "2026-09-11",
+    "license": "IETF-TLP-5a-verbatim",
+    "license_evidence": "https://trustee.ietf.org/trust-legal-provisions.html",
+    "origin": "downloaded",
+    "producer": "cairo 1.16.0 (https://cairographics.org)",
+    "recipe": null,
+    "source_url": "https://www.rfc-editor.org/rfc/rfc9000.pdf"
+   },
+   "sha256": "24f411581702fea968f554264a629a80aa5a03a2a959733063391575256edcc7",
+   "src_pages": 151,
+   "tier": "ordinary_digital",
+   "why": "RFC 9000 (QUIC v1), 151 pages, cairo 1.16.0 via xml2rfc 3.8.0 -- the same chain as y17_rfc9110, held as a second specimen because the corpus's 'other real-world' class is 1 of a target 6. IETF Trust TLP section 5.a permits verbatim redistribution of unmodified copies; the frozen-fixture constraint this corpus already imposes is exactly what the TLP requires. Not public domain -- the same recorded caveat as y17."
   }
  },
  "fixtures_dir": "testkit/fixtures_expansion",

@@ -4,6 +4,64 @@ Notable changes to exactdoc. Every quality number in this file is measured in
 the canonical environment (`docker/gate.Dockerfile`, pinned by digest) and
 traceable to a committed artifact under `docs/evidence/`.
 
+## Unreleased — porting the live-verified defect catalogue into the converter
+
+Between 2026-09-05 and 2026-09-07 a 32-page real report was converted and taken
+to CLEAN 1:1 in Google Docs through seven rounds of hand surgery on the output
+DOCX, with the converter deliberately frozen. That campaign's defect catalogue
+(recorded in the handoff; summarised below) is being ported into the converter
+one verified fix at a time, each gated against the frozen 16.
+
+Ported so far, all first verified live on Google's own render:
+
+- **#3 the text column is where the document's own full-width rules end, when
+  the text cannot say it in sufficient mass.** A ragged-right document keeps
+  its flush edge below the wide-line estimator's 8% membership floor, so the
+  rightmost qualifying cluster is an interior band of line ends; on the report
+  that cost ~19.5pt of column width and nearly doubled the page count. The
+  rule-evidence widener (`_rule_right_edge`) reads the document's rules
+  instead — unanimous, 32 rules at one edge — and widens only, never narrows,
+  only past the p90 of wide-line ends (a decorative rule overshooting a
+  correctly-measured column is rejected: 01_whitepaper's 6pt overshoot moved a
+  gated margin before that guard existed, and the Docker gate caught it).
+- **#4 Consolas maps to itself.** It was mapped to Courier New, 9% wider, so
+  every inline-code run wrapped early. Measured from the font file: 0.550em
+  advance (a true monospace), natural factor 1.171 (hhea 1521/−527/350 over
+  2048). Google Docs honours a declared Consolas — verified in export spans.
+- **#10 a hyphen is only a word break where hyphenation happens.** The join
+  dehyphenated every line-end hyphen before a lowercase continuation; on a
+  ragged-right report all 41 of them were real text (37 deleted, 4 spaced).
+  Dehyphenation now requires a justified paragraph at its wrap edge — a
+  ragged-right line keeps its hyphen and joins without a space.
+- **#2 a verbatim block keeps its line breaks.** A block whose every glyph is
+  monospace is code, not prose; its lines are now separated by breaks the
+  writer renders as `w:br`, and break-carrying paragraphs do not merge.
+- **#5 quote bars are bars, not pictures.** A 1.5pt-wide vertical rule 100pt+
+  tall marking text to its right is a quote bar; the old 1.8pt width floor
+  rejected every one (6 then rasterised as ~300pt-tall lines, 56 dropped).
+  Vertically-contiguous segments at the same x merge before the quote test.
+- **named Heading styles, so Google Docs' outline exists.** Converted
+  documents carried only `w:outlineLvl`, which Word's navigation pane reads
+  and Google Docs' outline sidebar ignores: every paragraph read "Normal
+  text". Headings now carry `Heading 1..6`, with the stock style definitions
+  rewritten to explicit zeros (an absent pPr is not a zero pPr — LibreOffice
+  supplies its own spacing for a silent "heading 1", which moved a gated
+  document's raw lane before the zeros were written).
+
+Measured after the ports, in the canonical container: **gate PASS both lanes
+at the recorded baseline numbers** (product 16/16 pages, 0.5274 within-2pt,
+0.9588 live text, 1.045pt dy50). The live B13 report went from **58 export
+pages before to 39 after** (hand-surgery reference: 32); the remaining spills
+are the table defects (#6 cell partition, #7 row heights, #1 carriers), which
+are the next ports. 21 new unit tests cover the six fixes.
+
+Corpus tranche 3 (see `docs/corpus-expansion.md` §12): acquisition reopened for
+the two named shortfalls; ten documents fetched, licence-verified and sealed
+(16 gated + 41 expansion = 57), adding six producer chains the corpus had
+never held — Typst, XeLaTeX, LuaTeX+ConTeXt, pandoc, Arbortext+PDFlib,
+Word→PostScript→Distiller — and closing LaTeX-light 1→6, other real-world
+1→6. Non-gating, as §7 requires.
+
 ## 1.0.1 — 2026-08-07
 
 A résumé went through the converter and came out wrong in ways the 16-document

@@ -837,3 +837,56 @@ All four are properties of the converter as of `0b4e289`, all four are now
 measurable on committed bytes, and none of them gates anything yet. Promotion
 into the gate remains the deliberate commit described in §7 — and these numbers
 are the reason to be careful about it, not a reason to hurry.
+
+---
+
+## 12. Tranche 3: acquisition reopened, the two named shortfalls closed
+
+Tranche 2 closed acquisition with two shortfalls stated in §11 — LaTeX-light at
+1 of a target 8, other real-world producers at 1 of a target 6 — both caused by
+licences and hosts, not by lack of candidates. On 2026-09-11 the owner reopened
+acquisition for exactly those two classes. The tranche-2 plan file stays closed
+and untouched as the historical record; the reopening lives in
+`testkit/expansion_download_plan_tranche3.json`, and every URL in it was
+verified by full download (PDF magic bytes, metadata read from the file) before
+it entered the plan — the §10 lesson about guessed paths applied from the start.
+
+**Ten candidates attempted, ten fetched, ten sealed.** The corpus is now
+**16 gated + 41 expansion = 57 documents**, still inside the 40–60 target.
+
+### Licence verification, per document
+
+In-document statements quoted at fetch; publisher-identity bases recorded as
+the weaker evidence they are, as in §9.
+
+| fixture | licence basis | evidence |
+|---|---|---|
+| `y18_eurlex_ai_act` | CC-BY-4.0 | site-level EU reuse notice (Commission Decision 2011/833/EU); the PDF itself is silent — recorded as the weaker basis |
+| `y19_scotus_loper` | US Gov public domain | **no copyright claim anywhere** in the opinion; publisher identity (US Supreme Court) |
+| `y20_typst_report` | MIT | repository LICENSE file read at fetch |
+| `y21_worldbank_wdr24` | CC-BY-3.0-IGO | World Bank OKR policy; no in-document statement |
+| `y22_lshort` | GPL-2.0-or-later | p.2: "either version 2 of the License, or (at your option) any later version" |
+| `y23_luatex` | GPL-2.0-or-later | CTAN package licence field |
+| `y24_pandoc_manual` | GPL-2.0-or-later | repository COPYING only; the PDF itself is silent |
+| `y25_texbytopic` | GFDL-1.2-or-later | p.2: "Permission is granted to copy, distribute and/or modify this document under the terms of the GNU Free Documentation License, Version 1.2" |
+| `y26_bash_reference` | GFDL-1.3-or-later | p.2 FDL 1.3 statement |
+| `y27_rfc9000` | IETF Trust TLP 5.a | p.1 copyright; the same verbatim-redistribution basis as `y17`, with the same never-modify constraint |
+
+### Producer census — six chains the corpus had never held
+
+| producer chain | fixture | class |
+|---|---|---|
+| **PDFlib+PDI 9.0.7p3 / Servigistics Arbortext** | `y18` | other real-world |
+| **Acrobat Distiller 23.0 from PScript5.dll** (Word→PS→distill, no PDFMaker) | `y19` | other real-world |
+| **Typst 0.13.1** | `y20` | other real-world |
+| **Adobe InDesign 15.1 / PDF Tools 4.7** | `y21` | other real-world |
+| **XeLaTeX (xdvipdfmx)** | `y22` | LaTeX-light |
+| **LuaTeX 1.24 + ConTeXt MkIV** | `y23` | LaTeX-light |
+| **pandoc → LuaTeX 1.21** | `y24` | LaTeX-light |
+| **pdfeTeX-1.21a** | `y25` | LaTeX-light |
+| **pdfTeX 1.40.26 via texinfo** | `y26` | LaTeX-light |
+| cairo 1.16.0 / xml2rfc (second specimen) | `y27` | other real-world |
+
+LaTeX-light goes 1 → 6 (target 8) and other real-world 1 → 6 (target 6, met),
+without touching arXiv: every TeX engine held arrived through CTAN, GNU, or a
+publisher that states its terms. All ten are tiered `ordinary_digital`.

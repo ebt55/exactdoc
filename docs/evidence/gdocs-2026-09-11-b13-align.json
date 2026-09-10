@@ -1,0 +1,703 @@
+{
+ "source_pdf": "C:\\Users\\ebin\\glm-ground\\exact-doc\\tmp\\gdocs_live\\sources\\B13_report.pdf",
+ "export_pdf": "C:\\Users\\ebin\\glm-ground\\exact-doc\\tmp\\gdocs_live\\evidence_r1\\B13_report.gdocs.pdf",
+ "source_pages": 32,
+ "export_pages": 39,
+ "blank_export_pages": [],
+ "orphan_export_pages": [
+  4,
+  10,
+  14,
+  17,
+  19,
+  22,
+  24
+ ],
+ "export_rows": [
+  {
+   "page": 1,
+   "chars": 2837,
+   "role": "starts src 1",
+   "src_pages": [
+    1
+   ]
+  },
+  {
+   "page": 2,
+   "chars": 1387,
+   "role": "starts src 2",
+   "src_pages": [
+    2
+   ]
+  },
+  {
+   "page": 3,
+   "chars": 2741,
+   "role": "starts src 3",
+   "src_pages": [
+    3
+   ]
+  },
+  {
+   "page": 4,
+   "chars": 73,
+   "role": "TAIL of src 3",
+   "src_pages": [
+    3
+   ]
+  },
+  {
+   "page": 5,
+   "chars": 2788,
+   "role": "starts src 4",
+   "src_pages": [
+    4
+   ]
+  },
+  {
+   "page": 6,
+   "chars": 2657,
+   "role": "starts src 5",
+   "src_pages": [
+    5
+   ]
+  },
+  {
+   "page": 7,
+   "chars": 2895,
+   "role": "starts src 6",
+   "src_pages": [
+    6
+   ]
+  },
+  {
+   "page": 8,
+   "chars": 2349,
+   "role": "starts src 7",
+   "src_pages": [
+    7
+   ]
+  },
+  {
+   "page": 9,
+   "chars": 2193,
+   "role": "starts src 8",
+   "src_pages": [
+    8
+   ]
+  },
+  {
+   "page": 10,
+   "chars": 625,
+   "role": "TAIL of src 8",
+   "src_pages": [
+    8
+   ]
+  },
+  {
+   "page": 11,
+   "chars": 2241,
+   "role": "starts src 9",
+   "src_pages": [
+    9
+   ]
+  },
+  {
+   "page": 12,
+   "chars": 2708,
+   "role": "starts src 10",
+   "src_pages": [
+    10
+   ]
+  },
+  {
+   "page": 13,
+   "chars": 2672,
+   "role": "starts src 11",
+   "src_pages": [
+    11
+   ]
+  },
+  {
+   "page": 14,
+   "chars": 241,
+   "role": "TAIL of src 11",
+   "src_pages": [
+    11
+   ]
+  },
+  {
+   "page": 15,
+   "chars": 2600,
+   "role": "starts src 12",
+   "src_pages": [
+    12
+   ]
+  },
+  {
+   "page": 16,
+   "chars": 2183,
+   "role": "starts src 13",
+   "src_pages": [
+    13
+   ]
+  },
+  {
+   "page": 17,
+   "chars": 443,
+   "role": "TAIL of src 13",
+   "src_pages": [
+    13
+   ]
+  },
+  {
+   "page": 18,
+   "chars": 2549,
+   "role": "starts src 14",
+   "src_pages": [
+    14
+   ]
+  },
+  {
+   "page": 19,
+   "chars": 460,
+   "role": "TAIL of src 14",
+   "src_pages": [
+    14
+   ]
+  },
+  {
+   "page": 20,
+   "chars": 2742,
+   "role": "starts src 15",
+   "src_pages": [
+    15
+   ]
+  },
+  {
+   "page": 21,
+   "chars": 2243,
+   "role": "starts src 16",
+   "src_pages": [
+    16
+   ]
+  },
+  {
+   "page": 22,
+   "chars": 61,
+   "role": "TAIL of src 16",
+   "src_pages": [
+    16
+   ]
+  },
+  {
+   "page": 23,
+   "chars": 2098,
+   "role": "starts src 17",
+   "src_pages": [
+    17
+   ]
+  },
+  {
+   "page": 24,
+   "chars": 159,
+   "role": "TAIL of src 17",
+   "src_pages": [
+    17
+   ]
+  },
+  {
+   "page": 25,
+   "chars": 2332,
+   "role": "starts src 18",
+   "src_pages": [
+    18
+   ]
+  },
+  {
+   "page": 26,
+   "chars": 2876,
+   "role": "starts src 19",
+   "src_pages": [
+    19
+   ]
+  },
+  {
+   "page": 27,
+   "chars": 3050,
+   "role": "starts src 20",
+   "src_pages": [
+    20
+   ]
+  },
+  {
+   "page": 28,
+   "chars": 2714,
+   "role": "starts src 21",
+   "src_pages": [
+    21
+   ]
+  },
+  {
+   "page": 29,
+   "chars": 2752,
+   "role": "starts src 22",
+   "src_pages": [
+    22
+   ]
+  },
+  {
+   "page": 30,
+   "chars": 2634,
+   "role": "starts src 23",
+   "src_pages": [
+    23
+   ]
+  },
+  {
+   "page": 31,
+   "chars": 2625,
+   "role": "starts src 24",
+   "src_pages": [
+    24
+   ]
+  },
+  {
+   "page": 32,
+   "chars": 2455,
+   "role": "starts src 25",
+   "src_pages": [
+    25
+   ]
+  },
+  {
+   "page": 33,
+   "chars": 2505,
+   "role": "starts src 26",
+   "src_pages": [
+    26
+   ]
+  },
+  {
+   "page": 34,
+   "chars": 2654,
+   "role": "starts src 27",
+   "src_pages": [
+    27
+   ]
+  },
+  {
+   "page": 35,
+   "chars": 2553,
+   "role": "starts src 28",
+   "src_pages": [
+    28
+   ]
+  },
+  {
+   "page": 36,
+   "chars": 2456,
+   "role": "starts src 29",
+   "src_pages": [
+    29
+   ]
+  },
+  {
+   "page": 37,
+   "chars": 2789,
+   "role": "starts src 30",
+   "src_pages": [
+    30
+   ]
+  },
+  {
+   "page": 38,
+   "chars": 2652,
+   "role": "starts src 31",
+   "src_pages": [
+    31
+   ]
+  },
+  {
+   "page": 39,
+   "chars": 1102,
+   "role": "starts src 32",
+   "src_pages": [
+    32
+   ]
+  }
+ ],
+ "unmatched_export_pages": [],
+ "spill_source_pages": [
+  3,
+  8,
+  11,
+  13,
+  14,
+  16,
+  17
+ ],
+ "first_divergence": 3,
+ "clean": false,
+ "rows": [
+  {
+   "source_page": 1,
+   "export_pages": [
+    1
+   ],
+   "src_chars": 2837,
+   "exp_chars": 2837,
+   "blanks_before": [],
+   "spill_chars": 0,
+   "status": "OK"
+  },
+  {
+   "source_page": 2,
+   "export_pages": [
+    2
+   ],
+   "src_chars": 1369,
+   "exp_chars": 1369,
+   "blanks_before": [],
+   "spill_chars": 0,
+   "status": "OK"
+  },
+  {
+   "source_page": 3,
+   "export_pages": [
+    3,
+    4
+   ],
+   "src_chars": 2742,
+   "exp_chars": 2742,
+   "blanks_before": [],
+   "spill_chars": 73,
+   "status": "SPILLED 73 chars"
+  },
+  {
+   "source_page": 4,
+   "export_pages": [
+    5
+   ],
+   "src_chars": 2734,
+   "exp_chars": 2734,
+   "blanks_before": [],
+   "spill_chars": 0,
+   "status": "SHIFTED"
+  },
+  {
+   "source_page": 5,
+   "export_pages": [
+    6
+   ],
+   "src_chars": 2639,
+   "exp_chars": 2639,
+   "blanks_before": [],
+   "spill_chars": 0,
+   "status": "SHIFTED"
+  },
+  {
+   "source_page": 6,
+   "export_pages": [
+    7
+   ],
+   "src_chars": 2895,
+   "exp_chars": 2895,
+   "blanks_before": [],
+   "spill_chars": 0,
+   "status": "SHIFTED"
+  },
+  {
+   "source_page": 7,
+   "export_pages": [
+    8
+   ],
+   "src_chars": 2349,
+   "exp_chars": 2349,
+   "blanks_before": [],
+   "spill_chars": 0,
+   "status": "SHIFTED"
+  },
+  {
+   "source_page": 8,
+   "export_pages": [
+    9,
+    10
+   ],
+   "src_chars": 2821,
+   "exp_chars": 2818,
+   "blanks_before": [],
+   "spill_chars": 625,
+   "status": "SPILLED 625 chars + SHIFTED"
+  },
+  {
+   "source_page": 9,
+   "export_pages": [
+    11
+   ],
+   "src_chars": 2241,
+   "exp_chars": 2241,
+   "blanks_before": [],
+   "spill_chars": 0,
+   "status": "SHIFTED"
+  },
+  {
+   "source_page": 10,
+   "export_pages": [
+    12
+   ],
+   "src_chars": 2708,
+   "exp_chars": 2708,
+   "blanks_before": [],
+   "spill_chars": 0,
+   "status": "SHIFTED"
+  },
+  {
+   "source_page": 11,
+   "export_pages": [
+    13,
+    14
+   ],
+   "src_chars": 2913,
+   "exp_chars": 2913,
+   "blanks_before": [],
+   "spill_chars": 241,
+   "status": "SPILLED 241 chars + SHIFTED"
+  },
+  {
+   "source_page": 12,
+   "export_pages": [
+    15
+   ],
+   "src_chars": 2600,
+   "exp_chars": 2600,
+   "blanks_before": [],
+   "spill_chars": 0,
+   "status": "SHIFTED"
+  },
+  {
+   "source_page": 13,
+   "export_pages": [
+    16,
+    17
+   ],
+   "src_chars": 2628,
+   "exp_chars": 2628,
+   "blanks_before": [],
+   "spill_chars": 445,
+   "status": "SPILLED 445 chars + SHIFTED"
+  },
+  {
+   "source_page": 14,
+   "export_pages": [
+    18,
+    19
+   ],
+   "src_chars": 3009,
+   "exp_chars": 3009,
+   "blanks_before": [],
+   "spill_chars": 460,
+   "status": "SPILLED 460 chars + SHIFTED"
+  },
+  {
+   "source_page": 15,
+   "export_pages": [
+    20
+   ],
+   "src_chars": 2742,
+   "exp_chars": 2742,
+   "blanks_before": [],
+   "spill_chars": 0,
+   "status": "SHIFTED"
+  },
+  {
+   "source_page": 16,
+   "export_pages": [
+    21,
+    22
+   ],
+   "src_chars": 2304,
+   "exp_chars": 2304,
+   "blanks_before": [],
+   "spill_chars": 61,
+   "status": "SPILLED 61 chars + SHIFTED"
+  },
+  {
+   "source_page": 17,
+   "export_pages": [
+    23,
+    24
+   ],
+   "src_chars": 2239,
+   "exp_chars": 2239,
+   "blanks_before": [],
+   "spill_chars": 159,
+   "status": "SPILLED 159 chars + SHIFTED"
+  },
+  {
+   "source_page": 18,
+   "export_pages": [
+    25
+   ],
+   "src_chars": 2314,
+   "exp_chars": 2314,
+   "blanks_before": [],
+   "spill_chars": 0,
+   "status": "SHIFTED"
+  },
+  {
+   "source_page": 19,
+   "export_pages": [
+    26
+   ],
+   "src_chars": 2858,
+   "exp_chars": 2858,
+   "blanks_before": [],
+   "spill_chars": 0,
+   "status": "SHIFTED"
+  },
+  {
+   "source_page": 20,
+   "export_pages": [
+    27
+   ],
+   "src_chars": 3032,
+   "exp_chars": 3032,
+   "blanks_before": [],
+   "spill_chars": 0,
+   "status": "SHIFTED"
+  },
+  {
+   "source_page": 21,
+   "export_pages": [
+    28
+   ],
+   "src_chars": 2696,
+   "exp_chars": 2696,
+   "blanks_before": [],
+   "spill_chars": 0,
+   "status": "SHIFTED"
+  },
+  {
+   "source_page": 22,
+   "export_pages": [
+    29
+   ],
+   "src_chars": 2734,
+   "exp_chars": 2734,
+   "blanks_before": [],
+   "spill_chars": 0,
+   "status": "SHIFTED"
+  },
+  {
+   "source_page": 23,
+   "export_pages": [
+    30
+   ],
+   "src_chars": 2616,
+   "exp_chars": 2616,
+   "blanks_before": [],
+   "spill_chars": 0,
+   "status": "SHIFTED"
+  },
+  {
+   "source_page": 24,
+   "export_pages": [
+    31
+   ],
+   "src_chars": 2607,
+   "exp_chars": 2607,
+   "blanks_before": [],
+   "spill_chars": 0,
+   "status": "SHIFTED"
+  },
+  {
+   "source_page": 25,
+   "export_pages": [
+    32
+   ],
+   "src_chars": 2437,
+   "exp_chars": 2437,
+   "blanks_before": [],
+   "spill_chars": 0,
+   "status": "SHIFTED"
+  },
+  {
+   "source_page": 26,
+   "export_pages": [
+    33
+   ],
+   "src_chars": 2487,
+   "exp_chars": 2487,
+   "blanks_before": [],
+   "spill_chars": 0,
+   "status": "SHIFTED"
+  },
+  {
+   "source_page": 27,
+   "export_pages": [
+    34
+   ],
+   "src_chars": 2636,
+   "exp_chars": 2636,
+   "blanks_before": [],
+   "spill_chars": 0,
+   "status": "SHIFTED"
+  },
+  {
+   "source_page": 28,
+   "export_pages": [
+    35
+   ],
+   "src_chars": 2535,
+   "exp_chars": 2535,
+   "blanks_before": [],
+   "spill_chars": 0,
+   "status": "SHIFTED"
+  },
+  {
+   "source_page": 29,
+   "export_pages": [
+    36
+   ],
+   "src_chars": 2438,
+   "exp_chars": 2438,
+   "blanks_before": [],
+   "spill_chars": 0,
+   "status": "SHIFTED"
+  },
+  {
+   "source_page": 30,
+   "export_pages": [
+    37
+   ],
+   "src_chars": 2771,
+   "exp_chars": 2771,
+   "blanks_before": [],
+   "spill_chars": 0,
+   "status": "SHIFTED"
+  },
+  {
+   "source_page": 31,
+   "export_pages": [
+    38
+   ],
+   "src_chars": 2634,
+   "exp_chars": 2634,
+   "blanks_before": [],
+   "spill_chars": 0,
+   "status": "SHIFTED"
+  },
+  {
+   "source_page": 32,
+   "export_pages": [
+    39
+   ],
+   "src_chars": 1102,
+   "exp_chars": 1102,
+   "blanks_before": [],
+   "spill_chars": 0,
+   "status": "SHIFTED"
+  }
+ ]
+}

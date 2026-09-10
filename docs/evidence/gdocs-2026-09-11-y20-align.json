@@ -1,0 +1,103 @@
+{
+ "source_pdf": "C:\\Users\\ebin\\glm-ground\\exact-doc\\tmp\\gdocs_live\\sources\\y20_typst_report.pdf",
+ "export_pdf": "C:\\Users\\ebin\\glm-ground\\exact-doc\\tmp\\gdocs_live\\evidence_r1\\y20_typst_report.gdocs.pdf",
+ "source_pages": 5,
+ "export_pages": 5,
+ "blank_export_pages": [],
+ "orphan_export_pages": [],
+ "export_rows": [
+  {
+   "page": 1,
+   "chars": 80,
+   "role": "starts src 1",
+   "src_pages": [
+    1
+   ]
+  },
+  {
+   "page": 2,
+   "chars": 123,
+   "role": "starts src 2",
+   "src_pages": [
+    2
+   ]
+  },
+  {
+   "page": 3,
+   "chars": 2140,
+   "role": "UNMATCHED",
+   "src_pages": []
+  },
+  {
+   "page": 4,
+   "chars": 2005,
+   "role": "UNMATCHED",
+   "src_pages": []
+  },
+  {
+   "page": 5,
+   "chars": 764,
+   "role": "UNMATCHED",
+   "src_pages": []
+  }
+ ],
+ "unmatched_export_pages": [
+  3,
+  4,
+  5
+ ],
+ "spill_source_pages": [],
+ "first_divergence": 3,
+ "clean": false,
+ "rows": [
+  {
+   "source_page": 1,
+   "export_pages": [
+    1
+   ],
+   "src_chars": 80,
+   "exp_chars": 80,
+   "blanks_before": [],
+   "spill_chars": 0,
+   "status": "OK"
+  },
+  {
+   "source_page": 2,
+   "export_pages": [
+    2
+   ],
+   "src_chars": 123,
+   "exp_chars": 123,
+   "blanks_before": [],
+   "spill_chars": 0,
+   "status": "OK"
+  },
+  {
+   "source_page": 3,
+   "export_pages": [],
+   "src_chars": 592,
+   "exp_chars": 0,
+   "blanks_before": [],
+   "spill_chars": 0,
+   "status": "MISSING"
+  },
+  {
+   "source_page": 4,
+   "export_pages": [],
+   "src_chars": 598,
+   "exp_chars": 0,
+   "blanks_before": [],
+   "spill_chars": 0,
+   "status": "MISSING"
+  },
+  {
+   "source_page": 5,
+   "export_pages": [],
+   "src_chars": 248,
+   "exp_chars": 0,
+   "blanks_before": [],
+   "spill_chars": 0,
+   "status": "MISSING"
+  }
+ ]
+}
