@@ -2,6 +2,7 @@
 import math
 import re
 from collections import Counter, defaultdict
+from dataclasses import replace
 from statistics import median
 from typing import List, Optional, Tuple, Dict, Any
 
@@ -267,15 +268,82 @@ def _two_column_right_edge(body_lines, margin_l: float,
     return float(edge)
 
 
+def _rule_right_edge(ir: DocIR, hf: dict, page_w: float,
+                     wide_x1: List[float]) -> Optional[float]:
+    """Right content edge from the document's own full-width rules.
+
+    The wide-line right-margin estimate reads where wide TEXT lines end. A
+    ragged-right document keeps its flush edge below that estimator's 8%
+    membership floor -- not every line reaches the edge, that is what
+    ragged means -- so the rightmost qualifying cluster is an interior band
+    of line ends and the content edge lands inside the text it bounds.
+
+    Measured on a real 32-page ragged-right report (Chrome print-to-PDF,
+    Georgia body): the text cluster returned 519.7 on a 595pt page while
+    every one of the document's 32 full-width horizontal rules ends at
+    exactly 539.25 -- the designer's own column edge, unanimous, drawn 32
+    times. The hand-measured cost of trusting the text cluster there was
+    ~19.5pt of lost column width, which re-wrapped every paragraph in the
+    document and nearly doubled its page count in Google Docs.
+
+    A rule qualifies only when it is thin (a rule, not a shape) and at
+    least as wide as the wide-line standard (0.45 of the page), and the
+    candidate edge must carry repeated rule mass -- `_margin_cluster`'s
+    max(3, 8%) floor -- so one stray stroke cannot move the column. Edges
+    within 14pt of the paper edge are rejected outright: a rule that
+    bleeds is page furniture, not a column boundary.
+
+    The edge must also EXIST IN THE TEXT: no further than 5pt beyond the
+    p90 of the wide-line right ends. A true column edge is one text
+    reaches -- the ragged top decile lands 3.75pt short of B13's 539.25 --
+    while a decorative rule overshoots a correctly-measured column by
+    design: 01_whitepaper_market's text cluster and p90 both sit at 552.0
+    and six of its rules run to 558.0, a 6pt overshoot that moved a gated
+    margin when this guard did not exist. The caller only ever widens
+    content with the answer, never narrows it.
+    """
+    x1s: List[float] = []
+    for p in ir.pages:
+        cd = hf["consumed_draw"].get(p.number, ())
+        for di, d in enumerate(p.drawings):
+            if di in cd:
+                continue
+            x0, y0, x1, y1 = d.bbox
+            if (y1 - y0) <= RULE_THICK and (x1 - x0) >= 0.45 * page_w:
+                x1s.append(x1)
+    if not x1s:
+        return None
+    edge = _margin_cluster(x1s, left=False)
+    if edge is None or page_w - edge < 14.0:
+        return None
+    if wide_x1:
+        ordered = sorted(wide_x1)
+        p90 = ordered[int(0.9 * (len(ordered) - 1))]
+        if edge > p90 + 5.0:
+            return None
+    return float(edge)
+
+
 # ------------------------------------------------------------------ runs/paras
-def _soft_join(runs: List[Run], next_text: str):
+def _soft_join(runs: List[Run], next_text: str, dehyphenate: bool = True):
     """Append a joiner between wrapped lines: space normally, dehyphenate
-    when the previous line ends with a hyphenated word break."""
+    when the previous line ends with a hyphenated word break.
+
+    `dehyphenate` is the caller's geometry verdict on that hyphen: a hyphen
+    only marks a word break when its line reached the wrap edge, because
+    hyphenation is how a justified line buys its last few points. A
+    ragged-right line that stops short of the edge carries a *real* hyphen
+    ("co-author" split across lines), and the join must keep it, not eat it.
+    Unconditional dehyphenation deleted 37 real hyphens and spaced 4 more on
+    a 32-page ragged-right report (defect catalogue #10, live-verified in
+    Google Docs: every drawn hyphen in it is real text, none a break).
+    """
     if not runs:
         return
     last = runs[-1].text
     nxt = next_text.lstrip()[:1]
-    if last.endswith("-") and len(last) >= 2 and last[-2].isalpha() and nxt.islower():
+    if dehyphenate and last.endswith("-") and len(last) >= 2 \
+            and last[-2].isalpha() and nxt.islower():
         runs[-1].text = last[:-1]
     elif not last.endswith((" ", "-")):
         runs[-1].text += " "
@@ -562,10 +630,34 @@ def para_from_lines(lines: List[Line], col_l: float, col_r: float) -> Para:
     p.runs = []
     p.src_lines = len(lines)
     p.src_widths = [round(ln.bbox[2] - ln.bbox[0], 1) for ln in lines]
+    # A block whose every glyph is monospace is verbatim matter: code, ASCII
+    # diagrams, fixed-pitch tables. Its line breaks are semantic, not wraps,
+    # and re-flowing them as prose is wrong in every renderer. Defect
+    # catalogue #2, live-verified in Google Docs: a multi-line code block
+    # emitted as one run-per-line paragraph with space joiners collapsed
+    # onto one wrapped line. Keep each source line, separated by breaks the
+    # writer renders as w:br, exactly like the shaded code-cell path and the
+    # ladder's line-locked encoding.
+    mono_block = len(lines) >= 2 and all(
+        s.mono for ln in lines for s in ln.spans if s.text.strip())
+    if mono_block:
+        p.line_breaks = True
     for i, ln in enumerate(lines):
-        p.runs.extend(runs_from_spans(ln.spans))
-        if i < len(lines) - 1:
-            _soft_join(p.runs, lines[i + 1].text)
+        row = runs_from_spans(ln.spans)
+        if mono_block and i < len(lines) - 1 and row:
+            row[-1].text += "\n"
+        p.runs.extend(row)
+        if not mono_block and i < len(lines) - 1:
+            # Dehyphenate only where hyphenation happens: a justified
+            # paragraph buying its last few points at the wrap edge. A
+            # ragged-right line carries real text hyphens regardless of
+            # how close to the edge it stops -- measured on a 32-page
+            # ragged-right report where even the widest hyphen line ends
+            # 3.75pt short of the column and every drawn hyphen is text.
+            _soft_join(p.runs, lines[i + 1].text,
+                       dehyphenate=(p.align == "justify"
+                                    and ln.bbox[2]
+                                    >= col_r - p.right_indent - 3.0))
     # ``right_flush`` deliberately ignores the final source line: that is how
     # a normal justified paragraph has a ragged last line.  A short metadata
     # block can look the same to that heuristic, except its final row is wider
@@ -598,9 +690,12 @@ def para_from_lines(lines: List[Line], col_l: float, col_r: float) -> Para:
             runs.append(Run(text="\t", font=spans0[0].font, size=spans0[0].size,
                             color=spans0[0].color, is_tab=True))
             runs += runs_from_spans(spans0[k + 1:])
-            for ln in lines[1:]:
-                _soft_join(runs, ln.text)
-                runs.extend(runs_from_spans(ln.spans))
+            for j in range(1, len(lines)):
+                _soft_join(runs, lines[j].text,
+                           dehyphenate=(p.align == "justify"
+                                        and lines[j - 1].bbox[2]
+                                        >= col_r - p.right_indent - 3.0))
+                runs.extend(runs_from_spans(lines[j].spans))
             p.runs = runs
     return p
 
@@ -1801,7 +1896,16 @@ def infer(ir: DocIR) -> DocLayout:
     # fallback and discard a correct answer the next line was about to supply.
     if _right_edge_misclustered(wide_x1, mr):
         mr = None
-    lay.margin_r = round(lay.page_w - mr, 1) if mr else lay.margin_l
+    # The document's own full-width rules can place the column edge where
+    # the ragged-right text never reaches it in sufficient mass. Compared
+    # against whichever estimate survives above -- the cluster, or the
+    # mirror-the-left-margin fallback when there is none -- and only ever
+    # widens content, the same one-way door as `_two_column_right_edge`.
+    base_edge = mr if mr is not None else lay.page_w - lay.margin_l
+    rule_edge = _rule_right_edge(ir, hf, lay.page_w, wide_x1)
+    if rule_edge is not None and rule_edge > base_edge + 2.5:
+        mr = rule_edge
+    lay.margin_r = round(lay.page_w - mr, 1) if mr is not None else lay.margin_l
     lay.margin_r = max(14.0, lay.margin_r)
 
     band1_h = max((d.bbox[3] for _, d in hf["band_first"]), default=0) \
@@ -1998,9 +2102,45 @@ def infer(ir: DocIR) -> DocLayout:
             still.append((i, d))
         leftover = still
 
+        # Producers draw one quote bar as several stacked vline segments
+        # (measured: 403 segments for 62 bars on the report that motivated
+        # the threshold below). Each segment would claim its own slice of
+        # the block and cut one quote into as many stacked one-cell tables,
+        # so merge segments that share an x-centre and touch vertically
+        # into a single bar before the quote test sees them.
+        vbar_idx = {i for i, d in leftover if d.shape == "vline"
+                    and (d.bbox[3] - d.bbox[1]) >= 16}
+        if vbar_idx:
+            bars = sorted((d for i, d in leftover if i in vbar_idx),
+                          key=lambda d: ((d.bbox[0] + d.bbox[2]) / 2,
+                                         d.bbox[1]))
+            segs = []
+            for d in bars:
+                if segs:
+                    hb = segs[-1].bbox
+                    if abs((d.bbox[0] + d.bbox[2]) / 2
+                           - (hb[0] + hb[2]) / 2) <= 1.5 \
+                            and d.bbox[1] - hb[3] <= 3.0:
+                        segs[-1] = replace(segs[-1], bbox=(
+                            min(hb[0], d.bbox[0]), min(hb[1], d.bbox[1]),
+                            max(hb[2], d.bbox[2]), max(hb[3], d.bbox[3])))
+                        continue
+                segs.append(d)
+            leftover = [(i, d) for i, d in leftover if i not in vbar_idx] + \
+                [(min(vbar_idx), d) for d in segs]
+
         for i, d in leftover:
             if d.shape == "vline" and (d.bbox[3] - d.bbox[1]) >= 16 and \
-                    max(d.width, d.bbox[2] - d.bbox[0]) >= 1.8:
+                    max(d.width, d.bbox[2] - d.bbox[0]) >= 1.2:
+                # 1.2, not 1.8: the qualifier is the text this rule marks,
+                # not the rule's own weight. A real report's quote bars are
+                # 1.5pt wide with a 0.75pt stroke -- 62 of them, every one
+                # rejected by the old 1.8 floor, 6 then rasterised as tall
+                # pictures that each consumed a ~300pt line of body height
+                # and 56 dropped outright (defect catalogue #5,
+                # live-verified). A vline this tall that carries text on
+                # its right is a quote bar; a vline that marks nothing
+                # falls through to `_take_lines_in` returning empty.
                 zone = (d.bbox[2], d.bbox[1] - 2,
                         d.bbox[2] + min(0.9 * content_w, 500), d.bbox[3] + 2)
                 probe = set(consumed)
@@ -2407,6 +2547,12 @@ def _to_flow(items, col_l, col_r):
 def _mergeable(a: Para, b: Para) -> bool:
     if a.heading or b.heading:
         return False
+    # A paragraph that carries its own line breaks (verbatim blocks, the
+    # ladder's line-locked encoding) is a sequence of source lines, not a
+    # reflowable run of prose. Merging it with a neighbour joins the two
+    # with a space and undoes the break structure both were built with.
+    if getattr(a, "line_breaks", False) or getattr(b, "line_breaks", False):
+        return False
     if any(r.is_tab for r in a.runs) or any(r.is_tab for r in b.runs):
         return False
     if a.align in ("center", "right") or b.align in ("center", "right"):
@@ -2433,8 +2579,8 @@ def _merge_flow_paras(seq, col_r):
                 delta = round(el.bbox[1] - a.bbox[1], 2)
                 if delta > 2:
                     a.leading = delta
-            _soft_join(a.runs, el.text)
             was_flush = abs(a.bbox[2] - col_r) < 3.0
+            _soft_join(a.runs, el.text, dehyphenate=was_flush)
             a.runs += el.runs
             a.bbox = bbox_union(a.bbox, el.bbox)
             a._vis_lines = getattr(a, "_vis_lines", 1) + getattr(el, "_vis_lines", 1)

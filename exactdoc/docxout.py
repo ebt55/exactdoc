@@ -387,6 +387,12 @@ NATURAL_FACTORS = {
     # offset across four independently probed families. Noto Serif reads 1.362
     # by the same formula, so 1.356 predicted against 1.360 observed.
     "noto serif": 1.360, "noto sans": 1.356, "verdana": 1.209,
+    # Consolas, read from the font file by the formula above (hhea
+    # 1521/-527/350 over upm 2048 = 1.1709) minus the constant 0.006
+    # offset the four probed families showed between that formula and
+    # Docs' own pitch. No live probe has confirmed it yet; a
+    # probe_font_metrics ride-along is the way to tighten it.
+    "consolas": 1.165,
     # Also measured inside Docs rather than from a font file, by
     # testkit/probe_font_metrics.py in live pass 3 -- the family is not
     # installed here. The probe's own controls recovered Noto Serif at 1.362,
@@ -568,6 +574,18 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None,
     # keep heading with following content
     if p.heading:
         pf.keep_with_next = True
+        # Name the style, not just the outline level. `w:outlineLvl` is what
+        # Word's navigation pane reads; Google Docs' outline sidebar and its
+        # style dropdown key on the paragraph STYLE, and a converted document
+        # that carried only outlineLvl showed "Normal text" for every heading
+        # and an empty outline. The named stock styles are stripped to pure
+        # metadata by `_restyle_outline_styles`, so everything visual still
+        # comes from the direct formatting below and nothing moves. Assigned
+        # by name so the paragraph resolves it against its own document part.
+        try:
+            par.style = "Heading %d" % min(6, p.heading)
+        except KeyError:
+            pass
         ppr = par._p.get_or_add_pPr()
         lvl = OxmlElement("w:outlineLvl")
         lvl.set(qn("w:val"), str(min(8, p.heading - 1)))
@@ -1697,6 +1715,52 @@ _FONT_DESC = {
 }
 
 
+def _restyle_outline_styles(doc):
+    """Strip the stock Heading styles down to pure outline metadata.
+
+    Google Docs' outline sidebar and style dropdown key on the paragraph
+    STYLE: a converted document carrying only `w:outlineLvl` showed "Normal
+    text" everywhere and an empty outline, whatever Word's navigation pane
+    said. So headings are named `Heading 1..6` -- and then the style must
+    carry no visual payload of its own, or every heading in every converted
+    document would inherit the stock template's blue Cambria look through
+    whatever direct formatting happens not to name a property.
+
+    The stock style elements keep `w:name`, `w:styleId`, `w:basedOn` Normal,
+    `w:next` and `w:qFormat` -- everything a reader needs to call the
+    paragraph a heading -- and their `w:pPr`/`w:rPr` are replaced with an
+    explicit zero: spacing 0/0, single line. An ABSENT pPr is not a zero
+    pPr: LibreOffice maps the style name "heading 1" onto its own built-in
+    style and supplied that style's 0.2in-above default wherever the
+    imported definition was silent, which moved a gated document's raw-lane
+    dy_p50 6.83 -> 8.43pt through a render whose input differed by nothing
+    but the style name. Naming the zeros closes that door; with them, the
+    paragraph's direct formatting is the only remaining source of visual
+    truth, which is exactly what the measured layout expects.
+    """
+    for i in range(1, 7):
+        try:
+            st = doc.styles["Heading %d" % i]
+        except KeyError:
+            continue
+        el = st.element
+        for tag in ("w:pPr", "w:rPr"):
+            node = el.find(qn(tag))
+            if node is not None:
+                el.remove(node)
+        ppr = OxmlElement("w:pPr")
+        # schema order: keepNext precedes spacing
+        keep = OxmlElement("w:keepNext")
+        ppr.append(keep)
+        sp = OxmlElement("w:spacing")
+        sp.set(qn("w:before"), "0")
+        sp.set(qn("w:after"), "0")
+        sp.set(qn("w:line"), "240")
+        sp.set(qn("w:lineRule"), "auto")
+        ppr.append(sp)
+        el.append(ppr)
+
+
 def _declare_fonts(doc):
     """Declare the families this document actually uses, and stop inheriting Cambria.
 
@@ -1846,6 +1910,7 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
         npf.line_spacing = 1.0
     except Exception:
         pass
+    _restyle_outline_styles(doc)
     if lay.hyphenated:
         # source justifies with hyphenation: let Word/Docs hyphenate too so
         # line packing (and therefore paragraph heights) stay comparable

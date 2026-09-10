@@ -13,6 +13,7 @@ GDOCS_NATIVE = {
     "ibm plex sans", "ibm plex serif", "ibm plex mono", "fira sans", "fira code",
     "jetbrains mono", "karla", "mulish", "manrope", "figtree", "outfit", "sora",
     "bitter", "cabin", "barlow", "archivo", "heebo", "noto sans", "noto serif",
+    "consolas",
 }
 
 # Exact-name mappings for common PDF-producer fonts
@@ -27,7 +28,14 @@ _MAP = {
     "computermodern": "Times New Roman", "cmr": "Times New Roman",
     "courier": "Courier New", "couriernew": "Courier New",
     "couriernewpsmt": "Courier New", "liberationmono": "Courier New",
-    "dejavusansmono": "Courier New", "consolas": "Courier New", "menlo": "Courier New",
+    # Consolas maps to itself, not to Courier New: 0.550em against Courier
+    # New's 0.600em, so the substitution widened every inline-code run by
+    # 9% and wrapped those lines a word early. Live-verified in Google
+    # Docs on a real Chrome-printed report: rFonts "Consolas" plus a
+    # fontTable entry is rendered as Consolas in the export's own spans
+    # (defect catalogue #4); Courier New is the fallback only when the
+    # source font itself is unavailable to name.
+    "dejavusansmono": "Courier New", "consolas": "Consolas", "menlo": "Courier New",
     "symbol": "Arial", "zapfdingbats": "Arial",
 }
 
@@ -107,6 +115,11 @@ FAMILY_METRICS = {
     # 349 probe characters, so the family is genuinely present and not
     # substituted.
     "librebaskerville":  (0.520687, "serif"),
+    # Consolas is a true monospace at 0.550em (every glyph's advance, read
+    # from the font file itself: hhea upm 2048, advance 1126). Now that it
+    # maps to itself this entry is what keeps `metric_fit` from measuring a
+    # 0% deviation and leaving the family alone.
+    "consolas":          (0.550000, "mono"),
 }
 
 # Substitution candidates, restricted to families already asserted as natively
