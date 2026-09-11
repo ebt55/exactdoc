@@ -1520,6 +1520,43 @@ def _coalesce_striped_table_segments(lay: DocLayout):
         previous_is_final = True
 
 
+def _fragments_by_column(ln: Line, col_xs: List[float]) -> List[Line]:
+    """Split a line whose spans straddle table column boundaries.
+
+    The parser glues adjacent table cells into one Line whenever their gap
+    is under its own join threshold -- measured on a real report, "1 " and
+    "v0_cand_z4js_s7" arrived as one line, and a three-cell group header as
+    another -- so assigning whole lines by centre deposited two cells' text
+    into one cell and left its neighbour empty (the hand campaign on that
+    report measured 27 of 59 rows partitioned correctly; defect catalogue
+    #6). Spans keep their own bboxes, so each span belongs to the column
+    band its centre falls in, and contiguous same-band spans stay one
+    fragment. A line whose spans all share a band returns ITSELF, so every
+    table that already partitions correctly is byte-for-byte unchanged.
+    """
+    bands: List[List] = []
+    for s in ln.spans:
+        if s.text == "":
+            continue
+        cx = (s.bbox[0] + s.bbox[2]) / 2
+        ci = next((j for j in range(len(col_xs) - 1)
+                   if col_xs[j] - 1 <= cx <= col_xs[j + 1] + 1), -1)
+        if bands and bands[-1][0] == ci:
+            bands[-1][1].append(s)
+        else:
+            bands.append((ci, [s]))
+    if len(bands) <= 1:
+        return [ln]
+    out = []
+    for _ci, spans in bands:
+        out.append(Line(
+            spans=list(spans),
+            bbox=(min(s.bbox[0] for s in spans), min(s.bbox[1] for s in spans),
+                  max(s.bbox[2] for s in spans), max(s.bbox[3] for s in spans)),
+            dir=ln.dir))
+    return out
+
+
 def build_grid_table(cl, blocks, consumed) -> Optional[TableEl]:
     ds = [d for _, d in cl]
     hs, vs = [], []
@@ -1537,6 +1574,7 @@ def build_grid_table(cl, blocks, consumed) -> Optional[TableEl]:
     bcol = Counter(d.stroke for d in strokes if d.stroke).most_common(1)
     bcol = bcol[0][0] if bcol else "#000000"
     tbl = TableEl(role="table")
+    tbl.col_edges_drawn = True   # col_xs came from the author's own grid lines
     tbl.bbox = (col_xs[0], row_ys[0], col_xs[-1], row_ys[-1])
     tbl.col_widths = [col_xs[i + 1] - col_xs[i] for i in range(len(col_xs) - 1)]
     tbl.row_heights = [row_ys[i + 1] - row_ys[i] for i in range(len(row_ys) - 1)]
@@ -1551,11 +1589,18 @@ def build_grid_table(cl, blocks, consumed) -> Optional[TableEl]:
             continue
         ri = next((i for i in range(len(row_ys) - 1)
                    if row_ys[i] - 1 <= cy <= row_ys[i + 1] + 1), None)
-        ci = next((j for j in range(len(col_xs) - 1)
-                   if col_xs[j] - 1 <= cx <= col_xs[j + 1] + 1), None)
-        if ri is None or ci is None:
+        if ri is None:
             continue
-        cell_lines[(ri, ci)].append(ln)
+        # Assign per column-band fragment, not per line: cells the parser
+        # joined into one Line must not land whole in the band their centre
+        # happens to fall in (`_fragments_by_column`, defect catalogue #6).
+        for frag in _fragments_by_column(ln, col_xs):
+            fcx = (frag.bbox[0] + frag.bbox[2]) / 2
+            ci = next((j for j in range(len(col_xs) - 1)
+                       if col_xs[j] - 1 <= fcx <= col_xs[j + 1] + 1), None)
+            if ci is None:
+                continue
+            cell_lines[(ri, ci)].append(frag)
         consumed.add(id(ln))
     for ri in range(len(row_ys) - 1):
         row = []
@@ -2156,8 +2201,15 @@ def infer(ir: DocIR) -> DocLayout:
                     cell.borders = {"left": (max(1.5, d.bbox[2] - d.bbox[0]),
                                              d.fill or d.stroke or "#000000")}
                     cell.pad = (0.5, round(minx - d.bbox[2], 1), 0.5, 2.0)
-                    elements.append(TableEl(rows=[[cell]], col_widths=[bb[2] - d.bbox[0]],
-                                            row_heights=[None], role="quote", bbox=bb))
+                    qt = TableEl(rows=[[cell]], col_widths=[bb[2] - d.bbox[0]],
+                                 row_heights=[None], role="quote", bbox=bb)
+                    # Column-relative bar x, so a writer that renders quotes
+                    # as bordered PARAGRAPHS (the Google Docs path) can pin
+                    # every paragraph's indent to it and draw one continuous
+                    # bar. Table indents elsewhere are column-relative by
+                    # convention; the quote table used to carry none.
+                    qt.left_indent = max(0.0, round(d.bbox[0] - lay.margin_l, 1))
+                    elements.append(qt)
                     continue
             if d.shape == "hline" and (d.bbox[2] - d.bbox[0]) >= 0.3 * content_w:
                 r = RuleEl(width_pct=min(100.0, 100 * (d.bbox[2] - d.bbox[0]) / content_w),

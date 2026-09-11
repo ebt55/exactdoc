@@ -8,6 +8,7 @@ No floating text boxes, no embedded fonts, no VML.
 import copy
 import dataclasses
 import io
+import math
 import re
 from typing import Any, Callable, Dict, Optional, List
 
@@ -422,6 +423,15 @@ def line_mode_for(output_profile: str) -> str:
 # too-tall row beats an unreadable one.
 MIN_ROW_SHRINK = 0.55
 
+# The Google Docs importer rounds every table row box UP to a whole point;
+# on the measured 59-row table that rounding alone was +1.27pt/row and the
+# rows spilled their pages. The gdocs row target is therefore
+# floor(source height) minus this safety -- the rounded-up content can no
+# longer exceed the source row. (The paragraph-mark rPr is inert in Docs:
+# ceil of the no-mark model reproduced the observed heights exactly; the
+# mark is still styled because it is correct for Word.)
+GDOCS_ROW_SAFETY_PT = 0.75
+
 # A continuous section break is carried by a real paragraph, and that paragraph
 # occupies flow height the source page never spent. The "crush" further down
 # used to be described as making it consume none; it does not.
@@ -739,6 +749,20 @@ def _fit_col_widths(t: TableEl, content_w: float = 0.0) -> List[float]:
             span = max(1, getattr(cell, "col_span", 1))
             w = _cell_text_width(cell)
             if w > 0 and span == 1 and ci < n:
+                # A "single line" wider than its own column on a table
+                # whose edges were READ FROM GRID LINES is not a need -- it
+                # is two cells the parser joined into one line (measured:
+                # a 40pt 'base L0' header over a 28.5pt drawn column drove
+                # a redistribution that shaved every neighbour and wrapped
+                # the whole table). The drawn edge is authoritative; the
+                # straddling line says nothing about the column. On a
+                # clustered-edge table the same reading is the original
+                # case this resize exists for: the edge itself is the
+                # estimate that was wrong.
+                if getattr(t, "col_edges_drawn", False) \
+                        and w > widths[ci] + 1.0:
+                    ci += span
+                    continue
                 pads = cell.pad[1] + cell.pad[3] if len(cell.pad) >= 4 else 8.0
                 need[ci] = max(need[ci], w + pads + 1.0)
             ci += span
@@ -1214,6 +1238,19 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
     gdocs_cover = cover_band and ctx.output_profile == "gdocs"
     if gdocs_cover:
         t = _band_accent_as_row(t)
+    # A quote bar under the gdocs profile is a paragraph BORDER, not a
+    # one-cell table.  Measured on Google's own export: inside a table cell
+    # every line of the quote renders 1-2pt taller than its source -- ~40
+    # lines to a block, the block outgrew its page and the spill cascaded
+    # through the document.  As body paragraphs the same lines carry the
+    # profile's calibrated line encoding and land where the source put
+    # them, and the bar is one continuous left border: pBdr left
+    # val=single sz=12 space=7 colour=BBBBBB is the exact form the live
+    # campaign verified (Docs draws it 2.0pt wide, quantised, colour
+    # exact).  The standard profile keeps its measured table form.
+    if getattr(t, "role", "") == "quote" and ctx.output_profile == "gdocs" \
+            and t.rows and t.rows[0] and t.rows[0][0] is not None:
+        return _write_quote_paragraphs(container, t, content_w, ctx)
     n_rows = len(t.rows)
     n_cols = len(t.col_widths)
     if n_rows == 0 or n_cols == 0:
@@ -1285,6 +1322,23 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
             th.set(qn("w:val"), str(int(round(h * 20))))
             th.set(qn("w:hRule"), "atLeast")
             trPr.append(th)
+        # The Google Docs importer pads every table row by about 1.9pt on
+        # top of its content (measured live, hand campaign round 4, on the
+        # same report: a 59-row table ran 1-2pt/row taller than its source
+        # and spilled its page). Two levers, both gdocs-profile only since
+        # the standard profile's renderer adds no such overhead and its
+        # numbers are the gated ones: pin the row's height to the SOURCE
+        # row height (atLeast -- empty-headed rows render at it), and let
+        # the shrink below target h - overhead so content + overhead lands
+        # on the pin instead of past it. Rows land 0 to ~0.1pt under
+        # source, which cannot spill.
+        gdocs_rowpin = ctx.output_profile == "gdocs"
+        if gdocs_rowpin and h and row_has_text:
+            trPr = row._tr.get_or_add_trPr()
+            th = OxmlElement("w:trHeight")
+            th.set(qn("w:val"), str(int(round(h * 20))))
+            th.set(qn("w:hRule"), "atLeast")
+            trPr.append(th)
         # The content-driven model assumes pads + exact-leading paragraphs sum
         # to the source row height. That holds for ordinary tables and fails
         # for maths: a row of stacked sub/superscripts can occupy 5.2pt in the
@@ -1304,8 +1358,29 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
                     lead = p.leading or (p.runs[0].size * 1.2 if p.runs else 11.0)
                     cell_h += max(1, p.src_lines or 1) * lead
                 need = max(need, cell_h)
-            if need > h + 0.5:
+            # standard profile: compress to the source height, as always.
+            # (the gdocs target is set by the round-4 lever [C] below)
+            if not gdocs_rowpin and need > h + 0.5:
                 row_shrink = max(MIN_ROW_SHRINK, h / need)
+        # Round-4 lever [C], gdocs profile: Docs rounds every row box UP to
+        # a whole point, and that rounding was the measured +1.27pt/row
+        # surplus (the mark rPr is inert there -- ceil of the no-mark model
+        # reproduced 24/35 clean rows exactly). Cut the BOTTOM pad first --
+        # it is spacing, not text, so readability survives -- and only
+        # compress leading if the pad is exhausted. Rows land on
+        # floor(source height) minus a safety, which cannot spill.
+        pad_cut = 0.0
+        if gdocs_rowpin and h and row_has_text:
+            target = math.floor(h) - GDOCS_ROW_SAFETY_PT
+            if need > target + 0.5:
+                avail = max((c.pad[2] if c and len(c.pad) >= 4 else 0.0)
+                            for c in rowspec)
+                pad_cut = min(need - target, max(0.0, avail))
+                need -= pad_cut
+                if need > target + 0.5:
+                    row_shrink = max(MIN_ROW_SHRINK, target / need)
+                else:
+                    row_shrink = 1.0
         for ci in range(n_cols):
             spec = rowspec[ci] if ci < len(rowspec) else None
             cell = tbl.cell(ri, ci)
@@ -1338,7 +1413,15 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
             # LibreOffice): tcMar_left + max(0, indent - pad) and
             # max(indent, pad) land text at the same x.
             gdocs_cellpad = ctx.output_profile == "gdocs"
-            emitted_pads = (pads[0], 0.0, pads[2], pads[3]) \
+            # Round-4 lever [B], gdocs profile: Docs charges the cell
+            # BORDER against the text area -- measured, the wrap boundary
+            # sits 0.52pt inside the declared width -- so cells whose
+            # source line sat within 0.55pt of the width wrapped to a new
+            # line and the row grew. Trim the right pad by a point; it is
+            # far below a word+space (~6pt), so no cell can re-flow to
+            # FEWER lines than the source either.
+            emitted_pads = (pads[0], 0.0, max(0.0, pads[2] - pad_cut),
+                            max(0.0, pads[3] - 1.0)) \
                 if gdocs_cellpad else pads
             for side, val in zip(("top", "left", "bottom", "right"),
                                   emitted_pads):
@@ -1385,11 +1468,54 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
                                      _GDOCS_COVER_BEFORE_COMP_TWIPS)
                         q.space_before = before / 20.0
                         first_cover_text = False
-                    write_para(cell, q, t.col_widths[ci],
-                               par=first if pi == 0 else None, ctx=ctx)
+                    cpar = write_para(cell, q, t.col_widths[ci],
+                                      par=first if pi == 0 else None, ctx=ctx)
+                    _size_mark_to_content(cpar, q)
             else:
                 _blank_cell(cell)
     return tbl
+
+
+def _write_quote_paragraphs(container, t: TableEl, content_w: float, ctx=None):
+    """A quote bar as body paragraphs with a left border (gdocs profile).
+
+    See `write_table` for why the table form is replaced here.  Geometry:
+    the table's `left_indent` is the bar's column-relative x; each cell
+    paragraph's own indent is measured from the bar.  The border is drawn
+    `w:space` points left of the text, so pinning every paragraph's indent
+    to the same value and setting space to the bar-to-text distance puts
+    the bar exactly where the source drew it, continuously, regardless of
+    how the paragraphs inside wrap.
+    """
+    cell = t.rows[0][0]
+    bar = (cell.borders or {}).get("left") or (1.5, "#bbbbbb")
+    bar_w, bar_col = bar[0], _hex(bar[1])
+    sz_eighths = max(2, int(round(bar_w * 8)))
+    # bar-to-text distance: the cell's left pad carries it (text x = bar x
+    # + pad), and a paragraph may sit further in still
+    pad_left = cell.pad[1] if len(cell.pad) >= 4 else 0.0
+    out = []
+    for p in cell.paras:
+        q = copy.copy(p)
+        space = max(0.0, min(31.0, pad_left + q.left_indent))
+        q.left_indent = max(0.0, t.left_indent + pad_left + q.left_indent)
+        q.first_indent = 0.0
+        par = write_para(container, q, content_w, ctx=ctx)
+        if par is None:
+            continue
+        ppr = par._p.get_or_add_pPr()
+        bd = ppr.find(qn("w:pBdr"))
+        if bd is None:
+            bd = OxmlElement("w:pBdr")
+            ppr.append(bd)
+        left = OxmlElement("w:left")
+        left.set(qn("w:val"), "single")
+        left.set(qn("w:sz"), str(sz_eighths))
+        left.set(qn("w:space"), str(int(round(space))))
+        left.set(qn("w:color"), bar_col)
+        bd.append(left)
+        out.append(par)
+    return out[0] if out else None
 
 
 def _blank_cell(cell):
@@ -1401,6 +1527,45 @@ def _blank_cell(cell):
     pf.line_spacing = Pt(2)
     r = par.add_run("")
     r.font.size = Pt(1)
+
+
+def _size_mark_to_content(par, p):
+    """Size a cell paragraph's mark to its content (defect catalogue #7).
+
+    A table cell's last line box is the taller of the content and the
+    paragraph MARK's box, and an unstyled mark inherits the template's
+    default size -- an 11pt box under a 6.5pt cell value. Google Docs rounds
+    every row box up to whole points, so each cell paragraph paid the
+    difference and every row of a real report's tables measured 1-2pt
+    taller than its source, compounding down a 14-row table until it
+    spilled its page. The hand campaign's fitted model on that report was
+    `row = 4.50 + (n-1)*10.54 + last-line box`: the mark IS the last-line
+    box term. Sizing it to the paragraph's own content makes the last
+    line's box the content's box.
+
+    Cell paragraphs only, deliberately. Body paragraphs under the gdocs
+    profile encode their line height as a multiple of the natural line,
+    and NATURAL_FACTORS was calibrated with the mark at template defaults
+    -- resizing body marks would move every line in every document away
+    from the measured calibration.
+    """
+    if par is None:
+        return
+    size = max((r.size for r in p.runs if r.text and not r.is_tab), default=0)
+    if size <= 0:
+        return
+    half = max(2, int(round(_quantised_size(size) * 2)))
+    ppr = par._p.get_or_add_pPr()
+    rpr = ppr.find(qn("w:rPr"))
+    if rpr is None:
+        rpr = OxmlElement("w:rPr")
+        ppr.append(rpr)      # rPr is the last child pPr's schema allows
+    for tag in ("w:sz", "w:szCs"):
+        el = rpr.find(qn(tag))
+        if el is None:
+            el = OxmlElement(tag)
+            rpr.append(el)
+        el.set(qn("w:val"), str(half))
 
 
 def write_figure(container, fig: FigureEl, ctx=None, dpi: int = None):

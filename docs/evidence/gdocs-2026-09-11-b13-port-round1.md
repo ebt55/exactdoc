@@ -26,3 +26,28 @@ had. What it does not authenticate: the remaining seven spills, which belong
 to catalogue #6 (cell partition), #7 (row heights) and #1 (carriers) and are
 not yet ported. Numbers above are an explore round, not a qualification run
 under the ratified policy, and say nothing about the frozen 16.
+
+---
+
+## Round history, 2026-09-11 (continued the same day)
+
+| round | converter change | export pages | spills |
+|---|---|---:|---|
+| 1 | the six ports (margins, Consolas, hyphens, mono, bars-as-tables, heading styles) | 39 | 3, 8, 11, 13, 14, 16, 17 |
+| 2 | **#6 partition**: `_fragments_by_column` — spans assigned to cells by their own centres against the drawn column bands, so parser-joined cells split | 38 | 3, 8, 11, 14, 16, 17 |
+| 3 | #7 first attempt: cell paragraph marks sized to content | 38 | unchanged (the mark is inert in Docs — the hand campaign measured the same) |
+| 4 | gdocs row pins (`trHeight atLeast` = source height) + content shrink | 38 | unchanged |
+| 5 | **quote bars as pBdr paragraphs** (gdocs): the quote TABLE's cell paragraphs rendered +1-2pt/line in Docs and every quote block outgrew its page — measured on the p3 render, ~40 lines to a block. Bars now `sz=12 space=8 #BBBBBB`, the exact form the hand campaign verified | **36** | 8, 11, 14, 16 |
+| 6 | r4 levers [B] (tcMar right −1pt: Docs charges the border against the text area) and [C] (bottom-pad cut to `floor(srcH) − 0.75`: Docs rounds every row up to a whole point) | 36 | unchanged |
+| 7 | **drawn-edge width guard**: `_fit_col_widths` no longer trusts a "single line" wider than its column on tables whose edges were read from grid lines — a 40pt parser-joined header span over a 28.5pt drawn column had been redistributing width from every neighbour (family table now keeps the author's pitch to 0.1pt) | 36 | unchanged |
+
+Round 7's export (docs/evidence/gdocs-2026-09-11-b13-align-r7.json) still
+spills pages 8, 11, 14, 16. The DOCX side is now measured correct — cells
+partitioned, gridCols equal to the drawn pitch to 0.1pt, clean rows landing
++0.5pt (source 37.5pt → export 38.0pt rows in tblgeom's reading) — and the
+residual growth concentrates in rows whose cells carry 3+ wrapped lines and
+in Docs' handling of the extreme 14pt "#" column, where Google's own export
+shows the boundary line missing and the cells apparently merged. The next
+levers, in the hand campaign's order: the body-paragraph pitch biases
+(r4fix [E]: `BIAS_INTRA=0.17`, `BIAS_GAP=0.38` against the source's own
+pitch) and the narrow-column minimum.

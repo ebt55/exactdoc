@@ -14,6 +14,29 @@ one verified fix at a time, each gated against the frozen 16.
 
 Ported so far, all first verified live on Google's own render:
 
+- **#6 the cells the parser joins.** Adjacent table cells whose gap is under
+  the parser's join threshold arrive as one Line; spans keep their own
+  boxes, so `build_grid_table` now fragments each line at the drawn column
+  bands and assigns spans by their own centres. On the same principle a
+  "single line" wider than its column is a straddler, not a need, when the
+  column edges were read from the author's grid lines — a 40pt joined
+  header span over a 28.5pt column had been driving `_fit_col_widths` to
+  shave every neighbour (the family table now holds the drawn pitch to
+  0.1pt).
+- **#5 (writer half) quote bars are paragraph borders under the gdocs
+  profile.** Inside a table cell every quote line rendered 1-2pt taller
+  than source in Docs — ~40 lines to a block, the block outgrew its page
+  and the spill cascaded. As body paragraphs the same lines carry the
+  profile's calibrated line encoding, and the bar is one continuous
+  `pBdr` left border (`sz=12 space=8 #BBBBBB`, the live-verified form).
+- **#7 (writer half) gdocs table-row levers from the hand campaign's
+  round 4**: rows pinned to `trHeight atLeast` = source height; bottom pad
+  cut so content lands on `floor(srcH) − 0.75` (Docs rounds every row box
+  up to a whole point — that rounding alone measured +1.27pt/row); tcMar
+  right trimmed a point (Docs charges the cell border against the text
+  area); cell paragraph marks sized to content (inert in Docs, correct for
+  Word). Clean rows now land +0.5pt on Google's export.
+
 - **#3 the text column is where the document's own full-width rules end, when
   the text cannot say it in sufficient mass.** A ragged-right document keeps
   its flush edge below the wide-line estimator's 8% membership floor, so the
@@ -51,9 +74,10 @@ Ported so far, all first verified live on Google's own render:
 Measured after the ports, in the canonical container: **gate PASS both lanes
 at the recorded baseline numbers** (product 16/16 pages, 0.5274 within-2pt,
 0.9588 live text, 1.045pt dy50). The live B13 report went from **58 export
-pages before to 39 after** (hand-surgery reference: 32); the remaining spills
-are the table defects (#6 cell partition, #7 row heights, #1 carriers), which
-are the next ports. 21 new unit tests cover the six fixes.
+pages before to 36 after** across seven live rounds (hand-surgery reference:
+32); the remaining four spills are the table pages, concentrated in residual
+cell pitch and Docs' handling of an extreme 14pt column, with the r4 pitch
+biases as the next lever. 26 new unit tests cover the fixes.
 
 Corpus tranche 3 (see `docs/corpus-expansion.md` §12): acquisition reopened for
 the two named shortfalls; ten documents fetched, licence-verified and sealed

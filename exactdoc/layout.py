@@ -80,6 +80,14 @@ class TableEl:
     space_after: float = 0.0
     bbox: Optional[BBox] = None
     role: str = "table"          # table|box|code|band|cards|quote
+    # True when the column boundaries were READ FROM DRAWN EDGES (grid
+    # lines), rather than inferred from text clustering. A drawn edge is
+    # the author's own statement of where the column is; text clustering is
+    # an estimate that `_fit_col_widths` exists to correct. Consumers use
+    # this to decide whether a line wider than its column is a measurement
+    # of real need (clustering put the edge in the wrong place) or a parse
+    # artefact (the parser joined two cells into one line).
+    col_edges_drawn: bool = False
     # Number of leading rows that were actually repeated in the source.  This
     # is deliberately evidence, not a writer preference: most PDF tables do
     # not repeat their headers on continuation pages.
