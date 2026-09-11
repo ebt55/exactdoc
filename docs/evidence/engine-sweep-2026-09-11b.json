@@ -1,0 +1,143 @@
+{
+ "schema": "exactdoc.engine-sweep-measurement.v1",
+ "gating": false,
+ "adjudicated": false,
+ "ok": false,
+ "release_ready": false,
+ "measured_on": "2026-09-11",
+ "_note": "A measurement, never an authorisation. Page counts for every real-producer expansion fixture, converted once per document at the default product profile (pdfium backend, standard output profile, libreoffice oracle, refine3, 240dpi) inside the canonical gate container, then rendered once more with a dedicated soffice profile and counted with PyMuPDF. These numbers feed the by-engine support matrix (docs/diagrams/support-by-engine.svg) and the README's engine rows; they do not gate anything and no policy pins them. Comparison against the 2026-09-11 morning sweep (engine-sweep-2026-09-11.json) (docs/corpus-expansion.md sections 8-10) is informative, not a verdict: the converter moved between the two dates by design.",
+ "environment": {
+  "container": "exactdoc-gate-check (ghcr.io/ebt55/exactdoc-gate:dev)",
+  "fontconfig": "/work/repo/scripts/fonts.conf",
+  "render": "soffice --headless (dedicated profile), counted via PyMuPDF"
+ },
+ "converter_commit": "621aae6",
+ "documents": {
+  "y01_nist_sp80063b": {
+   "producer": "Adobe PDF Library 15 / Acrobat PDFMaker 17 for Word",
+   "src_pages": 80,
+   "export_pages": 96,
+   "ratio": 1.2,
+   "convert_rc": 0
+  },
+  "y02_nist_sp800171r2": {
+   "producer": "Adobe PDF Library 20.13 / Acrobat PDFMaker 20 for Word",
+   "src_pages": 114,
+   "export_pages": 128,
+   "ratio": 1.123,
+   "convert_rc": 0
+  },
+  "y03_nist_fips197": {
+   "producer": "pdfTeX 3.14159265 (TeX Live 2020) / LaTeX + hyperref",
+   "src_pages": 46,
+   "export_pages": 62,
+   "ratio": 1.348,
+   "convert_rc": 0
+  },
+  "y06_irs_1040_instructions": {
+   "producer": "Antenna House PDF Output Library 6.6 / AH XSL Formatter V6.6",
+   "src_pages": 126,
+   "export_pages": 198,
+   "ratio": 1.571,
+   "convert_rc": 0
+  },
+  "y08_nist_sp80088r1": {
+   "producer": "Adobe PDF Library 11 / Acrobat PDFMaker 11 for Word",
+   "src_pages": 65,
+   "export_pages": 78,
+   "ratio": 1.2,
+   "convert_rc": 0
+  },
+  "y09_nist_sp800207": {
+   "producer": "Adobe PDF Library 20.9 / Acrobat PDFMaker 20 for Word",
+   "src_pages": 59,
+   "export_pages": 72,
+   "ratio": 1.22,
+   "convert_rc": 0
+  },
+  "y10_nist_fips180": {
+   "producer": "Microsoft Word 2010 (direct export)",
+   "src_pages": 36,
+   "export_pages": 37,
+   "ratio": 1.028,
+   "convert_rc": 0
+  },
+  "y12_irs_pub15": {
+   "producer": "Antenna House PDF Output Library 6.6 / AH XSL Formatter V6.6",
+   "src_pages": 59,
+   "export_pages": 83,
+   "ratio": 1.407,
+   "convert_rc": 0
+  },
+  "y13_irs_pub501": {
+   "producer": "Antenna House PDF Output Library 6.6 / AH XSL Formatter V6.6",
+   "src_pages": 31,
+   "export_pages": 53,
+   "ratio": 1.71,
+   "convert_rc": 0
+  },
+  "y17_rfc9110": {
+   "producer": "cairo 1.16.0 / xml2rfc 3.12.10",
+   "src_pages": 194,
+   "export_pages": 228,
+   "ratio": 1.175,
+   "convert_rc": 0
+  },
+  "y18_eurlex_ai_act": {
+   "producer": "PDFlib+PDI 9.0.7p3",
+   "src_pages": 144,
+   "export_pages": 147,
+   "ratio": 1.021,
+   "convert_rc": 0
+  },
+  "y19_scotus_loper": {
+   "producer": "Acrobat Distiller 23.0 (Windows)",
+   "src_pages": 114,
+   "export_pages": 114,
+   "ratio": 1.0,
+   "convert_rc": 0
+  },
+  "y20_typst_report": {
+   "producer": "Typst 0.13.1",
+   "src_pages": 5,
+   "export_pages": 5,
+   "ratio": 1.0,
+   "convert_rc": 0
+  },
+  "y21_worldbank_wdr24": {
+   "producer": "Adobe PDF Library 15 / PDF PT 4.7 (pdf-tools.com)",
+   "src_pages": 48,
+   "export_pages": 60,
+   "ratio": 1.25,
+   "convert_rc": 0
+  },
+  "y22_lshort": {
+   "producer": "xdvipdfmx (20190824) / XeLaTeX",
+   "src_pages": 153,
+   "export_pages": 167,
+   "ratio": 1.092,
+   "convert_rc": 0
+  },
+  "y24_pandoc_manual": {
+   "producer": "LuaTeX 1.21 via pandoc's LaTeX template",
+   "src_pages": 180,
+   "export_pages": 168,
+   "ratio": 0.933,
+   "convert_rc": 0
+  },
+  "y26_bash_reference": {
+   "producer": "pdfTeX 1.40.26 / GNU texinfo",
+   "src_pages": 214,
+   "export_pages": 214,
+   "ratio": 1.0,
+   "convert_rc": 0
+  },
+  "y27_rfc9000": {
+   "producer": "cairo 1.16.0 / xml2rfc 3.8.0",
+   "src_pages": 151,
+   "export_pages": 159,
+   "ratio": 1.053,
+   "convert_rc": 0
+  }
+ }
+}

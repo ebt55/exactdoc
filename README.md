@@ -143,10 +143,11 @@ profiles).
 
 The headline the sweep carries: office and web producers — Word, LibreOffice,
 Chromium-printed pages, ReportLab-style generators — land between page-exact
-and 1.22× reflow, and two real documents land page-exact (the 114-page
-Distiller-set SCOTUS opinion, the 214-page GNU Bash manual). Typst landed
+and 1.22× reflow, and three real documents land page-exact (the 114-page
+Distiller-set SCOTUS opinion, the 214-page GNU Bash manual, and the Typst
+specimen on Google's own render). Typst landed
 page-exact on Google's own render. The measured weak class is dense designed
-multi-column booklets (the IRS instruction books, 1.4–1.9×), and the refusals
+multi-column booklets (the IRS instruction books, 1.4–1.7×), and the refusals
 are contractual, not quality failures: fillable forms, scans without a text
 layer, and documents over the 250-page cap.
 
@@ -159,7 +160,7 @@ a 32-page Chromium-printed report at CLEAN 1:1 — and the Typst specimen).
 Cells marked † have no live run for that engine yet and carry the measured
 LibreOffice-lane level. The LibreOffice/Word column is the gated lane: the
 committed gate baseline for the synthetic corpus, and the
-[2026-09-11 engine sweep](docs/evidence/engine-sweep-2026-09-11.json) —
+[2026-09-11 engine sweeps](docs/evidence/engine-sweep-2026-09-11b.json) —
 every real-producer fixture converted and rendered in the canonical
 container — for the engine rows. The sections below repeat the matrix in
 prose, with the numbers.
