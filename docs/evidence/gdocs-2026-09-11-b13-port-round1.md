@@ -215,3 +215,18 @@ Canonical container, after: **lshort 170 -> 168** (mean_ssim 0.678 ->
 same artifact class was eating three pages there. Gate PASS both lanes,
 numbers unchanged; suite 701 OK. EUR-Lex unmoved at 147 (its +3 is a
 different, smaller class).
+
+## Vollkorn: the live probe, done as an experiment instead of a probe
+
+The parked Vollkorn question answered itself the cheap way: map it to
+itself (it is a Google Font; Docs plausibly ships it), upload, and let the
+word wraps arbitrate. They did -- the export's line breaks came back at
+the SOURCE's own -- and the family's line box then measured straight from
+that export: emitted 1.2458x at 11pt predicted 15.68pt, Docs rendered
+19.10pt (median of 30 consecutive body-line gaps), a natural factor of
+**1.392** against the 1.144 default that had made the document's lines
+22% tall and its pages 5 -> 7. With the factor in: **5 pages, body pitch
+15.70pt = the source's 15.70pt exactly**, page-3 verbatim line matches
+2/37 -> 14/37 (the rest is a tab-row extraction artifact and justified
+space counts). Same provenance class as Libre Baskerville's entry: the
+number is Docs' own rendering, measured, not assumed.

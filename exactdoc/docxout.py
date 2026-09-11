@@ -388,6 +388,14 @@ NATURAL_FACTORS = {
     # offset across four independently probed families. Noto Serif reads 1.362
     # by the same formula, so 1.356 predicted against 1.360 observed.
     "noto serif": 1.360, "noto sans": 1.356, "verdana": 1.209,
+    # Vollkorn, measured live the Libre Baskerville way: Docs renders the
+    # family natively (verified -- a self-mapped document's wraps came back
+    # at the source's own line breaks), but its line box is far taller than
+    # the 1.144 default. Emitted 1.2458x at 11pt predicted 15.68pt; Docs'
+    # own export rendered 19.10pt (median over 30 consecutive body-line
+    # gaps, y20 page 3) -- a natural factor of 1.392. With the default, the
+    # document's lines rendered 22% tall and it went 5 pages to 7.
+    "vollkorn": 1.392,
     # Consolas, read from the font file by the formula above (hhea
     # 1521/-527/350 over upm 2048 = 1.1709) minus the constant 0.006
     # offset the four probed families showed between that formula and

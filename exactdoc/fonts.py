@@ -41,6 +41,11 @@ _MAP = {
     # families alone). Mapped to Times New Roman before, the sans runs
     # carried the wrong typeface.
     "ubuntu": "Ubuntu",
+    # EXPERIMENT, same form as Ubuntu: Vollkorn is a Google Font; if Docs
+    # ships it, the self-mapping is exact and no metric is needed. If the
+    # live word-ratio says otherwise, delete this entry -- a wrong
+    # self-mapping is worse than an honest heuristic fallback.
+    "vollkorn": "Vollkorn",
     "symbol": "Arial", "zapfdingbats": "Arial",
 }
 
