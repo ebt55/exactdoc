@@ -334,3 +334,53 @@ the evidence now points to is a document-flow emission for booklet-class
 documents (one body flow, column sections changed only where the source's
 grid genuinely changes, breaks re-derived per page of flow), which is a
 redesign of the writer's page model rather than a patch on the ladder.
+
+## The booklet class, actually fixed: three coordinated changes
+
+The document-flow redesign the fragmentation map pointed at turned out to
+need one prerequisite nobody had measured: most of y06's three-column
+grids were never DETECTED. The chain:
+
+1. **The gutter scan now reads only narrow lines** (<= 0.62 of the content
+   width -- the same bar every other column test uses). A spanning line
+   cannot be column content by construction, yet the old all-lines
+   occupancy counted it against every gutter it crossed; the IRS pages
+   carry spanning cautions at 4-7% of lines, above the 3% tolerance, and
+   EVERY such page fell through to the two-column path. The tolerance
+   could not simply rise (y03's byte table reads as a grid from 4% up), so
+   the separator is a **band-width floor**: a document's text column is
+   never narrower than 80pt (a 3-col letter page runs ~165pt; the byte
+   table's bands are 49-70pt, measured, held out). Result: y06 detects
+   61 grid pages where it detected 9; y13's grids arrive; y03 is
+   byte-identical in structure.
+
+2. **"Wide tail" means crossing the column split, not a fixed fraction of
+   the page.** The 0.62 bar classified every full line of the dialect's
+   column two (65% of content width) as page-spanning and pulled whole
+   columns out of the flow with page-absolute indents -- 182pt indents
+   inside 165pt sections, every word wrapping.
+
+3. **Grid runs merge, and merged flows drop per-page column breaks.**
+   The previously-reverted wash had a prerequisite: runs need detected
+   grids. With (1), y06's 42+17 same-shape pages form real runs; the
+   merge concatenates them into one continuous section (tails and leads
+   joining the flow), and the per-source-page ColBreaks -- which fire at
+   flow positions inside a merged run and compound drift, the measured
+   y13 regression of the first attempt -- are dropped for natural fill.
+
+Canonical container, product lane (refine3), against the committed
+baseline:
+
+| document | before | after | |
+|---|---:|---:|---|
+| y06 (126pp) | 294 | **226** | 2.33x -> 1.79x |
+| y13 (31pp) | 66 | **59** | 2.13x -> 1.90x |
+| y12 (59pp) | 85 | **84** | 1.44x -> 1.42x |
+
+The local refine0 renders had shown y12/y13 moving the wrong way; the
+refinement loop -- three rounds against the actual renderer -- corrects
+the merged flows and lands all three better. Gate: PASS both lanes,
+numbers unchanged. Suite 705 OK. The residual ~1.8x on y06 is the
+equal-width column narrowness plus the un-merged minority of pages --
+the measured band widths and the remaining ladder pages are the next
+levers, now standing on a detection layer that actually fires.

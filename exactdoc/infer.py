@@ -66,6 +66,11 @@ MIN_COL_LINES = 6           # ...and each must actually carry text
 # pages. Going further would take y13 to 19 against PyMuPDF's 20, and the
 # reason not to is that it gets there by calling a table a grid.
 GUTTER_CROSS_FRAC = 0.03
+# The widest line the column-grid occupancy scan reads (fraction of the
+# content width). The same 0.62 bar the flow's own narrow-block test uses:
+# a line this wide cannot live in one column of a >=3-column grid.
+COL_SCAN_W_FRAC = 0.62
+MIN_GRID_BAND_PT = 80.0    # a document's text column is never narrower
 COL_SPAN_FRAC = 1.5         # wider than 1.5 columns is genuinely page-spanning
 COL_SINGLE_BLOCK_FRAC = 0.5  # one block this tall is a column on its own
 
@@ -2813,15 +2818,29 @@ def column_grid(line_boxes, content_l: float, content_r: float):
     n = int(round(content_r - content_l))
     if n < 120 or not line_boxes:
         return None
+    scan = [lb for lb in line_boxes
+            if (lb[2] - lb[0]) <= COL_SCAN_W_FRAC * (content_r - content_l)]
+    if len(scan) < 12:
+        return None
     occ = [0] * n
-    for lb in line_boxes:
+    for lb in scan:
         a = max(0, int(lb[0] - content_l))
         b = min(n, int(math.ceil(lb[2] - content_l)))
         for i in range(a, b):
             occ[i] += 1
     # A heading spanning the whole page crosses a real gutter, so a gutter is
-    # a band almost nothing crosses rather than one nothing crosses.
-    tol = max(1, int(GUTTER_CROSS_FRAC * len(line_boxes)))
+    # a band almost nothing crosses rather than one nothing crosses. The
+    # occupancy above already read only the NARROW lines: a spanning line
+    # cannot be column content by construction, and counting it against
+    # the gutters it spans is how real grids with a few spanning notes
+    # lost their detection -- measured on the IRS instructions, whose
+    # three-column pages carry spanning cautions at ~4-7% of lines and
+    # fell through to the two-column path, whose split then landed on the
+    # THIRD column's start and poured columns one and two into one flow
+    # with page-absolute indents (182pt inside 165pt sections, every word
+    # wrapping; the booklet class's 2.3x page inflation). Spanning lines
+    # are still ASSIGNED afterwards, by `_column_of`, exactly as before.
+    tol = max(1, int(GUTTER_CROSS_FRAC * len(scan)))
     gutters, i = [], 0
     while i < n:
         if occ[i] > tol:
@@ -2841,6 +2860,14 @@ def column_grid(line_boxes, content_l: float, content_r: float):
     if len(bands) < 3:
         return None
     widths = [b - a for a, b in bands]
+    # The band-width floor is the safety the narrow-line scan needs: the
+    # scan admits a numeric table's cells as readily as a document's text
+    # columns, and only width tells them apart -- y03_nist_fips197's byte
+    # table reads as a 5-16 band grid with bands of 49-70pt, where a
+    # document's text column is never narrower than ~80pt (a three-column
+    # letter page runs ~165pt). Held out here, kept out of the flow.
+    if min(widths) < MIN_GRID_BAND_PT:
+        return None
     if min(widths) <= 0:
         return None
     # Regularity is tested on the column PITCH, not on the inked band widths.
@@ -3053,7 +3080,18 @@ def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
 
         lead = [t for t in items if is_lead(t)]
         rest = [t for t in items if not is_lead(t)]
-        wide_tail = [t for t in rest if (t[1][2] - t[1][0]) > 0.62 * content_w]
+        # "Wide" means CROSSING THE COLUMN SPLIT, not a fixed fraction of
+        # the page. Measured on the IRS booklets (y06): their columns span
+        # 65% of the content width, so the old 0.62 threshold classified
+        # every full line of column two as page-spanning -- whole columns
+        # were pulled out of the flow into single-column tails carrying
+        # page-absolute indents (182pt into 165pt-section columns, every
+        # word wrapping), the dominant driver of that class's 2.3x page
+        # inflation. An item that fits one side of the split is not wide
+        # no matter how much of the page it covers.
+        def _spans_split(bb):
+            return bb[0] < gut_l and bb[2] > gut_r
+        wide_tail = [t for t in rest if _spans_split(t[1])]
         colitems = [t for t in rest if t not in wide_tail]
         if lead:
             ch = Chunk(n_cols=1)

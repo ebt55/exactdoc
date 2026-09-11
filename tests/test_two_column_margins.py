@@ -9,7 +9,7 @@ conditionals -- and only ever widens content.
 """
 import unittest
 
-from exactdoc.infer import _is_marker_line, _two_column_right_edge
+from exactdoc.infer import _is_marker_line, _two_column_right_edge, column_grid
 from exactdoc.model import Line, Span
 
 
@@ -73,6 +73,43 @@ class BareDigitMarkers(unittest.TestCase):
         self.assertFalse(_is_marker_line(_line(60.0, 120.0, 74.7, text="1")))
         self.assertFalse(_is_marker_line(_line(60.0, 90.0, 74.7, text="12345")))
         self.assertFalse(_is_marker_line(_line(60.0, 90.0, 74.7, text="word")))
+
+
+if __name__ == "__main__":
+    unittest.main()
+
+
+class NarrowLineGutterScan(unittest.TestCase):
+    """Spanning lines cannot veto a real grid (the y06 class)."""
+
+    def _page_lines(self, n_rows, spanning_every):
+        lines = []
+        for i in range(n_rows):
+            y = 100.0 + 12 * i
+            lines.append(_line(42.0, 214.0, y, text=f"col1 row {i}"))
+            lines.append(_line(224.0, 396.0, y, text=f"col2 row {i}"))
+            lines.append(_line(406.0, 570.0, y, text=f"col3 row {i}"))
+            if i % spanning_every == 0:
+                lines.append(_line(76.0, 570.0, y + 5, text="spanning note"))
+        return lines
+
+    def test_grid_with_spanning_notes_detected(self):
+        # 3 spanning notes among 40 lines of columns: ~7% crossings, the
+        # regime that lost every IRS 3-col page before the narrow scan
+        lines = self._page_lines(40, 13)
+        bands = column_grid([l.bbox for l in lines], 42.0, 570.0)
+        self.assertIsNotNone(bands)
+        self.assertEqual(len(bands), 3)
+
+    def test_numeric_table_bands_held_out_by_width(self):
+        # a byte-table shape: narrow cells with clean gutters, but bands
+        # far below a text column's width
+        lines = []
+        for i in range(40):
+            y = 100.0 + 12 * i
+            for x0, x1 in ((42, 72), (109, 139), (196, 226), (283, 313)):
+                lines.append(_line(x0, x1, y))
+        self.assertIsNone(column_grid([l.bbox for l in lines], 42.0, 570.0))
 
 
 if __name__ == "__main__":

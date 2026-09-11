@@ -22,7 +22,7 @@ from docx.oxml.ns import qn
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 
 from .layout import (DocLayout, Para, Run, Cell, TableEl, FigureEl, ImageEl,
-                     RuleEl, ColBreak, HFPart)
+                     RuleEl, ColBreak, HFPart, Chunk, PageLayout)
 from .fonts import map_font
 from .metrics import source_line_width
 
@@ -2269,8 +2269,90 @@ def _declare_fonts(doc):
             pass
 
 
+def _merge_grid_page_runs(pages):
+    """Merge runs of consecutive grid pages into one page each.
+
+    Measured on the IRS booklets: the per-source-page ladder of sections --
+    lead(1-col), grid(3-col), tail(1-col) -- costs two to three section
+    boxes per source page, and the renderer does not refill the leftover
+    space (y06's first map: 123 of 298 export pages carried fewer than 40
+    rows while wrapping, pitch and volume were all correct). A run of
+    consecutive pages that each carry exactly one multi-column grid of the
+    same width becomes ONE synthetic page: the first page's lead keeps its
+    own 1-col section, and every later page's lead and the previous page's
+    tail join the grid's flow in reading order (tail before the next
+    lead). A tail that spans the page renders in column width instead --
+    the trade that buys natural page fill, and booklet tails are furniture
+    (page pointers, continuation notes), not layout.
+
+    The first attempt at this was a WASH (y06 -24, y13 +4) and was
+    reverted -- because at that time the grid detection itself was
+    rejecting most of these pages (spanning notes crossing gutters at
+    4-7%), so runs never formed: of y06's 126 pages only 9 carried
+    detected grids. With the narrow-line gutter scan, 61 do, and the runs
+    this merge needs actually exist.
+
+    Deliberately NOT merged: pages whose grids differ in column count, and
+    any page with more than one multi-column chunk -- their ladders are
+    structure, not repetition.
+    """
+    out, i = [], 0
+    n = len(pages)
+    while i < n:
+        pg = pages[i]
+        grid = next((c for c in pg.chunks if c.n_cols >= 2), None)
+        if grid is None or sum(1 for c in pg.chunks if c.n_cols >= 2) != 1:
+            out.append(pg)
+            i += 1
+            continue
+        run = [pg]
+        j = i + 1
+        while j < n:
+            nxt = pages[j]
+            g2 = next((c for c in nxt.chunks if c.n_cols >= 2), None)
+            if g2 is None or g2.n_cols != grid.n_cols \
+                    or sum(1 for c in nxt.chunks if c.n_cols >= 2) != 1 \
+                    or nxt.continuation_only:
+                break
+            run.append(nxt)
+            j += 1
+        if len(run) == 1:
+            out.append(pg)
+            i = j
+            continue
+        merged_grid = Chunk(n_cols=grid.n_cols, col_gap=grid.col_gap,
+                            pre_gap=grid.pre_gap)
+        first_chunks = None
+        for rp in run:
+            gi = next(k for k, c in enumerate(rp.chunks) if c.n_cols >= 2)
+            lead, g, tail = rp.chunks[:gi], rp.chunks[gi], rp.chunks[gi + 1:]
+            if first_chunks is None:
+                first_chunks = lead          # keeps its own 1-col sections
+            else:
+                # the seam: previous tail, then this lead, join the flow
+                merged_grid.elements.extend(
+                    el for c in tail_prev + lead for el in c.elements)
+            # Column breaks are dropped in the merge: they encode each
+            # source page's own column boundaries, and inside a merged
+            # multi-page flow they fire at flow positions instead, one
+            # page's drift compounding down the run (the measured y13
+            # regression of the first attempt). Natural fill puts each
+            # source column's content -- which is a page-height of text --
+            # into the corresponding column of the flow.
+            merged_grid.elements.extend(
+                el for el in g.elements if not isinstance(el, ColBreak))
+            tail_prev = tail
+        # the final run member's tail joins too, after its grid
+        merged_grid.elements.extend(el for c in tail_prev for el in c.elements)
+        new_chunks = list(first_chunks) + [merged_grid]
+        out.append(PageLayout(number=run[0].number, chunks=new_chunks))
+        i = j
+    return out
+
+
 def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
     lay = copy.deepcopy(lay)
+    lay.pages = _merge_grid_page_runs(lay.pages)
     # After the deepcopy: the plan marks the elements this function will write.
     dest_anchors, anchor_ids = _plan_bookmarks(lay)
     if dest_anchors or anchor_ids:
