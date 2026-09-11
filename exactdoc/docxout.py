@@ -1607,7 +1607,38 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
                         # tcMar left).  With tcMar moved to zero, carry that
                         # effective position exactly; adding would double the
                         # common case where inference already included the pad.
-                        q.left_indent = max(0.0, p.left_indent, pads[1])
+                        if p.align in ("right", "center"):
+                            # The source x-alignment of a right- or centre-
+                            # aligned cell line is POSITION, and jc already
+                            # places it. Keeping it as w:ind consumes the
+                            # wrap width for nothing: measured live, Docs
+                            # wrapped '28/60' (22.4pt of Georgia 8) inside a
+                            # 29.75pt cell because ind left=254tw left only
+                            # 17pt of line -- the mid-token breaks the cw2
+                            # class was named for. LibreOffice renders the
+                            # same XML unbroken, which is why the gated
+                            # lanes never saw it.
+                            pos = 0.0
+                        else:
+                            pos = max(0.0, p.left_indent, pads[1])
+                        # The wrap bracket, gdocs: position may never push
+                        # the wrap boundary under the text's own width. The
+                        # width is the SOURCE's own drawing of the line
+                        # (`source_line_width`) -- the same glyphs Docs
+                        # renders, measured in the PDF rather than predicted
+                        # from a font model -- with the live-measured ~10%
+                        # advance gap plus the 1pt border charge on top.
+                        # Monotone-safe: a smaller indent can only remove a
+                        # wrap. Wrapped-in-source paragraphs read None and
+                        # keep their indent: their width IS the column's.
+                        if pos > 0.0 and ci < len(t.col_widths):
+                            w = source_line_width(p)
+                            if w is not None:
+                                inner = max(0.0, t.col_widths[ci]
+                                            - emitted_pads[3] - 2.0)
+                                pos = min(pos, max(
+                                    0.0, inner - w * 1.15 - 1.0))
+                        q.left_indent = pos
                     else:
                         q.left_indent = max(0.0, p.left_indent - pads[1])
                     q.right_indent = max(0.0, p.right_indent - pads[3])

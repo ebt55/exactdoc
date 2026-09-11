@@ -602,3 +602,35 @@ the narrow columns cannot see the squeeze coming. The measurement above
 is the empirical basis; implementation handed to a fresh session's
 budget. Artifacts stay out of the repository (personal document);
 the journal records the numbers.
+
+## cw2, closed: the wrap bracket was a double-encoded position
+
+The rebalance theory recorded above was wrong, and the live export's own
+XML said so. The broken cells were not squeezed by a re-laid grid -- the
+DOCX itself carried `w:ind w:left="254"` (12.7pt) TOGETHER with
+`w:jc val="right"` on the same cell paragraph: the source x of an
+aligned cell line was being emitted as an indent AND as an alignment.
+Google honours both -- the indent consumes the wrap width, leaving
+17pt of line under a 22.4pt token -- so Docs broke "28/60" after the
+slash. LibreOffice renders the same XML unbroken, which is why the
+gated lanes never saw the class.
+
+Two rules, both gdocs-only, close it:
+
+1. a right- or centre-aligned cell paragraph drops the positional
+   indent -- jc already places the text;
+2. a left-aligned cell paragraph's indent is bracketed by the SOURCE's
+   own drawing of the line (`source_line_width` -- the same glyphs Docs
+   renders, measured in the PDF, no font model) plus the live-measured
+   ~10% advance gap and the 1pt border charge. Position may never push
+   the wrap boundary under the text's own width. Monotone-safe: a
+   smaller indent can only remove a wrap.
+
+Three live rounds in one arc (all single-document, deleted after, empty
+orphan ledger): the first measured the residual and disproved the
+rebalance theory; the second proved rule 1 (the right-aligned cells
+'28/60', '30/40', '21/60' came back whole); the third, with both rules,
+came back with every token whole -- '28/60', '30/40', '35/60', '15/40',
+'21/60' -- zero fragment lines, and the document still CLEAN 1:1 at
+32/32 pages. Gate PASS both lanes at the recorded baseline (the change
+is gdocs-profile only; the standard lanes cannot move). Suite 733 OK.

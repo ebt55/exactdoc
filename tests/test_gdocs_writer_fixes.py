@@ -229,3 +229,94 @@ class GoogleDocsInferenceFixes(unittest.TestCase):
         self.assertEqual(ordinary.right_indent, 400.0)
         self.assertFalse(ordinary.line_breaks)
         self.assertNotIn("\n", ordinary.text)
+
+
+class RightAlignedCellIndent(unittest.TestCase):
+    """A right/centre-aligned cell line's source x is POSITION, and jc
+    already places it. Kept as w:ind it consumes wrap width -- measured
+    live: Docs wrapped '28/60' (22.4pt Georgia 8) in a 29.75pt cell whose
+    paragraph carried ind left=254tw, leaving 17pt of line. The mid-token
+    breaks the cw2 class was named for were this double-encoding."""
+
+    def _cell(self, align, indent):
+        p = Para(runs=[_run("28/60")], left_indent=indent)
+        p.align = align
+        return TableEl(rows=[[Cell(paras=[p], pad=(0.0, 0.0, 0.0, 0.25))]],
+                       col_widths=[30.0], row_heights=[12.0])
+
+    def _ind_and_jc(self, docx_path):
+        root = _xml(docx_path)
+        par = root.find(".//" + W + "tbl/" + W + "tr/" + W + "tc/" + W + "p")
+        ind = par.find(W + "pPr/" + W + "ind")
+        jc = par.find(W + "pPr/" + W + "jc")
+        return (None if ind is None else ind.get(W + "left"),
+                None if jc is None else jc.get(W + "val"))
+
+    def test_right_aligned_loses_the_positional_indent(self):
+        with tempfile.TemporaryDirectory() as td:
+            doc = Document()
+            write_table(doc, self._cell("right", 12.7), 30.0,
+                        ctx=WriteCtx(output_profile="gdocs"))
+            path = Path(td) / "r.docx"
+            doc.save(path)
+            ind, jc = self._ind_and_jc(path)
+            self.assertEqual(jc, "right")
+            self.assertIn(ind, (None, "0"),
+                          "the wrap width must keep the full cell width")
+
+    def test_center_aligned_loses_the_positional_indent(self):
+        with tempfile.TemporaryDirectory() as td:
+            doc = Document()
+            write_table(doc, self._cell("center", 9.0), 30.0,
+                        ctx=WriteCtx(output_profile="gdocs"))
+            path = Path(td) / "c.docx"
+            doc.save(path)
+            ind, jc = self._ind_and_jc(path)
+            self.assertEqual(jc, "center")
+            self.assertIn(ind, (None, "0"))
+
+    def test_left_aligned_keeps_its_indent(self):
+        # for jc=left the indent IS the position -- it stays
+        with tempfile.TemporaryDirectory() as td:
+            doc = Document()
+            write_table(doc, self._cell("left", 12.7), 30.0,
+                        ctx=WriteCtx(output_profile="gdocs"))
+            path = Path(td) / "l.docx"
+            doc.save(path)
+            ind, _ = self._ind_and_jc(path)
+            self.assertEqual(ind, "254")
+
+    def test_standard_profile_keeps_the_indent_everywhere(self):
+        # the gated lanes render the indented form fine (LibreOffice does
+        # not consume it the way Docs does); their behaviour is untouched
+        with tempfile.TemporaryDirectory() as td:
+            doc = Document()
+            write_table(doc, self._cell("right", 12.7), 30.0,
+                        ctx=WriteCtx(output_profile="standard"))
+            path = Path(td) / "s.docx"
+            doc.save(path)
+            ind, _ = self._ind_and_jc(path)
+            self.assertEqual(ind, "254",
+                             "standard keeps indent - pad (pad is 0 here)")
+
+    def test_left_indent_bracketed_under_the_texts_own_width(self):
+        # jc=left keeps its position -- but never past the wrap bracket:
+        # '35/60' at ~22.4pt of Georgia in a 30pt cell could not carry its
+        # measured 10.4pt source indent (19.35pt of line) without breaking
+        # mid-token. The emitted indent caps so the text's own width fits.
+        p = Para(runs=[_run("35/60", size=8.0)], left_indent=10.4)
+        p.src_lines = 1
+        p.src_widths = [21.7]   # the source drew the token 21.7pt wide
+        table = TableEl(rows=[[Cell(paras=[p], pad=(0.0, 0.0, 0.0, 0.25))]],
+                        col_widths=[30.0], row_heights=[12.0])
+        with tempfile.TemporaryDirectory() as td:
+            doc = Document()
+            write_table(doc, table, 30.0, ctx=WriteCtx(output_profile="gdocs"))
+            path = Path(td) / "b.docx"
+            doc.save(path)
+            ind, _ = self._ind_and_jc(path)
+            self.assertLessEqual(int(ind), 75,
+                                 "the indent must leave the text's own "
+                                 "width (21.7pt x1.15 + 1pt) inside the "
+                                 "30pt cell: cap is 3.75pt = 75tw")
+            self.assertGreaterEqual(int(ind), 0)
