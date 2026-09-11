@@ -304,3 +304,33 @@ for y06 -- and the 1.3x residue is then the equal-width column narrowness
 the measured band widths. Both are inference/writer changes of ordinary
 size; the experiments that ruled out every cheaper lever are the value
 recorded here.
+
+## The grid merge, built and measured: a wash, reverted
+
+The scoped fix was implemented exactly as prescribed -- consecutive pages
+each carrying one multi-column grid of the same width merged into one
+synthetic page, tails and leads joining the grid flow in reading order --
+and measured in the canonical container:
+
+| document | before | merged |
+|---|---:|---:|
+| y06 (126pp source) | 294 | 270 |
+| y13 (31pp source) | 66 | **70 (worse)** |
+
+Gate PASS unchanged (the gated corpus forms no runs); suite 703 OK. But
+the prediction failed: y06 was expected near 160 and landed at 270,
+because the booklet's page structures ALTERNATE -- `(2,1) → (2,1) → (1,)
+→ (1,)` -- so two thirds of grid pages never form runs longer than two
+(chunk-pattern census: of pages 1-40, 14 are pure 1-col, 13 are
+`(2,1)`, only 9 have any lead). And y13 regressed by 4 pages, with a
+plausible mechanism: `_column_one_overflows` decides per CHUNK whether to
+drop column breaks, and a merged chunk is the size of the whole run -- one
+overflow prediction then linearises ten pages of column content.
+
+Reverted. What the negative result adds to the map: the fragmentation is
+not the SEAMS between same-shaped pages -- it is the section-per-page
+model itself on a document whose shape changes page to page. The fix that
+the evidence now points to is a document-flow emission for booklet-class
+documents (one body flow, column sections changed only where the source's
+grid genuinely changes, breaks re-derived per page of flow), which is a
+redesign of the writer's page model rather than a patch on the ladder.
