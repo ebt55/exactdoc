@@ -93,3 +93,29 @@ class GeometryThreading(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CrossColumnPitchCap(unittest.TestCase):
+    """A group whose every gap is huge splits (lshort's index tail).
+
+    Three index entries from three columns arrived 352pt apart; the
+    median-of-gaps went 352 with them, the 1.55x-median split could never
+    fire, and one paragraph rendered a line per page at 352pt exact
+    leading. The threshold's idea of a pitch now caps at 2.2x the font.
+    """
+
+    def test_huge_uniform_gaps_split(self):
+        from exactdoc.infer import _split_lines_to_paras
+        lines = [_line("renewenvironment, 105", 61.0, 180.0, 100.0),
+                 _line("setlength, 90, 112", 300.0, 420.0, 452.0),
+                 _line("texorpdfstring, 82", 61.0, 190.0, 804.0)]
+        groups = _split_lines_to_paras(lines)
+        self.assertEqual(len(groups), 3)
+
+    def test_double_spaced_text_stays_one_paragraph(self):
+        from exactdoc.infer import _split_lines_to_paras
+        sz = 10.0
+        ys = [100.0 + i * (2.0 * sz) for i in range(4)]   # 2.0x size = double
+        lines = [_line(f"line {i}", 61.0, 200.0, ys[i]) for i in range(4)]
+        groups = _split_lines_to_paras(lines)
+        self.assertEqual(len(groups), 1)

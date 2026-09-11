@@ -531,6 +531,17 @@ def _split_lines_to_paras(lines: List[Line]) -> List[List[Line]]:
     deltas = [b.bbox[1] - a.bbox[1] for a, b in zip(lines, lines[1:])]
     pos = [d for d in deltas if d > 0.5]
     lead = sorted(pos)[len(pos) // 2] if pos else 12.0
+    # A median of ALL the gaps cannot bound a group whose every gap is
+    # huge. Measured on lshort's index: its last three entries arrived
+    # from three different columns, 352pt apart; the median went 352 with
+    # them, the "1.55x the median" split could never fire, and the group
+    # became one paragraph whose 352pt exact leading rendered ONE LINE PER
+    # PAGE. A real line pitch never exceeds ~2.2x its font size (double
+    # spacing is 2.0); cap the threshold's idea of a pitch there, and a
+    # group whose every gap is enormous splits like any other.
+    dom = max((s.size for ln in lines for s in ln.spans
+               if s.text.strip()), default=10.0)
+    lead = min(lead, 2.2 * dom)
 
     def dom_size(ln):
         best, n = 10.0, 0

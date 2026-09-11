@@ -199,3 +199,19 @@ numeric columns at ~0.5pt of fit margin, stays on the runway where the
 wrap bracket lives. Lesson recorded: pixel geometry from these passes is
 trustworthy; digit transcriptions at zoom are not, and every textual
 claim needs a text-level check before it becomes a defect.
+
+## The self-referential median (lshort's index tail, and WorldBank's too)
+
+The lshort blank run 160-162 was one paragraph: the index's last three
+entries, from three different columns, 352pt apart -- and the paragraph
+splitter's threshold is "gap > 1.55x the median gap", where the median of
+three huge gaps IS a huge gap. The split could never fire; the paragraph's
+352pt exact leading rendered one line per page. The threshold's idea of a
+pitch now caps at 2.2x the dominant font size (double spacing is 2.0), so
+a group whose every gap is enormous splits like any other.
+
+Canonical container, after: **lshort 170 -> 168** (mean_ssim 0.678 ->
+0.686) and **WorldBank 48/69 -> 48/66** (mean_ssim 0.408 -> 0.435) -- the
+same artifact class was eating three pages there. Gate PASS both lanes,
+numbers unchanged; suite 701 OK. EUR-Lex unmoved at 147 (its +3 is a
+different, smaller class).
