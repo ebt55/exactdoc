@@ -150,6 +150,12 @@ Word→PostScript→Distiller — and closing LaTeX-light 1→6, other real-worl
   page-exact, and the IRS XSL-FO booklets 1.42–1.90× (the designed-stress
   class). The sweep reproduces the committed booklet numbers exactly
   (y06 226, y12 84, y13 59) — an independent confirmation of e72a900.
+  Re-swept at the close of the same day, after the document flow, the
+  symbol-font fix, the varying-furniture consumption and the wrap
+  bracket (`engine-sweep-2026-09-11b.json`, at 621aae6): y06 198, y13
+  53, y12 83, y02 128, y21 60, everything else unchanged — the matrix
+  and README carry these numbers, and the booklet class stands at
+  1.41–1.71×.
 
 ## 1.0.1 — 2026-08-07
 
