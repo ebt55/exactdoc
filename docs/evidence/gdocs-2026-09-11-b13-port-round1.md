@@ -230,3 +230,17 @@ that export: emitted 1.2458x at 11pt predicted 15.68pt, Docs rendered
 2/37 -> 14/37 (the rest is a tab-row extraction artifact and justified
 space counts). Same provenance class as Libre Baskerville's entry: the
 number is Docs' own rendering, measured, not assumed.
+
+## The remaining inflation, mapped to its classes
+
+**WorldBank (48 -> 66)**: the spills concentrate in one contiguous run --
+source pages 32-42, the overview booklet's infographic section (InDesign
+full-bleed designed layouts with charts as background art). That is the
+policy's `designed_stress` class living inside a document tiered
+`ordinary_digital`; the tier call was wrong about that section, not the
+converter. The honest fixes there are the known-hard ones (rasterised
+regions, full-bleed design), not pagination rules.
+
+**EUR-Lex (144 -> 147)**: +2% on a 144-page document -- the minor-drift
+class, lowest value of the runway. lshort (153 -> 168) and SCOTUS (exact)
+bound the LaTeX and Word-dialect ends of the same measurement.
