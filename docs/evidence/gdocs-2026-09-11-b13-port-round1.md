@@ -272,3 +272,35 @@ The next session's lever is a probe document -- known content in one
 method the cover-band and font probes already established. The parser,
 the inference and the writer's declarations are all measured correct;
 what is unmodelled is the renderer's column-section pagination.
+
+## The 3-column fragmentation map (surgical experiments on the real artifact)
+
+Following the seam diagnosis, four one-variable experiments on the
+converter's actual y06 output, each rendered and counted:
+
+| lever | pages (baseline 298) |
+|---|---:|
+| strip all 66 explicit column breaks | 291 |
+| strip all 1,148 indents inside 3-col sections | 299 (no effect) |
+| strip the 46 pageBreakBefore page seams | 278 |
+| all of the above | 278 |
+
+Wrapping, pitch and volume are all CORRECT (export/source chars 1.03,
+line pitch equal to the source, per-page rows equal) -- and the page
+histogram says where the 2.3x really lives: **123 of 298 export pages are
+sparse (<40 rows), 58 of them nearly empty**. Content totalling 17.6k
+rows against the source's 13.5k (1.3x from narrower equal-width columns)
+is scattered across half-filled pages by the per-source-page
+lead(1-col)/grid(3-col)/tail(1-col) section ladder: every source page
+costs 2-3 section boxes, and LibreOffice does not refill the leftover
+space.
+
+The structural fix is now scoped, not guessed: **merge the grids of
+consecutive 3-column source pages into ONE continuous multi-column
+section** (lead/tail content joining the flow), letting content fill
+pages naturally. Predicted landing from the row ratio: ~160 pages (1.3x)
+for y06 -- and the 1.3x residue is then the equal-width column narrowness
+(165.5pt emitted vs ~172pt drawn), which the writer can close by emitting
+the measured band widths. Both are inference/writer changes of ordinary
+size; the experiments that ruled out every cheaper lever are the value
+recorded here.
