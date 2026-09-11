@@ -119,3 +119,32 @@ to the proportional form. The honest next lever is the hand campaign's
 `cw2` bracket: per-column empirical wrap boundaries measured from a live
 export, not predicted. The aligner stays CLEAN 1:1 across all of it; the
 defect is one cell's line break, not a page.
+
+---
+
+## Rounds 15-17: the last visual residual fixed -- the drawn-lines floor
+
+Round 15-16 mapped the p8 defect to its root and two remedies failed
+honestly (recorded in situ). Round 17 landed the principle both were
+missing: **a column's floor is the widest line its own cells actually
+drew** (`src_widths`, wrapping included) -- not a prediction. The floor
+bounds what funding may take, and on drawn-edge tables both the floor and
+the widening's ask cap at the column itself, because the author's grid by
+construction held everything drawn in it: a straddling fragment (54pt of
+ink in a 30pt column, a split that refused at a spaceless boundary) is
+cross-column ink, not a need, and pads measured within the column must
+not double-count.
+
+Measured result, Google's own export: the family table's gridCols now
+equal the source pitch to 0.1pt on every column, and "INCONCLUSIVE ×5" --
+which the importer was breaking mid-word in a re-laid 48pt remnant --
+renders on ONE line. CLEAN 1:1 held. Gate after the all-profiles change:
+PASS both lanes at the recorded baseline.
+
+Also in this arc: Ubuntu maps to itself (Docs ships it; a font mapping to
+its own name needs no metric claim). Vollkorn stays deliberately
+unmeasured -- two document-derived "measurements" disagreed by 12-35%
+depending on sampling (justified spans carry the justification stretch;
+the unstretched remainder is letterspaced display text), and neither was
+trustworthy. The honest route is a probe_font_metrics ride-along, noted
+in the code where the next reader will look.

@@ -13,7 +13,7 @@ GDOCS_NATIVE = {
     "ibm plex sans", "ibm plex serif", "ibm plex mono", "fira sans", "fira code",
     "jetbrains mono", "karla", "mulish", "manrope", "figtree", "outfit", "sora",
     "bitter", "cabin", "barlow", "archivo", "heebo", "noto sans", "noto serif",
-    "consolas",
+    "consolas", "ubuntu",
 }
 
 # Exact-name mappings for common PDF-producer fonts
@@ -36,6 +36,11 @@ _MAP = {
     # (defect catalogue #4); Courier New is the fallback only when the
     # source font itself is unavailable to name.
     "dejavusansmono": "Courier New", "consolas": "Consolas", "menlo": "Courier New",
+    # Ubuntu maps to itself: Google Docs ships it, and a font mapping to
+    # its own name needs no metric claim (metric_fit leaves unmeasured
+    # families alone). Mapped to Times New Roman before, the sans runs
+    # carried the wrong typeface.
+    "ubuntu": "Ubuntu",
     "symbol": "Arial", "zapfdingbats": "Arial",
 }
 
@@ -120,6 +125,15 @@ FAMILY_METRICS = {
     # maps to itself this entry is what keeps `metric_fit` from measuring a
     # 0% deviation and leaving the family alone.
     "consolas":          (0.550000, "mono"),
+    # NOT HERE, and the attempt is worth the record: Vollkorn and Ubuntu
+    # were "measured" from the Typst specimen y20's own spans, and the two
+    # passes disagreed by 12% and 35% depending on which lines were
+    # sampled -- justified spans carry the justification stretch, and the
+    # unstretched remainder of that document is letterspaced display text.
+    # A document is not a font file; neither number was trustworthy, and an
+    # absent measurement is not a deviation of zero. The honest route for
+    # these families is a probe_font_metrics ride-along in a live pass
+    # (the method that measured Libre Baskerville).
 }
 
 # Substitution candidates, restricted to families already asserted as natively

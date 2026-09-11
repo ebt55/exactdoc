@@ -744,6 +744,45 @@ def _cell_text_width(cell) -> float:
     return widest
 
 
+def _col_floors(t: TableEl) -> List[float]:
+    """Per column, the widest line its own cells actually DREW, plus pads.
+
+    The floor of a column is not a prediction of what will fit; it is what
+    the source itself laid out -- `src_widths`, wrapping included. Measured
+    on a real report: the verdict column's cells all wrap in the source,
+    so every width-from-single-line estimator read it as empty, and both
+    the resize and the min-column lift drained it (79.5 -> 48pt) to fund a
+    neighbour -- after which the Docs importer re-laid the whole grid and
+    broke words mid-word. A floor from drawn lines cannot be wrong about
+    what the column held.
+    """
+    floor = [0.0] * len(t.col_widths)
+    drawn = getattr(t, "col_edges_drawn", False)
+    for row in t.rows:
+        ci = 0
+        for cell in row:
+            if cell is None:
+                ci += 1
+                continue
+            span = max(1, getattr(cell, "col_span", 1))
+            if cell and ci < len(floor):
+                pads = cell.pad[1] + cell.pad[3] \
+                    if len(cell.pad) >= 4 else 8.0
+                widest = 0.0
+                for p in cell.paras:
+                    for w in (p.src_widths or []):
+                        widest = max(widest, w)
+                if widest > 0:
+                    # On a drawn-edge table a line wider than its column is
+                    # cross-column ink a split refused (no space at the
+                    # boundary): cap it at the column, which by
+                    # construction held everything the author drew in it.
+                    widest = min(widest, t.col_widths[ci]) if drawn else widest
+                    floor[ci] = max(floor[ci], widest + pads)
+            ci += span
+    return floor
+
+
 def _fit_col_widths(t: TableEl, content_w: float = 0.0) -> List[float]:
     """Widen any column too narrow for its own single-line content, funded by
     columns with slack. Table width is unchanged.
@@ -790,11 +829,26 @@ def _fit_col_widths(t: TableEl, content_w: float = 0.0) -> List[float]:
                     ci += span
                     continue
                 pads = cell.pad[1] + cell.pad[3] if len(cell.pad) >= 4 else 8.0
-                need[ci] = max(need[ci], w + pads + 1.0)
+                # A line the author's own grid HELD needs no widening: on
+                # drawn-edge tables pads measured within the column would
+                # otherwise double-count and manufacture deficits the
+                # source never had (measured: a 28.6pt line + 6.6pt pads
+                # "needed" 35.2 in a 30.8pt column that contained it).
+                ask = w + pads + 1.0
+                if getattr(t, "col_edges_drawn", False):
+                    ask = min(ask, widths[ci])
+                need[ci] = max(need[ci], ask)
             ci += span
     deficit = [max(0.0, need[i] - widths[i]) for i in range(n)]
-    surplus = [max(0.0, widths[i] - need[i] - 1.0) if need[i] > 0
-               else max(0.0, widths[i] - 12.0) for i in range(n)]
+    # The surplus a column may give up is bounded below by its FLOOR --
+    # the widest line its cells actually drew. The old `width - 12` default
+    # for no-single-line columns read every source-wrapped column as pure
+    # slack: on the measured report the all-wrapping verdict column funded
+    # a neighbour's deficit from 79.5 down to 48pt and the importer re-laid
+    # the whole grid.
+    floors = _col_floors(t)
+    surplus = [max(0.0, widths[i] - max(need[i], floors[i]) - 1.0)
+               for i in range(n)]
     if sum(deficit) <= 0.01:
         return widths
     # A column must be funded FULLY or not at all: a partially-widened column
@@ -1264,39 +1318,48 @@ def _band_accent_as_row(t: TableEl) -> TableEl:
 GDOCS_MIN_COL_PT = 22.0
 
 
-def _gdocs_min_col_widths(widths: List[float],
+def _gdocs_min_col_widths(widths: List[float], t: TableEl = None,
                           minimum: float = GDOCS_MIN_COL_PT) -> List[float]:
-    """Lift sub-minimum columns to the import floor, funded above-minimum.
+    """Lift sub-minimum columns to the import floor, without starving anyone.
 
-    Funding from the WIDEST column alone re-flowed it (8.4pt, 3 source
-    lines -> 4); proportional funding above the minimum held every
-    contribution under 3.1pt on the measured case -- under a
-    word-plus-space, the smallest amount that can change a wrap.
+    Every column carries a FLOOR: the widest line its own cells actually
+    drew (src_widths, wrapping included) plus that cell's pads. Funding may
+    never take a column below its floor. Measured on the report that
+    motivated the minimum: the verdict column's line sat at 79.4 of
+    79.5pt, proportional funding shaved 2.3pt, its content overflowed, and
+    the Docs importer re-laid the ENTIRE grid content-driven -- every
+    column rebalanced, the verdict column a 48pt remnant breaking words
+    mid-word. A floor-less need-aware variant failed the other way (source-
+    wrapped cells look like pure slack and were drained); the floor is the
+    piece that was missing: it bounds every cell by what it drew, not by
+    what a wrap-prediction thinks it needs.
 
-    A need-aware funding (take only from columns whose single-line content
-    leaves slack) was tried and REVERTED: a column whose cells wrap in the
-    source reports no single-line width at all, read as pure slack, and
-    the verdict column of the same table was drained 79.5 -> 48pt for a
-    '#' column's benefit. Docs then re-laid the whole grid and broke words
-    mid-word in the remnant. Proportional-above-minimum does not need to
-    know what the content is, and cannot starve one column that badly.
+    When floors leave insufficient funds, the table GROWS by the shortfall
+    rather than break a floor: a table a few points into the right margin
+    beats one whose every column re-flows.
     """
     ws = list(widths)
     if len(ws) < 2:
         return ws
-    above = [max(0.0, w - minimum) for w in ws]
-    total = sum(above)
+    floor = _col_floors(t) if t is not None else [0.0] * len(ws)
     for i in range(len(ws)):
         deficit = minimum - ws[i]
-        if deficit <= 0 or total <= 0:
+        if deficit <= 0:
             continue
-        for j in range(len(ws)):
-            if j == i:
-                continue
-            take = min(above[j], deficit * above[j] / total)
-            ws[j] -= take
-            above[j] -= take
-        ws[i] = minimum
+        room = [max(0.0, ws[j] - max(floor[j], minimum * 0.8))
+                for j in range(len(ws))]
+        pool = sum(room)
+        # fund from room proportionally; grow the table for what is left
+        take = min(deficit, pool)
+        if take > 0:
+            for j in range(len(ws)):
+                if j == i or room[j] <= 0:
+                    continue
+                cut = take * room[j] / pool
+                ws[j] -= cut
+                room[j] -= cut
+            deficit -= take
+        ws[i] = minimum           # any residue grows the table, by design
     return ws
 
 
@@ -1341,7 +1404,7 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
     # the importer drops sub-minimum columns' boundaries (see the constant);
     # lift them before the grid is written
     if ctx.output_profile == "gdocs":
-        t.col_widths = _gdocs_min_col_widths(t.col_widths)
+        t.col_widths = _gdocs_min_col_widths(t.col_widths, t)
     if t.space_before > 0.5:
         _spacer(container, t.space_before)
     try:

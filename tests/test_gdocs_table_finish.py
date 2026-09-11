@@ -69,13 +69,13 @@ class SplitSpanAtBoundaries(unittest.TestCase):
 
 class GdocsMinColWidths(unittest.TestCase):
     def test_subminimum_column_lifted(self):
-        ws = _gdocs_min_col_widths([141.8, 14.0, 111.0, 30.0, 156.8], 22.0)
+        ws = _gdocs_min_col_widths([141.8, 14.0, 111.0, 30.0, 156.8], minimum=22.0)
         self.assertEqual(ws[1], 22.0)
         self.assertGreaterEqual(min(ws), 22.0)
 
     def test_total_width_preserved(self):
         src = [141.8, 14.0, 111.0, 30.0, 156.8]
-        ws = _gdocs_min_col_widths(src, 22.0)
+        ws = _gdocs_min_col_widths(src, minimum=22.0)
         self.assertAlmostEqual(sum(ws), sum(src), delta=0.05)
 
     def test_funding_stays_below_a_wrap_threshold(self):
@@ -83,13 +83,13 @@ class GdocsMinColWidths(unittest.TestCase):
         # 8.4pt deficit proportionally took at most 3.07pt from any one
         # column on the live-verified case, under half a word-plus-space
         src = [141.8, 14.0, 111.0, 30.0, 156.8]
-        ws = _gdocs_min_col_widths(src, 22.0)
+        ws = _gdocs_min_col_widths(src, minimum=22.0)
         losses = [s - w for s, w in zip(src, ws) if w < s]
         self.assertTrue(all(0 <= l <= 3.2 for l in losses), losses)
 
     def test_healthy_table_untouched(self):
         src = [141.8, 28.5, 111.0, 30.8, 79.5]
-        self.assertEqual(_gdocs_min_col_widths(src, 22.0), src)
+        self.assertEqual(_gdocs_min_col_widths(src, minimum=22.0), src)
 
 
 if __name__ == "__main__":
@@ -153,3 +153,45 @@ class CalloutBox(unittest.TestCase):
         bd = ppr.find(qn("w:pBdr"))
         order = [c.tag.split("}")[1] for c in bd]
         self.assertEqual(order, ["top", "left", "bottom", "right"])
+
+
+class ColumnFloors(unittest.TestCase):
+    """An all-wrapping column is not slack: the drawn-lines floor."""
+
+    def _table(self):
+        from exactdoc.layout import Cell, Para, Run, TableEl
+        def cell(lines_texts, widths):
+            p = Para(runs=[Run(text=t, font="Consolas", size=8.5,
+                               color="#000000", bold=False, italic=False,
+                               mono=True, serif=False) for t in lines_texts])
+            p.src_lines = len(lines_texts)
+            p.src_widths = list(widths)
+            c = Cell(borders={}, pad=(0.5, 3.9, 3.2, 2.0))
+            c.paras = [p]
+            return c
+        # 8 columns; column 7 (verdict) holds ONLY wrapped cells, every
+        # one a real 2-line verdict, so single-line estimators read zero
+        t = TableEl(col_widths=[141.8, 28.5, 111.0, 30.8, 30.0, 30.0, 30.0, 79.5])
+        t.col_edges_drawn = True
+        t.rows = [[cell(["x"], [10]), cell(["y"], [8]), cell(["z"], [40]),
+                   cell(["a"], [12]), cell(["b"], [12]), cell(["c"], [12]),
+                   cell(["d"], [12]),
+                   cell(["INCONCLUSIVE", "×5"], [56.1, 12.0])]]
+        return t
+
+    def test_wrapped_column_is_not_drained(self):
+        from exactdoc.docxout import _fit_col_widths
+        t = self._table()
+        ws = _fit_col_widths(t, 481.5)
+        self.assertGreaterEqual(ws[7], 79.5 - 0.1,
+                                "the all-wrapping verdict column was drained")
+
+    def test_floor_caps_straddler_ink(self):
+        from exactdoc.docxout import _col_floors
+        t = self._table()
+        floors = _col_floors(t)
+        # a 56pt line drawn in a 30pt column is cross-column ink: capped
+        t.rows[0][4].paras[0].src_widths = [54.1]   # straddler in col 4
+        t.rows[0][4].paras[0].src_lines = 1
+        floors = _col_floors(t)
+        self.assertLessEqual(floors[4], 30.0 + 6.0)
