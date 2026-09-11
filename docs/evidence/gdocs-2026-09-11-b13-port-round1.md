@@ -244,3 +244,31 @@ regions, full-bleed design), not pagination rules.
 **EUR-Lex (144 -> 147)**: +2% on a 144-page document -- the minor-drift
 class, lowest value of the runway. lshort (153 -> 168) and SCOTUS (exact)
 bound the LaTeX and Word-dialect ends of the same measurement.
+
+## The 3-column booklet diagnosis, to the exact seam
+
+y06 (126 -> 294 canonical): the failure is NOT detection and NOT the
+columns' rendering. The chain, measured at each link:
+
+1. the varying "Page N of 126 Fileid" footer IS consumed (digit-
+   normalised signatures already handled it);
+2. margins are right (42/42 -- most pages' body genuinely starts at 42);
+3. the 3-column pages ARE detected: the DOCX carries 28 three-column
+   sections and 24 two-column ones (143 sections total);
+4. the sections DO render as columns -- the export page carrying source
+   p39's text shows 37 column-width text rects against 1 full-width;
+5. and still 126 -> 294 (298 in a fresh local open-loop render).
+
+The inflation is in the PAGINATION of the column sections themselves:
+per-page element accounting says the document emits 158.5k pt of content
+against a 150.4k pt true capacity (730pt x n_cols per page) -- a 5%
+overage that should cost ~8 pages, not +168. The suspects, in order:
+LibreOffice's default BALANCING of continuous multi-column sections;
+pageBreakBefore inside a column section breaking to the next COLUMN
+rather than the page; and the per-page lead/grid/tail section ladder
+(1-col -> 3-col -> 1-col via continuous breaks) interacting with both.
+The next session's lever is a probe document -- known content in one
+3-col section, rendered, with one variable changed at a time -- the
+method the cover-band and font probes already established. The parser,
+the inference and the writer's declarations are all measured correct;
+what is unmodelled is the renderer's column-section pagination.
