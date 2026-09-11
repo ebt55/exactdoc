@@ -2420,17 +2420,18 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                     _fill_hf(s.header, lay.header_default, lay, ctx=ctx)
                     _fill_hf(s.footer, lay.footer_default, lay, ctx=ctx)
             else:
-                if ctx.output_profile == "gdocs":
-                    # Defect catalogue #1: a carrier paragraph spills to the
-                    # next page exactly when the page before it fills
-                    # exactly, and fires there -- one blank page. Under the
-                    # gdocs profile the break rides ON the next paragraph as
-                    # pageBreakBefore, which is a no-op at the top of a page
-                    # and so cannot double-fire. Non-paragraph followers
-                    # cannot carry the property and fall back to a carrier.
-                    pending_break[0] = True
-                else:
-                    _page_break_carrier(doc)
+                # Defect catalogue #1: a carrier paragraph spills to the
+                # next page exactly when the page before it fills exactly,
+                # and fires there -- one blank page. A break riding ON the
+                # next paragraph as pageBreakBefore is a no-op at the top
+                # of a page and so cannot double-fire. Proven live in
+                # Google Docs (round 12 of the 2026-09-11 campaign); the
+                # lshort drift map then showed the STANDARD profile's
+                # blanks were the same mechanism (8 blank pages of its
+                # +20), so the form is now every profile's. Non-paragraph
+                # followers cannot carry the property and fall back to a
+                # carrier before them.
+                pending_break[0] = True
         cw_ctx = (lay.page_w - 2 * band_bleed) if (has_cover and pi == 0) else content_w
         # A one- or two-line spill is absorbed into this page rather than
         # stranded on one of its own by the break that follows. The plan is

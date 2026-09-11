@@ -164,3 +164,16 @@ LibreOffice needs its own gate cycle before the same port lands there),
 plus one clustered blank run (160-162) worth its own look -- three
 consecutive blanks usually mean an element cycling just over a page
 boundary, not three coincidences.
+
+## The carrier paragraph retired from every profile
+
+The lshort map's lever, taken: `pageBreakBefore` is now the page seam in
+the STANDARD profile too (carriers remain only before non-paragraph
+followers, which cannot carry the property). The gated corpus adjudicated:
+**gate PASS both lanes with BETTER numbers** -- product within-2pt
+0.5274 -> 0.5361, raw 0.3615 -> 0.3703, dy50 unchanged -- because the 1pt
+carrier paragraph no longer sits at every page seam. lshort in the
+canonical container: 173 -> 170 pages, dy_p50 41.0 -> 20.8, place 0.258 ->
+0.471, mean_ssim 0.659 -> 0.678. Suite 701 OK. The remaining lshort
+blanks (the 160-162 run among them) are not carriers and keep their place
+on the runway.
