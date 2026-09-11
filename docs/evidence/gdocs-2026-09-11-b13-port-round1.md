@@ -572,3 +572,33 @@ page-number/chapter lines and the pandoc manual's 138 chapter-name lines
 all consumed; y26 stays exactly 214 pages and y24 stays 168 (the lines
 were riding inside existing page slack -- the gain is a clean flow, not
 pages). Gate PASS both lanes at the recorded baseline; suite 728 OK.
+
+## The wrap bracket's live measurement: B13 re-flown at the current HEAD
+
+One consented exploration round (single document, deleted after, empty
+orphan ledger): B13 converted with the day's HEAD (booklet flow, join-
+gap caps, varying-furniture consumption, TeX PUA -- none of it B13
+specific) at the gdocs profile, uploaded, Google's export returned.
+
+- **32 pages in, 32 pages out -- CLEAN 1:1 holds** across every change
+  landed since the campaign closed.
+- The p8 verdict column's "INCONCLUSIVE x5" renders on ONE line: the
+  drawn-lines floor (round 17) owns that break, confirmed live.
+- The named residual is now measured to the cell: "28/60" and "30/40"
+  render as "28/" over "60" and "30/" over "40" -- two cells of one
+  table, mid-token, exactly the cw2 class.
+
+The bracket measurement, from Google's own export: our DOCX declares
+the cell at 30.0pt (pads 0.25pt) and the token's predicted advance is
+21.6pt at Consolas 8 -- 7pt of slack, it FITS its declared column. Docs
+breaks it anyway because the table's grid is re-laid: the rendered
+"28/" fragment runs x416-429, i.e. the column Docs actually gave it is
+~17pt wide, not 30. The round-15/16 finding ("Docs re-lays the whole
+grid when any column's content overflows its declared width") is the
+trigger, and some column's overflow -- not this one -- fires it. The
+cw2 lever therefore needs Docs' REBALANCE MODEL (which column overflowed,
+where the squeeze lands), not a per-token width bump: a local floor on
+the narrow columns cannot see the squeeze coming. The measurement above
+is the empirical basis; implementation handed to a fresh session's
+budget. Artifacts stay out of the repository (personal document);
+the journal records the numbers.
