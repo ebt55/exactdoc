@@ -19,7 +19,7 @@ measurements rather than assuming every PDF dialect works. The classes it does
 
 | | |
 |---|---|
-| [Support matrices](#where-it-works-and-where-it-does-not) | which document classes work, and in which viewer — start here |
+| [Support matrix](#where-it-works-and-where-it-does-not) | which engines convert well, and in which viewer — start here |
 | [CHANGELOG.md](CHANGELOG.md) | what shipped in 1.0.0, and what changed to get there |
 | [STATUS.md](STATUS.md) | the current measured state, defect by defect |
 | [ROADMAP.md](ROADMAP.md) | sequencing, and the gates a change has to pass |
@@ -133,16 +133,36 @@ as they do for any DOCX from any source.
 
 ## Where it works, and where it does not
 
-![Support matrix for opening converted documents in Google Docs](docs/diagrams/support-google-docs.svg)
+![Support matrix by producing engine and target renderer](docs/diagrams/support-by-engine.svg)
 
-![Support matrix for opening converted documents in LibreOffice or Word](docs/diagrams/support-libreoffice-word.svg)
+The matrix is organised the way you meet the question: rows are the engine
+that produced the PDF (the producer string any PDF inspector shows), columns
+are the renderer the DOCX will be opened in. Both columns are the same
+converter — only the serialisation differs (`gdocs` vs `standard` output
+profiles).
 
-Both matrices are generated from the same evidence the release gate reads: live
-[pass 7](docs/evidence/gdocs-2026-08-06-pass7-qualification.json) and the
-[2026-09-11 live campaign](docs/evidence/gdocs-2026-09-11-b13-port-round1.md)
-for Google Docs, the committed gate baseline for LibreOffice/Word, and the
-ratified policies for what counts as an accepted shortfall. The sections below
-repeat them in prose, with the numbers.
+The headline the sweep carries: office and web producers — Word, LibreOffice,
+Chromium-printed pages, ReportLab-style generators — land between page-exact
+and 1.22× reflow, and two real documents land page-exact (the 114-page
+Distiller-set SCOTUS opinion, the 214-page GNU Bash manual). Typst landed
+page-exact on Google's own render. The measured weak class is dense designed
+multi-column booklets (the IRS instruction books, 1.4–1.9×), and the refusals
+are contractual, not quality failures: fillable forms, scans without a text
+layer, and documents over the 250-page cap.
+
+Cells marked **live** carry a live Google Docs artifact: the DOCX went to
+Drive through the API, Google's own PDF export came back, every page was
+aligned against the source by text content and the renders inspected
+([pass 7](docs/evidence/gdocs-2026-08-06-pass7-qualification.json), the
+[2026-09-11 campaign](docs/evidence/gdocs-2026-09-11-b13-port-round1.md) —
+a 32-page Chromium-printed report at CLEAN 1:1 — and the Typst specimen).
+Cells marked † have no live run for that engine yet and carry the measured
+LibreOffice-lane level. The LibreOffice/Word column is the gated lane: the
+committed gate baseline for the synthetic corpus, and the
+[2026-09-11 engine sweep](docs/evidence/engine-sweep-2026-09-11.json) —
+every real-producer fixture converted and rendered in the canonical
+container — for the engine rows. The sections below repeat the matrix in
+prose, with the numbers.
 
 For the Google Docs column specifically, the confirming measurement is always
 the live test: the DOCX goes to Drive through the API, Google's own PDF export

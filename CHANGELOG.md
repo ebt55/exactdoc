@@ -92,6 +92,30 @@ never held — Typst, XeLaTeX, LuaTeX+ConTeXt, pandoc, Arbortext+PDFlib,
 Word→PostScript→Distiller — and closing LaTeX-light 1→6, other real-world
 1→6. Non-gating, as §7 requires.
 
+- **the booklet class, fixed at the root (detection, then flow).** Three
+  coordinated changes: the gutter scan reads only narrow lines (≤0.62 of the
+  content width) so a spanning caution line can no longer veto a genuine
+  three-column page, with an 80pt band-width floor holding narrow byte
+  tables out; "wide tail" means crossing the drawn gutter pair, not 62% of
+  the page; and runs of same-shape grid pages merge into one continuous
+  section whose per-page column breaks drop for natural fill. Measured in
+  the canonical container, product lane: y06 294→226 pages (2.33×→1.79×),
+  y13 66→59, y12 85→84; gate PASS both lanes unchanged; suite 705 OK.
+- **the support matrix is now by producing engine.** One diagram
+  (`docs/diagrams/support-by-engine.svg`, replacing the two per-renderer
+  matrices) answers the question a user actually asks — *my PDF came from
+  LaTeX / Word / the browser: how will it convert?* Rows are producer
+  engines, columns the two output profiles, and the Google Docs column
+  carries only live-verified claims (marked `live`) with `†` on engines not
+  yet live-tested. The engine rows stand on a fresh canonical sweep of all
+  18 real-producer expansion fixtures at e72a900
+  (`docs/evidence/engine-sweep-2026-09-11.json`): Word→PDF dialects
+  1.03–1.22×, the Distiller dialect and the 214-page GNU Bash manual
+  page-exact, LaTeX 0.93–1.35×, RFC/cairo 1.05–1.18×, EUR-Lex +2%, Typst
+  page-exact, and the IRS XSL-FO booklets 1.42–1.90× (the designed-stress
+  class). The sweep reproduces the committed booklet numbers exactly
+  (y06 226, y12 84, y13 59) — an independent confirmation of e72a900.
+
 ## 1.0.1 — 2026-08-07
 
 A résumé went through the converter and came out wrong in ways the 16-document
