@@ -138,10 +138,18 @@ as they do for any DOCX from any source.
 ![Support matrix for opening converted documents in LibreOffice or Word](docs/diagrams/support-libreoffice-word.svg)
 
 Both matrices are generated from the same evidence the release gate reads: live
-[pass 7](docs/evidence/gdocs-2026-08-06-pass7-qualification.json) for Google
-Docs, the committed gate baseline for LibreOffice/Word, and the ratified
-policies for what counts as an accepted shortfall. The sections below repeat
-them in prose, with the numbers.
+[pass 7](docs/evidence/gdocs-2026-08-06-pass7-qualification.json) and the
+[2026-09-11 live campaign](docs/evidence/gdocs-2026-09-11-b13-port-round1.md)
+for Google Docs, the committed gate baseline for LibreOffice/Word, and the
+ratified policies for what counts as an accepted shortfall. The sections below
+repeat them in prose, with the numbers.
+
+For the Google Docs column specifically, the confirming measurement is always
+the live test: the DOCX goes to Drive through the API, Google's own PDF export
+comes back, every page is aligned against the source by text content, and the
+renders are inspected. Offline proxies are used for triage only — Docs
+mistranslates enough OOXML (and LibreOffice mispredicts enough Docs) that a
+local render has never been accepted as evidence for this column.
 
 ## What to expect (quality examples)
 
@@ -183,12 +191,19 @@ the numbers below describe.
   rasterised regions inside an otherwise-editable document, not recreated
   vector art (`c5_graphics`, parts of `04_exec_brief`).
 - *Google Docs as the renderer*: the offline `gdocs` profile compensates for
-  measured importer quirks (line-height mistranslation, ignored cell margins),
-  but Docs fidelity currently trails LibreOffice/Word fidelity and is qualified
-  separately. A per-boundary spacing compensation was also applied and has been
-  **retired** — remeasurement against Google's own exports put Docs' boundary
-  contribution at about +0.1pt, so the compensation was subtracting space Docs
-  never added.
+  measured importer quirks (line-height mistranslation, ignored cell margins,
+  whole-point row rounding, border-against-text-area charging, `pBdr` schema
+  order, sub-minimum column merging). **The gdocs profile's confirmation is
+  the Google Docs live test itself**: upload through the Drive API, export
+  Google's own PDF, align page-by-page against the source, and inspect the
+  renders — the local LibreOffice proxy is known to mispredict Docs, so no
+  offline number is quoted for this profile without a live artifact behind
+  it. The 2026-09-11 campaign on that protocol took a real 32-page report
+  (tables, quote bars, a callout box, inline code) from 58 export pages to
+  **CLEAN 1:1 at 32** — every source page mapping to exactly one export page
+  — with named Heading styles so Docs' outline sidebar populates, quote bars
+  and the callout box as real borders, tables partitioned cell-for-cell at
+  the source's own column pitch, and hyphens kept where the source drew them.
 
 **Tier 3 — explicitly out of scope for now.**
 
@@ -207,16 +222,21 @@ the numbers below describe.
 Generated from the ratified quality policy and the live pass-7 evidence rather
 than from recollection. Where a number is quoted it is measured.
 
-**Long, dense, multi-column documents inflate their page count — badly.** This
-is the largest known defect and it is not subtle. Real published documents,
-measured on the non-gating expansion corpus: an 80-page NIST publication comes
-out at 106 pages, a 114-page one at 161, a 126-page IRS instruction booklet at
-337. Document recall stays around 0.90 while word recall collapses toward
-0.11–0.24, because everything after the first overflow lands on the wrong page
-and stops matching. The gated corpus is 1–7 pages and cannot compound a per-page
-error into a page-count error, which is exactly why this class is measured
-separately. **If your documents are long dense booklets, this release is not for
-them yet.** Tracked as the headline post-release item (n-column reconstruction).
+**Long, dense, multi-column documents inflate their page count — how much
+now depends on the class.** The 2026-09 measurement, on the non-gating
+expansion corpus in the canonical container: single-column NIST-class
+publications come out at roughly **1.2×** (an 80-page one at 96, a
+114-page one at 136 — these were 1.98× and 2.75× before the inflation
+campaign, and ~1.3× at the last release); genuinely 3-column IRS booklets
+(the Antenna House dialect) still inflate to **~2.3×** (a 126-page
+instruction booklet at 294), and that class is where the remaining work
+lives. Document recall holds around 0.90–0.96 throughout — the words
+survive; pagination is what moves. The gated corpus is 1–7 pages and
+cannot compound a per-page error into a page-count error, which is exactly
+why this class is measured separately. **If your documents are dense
+multi-column booklets, check the class: ~1.2× is today's ordinary result,
+and the 3-column dialect is not ready.** Tracked as the headline
+post-release item (n-column reconstruction).
 
 **Interactive forms are refused, by contract.** A fillable AcroForm whose
 content lives in its field values converts to a convincing-looking non-form —
@@ -450,11 +470,13 @@ unacceptable.
 Honest queue, post-release. None of this is hidden in an issue tracker; the
 numbers are measured.
 
-**Headline defect — dense multi-column page inflation (#38).** Long booklets
-under-pack their columns and inflate page counts: 80pp → 106, 114pp → 161,
-126pp → 337. Everything after the first overflow lands on the wrong page, so word
-recall collapses even though document recall holds near 0.90. If your documents
-are long dense booklets, this release is not for them yet.
+**Headline defect — the 3-column booklet dialect (#38).** Long booklets
+under-pack their columns and inflate page counts. The 2026-09 state splits
+the class: single-column NIST-class documents now land at ~1.2× (80pp → 96,
+114pp → 136), while the genuinely 3-column IRS/Antenna House booklets still
+reach ~2.3× (126pp → 294). Everything after the first overflow lands on the
+wrong page, so word recall collapses even though document recall holds near
+0.90. If your documents are that dialect, this release is not for them yet.
 
 | # | Item | Measured |
 |---|---|---|

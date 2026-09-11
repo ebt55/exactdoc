@@ -5,7 +5,7 @@
   <rect x="0" y="0" width="900" height="690" rx="10" fill="#eef1f5"/>
 
   <text x="24" y="38" font-size="21" font-weight="700" fill="#16202b">Opening in LibreOffice / Word</text>
-  <text x="24" y="60" font-size="13" fill="#41505f">The standard profile. Levels from the canonical gate baseline (product lane 16/16 page match) and the ratified parity policies.</text>
+  <text x="24" y="60" font-size="13" fill="#41505f">The measured profile. Levels from the committed gate baseline (improved 2026-09-11: carrier retirement, both lanes) and the ratified parity policy.</text>
 
   <!-- legend -->
   <g font-size="12" fill="#26313d">
@@ -102,7 +102,7 @@
     <text x="34" y="532" fill="#16202b">Dense multi-column booklets (NIST/IRS class)</text>
     <polygon points="441,518 449,526 441,534 433,526" fill="#f6d3bb" stroke="#b95f27" stroke-width="1.6"/>
     <text x="456" y="532" fill="#9c4f1e" font-weight="600">LIMITED</text>
-    <text x="575" y="532" fill="#41505f" font-size="12">same — page inflation is the converter, not the renderer</text>
+    <text x="575" y="532" fill="#41505f" font-size="12">same — 2026-09-11: NIST class ≈1.2×; 3-column IRS booklets still 2.3×</text>
 
     <rect x="24" y="542" width="852" height="30" fill="#eaeef3"/>
     <text x="34" y="562" fill="#16202b">Interactive / fillable forms (AcroForm)</text>
@@ -133,6 +133,6 @@
   </g>
 
   <line x1="24" y1="642" x2="876" y2="642" stroke="#c8d0d9" stroke-width="1"/>
-  <text x="24" y="660" font-size="11.5" fill="#5a6773">Evidence: testkit/gate_baseline.json (product 16/16 · within-2pt 0.5274 · live text 0.9588 · dy50 1.045pt) · testkit/parity_policy.json · testkit/product_parity_policy.json</text>
+  <text x="24" y="660" font-size="11.5" fill="#5a6773">Evidence: testkit/gate_baseline.json · docs/evidence/parity-expanded-2026-08-05f.json · 2026-09-11 gate: both lanes PASS, within-2pt improved (0.5274 → 0.5361)</text>
   <text x="24" y="676" font-size="11.5" fill="#5a6773">Where the two renderers differ, LibreOffice/Word is the easier target: the cover-band addition is Google's own, and c5_graphics keeps its page count here.</text>
 </svg>
