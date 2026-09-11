@@ -148,3 +148,19 @@ depending on sampling (justified spans carry the justification stretch;
 the unstretched remainder is letterspaced display text), and neither was
 trustworthy. The honest route is a probe_font_metrics ride-along, noted
 in the code where the next reader will look.
+
+---
+
+## The inflation class, mapped (lshort, canonical container, product lane)
+
+The first precise map of the new producers' page inflation (lshort:
+153 -> 173, +20): **8 blank export pages** (13, 58, 110, 114, 123, and the
+run 160-162) against only **3 spilled source pages** (9, 81, 118) and 3
+orphan tails. The inflation is not uniform drift -- it is mostly the
+carrier double-fire (defect catalogue #1) on the STANDARD profile, whose
+page seams still use carrier paragraphs (the gdocs profile's
+pageBreakBefore port proved the no-op-at-page-top model live, in Docs;
+LibreOffice needs its own gate cycle before the same port lands there),
+plus one clustered blank run (160-162) worth its own look -- three
+consecutive blanks usually mean an element cycling just over a page
+boundary, not three coincidences.
