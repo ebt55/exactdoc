@@ -70,3 +70,21 @@ named heading styles with a populated Google Docs outline. Gate after the
 full sequence: PASS both lanes at the recorded baseline numbers (the
 fragment/split changes are all-profile; the row model, min-column, bias and
 break-before are gdocs-only). Suite 697 OK locally, container green.
+
+---
+
+## Vision acceptance pass on the CLEAN 1:1 result
+
+A vision-model pass over six zoomed side-by-side page pairs of the final
+export (title, two table pages, the callout/quotes page, a quotes page, the
+last page). Verdicts: **p01, p11, p20, p32 PASS**; **p15 CONCERNS** — the
+page-15 callout box border is still dropped (text intact, position exact;
+the hand campaign's round-6 item, not yet ported); **p08 CONCERNS** — the
+family table's narrowest cells wrap mid-word in Docs ("INCONCLU / SIVE ×5",
+"28/ 60") with rows slightly taller; everything else checked matches:
+headings, running heads, footers (identical text), quote bars (same x and
+extent), header shading, page breaks, first and last lines on every page.
+Document-wide, Docs fits roughly one extra word per line — cosmetic reflow
+with line counts and break points preserved. Two model misreads from the
+low-resolution passes ("header word difference", "header shading lost")
+did not survive the zoomed verification and are withdrawn.
