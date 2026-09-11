@@ -2269,8 +2269,15 @@ def _declare_fonts(doc):
             pass
 
 
+# Largest gap a joined page may carry into a merged flow (see
+# `_merge_grid_page_runs.cap_join_gaps`). A page-RELATIVE offset -- the
+# distance from a page's content to its bottom-pinned tail, or from its
+# top to its first line -- is not a content relationship.
+_JOIN_GAP_CAP_PT = 48.0
+
+
 def _merge_grid_page_runs(pages):
-    """Merge runs of consecutive grid pages into one page each.
+    """Merge runs of consecutive same-shape pages into one page each.
 
     Measured on the IRS booklets: the per-source-page ladder of sections --
     lead(1-col), grid(3-col), tail(1-col) -- costs two to three section
@@ -2292,44 +2299,99 @@ def _merge_grid_page_runs(pages):
     detected grids. With the narrow-line gutter scan, 61 do, and the runs
     this merge needs actually exist.
 
+    **The booklet scope, and 1-col runs.** After the grid runs formed, the
+    measured residual inflation (y06 still 126 -> 226) was NOT wrapping or
+    pitch -- the export carries the same text in FEWER lines (36,090
+    against the source's 40,752; dehyphenation packs tighter) at exactly
+    the source pitch (11.5pt = 11.5pt) -- it was the pages BETWEEN the
+    grid runs: the booklet's 2-col worksheet pages and its sparse 1-col
+    pages, each still carrying its own page seam. A document whose pages
+    are dominated by >=3-col grids (the booklet signature: >= 10 such
+    pages and >= 35% of the document) therefore also merges runs of
+    consecutive all-1-col pages into one flowing page. The all-1-col
+    content stays in its own 1-col section -- this only drops the page
+    seams inside the run, it never feeds full-width content into columns
+    (that trade, measured as a disaster, is what killed the 0.62 wide-tail
+    threshold). Documents without the booklet signature -- the gated
+    corpus carries no >=3-col page at all -- keep every page seam, so the
+    page-exact reconstruction the gate certifies is untouched.
+
     Deliberately NOT merged: pages whose grids differ in column count, and
     any page with more than one multi-column chunk -- their ladders are
     structure, not repetition.
     """
+    n3 = sum(1 for pg in pages if any(c.n_cols >= 3 for c in pg.chunks))
+    booklet = len(pages) > 0 and n3 >= 10 and n3 >= 0.35 * len(pages)
+
+    def cap_join_gaps(chunks_els):
+        """Everything a JOINED page contributes to a run keeps gaps at most
+        _JOIN_GAP_CAP_PT. Measured on y06: the fabricated dead space in the
+        first merged render was 18,300pt (27 pages' worth) beyond the
+        source's own whitespace, and it decomposed exactly into page-
+        relative offsets -- the distance from a page's last content to its
+        bottom-pinned tail ("Need more information..."), and the page-top
+        offset of a joined lead. In the source those distances were
+        absorbed by the page break; in a flow they render as gaps. Real
+        inter-paragraph gaps never come near the cap; the run's FIRST page
+        keeps its own geometry (it starts the section)."""
+        for els in chunks_els:
+            for el in els:
+                sb = getattr(el, "space_before", None)
+                if sb is not None and sb > _JOIN_GAP_CAP_PT:
+                    el.space_before = _JOIN_GAP_CAP_PT
+
+    def shape_of(pg):
+        """1 for an all-1-col page (booklet only), else its single
+        multi-col chunk's column count, else None (not a run member)."""
+        multis = [c for c in pg.chunks if c.n_cols >= 2]
+        if len(multis) > 1 or pg.continuation_only:
+            return None
+        if multis:
+            return multis[0].n_cols
+        return 1 if booklet else None
+
     out, i = [], 0
     n = len(pages)
     while i < n:
         pg = pages[i]
-        grid = next((c for c in pg.chunks if c.n_cols >= 2), None)
-        if grid is None or sum(1 for c in pg.chunks if c.n_cols >= 2) != 1:
+        key = shape_of(pg)
+        if key is None:
             out.append(pg)
             i += 1
             continue
         run = [pg]
         j = i + 1
-        while j < n:
-            nxt = pages[j]
-            g2 = next((c for c in nxt.chunks if c.n_cols >= 2), None)
-            if g2 is None or g2.n_cols != grid.n_cols \
-                    or sum(1 for c in nxt.chunks if c.n_cols >= 2) != 1 \
-                    or nxt.continuation_only:
-                break
-            run.append(nxt)
+        while j < n and shape_of(pages[j]) == key:
+            run.append(pages[j])
             j += 1
         if len(run) == 1:
             out.append(pg)
             i = j
             continue
+        if key == 1:
+            # all-1-col run: one flowing page, chunks concatenated; the
+            # dropped page seams are the entire point
+            for rp in run[1:]:
+                cap_join_gaps([c.elements for c in rp.chunks])
+            merged = PageLayout(number=pg.number,
+                                chunks=[c for rp in run for c in rp.chunks])
+            out.append(merged)
+            i = j
+            continue
+        grid = next(c for c in pg.chunks if c.n_cols >= 2)
         merged_grid = Chunk(n_cols=grid.n_cols, col_gap=grid.col_gap,
                             pre_gap=grid.pre_gap)
         first_chunks = None
+        tail_prev = None
         for rp in run:
             gi = next(k for k, c in enumerate(rp.chunks) if c.n_cols >= 2)
             lead, g, tail = rp.chunks[:gi], rp.chunks[gi], rp.chunks[gi + 1:]
             if first_chunks is None:
                 first_chunks = lead          # keeps its own 1-col sections
             else:
-                # the seam: previous tail, then this lead, join the flow
+                # the seam: previous tail, then this lead, join the flow;
+                # both carry page-relative gaps that a flow must not render
+                cap_join_gaps([c.elements for c in tail_prev + lead])
                 merged_grid.elements.extend(
                     el for c in tail_prev + lead for el in c.elements)
             # Column breaks are dropped in the merge: they encode each
@@ -2342,7 +2404,9 @@ def _merge_grid_page_runs(pages):
             merged_grid.elements.extend(
                 el for el in g.elements if not isinstance(el, ColBreak))
             tail_prev = tail
-        # the final run member's tail joins too, after its grid
+        # the final run member's tail joins too, after its grid, under the
+        # same cap: its bottom-pinned distance is as page-relative as any
+        cap_join_gaps([c.elements for c in tail_prev])
         merged_grid.elements.extend(el for c in tail_prev for el in c.elements)
         new_chunks = list(first_chunks) + [merged_grid]
         out.append(PageLayout(number=run[0].number, chunks=new_chunks))

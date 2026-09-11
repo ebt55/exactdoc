@@ -101,6 +101,27 @@ Word→PostScript→Distiller — and closing LaTeX-light 1→6, other real-worl
   section whose per-page column breaks drop for natural fill. Measured in
   the canonical container, product lane: y06 294→226 pages (2.33×→1.79×),
   y13 66→59, y12 85→84; gate PASS both lanes unchanged; suite 705 OK.
+- **the booklet document-flow merge, and the page-relative gap cap.** The
+  "measured band widths" lever named for y06's residual was disproved by
+  its own probe (the snapped bands measure 165.5-166pt; the emission
+  writes 165.50), and the decomposition found the +100 pages were pure
+  fragmentation on the NON-grid pages: the export carries the same text
+  in fewer lines (36,090 vs 40,752) at the exact source pitch. Inside
+  booklet-class documents (>= 10 pages with a >=3-col grid and >= 35% of
+  the document — the gated 16 carry no >=3-col page, so this cannot fire
+  there), `_merge_grid_page_runs` now also merges runs of consecutive
+  all-1-col pages (and 2-col runs merge like grid runs), dropping their
+  per-page seams while full-width content stays in 1-col sections. Joined
+  pages carry gaps capped at 48pt: the fabricated dead space was
+  page-relative offsets (a bottom-pinned tail's distance from its page's
+  content), 18,300pt of it on the first attempt's render. Measured in the
+  canonical container: y06 294->226->**203** (2.33x -> 1.61x total),
+  y12 84->**83**, y13 66->59->**58**. Gate: product lane PASS with
+  within-2pt **0.5361 -> 0.5445 better** (the cap tightens a gated
+  document's own merged 2-col run), raw lane PASS unchanged; the parity
+  advisory's "9 regressions" read identically at HEAD code in the same
+  restarted container (environment drift, not a code effect). 11 new
+  tests.
 - **the support matrix is now by producing engine.** One diagram
   (`docs/diagrams/support-by-engine.svg`, replacing the two per-renderer
   matrices) answers the question a user actually asks — *my PDF came from

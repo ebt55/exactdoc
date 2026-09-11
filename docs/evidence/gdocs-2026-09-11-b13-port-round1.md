@@ -384,3 +384,79 @@ numbers unchanged. Suite 705 OK. The residual ~1.8x on y06 is the
 equal-width column narrowness plus the un-merged minority of pages --
 the measured band widths and the remaining ladder pages are the next
 levers, now standing on a detection layer that actually fires.
+
+---
+
+## The residual, decomposed -- and the "measured band widths" lever disproved
+
+The lever named above ("emit the measured ~172pt band widths instead of
+165.5pt equal-width") did not survive its own measurement. Probing the
+detector on y06 directly: the snapped bands measure **165.5-166.0pt** on
+the 50-page dominant shape (y13: 167.5-169), and today's equal-width
+emission writes **165.50** -- a delta of 0.0-0.5pt. The "172pt drawn"
+number in the fragmentation map was a prediction, not a measurement; the
+snap (`max(ink, a+col_w)`) had already absorbed the drawn widths. There
+was no narrowness to recover.
+
+What the decomposition found instead, on the 226-page y06 export:
+
+- the export carries the SAME TEXT IN FEWER LINES: 36,090 lines against
+  the source's 40,752 (de-hyphenation packs ~11% tighter);
+- the line pitch is exact: 11.5pt = 11.5pt in every measured column;
+- the source's own intra-page whitespace is 10,814pt (16 pages' worth)
+  and its page-top offsets >48pt total just 724pt;
+- the render carries 28-29k pt of internal gaps -- **~18,300pt of dead
+  space the source does not have**.
+
+So the +100 pages were pure fragmentation, and they lived on the NON-grid
+pages: y06's 63 grid pages had merged into runs, but its ~12 two-col
+worksheet pages and ~23 sparse one-col pages still carried one section +
+page seam per source page. The rejection census: of 126 pages, 63 detect
+grids, ~12 find ONE gutter (2-col pages), 23 fail the narrow-line scan
+(few narrow lines -- full-width worksheet pages), 12 hit the band floor
+(table pages, correctly held out).
+
+## The booklet document-flow merge, and the page-relative gap cap
+
+`_merge_grid_page_runs` now merges runs of consecutive same-shape pages
+inside BOOKLET-CLASS documents -- detected as >= 10 pages carrying a
+>=3-col grid and >= 35% of the document (y06: 63/126; y13: 20/31; y12's
+1/59 excludes it; the gated 16 carry no >=3-col page at all, so the
+extension cannot fire there). All-1-col runs flow into one synthetic
+page; 2-col runs merge exactly as grid runs do. Full-width content stays
+in 1-col sections -- the merge only drops page seams, it never feeds
+full-width text into columns.
+
+The first measurement was a near-wash (226 -> 209) and the reason became
+its own finding: the merged render's fabricated dead space decomposed
+into PAGE-RELATIVE offsets -- the distance from a page's last content to
+its bottom-pinned tail ("Need more information..."), and page-top offsets
+on joined leads. In the source those distances were absorbed by the page
+break; in a flow they render as gaps. Everything a JOINED page
+contributes to a run is now capped at 48pt per element gap
+(`_JOIN_GAP_CAP_PT`) -- above any real paragraph or heading gap in the
+corpus, below every page-relative offset measured (100-692pt). The run's
+own first page keeps its geometry.
+
+| document | before | after | |
+|---|---:|---:|---|
+| y06 (126pp) | 226 | **203** | 1.79x -> 1.61x |
+| y12 (59pp) | 84 | **83** | 1.42x -> 1.41x (the cap alone; not booklet-class) |
+| y13 (31pp) | 59 | **58** | 1.90x -> 1.87x |
+
+y06's ladder collapses 126 pages -> 36 synthetic pages (its 15- and
+14-page worksheet runs flow as one page each). The remaining fat is
+structural: ~36 runs each end in a section break whose leftover the
+renderer cannot refill -- roughly half a page per run boundary. Going
+below ~190 needs the writer-level document flow (one body flow, column
+sections changed by CONTINUOUS breaks), not more merging.
+
+Gate, with a control: the parity advisory read "9 regressions" in the
+post-restart container -- the A/B control at HEAD code reads the SAME 9
+(environment fingerprint drift after the host power cut, not a code
+effect; both runs' lanes PASS). With the change: **product lane PASS
+16/16, within-2pt 0.5361 -> 0.5445 BETTER** (the gap cap tightens a
+gated document's own merged 2-col run), raw lane PASS unchanged
+(0.3703 / 15/16). Suite 716 OK (11 new tests: booklet detection
+thresholds, 1-col/2-col run merging, non-booklet safety, seam order,
+and the cap's first-page-keeps-geometry contract).
