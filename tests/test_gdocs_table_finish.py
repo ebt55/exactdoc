@@ -94,3 +94,62 @@ class GdocsMinColWidths(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CalloutBox(unittest.TestCase):
+    """The stroke-only callout rect: recognised, boxed, schema-ordered."""
+
+    def _rect(self):
+        from exactdoc.model import DrawCmd
+        return DrawCmd(kind="stroke", shape="rect",
+                       bbox=(57.4, 177.4, 538.9, 589.9),
+                       fill=None, stroke="#333333", width=0.75,
+                       opacity=1.0, n_items=1)
+
+    def test_lone_stroke_rect_builds_a_box(self):
+        import exactdoc.infer as I
+        from exactdoc.backend import get_backend
+        from exactdoc.input import parse as parse_input
+        ir = parse_input(get_backend("pdfium"),
+                         r'..\..\..\..\..\claude-ground\pdf2gdocs-handoff\B13_report\sources\B13_report.pdf') \
+            if False else None
+        # unit-level: build_box on the rect alone
+        rect = self._rect()
+        from exactdoc.model import Span, Line, TextBlock
+        span = Span(text="Division of labour.", font="Georgia", size=10.5,
+                    color="#000000", bold=True, italic=False, mono=False,
+                    serif=True, superscript=False,
+                    bbox=(67.7, 186.0, 200.0, 196.5), origin=(67.7, 196.5))
+        line = Line(spans=[span], bbox=(67.7, 186.0, 200.0, 196.5))
+        block = TextBlock(lines=[line], bbox=line.bbox)
+        el = I.build_box([(0, rect)], [block], set())
+        self.assertIsNotNone(el)
+        self.assertEqual(el.role, "box")   # not "quote": four sides, not a bar
+        self.assertEqual(el.rows[0][0].borders["left"], (0.75, "#333333"))
+
+    def test_box_paragraph_writer_emits_schema_order(self):
+        # top, left, bottom, right inside w:pBdr -- Docs drops the border
+        # when 'left' precedes 'top' (measured, round 13 vs 14)
+        from exactdoc.layout import Cell, Para, Run, TableEl
+        from exactdoc.docxout import _write_box_paragraphs, WriteCtx
+        from docx import Document
+        para = Para(runs=[Run(text="in the box", font="Georgia", size=10.5,
+                              color="#000000", bold=False, italic=False,
+                              mono=False, serif=True)])
+        para.bbox = (67.7, 186.0, 528.0, 196.5)
+        cell = Cell(borders={"left": (0.75, "#333333"),
+                             "right": (0.75, "#333333"),
+                             "top": (0.75, "#333333"),
+                             "bottom": (0.75, "#333333")},
+                    pad=(6.3, 10.3, 9.4, 4.0))
+        cell.paras = [para]
+        t = TableEl(rows=[[cell]], col_widths=[481.5], role="box",
+                    bbox=(57.4, 177.4, 538.9, 589.9))
+        t.left_indent = 0.4
+        doc = Document()
+        _write_box_paragraphs(doc, t, 482.0, WriteCtx(output_profile="gdocs"))
+        from docx.oxml.ns import qn
+        ppr = doc.paragraphs[-1]._p.find(qn("w:pPr"))
+        bd = ppr.find(qn("w:pBdr"))
+        order = [c.tag.split("}")[1] for c in bd]
+        self.assertEqual(order, ["top", "left", "bottom", "right"])

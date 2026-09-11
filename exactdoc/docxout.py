@@ -1268,12 +1268,18 @@ def _gdocs_min_col_widths(widths: List[float],
                           minimum: float = GDOCS_MIN_COL_PT) -> List[float]:
     """Lift sub-minimum columns to the import floor, funded above-minimum.
 
-    Funding from the WIDEST column alone re-flowed it: measured on the
-    same report, the widest column lost 8.4pt and its wrapped cells went
-    from 3 source lines to 4 in the export, regaining more row height
-    than the lift saved. Proportional funding above the minimum keeps
-    every contribution under ~2.5pt -- comfortably below a word-plus-space
-    (~6pt), the smallest amount that can change a wrap.
+    Funding from the WIDEST column alone re-flowed it (8.4pt, 3 source
+    lines -> 4); proportional funding above the minimum held every
+    contribution under 3.1pt on the measured case -- under a
+    word-plus-space, the smallest amount that can change a wrap.
+
+    A need-aware funding (take only from columns whose single-line content
+    leaves slack) was tried and REVERTED: a column whose cells wrap in the
+    source reports no single-line width at all, read as pure slack, and
+    the verdict column of the same table was drained 79.5 -> 48pt for a
+    '#' column's benefit. Docs then re-laid the whole grid and broke words
+    mid-word in the remnant. Proportional-above-minimum does not need to
+    know what the content is, and cannot starve one column that badly.
     """
     ws = list(widths)
     if len(ws) < 2:
@@ -1316,6 +1322,16 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
     if getattr(t, "role", "") == "quote" and ctx.output_profile == "gdocs" \
             and t.rows and t.rows[0] and t.rows[0][0] is not None:
         return _write_quote_paragraphs(container, t, content_w, ctx)
+    # A callout box likewise: one cell whose four borders belong on the
+    # paragraphs it contains -- the table form's cell line inflation is the
+    # same measured +1-2pt/line that took the quote blocks out of tables.
+    # The four sides split by position: left and right on every paragraph
+    # (a continuous rail), top on the first, bottom on the last. This is
+    # the live-verified hand-campaign round-6 form (sz=6 #333333, the
+    # source's own 0.75pt stroke).
+    if getattr(t, "role", "") == "box" and ctx.output_profile == "gdocs" \
+            and t.rows and t.rows[0] and t.rows[0][0] is not None:
+        return _write_box_paragraphs(container, t, content_w, ctx)
     n_rows = len(t.rows)
     n_cols = len(t.col_widths)
     if n_rows == 0 or n_cols == 0:
@@ -1483,14 +1499,16 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
             # max(indent, pad) land text at the same x.
             gdocs_cellpad = ctx.output_profile == "gdocs"
             # Round-4 lever [B], gdocs profile: Docs charges the cell
-            # BORDER against the text area -- measured, the wrap boundary
-            # sits 0.52pt inside the declared width -- so cells whose
-            # source line sat within 0.55pt of the width wrapped to a new
-            # line and the row grew. Trim the right pad by a point; it is
-            # far below a word+space (~6pt), so no cell can re-flow to
-            # FEWER lines than the source either.
+            # BORDER against the text area -- at sz=6 the wrap boundary sits
+            # 0.75pt inside the declared width -- so cells whose source line
+            # sat within that of the width wrapped to a new line and the row
+            # grew ("INCONCLUSIVE ×5" over a 79.5pt column, measured). Trim
+            # the right pad past the loss with margin (their MR_DELTA was
+            # 20tw on top of the 0.75pt loss; 1.75pt total). It is
+            # monotone-safe: widening the wrap width can only REMOVE a wrap,
+            # never add one.
             emitted_pads = (pads[0], 0.0, max(0.0, pads[2] - pad_cut),
-                            max(0.0, pads[3] - 1.0)) \
+                            max(0.0, pads[3] - 1.75)) \
                 if gdocs_cellpad else pads
             for side, val in zip(("top", "left", "bottom", "right"),
                                   emitted_pads):
@@ -1583,6 +1601,70 @@ def _write_quote_paragraphs(container, t: TableEl, content_w: float, ctx=None):
         left.set(qn("w:space"), str(int(round(space))))
         left.set(qn("w:color"), bar_col)
         bd.append(left)
+        out.append(par)
+    return out[0] if out else None
+
+
+def _write_box_paragraphs(container, t: TableEl, content_w: float, ctx=None):
+    """A callout box as body paragraphs carrying a four-side border (gdocs).
+
+    See `write_table` for why the table form is replaced. Geometry follows
+    the source's own measurements: the left rail sits `pad_left` from the
+    text, the right rail `pad_right` (from the box edge minus the widest
+    line), the top border `pads[0]` above the first paragraph, the bottom
+    `pads[2]` below the last. w:space is capped at 31pt by the schema.
+    """
+    cell = t.rows[0][0]
+    b = cell.borders or {}
+    left = b.get("left") or (0.75, "#333333")
+    right = b.get("right") or left
+    top = b.get("top") or left
+    bot = b.get("bottom") or left
+    pads = cell.pad if len(cell.pad) >= 4 else (0.0, 0.0, 0.0, 0.0)
+    # measured right inset: box right edge against the widest source line
+    text_r = max((p.bbox[2] for p in cell.paras if p.bbox), default=t.bbox[2])
+    pad_right = max(0.0, min(31.0, t.bbox[2] - text_r)) if t.bbox else pads[3]
+    # top/bottom spaces from the RECT's own edges against the text they
+    # bound -- `cell.pad` can over-measure the bottom (it counted 49.9pt
+    # where the source rect's own edge sits 9.4pt under the last line)
+    text_t = min((p.bbox[1] for p in cell.paras if p.bbox), default=t.bbox[1])
+    text_b = max((p.bbox[3] for p in cell.paras if p.bbox), default=t.bbox[3])
+    space_top = max(0.0, min(31.0, text_t - t.bbox[1])) if t.bbox else pads[0]
+    space_bot = max(0.0, min(31.0, t.bbox[3] - text_b)) if t.bbox else pads[2]
+    sz = lambda edge: max(2, int(round(edge[0] * 8)))
+    col = lambda edge: _hex(edge[1])
+    out = []
+    n = len(cell.paras)
+    for pi, p in enumerate(cell.paras):
+        q = copy.copy(p)
+        space_l = max(0.0, min(31.0, pads[1] + q.left_indent))
+        q.left_indent = max(0.0, t.left_indent + pads[1] + q.left_indent)
+        q.right_indent = max(0.0, pad_right)
+        q.first_indent = 0.0
+        par = write_para(container, q, content_w, ctx=ctx)
+        if par is None:
+            continue
+        ppr = par._p.get_or_add_pPr()
+        bd = ppr.find(qn("w:pBdr"))
+        if bd is None:
+            bd = OxmlElement("w:pBdr")
+            ppr.append(bd)
+        def _side(tag, edge, space):
+            el = OxmlElement("w:" + tag)
+            el.set(qn("w:val"), "single")
+            el.set(qn("w:sz"), str(sz(edge)))
+            el.set(qn("w:space"), str(int(round(space))))
+            el.set(qn("w:color"), col(edge))
+            bd.append(el)
+        # schema order inside w:pBdr is top, left, bottom, right; a reader
+        # that validates order (measured: Google Docs drops the whole
+        # border when 'left' precedes 'top') renders nothing at all
+        if pi == 0:
+            _side("top", top, space_top)
+        _side("left", left, space_l)
+        if pi == n - 1:
+            _side("bottom", bot, space_bot)
+        _side("right", right, pad_right)
         out.append(par)
     return out[0] if out else None
 

@@ -1874,7 +1874,8 @@ def build_box(cl, blocks, consumed) -> Optional[TableEl]:
         for p in cell.paras:
             if p.align in ("left", "justify"):
                 p.left_indent = max(0.0, round((p.bbox[0] if p.bbox else minx) - minx, 1))
-    role = "code" if is_code else ("box" if fill_rect else "quote")
+    role = "code" if is_code else ("box" if (fill_rect or stroke_rect)
+                                   else "quote")
     return TableEl(rows=[[cell]], col_widths=[rect[2] - rect[0]],
                    row_heights=[rect[3] - rect[1]], role=role, bbox=rect)
 
@@ -2203,10 +2204,17 @@ def infer(ir: DocIR) -> DocLayout:
 
         still = []
         for i, d in leftover:
-            if d.fill and d.shape == "rect" and (d.bbox[2] - d.bbox[0]) > 30 and \
-                    (d.bbox[3] - d.bbox[1]) > 10:
+            # A box, filled OR STROKED: a callout is often an unfilled
+            # rectangle around text (measured: a 481x412pt 0.75pt #333333
+            # rect around eight paragraphs). The fill-only test below let
+            # that rect fall through every later branch and drop silently
+            # -- the text survived, the box did not.
+            if d.shape == "rect" and (d.fill or d.stroke) \
+                    and (d.bbox[2] - d.bbox[0]) > 30 \
+                    and (d.bbox[3] - d.bbox[1]) > 10:
                 el = build_box([(i, d)], blocks, consumed)
                 if el is not None:
+                    el.left_indent = max(0.0, round(d.bbox[0] - lay.margin_l, 1))
                     elements.append(el)
                     continue
             still.append((i, d))

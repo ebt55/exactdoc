@@ -88,3 +88,34 @@ Document-wide, Docs fits roughly one extra word per line — cosmetic reflow
 with line counts and break points preserved. Two model misreads from the
 low-resolution passes ("header word difference", "header shading lost")
 did not survive the zoomed verification and are withdrawn.
+
+---
+
+## Rounds 13-16: the callout box lands; the grid-autofit fight mapped
+
+**13-14 -- the callout box (hand campaign round 6, ported).** A lone
+substantial STROKE rect (481x412pt, 0.75pt #333333, no fill) never reached
+`build_box`: singleton drawing clusters skip classification, and the
+leftover loop's box branch tested `d.fill` only, so the rect dropped
+silently -- text intact, box gone. Recognised in the leftover loop and
+given `role="box"`; under the gdocs profile the box is body paragraphs
+carrying a four-side `pBdr` (the cell line-inflation that took quotes out
+of tables applies to boxes too). Round 13's border did not render, and the
+cause is worth the record: **`w:pBdr` children emitted out of schema order
+(left before top) are dropped whole by Google Docs.** Round 14, schema
+order, renders: rails measured at x=57.2/540.2 against the source's
+57.0/538.5. CLEAN 1:1 throughout.
+
+**15-16 -- the p8 narrow-cell wrap, mapped and parked.** The remaining
+visible defect is Docs re-laying a table's WHOLE grid when any column's
+content overflows its declared width: the verdict column's line sits at
+79.4 of 79.5pt, the min-column funding shaved 2.3pt, and Docs' content
+autofit rebalanced every column (79.5 -> 48pt remnant) and broke words
+mid-word. Widening the text area (+0.75pt right-pad trim) changed nothing;
+a need-aware funding (take only from single-line-slack columns) was worse
+-- source-wrapped cells report no single-line width, read as pure slack,
+and the verdict column was drained for the '#' column's benefit. REVERTED
+to the proportional form. The honest next lever is the hand campaign's
+`cw2` bracket: per-column empirical wrap boundaries measured from a live
+export, not predicted. The aligner stays CLEAN 1:1 across all of it; the
+defect is one cell's line break, not a page.
