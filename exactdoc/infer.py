@@ -933,6 +933,18 @@ def detect_hf(ir: DocIR):
             for pg, di, d in occ:
                 res["rep_draws"][pg].append((sig[0], di, d))
                 res["consumed_draw"][pg].add(di)
+    # NOTE: mirrored even/odd furniture RULES (the EU Official Journal's
+    # header rule is split into parity-mirrored segments, x 42/298 vs
+    # 84/412, so the exact signature above never reaches 60% per variant)
+    # were consumed here by a geometry-keyed pass, twice, and both forms
+    # measured WORSE on the AI Act: emitted into the header part the
+    # header's measured height grew and 147 pages became 157; consumed
+    # without emission the open-loop render went to 274 and the refinement
+    # loop, which had been spending the rule paragraphs' seam spacing as
+    # its correction currency, could no longer converge below 156. The
+    # stray rule-paragraphs at each seam are also a faithful rendering of
+    # the source's own per-page furniture rules. Reverted; the +2% class
+    # is bounded and recorded as such.
     return res
 
 

@@ -634,3 +634,32 @@ came back with every token whole -- '28/60', '30/40', '35/60', '15/40',
 '21/60' -- zero fragment lines, and the document still CLEAN 1:1 at
 32/32 pages. Gate PASS both lanes at the recorded baseline (the change
 is gdocs-profile only; the standard lanes cannot move). Suite 733 OK.
+
+## EUR-Lex +2%: root-caused, twice "fixed", twice measured worse, reverted
+
+The +3 pages decompose cleanly: one blank seam page (a doubled page
+break between source pages 21 and 22 -- the export renders src 21, an
+empty furniture-only page, then src 22), two one-line strands, and the
+annex-start pages which are the document's own structure. The census
+then found the deeper artifact: 433 furniture rules unconsumed -- the
+Official Journal draws its header rule in segments whose x positions
+MIRROR by page parity (42/298 one parity, 84/412 the other), so the
+repeating-drawing signature, which includes x, never reaches the 60%
+bar per variant. They render as two stray rule-paragraphs at every
+page seam.
+
+Two fixes were built and measured, and both made the document WORSE:
+
+- consumed into the header part: the header's measured height grew and
+  147 pages became 157;
+- consumed without emission: the open-loop render went to 274, and the
+  refinement loop -- which had been spending the rule paragraphs' seam
+  spacing as its correction currency -- could no longer converge below
+  156 (147 -> 156 with the rules REMOVED from an objectively tighter
+  document: 503 fewer paragraphs, 4,900pt less spacing).
+
+The load-bearing-refinement insight is the real finding: those seam
+rules are the refiner's slack. And the "stray" rules are a faithful
+rendering of the source's own per-page furniture. Reverted (the NOTE
+sits in `detect_hf`); the +2% class stays bounded and named. Gate PASS
+both lanes at the recorded baseline after the revert; suite 733 OK.
