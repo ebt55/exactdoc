@@ -550,3 +550,25 @@ them as furniture (emission: per-section dominant text, or consume-only
 for flow documents). The blast radius is every document's HF detection,
 so it needs its own full gate cycle -- handed to the next session's
 budget rather than rushed at the end of this one.
+
+## Varying running furniture: consumed by geometry, landed
+
+The scoped design needed one correction from its own measurement: the
+page-number digit role cannot be the discriminator, because the pandoc
+manual's varying header -- the CHAPTER NAME ("Pandoc's Markdown" x25,
+"Options" x11, "Templates" x10) -- carries no digits at all. What holds
+for both real cases, and cannot hold for real content (which starts
+below the furniture zone), is the GEOMETRY: exactly one line at the same
+position and size on >= 60% of non-first pages. The fixed-text pass runs
+first and keeps every document it already owned (its digit-normalised
+signatures handle "Page 3"/"Page 4" style furniture); the geometry pass
+consumes only single-line-per-page leftovers.
+
+Consumed WITHOUT emission: the representative-page machinery cannot
+state varying text, and a source page number is wrong in the DOCX once
+pagination differs -- furniture that cannot be stated correctly is
+dropped rather than stated wrongly. Measured: the bash manual's 212
+page-number/chapter lines and the pandoc manual's 138 chapter-name lines
+all consumed; y26 stays exactly 214 pages and y24 stays 168 (the lines
+were riding inside existing page slack -- the gain is a clean flow, not
+pages). Gate PASS both lanes at the recorded baseline; suite 728 OK.

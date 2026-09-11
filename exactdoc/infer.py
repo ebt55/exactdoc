@@ -848,6 +848,53 @@ def detect_hf(ir: DocIR):
                 if roles:
                     res["line_roles"][id(ln)] = roles
 
+    # VARYING running furniture. The text-signature pass above consumes a
+    # line only when its full signature -- position AND text -- repeats on
+    # >= 60% of pages, so furniture whose text varies per chapter never
+    # reaches the bar and lands in the body flow, one stray line per source
+    # page. Measured: the pandoc manual's top line is the chapter name
+    # ("Pandoc's Markdown" x25, "Options" x11, ...) and the bash manual's is
+    # the page number, roman then arabic (212 of 214 pages). What holds for
+    # both -- and cannot hold for real content, which starts below the
+    # furniture zone -- is the GEOMETRY: exactly one line at the same
+    # position and size on >= 60% of pages. Those lines are consumed
+    # WITHOUT emission: the representative-page machinery above cannot
+    # express varying text, and a source page number is wrong in the DOCX
+    # anyway once pagination differs, so furniture that cannot be stated
+    # correctly is dropped rather than stated wrongly.
+    if n >= 3:
+        geo = defaultdict(list)
+        for p in ir.pages:
+            if p.number == 1:
+                continue
+            band_h = strip_h if have_strip else 0
+            for bi, blk in enumerate(p.blocks):
+                for ln in blk.lines:
+                    y0, y1 = ln.bbox[1], ln.bbox[3]
+                    if (bi, id(ln)) in res["consumed_text"][p.number]:
+                        continue
+                    if y1 <= max(TOPZ, band_h + 2):
+                        zone = "top"
+                    elif y0 >= p.height - BOTZ:
+                        zone = "bot"
+                    else:
+                        continue
+                    size = max((s.size for s in ln.spans
+                                if s.text.strip()), default=0.0)
+                    geo[(zone, round(ln.bbox[1] / 3), round(size))].append(
+                        (p.number, bi, ln))
+        geo_need = max(2, int(round(0.6 * (n - 1))))
+        for sig, occ in geo.items():
+            per_page = defaultdict(list)
+            for pg, bi, ln in occ:
+                per_page[pg].append((bi, ln))
+            single = [pg for pg, v in per_page.items() if len(v) == 1]
+            if len(single) < geo_need:
+                continue
+            for pg in single:
+                bi, ln = per_page[pg][0]
+                res["consumed_text"][pg].add((bi, id(ln)))
+
     # page-1 band text
     if band1_bb is not None:
         for bi, blk in enumerate(ir.pages[0].blocks):
