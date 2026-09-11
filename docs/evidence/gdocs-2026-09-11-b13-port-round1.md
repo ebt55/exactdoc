@@ -460,3 +460,50 @@ gated document's own merged 2-col run), raw lane PASS unchanged
 (0.3703 / 15/16). Suite 716 OK (11 new tests: booklet detection
 thresholds, 1-col/2-col run merging, non-booklet safety, seam order,
 and the cap's first-page-keeps-geometry contract).
+
+## The writer's document flow: one flow, CONTINUOUS shape changes
+
+The merge left ~36 run boundaries, each a NEW_PAGE section whose leftover
+the renderer cannot refill -- measured as roughly half a page per boundary,
+the predicted floor of ~190 on y06. The writer now treats a booklet as
+ONE flow: same-shape synthetic pages continue with no break at all, and a
+column-shape change is a CONTINUOUS section break (columns begin below
+the preceding content, the way a Word author builds mixed-column text)
+emitted by the chunk loop that already existed for in-page transitions.
+The first chunk's page-top `pre_gap` is capped under `_JOIN_GAP_CAP_PT`,
+the same page-relative rule as every joined-page gap. Non-booklet
+documents -- every gated document -- keep their page seams unchanged:
+those seams ARE the page-exact reconstruction the gate certifies.
+
+Two defects surfaced by rendering the flow, both fixed:
+
+- **tables inside a column flow were sized against the page width.** A
+  table in a multi-column chunk now sizes against its COLUMN (booklet
+  scope). A table cannot wrap, so the min-column widening against the
+  528pt page was building 300pt tables inside 165pt columns.
+- **pages carrying a rigid element wider than a booklet column are
+  structure, not repetition.** y06's source p99 is a hybrid -- a 405pt
+  "Student Loan Interest Deduction Worksheet" spanning the page over
+  genuine 3-col instructions -- and run membership pulled that table into
+  the column flow, colliding with the neighbouring columns' text on six
+  rendered pages (the "tail renders in column width" trade assumed tails
+  wrap; a table does not). Such pages are excluded from run membership
+  and keep their own ladder. Spanning TEXT keeps the trade: paragraphs
+  wrap.
+
+| document | 9ee75f8 | now | |
+|---|---:|---:|---|
+| y06 (126pp) | 226 | **198** | 2.33x -> 1.57x from the campaign's start |
+| y13 (31pp) | 59 | **53** | 2.13x -> 1.71x |
+| y12 (59pp) | 84 | **83** | (not booklet-class; the cap alone) |
+
+Gate: product PASS 16/16 at the recorded baseline (0.5361 / 0.9588 /
+1.045pt), raw PASS (0.3703 / 15/16); the parity advisory reads the same
+nine regressions it reads at HEAD code in this restarted container
+(environment drift, A/B-controlled earlier). Suite 719 OK. Residual,
+named: five pages carry 4-12pt intersections at section-transition bands
+(smaller than, and pre-existing, the equivalent at 9ee75f8), and one page
+renders two paragraphs zipped glyph-on-glyph -- both await the
+element-level section interruption of the true document flow, where a
+wide element gets its own CONTINUOUS 1-col section mid-flow instead of a
+page of its own.

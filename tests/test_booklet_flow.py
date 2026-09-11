@@ -11,7 +11,8 @@ page-exact reconstruction.
 import unittest
 
 from exactdoc.docxout import _merge_grid_page_runs, _JOIN_GAP_CAP_PT
-from exactdoc.layout import Chunk, ColBreak, PageLayout
+from exactdoc.layout import (Cell, Chunk, ColBreak, DocLayout,
+                             PageLayout, Para, Run, TableEl)
 
 
 def _para(tag):
@@ -204,6 +205,98 @@ class JoinedPageGapCap(unittest.TestCase):
         self.assertEqual(lead_el.space_before, _JOIN_GAP_CAP_PT)
         self.assertEqual(tail_el.space_before, 5.0,
                          "a genuine same-page gap before a tail is untouched")
+
+
+class BookletWriterFlow(unittest.TestCase):
+    """Inside the booklet signature the writer emits ONE flow: no page
+    seams between synthetic pages, column changes as CONTINUOUS breaks."""
+
+    @staticmethod
+    def _para(tag):
+        p = Para(runs=[Run(text=tag, font="Times New Roman", size=10.0,
+                           color="#000000", bold=False, italic=False,
+                           mono=False, serif=True)])
+        p.leading = 11.5
+        p._b1 = 100.0
+        p._size1 = 10.0
+        p._vis_lines = 1
+        p.bbox = (42.0, 100.0, 480.0, 111.5)
+        return p
+
+    @classmethod
+    def _grid_page(cls, number):
+        g = Chunk(n_cols=3, col_gap=15.0)
+        g.elements = [cls._para("c%d" % number), ColBreak(),
+                      cls._para("c%db" % number)]
+        return page(number, [g])
+
+    def _write_xml(self, lay):
+        import io
+        import os
+        import tempfile
+        import zipfile
+        from exactdoc.docxout import write_docx
+        fd, path = tempfile.mkstemp(suffix=".docx")
+        os.close(fd)
+        try:
+            write_docx(lay, path, dpi=240, output_profile="standard")
+            with zipfile.ZipFile(path) as z:
+                return z.read("word/document.xml").decode("utf-8")
+        finally:
+            os.unlink(path)
+
+    def _layout(self, pages):
+        lay = DocLayout(src_path="x.pdf")
+        lay.page_w, lay.page_h = 612.0, 792.0
+        lay.margin_l = lay.margin_r = 42.0
+        lay.margin_t, lay.margin_b = 42.0, 42.0
+        lay.pages = pages
+        return lay
+
+    def test_booklet_has_no_page_seams(self):
+        pgs = [self._grid_page(i + 1) for i in range(11)]
+        middle = page(50, [Chunk(n_cols=1,
+                                 elements=[self._para("plain")])])
+        pgs.insert(5, middle)
+        xml = self._write_xml(self._layout(pgs))
+        self.assertNotIn("pageBreakBefore", xml)
+        self.assertNotIn('w:type="page"', xml)
+        self.assertIn('<w:cols w:num="3"', xml)
+        self.assertNotIn('w:val="nextPage"', xml,
+                         "shape changes are CONTINUOUS, never new-page")
+
+    def test_non_booklet_keeps_page_seams(self):
+        def real_page(number):
+            return page(number, [Chunk(n_cols=1,
+                                       elements=[self._para("p%d" % number)])])
+        pgs = [real_page(i + 1) for i in range(3)]
+        xml = self._write_xml(self._layout(pgs))
+        self.assertGreaterEqual(xml.count("pageBreakBefore"), 2,
+                                "the gated page-exact path is untouched")
+
+
+    def test_column_tables_sized_to_their_column(self):
+        import re as _re
+        cell = Cell(paras=[self._para("Enter the total interest you paid "
+                                      "in 2025 on qualified student loans")])
+        tbl = TableEl(rows=[[cell, Cell(paras=[self._para("1")])]],
+                      col_widths=[130.0, 35.0])
+        tbl.bbox = (224.0, 300.0, 389.0, 340.0)
+        g = Chunk(n_cols=3, col_gap=15.0)
+        g.elements = [tbl]
+        pgs = [self._grid_page(i + 1) for i in range(11)]
+        pgs.insert(5, page(50, [g]))
+        xml = self._write_xml(self._layout(pgs))
+        # content width 528; a 3-col section's column is (528-30)/3 = 166pt
+        grid = _re.findall(r'<w:gridCol w:w="(\d+)"/>', xml)
+        # find the worksheet table: the one whose cells' text mentions loans
+        m = "Enter the total interest you paid" in xml
+        self.assertTrue(m, "the worksheet table must be present")
+        # the widest tblW must not exceed the column (166pt = 3320 twips)
+        widths = [int(w) for w in _re.findall(r'w:tblW w:w="(\d+)"', xml)]
+        self.assertLessEqual(max(widths), 3320,
+                             "a table inside a 165pt column may not be "
+                             "sized against the 528pt page")
 
 
 if __name__ == "__main__":

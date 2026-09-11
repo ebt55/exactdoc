@@ -2276,6 +2276,42 @@ def _declare_fonts(doc):
 _JOIN_GAP_CAP_PT = 48.0
 
 
+# A rigid element (table, figure, image) wider than this cannot live in a
+# booklet column (~165pt on a letter-page 3-col grid; 1.5x that is the span
+# test's own bar). Paragraphs wrap; these do not.
+_RIGID_SPAN_PT = 240.0
+
+
+def _carries_rigid_spanning_element(pg) -> bool:
+    """Does this page hold a table/figure too wide for a booklet column?
+
+    Paragraphs re-wrap inside a column flow, so spanning TEXT is the
+    documented, survivable tail trade. A spanning TABLE cannot wrap: joined
+    into a run it renders across the neighbouring columns and their text."""
+    for c in pg.chunks:
+        for el in c.elements:
+            if isinstance(el, (Para, ColBreak)):
+                continue
+            bb = getattr(el, "bbox", None) or getattr(el, "clip", None)
+            if bb is not None and (bb[2] - bb[0]) > _RIGID_SPAN_PT:
+                return True
+    return False
+
+
+def _is_booklet(pages) -> bool:
+    """The booklet signature: the document's pages are dominated by real
+    >=3-column grids (>= 10 such pages and >= 35% of the document).
+
+    The scope key for every flow behavior in this module. The gated corpus
+    carries no >=3-col page at all, so nothing gated can enter these paths
+    -- which is what makes page-seam removal safe to ship: the page-exact
+    reconstruction the gate certifies is defined by those seams."""
+    if not pages:
+        return False
+    n3 = sum(1 for pg in pages if any(c.n_cols >= 3 for c in pg.chunks))
+    return n3 >= 10 and n3 >= 0.35 * len(pages)
+
+
 def _merge_grid_page_runs(pages):
     """Merge runs of consecutive same-shape pages into one page each.
 
@@ -2320,8 +2356,7 @@ def _merge_grid_page_runs(pages):
     any page with more than one multi-column chunk -- their ladders are
     structure, not repetition.
     """
-    n3 = sum(1 for pg in pages if any(c.n_cols >= 3 for c in pg.chunks))
-    booklet = len(pages) > 0 and n3 >= 10 and n3 >= 0.35 * len(pages)
+    booklet = _is_booklet(pages)
 
     def cap_join_gaps(chunks_els):
         """Everything a JOINED page contributes to a run keeps gaps at most
@@ -2347,6 +2382,16 @@ def _merge_grid_page_runs(pages):
         if len(multis) > 1 or pg.continuation_only:
             return None
         if multis:
+            if booklet and _carries_rigid_spanning_element(pg):
+                # A page holding a table or figure wider than a booklet
+                # column is STRUCTURE, not repetition: run membership would
+                # pull that rigid element into the column flow, and a
+                # table cannot wrap -- it renders across the neighbouring
+                # columns and their text. Measured on y06's source p99: a
+                # 405pt worksheet table spanning a genuinely hybrid page
+                # (full-width worksheet over 3-col instructions), colliding
+                # with column text on 6 rendered pages.
+                return None
             return multis[0].n_cols
         return 1 if booklet else None
 
@@ -2560,19 +2605,41 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
 
     last_el_par = None
     pending_break = [False]
+    # A booklet document is ONE flow: the run boundaries the merge left
+    # behind cost a NEW_PAGE section each, and a section that starts a page
+    # strands the previous page's leftover -- measured at roughly half a
+    # page per boundary, ~36 of them on y06. Inside the booklet signature
+    # the boundaries therefore cost nothing: a column-shape change is a
+    # CONTINUOUS section break emitted by the chunk loop below (columns
+    # begin below the preceding content, exactly how a Word author builds
+    # mixed-column text), and same-shape pages simply continue. The
+    # non-booklet path -- every gated document -- keeps its page seams:
+    # they ARE the page-exact reconstruction the gate certifies.
+    booklet = _is_booklet(lay.pages)
     for pi, pg in enumerate(lay.pages):
         if pi > 0 and not pg.continuation_only:
             # page boundary
             after_cover = has_cover and pi == 1
             next_cols = pg.chunks[0].n_cols if pg.chunks else 1
-            if after_cover or cur_cols != next_cols:
+            if after_cover:
                 gap = pg.chunks[0].col_gap if pg.chunks else 24.0
                 pre = pg.chunks[0].pre_gap if pg.chunks else 0.0
                 mt = (lay.margin_t + pre) if (next_cols > 1 and pre > 0.5) else None
                 s = new_section(WD_SECTION.NEW_PAGE, next_cols, gap, margin_t=mt)
-                if after_cover:
-                    _fill_hf(s.header, lay.header_default, lay, ctx=ctx)
-                    _fill_hf(s.footer, lay.footer_default, lay, ctx=ctx)
+                _fill_hf(s.header, lay.header_default, lay, ctx=ctx)
+                _fill_hf(s.footer, lay.footer_default, lay, ctx=ctx)
+            elif booklet:
+                # the flow continues; a shape difference is handled by the
+                # chunk loop as a CONTINUOUS break. The first chunk's
+                # pre_gap is a page-top distance -- a page-relative offset
+                # under the same cap as every other joined-page gap.
+                if pg.chunks and pg.chunks[0].pre_gap > _JOIN_GAP_CAP_PT:
+                    pg.chunks[0].pre_gap = _JOIN_GAP_CAP_PT
+            elif cur_cols != next_cols:
+                gap = pg.chunks[0].col_gap if pg.chunks else 24.0
+                pre = pg.chunks[0].pre_gap if pg.chunks else 0.0
+                mt = (lay.margin_t + pre) if (next_cols > 1 and pre > 0.5) else None
+                new_section(WD_SECTION.NEW_PAGE, next_cols, gap, margin_t=mt)
             else:
                 # Defect catalogue #1: a carrier paragraph spills to the
                 # next page exactly when the page before it fills exactly,
@@ -2633,7 +2700,20 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                     _page_break_carrier(doc)
                     pending_break[0] = False
                 if isinstance(el, TableEl):
-                    write_table(doc, el, cw_ctx, ctx=ctx)
+                    # A table in a column flow must be sized to its COLUMN.
+                    # The page width is the wrong ruler: the min-column
+                    # widening then funds a dot-leader worksheet line at
+                    # 300pt inside a 165pt column, and a table cannot wrap
+                    # -- it overflows across the neighbouring columns and
+                    # their text (measured: 6 colliding pages on y06, where
+                    # the source carries these worksheets INSIDE a real
+                    # 165pt column). Booklet-scoped: the gated corpus has
+                    # no >=3-col flow, and its behaviour is the baseline.
+                    tw = cw_ctx
+                    if booklet and ch.n_cols > 1:
+                        gap = ch.col_gap or 0.0
+                        tw = (cw_ctx - gap * (ch.n_cols - 1)) / ch.n_cols
+                    write_table(doc, el, tw, ctx=ctx)
                 elif isinstance(el, FigureEl):
                     write_figure(doc, el, ctx=ctx)
                 elif isinstance(el, ImageEl):

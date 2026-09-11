@@ -101,6 +101,20 @@ Word→PostScript→Distiller — and closing LaTeX-light 1→6, other real-worl
   section whose per-page column breaks drop for natural fill. Measured in
   the canonical container, product lane: y06 294→226 pages (2.33×→1.79×),
   y13 66→59, y12 85→84; gate PASS both lanes unchanged; suite 705 OK.
+- **the writer's document flow: a booklet is one flow.** After the run
+  merges, ~36 run boundaries each cost a NEW_PAGE section whose leftover
+  the renderer cannot refill (~half a page each). Inside the booklet
+  signature, same-shape synthetic pages now continue with no break and
+  column-shape changes are CONTINUOUS section breaks; the gated corpus
+  keeps its page seams unchanged. Two defects the flow's render exposed,
+  both fixed: tables inside a column flow size against their column, not
+  the page (a table cannot wrap); and pages carrying a table or figure
+  wider than a booklet column are excluded from run membership -- y06's
+  405pt source worksheets over 3-col instructions were colliding with the
+  neighbouring columns' text on six rendered pages. Measured: y06 226 ->
+  **198** (2.33x -> 1.57x from the campaign's start), y13 59 -> **53**
+  (2.13x -> 1.71x), y12 84 -> 83. Gate PASS both lanes at the recorded
+  baseline; suite 719 OK.
 - **the booklet document-flow merge, and the page-relative gap cap.** The
   "measured band widths" lever named for y06's residual was disproved by
   its own probe (the snapped bands measure 165.5-166pt; the emission
