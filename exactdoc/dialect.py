@@ -46,6 +46,68 @@ MAX_FRAGMENT_GAP = 0.55
 _SYMBOL_LIST_MARKERS = {("opensymbol", "\uf0b7"): "\u2022"}
 
 
+# TeX Computer Modern fonts carry glyphs the Unicode standard has no single
+# codepoint for: the pieces of tall delimiters (a big brace is drawn as
+# top/middle/bottom/extender fragments), oldstyle digits, the dotless j.
+# With no /ToUnicode to consult, BOTH parsers synthesise Adobe's PUA
+# assignments for them (F8EB=parenlefttp, F8F1=bracelefttp, ...), and the
+# DOCX then carries Private Use characters that render as garbage boxes.
+# Ground truth -- every PUA value joined to its glyph name through the
+# embedded CFF charsets of the corpus's own documents (PyMuPDF texttrace
+# GIDs against the font's charset) -- not a table copied from memory:
+#
+#   CMEX10  F8E6 arrowvertex; F8EB-ED parenleft tp/ex/bt; F8EE-F0
+#           bracketleft tp/ex/bt; F8F1-F3 braceleft tp/mid/bt;
+#           F8F4 braceex; F8F6-F8 parenright; F8FA-FB bracketright tp/ex/bt
+#           (F8F9 unobserved but bracketrighttp by the same joins);
+#           F8FC/F8FD/F8FE braceright tp/mid/bt (mid by symmetry);
+#   CMMI10  F6BE dotlessj; F731-34 oneoldstyle..fouroldstyle
+#           (F735-39 five..nine by the same published slots).
+#
+# A piece becomes its base character: three "(" fragments in a column are
+# how a tall parenthesis reads in running text, which is exactly what an
+# editor's user types there. Scoped to the CM families by font name so a
+# PUA value in any other face keeps its producer's meaning.
+_TEX_PUA_TO_UNICODE = {
+    0xF8E6: "|",
+    0xF8EB: "(", 0xF8EC: "(", 0xF8ED: "(",
+    0xF8EE: "[", 0xF8EF: "[", 0xF8F0: "[",
+    0xF8F1: "{", 0xF8F2: "{", 0xF8F3: "{",
+    0xF8F4: "|",
+    0xF8F6: ")", 0xF8F7: ")", 0xF8F8: ")",
+    0xF8F9: "]", 0xF8FA: "]", 0xF8FB: "]",
+    0xF8FC: "}", 0xF8FD: "}", 0xF8FE: "}",
+    0xF6BE: "\u0237",
+    0xF731: "1", 0xF732: "2", 0xF733: "3", 0xF734: "4", 0xF735: "5",
+    0xF736: "6", 0xF737: "7", 0xF738: "8", 0xF739: "9",
+}
+
+
+def _tex_pua_to_text(page: PageIR) -> int:
+    """Rewrite TeX PUA characters to the Unicode they read as."""
+    n = 0
+    for b in page.blocks:
+        for ln in b.lines:
+            for s in ln.spans:
+                if not s.font.startswith("CM"):
+                    continue
+                if not any(0xE000 <= ord(c) <= 0xF8FF for c in s.text):
+                    continue
+                out = []
+                changed = False
+                for c in s.text:
+                    u = _TEX_PUA_TO_UNICODE.get(ord(c))
+                    if u is not None:
+                        out.append(u)
+                        changed = True
+                    else:
+                        out.append(c)
+                if changed:
+                    s.text = "".join(out)
+                    n += 1
+    return n
+
+
 def _luma_ok(hexcol: Optional[str]) -> bool:
     if not hexcol or len(hexcol) != 7:
         return False
@@ -613,10 +675,11 @@ def normalize(ir: DocIR) -> DocIR:
     """Rewrite producer idioms into canonical form. Mutates and returns `ir`."""
     stats = {"backdrops": 0, "vector_markers": 0, "symbol_markers": 0,
              "undecoded_markers": 0, "rotated": 0, "row_joins": 0,
-             "ruled_rows": 0}
+             "ruled_rows": 0, "tex_pua": 0}
     for p in ir.pages:
         if not hasattr(p, "rotated"):
             p.rotated = []
+        stats["tex_pua"] += _tex_pua_to_text(p)
         stats["backdrops"] += _drop_backdrops(p)
         stats["rotated"] += _split_rotated(p)
         stats["vector_markers"] += _markers_to_text(p)

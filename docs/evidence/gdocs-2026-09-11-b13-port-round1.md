@@ -507,3 +507,26 @@ renders two paragraphs zipped glyph-on-glyph -- both await the
 element-level section interruption of the true document flow, where a
 wide element gets its own CONTINUOUS 1-col section mid-flow instead of a
 page of its own.
+
+## Symbol fonts: the TeX PUA class, closed with a verified table
+
+The last named runway item for lshort was "dingbat pages -> PUA garbage
+glyphs". The census first: across the WHOLE corpus the class is two
+documents and 83 characters -- y22_lshort (46 chars, 5 pages: 71, 72, 82,
+83, 111) and y25_texbytopic (33; refused over-cap anyway) -- all from
+Computer Modern fonts. No dingbats anywhere: the garbage is CMEX10
+delimiter PIECES and CMMI10 oldstyle digits, for which the PDFs carry no
+/ToUnicode, and both parsers synthesise Adobe's PUA assignments.
+
+The table was not copied from memory: every PUA value was joined to its
+glyph NAME through the embedded CFF charsets of the corpus's own files
+(PyMuPDF texttrace GIDs against each font's charset). Verified, the class
+is exactly: paren/bracket/brace tp-ex-bt pieces, the brace/arrow
+extenders, dotless j, and oldstyle digits 1-9. Each piece now translates
+to its base character ("(", "[", "{", "|", "1".."9", U+0237) -- scoped to
+CM-family fonts by name, so a PUA value in any other face keeps its
+producer's meaning. `_tex_pua_to_text` runs first in `normalize`, counts
+into `_dialect` stats, and lshort's DOCX now carries zero Private Use
+characters (was 46; the formulas read "(((" where a tall parenthesis was
+drawn in pieces -- each piece sits on its own line in the real document).
+Gate PASS both lanes at the recorded baseline; suite 724 OK.
