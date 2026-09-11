@@ -530,3 +530,23 @@ into `_dialect` stats, and lshort's DOCX now carries zero Private Use
 characters (was 46; the formulas read "(((" where a tall parenthesis was
 drawn in pieces -- each piece sits on its own line in the real document).
 Gate PASS both lanes at the recorded baseline; suite 724 OK.
+
+## Varying running headers: scoped, design written, next lever
+
+Why they fall through, precisely: `detect_hf` consumes a top/bottom-zone
+line only when its full signature -- (zone, y/3, text[:40]) -- repeats on
+>= 60% of pages. A per-chapter header repeats only across its chapter,
+so every variant falls below the bar and lands in the body flow (one
+stray line per source page; lshort's would be ~150, the pandoc manual's
+section headings at a consistent top y are the same class).
+
+The discriminator that separates them from REAL content is already in
+the file: the digit-role machinery. A running header carries a digit
+that equals the page number; a chapter title at the same geometry does
+not. The next lever: group top-zone lines by GEOMETRY alone (zone, y/3,
+font size), and where >= 60% of pages carry exactly one line at that
+geometry and enough of them carry the page-number digit role, consume
+them as furniture (emission: per-section dominant text, or consume-only
+for flow documents). The blast radius is every document's HF detection,
+so it needs its own full gate cycle -- handed to the next session's
+budget rather than rushed at the end of this one.
