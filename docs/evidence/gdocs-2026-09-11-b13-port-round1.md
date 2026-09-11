@@ -177,3 +177,25 @@ canonical container: 173 -> 170 pages, dy_p50 41.0 -> 20.8, place 0.258 ->
 0.471, mean_ssim 0.659 -> 0.678. Suite 701 OK. The remaining lshort
 blanks (the 160-162 run among them) are not carriers and keep their place
 on the runway.
+
+## Final vision acceptance, with each claim verified
+
+A pixel-geometry + zoomed-vision pass over the round-17 export confirmed
+the two fixes: **p15 PASS** (the callout box renders as a complete
+four-sided rectangle, every edge pixel-verified at 2px stroke) and **p01
+PASS** (title, metadata, 41 matching lines, footer). p08's column
+boundaries measure within 0.2% of source across all eight columns and the
+verdict column is clean ("INCONCLUSIVE ×5" on one line).
+
+The pass also made three p08 claims that direct verification then
+DISPROVED, and the disproofs matter as much as the passes: "Control case
+Fable 3 vs Fable 5" (the phrase exists in neither source nor export -- a
+small-zoom transcription artifact), and "two values stacked in the 5th
+cell of rows 2/4 with the 4th empty" (the DOCX rows partition exactly:
+system_promp | 9/40 | 20/40 (+27.5%...) | 20/40 | 20/40 | 20/40 | 19/40 |
+HOLDS x5 -- the "stack" is a vision read of a legitimately wrapped cell).
+The one remaining plausible claim, mid-token breaks in the narrowest
+numeric columns at ~0.5pt of fit margin, stays on the runway where the
+wrap bracket lives. Lesson recorded: pixel geometry from these passes is
+trustworthy; digit transcriptions at zoom are not, and every textual
+claim needs a text-level check before it becomes a defect.
