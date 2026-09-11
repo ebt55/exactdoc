@@ -74,10 +74,16 @@ Ported so far, all first verified live on Google's own render:
 Measured after the ports, in the canonical container: **gate PASS both lanes
 at the recorded baseline numbers** (product 16/16 pages, 0.5274 within-2pt,
 0.9588 live text, 1.045pt dy50). The live B13 report went from **58 export
-pages before to 36 after** across seven live rounds (hand-surgery reference:
-32); the remaining four spills are the table pages, concentrated in residual
-cell pitch and Docs' handling of an extreme 14pt column, with the r4 pitch
-biases as the next lever. 26 new unit tests cover the fixes.
+pages before to CLEAN 1:1 at 32** across twelve live rounds — every source
+page mapping to exactly one export page, no blanks, no spills, no orphans
+(`docs/evidence/gdocs-2026-09-11-b13-align-final.json`) — and the conversion
+carries the heading outline the hand-patched file never had. The closing
+ports: single-span cell joins split at drawn boundaries by advance
+arithmetic (space-guarded), a gdocs column minimum of 22pt funded
+proportionally, the single-line pitch bias (−0.38pt), and pageBreakBefore in
+place of carrier paragraphs under the gdocs profile — the double-fire class
+the hand campaign left "unproven in Docs", now proven absent live. 34 new
+unit tests cover the fixes.
 
 Corpus tranche 3 (see `docs/corpus-expansion.md` §12): acquisition reopened for
 the two named shortfalls; ten documents fetched, licence-verified and sealed

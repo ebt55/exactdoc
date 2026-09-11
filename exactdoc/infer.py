@@ -1520,6 +1520,70 @@ def _coalesce_striped_table_segments(lay: DocLayout):
         previous_is_final = True
 
 
+def _split_span_at_boundaries(s: Span, col_xs: List[float]) -> List[Span]:
+    """Split a single span that straddles drawn column boundaries.
+
+    The parser's cell-join has a second, harder form: cells joined with NO
+    span boundary at all -- one text run, "base L0" measured 40pt wide over
+    a 28.5pt drawn column. Spans cannot help, but character advances can.
+    For monospace the advance is a known constant, so the boundary's
+    character position is arithmetic; for proportional text the span's own
+    width is divided evenly across its characters, an estimate good to a
+    couple of characters on prose.
+
+    Both forms split ONLY at a space within three characters of the
+    computed boundary: the gap the parser joined across was a space, so a
+    space is where cells end, and a wrong estimate can at worst move a
+    whole word one cell over -- never cut a word in half. A boundary with
+    no space near it is a word crossing columns (a hyphenated token in a
+    spanning cell), and cutting it would corrupt text.
+    """
+    from .fonts import family_metrics
+    bounds = [x for x in col_xs[1:-1] if s.bbox[0] + 2.0 < x < s.bbox[2] - 2.0]
+    if not bounds or not s.text:
+        return [s]
+    fam = family_metrics(s.font)
+    if fam is not None and fam[1] == "mono" and s.size > 0:
+        adv = fam[0] * s.size
+    else:
+        adv = (s.bbox[2] - s.bbox[0]) / len(s.text)
+    if adv <= 0:
+        return [s]
+    cuts = []
+    x = s.bbox[0]
+    for i, ch in enumerate(s.text):
+        nxt = x + adv
+        for b in bounds:
+            if x <= b <= nxt:
+                # the space nearest the boundary, within 3 chars either way
+                lo, hi = max(0, i - 3), min(len(s.text), i + 4)
+                cand = [j for j in range(lo, hi) if s.text[j] == " "]
+                if cand:
+                    j = min(cand, key=lambda k: abs(k - i))
+                    cuts.append(j + 1)   # split AFTER the space
+                bounds.remove(b)
+                break
+        x = nxt
+    if not cuts:
+        return [s]
+    cuts = sorted(set(cuts))
+    out = []
+    start = 0
+    for j in cuts + [len(s.text)]:
+        if j <= start:
+            continue
+        text = s.text[start:j]
+        x0 = s.bbox[0] + start * adv
+        x1 = s.bbox[0] + j * adv
+        out.append(Span(text=text, font=s.font, size=s.size, color=s.color,
+                        bold=s.bold, italic=s.italic, mono=s.mono,
+                        serif=s.serif, superscript=s.superscript,
+                        bbox=(x0, s.bbox[1], x1, s.bbox[3]),
+                        origin=(x0, s.origin[1])))
+        start = j
+    return out
+
+
 def _fragments_by_column(ln: Line, col_xs: List[float]) -> List[Line]:
     """Split a line whose spans straddle table column boundaries.
 
@@ -1538,13 +1602,14 @@ def _fragments_by_column(ln: Line, col_xs: List[float]) -> List[Line]:
     for s in ln.spans:
         if s.text == "":
             continue
-        cx = (s.bbox[0] + s.bbox[2]) / 2
-        ci = next((j for j in range(len(col_xs) - 1)
-                   if col_xs[j] - 1 <= cx <= col_xs[j + 1] + 1), -1)
-        if bands and bands[-1][0] == ci:
-            bands[-1][1].append(s)
-        else:
-            bands.append((ci, [s]))
+        for piece in _split_span_at_boundaries(s, col_xs):
+            cx = (piece.bbox[0] + piece.bbox[2]) / 2
+            ci = next((j for j in range(len(col_xs) - 1)
+                       if col_xs[j] - 1 <= cx <= col_xs[j + 1] + 1), -1)
+            if bands and bands[-1][0] == ci:
+                bands[-1][1].append(piece)
+            else:
+                bands.append((ci, [piece]))
     if len(bands) <= 1:
         return [ln]
     out = []

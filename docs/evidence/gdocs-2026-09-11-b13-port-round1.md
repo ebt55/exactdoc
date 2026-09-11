@@ -51,3 +51,22 @@ shows the boundary line missing and the cells apparently merged. The next
 levers, in the hand campaign's order: the body-paragraph pitch biases
 (r4fix [E]: `BIAS_INTRA=0.17`, `BIAS_GAP=0.38` against the source's own
 pitch) and the narrow-column minimum.
+
+---
+
+## Rounds 8-12: CLEAN 1:1
+
+| round | change | export pages | verdict |
+|---|---|---:|---|
+| 8 | gdocs minimum column width 22pt (the importer drops a sub-minimum column's boundary; measured: the 13.6pt "#" column arrived merged into its neighbour). Funded from the widest column | 36 | the boundary survived, but the funding re-flowed the widest column 3→4 lines |
+| 9 | funding spread proportionally above the minimum (no column loses >3.1pt, under a word+space) | 36 | columns right; cmptables showed table 2/3 at +3pt, but table 1's cells still MERGED in the DOCX |
+| 10 | **single-span cell joins split by advance arithmetic** (`_split_span_at_boundaries`): a span crossing a drawn boundary is cut at the nearest space within 3 chars of the computed boundary — mono exactly (known advance), proportional evenly. "base L0" and "runs verdict bearing" now partition cell-for-cell | 34 | one spill (p16) + one blank (p15, the carrier double-fire) |
+| 11 | **single-line pitch bias [E]**: one-line paragraphs' leading is the size*1.16 heuristic, and Docs pitches them ~0.38pt/line looser (the 47-line list block was +18pt on one page); shave 0.38, floor at the dominant size | 33 | zero spills; only the blank page 15 |
+| 12 | **pageBreakBefore instead of a carrier paragraph** (gdocs): the carrier spills and double-fires exactly when its page fills exactly; a break-before is a no-op at a page top. The hand campaign called this "unproven in Docs" — it is now proven: no double-fire, no blank | **32** | **CLEAN 1:1** — `gdocs-2026-09-11-b13-align-final.json` |
+
+What the converter now produces straight from the PDF equals what the
+seven-round hand surgery produced, and adds what the surgery never had:
+named heading styles with a populated Google Docs outline. Gate after the
+full sequence: PASS both lanes at the recorded baseline numbers (the
+fragment/split changes are all-profile; the row model, min-column, bias and
+break-before are gdocs-only). Suite 697 OK locally, container green.

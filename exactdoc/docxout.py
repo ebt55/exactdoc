@@ -538,8 +538,21 @@ def _wrap_correction(p: Para, content_w: float) -> float:
     return wrap_w * (1.0 - k)
 
 
+def _page_break_carrier(doc):
+    """The 1pt page-break carrier paragraph (standard-profile page seams)."""
+    par = doc.add_paragraph()
+    pf = par.paragraph_format
+    pf.space_before = Pt(0)
+    pf.space_after = Pt(0)
+    pf.line_spacing_rule = WD_LINE_SPACING.EXACTLY
+    pf.line_spacing = Pt(1)
+    par.add_run().add_break(WD_BREAK.PAGE)
+    return par
+
+
 def write_para(container, p: Para, content_w: float, par=None, ctx=None,
-               space_before: Optional[float] = None):
+               space_before: Optional[float] = None,
+               page_break_before: bool = False):
     """Write a Para into container (doc/cell/header). Returns the paragraph.
 
     `space_before` overrides the paragraph's own gap for this write only. It is
@@ -549,6 +562,8 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None,
     ctx = ctx or _DEFAULT_CTX
     if par is None:
         par = container.add_paragraph()
+    if page_break_before:
+        par.paragraph_format.page_break_before = True
     # NB: local, not `p.right_indent +=`. The refine loop writes the same
     # layout more than once, and mutating it here would compound the
     # correction on every pass.
@@ -572,7 +587,18 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None,
                     w[key] = w.get(key, 0) + len(r.text)
             if w:
                 dom, fam = max(w, key=w.get)
-        _apply_leading(pf, p.leading, dom, mode=ctx.line_mode, family=fam)
+        lead = p.leading
+        # Hand-campaign lever [E], single-line half, gdocs profile only:
+        # list items and other one-line paragraphs pitch ~0.38pt/line looser
+        # in Docs than the source measured (47-line list block, +18pt on
+        # one page). A single line's `leading` is the size*1.16 heuristic,
+        # not a measured baseline delta, so shaving it is a correction of
+        # an estimate, not of a measurement. Multi-line paragraphs keep
+        # their measured pitch untouched.
+        if ctx.output_profile == "gdocs" and (p.src_lines or 1) == 1 \
+                and not p.line_breaks and lead > 0:
+            lead = max(dom * 1.0 if dom else 4.0, lead - 0.38)
+        _apply_leading(pf, lead, dom, mode=ctx.line_mode, family=fam)
     if p.left_indent > 0.05:
         pf.left_indent = Pt(round(p.left_indent, 1))
     if abs(p.first_indent) > 0.05:
@@ -1229,6 +1255,45 @@ def _band_accent_as_row(t: TableEl) -> TableEl:
     return out
 
 
+# The Google Docs importer drops the boundary of a column narrower than
+# roughly the low twenties of points -- measured on a report whose 13.6pt
+# "#" column arrived merged into its neighbour in the export, re-flowing
+# every cell of every row (the same document's 27.2pt columns survived
+# intact). Columns below this are bumped up to it, funded from the widest
+# column of the same table, so the table's total width never moves.
+GDOCS_MIN_COL_PT = 22.0
+
+
+def _gdocs_min_col_widths(widths: List[float],
+                          minimum: float = GDOCS_MIN_COL_PT) -> List[float]:
+    """Lift sub-minimum columns to the import floor, funded above-minimum.
+
+    Funding from the WIDEST column alone re-flowed it: measured on the
+    same report, the widest column lost 8.4pt and its wrapped cells went
+    from 3 source lines to 4 in the export, regaining more row height
+    than the lift saved. Proportional funding above the minimum keeps
+    every contribution under ~2.5pt -- comfortably below a word-plus-space
+    (~6pt), the smallest amount that can change a wrap.
+    """
+    ws = list(widths)
+    if len(ws) < 2:
+        return ws
+    above = [max(0.0, w - minimum) for w in ws]
+    total = sum(above)
+    for i in range(len(ws)):
+        deficit = minimum - ws[i]
+        if deficit <= 0 or total <= 0:
+            continue
+        for j in range(len(ws)):
+            if j == i:
+                continue
+            take = min(above[j], deficit * above[j] / total)
+            ws[j] -= take
+            above[j] -= take
+        ws[i] = minimum
+    return ws
+
+
 def write_table(container, t: TableEl, content_w: float, ctx=None,
                 cover_band: bool = False):
     ctx = ctx or _DEFAULT_CTX
@@ -1257,6 +1322,10 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
         return None
     t = copy.copy(t)
     t.col_widths = _fit_col_widths(t, content_w)
+    # the importer drops sub-minimum columns' boundaries (see the constant);
+    # lift them before the grid is written
+    if ctx.output_profile == "gdocs":
+        t.col_widths = _gdocs_min_col_widths(t.col_widths)
     if t.space_before > 0.5:
         _spacer(container, t.space_before)
     try:
@@ -2191,6 +2260,7 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                     cover_band=True)
 
     last_el_par = None
+    pending_break = [False]
     for pi, pg in enumerate(lay.pages):
         if pi > 0 and not pg.continuation_only:
             # page boundary
@@ -2205,13 +2275,17 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                     _fill_hf(s.header, lay.header_default, lay, ctx=ctx)
                     _fill_hf(s.footer, lay.footer_default, lay, ctx=ctx)
             else:
-                par = doc.add_paragraph()
-                pf = par.paragraph_format
-                pf.space_before = Pt(0)
-                pf.space_after = Pt(0)
-                pf.line_spacing_rule = WD_LINE_SPACING.EXACTLY
-                pf.line_spacing = Pt(1)
-                par.add_run().add_break(WD_BREAK.PAGE)
+                if ctx.output_profile == "gdocs":
+                    # Defect catalogue #1: a carrier paragraph spills to the
+                    # next page exactly when the page before it fills
+                    # exactly, and fires there -- one blank page. Under the
+                    # gdocs profile the break rides ON the next paragraph as
+                    # pageBreakBefore, which is a no-op at the top of a page
+                    # and so cannot double-fire. Non-paragraph followers
+                    # cannot carry the property and fall back to a carrier.
+                    pending_break[0] = True
+                else:
+                    _page_break_carrier(doc)
         cw_ctx = (lay.page_w - 2 * band_bleed) if (has_cover and pi == 0) else content_w
         # A one- or two-line spill is absorbed into this page rather than
         # stranded on one of its own by the break that follows. The plan is
@@ -2245,13 +2319,19 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                     par.add_run().add_break(WD_BREAK.COLUMN)
                     continue
                 if isinstance(el, Para):
+                    brk = pending_break[0]
+                    pending_break[0] = False
                     write_para(doc, el, cw_ctx, ctx=ctx,
-                               space_before=spill_plan.get(id(el)))
+                               space_before=spill_plan.get(id(el)),
+                               page_break_before=brk)
                     continue
                 bookmark = getattr(el, "_bookmark", None)
                 if bookmark and bookmark in ctx.anchor_ids:
                     # Not a paragraph: mark the spot between block elements.
                     _add_block_bookmark(doc, bookmark, ctx.anchor_ids[bookmark])
+                if pending_break[0]:
+                    _page_break_carrier(doc)
+                    pending_break[0] = False
                 if isinstance(el, TableEl):
                     write_table(doc, el, cw_ctx, ctx=ctx)
                 elif isinstance(el, FigureEl):
