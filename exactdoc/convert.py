@@ -35,6 +35,7 @@ def convert(pdf_path: str, out_path: Optional[str] = None,
             oracle: Optional[str] = None,
             allow_cloud_upload: Optional[bool] = None,
             max_pages: Optional[int] = None,
+            ocr_layer: Optional[str] = None,
             options: Optional[ConversionOptions] = None) -> str:
     """Convert a PDF to DOCX. Returns the output path.
 
@@ -84,7 +85,8 @@ def convert(pdf_path: str, out_path: Optional[str] = None,
     opts = resolve(options, backend=backend, target=target, dpi=dpi,
                    refine_rounds=refine_rounds, ladder=ladder, verbose=verbose,
                    output_profile=output_profile, oracle=oracle,
-                   allow_cloud_upload=allow_cloud_upload, max_pages=max_pages)
+                   allow_cloud_upload=allow_cloud_upload, max_pages=max_pages,
+                   ocr_layer=ocr_layer)
     if out_path is None:
         out_path = os.path.splitext(pdf_path)[0] + ".docx"
 
@@ -96,7 +98,11 @@ def convert(pdf_path: str, out_path: Optional[str] = None,
     # Keep the backend-native reader boundary here.  Known password and format
     # statuses become stable public errors before any output can be published;
     # unrelated exceptions deliberately propagate as bugs.
-    ir = parse_input(bk, pdf_path)
+    ir = parse_input(bk, pdf_path, ocr_layer=opts.ocr_layer)
+    # Images the parser could not extract never reach the writer, so the
+    # writer's ledger cannot see them; they are added to it after the write.
+    parse_drops = sum(getattr(p, "images_dropped", 0)
+                      for p in getattr(ir, "pages", ()))
     # ``parse_input`` always returns a DocIR in production.  The attribute
     # guard keeps the historical lightweight writer-test seam usable: those
     # tests deliberately substitute an opaque layout sentinel, not a parser IR.
@@ -144,6 +150,7 @@ def convert(pdf_path: str, out_path: Optional[str] = None,
                      rounds=opts.refine_rounds, verbose=opts.verbose,
                      render=render, output_profile=opts.output_profile,
                      backend=bk, image_report=image_report)
+        _add_parse_drops(image_report, parse_drops)
         _report_images(image_report, opts.verbose)
         return out
     from .docxout import write_docx
@@ -157,8 +164,14 @@ def convert(pdf_path: str, out_path: Optional[str] = None,
                                    output_profile=opts.output_profile,
                                    backend=bk, image_report=image_report),
             out_path)
+    _add_parse_drops(image_report, parse_drops)
     _report_images(image_report, opts.verbose)
     return out_path
+
+
+def _add_parse_drops(report, n):
+    if n:
+        report["dropped"] = report.get("dropped", 0) + n
 
 
 def _report_images(report, verbose):

@@ -10,16 +10,20 @@ bad PDF; all other exceptions remain visible as bugs.
 from .errors import ParseError, UnsupportedInputError
 
 
-def parse(backend, path, keep_image_data=True):
+def parse(backend, path, keep_image_data=True, ocr_layer="text"):
     """Parse ``path`` and translate only documented input-status failures.
 
     Chaining retains the native exception for developers, while callers see a
     stable message containing neither source paths nor backend diagnostics.
     The boundary is before layout and DOCX publication, so input failures cannot
     replace an existing destination.
+
+    ``ocr_layer`` is forwarded only when it asks for something other than the
+    default, so a backend that predates the keyword keeps working.
     """
+    kw = {} if ocr_layer == "text" else {"ocr_layer": ocr_layer}
     try:
-        return backend.parse_pdf(path, keep_image_data=keep_image_data)
+        return backend.parse_pdf(path, keep_image_data=keep_image_data, **kw)
     except (UnsupportedInputError, ParseError):
         raise
     except Exception as exc:

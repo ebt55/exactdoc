@@ -263,6 +263,48 @@ Non-gating; the expansion parity policy re-pins its corpus hash only.
   dehyphenated in justified list items (y24, y26) beside nine
   discretionary ones correctly removed.
 
+- **the parser reads the page a reader sees (design audit WP4: B6–B11,
+  B28; defect catalogue #5, #9).** Every coordinate is in the visible
+  frame — CropBox origin removed, /Rotate applied, and a page turned to the
+  orientation its text reads when /Rotate would leave every line vertical
+  (synthetic probes: CropBox baseline −8 → 42, MediaBox origin 92 → 142,
+  /Rotate 90 no longer loses its text). Objects inside Form XObjects are
+  placed through the form's matrix (a rect at form (0, 752) is at page
+  (150, 352)): y47's charts, y13's TIP/CAUTION icons and y03's figures now
+  sit where they are drawn instead of piled in a page corner. Text a reader
+  does not see is not text: off-page printer's slugs (y06/y12/y13, 38k
+  chars that had become the running header), render-mode-3 text (y19's
+  invisible line-start spaces), clipped glyphs, 0.01pt duplicates, white on
+  the bare page (y21, GPO's white "VerDate … Frm … Sfmt" slug on y61/y62),
+  and an icon's own lettering. Except an OCR layer over a scan, which
+  becomes the page's editable text with the duplicated scan left out
+  (`--ocr-layer image` keeps the picture). Images with an SMask/stencil are
+  embedded as PDFium paints them (y20's logo and y01's TOC numbers were
+  black boxes); opaque JPEGs pass through as their own stream; parser drops,
+  failed figure renders and bad link annotations are counted, not silent;
+  a write opens the PDF once for all figure clips; pages of another size
+  get their own section (pgSz, w:orient, pgMar). Gated corpus byte-identical
+  (raw DOCX, all 16); canonical gate PASS both lanes (product 16/16, <2pt
+  0.5689; raw 15/16, 0.4031).
+  Raw sweep over all 95, against the integration head it merged: 35 moved,
+  mean abs page-ratio error 0.379 → 0.333, char recall 0.708 → 0.720, live
+  text 0.935 → 0.939, SSIM 0.596 → 0.604, page-exact 37 → 38. The OCR'd
+  scans y56/y57: 32 → 16 and 44 → 29 pages (10 and 16 in the source), char
+  recall 0.01/0.13 → 0.53/0.32, DOCX 31.4/73.1 MB → 1.2/3.8 MB; y42 12 → 7
+  pages (live text 0.62 → 0.92); y65 page-exact; y06 204 → 198; y03
+  within2pt 0.009 → 0.096. Product lane: y06 198 → 189, y13 and y12 page-
+  neutral. Worse, honestly: y13 raw 59 → 61 and its word recall 0.24 → 0.21
+  (the correctly placed icons in a three-column booklet flow; the icon-
+  lettering rule took it back from 64); y39 27 → 28 and y62 26 → 27 —
+  correcting a CropBox origin and dropping an invisible slug both remove
+  slack an inflating page had been borrowing; y61/y62 doc recall
+  0.963/0.913 → 0.956/0.836 because the harness's reference still counts
+  the invisible slug's words; y47 doc recall 0.752 → 0.733 as its chart
+  labels move into the now correctly placed chart figures. The visibility
+  pass costs 15–20% of character extraction; DOCX size rises where black boxes became
+  real RGBA images (y01 0.79 → 0.98 MB) and falls where JPEGs pass through
+  (y28 1.96 → 1.53 MB, y50 1.55 → 0.84 MB).
+
 ## 1.0.1 — 2026-08-07
 
 A résumé went through the converter and came out wrong in ways the 16-document
