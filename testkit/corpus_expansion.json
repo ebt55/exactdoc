@@ -672,7 +672,7 @@
    "sha256": "79457a8ed7fb8052bd103bdc6867f789bca5ace88c44d1a2b14f4fd72f4c0e4d",
    "src_pages": 328,
    "tier": "unsupported",
-   "why": "LuaTeX 1.24 reference manual, 328 pages, ConTeXt MkIV typeset. Two chains new to the corpus: the LuaTeX engine itself and ConTeXt as the macro package (all existing TeX fixtures are LaTeX). GPL stated on the CTAN luatex package page. [re-tiered 2026-09-11: 317/328 pages exceed the 250-page converter cap, which is the §4 unsupported criterion; the refusal at measurement was the contract working, the plan's ordinary_digital tier was the error]"
+   "why": "LuaTeX 1.24 reference manual, 328 pages, ConTeXt MkIV typeset. Two chains new to the corpus: the LuaTeX engine itself and ConTeXt as the macro package (all existing TeX fixtures are LaTeX). GPL stated on the CTAN luatex package page. [re-tiered 2026-09-11: 317/328 pages exceed the 250-page converter cap, which is the \u00a74 unsupported criterion; the refusal at measurement was the contract working, the plan's ordinary_digital tier was the error]"
   },
   "y24_pandoc_manual.pdf": {
    "bytes": 543095,
@@ -708,7 +708,7 @@
    "sha256": "6a5e8794121bf1ab4a557ec5a968077e0c1bf7b64cb03abade84c192a5443068",
    "src_pages": 317,
    "tier": "unsupported",
-   "why": "TeX by Topic (Eijkhout), 317 pages, pdfeTeX-1.21a -- a vintage eTeX-era producer string, older than every TeX engine the corpus holds. FDL 1.2 permission statement printed on p.2 of the document itself, quoted at fetch. [re-tiered 2026-09-11: 317/328 pages exceed the 250-page converter cap, which is the §4 unsupported criterion; the refusal at measurement was the contract working, the plan's ordinary_digital tier was the error]"
+   "why": "TeX by Topic (Eijkhout), 317 pages, pdfeTeX-1.21a -- a vintage eTeX-era producer string, older than every TeX engine the corpus holds. FDL 1.2 permission statement printed on p.2 of the document itself, quoted at fetch. [re-tiered 2026-09-11: 317/328 pages exceed the 250-page converter cap, which is the \u00a74 unsupported criterion; the refusal at measurement was the contract working, the plan's ordinary_digital tier was the error]"
   },
   "y26_bash_reference.pdf": {
    "bytes": 855783,
@@ -745,6 +745,728 @@
    "src_pages": 151,
    "tier": "ordinary_digital",
    "why": "RFC 9000 (QUIC v1), 151 pages, cairo 1.16.0 via xml2rfc 3.8.0 -- the same chain as y17_rfc9110, held as a second specimen because the corpus's 'other real-world' class is 1 of a target 6. IETF Trust TLP section 5.a permits verbatim redistribution of unmodified copies; the frozen-fixture constraint this corpus already imposes is exactly what the TLP requires. Not public domain -- the same recorded caveat as y17."
+  },
+  "y28_doe_oig_word365.pdf": {
+   "bytes": 694088,
+   "content": "662f10f39922fcf8be1d90b867c48481",
+   "dialect": "Microsoft Word for Microsoft 365 (direct export)",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": "Microsoft\u00ae Word for Microsoft 365",
+    "license": "US-Government-Public-Domain",
+    "license_evidence": "https://www.energy.gov/web-policies",
+    "origin": "downloaded",
+    "producer": "Microsoft\u00ae Word for Microsoft 365",
+    "recipe": null,
+    "source_url": "https://www.energy.gov/sites/default/files/2025-05/DOE-OIG-25-20.pdf"
+   },
+   "sha256": "92c858435a717f38fb316e6a5f2e174d344100863e1e92f09734179370681604",
+   "src_pages": 21,
+   "tier": "ordinary_digital",
+   "why": "DOE Inspector General audit report DOE-OIG-25-20, 21 pages. Microsoft Word for Microsoft 365 direct export (no Acrobat): memorandum page, a two-column Highlights page, TOC, footnotes, tables, raster charts, running footer 'DOE-OIG-25-20 | n | P a g e'. Licence: US federal work; DOE web policy: 'Government information at DOE websites is in the public domain.' No statement inside the PDF."
+  },
+  "y29_uk_letter_word365.pdf": {
+   "bytes": 179985,
+   "content": "dc5037cda1db4e2f4fd8a2fc16ad7e19",
+   "dialect": "Microsoft Word for Microsoft 365 (direct export)",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": "Microsoft\u00ae Word for Microsoft 365",
+    "license": "OGL-UK-3.0",
+    "license_evidence": "https://www.gov.uk/government/publications/local-government-reorganisation-letter-to-two-tier-areas",
+    "origin": "downloaded",
+    "producer": "Microsoft\u00ae Word for Microsoft 365",
+    "recipe": null,
+    "source_url": "https://assets.publishing.service.gov.uk/media/67864788f041702a11ca0f44/Local_government_reorganisation_-_letter_to_two-tier_areas.pdf"
+   },
+   "sha256": "bf8b5f38c50843df25defc04b785d3686665ef1522abe3aab9e6ef725a2554f6",
+   "src_pages": 4,
+   "tier": "ordinary_digital",
+   "why": "MHCLG ministerial letter, 4 pages, A4. Microsoft Word for Microsoft 365 direct export: crest letterhead, address block, run-in bold headings, signature image -- the letter class the corpus lacked. Licence: the GOV.UK publication page states 'All content is available under the Open Government Licence v3.0, except where otherwise stated'; OGL v3 covers crests that form an integral part of a document. Site-level basis, none inside the PDF."
+  },
+  "y30_nz_guideline_word365.pdf": {
+   "bytes": 585475,
+   "content": "1f58ced755ec06d79038be95f3ba97e3",
+   "dialect": "Microsoft Word for Microsoft 365 (direct export)",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": "Microsoft\u00ae Word for Microsoft 365",
+    "license": "CC-BY-4.0",
+    "license_evidence": "https://creativecommons.org/licenses/by/4.0/",
+    "origin": "downloaded",
+    "producer": "Microsoft\u00ae Word for Microsoft 365",
+    "recipe": null,
+    "source_url": "https://www.health.govt.nz/system/files/2025-04/guideline-regulation-medicinal-cannabis-new-zealand-guidance-new-medicinal-cannabis-product-application-v3.pdf"
+   },
+   "sha256": "b556513738ace4dd30327f0a6452487604e5bec528b490b659f04ee7968518bc",
+   "src_pages": 33,
+   "tier": "ordinary_digital",
+   "why": "NZ Ministry of Health guideline, 33 pages. Microsoft Word for Microsoft 365 direct export: multi-level numbered headings (2.3.1), TOC plus List of Tables, 10 tables, shaded note boxes, two-line running footer. Licence printed on p3: 'This work is licensed under the Creative Commons Attribution 4.0 International licence.'"
+  },
+  "y31_uk_policy_printtopdf.pdf": {
+   "bytes": 317510,
+   "content": "b0e2278fee179c1a273a1091e2cc0be6",
+   "dialect": "Microsoft: Print To PDF (Word via the Windows print driver)",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": null,
+    "license": "OGL-UK-3.0",
+    "license_evidence": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+    "origin": "downloaded",
+    "producer": "Microsoft: Print To PDF",
+    "recipe": null,
+    "source_url": "https://assets.publishing.service.gov.uk/media/6874fb0d93d52d8659e46566/Targeted_Support_-_Policy_Note_-_For_digicomms_v3.pdf"
+   },
+   "sha256": "93d4d328675075054f96945c9a859862cc88b5b71ab1a3d67622851e2dbaa13f",
+   "src_pages": 18,
+   "tier": "ordinary_digital",
+   "why": "HM Treasury policy note, 18 pages. Producer 'Microsoft: Print To PDF' (Word printed through the Windows print-to-PDF driver; fonts arrive as generic CIDFont+Fn names) -- a chain new to the corpus. Contents page, numbered paragraphs, footnotes, annex. Licence printed on p3: 'This publication is licensed under the terms of the Open Government Licence v3.0 except where otherwise stated.'"
+  },
+  "y32_uk_response_gdocs.pdf": {
+   "bytes": 401904,
+   "content": "72ce40fbdcdf3ac36dc89d2a20b6ec4f",
+   "dialect": "Skia/PDF m147 Google Docs Renderer",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": null,
+    "license": "OGL-UK-3.0",
+    "license_evidence": "https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/",
+    "origin": "downloaded",
+    "producer": "Skia/PDF m147 Google Docs Renderer",
+    "recipe": null,
+    "source_url": "https://assets.publishing.service.gov.uk/media/69b1861a58d4ef5adaf0e4a7/2026-03-12_Government_Response_to_the_Consultation_on_the_Notifiable_Acquisition_Regulations__NARs_.pdf"
+   },
+   "sha256": "10131da033d7389f2545a97c87f851d80a497a89ed0ecca88a1adc6cf2e59f52",
+   "src_pages": 37,
+   "tier": "ordinary_digital",
+   "why": "UK Government response to the Notifiable Acquisition Regulations consultation, 37 pages. Producer 'Skia/PDF m147 Google Docs Renderer' -- a real Google Docs export of an ordinary English report, the first in the corpus. Licence printed on p4: 'This publication is licensed under the terms of the Open Government Licence v3.0 except where otherwise stated.'"
+  },
+  "y33_nz_paper_powerpdf.pdf": {
+   "bytes": 947590,
+   "content": "69b7ceb72e21aea844bf2a7cf1155541",
+   "dialect": "Power PDF Create (Kofax/Nuance)",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": "Power PDF Create",
+    "license": "CC-BY-4.0",
+    "license_evidence": "https://creativecommons.org/licenses/by/4.0/",
+    "origin": "downloaded",
+    "producer": "Power PDF Create",
+    "recipe": null,
+    "source_url": "https://www.mbie.govt.nz/dmsdocument/29084-discussion-paper-open-banking-regulations-and-standards-under-the-customer-and-product-data-bill-pdf"
+   },
+   "sha256": "5066a2365d1dbac190340e81dfd5cec900feab23a15baed9a6d70f228539ddf3",
+   "src_pages": 60,
+   "tier": "ordinary_digital",
+   "why": "NZ MBIE discussion paper on open banking regulations, 60 pages. Producer and Creator 'Power PDF Create' (Kofax/Nuance Power PDF) -- a commercial PDF writer new to the corpus. Licence printed on p2: 'This work is licensed under the Creative Commons Attribution 4.0 International License.' ACQUISITION NOTE: the canonical-container fetch of 2026-10-04 got HTTP 403 from www.mbie.govt.nz and was NOT retried and the User-Agent was not changed (fetch_expansion.py's rule). These bytes are the copy the same honest client (identical User-Agent and Accept header) downloaded from the same URL earlier the same day during candidate verification -- twice, byte-identical, sha256 5066a236... -- so they are bytes the host served, not bytes obtained around a refusal."
+  },
+  "y34_census_slides_pptx365.pdf": {
+   "bytes": 1964460,
+   "content": "5c5b281dcead7e857ef86fc58f76e668",
+   "dialect": "Microsoft PowerPoint for Microsoft 365 (direct export)",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": "Microsoft\u00ae PowerPoint\u00ae for Microsoft 365",
+    "license": "US-Government-Public-Domain",
+    "license_evidence": "https://www.usa.gov/government-copyright",
+    "origin": "downloaded",
+    "producer": "Microsoft\u00ae PowerPoint\u00ae for Microsoft 365",
+    "recipe": null,
+    "source_url": "https://www2.census.gov/about/training-workshops/2025/2025-09-04-2024-acs-1-year-estimates-prerelease-presentation.pdf"
+   },
+   "sha256": "c0340ffc091606e635af4eb773dd288f3c01bedb0826e83224cf6875fa70b336",
+   "src_pages": 40,
+   "tier": "ordinary_digital",
+   "why": "US Census Bureau 2024 ACS 1-year pre-release presentation, 40 slides at 960x540. Microsoft PowerPoint for Microsoft 365 direct export -- the slide-deck class the corpus lacked: bullet slides, native tables, website screenshots, footer logo. Licence: US federal work, publisher identity; no statement inside the PDF."
+  },
+  "y35_uk_rates_excel365.pdf": {
+   "bytes": 171072,
+   "content": "949e196c04e62fcba3829a9811188d34",
+   "dialect": "Microsoft Excel for Microsoft 365 (direct export)",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": "Microsoft\u00ae Excel\u00ae for Microsoft 365",
+    "license": "OGL-UK-3.0",
+    "license_evidence": "https://www.gov.uk/government/publications/benefit-and-pension-rates-2026-to-2027",
+    "origin": "downloaded",
+    "producer": "Microsoft\u00ae Excel\u00ae for Microsoft 365",
+    "recipe": null,
+    "source_url": "https://assets.publishing.service.gov.uk/media/69931706ceeaa48d377f6bd5/Benefit-and-pension-rates-2026-2027.pdf"
+   },
+   "sha256": "c13111a6a4a939778bce54b248ce525470b98b730276715632fd5d1eaec3c019",
+   "src_pages": 14,
+   "tier": "ordinary_digital",
+   "why": "DWP benefit and pension rates 2026-27, 14 pages A4. Microsoft Excel for Microsoft 365 direct export: a spreadsheet print area with an 'Official' header and footer, a two-column numeric rate grid, no gridlines -- the tabular Excel class the corpus lacked. Licence: GOV.UK publication page, 'All content is available under the Open Government Licence v3.0, except where otherwise stated'; none inside the PDF."
+  },
+  "y36_lo_writer_guide.pdf": {
+   "bytes": 826728,
+   "content": "3d62b7fee040450f3dde9f71d2c7d91b",
+   "dialect": "LibreOffice 7.1 / Writer (real-world export)",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": "Writer",
+    "license": "GPL-3.0-or-later OR CC-BY-4.0",
+    "license_evidence": "https://creativecommons.org/licenses/by/4.0/",
+    "origin": "downloaded",
+    "producer": "LibreOffice 7.1",
+    "recipe": null,
+    "source_url": "https://wiki.documentfoundation.org/images/7/73/WG7101-IntroducingWriter.pdf"
+   },
+   "sha256": "1ed2a7875b5d973ae7eb4bc1d03a37c6078066e7583b927dcd5a1d0225f3bd3a",
+   "src_pages": 25,
+   "tier": "ordinary_digital",
+   "why": "LibreOffice Writer Guide 7.1, chapter 1, 25 pages. Producer 'LibreOffice 7.1' / Creator 'Writer' -- a real-world LibreOffice export (every other LibreOffice fixture was generated here). UI screenshots, Tip/Note boxes, tables, header and footer. Licence printed on p2: GPL v3 or later, or 'the Creative Commons Attribution License ... version 4.0 or later'."
+  },
+  "y37_plos_one_dvipdfmx.pdf": {
+   "bytes": 289185,
+   "content": "03c820b32976e75bdb7d1a86a6a91105",
+   "dialect": "MiKTeX-dvipdfmx (20220710) / LaTeX (PLOS ONE)",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": "LaTeX with hyperref",
+    "license": "CC-BY-4.0",
+    "license_evidence": "https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0322937",
+    "origin": "downloaded",
+    "producer": "MiKTeX-dvipdfmx (20220710)",
+    "recipe": null,
+    "source_url": "https://journals.plos.org/plosone/article/file?id=10.1371/journal.pone.0322937&type=printable"
+   },
+   "sha256": "31b2894a30f71cbb3046f401c05a14a75603410d6bd808d4f308b37a0b35c77d",
+   "src_pages": 22,
+   "tier": "ordinary_digital",
+   "why": "PLOS ONE article (doi 10.1371/journal.pone.0322937), 22 pages. Producer 'MiKTeX-dvipdfmx (20220710)' -- PLOS's LaTeX pipeline through dvipdfmx: left metadata sidebar on p1, 10 tables, ~30 numbered equations, references. 22 invisible 3x3pt ARFix button widgets (not a form). Licence printed on p1: 'This is an open access article distributed under the terms of the Creative Commons Attribution License'; the article page links CC BY 4.0."
+  },
+  "y38_elife_arbortext_gs.pdf": {
+   "bytes": 1094698,
+   "content": "da44ab5272e5dcb5e6b8c6822a36cfce",
+   "dialect": "GPL Ghostscript 9.15 / Arbortext Advanced Print Publisher 9.0",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": "Arbortext Advanced Print Publisher 9.0.215/W Unicode",
+    "license": "CC-BY-4.0",
+    "license_evidence": "https://api.elifesciences.org/articles/49547",
+    "origin": "downloaded",
+    "producer": "GPL Ghostscript 9.15",
+    "recipe": null,
+    "source_url": "https://cdn.elifesciences.org/articles/49547/elife-49547-v2.pdf"
+   },
+   "sha256": "a6f1a7b522bc05600906335f973adae933f4db2eb2b6e638a0c0939e21fe26f1",
+   "src_pages": 33,
+   "tier": "ordinary_digital",
+   "why": "eLife 'Ten simple rules for the computational modeling of behavioral data' (49547 v2), 33 pages. Producer 'GPL Ghostscript 9.15' from 'Arbortext Advanced Print Publisher 9.0' -- a journal chain new to the corpus. Equations, text boxes, figures, footnote marks. Advent math fonts extract '=' as a fraction glyph. Licence printed on p1 ('distributed under the terms of the Creative Commons Attribution License'); the eLife API record states CC-BY-4.0."
+  },
+  "y39_copernicus_npg_2col.pdf": {
+   "bytes": 844528,
+   "content": "78ea1a5ad280802e0ef051659aace44c",
+   "dialect": "pdfTeX-1.40.19 / copernicus.cls (XML to LaTeX)",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": "copernicus.cls Version 2023/02/06 10.1.6 Copernicus papers, produced from XML",
+    "license": "CC-BY-4.0",
+    "license_evidence": "https://npg.copernicus.org/articles/30/37/2023/",
+    "origin": "downloaded",
+    "producer": "pdfTeX-1.40.19",
+    "recipe": null,
+    "source_url": "https://npg.copernicus.org/articles/30/37/2023/npg-30-37-2023.pdf"
+   },
+   "sha256": "85dc4d6f3ed70f995ff84a8df212ecc8fae866d32f3686ca8683aceba960e95b",
+   "src_pages": 11,
+   "tier": "ordinary_digital",
+   "why": "Copernicus/EGU Nonlinear Processes in Geophysics article, 11 pages, two-column throughout on a 595x785 page. pdfTeX 1.40.19 via copernicus.cls 'produced from XML': 21 numbered equations, table, figures. Licence printed on p1: 'This work is distributed under the Creative Commons Attribution 4.0 License.'"
+  },
+  "y40_frontiers_dvips_gs.pdf": {
+   "bytes": 1117858,
+   "content": "ae5b13a46f350bc1134bf7c203e91e9b",
+   "dialect": "dvips + MiKTeX GPL Ghostscript 9.0 / LaTeX hypdvips",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": "LaTeX with hyperref package + hypdvips",
+    "license": "CC-BY-4.0",
+    "license_evidence": "https://www.frontiersin.org/journals/applied-mathematics-and-statistics/articles/10.3389/fams.2023.1260651/full",
+    "origin": "downloaded",
+    "producer": "dvips + MiKTeX GPL Ghostscript  9.0",
+    "recipe": null,
+    "source_url": "https://www.frontiersin.org/journals/applied-mathematics-and-statistics/articles/10.3389/fams.2023.1260651/pdf"
+   },
+   "sha256": "538a9f206b8131c6c3e67dd96fbbc183ad693f470315d92803cf4cf71aafd3f1",
+   "src_pages": 10,
+   "tier": "ordinary_digital",
+   "why": "Frontiers in Applied Mathematics and Statistics article, 10 pages, A4 two-column. Producer 'dvips + MiKTeX GPL Ghostscript 9.0' / 'LaTeX with hyperref package + hypdvips' -- the DVI-to-PostScript-to-Ghostscript chain, new to the corpus. 37 numbered equations. Licence printed on p1: 'distributed under the terms of the Creative Commons Attribution License (CC BY)'; the article page links CC BY 4.0."
+  },
+  "y41_arxiv_ieeetran.pdf": {
+   "bytes": 474236,
+   "content": "2ce4214be7ed0a78cc4d0babc17bdffe",
+   "dialect": "pdfTeX-1.40.25 / LaTeX IEEEtran (arXiv)",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": "LaTeX with hyperref",
+    "license": "CC-BY-4.0",
+    "license_evidence": "https://arxiv.org/abs/2309.06427v2",
+    "origin": "downloaded",
+    "producer": "pdfTeX-1.40.25",
+    "recipe": null,
+    "source_url": "https://arxiv.org/pdf/2309.06427v2"
+   },
+   "sha256": "1fb7472af171632e964018ce3a6e959e0443191789bb0d541720d8b7b57e0524",
+   "src_pages": 8,
+   "tier": "ordinary_digital",
+   "why": "arXiv 2309.06427v2 (ICRA 2024), 8 pages, IEEEtran conference two-column: ~48 numbered equations with matrices, affiliation footnotes, rotated arXiv margin stamp. pdfTeX 1.40.25. Per-paper licence on the abs page: creativecommons.org/licenses/by/4.0 (not the default arXiv licence)."
+  },
+  "y42_arxiv_acmart.pdf": {
+   "bytes": 612548,
+   "content": "70ed3f6f38fa01425155fa8c4d16b97e",
+   "dialect": "pdfTeX-1.40.25 (TeX Live 2023) / LaTeX acmart (arXiv)",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": "LaTeX with acmart 2023/11/05 v2.00 Typesetting articles for the Association for Computing Machinery and hyperref 2023-04-22 v7.00x Hypertext links for LaTeX",
+    "license": "CC-BY-4.0",
+    "license_evidence": "https://arxiv.org/abs/2405.07767v1",
+    "origin": "downloaded",
+    "producer": "pdfTeX, Version 3.141592653-2.6-1.40.25 (TeX Live 2023) kpathsea version 6.3.5",
+    "recipe": null,
+    "source_url": "https://arxiv.org/pdf/2405.07767v1"
+   },
+   "sha256": "c60a9382dee30df9f160cbceeca08ab9645817490c7a995e471d1f65ac50e3a4",
+   "src_pages": 5,
+   "tier": "ordinary_digital",
+   "why": "arXiv 2405.07767v1 (SIGIR 2024), 5 pages, ACM acmart sigconf two-column: tables, vector plots, footnotes, ACM rights block. pdfTeX 1.40.25 (TeX Live 2023). Licence printed on p1: 'This work is licensed under a Creative Commons Attribution International 4.0 License.'; abs page links CC BY 4.0."
+  },
+  "y43_arxiv_neurips.pdf": {
+   "bytes": 1567574,
+   "content": "dad8b4a0917eadce06e7d9aec42d077f",
+   "dialect": "pdfTeX-1.40.25 / LaTeX NeurIPS style (arXiv)",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": "LaTeX with hyperref",
+    "license": "CC-BY-4.0",
+    "license_evidence": "https://arxiv.org/abs/2310.20030v1",
+    "origin": "downloaded",
+    "producer": "pdfTeX-1.40.25",
+    "recipe": null,
+    "source_url": "https://arxiv.org/pdf/2310.20030v1"
+   },
+   "sha256": "b9a75b619be7f1793edb3263f15bc259515bfd13b1d034c7ddcc074d5b8ce528",
+   "src_pages": 15,
+   "tier": "ordinary_digital",
+   "why": "arXiv 2310.20030v1 (NeurIPS 2023), 15 pages, NeurIPS one-column style: 34 numbered equations, tables, figures, footnote. pdfTeX 1.40.25. Per-paper licence on the abs page: creativecommons.org/licenses/by/4.0."
+  },
+  "y44_cv_rendercv_typst.pdf": {
+   "bytes": 91886,
+   "content": "e8c04b77aa4a3e944cd9bfb573ce7f7e",
+   "dialect": "Typst 0.14.2 (RenderCV)",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": "Typst 0.14.2",
+    "license": "MIT",
+    "license_evidence": "https://github.com/rendercv/rendercv/blob/9bc8c2862c99bcc6c71b3b6f2272321200dc7be2/LICENSE",
+    "origin": "downloaded",
+    "producer": "",
+    "recipe": null,
+    "source_url": "https://raw.githubusercontent.com/rendercv/rendercv/9bc8c2862c99bcc6c71b3b6f2272321200dc7be2/examples/John_Doe_ModerncvTheme_CV.pdf"
+   },
+   "sha256": "310cccc79d538814278250d2dd12dc42fe272f04f80ebe00d75743c7e161d4ca",
+   "src_pages": 3,
+   "tier": "ordinary_digital",
+   "why": "RenderCV example CV (moderncv theme) for the placeholder person 'John Doe', 3 pages. Creator 'Typst 0.14.2' (the corpus holds 0.13.1): date-column grid, icons, bullet lists. MIT licence of the repository that ships the file at this commit."
+  },
+  "y45_cv_academic_pdftex.pdf": {
+   "bytes": 220505,
+   "content": "2c7364dd43c3a9d2a96dbe0da7a70daf",
+   "dialect": "pdfTeX-1.40.28 / LaTeX",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": "LaTeX with hyperref",
+    "license": "MIT",
+    "license_evidence": "https://github.com/pmichaillat/latex-cv/blob/cd3fee9cf4508e764b5fb282381d81e39d01232a/LICENSE.md",
+    "origin": "downloaded",
+    "producer": "pdfTeX-1.40.28",
+    "recipe": null,
+    "source_url": "https://raw.githubusercontent.com/pmichaillat/latex-cv/cd3fee9cf4508e764b5fb282381d81e39d01232a/cv.pdf"
+   },
+   "sha256": "aae7fe63f39e9cc079b6892d108cbafa1e5a8c2fdf8e78e08fa03654c5b7e65e",
+   "src_pages": 3,
+   "tier": "ordinary_digital",
+   "why": "Single-column academic CV template sample (the fictional Prof. Moritz-Maria von Igelfeld), 3 pages, pdfTeX 1.40.28: small-caps headings, numbered publication list, three-part footer. MIT licence of the repository that ships the file at this commit."
+  },
+  "y46_cv_twocol_xdvipdfmx.pdf": {
+   "bytes": 46029,
+   "content": "3b994af4dd86f8cb2a9da0cfd5262584",
+   "dialect": "xdvipdfmx (0.1) / LaTeX",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": "LaTeX with hyperref",
+    "license": "MIT",
+    "license_evidence": "https://github.com/Craftadoc/llresume/blob/97463e0a99d02485383bc3f7f83a8d770982f2f2/LICENSE",
+    "origin": "downloaded",
+    "producer": "xdvipdfmx (0.1)",
+    "recipe": null,
+    "source_url": "https://raw.githubusercontent.com/Craftadoc/llresume/97463e0a99d02485383bc3f7f83a8d770982f2f2/showcase/default.pdf"
+   },
+   "sha256": "9d5df7d20660e2a75c7c202b5f9f26132ca20a770f30c93cc07098141895e964",
+   "src_pages": 1,
+   "tier": "ordinary_digital",
+   "why": "Two-column one-page resume template showcase (fictional person), A4, producer 'xdvipdfmx (0.1)': right-aligned left column, avatar drawing, icon glyphs, skill-dot ratings. MIT licence of the repository at this commit."
+  },
+  "y47_ar_ilo_word365.pdf": {
+   "bytes": 1787113,
+   "content": "3d04c9718cd5d4029af1f3bdb75d1455",
+   "dialect": "Microsoft Word pour Microsoft 365 (direct export)",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": "Microsoft\u00ae Word pour Microsoft 365",
+    "license": "CC-BY-4.0",
+    "license_evidence": "https://www.ilo.org/node/9321",
+    "origin": "downloaded",
+    "producer": "Microsoft\u00ae Word pour Microsoft 365",
+    "recipe": null,
+    "source_url": "https://www.ilo.org/sites/default/files/2026-04/ILC114-VI-[WORKQ-260122-001]-web-AR.pdf"
+   },
+   "sha256": "93935e3d0e5c89ad30fd3fb4d388ee07e3d6aba67d21cef60f5f155b7f115922",
+   "src_pages": 57,
+   "tier": "designed_stress",
+   "why": "ILO International Labour Conference report ILC.114/VI, Arabic edition, 57 pages A4. 'Microsoft Word pour Microsoft 365' (French-UI Word) direct export: right-to-left body with embedded LTR runs, ~26 tables, and 333 navigation push-button widgets (a per-page sidebar, not data entry). Licence printed on p3 (translated): 'This work is licensed under the Creative Commons Attribution 4.0 International licence.'"
+  },
+  "y48_ar_weasyprint.pdf": {
+   "bytes": 205194,
+   "content": "6dcfb9a9dc082ee87eb46c7fec76f0f8",
+   "dialect": "WeasyPrint 70.0",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": null,
+    "license": "CC-BY-4.0",
+    "license_evidence": "https://zenodo.org/records/23015186",
+    "origin": "downloaded",
+    "producer": "WeasyPrint 70.0",
+    "recipe": null,
+    "source_url": "https://zenodo.org/records/23015186/files/etudes-maramm-n04-iso-55001-ar.pdf?download=1"
+   },
+   "sha256": "17e01a393a47cecdc91ab39de1aa8248f08f3cba6c35c44bf0d0f39c8ac9efd6",
+   "src_pages": 7,
+   "tier": "designed_stress",
+   "why": "Arabic technical note on ISO 55001, 7 pages A4. Producer 'WeasyPrint 70.0' -- an HTML/CSS-to-PDF engine new to the corpus: RTL bullet lists, stat-card boxes, a callout with a coloured border, mixed LTR runs. Licence printed on p7 ('CC BY 4.0 (Creative Commons Attribution 4.0 International)'); Zenodo record cc-by-4.0."
+  },
+  "y49_he_word2016.pdf": {
+   "bytes": 1478255,
+   "content": "7e29d914c6a83a0937819e9c46caab37",
+   "dialect": "Microsoft Word 2016 (direct export)",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": "Microsoft\u00ae Word 2016",
+    "license": "CC-BY-4.0",
+    "license_evidence": "https://zenodo.org/records/5234649",
+    "origin": "downloaded",
+    "producer": "Microsoft\u00ae Word 2016",
+    "recipe": null,
+    "source_url": "https://zenodo.org/records/5234649/files/%D7%9E%D7%90%D7%9E%D7%A8%20%D7%9E%D7%AA%D7%95%D7%93%D7%95%D7%9C%D7%95%D7%92%D7%99%D7%94%20%D7%AA%D7%A6%D7%A4%D7%99%D7%95%D7%AA%205.11.17.pdf?download=1"
+   },
+   "sha256": "c76d305ec60eb632cf13e622d3b973fde620e2c4bce66a3ec8af33faea07c0aa",
+   "src_pages": 28,
+   "tier": "designed_stress",
+   "why": "Hebrew methodological article on courtroom observation (authors' manuscript), 28 pages A4. Microsoft Word 2016 direct export: Hebrew RTL body (David/Narkisim), ~10 tables. Licence: the authors' Zenodo record, cc-by-4.0 (verified via the Zenodo API); none inside the PDF."
+  },
+  "y50_fa_word2016.pdf": {
+   "bytes": 927090,
+   "content": "4b93cb74650c1596ee0bc229c6423d16",
+   "dialect": "Microsoft Word 2016 (direct export)",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": "Microsoft\u00ae Word 2016",
+    "license": "CC-BY-4.0",
+    "license_evidence": "https://zenodo.org/records/3551273",
+    "origin": "downloaded",
+    "producer": "Microsoft\u00ae Word 2016",
+    "recipe": null,
+    "source_url": "https://zenodo.org/records/3551273/files/paper-f.pdf?download=1"
+   },
+   "sha256": "63e83d722fb78e034d9f1d8f92f30b05188691aff60407c83d2003f8f4b3226c",
+   "src_pages": 15,
+   "tier": "designed_stress",
+   "why": "Persian conference paper on deep-learning sentiment analysis, 15 pages A4. Microsoft Word 2016 direct export; confirmed Persian (farsi yeh, keheh, gaf, pe, che, zhe), B Nazanin font, tables, figures. Licence: the authors' Zenodo record, cc-by-4.0; none inside the PDF. Caveat recorded: the proceedings also appeared with an ISBN, and this licence rests on the authors' own deposit."
+  },
+  "y51_ja_justpdf.pdf": {
+   "bytes": 215852,
+   "content": "85de6905e6e225540f77be04a8a337e0",
+   "dialect": "JUST PDF 4 (JustSystems)",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": null,
+    "license": "LicenseRef-Japan-PDL-1.0",
+    "license_evidence": "https://www.digital.go.jp/copyright-policy",
+    "origin": "downloaded",
+    "producer": "JUST PDF 4",
+    "recipe": null,
+    "source_url": "https://www.digital.go.jp/assets/contents/node/basic_page/field_ref_resources/f7fde41d-ffca-4b2a-9b25-94b8a701a037/b44a7e0c/20240705_resources_data_outline_07.pdf"
+   },
+   "sha256": "7b6157cb8a0536b36bc44ede57741056cedbd2b1d70303aa5a1f06f6dbfb2a56",
+   "src_pages": 12,
+   "tier": "designed_stress",
+   "why": "Japanese Digital Agency explanatory note on the Public Data License, 12 pages A4. Producer 'JUST PDF 4' (JustSystems) -- a Japanese PDF writer new to the corpus; MS Mincho/Gothic with Shift-JIS font names, framed quotation boxes drawn as vector paths. Licence: the agency copyright policy applies PDL1.0 'unless a rights notice is shown'; PDL1.0 s1.7.3 declares compatibility with CC BY 4.0."
+  },
+  "y52_zh_tw_word365.pdf": {
+   "bytes": 600388,
+   "content": "4f33586c4926ebc60507b1d19b8f0f62",
+   "dialect": "Microsoft Word for Microsoft 365, zh-TW UI (direct export)",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": "\u9069\u7528\u65bc Microsoft 365 \u7684 Microsoft\u00ae Word",
+    "license": "CC0-1.0",
+    "license_evidence": "https://moda.gov.tw/announcement/publicdeclare/951",
+    "origin": "downloaded",
+    "producer": "\u9069\u7528\u65bc Microsoft 365 \u7684 Microsoft\u00ae Word",
+    "recipe": null,
+    "source_url": "https://www-api.moda.gov.tw/File/Get/moda/zh-tw/eJrWyXZkq1z02hM"
+   },
+   "sha256": "91174bc14048622cbb3a1b94181bfba594bb4f58cd4972b97d32d6d56cff032a",
+   "src_pages": 51,
+   "tier": "designed_stress",
+   "why": "Taiwan Ministry of Digital Affairs business document, Traditional Chinese, 51 pages A4. Word for Microsoft 365 with the zh-TW interface string as Producer: DFKaiShu body, (yi)/(1) numbering, hanging indents; pages 2 and 4 blank. Licence: the ministry's open-data declaration releases all site materials under CC0 1.0; none inside the PDF."
+  },
+  "y53_ko_word2016.pdf": {
+   "bytes": 860615,
+   "content": "0ba7cd251f34be24bc4c03259743b752",
+   "dialect": "Microsoft Word 2016 (direct export)",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": "Microsoft\u00ae Word 2016",
+    "license": "CC-BY-4.0",
+    "license_evidence": "https://zenodo.org/records/21232007",
+    "origin": "downloaded",
+    "producer": "Microsoft\u00ae Word 2016",
+    "recipe": null,
+    "source_url": "https://zenodo.org/records/21232007/files/%EC%9E%AC%ED%8C%90%EC%9D%98_%EB%B6%88%EA%B2%B0%EC%A0%95%EC%84%B1.pdf?download=1"
+   },
+   "sha256": "224c417e9927b918c29f3d936991e4f8e703a2b13388a52f6f8edb3d2121c961",
+   "src_pages": 28,
+   "tier": "designed_stress",
+   "why": "Korean preprint on adjudication theory, 28 pages Letter. Microsoft Word 2016 direct export: Hangul body (Malgun Gothic), Palatino, Cambria Math. Licence: the author's Zenodo record, cc-by-4.0; none inside the PDF. Chosen over a Hancom/Hwp press release whose KOGL grant covers 'text only'."
+  },
+  "y54_hi_gdocs.pdf": {
+   "bytes": 158176,
+   "content": "57055a5c773cbacd424bfccf8ff3e7bb",
+   "dialect": "Skia/PDF m136 Google Docs Renderer",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": null,
+    "license": "CC-BY-4.0",
+    "license_evidence": "https://zenodo.org/records/15093127",
+    "origin": "downloaded",
+    "producer": "Skia/PDF m136 Google Docs Renderer",
+    "recipe": null,
+    "source_url": "https://zenodo.org/records/15093127/files/%E0%A4%AD%E0%A4%BE%E0%A4%B0%E0%A4%A4%20%E0%A4%95%E0%A4%BE%20%E0%A4%85%E0%A4%AA%E0%A4%A8%E0%A4%BE%20%E0%A4%8F%E0%A4%86%E0%A4%88%20%E0%A4%95%E0%A5%8D%E0%A4%AF%E0%A5%8B%E0%A4%82%20%E0%A4%A8%E0%A4%B9%E0%A5%80%E0%A4%82.pdf?download=1"
+   },
+   "sha256": "5e8f7a2d6ced7ddb7b6bc4869e681f71211d6ef9f264254e59586b47fe25227e",
+   "src_pages": 4,
+   "tier": "designed_stress",
+   "why": "Hindi essay on Indian AI, 4 pages. Producer 'Skia/PDF m136 Google Docs Renderer' (a .docx opened and exported by Google Docs): Devanagari in Mangal, headings, rules, bullet lists, zero-width spaces. Licence: the author's Zenodo record, cc-by-4.0; none inside the PDF."
+  },
+  "y55_th_pages_quartz.pdf": {
+   "bytes": 108946,
+   "content": "34a4de93354d9973016b15eda20f6c2f",
+   "dialect": "macOS 15.7.1 Quartz PDFContext / Apple Pages",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": "Pages",
+    "license": "CC-BY-4.0",
+    "license_evidence": "https://zenodo.org/records/17445870",
+    "origin": "downloaded",
+    "producer": "macOS Version 15.7.1 (Build 24G231) Quartz PDFContext",
+    "recipe": null,
+    "source_url": "https://zenodo.org/records/17445870/files/Turning_Off_Autopilot_Tim_Bass_TH.pdf?download=1"
+   },
+   "sha256": "0863324a8750f923005da1c960add569aaaa5b81fd7c779d4bf07aed6c9859fb",
+   "src_pages": 3,
+   "tier": "designed_stress",
+   "why": "Thai translation of an essay, 3 pages Letter, PDF 1.3. Producer 'macOS Version 15.7.1 Quartz PDFContext' / Creator 'Pages' -- Apple Pages, new to the corpus: Thonburi for Thai, Roman-numeral headings. Licence: the author's Zenodo record, cc-by-4.0; none inside the PDF."
+  },
+  "y56_scan_usda1921_lura.pdf": {
+   "bytes": 543127,
+   "content": "9fd5a8a65aefbe79abdfb6172f34c712",
+   "dialect": "Recoded by LuraDocument PDF v2.53 / Internet Archive scan",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": "Digitized by the Internet Archive",
+    "license": "US-Government-Public-Domain",
+    "license_evidence": "https://archive.org/details/howteachersmayus155scho",
+    "origin": "downloaded",
+    "producer": "Recoded by LuraDocument PDF v2.53",
+    "recipe": null,
+    "source_url": "https://dn760100.eu.archive.org/0/items/howteachersmayus155scho/howteachersmayus155scho.pdf"
+   },
+   "sha256": "0541f61d94f64ecc46144105408ae5aa9c7f4a9e84abb9b5e86f68f05626cdab",
+   "src_pages": 10,
+   "tier": "designed_stress",
+   "why": "USDA Department Circular 155 (1921), 10 small pamphlet pages scanned by the Internet Archive: page images with an invisible OCR text layer, producer 'Recoded by LuraDocument PDF v2.53' (MRC-layered). Public domain twice over: a US federal work and published before 1929; archive.org rights: 'The contributing institution believes that this item is not in copyright.'"
+  },
+  "y57_scan_usda1950_ia.pdf": {
+   "bytes": 1367570,
+   "content": "008b1532a4fc20f55bf167bd7f257c67",
+   "dialect": "Internet Archive PDF 1.2.2 (mupdf, pymupdf) / Scribe scan",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": "Internet Archive (Scribe Version 4.5-initial-68-gb9b4dcd8)",
+    "license": "US-Government-Public-Domain",
+    "license_evidence": "https://archive.org/details/CAT31297368003",
+    "origin": "downloaded",
+    "producer": "Internet Archive PDF 1.2.2; including mupdf and pymupdf/skimage",
+    "recipe": null,
+    "source_url": "https://dn720006.ca.archive.org/0/items/CAT31297368003/CAT31297368003.pdf"
+   },
+   "sha256": "f5c4509d248d882938f5e8664a852ab1ecaa952e1639a002542146587fe73f49",
+   "src_pages": 16,
+   "tier": "designed_stress",
+   "why": "USDA Office of Information list no. 8 (1950), 16 pages scanned by the Internet Archive: current-generation 'Internet Archive PDF 1.2.2; including mupdf and pymupdf/skimage' with a GlyphLessFont OCR layer, uneven OCR quality. US federal work; archive.org rights: 'The contributing institution believes that this item is not in copyright.'"
+  },
+  "y58_ssa_statement_indd20.pdf": {
+   "bytes": 163235,
+   "content": "fd2d6fbfd04e5c45065e79b1ca354dbf",
+   "dialect": "Adobe PDF Library 17.0 / Adobe InDesign 20.2",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": "Adobe InDesign 20.2 (Windows)",
+    "license": "US-Government-Public-Domain",
+    "license_evidence": "https://www.usa.gov/government-copyright",
+    "origin": "downloaded",
+    "producer": "Adobe PDF Library 17.0",
+    "recipe": null,
+    "source_url": "https://www.ssa.gov/myaccount/assets/materials/statement-redesign-online.pdf"
+   },
+   "sha256": "e46451b00daaff807dd766b3c0352acfac1132422a9e3328b10b44926832b5a8",
+   "src_pages": 2,
+   "tier": "ordinary_digital",
+   "why": "SSA sample 'Your Social Security Statement' (2025 redesign) for the fictional 'Wanda Worker', 2 pages. Adobe InDesign 20.2 via Adobe PDF Library 17.0 -- the statement class, designed two-column with a benefits chart. US federal work, publisher identity; SSA's own policy page refuses automated fetches, so usa.gov is cited. None inside the PDF."
+  },
+  "y59_cms_notice_inddcs4.pdf": {
+   "bytes": 382449,
+   "content": "bb168034c782ae9635a9bb9f93dd756a",
+   "dialect": "Adobe PDF Library 9.0 / Adobe InDesign CS4 (6.0.6)",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": "Adobe InDesign CS4 (6.0.6)",
+    "license": "US-Government-Public-Domain",
+    "license_evidence": "https://www.cms.gov/about-cms/web-policies-important-links/about-website/link-to-us",
+    "origin": "downloaded",
+    "producer": "Adobe PDF Library 9.0",
+    "recipe": null,
+    "source_url": "https://www.cms.gov/Medicare/Medicare-General-Information/MSN/Downloads/Sample-Part-B-Medicare-Summary-Notice.pdf"
+   },
+   "sha256": "75b62e9f19411aafd2f6161a8543d066b877e16f1b84825193b2eee006a1a9b9",
+   "src_pages": 6,
+   "tier": "designed_stress",
+   "why": "CMS annotated sample Medicare Summary Notice (Part B), 6 landscape pages. Adobe InDesign CS4 (6.0.6) via PDF Library 9.0 -- the oldest InDesign generation in the corpus: callout annotations around a statement, multi-region layout, and a Mandarin help line (CJK). CMS 'Link to Us': 'It is a public domain web site.'"
+  },
+  "y60_cdc_mmwr_indd19.pdf": {
+   "bytes": 536343,
+   "content": "6b8c26d583fc673e43fa84500ad7d13c",
+   "dialect": "Adobe PDF Library 17.0 / Adobe InDesign 19.4",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": "Adobe InDesign 19.4 (Windows)",
+    "license": "US-Government-Public-Domain",
+    "license_evidence": "https://www.cdc.gov/other/agencymaterials.html",
+    "origin": "downloaded",
+    "producer": "Adobe PDF Library 17.0",
+    "recipe": null,
+    "source_url": "https://www.cdc.gov/mmwr/volumes/73/wr/pdfs/mm7317-H.pdf"
+   },
+   "sha256": "8b6b79dbd867e925243447a52cf52c1a0543ad42ce4c47febf3720b04fdd956d",
+   "src_pages": 24,
+   "tier": "ordinary_digital",
+   "why": "CDC MMWR weekly issue Vol. 73 No. 17 (2 May 2024), 24 pages. Adobe InDesign 19.4 via PDF Library 17.0: two-column newsletter typesetting with dense footnoted tables, vector charts, running header and footer, no raster images. Printed on p24: 'All material in the MMWR Series is in the public domain and may be used and reprinted without permission'."
+  },
+  "y61_fedreg_gpo_3col.pdf": {
+   "bytes": 269715,
+   "content": "89d1b20b81e27567e90032e9dc1ce668",
+   "dialect": "iText Core 7.2.3 / govinfo (GPO Federal Register)",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": "govinfo, U. S. Government Publishing Office",
+    "license": "US-Government-Public-Domain",
+    "license_evidence": "https://www.govinfo.gov/about/policies",
+    "origin": "downloaded",
+    "producer": "iText\u00ae Core 7.2.3 (production version) \u00a92000-2022 iText Group NV, Government Publishing Office",
+    "recipe": null,
+    "source_url": "https://www.govinfo.gov/content/pkg/FR-2024-08-23/pdf/2024-19000.pdf"
+   },
+   "sha256": "ae07cdb6e278cefdea2f5b1f73be8a9e68f72c5b1b8f40f5643253827ade37d8",
+   "src_pages": 4,
+   "tier": "designed_stress",
+   "why": "Federal Register 89 FR 68114-68117 (EPA ethaboxam tolerances), 4 pages. GPO three-column typesetting, producer iText Core 7.2.3 / govinfo: running heads, a dot-leader table, the next document starting on p4. One GPO digital-signature widget (not a form). US federal work; govinfo policy cites 17 U.S.C. 105."
+  },
+  "y62_bill_gpo_linenum.pdf": {
+   "bytes": 238156,
+   "content": "4ebcb1a283c7aa7e6d0e0c47820c05f8",
+   "dialect": "Acrobat Distiller 23.0 + GPO iText 7.2.3 (bill)",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": "U.S. Gov. Printing Office -- G.S.D.D.",
+    "license": "US-Government-Public-Domain",
+    "license_evidence": "https://www.govinfo.gov/about/policies",
+    "origin": "downloaded",
+    "producer": "Acrobat Distiller 23.0 (Windows); modified using iText\u00ae Core 7.2.3 (production version) \u00a92000-2022 iText Group NV, Government Publishing Office",
+    "recipe": null,
+    "source_url": "https://www.govinfo.gov/content/pkg/BILLS-118hr4639rh/pdf/BILLS-118hr4639rh.pdf"
+   },
+   "sha256": "0ae1aaec2c75714d6aefb03d25cfdedd2dae07785c72dfc816da52f88fe07c56",
+   "src_pages": 20,
+   "tier": "ordinary_digital",
+   "why": "H.R. 4639 (118th Congress), reported in House, 20 pages. Acrobat Distiller 23.0 modified by GPO's iText: calendar cover, then line-numbered bill text (1-25 per page), small caps, hanging subsection indents. One GPO digital-signature widget (not a form). US federal work."
+  },
+  "y63_court_pleading_word365.pdf": {
+   "bytes": 222224,
+   "content": "70954c0fa7664beb52ff4f7fbdac2c95",
+   "dialect": "Word for Microsoft 365 + AO and GPO iText 7.2.3",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": "Microsoft\u00ae Word for Microsoft 365",
+    "license": "US-Government-Public-Domain",
+    "license_evidence": "https://www.govinfo.gov/about/policies",
+    "origin": "downloaded",
+    "producer": "Microsoft\u00ae Word for Microsoft 365; modified using iText\u00ae Core 7.2.3 (production version) \u00a92000-2022 iText Group NV, Administrative Office of the United States Courts; modified using iText\u00ae Core 7.2.3 (production version) \u00a92000-2022 iText Group NV, Government Publishing Office",
+    "recipe": null,
+    "source_url": "https://www.govinfo.gov/content/pkg/USCOURTS-casd-3_23-cv-00770/pdf/USCOURTS-casd-3_23-cv-00770-1.pdf"
+   },
+   "sha256": "0172c9aeebdc4b5157ed0818a946245d6ef56ff1b038f77444f31ba3a7a8cec8",
+   "src_pages": 5,
+   "tier": "ordinary_digital",
+   "why": "S.D. Cal. order 3:23-cv-00770 (17 Jan 2025), 5 pages. Word for Microsoft 365 then stamped by the AO's and GPO's iText: California pleading paper with left-margin line numbers 1-28 and double rules, caption table, footnotes, CM/ECF header stamp. Federal court work; the plaintiff is anonymised by the court. GPO signature widget only."
+  },
+  "y64_bls_release_xpp.pdf": {
+   "bytes": 428922,
+   "content": "0ad4d31d86d27c0ad557031c7b037afb",
+   "dialect": "Adobe Acrobat Pro 25.1 / XPP",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": "XPP",
+    "license": "US-Government-Public-Domain",
+    "license_evidence": "https://www.bls.gov/bls/linksite.htm",
+    "origin": "downloaded",
+    "producer": "Adobe Acrobat Pro (64-bit) 25.1.20435",
+    "recipe": null,
+    "source_url": "https://www.bls.gov/news.release/archives/empsit_05022025.pdf"
+   },
+   "sha256": "494ba416c16635192dfc6edb3ba304091b123507d05975800f28242d205b1d59",
+   "src_pages": 39,
+   "tier": "ordinary_digital",
+   "why": "BLS 'The Employment Situation -- April 2025', 39 pages. Creator 'XPP' (the XyEnterprise/SDL XPP typesetting system), finished in Acrobat Pro 25 -- new to the corpus: prose release then ~30 pages of dense statistical tables with dot leaders and spanning heads; no raster images. BLS: published material is in the public domain except previously copyrighted photographs (this release has none)."
+  },
+  "y65_nrc_jasperreports.pdf": {
+   "bytes": 74324,
+   "content": "64044425bcd9f1c24ce81e33810b2fe1",
+   "dialect": "iText 2.1.7 / JasperReports",
+   "provenance": {
+    "acquired": "2026-10-04",
+    "creator": "JasperReports (MeetingDetails)",
+    "license": "US-Government-Public-Domain",
+    "license_evidence": "https://www.usa.gov/government-copyright",
+    "origin": "downloaded",
+    "producer": "iText 2.1.7 by 1T3XT",
+    "recipe": null,
+    "source_url": "https://www.nrc.gov/docs/ML2516/ML25161A243.pdf"
+   },
+   "sha256": "2180a489c4de66ead076eb0b391a4c773dcf215b5215a7bf19658e1f2c56078c",
+   "src_pages": 3,
+   "tier": "ordinary_digital",
+   "why": "NRC public meeting notice (annual assessment), 3 pages. Creator 'JasperReports (MeetingDetails)', producer iText 2.1.7 -- a database report generator, the class corpus-expansion.md s3 names and had never sampled. US federal work, publisher identity; none inside the PDF."
   }
  },
  "fixtures_dir": "testkit/fixtures_expansion",
