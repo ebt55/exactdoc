@@ -1,4 +1,5 @@
 """Structure inference: PageIR -> DocLayout (semantic, writer-ready)."""
+import copy
 import math
 import re
 from collections import Counter, defaultdict
@@ -90,6 +91,38 @@ MARGIN_BAND_CLEARANCE = 2.0
 # 28.5-29.7pt / 2.4-2.5em and was wrapping 56 of 59 pages in a quote table.
 QUOTE_MAX_GAP_EM = 2.0
 QUOTE_MAX_OVERHANG_EM = 1.5
+
+# --- grid tables: merged cells and per-edge borders ------------------------
+# Every producer in the corpus that rules a table draws its borders PER CELL
+# SIDE: Word/PDFMaker one 0.5pt filled bar per side with a joint square where
+# four meet, LibreOffice and ReportLab one stroke per side. So on a lattice
+# segment the drawn ink covers either nearly all of it (Word: the side less a
+# 0.5pt joint, ~97% of a 14pt row) or nothing (the inside of a merged cell).
+# 0.45 sits between those and below a dashed border's ~50%, and far above an
+# underline or tick that happens to cross a boundary (a few percent).
+GRID_EDGE_COVER = 0.45
+# A segment lies on a lattice line within this distance. The lattice itself
+# clusters line positions at 2.0pt, and the widest single border measured in
+# the corpus (FIPS 180's 2.2pt white bar) puts its own centre ~1.1pt off the
+# cluster mean of the hairlines beside it.
+GRID_EDGE_TOL = 2.5
+GRID_MIN_BOTTOM_PAD = 0.5   # pt; see build_grid_table
+GRID_MIN_TEXT_FRAC = 0.2    # cells with text, below which a barred lattice is a chart
+GRID_CENTER_PAD = 5.4       # pt: Word's default left/right cell margin (0.075in)
+# An unshaded row between two shaded bands of one tiled table is one text row:
+# c3_tables' are 21.8pt between 22.4pt zebra rows. 2.5 rows admits a wrapped
+# white row and refuses a paragraph-sized gap between two separate tables.
+TILE_BAND_GAP = 2.5
+# Rules (booktabs) tables whose cells the parser kept on one line: the line
+# splitter's own threshold (parse_pdfium.LINE_SPLIT_EM) separates them, and a
+# gap between columns narrower than 3pt is not a gutter anyone set.
+# A headed table's body rows follow at its own pitch: x10's at exactly the
+# header's 22.5pt. Two header heights admits a wrapped row and stops at the
+# paragraph after the table.
+HEADED_ROW_GAP = 2.0
+RULES_CELL_GAP_EM = 1.10
+RULES_MIN_GUTTER = 3.0
+SPACE_EM = 0.28             # a word space in a proportional face, in em
 
 
 def _thin(d: DrawCmd) -> bool:
@@ -1495,6 +1528,21 @@ def _is_quote_bar(bar: BBox, lines: List[Line], drawings) -> bool:
     return not _frame_edge(bar, drawings, minx)
 
 
+def _has_bars(fills) -> bool:
+    """Three or more filled rectangles on one baseline at differing heights:
+    the shape test `_classify_cluster` uses for a bar chart."""
+    bars = [f for f in fills if not _is_glyphlike(f)]
+    if len(bars) < 3:
+        return False
+    for b in _cluster([f.bbox[3] for f in bars], 2.5):
+        grp = [f for f in bars if abs(f.bbox[3] - b) <= 2.5]
+        if len(grp) >= 3:
+            hts = [f.bbox[3] - f.bbox[1] for f in grp]
+            if max(hts) > 1.3 * max(1e-6, min(hts)):
+                return True
+    return False
+
+
 def _classify_cluster(cl) -> str:
     ds = [d for _, d in cl]
     art = [d for d in ds if d.shape in ("curve", "complex", "line")
@@ -1789,6 +1837,15 @@ def _regular_striped_table_segment(draws: List[Tuple[int, DrawCmd]], blocks,
     tbl = TableEl(role="striped-table", bbox=(x0, row_ys[0], x1, row_ys[-1]))
     tbl.col_widths = [sample_bounds[i + 1] - sample_bounds[i] for i in range(n_cols)]
     tbl.row_heights = [row_ys[i + 1] - row_ys[i] for i in range(len(row_ys) - 1)]
+    # The rule actually drawn at each row boundary (audit B24): this used to
+    # be one 0.5pt #d8dee5 for every table, which is c3_tables' own colour.
+    hsegs, _ = _draw_segments([d for _, d in draws if d.shape == "hline"])
+
+    def rule_at(y):
+        cov, style = _seg_cover(hsegs, y, x0, x1)
+        if cov < GRID_EDGE_COVER or style is None:
+            return None
+        return (max(0.25, min(style[0], 12.0)), style[1])
     for ri, (top, bot) in enumerate(zip(row_ys, row_ys[1:])):
         row = []
         for ci in range(n_cols):
@@ -1801,7 +1858,8 @@ def _regular_striped_table_segment(draws: List[Tuple[int, DrawCmd]], blocks,
                          bbox_overlap(d.bbox, rect) > 0.85 * bbox_area(rect)), None)
             if fill:
                 cell.shading = fill
-            cell.borders = {"top": (0.5, "#d8dee5"), "bottom": (0.5, "#d8dee5")}
+            cell.borders = {k: v for k, v in (("top", rule_at(top)), ("bottom", rule_at(bot)))
+                            if v}
             row.append(cell)
         tbl.rows.append(row)
     # All probes succeeded.  This is the sole point at which this detector is
@@ -1969,64 +2027,795 @@ def _fragments_by_column(ln: Line, col_xs: List[float]) -> List[Line]:
     return out
 
 
-def build_grid_table(cl, blocks, consumed) -> Optional[TableEl]:
+def _draw_segments(ds) -> Tuple[list, list]:
+    """Drawn boundary ink: ([(y, x0, x1, thick, colour)], [(x, y0, y1, ...)]).
+
+    The painted thickness is the rule's own: a filled bar's short side (Word
+    and PDFMaker draw every border as a 0.48-0.5pt filled rectangle and the
+    DrawCmd's `width` is then a default, not a measurement), a stroked line's
+    stroke width (XPP, ReportLab, LibreOffice), a stroked rectangle's sides.
+    """
+    hs, vs = [], []
+    for d in ds:
+        x0, y0, x1, y1 = d.bbox
+        stroked = d.kind in ("stroke", "fillstroke") and bool(d.stroke)
+        col = (d.stroke if stroked else d.fill) or "#000000"
+        if d.shape == "hline":
+            th = max(d.width or 0.0, y1 - y0) if stroked else (y1 - y0)
+            hs.append(((y0 + y1) / 2, x0, x1, th, col))
+        elif d.shape == "vline":
+            th = max(d.width or 0.0, x1 - x0) if stroked else (x1 - x0)
+            vs.append(((x0 + x1) / 2, y0, y1, th, col))
+        elif d.shape == "rect" and stroked:
+            th = d.width or 0.5
+            hs += [(y0, x0, x1, th, d.stroke), (y1, x0, x1, th, d.stroke)]
+            vs += [(x0, y0, y1, th, d.stroke), (x1, y0, y1, th, d.stroke)]
+    return hs, vs
+
+
+def _seg_cover(segs, pos: float, a: float, b: float):
+    """How much of the lattice segment [a, b] on line `pos` is drawn.
+
+    -> (covered fraction, (thickness, colour) of the dominant ink or None).
+    Dominance is by INK -- length times thickness -- because a boundary is
+    sometimes several parallel strokes: FIPS 180's grey table separates its
+    cells with a 2.2pt white bar between two 0.1pt grey hairlines, and the
+    bar is the line a reader sees.
+    """
+    if b - a <= 1e-6:
+        return 0.0, None
+    ivs = []
+    ink = defaultdict(float)
+    for p, s0, s1, th, col in segs:
+        if abs(p - pos) > GRID_EDGE_TOL:
+            continue
+        lo, hi = max(a, s0), min(b, s1)
+        if hi - lo <= 0:
+            continue
+        ivs.append((lo, hi))
+        ink[(round(max(th, 0.1), 2), col)] += (hi - lo) * max(th, 0.25)
+    if not ivs:
+        return 0.0, None
+    ivs.sort()
+    tot, (lo0, hi0) = 0.0, ivs[0]
+    for lo, hi in ivs[1:]:
+        if lo > hi0:
+            tot += hi0 - lo0
+            lo0, hi0 = lo, hi
+        else:
+            hi0 = max(hi0, hi)
+    tot += hi0 - lo0
+    style = max(ink.items(), key=lambda kv: kv[1])[0]
+    return tot / (b - a), style
+
+
+def _cell_tiles(fills):
+    """Fill rectangles that are cell backgrounds, not decoration inside one.
+
+    Word paints a shaded cell twice: the cell, and each paragraph's shading
+    inset ~5pt inside it in the same colour (y02 p75: cell 90.2-239.4,
+    paragraph 95.4-234.2, both #c6d9f1). The inner one paints nothing a
+    reader can see and its edges are not cell boundaries.
+    """
+    out = []
+    for f in fills:
+        nested = any(g is not f and g.fill == f.fill
+                     and bbox_area(g.bbox) > bbox_area(f.bbox) + 1.0
+                     and contains(g.bbox, f.bbox, 0.6) for g in fills)
+        if not nested:
+            out.append(f)
+    return out
+
+
+def _extend_by_tiles(xs: List[float], ys: List[float], tiles, has_text=None):
+    """Grow a lattice outward over cells drawn only as fills.
+
+    A shaded table separated by rules BETWEEN its cells has no rule on its
+    outer edge: FIPS 180's Figure 1 is grey cells with white gridlines, so
+    the lattice from drawn lines held only the three middle columns and the
+    middle rows; the Algorithm and Digest columns and the header row fell
+    out of the table as loose 'SHA-1 160' paragraphs (defect catalogue #13).
+    A fill whose inner edge sits ON the lattice's outer line and which
+    extends outward is a cell of the same table; its outer edge is the
+    table's edge. Only outward, and only from a tile sharing the line --
+    a page band that merely contains the table shares neither edge -- and
+    only a tile holding text: an empty fill beside a table is a panel, not
+    a column (y65's form has white boxes flush with its label table).
+    """
+    t = GRID_EDGE_TOL
+    ys = list(ys)
+    xs = list(xs)
+    if has_text is not None:
+        tiles = [f for f in tiles if has_text(f.bbox)]
+    # rows first (tiles over the lattice's columns), then columns over the
+    # grown rows, so a corner cell of an outer row and column is reached
+    top = [f.bbox[1] for f in tiles if abs(f.bbox[3] - ys[0]) <= t
+           and f.bbox[1] < ys[0] - 4 and f.bbox[2] > xs[0] + t
+           and f.bbox[0] < xs[-1] - t]
+    bot = [f.bbox[3] for f in tiles if abs(f.bbox[1] - ys[-1]) <= t
+           and f.bbox[3] > ys[-1] + 4 and f.bbox[2] > xs[0] + t
+           and f.bbox[0] < xs[-1] - t]
+    if top:
+        ys.insert(0, min(top))
+    if bot:
+        ys.append(max(bot))
+    left = [f.bbox[0] for f in tiles if abs(f.bbox[2] - xs[0]) <= t
+            and f.bbox[0] < xs[0] - 4 and f.bbox[3] > ys[0] + t
+            and f.bbox[1] < ys[-1] - t]
+    right = [f.bbox[2] for f in tiles if abs(f.bbox[0] - xs[-1]) <= t
+             and f.bbox[2] > xs[-1] + 4 and f.bbox[3] > ys[0] + t
+             and f.bbox[1] < ys[-1] - t]
+    if left:
+        xs.insert(0, min(left))
+    if right:
+        xs.append(max(right))
+    return xs, ys
+
+
+def _tile_edge(tiles, vertical: bool, pos: float, a: float, b: float) -> bool:
+    """Does a cell-background tile END on this lattice segment?
+
+    The author's cell structure is also in the fills: two shaded cells with
+    no rule between them are still two cells when each is its own rectangle
+    (and a cell shaded differently from its neighbour is visibly separate).
+    """
+    t = GRID_EDGE_TOL
+    for f in tiles:
+        x0, y0, x1, y1 = f.bbox
+        if vertical:
+            if (abs(x0 - pos) <= t or abs(x1 - pos) <= t) and \
+                    min(b, y1) - max(a, y0) >= GRID_EDGE_COVER * (b - a):
+                return True
+        else:
+            if (abs(y0 - pos) <= t or abs(y1 - pos) <= t) and \
+                    min(b, x1) - max(a, x0) >= GRID_EDGE_COVER * (b - a):
+                return True
+    return False
+
+
+def _grid_regions(n_rows: int, n_cols: int, vdrawn, hdrawn):
+    """Rectangular merged regions from the boundaries that exist.
+
+    vdrawn[i][j]: the boundary LEFT of column j in row i exists (j >= 1).
+    hdrawn[i][j]: the boundary ABOVE row i in column j exists (i >= 1).
+    -> {(r0, c0): (r1, c1)} covering every lattice cell exactly once.
+
+    Horizontal runs first, row by row; then a run continues downward only
+    while the row below holds a run with the same columns and no boundary
+    separates them along its whole width. Every region is a rectangle by
+    construction, which is what gridSpan/vMerge can express; a merge shape
+    that is not (an L) stays as its rectangles rather than being forced.
+    """
+    runs = []                     # per row: list of (c0, c1)
+    for i in range(n_rows):
+        row, c0 = [], 0
+        for j in range(1, n_cols):
+            if vdrawn[i][j]:
+                row.append((c0, j - 1))
+                c0 = j
+        row.append((c0, n_cols - 1))
+        runs.append(row)
+    regions = {}
+    open_ = {}                    # (c0, c1) -> r0 of the region still growing
+    for i in range(n_rows):
+        nxt = {}
+        for c0, c1 in runs[i]:
+            r0 = open_.get((c0, c1))
+            if r0 is not None and not any(hdrawn[i][j] for j in range(c0, c1 + 1)):
+                nxt[(c0, c1)] = r0
+            else:
+                if r0 is not None:
+                    regions[(r0, c0)] = (i - 1, c1)
+                nxt[(c0, c1)] = i
+        for key, r0 in open_.items():
+            if key not in nxt or nxt[key] != r0:
+                if (r0, key[0]) not in regions:
+                    regions[(r0, key[0])] = (i - 1, key[1])
+        open_ = nxt
+    for (c0, c1), r0 in open_.items():
+        regions[(r0, c0)] = (n_rows - 1, c1)
+    return regions
+
+
+def _center_cell(cell: Cell, lines: List[Line], rect: BBox) -> None:
+    """A cell whose text is centred: symmetric pads, and its own line breaks.
+
+    `_cell_from_lines` measures the left pad from the cell edge to the
+    text, which for centred text is half the slack; with the default 2pt
+    right pad the paragraph then centres in a box shifted right by the
+    difference -- NIST SP 800-171's 'SECURITY REQUIREMENTS' header sat ~10pt
+    right of centre, and a merged header's text area lost a quarter of
+    its width and hyphenated ('Relevant Secu-rity'). Both sides take the
+    smaller gap, capped at Word's default cell margin (0.075in): the centre
+    is the source's and the wrap width is the cell less the margins Word
+    itself gave it.
+
+    A centred header is also set line by line ('NIST SP 800-53' / 'Relevant
+    Security Controls'): where a line plus the next line's first word would
+    have fitted, the break was the author's, and the paragraph keeps it.
+    """
+    if not cell.paras or not lines or \
+            not all(p.align == "center" for p in cell.paras):
+        return
+    x0 = min(l.bbox[0] for l in lines)
+    x1 = max(l.bbox[2] for l in lines)
+    side = round(max(0.0, min(x0 - rect[0], rect[2] - x1, GRID_CENTER_PAD)), 1)
+    cell.pad = (cell.pad[0], side, cell.pad[2], side)
+    inner = (rect[2] - rect[0]) - 2 * side
+    for p in list(cell.paras):
+        p.left_indent = p.right_indent = p.first_indent = 0.0
+        if p.bbox is None or (p.src_lines or 0) < 2 or p.line_breaks:
+            continue
+        pl = _merge_row_lines([l for l in lines if contains(p.bbox, l.bbox, 0.5)])
+        if len(pl) < 2:
+            continue
+        forced = False
+        for a, b in zip(pl, pl[1:]):
+            words = b.text.split()
+            if not words:
+                continue
+            bw = b.bbox[2] - b.bbox[0]
+            first_w = bw * len(words[0]) / max(1, len(b.text.strip()))
+            size = max((s.size for s in a.spans), default=10.0)
+            if (a.bbox[2] - a.bbox[0]) + SPACE_EM * size + first_w < inner - 1.0:
+                forced = True
+                break
+        if not forced:
+            continue
+        _split_lines(cell, p, pl)
+
+
+def _para_lines(p: Para, lines: List[Line]) -> List[Line]:
+    """The cell lines a paragraph was built from (by its box), row-merged."""
+    if p.bbox is None:
+        return []
+    return _merge_row_lines([l for l in lines if contains(p.bbox, l.bbox, 0.5)])
+
+
+def _split_lines(cell: Cell, p: Para, pl: List[Line]) -> None:
+    """Replace a cell paragraph by one paragraph per source line.
+
+    The author's line breaks are kept as paragraph ends rather than soft
+    breaks inside one paragraph: same positions under the exact line rule
+    (each paragraph one leading tall, no space between), and every value or
+    header line stays separately editable.
+    """
+    out = []
+    for i, ln in enumerate(pl):
+        q = copy.copy(p)
+        q.runs = runs_from_spans(ln.spans)
+        if q.runs:
+            q.runs[-1].text = q.runs[-1].text.rstrip(" ")
+        q.bbox = ln.bbox
+        q.space_before = p.space_before if i == 0 else 0.0
+        q.space_after = 0.0
+        q.src_lines = 1
+        q.src_widths = [round(ln.bbox[2] - ln.bbox[0], 1)]
+        q._vis_lines = 1
+        q.line_breaks = False
+        q.first_indent = 0.0
+        if q.align == "justify":
+            q.align = "left"
+        q.right_indent = 0.0
+        out.append(q)
+    k = cell.paras.index(p)
+    cell.paras[k:k + 1] = out
+
+
+def _fit_grid_cells(cells) -> None:
+    """Values in narrow ruled columns keep their own lines and their edge.
+
+    `cells` is [(cell, lines, rect)] for one lattice column. A column of
+    figures is set flush right in the source, so its cells' line ends
+    agree while their starts wander with the digit count; and a stack of
+    figures in one cell ('1,205' / '1,211' / ...) is one value per line,
+    not prose. Read as left-aligned justified paragraphs with the left gap
+    as a pad, IRS's EIC tables left 15.3pt of a 29.5pt column for '1,205',
+    which Arial sets in 16.3 -- every figure broke mid-token in the render
+    ('1,20' / '5') and y06 lost 9% of its words. Flush-right columns are
+    emitted right-aligned with a small left pad, and token-per-line
+    paragraphs keep their breaks.
+    """
+    rights, lefts = [], []
+    for cell, lines, rect in cells:
+        for ln in lines:
+            rights.append(rect[2] - ln.bbox[2])
+            lefts.append(ln.bbox[0] - rect[0])
+    flush_right = len(rights) >= 3 and max(rights) - min(rights) <= 1.5 \
+        and max(lefts) - min(lefts) > 3.0
+    for cell, lines, rect in cells:
+        if not cell.paras or not lines or \
+                not all(p.align in ("left", "justify", "right") for p in cell.paras):
+            continue
+        tokens = True
+        for p in list(cell.paras):
+            pl = _para_lines(p, lines)
+            one = all(len(ln.text.split()) == 1 for ln in pl)
+            tokens = tokens and one
+            if len(pl) >= 2 and one and not p.line_breaks:
+                _split_lines(cell, p, pl)
+        gap_r = min(rect[2] - ln.bbox[2] for ln in lines)
+        gap_l = min(ln.bbox[0] - rect[0] for ln in lines)
+        # a lone column of equal-width figures cannot show its flush edge;
+        # values that sit nearer the right rule than the left are set right
+        if flush_right or (tokens and gap_r < gap_l):
+            cell.pad = (cell.pad[0], 1.0, cell.pad[2], round(max(0.0, gap_r), 1))
+            for p in cell.paras:
+                p.align = "right"
+                p.left_indent = p.first_indent = p.right_indent = 0.0
+
+
+def _tile_frame(cl, has_text=None):
+    """(x0, y0, x1, y1, inner_xs) of a cluster that is a row band of a
+    fill-tiled table, or None.
+
+    Tiled means cells drawn as abutting filled rectangles with at most
+    horizontal rules -- ReportLab's and the HTML engines' idiom -- and at
+    least two columns (an internal tile edge). A cluster with vertical
+    rules is a ruled grid, whose own lines already join its rows; one with
+    curves is artwork. And cells hold text: at least half the tiles must
+    (y59's illustrated notice pages are black tiles with one caption
+    between them, and read as a 19-row table of empty cells).
+    """
+    ds = [d for _, d in cl]
+    if any(d.shape == "vline" and d.bbox[3] - d.bbox[1] > 6 for d in ds):
+        return None
+    if any(d.shape in ("curve", "complex") and not _is_glyphlike(d) for d in ds):
+        return None
+    tiles = _cell_tiles([d for d in ds if d.fill and d.shape == "rect"
+                         and not _is_glyphlike(d)])
+    if len(tiles) < 2:
+        return None
+    if has_text is not None and \
+            2 * sum(1 for t in tiles if has_text(t.bbox)) < len(tiles):
+        return None
+    x0 = min(t.bbox[0] for t in tiles)
+    x1 = max(t.bbox[2] for t in tiles)
+    inner = _cluster([e for t in tiles for e in (t.bbox[0], t.bbox[2])
+                      if x0 + GRID_EDGE_TOL < e < x1 - GRID_EDGE_TOL], 2.0)
+    if not inner:
+        return None
+    y0 = min(d.bbox[1] for d in ds)
+    y1 = max(d.bbox[3] for d in ds)
+    return (x0, y0, x1, y1, inner)
+
+
+def _tile_bands(clusters, blocks, consumed):
+    """Clusters that are row bands of ONE fill-tiled table.
+
+    Such a table's unshaded rows draw nothing, so its shaded rows arrive as
+    separate drawing clusters with text rows between them. c3_tables'
+    merged-header table was a header cluster (whose 'Region' cell, two rows
+    tall, beside one-row cells, read as bars of a chart and was rasterised
+    with the heading above it) and two zebra rows that became empty
+    one-row tables; its nested-detail table lost its nesting the same way
+    ('Platform Index amber' as one paragraph). Bands chain when they share
+    the table's left and right edges and an internal column edge, and the
+    gap between them is a text row: no taller than TILE_BAND_GAP of a band
+    row, holding text inside the table's width.
+    """
+    def has_text(rect):
+        return any(id(ln) not in consumed and any(
+            s.text.strip() and rect[0] <= (s.bbox[0] + s.bbox[2]) / 2 <= rect[2]
+            and rect[1] <= (s.bbox[1] + s.bbox[3]) / 2 <= rect[3] for s in ln.spans)
+            for ln in _all_lines(blocks))
+
+    frames = []
+    for cl in clusters:
+        f = _tile_frame(cl, has_text)
+        if f is not None:
+            frames.append((f, cl, True))
+        elif all(d.shape == "hline" for _, d in cl):
+            # rules alone: the row lines of a table nested in a cell
+            ds = [d for _, d in cl]
+            frames.append(((min(d.bbox[0] for d in ds), min(d.bbox[1] for d in ds),
+                            max(d.bbox[2] for d in ds), max(d.bbox[3] for d in ds), []),
+                           cl, False))
+    frames.sort(key=lambda fc: fc[0][1])
+
+    def close(cur, bands):
+        # trailing rule-only frames belong to whatever follows, not here
+        while cur and not cur[-1][2]:
+            cur.pop()
+        if sum(1 for _, _, tiled in cur if tiled) >= 2:
+            bands.append([c for _, c, _ in cur])
+
+    bands, cur = [], []
+    for f, cl, tiled in frames:
+        if cur:
+            pf = cur[-1][0]                                 # previous frame
+            tf = next(fr for fr, _, t in reversed(cur) if t)  # last tiled one
+            gap = f[1] - pf[3]
+            rows = [d.bbox[3] - d.bbox[1] for _, c, _ in cur + [(f, cl, tiled)]
+                    for _, d in c if d.fill and d.shape == "rect"]
+            row_h = median(rows) if rows else 20.0
+            if tiled:
+                fits = abs(f[0] - tf[0]) <= GRID_EDGE_TOL and \
+                    abs(f[2] - tf[2]) <= GRID_EDGE_TOL and \
+                    any(abs(a - b) <= GRID_EDGE_TOL for a in f[4] for b in tf[4])
+            else:
+                fits = f[0] >= tf[0] - GRID_EDGE_TOL and f[2] <= tf[2] + GRID_EDGE_TOL
+            texted = any(
+                id(ln) not in consumed and pf[3] - 1 <= (ln.bbox[1] + ln.bbox[3]) / 2 <= f[1] + 1
+                and ln.bbox[0] >= tf[0] - 1 and ln.bbox[2] <= tf[2] + 1
+                for ln in _all_lines(blocks))
+            if fits and 0 <= gap <= TILE_BAND_GAP * row_h and (texted or gap <= 6):
+                cur.append((f, cl, tiled))
+                continue
+            close(cur, bands)
+            cur = []
+        if tiled:
+            cur = [(f, cl, tiled)]
+    close(cur, bands)
+    return bands
+
+
+def build_headed_table(cl, blocks, consumed) -> Optional[TableEl]:
+    """A shaded header row over unruled body rows: one table, not a card row
+    followed by one paragraph per cell.
+
+    The header is a single row of abutting fill tiles, each holding text;
+    the body is every following text row whose pieces each sit inside one
+    header column (two columns at least), at a pitch no wider than
+    HEADED_ROW_GAP header heights. x04/x10's 'Table 3' (LibreOffice and
+    Chrome) was a 'cards' header and then 'January', '88.2%', '96.1%',
+    '0.4%' as four stacked paragraphs per row -- 4x the rows' height, which
+    took x10 onto a third page once body text was set at its true width.
+    """
+    ds = [d for _, d in cl]
+    if any(d.shape not in ("rect", "hline") for d in ds):
+        return None
+    tiles = sorted(_cell_tiles([d for d in ds if d.fill and d.shape == "rect"
+                                and not _is_glyphlike(d)]), key=lambda t: t.bbox[0])
+    if len(tiles) < 2:
+        return None
+    y0, y1 = tiles[0].bbox[1], tiles[0].bbox[3]
+    if any(abs(t.bbox[1] - y0) > 1.5 or abs(t.bbox[3] - y1) > 1.5 for t in tiles) or \
+            any(b.bbox[0] - a.bbox[2] > 1.0 for a, b in zip(tiles, tiles[1:])):
+        return None
+    xs = [tiles[0].bbox[0]] + [t.bbox[2] for t in tiles]
+    nc = len(tiles)
+
+    def col_of(f):
+        return next((c for c in range(nc) if xs[c] - 2.0 <= f.bbox[0]
+                     and f.bbox[2] <= xs[c + 1] + 2.0), None)
+
+    free = [ln for ln in _all_lines(blocks) if id(ln) not in consumed and ln.horizontal]
+    head = [ln for ln in free if y0 - 1 <= (ln.bbox[1] + ln.bbox[3]) / 2 <= y1 + 1
+            and xs[0] - 2 <= ln.bbox[0] and ln.bbox[2] <= xs[-1] + 2]
+    head_frags = [f for ln in head for f in _split_at_span_gaps(ln)]
+    if {col_of(f) for f in head_frags} != set(range(nc)):
+        return None                     # every header tile holds its label
+    tbl = _headed_body(xs, y1, y1 - y0, free, consumed)
+    if tbl is None:
+        return None
+    tbl.bbox = (xs[0], y0, xs[-1], tbl.bbox[3])
+    tbl.row_heights = [y1 - y0] + tbl.row_heights
+    hrow = []
+    for c, t in enumerate(tiles):
+        lines = sorted([f for f in head_frags if col_of(f) == c],
+                       key=lambda l: (l.bbox[1], l.bbox[0]))
+        cell = _cell_from_lines(lines, t.bbox, pad_extra=(GRID_MIN_BOTTOM_PAD, 2.0))
+        cell.shading = t.fill
+        hrow.append(cell)
+    tbl.rows.insert(0, hrow)
+    consumed.update(id(ln) for ln in head)
+    return tbl
+
+
+def _headed_body(xs, y_top: float, pitch: float, free, consumed,
+                 first_gap: Optional[float] = None) -> Optional[TableEl]:
+    """The unruled body rows of a headed table, from y_top down, as a table.
+
+    `first_gap` bounds the distance to the first row (a continuation on the
+    next page starts at its top margin, not under a header). Row boundaries
+    advance by the rows' own baseline pitch, so equally spaced source rows
+    stay equally spaced; the last row is as tall as the one before it.
+    """
+    nc = len(xs) - 1
+
+    def col_of(f):
+        return next((c for c in range(nc) if xs[c] - 2.0 <= f.bbox[0]
+                     and f.bbox[2] <= xs[c + 1] + 2.0), None)
+
+    below = sorted((ln for ln in free if ln.bbox[1] >= y_top - 1), key=lambda l: l.baseline)
+    grouped = []
+    for ln in below:
+        if grouped and abs(ln.baseline - grouped[-1][0].baseline) <= 2.0:
+            grouped[-1].append(ln)
+        else:
+            grouped.append([ln])
+    rows, bottom = [], y_top
+    for row in grouped:
+        top = min(ln.bbox[1] for ln in row)
+        limit = first_gap if (first_gap is not None and not rows) else HEADED_ROW_GAP * pitch
+        if top - bottom > limit:
+            break
+        frags = [f for ln in row for f in _split_at_span_gaps(ln)]
+        cols = [col_of(f) for f in frags]
+        if None in cols or len(set(cols)) < 2:
+            break
+        rows.append((row, frags, cols))
+        bottom = max(ln.bbox[3] for ln in row)
+    if not rows:
+        return None
+    base = [max(ln.baseline for ln in r) for r, _, _ in rows]
+    first_top = y_top if first_gap is None else \
+        min(ln.bbox[1] for ln in rows[0][0]) - 0.25 * pitch
+    tops = [first_top]
+    for a, b in zip(base, base[1:]):
+        tops.append(tops[-1] + (b - a))
+    step = (base[-1] - base[-2]) if len(base) >= 2 else pitch
+    tops.append(max(tops[-1] + step, max(ln.bbox[3] for ln in rows[-1][0]) + 0.5))
+    tbl = TableEl(role="table", bbox=(xs[0], tops[0], xs[-1], tops[-1]))
+    tbl.col_edges_drawn = True          # the header tiles are the author's columns
+    tbl.col_widths = [xs[c + 1] - xs[c] for c in range(nc)]
+    tbl.row_heights = [b - a for a, b in zip(tops, tops[1:])]
+    for ri, (row, frags, cols) in enumerate(rows):
+        cells = []
+        for c in range(nc):
+            rect = (xs[c], tops[ri], xs[c + 1], tops[ri + 1])
+            lines = [f for f, cc in zip(frags, cols) if cc == c]
+            cells.append(_cell_from_lines(sorted(lines, key=lambda l: l.bbox[0]), rect,
+                                          pad_extra=(GRID_MIN_BOTTOM_PAD, 2.0)))
+        tbl.rows.append(cells)
+    consumed.update(id(ln) for r, _, _ in rows for ln in r)
+    tbl._headed = (list(xs), pitch)
+    return tbl
+
+
+def build_grid_table(cl, blocks, consumed, tiled: bool = False) -> Optional[TableEl]:
+    """A ruled table: lattice from the drawn lines, cells from the drawn EDGES.
+
+    The lattice is every distinct row and column line. A cell boundary exists
+    only where ink covers it -- Word, PDFMaker, LibreOffice and ReportLab all
+    draw borders per cell side -- so a lattice segment with nothing drawn on
+    it is the inside of a merged cell. Before this, every lattice cell was a
+    cell: NIST SP 800-171's mapping tables, whose 'Security Requirement' cell
+    spans up to twenty rows of ISO controls, had that requirement's text
+    distributed over the rows its lines happened to sit in and its words over
+    the neighbouring columns ('Rele-|vant', 'No direct | mapping.'); a cover
+    table's full-width notices were cut in two (defect catalogue #13).
+
+    Each cell then carries the borders actually drawn on its own sides
+    (presence, width, colour), not one style on all four (audit B24).
+    """
     ds = [d for _, d in cl]
     hs, vs = [], []
     for d in ds:
         h, v = _edges_of(d)
         hs += h
         vs += v
-    row_ys = _cluster([h[0] for h in hs if h[2] - h[1] > 40], 2.0)
-    col_xs = _cluster([v[0] for v in vs if v[2] - v[1] > 6], 2.0)
+    hsegs, vsegs = _draw_segments(ds)
+    fills = [d for d in ds if d.fill and d.shape == "rect" and not _is_glyphlike(d)]
+    tiles = _cell_tiles(fills)
+    xs = [v[0] for v in vs if v[2] - v[1] > 6]
+    tile_ys = []
+    if tiled:
+        # A fill-tiled table (see _tile_bands) states its cells as the
+        # tiles themselves, and a table nested in one of its cells as the
+        # ends of that table's rules: both are lattice lines here.
+        xs += [e for t in tiles for e in (t.bbox[0], t.bbox[2])]
+        xs += [e for h in hs if h[2] - h[1] > 6 for e in (h[1], h[2])]
+        tile_ys = [e for t in tiles for e in (t.bbox[1], t.bbox[3])]
+    col_xs = _cluster(xs, 2.0)
+    # A row line is a long rule -- or a short one that runs exactly from one
+    # column line to another: a narrow column's per-cell border is shorter
+    # than the 40pt floor, and when only the narrow columns are divided at
+    # that height (the wide ones being merged across it) it is the only
+    # evidence the row exists.
+    #
+    # Either way a row line meets the lattice at both ends -- a column line,
+    # or past the outermost one. A rule that stops short of both is ink
+    # INSIDE a cell: y01's cover table had a link underline running 314pt
+    # under 'https://www.nist.gov/...' (wider than the underline pre-pass
+    # admits), and it cut the 'Related Information' cell into two rows.
+    def meets(x, side):
+        if any(abs(x - c) <= GRID_EDGE_TOL for c in col_xs):
+            return True
+        return x <= col_xs[0] + GRID_EDGE_TOL if side < 0 \
+            else x >= col_xs[-1] - GRID_EDGE_TOL
+
+    long_ys = [h[0] for h in hs if h[2] - h[1] > 40]
+    # a rule drawn in abutting pieces is tested as the one rule it is (IRS
+    # pub501 draws a box's divider as 41.8-82.4 + 82.4-570.3)
+    runs = []
+    for y, a, b, _d in sorted(hs, key=lambda h: (round(h[0], 0), h[1])):
+        if runs and abs(runs[-1][0] - y) <= 1.0 and a <= runs[-1][2] + 1.0:
+            runs[-1][2] = max(runs[-1][2], b)
+        else:
+            runs.append([y, a, b])
+    ys = [r[0] for r in runs if r[2] - r[1] > 40
+          and (not col_xs or (meets(r[1], -1) and meets(r[2], 1)))]
+    ys += [h[0] for h in hs if h[2] - h[1] > 6
+           and any(abs(h[1] - x) <= GRID_EDGE_TOL for x in col_xs)
+           and any(abs(h[2] - x) <= GRID_EDGE_TOL for x in col_xs)]
+    row_ys = _cluster(ys + tile_ys, 2.0)
+    if len(row_ys) < 2 or (len(row_ys) < 3 and len(col_xs) < 3):
+        # rules that stop short of every column line are still the only
+        # rows this table has: keep the old reading rather than lose it
+        # (IRS pub501's worksheets are a framed box whose rows are drawn
+        # only as answer blanks; refusing them rasterised the worksheet)
+        row_ys = _cluster(long_ys + tile_ys, 2.0)
     if len(row_ys) < 2 or len(col_xs) < 2 or (len(row_ys) < 3 and len(col_xs) < 3):
         return None
-    fills = [d for d in ds if d.fill and d.shape == "rect"]
-    strokes = [d for d in ds if d.stroke]
-    bw = _mode([d.width for d in strokes if d.width > 0], 2) or 0.5
-    bcol = Counter(d.stroke for d in strokes if d.stroke).most_common(1)
-    bcol = bcol[0][0] if bcol else "#000000"
+
+    def has_text(rect):
+        # by span: a row the parser joined into one Line is centred in the
+        # middle of the table, whichever tile its first cell sits in
+        for ln in _all_lines(blocks):
+            if id(ln) in consumed:
+                continue
+            for s in ln.spans:
+                if not s.text.strip():
+                    continue
+                cx = (s.bbox[0] + s.bbox[2]) / 2
+                cy = (s.bbox[1] + s.bbox[3]) / 2
+                if rect[0] <= cx <= rect[2] and rect[1] <= cy <= rect[3]:
+                    return True
+        return False
+
+    col_xs, row_ys = _extend_by_tiles(col_xs, row_ys, tiles, has_text)
+    nr, nc = len(row_ys) - 1, len(col_xs) - 1
+
     tbl = TableEl(role="table")
     tbl.col_edges_drawn = True   # col_xs came from the author's own grid lines
     tbl.bbox = (col_xs[0], row_ys[0], col_xs[-1], row_ys[-1])
-    tbl.col_widths = [col_xs[i + 1] - col_xs[i] for i in range(len(col_xs) - 1)]
-    tbl.row_heights = [row_ys[i + 1] - row_ys[i] for i in range(len(row_ys) - 1)]
-    cell_lines = defaultdict(list)
+    tbl.col_widths = [col_xs[i + 1] - col_xs[i] for i in range(nc)]
+    tbl.row_heights = [row_ys[i + 1] - row_ys[i] for i in range(nr)]
+
+    def shade(rect):
+        for f in fills:
+            if bbox_overlap(f.bbox, rect) > 0.6 * bbox_area(rect):
+                return f.fill
+        return None
+
+    lat_shade = [[shade((col_xs[j], row_ys[i], col_xs[j + 1], row_ys[i + 1]))
+                  for j in range(nc)] for i in range(nr)]
+    # vdrawn[i][j]: boundary at col_xs[j] in row i; hdrawn[i][j]: boundary at
+    # row_ys[i] in column j. Outer lines are always boundaries.
+    vstyle = [[_seg_cover(vsegs, col_xs[j], row_ys[i], row_ys[i + 1])
+               for j in range(nc + 1)] for i in range(nr)]
+    hstyle = [[_seg_cover(hsegs, row_ys[i], col_xs[j], col_xs[j + 1])
+               for j in range(nc)] for i in range(nr + 1)]
+    vdrawn = [[j in (0, nc) or vstyle[i][j][0] >= GRID_EDGE_COVER
+               or lat_shade[i][j - 1] != lat_shade[i][j]
+               or _tile_edge(tiles, True, col_xs[j], row_ys[i], row_ys[i + 1])
+               for j in range(nc + 1)] for i in range(nr)]
+    hdrawn = [[i in (0, nr) or hstyle[i][j][0] >= GRID_EDGE_COVER
+               or lat_shade[i - 1][j] != lat_shade[i][j]
+               or _tile_edge(tiles, False, row_ys[i], col_xs[j], col_xs[j + 1])
+               for j in range(nc)] for i in range(nr + 1)]
+
+    # Text the parser holds, by lattice row. A merge is only the drawing's
+    # claim; the text can refute it. Where a column line is missing in one
+    # row but that row has text on both sides of it and nothing crossing it,
+    # the columns are real and simply unruled there (a table ruled only in
+    # its header) -- merging would run two columns' text together.
+    row_lines = defaultdict(list)
     for ln in _all_lines(blocks):
-        if id(ln) in consumed:
+        if id(ln) in consumed or not ln.horizontal:
             continue
         cx = (ln.bbox[0] + ln.bbox[2]) / 2
         cy = (ln.bbox[1] + ln.bbox[3]) / 2
         if not (tbl.bbox[0] - 1 <= cx <= tbl.bbox[2] + 1 and
                 tbl.bbox[1] - 1 <= cy <= tbl.bbox[3] + 1):
             continue
-        ri = next((i for i in range(len(row_ys) - 1)
+        ri = next((i for i in range(nr)
                    if row_ys[i] - 1 <= cy <= row_ys[i + 1] + 1), None)
-        if ri is None:
-            continue
-        # Assign per column-band fragment, not per line: cells the parser
-        # joined into one Line must not land whole in the band their centre
-        # happens to fall in (`_fragments_by_column`, defect catalogue #6).
-        for frag in _fragments_by_column(ln, col_xs):
-            fcx = (frag.bbox[0] + frag.bbox[2]) / 2
-            ci = next((j for j in range(len(col_xs) - 1)
-                       if col_xs[j] - 1 <= fcx <= col_xs[j + 1] + 1), None)
-            if ci is None:
+        if ri is not None:
+            row_lines[ri].append(ln)
+    for i in range(nr):
+        spans = [s for ln in row_lines.get(i, []) for s in ln.spans if s.text.strip()]
+        # each side reaches to the nearest line that IS drawn: the merged
+        # run the missing line sits in, not just the lattice cell beside it
+        drawn = [j for j in range(nc + 1) if vdrawn[i][j]]
+        for j in range(1, nc):
+            if vdrawn[i][j]:
                 continue
-            cell_lines[(ri, ci)].append(frag)
-        consumed.add(id(ln))
-    for ri in range(len(row_ys) - 1):
-        row = []
-        for ci in range(len(col_xs) - 1):
-            rect = (col_xs[ci], row_ys[ri], col_xs[ci + 1], row_ys[ri + 1])
-            cell = _cell_from_lines(sorted(cell_lines.get((ri, ci), []),
-                                           key=lambda l: (l.bbox[1], l.bbox[0])), rect)
-            cell.borders = {k: (bw, bcol) for k in ("top", "bottom", "left", "right")}
-            for f in fills:
-                if bbox_overlap(f.bbox, rect) > 0.6 * bbox_area(rect):
-                    cell.shading = f.fill
-                    break
-            row.append(cell)
-        tbl.rows.append(row)
+            xb = col_xs[j]
+            lo = col_xs[max(p for p in drawn if p < j)]
+            hi = col_xs[min(p for p in drawn if p > j)]
+            cross = any(s.bbox[0] < xb - 1.0 and s.bbox[2] > xb + 1.0 for s in spans)
+            left = any(s.bbox[2] <= xb + 1.0 and s.bbox[0] >= lo - 1.0 for s in spans)
+            right = any(s.bbox[0] >= xb - 1.0 and s.bbox[2] <= hi + 1.0 for s in spans)
+            if left and right and not cross:
+                vdrawn[i][j] = True
+
+    regions = _grid_regions(nr, nc, vdrawn, hdrawn)
+    owner = {}
+    for (r0, c0), (r1, c1) in regions.items():
+        for i in range(r0, r1 + 1):
+            for j in range(c0, c1 + 1):
+                owner[(i, j)] = (r0, c0)
+
+    cell_lines = defaultdict(list)
+    taken = []
+    for ri in range(nr):
+        # the boundaries that exist in this row: the drawn lines, less the
+        # ones a merged region spans
+        bounds = [col_xs[0]] + [col_xs[j] for j in range(1, nc)
+                                if owner[(ri, j - 1)] != owner[(ri, j)]] + [col_xs[-1]]
+        for ln in row_lines.get(ri, []):
+            # Assign per column-band fragment, not per line: cells the parser
+            # joined into one Line must not land whole in the band their
+            # centre happens to fall in (`_fragments_by_column`, defect
+            # catalogue #6) -- but only at boundaries this row has.
+            for frag in _fragments_by_column(ln, bounds):
+                fcx = (frag.bbox[0] + frag.bbox[2]) / 2
+                bi = next((j for j in range(len(bounds) - 1)
+                           if bounds[j] - 1 <= fcx <= bounds[j + 1] + 1), None)
+                if bi is None:
+                    continue
+                ci = next(j for j in range(nc) if col_xs[j] >= bounds[bi] - 0.01)
+                cell_lines[owner[(ri, ci)]].append(frag)
+            taken.append(id(ln))
+
+    # A bar chart in a framed plot area has a lattice too -- its stroked
+    # bars' sides and the gridlines -- and the lattice test that keeps a
+    # merged-cell table out of the bar-chart branch (_classify_cluster)
+    # lets it in here. A table's cells hold text; a plot's do not. Measured:
+    # y60's MMWR chart produced 64 cells, 2 with text (its legend), while
+    # NIST SP 800-171's sparsest mapping table has text in over half.
+    texted = sum(1 for k in regions if cell_lines.get(k))
+    if len(regions) >= 8 and texted < GRID_MIN_TEXT_FRAC * len(regions) \
+            and _has_bars(fills):
+        return None
+    consumed.update(taken)
+
+    def run_style(styles):
+        """One side of a region: the dominant drawn style along it, or None
+        when less than half of its lattice segments are drawn."""
+        cov = [s[1] for s in styles if s[0] >= GRID_EDGE_COVER and s[1] is not None]
+        if not cov or len(cov) * 2 < len(styles):
+            return None
+        th, col = Counter(cov).most_common(1)[0][0]
+        # OOXML border widths run 2..96 eighths of a point
+        return (max(0.25, min(th, 12.0)), col)
+
+    # A lattice line that every region crossing it spans (a row line drawn
+    # only as answer blanks inside one box, a column line only under the
+    # header) is no boundary of the table that results: the grid keeps only
+    # the lines some cell ends on. IRS pub501's worksheet is one framed box,
+    # not 26 rows of one merged cell.
+    keep_r = sorted({0, nr} | {r for (r, _c) in regions} | {r1 + 1 for (r1, _c) in regions.values()})
+    keep_c = sorted({0, nc} | {c for (_r, c) in regions} | {c1 + 1 for (_r, c1) in regions.values()})
+    rmap = {r: i for i, r in enumerate(keep_r)}
+    cmap = {c: i for i, c in enumerate(keep_c)}
+    tbl.col_widths = [col_xs[keep_c[i + 1]] - col_xs[keep_c[i]] for i in range(len(keep_c) - 1)]
+    tbl.row_heights = [row_ys[keep_r[i + 1]] - row_ys[keep_r[i]] for i in range(len(keep_r) - 1)]
+    tbl.rows = [[None] * (len(keep_c) - 1) for _ in range(len(keep_r) - 1)]
+    by_col = defaultdict(list)
+    for (r0, c0), (r1, c1) in sorted(regions.items()):
+        rect = (col_xs[c0], row_ys[r0], col_xs[c1 + 1], row_ys[r1 + 1])
+        lines = sorted(cell_lines.get((r0, c0), []),
+                       key=lambda l: (l.bbox[1], l.bbox[0]))
+        # The bottom pad floor is the row's slack, and every row pays it:
+        # the 2.0 default left NIST's 13.4pt rows (1.3 + 10.4 + a 1.7pt
+        # gap) 0.3pt tall each, ~8pt over a page of them. Half a point keeps
+        # a descender clear of the rule.
+        cell = _cell_from_lines(lines, rect, pad_extra=(GRID_MIN_BOTTOM_PAD, 2.0))
+        _center_cell(cell, lines, rect)
+        cell.col_span = cmap[c1 + 1] - cmap[c0]
+        cell.row_span = rmap[r1 + 1] - rmap[r0]
+        if cell.row_span > 1 and cell.paras:
+            # A merged cell's rows are sized by their own cells; its bottom
+            # pad must not claim the whole remainder of the merge, or the
+            # last row grows by every rounding error in the ones above it.
+            cell.pad = (cell.pad[0], cell.pad[1], 2.0, cell.pad[3])
+        cell.borders = {
+            "top": run_style([hstyle[r0][j] for j in range(c0, c1 + 1)]),
+            "bottom": run_style([hstyle[r1 + 1][j] for j in range(c0, c1 + 1)]),
+            "left": run_style([vstyle[i][c0] for i in range(r0, r1 + 1)]),
+            "right": run_style([vstyle[i][c1 + 1] for i in range(r0, r1 + 1)]),
+        }
+        cell.borders = {k: v for k, v in cell.borders.items() if v}
+        cell.shading = shade(rect) or lat_shade[r0][c0]
+        tbl.rows[rmap[r0]][cmap[c0]] = cell
+        if cell.col_span == 1:
+            by_col[cmap[c0]].append((cell, lines, rect))
+    for col in by_col.values():
+        _fit_grid_cells(col)
     return tbl
 
 
@@ -2091,6 +2880,62 @@ def _text_columns(blocks, rect: BBox, consumed) -> List[float]:
     return _cluster(xs, 7.0)
 
 
+def _split_at_span_gaps(ln: Line) -> List[Line]:
+    """A Line cut into the pieces separated by a gap wider than the line
+    splitter's own (LINE_SPLIT_EM): table cells the parser kept on one line.
+    A line with no such gap returns itself."""
+    out, cur = [], []
+    for s in ln.spans:
+        if cur and s.bbox[0] - cur[-1].bbox[2] > RULES_CELL_GAP_EM * max(s.size, cur[-1].size, 1.0):
+            out.append(cur)
+            cur = []
+        cur.append(s)
+    if cur:
+        out.append(cur)
+    if len(out) <= 1:
+        return [ln]
+    return [Line(spans=sp, dir=ln.dir,
+                 bbox=(min(s.bbox[0] for s in sp), min(s.bbox[1] for s in sp),
+                       max(s.bbox[2] for s in sp), max(s.bbox[3] for s in sp)))
+            for sp in out]
+
+
+def _gutter_bounds(rows, x0: float, x1: float) -> Optional[List[float]]:
+    """Column bounds from the gaps no body-row fragment crosses.
+
+    Right-aligned figures start wherever their width puts them, so their
+    left edges do not cluster (BLS's '1,399' and '543' in one column sit
+    11pt apart); the band of x they jointly occupy does. Header rows are
+    left out of the projection -- a group label centred over two columns
+    crosses the gutter between them -- by keeping only rows with the modal
+    number of fragments or more. Each bound sits just right of the column
+    it closes, so a right-aligned figure still reads as right-aligned.
+    """
+    counts = [len(r) for r in rows if len(r) >= 2]
+    if not counts:
+        return None
+    mode = max(set(counts), key=counts.count)
+    body = [f for r in rows if len(r) >= mode for f in r]
+    if any(f.bbox[0] < x0 - 2.0 or f.bbox[2] > x1 + 2.0 for f in body):
+        # the rules do not span the text they are supposed to frame (an
+        # eLife funding block ruled under two of its three columns): not a
+        # table this reading can bound
+        return None
+    ivs = sorted((f.bbox[0], f.bbox[2]) for f in body)
+    merged = [list(ivs[0])]
+    for a, b in ivs[1:]:
+        if a <= merged[-1][1] + 1.0:
+            merged[-1][1] = max(merged[-1][1], b)
+        else:
+            merged.append([a, b])
+    bounds = [x0]
+    for (a0, a1), (b0, b1) in zip(merged, merged[1:]):
+        if b0 - a1 >= RULES_MIN_GUTTER:
+            bounds.append(a1 + min(2.0, (b0 - a1) / 2))
+    bounds.append(x1)
+    return bounds if len(bounds) >= 3 else None
+
+
 def build_rules_table(hgroup: List[DrawCmd], blocks, consumed) -> Optional[TableEl]:
     hgroup = sorted(hgroup, key=lambda d: d.bbox[1])
     x0 = min(d.bbox[0] for d in hgroup)
@@ -2098,26 +2943,45 @@ def build_rules_table(hgroup: List[DrawCmd], blocks, consumed) -> Optional[Table
     top, bot = hgroup[0].bbox[1], hgroup[-1].bbox[3]
     region = (x0 - 2, top - 1, x1 + 2, bot + 1)
     probe = set(consumed)
-    lines = _take_lines_in(blocks, region, probe)
-    if not lines:
+    whole = _take_lines_in(blocks, region, probe)
+    if not whole:
         return None
+    # Cells the parser kept on one line are cut apart at their gaps first:
+    # BLS's tables (XPP) arrive as 'occupations....... 70,548 72,168 1,399
+    # 1,596 1.9', one line per row, which column clustering on line lefts
+    # read as four columns of indentation and no numbers at all.
+    lines, joined = [], False
+    for ln in whole:
+        frags = _split_at_span_gaps(ln)
+        joined = joined or len(frags) > 1
+        lines.extend(frags)
     rows = _group_lines_by_row(lines)
     if len(rows) < 2:
         return None
     multi = sum(1 for r in rows if len(r) >= 2)
     if multi < max(2, int(0.6 * len(rows))):
         return None
-    col_lefts = _cluster([ln.bbox[0] for ln in lines], 7.0)
-    if len(col_lefts) < 2:
-        return None
-    consumed.update(id(l) for l in lines)
-    bounds = [x0]
-    for i in range(1, len(col_lefts)):
-        prev_right = max([l.bbox[2] for l in lines if l.bbox[0] < col_lefts[i] - 7]
-                         or [col_lefts[i] - 10])
-        bounds.append(min(col_lefts[i] - 2, max(prev_right + 2,
-                                                (prev_right + col_lefts[i]) / 2)))
-    bounds.append(x1)
+    bounds = _gutter_bounds(rows, x0, x1) if joined else None
+    if joined and bounds is None:
+        # the cut-apart reading found no columns it can bound: read the
+        # lines whole, exactly as before the cut existed
+        joined, lines = False, whole
+        rows = _group_lines_by_row(lines)
+        if len(rows) < 2 or sum(1 for r in rows if len(r) >= 2) < \
+                max(2, int(0.6 * len(rows))):
+            return None
+    if bounds is None:
+        col_lefts = _cluster([ln.bbox[0] for ln in lines], 7.0)
+        if len(col_lefts) < 2:
+            return None
+        bounds = [x0]
+        for i in range(1, len(col_lefts)):
+            prev_right = max([l.bbox[2] for l in lines if l.bbox[0] < col_lefts[i] - 7]
+                             or [col_lefts[i] - 10])
+            bounds.append(min(col_lefts[i] - 2, max(prev_right + 2,
+                                                    (prev_right + col_lefts[i]) / 2)))
+        bounds.append(x1)
+    consumed.update(id(l) for l in whole)
     tbl = TableEl(role="table", bbox=(x0, top, x1, bot))
     tbl.col_widths = [bounds[i + 1] - bounds[i] for i in range(len(bounds) - 1)]
     row_tops = [top]
@@ -2133,19 +2997,54 @@ def build_rules_table(hgroup: List[DrawCmd], blocks, consumed) -> Optional[Table
     row_tops.append(bot)
     rule_ys = [((d.bbox[1] + d.bbox[3]) / 2, max(0.4, d.width or (d.bbox[3] - d.bbox[1])),
                 d.stroke or d.fill or "#000000") for d in hgroup]
+    nc = len(tbl.col_widths)
     for ri in range(len(rows)):
-        rowcells = []
-        for ci in range(len(tbl.col_widths)):
-            rect = (bounds[ci], row_tops[ri], bounds[ci + 1], row_tops[ri + 1])
-            rl = [l for l in rows[ri] if rect[0] - 1 <= (l.bbox[0] + l.bbox[2]) / 2 <= rect[2] + 1]
+        # (c0, c1) -> fragments. Cut-apart rows may carry a label centred
+        # over two columns ('Employed' over its two Apr. columns): a
+        # fragment that crosses a gutter, alone in the columns it covers,
+        # is one cell spanning them.
+        groups = {}
+        if joined:
+            claims = []
+            for f in rows[ri]:
+                cols = [c for c in range(nc)
+                        if min(f.bbox[2], bounds[c + 1]) - max(f.bbox[0], bounds[c]) > 1.0]
+                if not cols:
+                    continue
+                claims.append((f, cols[0], cols[-1]))
+            for f, c0, c1 in claims:
+                if c1 > c0 and any(g is not f and g0 <= c1 and g1 >= c0
+                                   for g, g0, g1 in claims):
+                    cx = (f.bbox[0] + f.bbox[2]) / 2
+                    c0 = c1 = next((c for c in range(nc) if bounds[c] - 1 <= cx
+                                    <= bounds[c + 1] + 1), c0)
+                key = next((k for k in groups if k[0] <= c1 and k[1] >= c0), None)
+                if key is not None:
+                    nk = (min(key[0], c0), max(key[1], c1))
+                    groups[nk] = groups.pop(key) + [f]
+                else:
+                    groups[(c0, c1)] = [f]
+        else:
+            for ci in range(nc):
+                rl = [l for l in rows[ri]
+                      if bounds[ci] - 1 <= (l.bbox[0] + l.bbox[2]) / 2 <= bounds[ci + 1] + 1]
+                groups[(ci, ci)] = rl
+        rowcells = [None] * nc
+        c = 0
+        while c < nc:
+            key = next((k for k in groups if k[0] == c), (c, c))
+            rl = groups.get(key, [])
+            rect = (bounds[key[0]], row_tops[ri], bounds[key[1] + 1], row_tops[ri + 1])
             cell = _cell_from_lines(sorted(rl, key=lambda l: l.bbox[0]), rect,
                                     pad_extra=(1.5, 1.0))
+            cell.col_span = key[1] - key[0] + 1
             for ry, rw, rc in rule_ys:
                 if abs(ry - row_tops[ri]) < 2.5:
                     cell.borders["top"] = (rw, rc)
                 if abs(ry - row_tops[ri + 1]) < 2.5:
                     cell.borders["bottom"] = (rw, rc)
-            rowcells.append(cell)
+            rowcells[c] = cell
+            c = key[1] + 1
         tbl.rows.append(rowcells)
         tbl.row_heights.append(row_tops[ri + 1] - row_tops[ri])
     return tbl
@@ -2531,6 +3430,7 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
     # ---------- per-page content
     body_size = _body_font_size(ir, hf)
     doc_lay = lay
+    headed_carry = None     # (column xs, row pitch) of a headed table cut by a page
     for p in ir.pages:
         own = own_geometry.get(p.number)
         lay = _geometry(doc_lay, own)
@@ -2581,9 +3481,31 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
             elements.append(striped_table)
             cd.update(striped_draws)
             draws = [(i, d) for i, d in draws if i not in striped_draws]
+        if headed_carry is not None:
+            # A headed table that ran to the foot of the last page continues
+            # here when this page OPENS with rows in its columns (x10's
+            # 'March' row, alone at the top of page 2).
+            free = [ln for ln in _all_lines(blocks)
+                    if id(ln) not in consumed and ln.horizontal]
+            if free:
+                xs_c, pitch_c = headed_carry
+                cont = _headed_body(xs_c, min(ln.bbox[1] for ln in free), pitch_c,
+                                    free, consumed, first_gap=0.5)
+                if cont is not None:
+                    elements.append(cont)
         leftover = []
         page_text_area = sum(bbox_area(l.bbox) for l in _all_lines(blocks)) or 1.0
-        for cl in _clusters(draws):
+        clusters = _clusters(draws)
+        # Fill-tiled tables first: their row bands are separate clusters,
+        # and each alone reads as cards, bars or a figure.
+        for band in _tile_bands(clusters, blocks, consumed):
+            el = build_grid_table([it for c in band for it in c], blocks,
+                                  consumed, tiled=True)
+            if el is not None:
+                elements.append(el)
+                done = {id(c) for c in band}
+                clusters = [c for c in clusters if id(c) not in done]
+        for cl in clusters:
             if len(cl) == 1:
                 leftover.append(cl[0])
                 continue
@@ -2599,7 +3521,8 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
             elif kind == "grid":
                 el = build_grid_table(cl, blocks, consumed) or _fig()
             elif kind == "cards":
-                el = build_cards_table(cl, blocks, consumed)
+                el = build_headed_table(cl, blocks, consumed) or \
+                    build_cards_table(cl, blocks, consumed)
             elif kind == "stripes":
                 el = build_stripes_table(cl, blocks, consumed) or _fig()
             elif kind == "boxlike":
@@ -2775,6 +3698,14 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
             if cur:
                 flow_blocks.append(_mk_block(cur))
 
+        # does a headed table run to the foot of this page? (nothing below it)
+        headed_carry = None
+        rest = [l.bbox[3] for b in flow_blocks for l in b.lines]
+        for el in elements:
+            hd = getattr(el, "_headed", None)
+            if hd and el.bbox and all(y <= el.bbox[3] + 1.0 for y in rest):
+                headed_carry = hd
+
         page_top = lay.margin_t
         if p.number == 1 and lay.cover_band is not None and lay.cover_band.bbox:
             page_top = lay.cover_band.bbox[3]
@@ -2820,6 +3751,12 @@ def _can_relax_bottom_margin(lay: DocLayout) -> bool:
         return False
     if any((lay.header_default, lay.footer_default, lay.header_first,
             lay.footer_first)):
+        return False
+    # A table carried across pages (continuation_only) breaks where the
+    # bottom margin says, not at a source page seam: with the 14pt reserve
+    # c3_tables' long table took two more rows onto page 1 than its source
+    # and its product-lane word placement fell 0.936 -> 0.915.
+    if any(getattr(pg, "continuation_only", False) for pg in lay.pages):
         return False
     for page in lay.pages:
         elements = [el for chunk in page.chunks for el in chunk.elements]

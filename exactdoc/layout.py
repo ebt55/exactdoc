@@ -71,12 +71,19 @@ class Cell:
     # borders keys: top/bottom/left/right -> (width_pt, color) or None
     pad: Tuple[float, float, float, float] = (2, 4, 2, 4)  # top,left,bottom,right? see writer
     valign: str = "top"
+    # A merged cell: the grid columns and rows it covers from its own
+    # position (TableEl.rows is always full-width, one entry per grid column;
+    # the positions a span covers hold None). Written as w:gridSpan and
+    # w:vMerge.
     col_span: int = 1
+    row_span: int = 1
 
 
 @dataclass
 class TableEl:
-    rows: List[List[Optional[Cell]]] = field(default_factory=list)  # None = covered by span
+    # Full-width rows: rows[r][c] is the cell whose top-left grid position is
+    # (r, c), or None where a merged cell (col_span/row_span) covers it.
+    rows: List[List[Optional[Cell]]] = field(default_factory=list)
     col_widths: List[float] = field(default_factory=list)
     row_heights: List[Optional[float]] = field(default_factory=list)
     left_indent: float = 0.0     # from container left edge
