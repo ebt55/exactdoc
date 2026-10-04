@@ -120,6 +120,11 @@ class Para:
     # text at the page bottom, carried by DocLayout.footnotes as a real note --
     # a writer with the footnotes capability leaves it out of the body flow.
     role: str = ""
+    # A right-to-left paragraph (Hebrew, Arabic): its runs are in logical
+    # order, and `align`, `left_indent`, `right_indent`, `first_indent` and
+    # `tab_stops` are in START/END terms -- "left" is the start, which is the
+    # right edge -- exactly as OOXML reads them in a w:bidi paragraph.
+    rtl: bool = False
 
     @property
     def text(self) -> str:

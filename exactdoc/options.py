@@ -78,15 +78,20 @@ OUTPUT_PROFILES = ("standard", "gdocs")
 #               text and marker where the typed form put them.
 #   footnotes   source footnotes as word/footnotes.xml notes referenced from
 #               the text, instead of body paragraphs at the page bottom.
+#   bidi        right-to-left paragraphs as w:bidi with start/end alignment
+#               and indents, and their runs as w:rtl with complex-script
+#               size, weight and language, instead of left-to-right
+#               paragraphs whose geometry is mirrored to look the same.
 #
 # Google Docs keeps the typed forms until a live pass shows its importer
 # places them correctly. That is not caution for its own sake: a list-indent
 # normalisation proven in LibreOffice regressed live Docs dx to 63.65pt
-# (2026-08-04), and LibreOffice does not predict Docs (see the probe set the
-# capability ships with, testkit/gdocs_probe_lists_notes.py). Flipping either
-# entry below is the whole change once that evidence exists.
+# (2026-08-04), and LibreOffice does not predict Docs (see the probe sets the
+# capabilities ship with, testkit/gdocs_probe_lists_notes.py and
+# testkit/gdocs_probe_rtl.py). Flipping an entry below is the whole change
+# once that evidence exists.
 PROFILE_CAPABILITIES = {
-    "standard": frozenset({"numbering", "footnotes"}),
+    "standard": frozenset({"numbering", "footnotes", "bidi"}),
     "gdocs": frozenset(),
 }
 
