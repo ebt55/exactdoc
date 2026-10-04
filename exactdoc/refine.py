@@ -180,6 +180,12 @@ def _measure(src_pdf, rendered_pdf, backend):
 # those overruns spill -- y01 rendered 119 pages against 107 before footers
 # were emitted -- and with the footers at 18pt the same document rendered 105.
 FOOTER_FLOOR_PT = 18.0
+# ...and only when that frees at least a line of body text. The EUR-Lex AI Act
+# (y18) prints its footer 19.2pt up: lowering it 1.2pt bought no line and
+# perturbed the loop off the 144/144 fixed point it otherwise reaches (145
+# pages, word recall 0.99 -> 0.46). A 12pt line is the common body leading of
+# the documents measured.
+FOOTER_MIN_GAIN_PT = 12.0
 
 
 def _lower_footers(lay: DocLayout) -> bool:
@@ -203,7 +209,7 @@ def _lower_footers(lay: DocLayout) -> bool:
                                                 "footer_first")]
     parts = [p for p in parts if p is not None]
     for part in parts:
-        if part.distance <= FOOTER_FLOOR_PT + 0.05:
+        if part.distance - FOOTER_FLOOR_PT < FOOTER_MIN_GAIN_PT:
             continue
         old_top = part.distance + _hf_extent(part)
         part.distance = FOOTER_FLOOR_PT
