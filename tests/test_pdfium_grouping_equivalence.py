@@ -43,6 +43,11 @@ def _old_absorb_script_rows(vis_rows):
         for j, (host_ri, host) in enumerate(rows):
             if j == i or j in absorbed or host_ri == frag_ri:
                 continue
+            # WP23: a fragment outnumbering its host's ink is the line, not a
+            # script of it (a drop cap's em box).
+            if sum(1 for c in frag if c.u.strip()) > \
+                    sum(1 for c in host if c.u.strip()):
+                continue
             hsz = max(c.size for c in host)
             dy = fb - host[0].oy
             if abs(dy) > P.SCRIPT_BASE_EM * hsz:

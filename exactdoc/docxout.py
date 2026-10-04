@@ -1847,12 +1847,6 @@ def _body_line_pt(lay: DocLayout) -> float:
     return heights[-1][0]
 
 
-def _tallest_line(els) -> float:
-    """The tallest line pitch among a page's text paragraphs (0.0 if none)."""
-    return max((_line_height(el) for el in els
-                if isinstance(el, Para) and el.text.strip()), default=0.0)
-
-
 def _guard_page_tail(pg, content_w: float, lay: DocLayout, notes_h: float,
                      output_profile: str, plan: dict,
                      body_line: float) -> dict:
@@ -1903,13 +1897,7 @@ def _guard_page_tail(pg, content_w: float, lay: DocLayout, notes_h: float,
         # more than its box). Where the renderer will set the element is then
         # unknown, and the source's position is kept.
         return plan
-    # The line the page can gain is ANY of its lines, and the tallest is what
-    # it costs: NIST SP 800-171's withdrawal notice set its 22pt title on one
-    # line, LibreOffice (which has no Calibri) set it on two, and the page ran
-    # 10pt past its box with 15pt of the tail's clearance left -- the
-    # "Date updated" line under its 156pt gap went over alone, and every page
-    # after it was a page late. The body line stays the floor.
-    want = over + max(body_line, _tallest_line(els))
+    want = over + body_line
     if want <= 0.05:
         return plan
     out = dict(plan)

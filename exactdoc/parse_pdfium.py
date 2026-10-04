@@ -1769,6 +1769,9 @@ def _absorb_script_rows(vis_rows):
     base_keys = [b for b, _ in by_base]
     reach = SCRIPT_BASE_EM * max(sz, default=0.0) + 1e-6
     absorbed = set()
+    # Ink glyphs per row: a fragment that outnumbers its host is the LINE and
+    # the host is an ornament beside it (see below).
+    n_ink = [sum(1 for c in row if c.u.strip()) for _, row in rows]
     for i, (frag_ri, frag) in enumerate(rows):
         fx0 = x0s[i]
         fb = frag[0].oy
@@ -1778,6 +1781,16 @@ def _absorb_script_rows(vis_rows):
         for j in sorted(by_base[k][1] for k in range(lo, hi)):
             host_ri, host = rows[j]
             if j == i or j in absorbed or host_ri == frag_ri:
+                continue
+            if n_ink[i] > n_ink[j]:
+                # A script is a few glyphs of a line -- a note mark, an
+                # exponent -- never more than the line it is set against. A
+                # drop cap is the reverse: one 51pt glyph whose em box spans
+                # the three lines beside it, and SP 800-171's chapter openings
+                # had all three absorbed into the cap's row and sorted by x
+                # into one line: "Tsfeednesirtaoivld eaa gfyee, ndmceiorearsel"
+                # for "Today, ... sensitive federal ... federal agencies",
+                # 59pt-leading and four lines tall, the page six lines over.
                 continue
             fsz = ink_sz[i] if rtl_row[j] else sz[i]
             hsz = sz[j]
@@ -1822,6 +1835,7 @@ def _absorb_script_rows(vis_rows):
         sz[j] = max(sz[j], fsz)
         x0s[j] = min(x0s[j], fx0)
         x1s[j] = max(x1s[j], x1s[i])
+        n_ink[j] += n_ink[i]
         absorbed.add(i)
     return [row for i, (_, row) in enumerate(rows) if i not in absorbed]
 

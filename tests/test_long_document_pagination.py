@@ -19,8 +19,9 @@ input:
    authors -- stacked one per line (`infer._fuse_baseline_rows`).
 5. A one-line title given exactly its own width and wrapped by a hair
    (`ladder.relieve_one_line`).
-6. A page's closing line kept one body line clear when the page could gain a
-   taller one (`docxout._guard_page_tail`).
+6. A drop cap's em box swallowing the lines beside it as its "scripts" and
+   sorting them into one line of interleaved characters (SP 800-171's chapter
+   openings; `parse_pdfium._absorb_script_rows`).
 7. A contents line's words glued together: a separated marker ("1." +
    "INTRODUCTION") and a tab leader drawn against its title and number
    (`infer._merge_list_markers`, `infer._leader_para`).
@@ -37,8 +38,7 @@ import xml.etree.ElementTree as ET
 
 from exactdoc import infer as I
 from exactdoc import ladder as L
-from exactdoc.docxout import (_gdocs_typed_leader, _guard_page_tail,
-                              _body_capacity, _stack_used, write_docx)
+from exactdoc.docxout import _gdocs_typed_leader, write_docx
 from exactdoc.layout import (Chunk, DocLayout, FigureEl, FloatEl, ImageEl,
                              PageLayout, Para, Run)
 from exactdoc.metrics import get_metrics
@@ -363,6 +363,17 @@ class OneLineStaysOneLine(unittest.TestCase):
         self.assertFalse(L.relieve_one_line(p, self.w / 2, self.m))
         self.assertEqual(p.left_indent, 10.0)
 
+    def test_a_line_that_fits_by_a_hair_is_given_the_slack(self):
+        # SP 800-171's 14pt running title fitted 189.1pt by the shaper's
+        # account and wrapped in Word
+        col = 468.5
+        p = _title("right", col - self.w - 0.3, 0.0)
+        self.assertEqual(L.predict_lines(p, col - p.left_indent, self.m), 1)
+        self.assertTrue(L.relieve_one_line(p, col - p.left_indent, self.m))
+        room = col - p.left_indent
+        self.assertGreaterEqual(room, self.w * (1 + L.RELIEF_SLACK_FRAC)
+                                + L.RELIEF_SLACK_PT - 0.11)
+
     def test_a_line_that_fits_is_left_alone(self):
         p = _title("right", 100.0, 0.0)
         self.assertFalse(L.relieve_one_line(p, 468.5 - 100.0, self.m))
@@ -379,32 +390,39 @@ class OneLineStaysOneLine(unittest.TestCase):
         self.assertEqual(rep["relieved"], 1)
 
 
-# ------------------------------------------------ 6. the page's closing line
-class TailClearance(unittest.TestCase):
-    def test_the_closing_line_keeps_the_tallest_lines_clearance(self):
-        lay = DocLayout()
-        lay.page_w, lay.page_h = 612.0, 792.0
-        lay.margin_l = lay.margin_r = 90.0
-        lay.margin_t, lay.margin_b = 54.0, 28.5
-        title = Para(runs=[Run("Withdrawn NIST Technical Series Publication",
-                               "Calibri", 22.0, "#000000")],
-                     leading=25.5, src_lines=1, space_before=8.0)
-        body = Para(runs=[Run("notice text", "Calibri", 11.0, "#000000")],
-                    leading=13.4, src_lines=30, space_before=20.0)
-        tail = Para(runs=[Run("Date updated: May 14, 2024", "Calibri", 12.0,
-                              "#000000")],
-                    leading=13.9, src_lines=1, space_before=219.0)
-        pg = PageLayout(1, [Chunk(elements=[title, body, tail])])
-        lay.pages = [pg]
-        cap = _body_capacity(lay)
-        end = _stack_used(pg)
-        # the page fits with more than a body line but less than a title line
-        clear = cap - end
-        self.assertTrue(13.4 < clear < 25.5, clear)
-        plan = _guard_page_tail(pg, 432.0, lay, 0.0, "standard", {}, 13.4)
-        self.assertIn(id(tail), plan)
-        paid = 219.0 - plan[id(tail)]
-        self.assertGreaterEqual(clear + paid, 25.5 - 0.1)
+# ------------------------------------------------------------ 6. drop caps
+_DROP_LINES = ["oday, more than at any time in history, the federal government",
+               "service providers to help carry out a wide range of missions",
+               "using information systems. Many federal contractors process",
+               "sensitive federal information to support the delivery of",
+               "federal agencies (e.g., providing financial services; and"]
+
+
+def _drop_cap_pdf(path):
+    """SP 800-171's chapter opening, at its measured baselines: a 51pt "T"
+    (185.5) beside three 11pt lines (160.7, 174.2, 187.6)."""
+    from reportlab.pdfgen import canvas
+    c = canvas.Canvas(path, pagesize=(612, 792))
+    c.setFont("Times-Roman", 51)
+    c.drawString(90, 792 - 185.5, "T")
+    c.setFont("Times-Roman", 11)
+    for i, t in enumerate(_DROP_LINES):
+        x = 114.9 if i < 3 else 90.0
+        c.drawString(x, 792 - (160.7 + 13.45 * i), t)
+    c.save()
+
+
+class DropCaps(unittest.TestCase):
+    def test_the_lines_beside_a_drop_cap_are_not_its_scripts(self):
+        from exactdoc.parse_pdfium import parse_pdf
+        with tempfile.TemporaryDirectory() as td:
+            p = os.path.join(td, "cap.pdf")
+            _drop_cap_pdf(p)
+            ir = parse_pdf(p, keep_image_data=False)
+        texts = [ln.text.strip() for b in ir.pages[0].blocks for ln in b.lines]
+        for t in _DROP_LINES:
+            self.assertIn(t, texts)
+        self.assertIn("T", texts)
 
 
 # --------------------------------------- 8. two "columns" nobody set text in

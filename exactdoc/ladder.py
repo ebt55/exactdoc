@@ -487,9 +487,13 @@ PAGE_SLACK_FRAC = 0.25
 # The side that does not place the line is free: a right-set line is placed by
 # its right edge, a centred one by its centre, a left-set one by its left. That
 # side's indent only bounds the wrap, so it gives up what the predicted line
-# needs, and the line stays where it was. Only on a prediction (`predict_lines`
-# two or more, at the room the writer emits) and only when the free side can
-# give all of it: a line wider than its whole column wraps whatever is done.
+# needs, and the line stays where it was. Not only where `predict_lines` says
+# two: a line it says fits by less than the slack below is a line a renderer
+# one rounding wider wraps -- NIST SP 800-171's 14pt "NIST Special Publication
+# 800-171" fitted its 189.1pt by the shaper's account and wrapped in Word, and
+# its 26pt title with it, and the title page took the logo onto a page of its
+# own. Only when the free side can give all of it: a line wider than its whole
+# column wraps whatever is done.
 #
 # The slack is a share of the line plus a floor: the shaper is base-14 AFM data
 # and the renderer's faces are metric clones of it, so they agree to a few
@@ -534,8 +538,9 @@ def one_line_width(p: Para, metrics) -> Optional[float]:
 
 
 def relieve_one_line(p: Para, avail: float, metrics) -> bool:
-    """Give a one-line paragraph predicted to wrap the room it needs from the
-    indent that does not place it (see above). True when the indents moved."""
+    """Give a one-line paragraph predicted to wrap, or to fit by less than the
+    slack, the room it needs from the indent that does not place it (see
+    above). True when the indents moved."""
     if (p.src_lines or 0) != 1 or not p.runs or p.line_breaks or \
             getattr(p, "rtl", False) or p.frame is not None or \
             any(r.is_tab for r in p.runs) or not _predictable(p):
@@ -553,7 +558,7 @@ def relieve_one_line(p: Para, avail: float, metrics) -> bool:
         # the same reason; their wrap is the paragraph's, not a title's.
         return False
     pred = predict_lines(p, avail, metrics)
-    if pred is None or pred <= 1:
+    if pred is None:
         return False
     w = one_line_width(p, metrics)
     if w is None:
