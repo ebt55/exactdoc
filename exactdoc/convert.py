@@ -6,7 +6,7 @@ numbers cannot describe three different configurations again (see
 options.py for what that cost).
 """
 import os
-from typing import Optional
+from typing import Callable, Optional
 
 from .dialect import normalize
 from .infer import infer
@@ -64,7 +64,8 @@ def convert_result(pdf_path: str, out_path: Optional[str] = None,
                    allow_cloud_upload: Optional[bool] = None,
                    max_pages: Optional[int] = None,
                    ocr_layer: Optional[str] = None,
-                   options: Optional[ConversionOptions] = None):
+                   options: Optional[ConversionOptions] = None,
+                   progress: Optional[Callable[[str, dict], None]] = None):
     """Convert a PDF to DOCX. Returns a `ConversionResult`.
 
     Defaults come from `options.PRODUCT`: its PDFium backend, standard output
@@ -114,6 +115,12 @@ def convert_result(pdf_path: str, out_path: Optional[str] = None,
     so `degraded` is True. An oracle that is not installed at all is still
     `OracleUnavailableError` -- see `exactdoc.errors.OracleDegradedWarning`
     for where that line is drawn, and why.
+
+    `progress`, when given, is called as `progress(stage, info)` as each stage
+    begins: "read" (info carries `pages` when the form census counted them),
+    "layout" (`pages`), "write", and "refine" once per render round (`round`,
+    `rounds`, the most the loop will run). It observes and changes nothing:
+    the CLI uses it to show that a two-minute conversion is alive.
     """
     import time
     from .result import ConversionResult, ConversionWarning, OracleRun, \
@@ -136,10 +143,12 @@ def convert_result(pdf_path: str, out_path: Optional[str] = None,
     # This is also the first call to touch the file, so it goes through the same
     # input boundary and reports a password-protected PDF as such.
     widgets = preflight(bk, pdf_path, max_pages=opts.max_pages)
+    _notify(progress, "read", pages=len(widgets) if widgets else None)
     # Keep the backend-native reader boundary here.  Known password and format
     # statuses become stable public errors before any output can be published;
     # unrelated exceptions deliberately propagate as bugs.
     ir = parse_input(bk, pdf_path, ocr_layer=opts.ocr_layer)
+    _notify(progress, "layout", pages=len(getattr(ir, "pages", ())) or None)
     # Images the parser could not extract never reach the writer, so the
     # writer's ledger cannot see them; they are added to it after the write.
     parse_drops = sum(getattr(p, "images_dropped", 0)
@@ -220,7 +229,8 @@ def convert_result(pdf_path: str, out_path: Optional[str] = None,
         refine(lay, pdf_path, out_path, dpi=opts.dpi,
                rounds=opts.refine_rounds, verbose=opts.verbose,
                render=render, output_profile=opts.output_profile,
-               backend=bk, image_report=image_report, report=refine_report)
+               backend=bk, image_report=image_report, report=refine_report,
+               progress=progress)
         failure = refine_report.get("oracle_failure")
         if failure is not None:
             # What actually ran: the correction rounds measured before the
@@ -239,6 +249,7 @@ def convert_result(pdf_path: str, out_path: Optional[str] = None,
         # writes beside ``out_path`` so its final replacement is an atomic
         # same-filesystem operation.
         from .io import publish
+        _notify(progress, "write")
         publish(lambda tmp: write_docx(lay, tmp, dpi=opts.dpi,
                                        output_profile=opts.output_profile,
                                        backend=bk, image_report=image_report),
@@ -282,6 +293,11 @@ def convert_result(pdf_path: str, out_path: Optional[str] = None,
         refine_rounds_completed=max(0, sum(1 for r in runs if r.ok) - 1),
         oracle_runs=runs, warnings=tuple(found), timings_ms=timings,
         refine=dict(refine_report))
+
+
+def _notify(progress, stage, **info):
+    if progress is not None:
+        progress(stage, info)
 
 
 def _add_parse_drops(report, n):

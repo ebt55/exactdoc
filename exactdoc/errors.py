@@ -16,7 +16,8 @@ error, and callers who genuinely want best-effort ask for it explicitly.
 The hierarchy is shallow on purpose. A caller usually wants one of three
 questions answered:
 
-    is this my input's fault?      UnsupportedInputError, ParseError
+    is this my input's fault?      UnsupportedInputError, ParseError,
+                                   InputNotFoundError
     is this my configuration?      ConfigurationError, BackendUnavailableError
     is this the environment?       OracleError, OutputWriteError, ResourceLimitError
 
@@ -92,6 +93,19 @@ class UnsupportedInputError(ExactdocError):
 class ParseError(ExactdocError):
     """The document is malformed or truncated past what the backend can recover."""
     code = "parse"
+
+
+class InputNotFoundError(ExactdocError, FileNotFoundError):
+    """The input path names no readable file: it is missing, or a folder.
+
+    It used to reach the user as PDFium's own `FileNotFoundError`, raised from
+    inside the form-widget census with a traceback and the caller's absolute
+    path -- the first thing a first-time user sees after a typo. It is still a
+    `FileNotFoundError`, so a caller that caught the built-in keeps working;
+    the message carries the file's name only, never the directory it was
+    looked for in.
+    """
+    code = "input-not-found"
 
 
 # --- backends ----------------------------------------------------------------

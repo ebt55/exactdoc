@@ -1275,3 +1275,45 @@ None of this gates anything: no baseline describes `y28`–`y65`, and
 `gate.py` has never seen them. Promotion stays the single deliberate commit
 of §7, and items 1–4 are the reason to want one — the converter's weakest
 measured classes are the ones users most often feed it.
+
+## 14. Which documents README.md promises (`promised`, 2026-10-05)
+
+`testkit/beta_readiness.py` grades most of the beta bar on the documents the
+README tells a user will work, not on every document the corpus holds: a
+journal paper that converts badly is a known gap the README already states,
+while a Word report that converts badly is a broken promise. So every
+expansion document carries `promised` (true or false) and, when false, a
+`promised_reason` naming the README row that disclaims it. The fields are
+metadata only: no fixture byte, sha256, tier or provenance leaf moved, and
+`testkit/expansion_parity_policy.json` was re-pinned for exactly that
+(`_repin_2026_10_05`).
+
+**The rule.** A document is promised unless README.md disclaims its kind:
+
+| `promised: false` | README row | Documents |
+|---|---|---|
+| refused by design | ⛔ scans without text, forms, over 250 pages | the 5 `unsupported`-tier documents |
+| academic papers | ⚠️ "Dense journal papers, equations: Not yet" | y37, y38, y39, y40, y41 (a README Not-yet example), y42, y43, y60 |
+| slides | ⚠️ "Slide decks, brochures, posters: Not yet" | y34 (a README Not-yet example) |
+| heavily designed layouts | "Not yet" section | y58 (a README Not-yet example), y59, y06, y13, y61 |
+| CJK | ⚠️ "Chinese, Japanese and Korean text: Partly" | y51, y52, y53 |
+| right-to-left | ⚠️ "Arabic, Hebrew and Persian: Partly" | y47, y48, y49, y50 |
+| other scripts | not in the ✅ "Latin, Cyrillic and Greek text" row | y54 (Hindi), y55 (Thai) |
+| scans with an OCR layer | ⛔ row: "No OCR is built in"; they convert, their look is not promised | y56, y57 |
+
+Every other expansion document is promised: the 18 generated office documents
+(x01–x18), the long reports, RFCs and manuals, the Word/Excel/Google Docs/
+LibreOffice/Power PDF exports, the three CVs and the GPO, XPP and JasperReports
+documents -- 49 of 79. All 15 `designed_stress` documents are unpromised,
+which is the rule's consequence, not its definition.
+
+The gated 16 do not carry the field: `corpus_manifest.json` is pinned by the
+Google Docs quality policy and is not edited for metadata. `beta_readiness.py`
+treats the 13 gated documents the ratified policy tiers `ordinary_digital` as
+promised and c3, c4 and c5 (`designed_stress`) as not; all 16 are graded by
+the gate itself (criterion 11).
+
+When the README's table changes, this classification changes with it, in the
+same commit. `corpus_manifest.py verify` rejects a non-boolean `promised` and
+a `false` without a reason; `expansion-seal` keeps a re-sealed document's
+classification.
