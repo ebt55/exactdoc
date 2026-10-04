@@ -619,7 +619,7 @@ def _docx_for(docx_dir, stem):
 
 
 def sweep(out, docx_dir=None, profile=None, lane=None, corpus="both", only=None,
-          include_unsupported=True, jobs=4, doc_timeout=DOC_TIMEOUT_S, batch=BATCH,
+          include_unsupported=False, jobs=4, doc_timeout=DOC_TIMEOUT_S, batch=BATCH,
           stock_fonts=False, compat_mode=None):
     """Render every selected document's DOCX in Word and score it.
 
@@ -799,6 +799,8 @@ def main(argv=None):
     sw.add_argument("--lane", default=None, help="label written into each row")
     sw.add_argument("--corpus", choices=("gated", "expansion", "both"), default="both")
     sw.add_argument("--only", nargs="+", default=None)
+    sw.add_argument("--include-unsupported", action="store_true",
+                    help="also the documents the converter must refuse (as quality_sweep)")
     sw.add_argument("--jobs", type=int, default=4, help="scoring processes")
     sw.add_argument("--timeout", type=int, default=DOC_TIMEOUT_S, help="per document, s")
     sw.add_argument("--batch", type=int, default=BATCH, help="documents per Word session")
@@ -824,7 +826,8 @@ def main(argv=None):
     try:
         path = sweep(a.out, docx_dir=a.docx_dir, profile=a.profile, lane=a.lane,
                      corpus=a.corpus, only=a.only, jobs=a.jobs, doc_timeout=a.timeout,
-                     batch=a.batch, stock_fonts=a.stock_fonts, compat_mode=a.compat_mode)
+                     batch=a.batch, stock_fonts=a.stock_fonts, compat_mode=a.compat_mode,
+                     include_unsupported=a.include_unsupported)
     except WordDialog as e:
         print("word_oracle: STOPPED -- Word needs a human: %s" % e)
         return 3
