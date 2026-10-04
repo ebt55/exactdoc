@@ -322,9 +322,22 @@ def _service(interactive=True):
     if os.path.exists(TOKEN):
         creds = Credentials.from_authorized_user_file(TOKEN, SCOPES)
     if not creds or not creds.valid:
+        refreshed = False
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
+            try:
+                creds.refresh(Request())
+                refreshed = True
+            except Exception as exc:
+                # The OAuth app is in testing status, so its refresh token dies
+                # after about seven days and refresh() raises invalid_grant. That
+                # is precisely the case a fresh browser consent repairs, and it
+                # used to crash `auth` itself before the browser was reached --
+                # the only remedy was moving token.json aside by hand.
+                if not interactive:
+                    raise RuntimeError(
+                        "the saved token could not be refreshed (%s); run: "
+                        "gdocs_oracle.py auth" % type(exc).__name__) from exc
+        if not refreshed:
             if not interactive:
                 raise RuntimeError("no valid token; run: gdocs_oracle.py auth")
             if not os.path.exists(CREDS):
