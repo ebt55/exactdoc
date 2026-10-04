@@ -20,6 +20,23 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **A picture that fills the page is placed on the page (live, 2026-10-04).**
+  A designed cover or a scanned page kept as its image was written inline at
+  612x792 inside the section margins: Google Docs put y28's cover at (73.5,
+  39.6), ran it off the right and bottom edges, and its overflow pushed a blank
+  page in front of the memo; LibreOffice did the same at (81.1, 38.8). Four
+  writer forms were flown live on y28's own DOCX
+  ([evidence](docs/evidence/gdocs-2026-10-04-cover-picture.json)): anchored
+  behind text at the page origin it lands at (0, 0, 612, 792) in both
+  renderers, where a zero-margin section still left it 1.5–9pt off and a
+  crop was ignored. Any picture ≥ 97% of the paper in both dimensions now
+  takes that form (`docxout._picture_paragraph`), in every profile. It
+  touches four of the 95 documents, none gated. Canonical raw: y28 37 → 36
+  pages (word recall 0.176 → 0.214), y56 17 → 14 (0.213 → 0.440), y57 29 →
+  26 (0.068 → 0.086), char recall and SSIM up on all three, y34 identical;
+  within-2pt slips on the three (y28 0.014 → 0.012), all of them documents
+  whose pages are already misaligned. Live Docs, y28: 28 → 27 pages, word
+  recall 0.255 → 0.300, dy_p50 72.2 → 55.5pt.
 - **gdocs: tab-separated lists are real Word lists in Google Docs; footnotes
   stay typed (live, 2026-10-04).** The WP17 probe set was flown through Google
   Docs, then the whole gated corpus, seven list-bearing expansion documents and

@@ -2231,7 +2231,7 @@ def _size_mark_to_content(par, p):
 
 
 def write_figure(container, fig: FigureEl, ctx=None, dpi: int = None,
-                 page_break_before: bool = False):
+                 page_break_before: bool = False, page=None):
     """Rasterise a figure region through the conversion's backend.
 
     `ctx.render_clip` replaces an open MuPDF document that used to be threaded
@@ -2264,19 +2264,11 @@ def write_figure(container, fig: FigureEl, ctx=None, dpi: int = None,
         pf.page_break_before = True
     pf.space_before = Pt(round(max(0.0, fig.space_before), 1))
     pf.space_after = Pt(0)
-    if ctx.output_profile != "gdocs":
-        # Word/LibreOffice need this guard for a paragraph containing only an
-        # inline drawing.  Google Docs reserves the inline drawing itself and
-        # treats the duplicate atLeast height as extra page-flow pressure.
-        pf.line_spacing_rule = WD_LINE_SPACING.AT_LEAST
-        pf.line_spacing = Pt(round(fig.height, 1))
     par.alignment = ALIGN.get(fig.align, WD_ALIGN_PARAGRAPH.CENTER)
     if fig.align == "left" and fig.left_indent > 0.5:
         pf.left_indent = Pt(round(fig.left_indent, 1))
-    r = par.add_run()
-    r.add_picture(io.BytesIO(data), width=Emu(int(fig.width * 12700)),
-                  height=Emu(int(fig.height * 12700)))
-    return par
+    return _picture_paragraph(par, data, fig.width, fig.height,
+                              ctx.output_profile, page)
 
 
 def _docx_accepts(data: bytes) -> bool:
@@ -2356,13 +2348,86 @@ def _embeddable(data: bytes, report):
     return out
 
 
+# A picture this close to the paper in both dimensions IS the page (a designed
+# cover, a scanned page kept as its image). Written inline it sits inside the
+# margins: y28's 612x792 cover landed at (73.5, 39.6) in Google Docs, ran off
+# the right and bottom edges, and its overflow pushed a blank page in front of
+# the memo (LibreOffice did the same, at (81.1, 38.8)). Anchored behind text at
+# the page origin it lands at (0, 0, 612, 792) in both, and the memo is back on
+# page 2 (live, 2026-10-04; docs/evidence/gdocs-2026-10-04-cover-picture.json).
+_FULL_PAGE_FRAC = 0.97
+
+
+def _fills_page(w: float, h: float, page) -> bool:
+    return page is not None and w >= _FULL_PAGE_FRAC * page[0] and \
+        h >= _FULL_PAGE_FRAC * page[1]
+
+
+def _anchor_behind_text(run, page, w: float, h: float):
+    """Turn the run's inline picture into one anchored behind text, centred on
+    the paper (a picture as large as the page sits at its origin)."""
+    inline = run._r.find(".//" + qn("wp:inline"))
+    if inline is None:
+        return
+    anchor = OxmlElement("wp:anchor")
+    for k, v in (("distT", "0"), ("distB", "0"), ("distL", "0"), ("distR", "0"),
+                 ("simplePos", "0"), ("relativeHeight", "0"), ("behindDoc", "1"),
+                 ("locked", "0"), ("layoutInCell", "1"), ("allowOverlap", "1")):
+        anchor.set(k, v)
+    sp = OxmlElement("wp:simplePos")
+    sp.set("x", "0")
+    sp.set("y", "0")
+    anchor.append(sp)
+    for tag, off in (("wp:positionH", (page[0] - w) / 2.0),
+                     ("wp:positionV", (page[1] - h) / 2.0)):
+        pos = OxmlElement(tag)
+        pos.set("relativeFrom", "page")
+        po = OxmlElement("wp:posOffset")
+        po.text = str(int(round(off * 12700)))
+        pos.append(po)
+        anchor.append(pos)
+    # schema order after the position: extent, effectExtent?, wrap*, docPr,
+    # cNvGraphicFramePr?, graphic
+    children = list(inline)
+    for ch in children:
+        if ch.tag == qn("wp:extent"):
+            anchor.append(ch)
+    anchor.append(OxmlElement("wp:wrapNone"))
+    for ch in children:
+        if ch.tag != qn("wp:extent"):
+            anchor.append(ch)
+    inline.getparent().replace(inline, anchor)
+
+
+def _picture_paragraph(par, data: bytes, w: float, h: float, profile: str,
+                       page=None):
+    """Add the picture to `par`, inline -- or, when it fills the page, anchored
+    behind text in a paragraph that takes no room of its own."""
+    pf = par.paragraph_format
+    r = par.add_run()
+    r.add_picture(io.BytesIO(data), width=Emu(int(w * 12700)),
+                  height=Emu(int(h * 12700)))
+    if _fills_page(w, h, page):
+        pf.line_spacing_rule = WD_LINE_SPACING.EXACTLY
+        pf.line_spacing = Pt(1)
+        _anchor_behind_text(r, page, w, h)
+    elif profile != "gdocs":
+        # Word/LibreOffice need this guard for a paragraph containing only an
+        # inline drawing.  Google Docs reserves the inline drawing itself and
+        # treats the duplicate atLeast height as extra page-flow pressure.
+        pf.line_spacing_rule = WD_LINE_SPACING.AT_LEAST
+        pf.line_spacing = Pt(round(h, 1))
+    return par
+
+
 def write_image(container, im: ImageEl, ctx=None,
-                page_break_before: bool = False):
+                page_break_before: bool = False, page=None):
     """Place an extracted raster. Returns None when the image had to be dropped.
 
     Returning None so the caller omits the element is `write_figure`'s contract
     for a visual it cannot produce, and this follows it: an honest empty space,
-    tallied in `ctx.image_report`, rather than a crash.
+    tallied in `ctx.image_report`, rather than a crash. `page` is the paper
+    (w, h) in pt, so a picture that fills it can be placed on it.
     """
     ctx = ctx or _DEFAULT_CTX
     data = _embeddable(im.data, ctx.image_report)
@@ -2374,16 +2439,11 @@ def write_image(container, im: ImageEl, ctx=None,
         pf.page_break_before = True
     pf.space_before = Pt(round(max(0.0, im.space_before), 1))
     pf.space_after = Pt(0)
-    if ctx.output_profile != "gdocs":
-        pf.line_spacing_rule = WD_LINE_SPACING.AT_LEAST
-        pf.line_spacing = Pt(round(im.height, 1))
     par.alignment = ALIGN.get(im.align, WD_ALIGN_PARAGRAPH.CENTER)
     if im.align == "left" and im.left_indent > 0.5:
         pf.left_indent = Pt(round(im.left_indent, 1))
-    r = par.add_run()
-    r.add_picture(io.BytesIO(data), width=Emu(int(im.width * 12700)),
-                  height=Emu(int(im.height * 12700)))
-    return par
+    return _picture_paragraph(par, data, im.width, im.height,
+                              ctx.output_profile, page)
 
 
 def write_rule(container, rule: RuleEl, content_w: float,
@@ -3399,14 +3459,16 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                     write_table(doc, el, tw, ctx=ctx, page_break_before=carry)
                 elif isinstance(el, FigureEl):
                     if write_figure(doc, el, ctx=ctx,
-                                    page_break_before=carry) is None:
+                                    page_break_before=carry,
+                                    page=(glay.page_w, glay.page_h)) is None:
                         # Nothing was written (no renderer, or the clip
                         # rendered empty): the break waits for the next
                         # element rather than vanishing with this one.
                         pending_break[0] = carry
                 elif isinstance(el, ImageEl):
                     if write_image(doc, el, ctx=ctx,
-                                   page_break_before=carry) is None:
+                                   page_break_before=carry,
+                                   page=(glay.page_w, glay.page_h)) is None:
                         pending_break[0] = carry
                 elif isinstance(el, RuleEl):
                     write_rule(doc, el, cw_ctx, page_break_before=carry)
