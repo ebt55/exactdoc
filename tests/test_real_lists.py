@@ -223,6 +223,31 @@ class LevelSerialisation(unittest.TestCase):
         self.assertIsNone(el.find(qn("w:pPr")).find(qn("w:tabs")))
 
 
+class GdocsSeparators(unittest.TestCase):
+    """Google Docs draws a tab where `w:suff space`/`nothing` asks for a
+    space or nothing (live, 2026-10-04: c1's run-in "1. text" items 26pt
+    right), so under that profile a list numbers only if every level is
+    tab-separated; the rest keep their typed form, whole."""
+
+    def _plan(self, tab_only):
+        from exactdoc.structures import numbering_plan
+        run_in = [_inline_item("1.", "first", 0), _inline_item("2.", "second", 0)]
+        tabbed = [_tab_item("•", "a", 18), _tab_item("•", "b", 18)]
+        lay = _lay(run_in + [_body("between the two lists")] + tabbed)
+        L.assign_lists(lay, 11.0)
+        seps = {ld.list_id: {lv.sep for lv in ld.levels.values()} for ld in lay.lists}
+        return numbering_plan(lay, tab_only=tab_only), seps
+
+    def test_tab_only_drops_a_run_in_list(self):
+        plan, seps = self._plan(tab_only=True)
+        self.assertEqual(sorted(map(sorted, seps.values())), [["space"], ["tab"]])
+        self.assertEqual({lid for lid, s in seps.items() if s == {"tab"}}, set(plan))
+
+    def test_by_default_both_lists_number(self):
+        plan, seps = self._plan(tab_only=False)
+        self.assertEqual(set(plan), set(seps))
+
+
 def _list_pdf(path):
     W, H = 612, 792
     c = _canvas.Canvas(path, pagesize=(W, H))
@@ -267,8 +292,17 @@ class EndToEnd(unittest.TestCase):
         pdf = _list_pdf(os.path.join(cls._dir.name, "lists.pdf"))
         cls.std = os.path.join(cls._dir.name, "std.docx")
         cls.gd = os.path.join(cls._dir.name, "gd.docx")
+        cls.typed = os.path.join(cls._dir.name, "typed.docx")
         convert(pdf, cls.std, options=RAW)
         convert(pdf, cls.gd, options=PDFIUM_GDOCS_CANDIDATE)
+        # the typed form, as a profile without the capability writes it
+        from exactdoc import options as O
+        caps = O.PROFILE_CAPABILITIES["gdocs"]
+        O.PROFILE_CAPABILITIES["gdocs"] = frozenset()
+        try:
+            convert(pdf, cls.typed, options=PDFIUM_GDOCS_CANDIDATE)
+        finally:
+            O.PROFILE_CAPABILITIES["gdocs"] = caps
 
     @classmethod
     def tearDownClass(cls):
@@ -297,8 +331,15 @@ class EndToEnd(unittest.TestCase):
         # above python-docx's template lists (numId 1-9), never one of them
         self.assertTrue(all(int(n) > 9 for _l, n in ids), ids)
 
-    def test_gdocs_profile_keeps_the_typed_markers(self):
+    def test_gdocs_profile_numbers_tab_separated_lists(self):
+        # live, 2026-10-04: Docs renders tab-separated levels where the typed
+        # form put them (options.PROFILE_CAPABILITIES)
         doc = self._xml(self.gd, "word/document.xml")
+        self.assertEqual(doc.count("<w:numPr>"), 7)
+        self.assertNotIn(">•<", doc)
+
+    def test_without_the_capability_the_markers_stay_typed(self):
+        doc = self._xml(self.typed, "word/document.xml")
         self.assertNotIn("<w:numPr>", doc)
         self.assertIn(">•<", doc)
 
@@ -308,7 +349,7 @@ class EndToEnd(unittest.TestCase):
         sys.path.insert(0, os.path.join(ROOT, "testkit"))
         import harness
         real, _ = harness.docx_live_text(self.std)
-        typed, _ = harness.docx_live_text(self.gd)
+        typed, _ = harness.docx_live_text(self.typed)
         norm = lambda t: re.sub(r"\s+", "", t)
         self.assertEqual(norm(real), norm(typed))
         self.assertIn("3.Publishthetimes", norm(real))

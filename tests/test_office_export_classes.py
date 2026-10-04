@@ -223,9 +223,19 @@ class PleadingFurniture(unittest.TestCase):
         self.assertGreater(lay.margin_t, 40.0)
 
 
+# Body text that differs from page to page and carries no page number, so no
+# furniture pass can take it for a running line.
+_BODY = ["Toolbars hold the commands", "Rulers measure the page",
+         "The status bar reports the count", "Menus open on a click",
+         "Styles keep a document consistent", "Templates start a document",
+         "Fields update themselves", "Frames hold positioned text",
+         "Sections change the columns", "Lists number their items",
+         "Tables arrange their cells", "Footnotes carry the asides",
+         "Indexes collect the terms"]
+
+
 def _folio_page(number, text, y0=772.0, height=842.0, rule=True):
-    body = _line("Body paragraph text on page %d of the guide" % number,
-                 70.0, 100.0, 520.0)
+    body = _line(_BODY[number % len(_BODY)], 70.0, 300.0, 520.0)
     foot = _line(text, 70.0 if number % 2 == 0 else 377.0, y0,
                  200.0 if number % 2 == 0 else 542.0, size=10.3)
     draws = []
@@ -236,8 +246,9 @@ def _folio_page(number, text, y0=772.0, height=842.0, rule=True):
                   blocks=[_block([body]), _block([foot])], drawings=draws)
 
 
-class MirroredFurniture(unittest.TestCase):
-    """Finding 5, on y36's shape: feet 70pt up, mirrored, varying by section."""
+class RunningRules(unittest.TestCase):
+    """Finding 5, on y36's shape: feet 70pt up, mirrored, varying by section,
+    each set under a rule."""
 
     def _pages(self):
         pages = []
@@ -248,11 +259,22 @@ class MirroredFurniture(unittest.TestCase):
             pages.append(_folio_page(n, text))
         return pages
 
-    def test_mirrored_varying_feet_and_their_rule_are_consumed(self):
+    def test_a_running_foots_rule_goes_with_it(self):
+        # The feet themselves are the running-furniture passes' (extended
+        # band, by parity, from page 2); the rule each is set against is
+        # this pass's, and goes to the part as the foot's border.
         res = I.detect_hf(DocIR(path="x.pdf", pages=self._pages()))
-        for pn in range(1, 9):
+        for pn in range(2, 9):
             self.assertEqual(len(res["consumed_text"][pn]), 1, pn)
             self.assertEqual(res["consumed_draw"][pn], {0}, pn)
+            self.assertIn(0, [di for z, di, _d in res["rep_draws"][pn] if z == "bot"])
+
+    def test_a_rule_beside_no_running_line_stays(self):
+        pages = self._pages()
+        for p in pages:
+            p.blocks = p.blocks[:1]             # the feet gone
+        res = I.detect_hf(DocIR(path="x.pdf", pages=pages))
+        self.assertFalse(any(res["consumed_draw"].values()))
 
     def test_a_repeated_row_of_cells_is_not_furniture(self):
         # a spreadsheet's header row repeated on every page: several lines on
@@ -518,7 +540,7 @@ class FrontMatterFolios(unittest.TestCase):
         pages = []
         for n in range(1, 13):
             folio = ["", "", "iii", "iv", "v"][n - 1] if n <= 5 else str(n - 5)
-            body = _line("Body text of page %d" % n, 72.0, 100.0, 500.0)
+            body = _line(_BODY[n % len(_BODY)], 72.0, 300.0, 500.0)
             lines = [_block([body])]
             if folio:
                 lines.append(_block([_line(folio, 494.0, 744.5, 504.0, size=9.0)]))

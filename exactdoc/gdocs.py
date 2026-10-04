@@ -8,6 +8,7 @@ import argparse
 import json
 import os
 import sys
+import uuid
 
 from .errors import (OracleAuthenticationError, OracleCleanupError,
                      OracleExportError, OracleImportError,
@@ -17,6 +18,14 @@ from .errors import (OracleAuthenticationError, OracleCleanupError,
 SCOPES = ("https://www.googleapis.com/auth/drive.file",)
 GDOC_MIME = "application/vnd.google-apps.document"
 DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+# Drive's simple (multipart) upload carries at most 5 MB; a larger DOCX (one
+# with many page images: y06's is 9.9 MB) is refused or cut off mid-body, so it
+# goes up through a resumable session instead.
+SIMPLE_UPLOAD_MAX = 5 * 1024 * 1024
+# Google converts the DOCX while the create request is still open, so a large
+# one answers late: y06 (9.9 MB) outlived httplib2's default socket timeout in
+# mid-conversion (2026-10-04).
+HTTP_TIMEOUT_S = 600
 LEDGER_SCHEMA = "exactdoc.gdocs-orphan-ledger.v1"
 
 
@@ -142,7 +151,13 @@ def service(interactive=False, credentials_path=None, token_path=None):
         except (OSError, TypeError, ValueError) as exc:
             raise OracleAuthenticationError("the Google Docs token could not be saved securely") from exc
     try:
-        return build("drive", "v3", credentials=creds, cache_discovery=False)
+        try:
+            import httplib2
+            from google_auth_httplib2 import AuthorizedHttp
+        except ImportError:
+            return build("drive", "v3", credentials=creds, cache_discovery=False)
+        return build("drive", "v3", cache_discovery=False,
+                     http=AuthorizedHttp(creds, http=httplib2.Http(timeout=HTTP_TIMEOUT_S)))
     except Exception as exc:
         raise OracleUnavailableError("the Google Drive service could not be initialised") from exc
 
@@ -189,6 +204,50 @@ def _read_orphans(ledger_path):
         raise OracleCleanupError("the Google Docs recovery ledger is unusable") from exc
 
 
+def _export_pdf(svc, file_id):
+    """Google's PDF of the Doc. `files.export` refuses a Doc whose export
+    passes 10 MB (403, "This file is too large to be exported": y06, 9.9 MB of
+    page images, 2026-10-04); the file's own export link has no such cap, so
+    that refusal, and only that one, is retried through it."""
+    try:
+        return svc.files().export(fileId=file_id, mimeType="application/pdf").execute()
+    except Exception as exc:
+        if "too large to be exported" not in str(exc) and \
+                "exportSizeLimitExceeded" not in str(exc):
+            raise
+    link = svc.files().get(fileId=file_id, fields="exportLinks").execute() \
+        .get("exportLinks", {}).get("application/pdf")
+    if not link:
+        raise ValueError("the Doc offers no PDF export link")
+    resp, content = svc._http.request(link)
+    if getattr(resp, "status", None) != 200:
+        raise ValueError("the PDF export link answered %s" % getattr(resp, "status", None))
+    return content
+
+
+def _sweep_upload(svc, name, orphan_ledger_path=None):
+    """After a failed create, delete any Doc carrying this upload's name.
+
+    A create the client gave up on can still finish on the server and leave a
+    document nobody holds an id for. The name is unique to the upload, so a
+    match is ours. Best effort: a listing that fails leaves nothing to act on,
+    and a delete that fails is recorded for `cleanup_orphans`.
+    """
+    try:
+        q = "name = '%s' and trashed = false" % name.replace("\\", "\\\\").replace("'", "\\'")
+        found = svc.files().list(q=q, fields="files(id)").execute().get("files", [])
+    except Exception:
+        return
+    for item in found:
+        try:
+            svc.files().delete(fileId=item["id"]).execute()
+        except Exception:
+            try:
+                _record_orphan(item["id"], orphan_ledger_path)
+            except Exception:
+                pass
+
+
 def roundtrip(svc, docx_path, out_pdf, media_factory=None, orphan_ledger_path=None):
     """Upload a DOCX, export its Docs rendering as PDF, and delete it once."""
     if media_factory is None:
@@ -198,12 +257,16 @@ def roundtrip(svc, docx_path, out_pdf, media_factory=None, orphan_ledger_path=No
             raise OracleUnavailableError(
                 "the Google Docs oracle needs the optional [gdocs] dependencies") from exc
         media_factory = MediaFileUpload
+    name = "%s.%s" % (os.path.basename(docx_path), uuid.uuid4().hex[:12])
     try:
-        media = media_factory(docx_path, mimetype=DOCX_MIME, resumable=False)
+        size = os.path.getsize(docx_path) if os.path.exists(docx_path) else 0
+        media = media_factory(docx_path, mimetype=DOCX_MIME,
+                              resumable=size > SIMPLE_UPLOAD_MAX)
         created = svc.files().create(
-            body={"name": os.path.basename(docx_path), "mimeType": GDOC_MIME},
+            body={"name": name, "mimeType": GDOC_MIME},
             media_body=media, fields="id").execute()
     except Exception as exc:
+        _sweep_upload(svc, name, orphan_ledger_path)
         raise OracleUploadError("the document could not be uploaded to Google Drive") from exc
     file_id = created.get("id") if isinstance(created, dict) else None
     if not isinstance(file_id, str) or not file_id:
@@ -211,7 +274,7 @@ def roundtrip(svc, docx_path, out_pdf, media_factory=None, orphan_ledger_path=No
 
     export_error = None
     try:
-        data = svc.files().export(fileId=file_id, mimeType="application/pdf").execute()
+        data = _export_pdf(svc, file_id)
         if not isinstance(data, bytes) or not data:
             raise ValueError("empty or non-binary PDF export")
         with open(out_pdf, "wb") as fh:
