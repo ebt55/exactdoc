@@ -365,6 +365,54 @@ def _measure(src_pdf, rendered_pdf, backend, src_cache=None, geom=None):
             "anchors": len(anchors)}
 
 
+# The lowest a footer is moved when the render shows the body needs the room:
+# a quarter inch, the common minimum printable margin. Measured on the NIST
+# class (y01, y02, y08, y09), whose re-wrapped body overruns the source's body
+# box by up to ~50pt a page: with every footer at its source distance (35-52pt)
+# those overruns spill -- y01 rendered 119 pages against 107 before footers
+# were emitted -- and with the footers at 18pt the same document rendered 105.
+# ...and only when that frees at least a line of body text. The EUR-Lex AI Act
+# (y18) prints its footer 19.2pt up: lowering it 1.2pt bought no line and
+# perturbed the loop off the 144/144 fixed point it otherwise reaches (145
+# pages, word recall 0.99 -> 0.46). A 12pt line is the common body leading of
+# the documents measured. Inference applies the same two bounds open-loop
+# (`infer._fit_footers_below_body`), so the constants live there.
+from .infer import FOOTER_FLOOR_PT, FOOTER_MIN_GAIN_PT  # noqa: E402
+
+
+def _lower_footers(lay: DocLayout) -> bool:
+    """Spend the footer's own distance as correction currency, once.
+
+    A footer at its source distance bounds the body exactly where the source
+    did, which is right whenever the body fits -- and only then: a page whose
+    re-wrapped text runs a few points past the source's body box spills a
+    whole page. Before running footers were emitted at all, that overrun
+    silently used the space the footer now occupies. When the render shows
+    spills, the footers move down to FOOTER_FLOOR_PT and the bottom margin
+    follows them; a document that renders without spilling never gets here,
+    so its footers stay exactly where the source put them.
+    """
+    from .infer import _hf_extent
+    changed = False
+    parts = [lay.footer_default, lay.footer_even, lay.footer_first]
+    for s in lay.hf_sections:          # running-head sections' own footers
+        if s.parts:
+            parts += [s.parts.get(k) for k in ("footer", "footer_even",
+                                                "footer_first")]
+    parts = [p for p in parts if p is not None]
+    for part in parts:
+        if part.distance - FOOTER_FLOOR_PT < FOOTER_MIN_GAIN_PT:
+            continue
+        old_top = part.distance + _hf_extent(part)
+        part.distance = FOOTER_FLOOR_PT
+        if lay.margin_b <= old_top + 0.5:
+            # the body was bounded by this footer: follow it down
+            lay.margin_b = round(min(lay.margin_b, max(
+                14.0, FOOTER_FLOOR_PT + _hf_extent(part))), 1)
+        changed = True
+    return changed
+
+
 def _paras_of(el):
     """Exact-leading paragraphs an element contributes to its page's height,
     with their line counts: (para, lines, row_key). `row_key` groups table cell
@@ -479,6 +527,8 @@ def _apply(lay: DocLayout, m, state=None) -> bool:
     led = state["ledger"]
     needs = m.get("need") or []
     changed = False
+    if any(m["spill"]):
+        changed = _lower_footers(lay)
     for idx, pl in enumerate(lay.pages):
         if idx >= len(m["spill"]):
             break
@@ -744,6 +794,9 @@ def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
                     break
                 t0 = time.monotonic()
                 try:
+                    # the body box of the document THIS round wrote: the
+                    # footer lever (`_lower_footers`) moves its bottom
+                    geom = _geom(lay)
                     m = _measure(src_pdf, rendered, backend,
                                  src_cache=src_cache, geom=geom)
                 except Exception as e:

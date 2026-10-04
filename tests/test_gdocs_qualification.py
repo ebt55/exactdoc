@@ -195,6 +195,57 @@ class GDocsQualificationTests(unittest.TestCase):
             self.assertEqual(raised.exception.stage, "export")
             self.assertEqual(service._files.deleted, ["remote-id-must-never-escape"])
 
+    def test_a_docx_over_the_simple_upload_limit_goes_up_resumably(self):
+        seen = []
+
+        def media(path, **kwargs):
+            seen.append((os.path.basename(path), kwargs["resumable"]))
+            return object()
+
+        with tempfile.TemporaryDirectory() as work:
+            for name, size in (("small.docx", 1024),
+                               ("large.docx", oracle.SIMPLE_UPLOAD_MAX + 1)):
+                path = os.path.join(work, name)
+                with open(path, "wb") as fh:
+                    fh.truncate(size)
+                oracle.roundtrip(_Service(), path, os.path.join(work, name + ".pdf"),
+                                 media_factory=media)
+        self.assertEqual(seen, [("small.docx", False), ("large.docx", True)])
+
+    def test_a_failed_create_sweeps_any_doc_the_server_made_anyway(self):
+        # A create the client timed out on can still finish on the server
+        # (y06, 2026-10-04): the upload's unique name finds it and it goes.
+        class Files:
+            def __init__(self):
+                self.queries, self.deleted = [], []
+
+            def create(self, body, **_kwargs):
+                self.name = body["name"]
+                return _Request(None, TimeoutError("read timed out"))
+
+            def list(self, q, **_kwargs):
+                self.queries.append(q)
+                return _Request({"files": [{"id": "late-doc"}]})
+
+            def delete(self, fileId):
+                self.deleted.append(fileId)
+                return _Request(None)
+
+        files = Files()
+        svc = type("Svc", (), {"files": lambda self: files})()
+        with tempfile.TemporaryDirectory() as work:
+            path = os.path.join(work, "o'brien.docx")
+            with open(path, "wb") as fh:
+                fh.write(b"docx")
+            with self.assertRaises(oracle.RoundtripError) as raised:
+                oracle.roundtrip(svc, path, os.path.join(work, "o.pdf"),
+                                 media_factory=_media)
+        self.assertEqual(raised.exception.stage, "upload")
+        self.assertEqual(files.deleted, ["late-doc"])
+        self.assertTrue(files.name.startswith("o'brien.docx."))
+        self.assertEqual(files.queries,
+                         ["name = '%s' and trashed = false" % files.name.replace("'", "\\'")])
+
     def test_cleanup_failure_records_recovery_ledger_without_id_leakage(self):
         with tempfile.TemporaryDirectory() as work:
             service = _Service(delete_error=RuntimeError("delete down"))
@@ -855,6 +906,51 @@ class GDocsQualificationTests(unittest.TestCase):
                           stderr.getvalue())
             self.assertNotIn("Traceback", stderr.getvalue())
             self.assertNotIn(work, stderr.getvalue())
+
+
+class ExportLinkFallback(unittest.TestCase):
+    """files.export caps at 10 MB; past it Google answers 403 and the Doc's own
+    export link carries the PDF (y06, 2026-10-04). Nothing else falls back."""
+
+    def _svc(self, error):
+        calls = []
+
+        class Http:
+            def request(self, url):
+                calls.append(("link", url))
+                return type("R", (), {"status": 200})(), b"%PDF-big"
+
+        class Req:
+            def __init__(self, value=None, err=None):
+                self.value, self.err = value, err
+
+            def execute(self):
+                if self.err:
+                    raise self.err
+                return self.value
+
+        class Files:
+            def export(self, **_k):
+                calls.append(("export",))
+                return Req(None, error)
+
+            def get(self, **_k):
+                calls.append(("get",))
+                return Req({"exportLinks": {"application/pdf": "https://x/pdf"}})
+
+        svc = type("Svc", (), {"files": lambda self: Files(), "_http": Http()})()
+        return svc, calls
+
+    def test_a_too_large_export_is_fetched_through_the_export_link(self):
+        svc, calls = self._svc(RuntimeError("403: This file is too large to be exported."))
+        self.assertEqual(oracle._export_pdf(svc, "fid"), b"%PDF-big")
+        self.assertEqual(calls, [("export",), ("get",), ("link", "https://x/pdf")])
+
+    def test_any_other_export_error_is_raised(self):
+        svc, calls = self._svc(RuntimeError("500 backend error"))
+        with self.assertRaises(RuntimeError):
+            oracle._export_pdf(svc, "fid")
+        self.assertEqual(calls, [("export",)])
 
 
 if __name__ == "__main__":

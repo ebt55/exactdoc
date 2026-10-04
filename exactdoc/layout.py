@@ -297,6 +297,32 @@ class HFPart:
 
 
 @dataclass
+class HFSection:
+    """A run of source pages with its own page numbering.
+
+    The writer opens a NEW_PAGE section at `start_page` (1-based source page)
+    and states the numbering on it as `w:pgNumType`: `num_start` is the number
+    the source prints on that page, `num_fmt` its format ('decimal',
+    'lowerRoman', 'upperRoman'). Both None: the section continues numbering.
+    `blank`: the section's pages carry no running furniture in the source (a
+    cover and title page ahead of numbered front matter), so its header and
+    footer are written empty and the next section restates the document's.
+    The first entry always has start_page 1.
+    """
+    start_page: int
+    num_start: Optional[int] = None
+    num_fmt: Optional[str] = None
+    blank: bool = False
+    # Running-head parts this section states itself, because the source's
+    # varying furniture changes here (a new chapter title in the head). Keys
+    # 'header', 'footer', 'header_even', 'footer_even', 'header_first',
+    # 'footer_first'; None (the attribute) = inherit the previous section's.
+    parts: Optional[Dict[str, Optional["HFPart"]]] = None
+    # The section's first page is a chapter opener without the running head.
+    title_pg: bool = False
+
+
+@dataclass
 class DocLayout:
     page_w: float = 612.0
     page_h: float = 792.0
@@ -309,6 +335,13 @@ class DocLayout:
     footer_default: Optional[HFPart] = None
     footer_first: Optional[HFPart] = None
     different_first: bool = False
+    # Verso/recto furniture: when set, `header_default`/`footer_default` are the
+    # odd-page parts and these the even-page ones (None = same as default).
+    even_odd: bool = False
+    header_even: Optional[HFPart] = None
+    footer_even: Optional[HFPart] = None
+    # Page-numbering sections; empty when the document numbers 1..n in arabic.
+    hf_sections: List[HFSection] = field(default_factory=list)
     hyphenated: bool = False               # source uses hyphenated justification
     cover_band: Optional[TableEl] = None   # page-1 full-width band (own section, small top margin)
     cover_top: float = 0.0                 # top margin for the cover section

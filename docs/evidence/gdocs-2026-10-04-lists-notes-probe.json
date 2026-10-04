@@ -1,0 +1,418 @@
+{
+ "schema": 1,
+ "date": "2026-10-04",
+ "kind": "gdocs-live-capability-probe",
+ "renderer": "Google Docs import + PDF export (Drive API), measured by testkit/harness.evaluate against the source PDF",
+ "candidate_profile": "pdfium/gdocs/none/refine0@240dpi",
+ "question": "may the gdocs profile write lists as w:numPr and footnotes as footnotes.xml (options.PROFILE_CAPABILITIES)?",
+ "probe_set": {
+  "generator": "testkit/gdocs_probe_lists_notes.py",
+  "variants": "gdocs-typed (as shipped) / gdocs-real (capability forced on) / standard",
+  "results": {
+   "probe_bullets": {
+    "gdocs-typed": {
+     "page_match": true,
+     "word_recall": 0.9,
+     "dx_p50": 0.06,
+     "dx_p90": 0.12,
+     "dy_p50": 1.05,
+     "dy_p90": 1.77,
+     "within2pt": 0.9111,
+     "mean_ssim": 0.9841,
+     "live_text_cov": 1.0
+    },
+    "gdocs-real": {
+     "page_match": true,
+     "word_recall": 0.9,
+     "dx_p50": 0.06,
+     "dx_p90": 0.12,
+     "dy_p50": 1.05,
+     "dy_p90": 1.77,
+     "within2pt": 0.9111,
+     "mean_ssim": 0.9841,
+     "live_text_cov": 1.0
+    },
+    "standard": {
+     "page_match": true,
+     "word_recall": 0.9,
+     "dx_p50": 0.06,
+     "dx_p90": 0.12,
+     "dy_p50": 7.38,
+     "dy_p90": 8.76,
+     "within2pt": 0.0,
+     "mean_ssim": 0.9527,
+     "live_text_cov": 1.0
+    }
+   },
+   "probe_decimal": {
+    "gdocs-typed": {
+     "page_match": true,
+     "word_recall": 0.8269,
+     "dx_p50": 0.03,
+     "dx_p90": 0.1,
+     "dy_p50": 0.76,
+     "dy_p90": 1.77,
+     "within2pt": 0.9535,
+     "mean_ssim": 0.9734,
+     "live_text_cov": 1.0
+    },
+    "gdocs-real": {
+     "page_match": true,
+     "word_recall": 0.8269,
+     "dx_p50": 0.03,
+     "dx_p90": 0.1,
+     "dy_p50": 0.76,
+     "dy_p90": 1.77,
+     "within2pt": 0.9535,
+     "mean_ssim": 0.9734,
+     "live_text_cov": 1.0
+    },
+    "standard": {
+     "page_match": true,
+     "word_recall": 0.8269,
+     "dx_p50": 0.03,
+     "dx_p90": 0.13,
+     "dy_p50": 8.07,
+     "dy_p90": 10.7,
+     "within2pt": 0.0,
+     "mean_ssim": 0.9452,
+     "live_text_cov": 1.0
+    }
+   },
+   "probe_nested": {
+    "gdocs-typed": {
+     "page_match": true,
+     "word_recall": 0.9464,
+     "dx_p50": 6.16,
+     "dx_p90": 49.96,
+     "dy_p50": 1.42,
+     "dy_p90": 1.64,
+     "within2pt": 0.4057,
+     "mean_ssim": 0.9346,
+     "live_text_cov": 1.0
+    },
+    "gdocs-real": {
+     "page_match": true,
+     "word_recall": 0.9286,
+     "dx_p50": 2.02,
+     "dx_p90": 18.87,
+     "dy_p50": 1.42,
+     "dy_p90": 1.62,
+     "within2pt": 0.4327,
+     "mean_ssim": 0.9338,
+     "live_text_cov": 1.0
+    },
+    "standard": {
+     "page_match": true,
+     "word_recall": 0.9286,
+     "dx_p50": 2.02,
+     "dx_p90": 18.87,
+     "dy_p50": 8.81,
+     "dy_p90": 11.09,
+     "within2pt": 0.0,
+     "mean_ssim": 0.9037,
+     "live_text_cov": 1.0
+    }
+   },
+   "probe_footnotes": {
+    "gdocs-typed": {
+     "page_match": true,
+     "word_recall": 1.0,
+     "dx_p50": 0.19,
+     "dx_p90": 0.3,
+     "dy_p50": 2.83,
+     "dy_p90": 3.33,
+     "within2pt": 0.0,
+     "mean_ssim": 0.8886,
+     "live_text_cov": 1.0
+    },
+    "gdocs-real": {
+     "page_match": true,
+     "word_recall": 1.0,
+     "dx_p50": 0.19,
+     "dx_p90": 1.3,
+     "dy_p50": 2.9,
+     "dy_p90": 73.87,
+     "within2pt": 0.0,
+     "mean_ssim": 0.8829,
+     "live_text_cov": 0.9992
+    },
+    "standard": {
+     "page_match": true,
+     "word_recall": 1.0,
+     "dx_p50": 0.19,
+     "dx_p90": 1.3,
+     "dy_p50": 4.94,
+     "dy_p90": 95.77,
+     "within2pt": 0.1109,
+     "mean_ssim": 0.8126,
+     "live_text_cov": 0.9992
+    }
+   },
+   "probe_footnote_marks": {
+    "gdocs-typed": {
+     "page_match": true,
+     "word_recall": 1.0,
+     "dx_p50": 0.19,
+     "dx_p90": 0.3,
+     "dy_p50": 2.83,
+     "dy_p90": 3.33,
+     "within2pt": 0.0,
+     "mean_ssim": 0.8886,
+     "live_text_cov": 1.0
+    },
+    "gdocs-real": {
+     "page_match": true,
+     "word_recall": 0.9881,
+     "dx_p50": 0.19,
+     "dx_p90": 0.41,
+     "dy_p50": 2.9,
+     "dy_p90": 78.21,
+     "within2pt": 0.0,
+     "mean_ssim": 0.8751,
+     "live_text_cov": 0.9972
+    },
+    "standard": {
+     "page_match": true,
+     "word_recall": 0.9881,
+     "dx_p50": 0.19,
+     "dx_p90": 1.3,
+     "dy_p50": 4.94,
+     "dy_p90": 95.77,
+     "within2pt": 0.1122,
+     "mean_ssim": 0.8071,
+     "live_text_cov": 0.9972
+    }
+   }
+  }
+ },
+ "findings": {
+  "numbering_tab_separated": "bullets, decimal, alpha and roman levels separated by a tab render with every metric identical to the typed form; printed numbers equal the source's across an interrupted list",
+  "numbering_run_in": "w:suff space/nothing is not honoured: Docs draws a tab where the space was, setting the text about 0.5in past the label's indent (c1: indent 69.9pt, text 106.0pt), so run-in '1. text' items land right of the source (probe_nested justified items 97.7 -> 106.9pt; c1_whitepaper recommendations 79.6 -> 106.0pt). Those lists stay typed under gdocs (structures.numbering_plan tab_only)",
+  "footnotes": "withheld: real notes sit at the foot of the text area (probe_footnotes dy_p90 3.33 -> 73.87pt) and custom marks are renumbered (a '*' mark and a restart at 1 print as continuing automatic numbers)"
+ },
+ "corpus_pass9_before_run_in_rule": {
+  "overall_pass": true,
+  "only_change_vs_pass8b": "c1_whitepaper.pdf",
+  "c1_whitepaper.pdf": {
+   "pass8b": {
+    "page_match": true,
+    "word_recall": 0.9697,
+    "dx_p50": 2.29,
+    "dx_p90": 19.44,
+    "dy_p50": 3.69,
+    "dy_p90": 12.67,
+    "within2pt": 0.0531,
+    "mean_ssim": 0.8204,
+    "live_text_cov": 0.9654
+   },
+   "pass9": {
+    "page_match": true,
+    "word_recall": 0.9606,
+    "dx_p50": 3.27,
+    "dx_p90": 28.06,
+    "dy_p50": 3.69,
+    "dy_p90": 12.67,
+    "within2pt": 0.0536,
+    "mean_ssim": 0.8201,
+    "live_text_cov": 0.9654
+   }
+  },
+  "note": "pass 9 wrote c1's run-in list as w:numPr too (6 w:numPr paragraphs, 74 in the corpus); only c1 moved, and pass 9b with the run-in rule restored it exactly"
+ },
+ "corpus_pass9b": {
+  "evidence": "gdocs-2026-10-04-pass9b-qualification.json",
+  "result": "every fidelity metric identical to pass 8b on all 16 documents; 8 carry real lists (71 w:numPr paragraphs, c6_long 50)"
+ },
+ "expansion_typed_vs_real": {
+  "result": "identical on every metric in both forms",
+  "documents": {
+   "x03_lo_lists_nested": {
+    "numPr": 23,
+    "typed": {
+     "page_match": true,
+     "src_pages": 2,
+     "out_pages": 2,
+     "word_recall": 0.9062,
+     "dx_p50": 0.02,
+     "dx_p90": 0.1,
+     "dy_p50": 2.12,
+     "dy_p90": 6.81,
+     "within2pt": 0.2974,
+     "mean_ssim": 0.9187,
+     "live_text_cov": 0.9523
+    },
+    "real": {
+     "page_match": true,
+     "src_pages": 2,
+     "out_pages": 2,
+     "word_recall": 0.9062,
+     "dx_p50": 0.02,
+     "dx_p90": 0.1,
+     "dy_p50": 2.12,
+     "dy_p90": 6.81,
+     "within2pt": 0.2974,
+     "mean_ssim": 0.9187,
+     "live_text_cov": 0.9523
+    }
+   },
+   "x09_chrome_lists_nested": {
+    "numPr": 11,
+    "typed": {
+     "page_match": true,
+     "src_pages": 2,
+     "out_pages": 2,
+     "word_recall": 1.0,
+     "dx_p50": 7.8,
+     "dx_p90": 72.86,
+     "dy_p50": 17.31,
+     "dy_p90": 22.52,
+     "within2pt": 0.0293,
+     "mean_ssim": 0.8816,
+     "live_text_cov": 0.9789
+    },
+    "real": {
+     "page_match": true,
+     "src_pages": 2,
+     "out_pages": 2,
+     "word_recall": 1.0,
+     "dx_p50": 7.8,
+     "dx_p90": 72.86,
+     "dy_p50": 17.31,
+     "dy_p90": 22.52,
+     "within2pt": 0.0293,
+     "mean_ssim": 0.8816,
+     "live_text_cov": 0.9789
+    }
+   },
+   "x17_resume_twocol": {
+    "numPr": 0
+   },
+   "x18_resume_twocol_tnr": {
+    "numPr": 0
+   },
+   "y17_rfc9110": {
+    "numPr": 18,
+    "typed": {
+     "page_match": false,
+     "src_pages": 194,
+     "out_pages": 212,
+     "word_recall": 0.5478,
+     "dx_p50": 6.04,
+     "dx_p90": 153.11,
+     "dy_p50": 15.69,
+     "dy_p90": 146.19,
+     "within2pt": 0.0103,
+     "mean_ssim": 0.5657,
+     "live_text_cov": 0.9643
+    },
+    "real": {
+     "page_match": false,
+     "src_pages": 194,
+     "out_pages": 212,
+     "word_recall": 0.5478,
+     "dx_p50": 6.04,
+     "dx_p90": 153.11,
+     "dy_p50": 15.69,
+     "dy_p90": 146.19,
+     "within2pt": 0.0103,
+     "mean_ssim": 0.5657,
+     "live_text_cov": 0.9643
+    }
+   },
+   "y24_pandoc_manual": {
+    "numPr": 253,
+    "typed": {
+     "page_match": false,
+     "src_pages": 180,
+     "out_pages": 168,
+     "word_recall": 0.6029,
+     "dx_p50": 19.79,
+     "dx_p90": 193.95,
+     "dy_p50": 6.99,
+     "dy_p90": 84.65,
+     "within2pt": 0.0418,
+     "mean_ssim": 0.7033,
+     "live_text_cov": 0.9867
+    },
+    "real": {
+     "page_match": false,
+     "src_pages": 180,
+     "out_pages": 168,
+     "word_recall": 0.6029,
+     "dx_p50": 19.79,
+     "dx_p90": 193.95,
+     "dy_p50": 6.99,
+     "dy_p90": 84.65,
+     "within2pt": 0.0418,
+     "mean_ssim": 0.7033,
+     "live_text_cov": 0.9867
+    }
+   },
+   "y28_doe_oig_word365": {
+    "numPr": 34,
+    "typed": {
+     "page_match": false,
+     "src_pages": 21,
+     "out_pages": 28,
+     "word_recall": 0.2553,
+     "dx_p50": 75.25,
+     "dx_p90": 244.46,
+     "dy_p50": 72.21,
+     "dy_p90": 354.8,
+     "within2pt": 0.0096,
+     "mean_ssim": 0.414,
+     "live_text_cov": 0.972
+    },
+    "real": {
+     "page_match": false,
+     "src_pages": 21,
+     "out_pages": 28,
+     "word_recall": 0.2553,
+     "dx_p50": 75.25,
+     "dx_p90": 244.46,
+     "dy_p50": 72.21,
+     "dy_p90": 354.8,
+     "within2pt": 0.0096,
+     "mean_ssim": 0.414,
+     "live_text_cov": 0.972
+    }
+   },
+   "y30_nz_guideline_word365": {
+    "numPr": 105,
+    "typed": {
+     "page_match": false,
+     "src_pages": 33,
+     "out_pages": 35,
+     "word_recall": 0.3895,
+     "dx_p50": 12.03,
+     "dx_p90": 161.13,
+     "dy_p50": 34.02,
+     "dy_p90": 267.72,
+     "within2pt": 0.04,
+     "mean_ssim": 0.6288,
+     "live_text_cov": 0.8735
+    },
+    "real": {
+     "page_match": false,
+     "src_pages": 33,
+     "out_pages": 35,
+     "word_recall": 0.3895,
+     "dx_p50": 12.03,
+     "dx_p90": 161.13,
+     "dy_p50": 34.02,
+     "dy_p90": 267.72,
+     "within2pt": 0.04,
+     "mean_ssim": 0.6288,
+     "live_text_cov": 0.8735
+    }
+   }
+  }
+ },
+ "private_report_32pp": {
+  "numPr": 62,
+  "typed_align_clean": true,
+  "real_align_clean": true,
+  "note": "a private 32-page report outside the corpus (not committed); page-alignment CLEAN 32/32 in both forms, all metrics identical"
+ }
+}

@@ -25,6 +25,7 @@ import sys
 import shutil
 import tempfile
 import time
+import uuid
 
 import _paths  # noqa: F401
 import harness
@@ -42,6 +43,15 @@ TOKEN = os.environ.get("EXACTDOC_GDOCS_TOKEN") or os.path.join(PROJECT, "token.j
 SCOPES = ["https://www.googleapis.com/auth/drive.file"]
 GDOC_MIME = "application/vnd.google-apps.document"
 DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+# Drive's simple (multipart) upload carries at most 5 MB; past that the request
+# is refused or cut off mid-body. y06's 9.9 MB DOCX failed all three attempts
+# that way (2026-10-04). A resumable session has no such cap, so a file over
+# the limit goes up resumably and everything else exactly as before.
+SIMPLE_UPLOAD_MAX = 5 * 1024 * 1024
+# Google converts the DOCX while the create request is still open, so a large
+# one answers late: y06 (9.9 MB) outlived httplib2's default socket timeout in
+# mid-conversion (2026-10-04). Ten minutes covers the corpus's largest.
+HTTP_TIMEOUT_S = 600
 EVIDENCE_NAME = "gdocs_qualification.json"
 PREPARATION_NAME = ".exactdoc-gdocs-preparation.json"
 PREPARATION_SCHEMA = "exactdoc.gdocs-preparation.v1"
@@ -358,7 +368,57 @@ def _service(interactive=True):
             os.chmod(TOKEN, 0o600)
         except OSError:
             pass
-    return build("drive", "v3", credentials=creds, cache_discovery=False)
+    return _build_drive(build, creds)
+
+
+def _build_drive(build, creds):
+    try:
+        import httplib2
+        from google_auth_httplib2 import AuthorizedHttp
+    except ImportError:
+        return build("drive", "v3", credentials=creds, cache_discovery=False)
+    return build("drive", "v3", cache_discovery=False,
+                 http=AuthorizedHttp(creds, http=httplib2.Http(timeout=HTTP_TIMEOUT_S)))
+
+
+def _export_pdf(svc, fid):
+    """Google's PDF of the Doc. `files.export` refuses a Doc whose export
+    passes 10 MB (403, "This file is too large to be exported": y06, 9.9 MB of
+    page images, 2026-10-04); the file's own export link has no such cap, so
+    that refusal, and only that one, is retried through it."""
+    try:
+        return svc.files().export(fileId=fid, mimeType="application/pdf").execute()
+    except Exception as exc:
+        if "too large to be exported" not in str(exc) and \
+                "exportSizeLimitExceeded" not in str(exc):
+            raise
+    link = svc.files().get(fileId=fid, fields="exportLinks").execute() \
+        .get("exportLinks", {}).get("application/pdf")
+    if not link:
+        raise RuntimeError("the Doc offers no PDF export link")
+    resp, content = svc._http.request(link)
+    if getattr(resp, "status", None) != 200:
+        raise RuntimeError("the PDF export link answered %s" % getattr(resp, "status", None))
+    return content
+
+
+def _sweep_upload(svc, name, orphan_recorder):
+    """After a failed create, delete any Doc carrying this upload's name.
+
+    A create the client gave up on can still finish on the server and leave a
+    document nobody holds an id for. The name is unique to the upload, so a
+    match is ours. Best effort: a listing that fails leaves nothing to act on.
+    """
+    try:
+        q = "name = '%s' and trashed = false" % name.replace("\\", "\\\\").replace("'", "\\'")
+        found = svc.files().list(q=q, fields="files(id)").execute().get("files", [])
+    except Exception:
+        return
+    for item in found:
+        try:
+            svc.files().delete(fileId=item["id"]).execute()
+        except Exception:
+            orphan_recorder(item["id"])
 
 
 def _record_orphan(file_id, ledger_path=ORPHAN_LEDGER):
@@ -432,17 +492,21 @@ def roundtrip(svc, docx_path, out_pdf, media_factory=None, orphan_recorder=_reco
     if media_factory is None:
         from googleapiclient.http import MediaFileUpload
         media_factory = MediaFileUpload
+    name = "%s.%s" % (os.path.basename(docx_path), uuid.uuid4().hex[:12])
     try:
-        media = media_factory(docx_path, mimetype=DOCX_MIME, resumable=False)
-        meta = {"name": os.path.basename(docx_path), "mimeType": GDOC_MIME}
+        size = os.path.getsize(docx_path) if os.path.exists(docx_path) else 0
+        media = media_factory(docx_path, mimetype=DOCX_MIME,
+                              resumable=size > SIMPLE_UPLOAD_MAX)
+        meta = {"name": name, "mimeType": GDOC_MIME}
         created = svc.files().create(body=meta, media_body=media, fields="id").execute()
         fid = created["id"]
     except Exception as exc:
+        _sweep_upload(svc, name, orphan_recorder)
         raise RoundtripError("upload") from exc
 
     export_error = None
     try:
-        data = svc.files().export(fileId=fid, mimeType="application/pdf").execute()
+        data = _export_pdf(svc, fid)
         with open(out_pdf, "wb") as fh:
             fh.write(data)
     except Exception as exc:
