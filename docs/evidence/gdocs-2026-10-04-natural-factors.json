@@ -1,0 +1,140 @@
+{
+ "schema": 1,
+ "date": "2026-10-04",
+ "kind": "gdocs-live-probe+ab",
+ "probe": {
+  "method": "python-docx paragraphs, one per page, single spacing (w:line 240 auto), 9-12 lines; pitch = (last-first x-height baseline)/(lines-1) on Google's export",
+  "natural_factor_pitch_over_size": {
+   "Carlito": {
+    "11pt": 1.2207,
+    "9pt": 1.2208
+   },
+   "Calibri": {
+    "11pt": 1.2208,
+    "9pt": 1.2208
+   },
+   "Arial": {
+    "11pt": 1.15,
+    "9pt": 1.1501
+   },
+   "Times New Roman": {
+    "11pt": 1.1499,
+    "9pt": 1.1501
+   },
+   "Caladea": {
+    "11pt": 1.15,
+    "9pt": 1.1501
+   },
+   "Cambria": {
+    "11pt": 1.1724,
+    "9pt": 1.1724
+   }
+  },
+  "note": "each equals the font file's (hhea ascender - descender + lineGap)/unitsPerEm; docxout.NATURAL_FACTORS lacked the Calibri family (1.144 default) and holds 1.144 for Arial/Times"
+ },
+ "ab": {
+  "method": "same tree, flown twice: A with the four new NATURAL_FACTORS entries removed, B as committed",
+  "documents": {
+   "y02_nist_sp800171r2.pdf": {
+    "A": {
+     "src_pages": 114,
+     "out_pages": 135,
+     "word_recall": 0.2379,
+     "char_recall": 0.6563,
+     "dy_p50": 37.96,
+     "within2pt": 0.0649,
+     "mean_ssim": 0.5295
+    },
+    "B": {
+     "src_pages": 114,
+     "out_pages": 125,
+     "word_recall": 0.2674,
+     "char_recall": 0.7252,
+     "dy_p50": 34.85,
+     "within2pt": 0.06,
+     "mean_ssim": 0.5676
+    }
+   },
+   "y30_nz_guideline_word365.pdf": {
+    "A": {
+     "src_pages": 33,
+     "out_pages": 43,
+     "word_recall": 0.2727,
+     "char_recall": 0.5791,
+     "dy_p50": 40.55,
+     "within2pt": 0.003,
+     "mean_ssim": 0.5236
+    },
+    "B": {
+     "src_pages": 33,
+     "out_pages": 32,
+     "word_recall": 0.3835,
+     "char_recall": 0.8044,
+     "dy_p50": 48.22,
+     "within2pt": 0.0053,
+     "mean_ssim": 0.6231
+    }
+   },
+   "y33_nz_paper_powerpdf.pdf": {
+    "A": {
+     "src_pages": 60,
+     "out_pages": 104,
+     "word_recall": 0.1433,
+     "char_recall": 0.4046,
+     "dy_p50": 54.47,
+     "within2pt": 0.0004,
+     "mean_ssim": 0.4041
+    },
+    "B": {
+     "src_pages": 60,
+     "out_pages": 78,
+     "word_recall": 0.1931,
+     "char_recall": 0.5358,
+     "dy_p50": 56.83,
+     "within2pt": 0.0011,
+     "mean_ssim": 0.5152
+    }
+   },
+   "y34_census_slides_pptx365.pdf": {
+    "A": {
+     "src_pages": 40,
+     "out_pages": 95,
+     "word_recall": 0.1323,
+     "char_recall": 0.3784,
+     "dy_p50": 3.25,
+     "within2pt": 0.1849,
+     "mean_ssim": 0.314
+    },
+    "B": {
+     "src_pages": 40,
+     "out_pages": 94,
+     "word_recall": 0.1308,
+     "char_recall": 0.3999,
+     "dy_p50": 3.25,
+     "within2pt": 0.0649,
+     "mean_ssim": 0.3205
+    }
+   },
+   "y46_cv_twocol_xdvipdfmx.pdf": {
+    "A": {
+     "src_pages": 1,
+     "out_pages": 2,
+     "word_recall": 0.6273,
+     "char_recall": 0.6296,
+     "dy_p50": 155.79,
+     "within2pt": 0.0097,
+     "mean_ssim": 0.3002
+    },
+    "B": {
+     "src_pages": 1,
+     "out_pages": 2,
+     "word_recall": 0.6424,
+     "char_recall": 0.6521,
+     "dy_p50": 140.88,
+     "within2pt": 0.0,
+     "mean_ssim": 0.3001
+    }
+   }
+  }
+ }
+}

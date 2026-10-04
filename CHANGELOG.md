@@ -20,6 +20,20 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **gdocs: Calibri-family line heights measured in Google Docs; Word documents
+  stop growing there (live, 2026-10-04).** The gdocs profile writes line
+  height as a multiple of each family's natural line in Docs
+  (`docxout.NATURAL_FACTORS`), and Calibri -- the commonest Word font, which
+  the profile writes as Carlito -- was missing: it took the 1.144 default and
+  every line rendered 6.7% tall. A live probe (one paragraph per page, 9-12
+  lines at 11pt and 9pt) measured Carlito and Calibri at 1.2207, Cambria 1.1724
+  and Caladea 1.1500, each its font file's own hhea line
+  ([evidence](docs/evidence/gdocs-2026-10-04-natural-factors.json)). With them,
+  live A/B: y30 43 -> 32 pages (33 in the source; char recall 0.58 -> 0.80),
+  y33 104 -> 78 (60; LibreOffice 74), y02 135 -> 125 (114), y34 95 -> 94; y30's
+  and y02's page growth after the WP2 footers came from this, not from the
+  footers. Worse: y34 within-2pt 0.185 -> 0.065, y46 0.010 -> 0.000. No gated
+  document uses these families.
 - **gdocs: the ladder no longer fits locked lines with tracking Google Docs
   discards (live, 2026-10-04).** The ladder pins a re-wrapping paragraph to
   its source lines and makes each pinned line fit by compressing it with
