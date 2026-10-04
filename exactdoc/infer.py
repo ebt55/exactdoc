@@ -3739,6 +3739,12 @@ def _can_relax_bottom_margin(lay: DocLayout) -> bool:
     if any((lay.header_default, lay.footer_default, lay.header_first,
             lay.footer_first)):
         return False
+    # A table carried across pages (continuation_only) breaks where the
+    # bottom margin says, not at a source page seam: with the 14pt reserve
+    # c3_tables' long table took two more rows onto page 1 than its source
+    # and its product-lane word placement fell 0.936 -> 0.915.
+    if any(getattr(pg, "continuation_only", False) for pg in lay.pages):
+        return False
     for page in lay.pages:
         elements = [el for chunk in page.chunks for el in chunk.elements]
         figures = [el for el in elements if isinstance(el, FigureEl)]

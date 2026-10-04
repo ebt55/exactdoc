@@ -76,8 +76,8 @@ def test_graphic_overlap_documents_keep_inferred_margin():
     two-row 'Region' cell as a bar) together with the heading above it, and
     two empty card rows were laid over the picture. Since the fill-tiled
     table is recognised as the table it is (infer._tile_bands, defect
-    catalogue #13) c3 carries no figure at all, and whether it takes relief
-    is the plain-flow question, not this one.
+    catalogue #13) c3 carries no figure at all; it keeps its margin for a
+    different reason, pinned below.
     """
     for name in ("c5_graphics",):
         lay = layout(name)
@@ -85,6 +85,21 @@ def test_graphic_overlap_documents_keep_inferred_margin():
               not _can_relax_bottom_margin(lay))
         check("%s retains more than 14pt reserve" % name,
               lay.margin_b > 14.0, str(lay.margin_b))
+
+
+def test_page_spanning_tables_keep_inferred_margin():
+    """A table coalesced across pages breaks where the bottom margin says.
+
+    With the 14pt reserve c3_tables' long striped table took two more rows
+    onto page 1 than its source, and the product lane's word placement fell
+    0.936 -> 0.915 (canonical gate, wp16-gate-1).
+    """
+    lay = layout("c3_tables")
+    check("c3_tables carries a page-spanning table",
+          any(pg.continuation_only for pg in lay.pages))
+    check("c3_tables declines relief for it", not _can_relax_bottom_margin(lay))
+    check("c3_tables retains more than 14pt reserve", lay.margin_b > 14.0,
+          str(lay.margin_b))
 
 
 def main():
