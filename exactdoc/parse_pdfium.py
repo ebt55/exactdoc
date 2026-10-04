@@ -395,13 +395,49 @@ def _page_chars(textpage, frame, vis=None, objs=None) -> List[_Char]:
     """
     frame = _as_frame(frame)
     hidden = vis.hidden if vis is not None else ()
-    n = raw.FPDFText_CountChars(textpage.raw)
+    tp = textpage.raw
+    n = raw.FPDFText_CountChars(tp)
     out = []
     buf = ctypes.create_string_buffer(128)
+    # One set of out-parameters for the page, not a dozen fresh ctypes objects
+    # and byref wrappers per character: at ~400k characters for an 80-page
+    # report that allocation was a large share of `page_lines`, which the
+    # refine loop runs on every render. Every out-parameter a call may leave
+    # untouched on failure is zeroed first, so each character still reads
+    # exactly what a fresh object would have given it. Font names and colours
+    # repeat across thousands of characters and are decoded once each.
+    l = ctypes.c_double(); r_ = ctypes.c_double()
+    b = ctypes.c_double(); t = ctypes.c_double()
+    ox = ctypes.c_double(); oy = ctypes.c_double()
+    flags = ctypes.c_int()
+    cr = ctypes.c_uint(); cg = ctypes.c_uint()
+    cb = ctypes.c_uint(); ca = ctypes.c_uint()
+    lr = raw.FS_RECTF()
+    byref = ctypes.byref
+    p_l, p_r, p_b, p_t = byref(l), byref(r_), byref(b), byref(t)
+    p_ox, p_oy, p_flags = byref(ox), byref(oy), byref(flags)
+    p_cr, p_cg, p_cb, p_ca = byref(cr), byref(cg), byref(cb), byref(ca)
+    p_lr = byref(lr)
+    get_unicode = raw.FPDFText_GetUnicode
+    get_box = raw.FPDFText_GetCharBox
+    get_origin = raw.FPDFText_GetCharOrigin
+    get_font = raw.FPDFText_GetFontInfo
+    get_fill = raw.FPDFText_GetFillColor
+    get_loose = raw.FPDFText_GetLooseCharBox
+    get_size = raw.FPDFText_GetFontSize
+    is_generated = getattr(raw, "FPDFText_IsGenerated", None)
+    get_matrix = getattr(raw, "FPDFText_GetMatrix", None)
+    try:
+        m = raw.FS_MATRIX()
+        p_m = byref(m)
+    except Exception:
+        get_matrix = None
+    font_names = {}
+    colours = {}
     for i in range(n):
         if i in hidden:
             continue
-        u = raw.FPDFText_GetUnicode(textpage.raw, i)
+        u = get_unicode(tp, i)
         if u in (0, 0xFFFE):
             continue
         # PDFium synthesises characters that are not in the PDF: spaces, where
@@ -416,27 +452,27 @@ def _page_chars(textpage, frame, vis=None, objs=None) -> List[_Char]:
         # neighbouring style; drop only the line breaks, which are pure
         # reading-order decoration and would otherwise each become a 1pt run.
         generated = False
-        try:
-            generated = raw.FPDFText_IsGenerated(textpage.raw, i) == 1
-        except Exception:
-            pass
+        if is_generated is not None:
+            try:
+                generated = is_generated(tp, i) == 1
+            except Exception:
+                pass
         if generated and chr(u) in ("\r", "\n"):
             continue
-        l = ctypes.c_double(); r_ = ctypes.c_double()
-        b = ctypes.c_double(); t = ctypes.c_double()
-        if not raw.FPDFText_GetCharBox(textpage.raw, i,
-                                       ctypes.byref(l), ctypes.byref(r_),
-                                       ctypes.byref(b), ctypes.byref(t)):
+        if not get_box(tp, i, p_l, p_r, p_b, p_t):
             continue
-        ox = ctypes.c_double(); oy = ctypes.c_double()
-        raw.FPDFText_GetCharOrigin(textpage.raw, i, ctypes.byref(ox), ctypes.byref(oy))
-        flags = ctypes.c_int()
-        ln = raw.FPDFText_GetFontInfo(textpage.raw, i, buf, 128, ctypes.byref(flags))
-        font = buf.raw[:max(0, ln - 1)].decode("utf-8", "replace") if ln else ""
-        cr = ctypes.c_uint(); cg = ctypes.c_uint()
-        cb = ctypes.c_uint(); ca = ctypes.c_uint()
-        raw.FPDFText_GetFillColor(textpage.raw, i, ctypes.byref(cr), ctypes.byref(cg),
-                                  ctypes.byref(cb), ctypes.byref(ca))
+        ox.value = 0.0
+        oy.value = 0.0
+        get_origin(tp, i, p_ox, p_oy)
+        flags.value = 0
+        ln = get_font(tp, i, buf, 128, p_flags)
+        key = buf.raw[:max(0, ln - 1)] if ln else b""
+        font = font_names.get(key)
+        if font is None:
+            font = font_names[key] = _SUBSET_RE.sub(
+                "", key.decode("utf-8", "replace"))
+        cr.value = cg.value = cb.value = ca.value = 0
+        get_fill(tp, i, p_cr, p_cg, p_cb, p_ca)
         # The LOOSE box is derived from the font's metrics; the tight box is
         # the glyph's ink. PyMuPDF reports metric-based line boxes, so using
         # ink here made every line box start below the true ascent and shifted
@@ -457,20 +493,20 @@ def _page_chars(textpage, frame, vis=None, objs=None) -> List[_Char]:
         # Probed before being relied on (§12 law 15): loose.left equals
         # FPDFText_GetCharOrigin's x to 0.000 on every character sampled, and
         # equals PyMuPDF's line x0 exactly.
-        lr = raw.FS_RECTF()
-        if raw.FPDFText_GetLooseCharBox(textpage.raw, i, ctypes.byref(lr)):
+        tv, bv = float(t.value), float(b.value)
+        if get_loose(tp, i, p_lr):
             ly0, ly1 = float(lr.bottom), float(lr.top)
             lx0, lx1 = float(lr.left), float(lr.right)
         else:
-            ly0, ly1 = float(b.value), float(t.value)
+            ly0, ly1 = bv, tv
             lx0, lx1 = float(l.value), float(r_.value)
 
         c = _Char()
         c.u = chr(u)
         # into the visible frame: PDFium is bottom-left user space, the IR is
         # top-left points on the page as displayed (see _Frame)
-        c.x0, c.y0, c.x1, c.y1 = frame.rect(lx0, min(ly0, float(b.value)),
-                                            max(lx1, lx0), max(ly1, float(t.value)))
+        c.x0, c.y0, c.x1, c.y1 = frame.rect(lx0, min(ly0, bv),
+                                            max(lx1, lx0), max(ly1, tv))
         c.ox, c.oy = frame.pt(float(ox.value), float(oy.value))
         # FPDFText_GetFontSize reports the size BEFORE the text matrix. Chromium
         # lays out in CSS pixels and applies a 0.75 matrix, so every size came
@@ -478,15 +514,15 @@ def _page_chars(textpage, frame, vis=None, objs=None) -> List[_Char]:
         # therefore page counts across the board (7 source pages rendered as
         # 20). The effective size is the reported size times the matrix's
         # vertical scale; producers that use an identity matrix are unaffected.
-        size = abs(float(raw.FPDFText_GetFontSize(textpage.raw, i)))
-        try:
-            m = raw.FS_MATRIX()
-            if raw.FPDFText_GetMatrix(textpage.raw, i, ctypes.byref(m)):
-                vs = (m.b * m.b + m.d * m.d) ** 0.5
-                if vs > 1e-6:
-                    size *= vs
-        except Exception:
-            pass
+        size = abs(float(get_size(tp, i)))
+        if get_matrix is not None:
+            try:
+                if get_matrix(tp, i, p_m):
+                    vs = (m.b * m.b + m.d * m.d) ** 0.5
+                    if vs > 1e-6:
+                        size *= vs
+            except Exception:
+                pass
         c.gen = generated
         # a generated space has no font of its own; inherit the run it joins
         if generated and out:
@@ -498,9 +534,13 @@ def _page_chars(textpage, frame, vis=None, objs=None) -> List[_Char]:
             out.append(c)
             continue
         c.size = size
-        c.font = _SUBSET_RE.sub("", font)
+        c.font = font
         c.flags = int(flags.value)
-        c.color = _hexcol(cr.value, cg.value, cb.value)
+        rgb = (cr.value, cg.value, cb.value)
+        colour = colours.get(rgb)
+        if colour is None:
+            colour = colours[rgb] = _hexcol(*rgb)
+        c.color = colour
         if vis is not None and i in vis.ocr:
             # An OCR layer's colour was never painted; the text it carries is
             # what the scan shows, and a scan's text is ink.
@@ -1181,23 +1221,50 @@ def _absorb_script_rows(vis_rows):
         whole line report the script's baseline as its own.
     """
     rows = [(ri, row) for ri, row in vis_rows if row]
+    # Every fragment used to be tested against every row, recomputing the
+    # host's max size and span from its characters on each pair -- O(rows^2 x
+    # chars), measured at 27.6M generator steps and ~45% of `page_lines` on
+    # y01's 80 pages (and 60% of y13's parse; audit B21). The answer is
+    # unchanged by computing less:
+    #
+    #   * per-row size/span are kept as running values. A host only ever
+    #     absorbs a fragment that lies right of its first character, so its
+    #     min x and its `[0]` character (whose baseline the tests read) never
+    #     change, and its max size and max x update by `max`.
+    #   * only rows whose baseline lies within SCRIPT_BASE_EM of the page's
+    #     largest size can pass the em-box test, so candidates come from a
+    #     baseline-sorted window (widened by 1e-6 so float rounding can only
+    #     admit extra rows, which the exact test below then rejects) and are
+    #     visited in their original index order -- the tie-break of `score <`.
+    sz = [max(c.size for c in row) for _, row in rows]
+    x0s = [min(c.x0 for c in row) for _, row in rows]
+    x1s = [max(c.x1 for c in row) for _, row in rows]
+    by_base = sorted((row[0].oy, j) for j, (_, row) in enumerate(rows))
+    base_keys = [b for b, _ in by_base]
+    reach = SCRIPT_BASE_EM * max(sz, default=0.0) + 1e-6
     absorbed = set()
     for i, (frag_ri, frag) in enumerate(rows):
-        fsz = max(c.size for c in frag)
-        fx0 = min(c.x0 for c in frag)
+        fsz = sz[i]
+        fx0 = x0s[i]
         fb = frag[0].oy
         best = None
-        for j, (host_ri, host) in enumerate(rows):
+        lo = bisect.bisect_left(base_keys, fb - reach)
+        hi = bisect.bisect_right(base_keys, fb + reach)
+        for j in sorted(by_base[k][1] for k in range(lo, hi)):
+            host_ri, host = rows[j]
             if j == i or j in absorbed or host_ri == frag_ri:
                 continue
-            hsz = max(c.size for c in host)
+            hsz = sz[j]
             dy = fb - host[0].oy
             if abs(dy) > SCRIPT_BASE_EM * hsz:
                 continue                      # outside the em box
-            hx0, hx1 = _row_span(host)
+            hx0, hx1 = x0s[j], x1s[j]
             if fx0 <= hx0 or fx0 > hx1 + SCRIPT_REACH_EM * hsz:
                 continue                      # not adjacent, or would lead
-            inset = fsz >= SCRIPT_SIZE_FRAC * _attach_size(host, fx0, hsz)
+            # (the row's max bounds the attach size, so the scan is skipped
+            # whenever the row alone already says "same size")
+            inset = fsz >= SCRIPT_SIZE_FRAC * hsz or \
+                fsz >= SCRIPT_SIZE_FRAC * _attach_size(host, fx0, hsz)
             if inset and not _set_into(frag, host, hsz):
                 continue                      # same size: a real line
             if inset and abs(dy) > INSET_DY_EM * hsz:
@@ -1216,6 +1283,9 @@ def _absorb_script_rows(vis_rows):
                 c.sup = True
         host.extend(frag)
         host.sort(key=lambda c: c.x0)
+        sz[j] = max(sz[j], fsz)
+        x0s[j] = min(x0s[j], fx0)
+        x1s[j] = max(x1s[j], x1s[i])
         absorbed.add(i)
     return [row for i, (_, row) in enumerate(rows) if i not in absorbed]
 
@@ -1525,6 +1595,39 @@ def _span_tracking(cs) -> tuple:
     return round(mean, 3), False
 
 
+def _baseline_rows(chars: List[_Char]) -> List[List[_Char]]:
+    """Characters grouped into rows that share a baseline, in reading order.
+
+    Each character joins the FIRST row (in creation order) whose founding
+    baseline lies within tolerance. That used to be found by scanning every
+    row from the top for every character -- O(chars x rows), the largest
+    single self-time in `page_lines` on long documents (2.8s of y01's 80
+    pages under the profiler). The rows' founding baselines are now kept
+    sorted, so the candidates are a window around the character's baseline
+    (widened by 1e-6 so rounding can only admit extras, which the exact
+    original test then rejects) and the earliest-created passing row is still
+    the one chosen. Same rows, same order, same members.
+    """
+    rows = []
+    founders = []                       # sorted (founding baseline, row index)
+    for c in sorted(chars, key=lambda c: (round(c.oy, 1), c.ox)):
+        tol = max(BASELINE_TOL, 0.12 * c.size)
+        k = bisect.bisect_left(founders, (c.oy - tol - 1e-6,))
+        target = None
+        while k < len(founders) and founders[k][0] <= c.oy + tol + 1e-6:
+            j = founders[k][1]
+            if (target is None or j < target) and \
+                    abs(c.oy - rows[j][0].oy) <= tol:
+                target = j
+            k += 1
+        if target is not None:
+            rows[target].append(c)
+        else:
+            bisect.insort(founders, (c.oy, len(rows)))
+            rows.append([c])
+    return rows
+
+
 def _build_lines(chars: List[_Char]) -> List[Line]:
     """chars -> spans -> lines, by baseline then x.
 
@@ -1545,16 +1648,7 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
                 (c.x1 - c.x0) / c.size)
     mono_cells = {k: _mono_pitch_em(sorted(v)[len(v) // 2], 1, 1.0)
                   for k, v in cells.items()}
-    rows = []
-    for c in sorted(chars, key=lambda c: (round(c.oy, 1), c.ox)):
-        placed = False
-        for r in rows:
-            if abs(c.oy - r[0].oy) <= max(BASELINE_TOL, 0.12 * c.size):
-                r.append(c)
-                placed = True
-                break
-        if not placed:
-            rows.append([c])
+    rows = _baseline_rows(chars)
     # Sharing a baseline is not sharing a line when the two collide: see
     # _separate_overprints for the page where a heading overprinted a footer.
     rows = [part for r in rows for part in _separate_overprints(r)]

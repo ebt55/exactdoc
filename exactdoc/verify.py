@@ -42,6 +42,206 @@ def _find_soffice():
 
 SOFFICE = _find_soffice()
 
+# Where a LibreOffice user profile may live. A fresh profile nests 138
+# characters below its root, and soffice does not survive a root that pushes
+# that past the Windows path limit: measured on LibreOffice 25.2 / Windows 11,
+# profile creation succeeds with a 132-character profile path and crashes
+# (0xC0000409, with a fatal-error dialog on the user's screen) at 162. Agent
+# and CI temp directories routinely run to ~200 characters, which is how every
+# product conversion under one failed with "the render oracle produced no
+# output" (benchmark gap #11). So the session root -- profile, soffice's own
+# temp files and the document copy -- is placed under a SHORT directory, not
+# under whatever TEMP happens to be. 96 leaves the session's own ~14 characters
+# and a margin under the measured 132.
+SHORT_ROOT_MAX = 96
+# One render's wall-clock bound. A conversion that has not finished by then has
+# hung; it is killed with its whole process tree rather than left holding the
+# profile.
+RENDER_TIMEOUT_S = 300
+
+
+def _short_root() -> str:
+    """A writable directory short enough to hold a LibreOffice profile.
+
+    `EXACTDOC_SOFFICE_ROOT` wins when set. Otherwise the temp directory is used
+    when it is short enough, and failing that the platform's ordinary short
+    temp location -- the temp directory a default Windows account has
+    (`%LOCALAPPDATA%\\Temp`), `C:\\Temp`, or `/tmp`.
+    """
+    explicit = os.environ.get("EXACTDOC_SOFFICE_ROOT")
+    if explicit:
+        return explicit
+    tmp = tempfile.gettempdir()
+    if len(tmp) <= SHORT_ROOT_MAX:
+        return tmp
+    cands = []
+    if os.name == "nt":
+        la = os.environ.get("LOCALAPPDATA")
+        if la:
+            cands.append(os.path.join(la, "Temp"))
+        cands.append(os.path.join(os.environ.get("SystemDrive", "C:") + "\\",
+                                  "Temp"))
+    else:
+        cands += ["/tmp", "/var/tmp"]
+    for c in cands:
+        if len(c) <= SHORT_ROOT_MAX:
+            try:
+                os.makedirs(c, exist_ok=True)
+            except OSError:
+                continue
+            if os.access(c, os.W_OK):
+                return c
+    return tmp
+
+
+def _file_url(path: str) -> str:
+    p = os.path.abspath(path).replace("\\", "/")
+    return "file:///" + p.lstrip("/")
+
+
+def _kill_tree(proc) -> None:
+    """Kill soffice AND its children. `soffice` is a launcher: on Linux a shell
+    script over oosplash over soffice.bin, on Windows soffice.exe over
+    soffice.bin. Killing only the process `subprocess` started orphans the one
+    doing the work, still holding the profile."""
+    try:
+        if os.name == "nt":
+            subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+                           capture_output=True, timeout=30)
+        else:
+            import signal
+            os.killpg(proc.pid, signal.SIGKILL)
+    except Exception:
+        pass
+    try:
+        proc.kill()
+    except Exception:
+        pass
+    try:
+        proc.wait(timeout=30)
+    except Exception:
+        pass
+
+
+class SofficeSession:
+    """One private LibreOffice installation directory, reused across renders.
+
+    A product conversion renders the same document up to four times. Each
+    render used to start soffice against a fresh profile and delete it after,
+    so every round paid profile creation: measured on Windows, 7-11s per render
+    cold against 3.5-4s with the profile kept (LibreOffice 25.2, an 80-page
+    document). In the Linux container creation is cheap (1.9s cold, 2.0-2.3s
+    warm) and keeping it costs nothing. The profile now lives for the session.
+
+    A long-lived soffice process (forwarding conversions to a running instance)
+    was measured too and bought nothing over the kept profile: 3.2-3.7s on
+    Windows, 1.7-4.6s in the container. It would add a process to keep alive,
+    find and kill; it is not used.
+
+    Isolation is unchanged: a session's directory is private (`mkdtemp`), so
+    concurrent conversions never share a profile, and `close()` removes it.
+
+    Robustness is the other half. A render that exits without writing a PDF is
+    retried once on the same profile (soffice refuses some rapid restarts and
+    exits 0 having done nothing) and once more on a fresh one (a profile left
+    damaged by a crash). A render that hangs is killed, tree and all, and not
+    retried. `last_failure` says, content-free, what went wrong.
+    """
+
+    def __init__(self, profile: Optional[str] = None):
+        self.root = None
+        self._profile = profile
+        self.last_failure = None
+        self.renders = 0
+
+    def _ensure(self):
+        if self.root is None:
+            self.root = tempfile.mkdtemp(prefix="xd-", dir=_short_root())
+            for sub in ("t", "w"):
+                os.makedirs(os.path.join(self.root, sub), exist_ok=True)
+        return self.root
+
+    @property
+    def profile(self) -> str:
+        return self._profile or os.path.join(self._ensure(), "p")
+
+    def _run(self, docx_copy: str, work: str):
+        env = dict(os.environ)
+        env.setdefault("HOME", tempfile.gettempdir())
+        tmp = os.path.join(self._ensure(), "t")
+        env["TMP"] = env["TEMP"] = env["TMPDIR"] = tmp
+        cmd = [SOFFICE, "--headless", "--norestore", "--invisible",
+               "--nolockcheck", "-env:UserInstallation=" + _file_url(self.profile),
+               "--convert-to", "pdf", "--outdir", work, docx_copy]
+        kw = {}
+        if os.name == "nt":
+            kw["creationflags"] = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
+        else:
+            kw["start_new_session"] = True
+        try:
+            proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL,
+                                    stderr=subprocess.DEVNULL, env=env, **kw)
+        except OSError as e:
+            return "soffice could not be started (%s)" % type(e).__name__
+        try:
+            rc = proc.wait(timeout=RENDER_TIMEOUT_S)
+        except subprocess.TimeoutExpired:
+            _kill_tree(proc)
+            return "timeout"
+        return rc
+
+    def render(self, docx_path: str, out_dir: str) -> Optional[str]:
+        """DOCX -> `<out_dir>/<stem>.pdf`. None if no PDF could be produced."""
+        if SOFFICE is None:
+            self.last_failure = "LibreOffice not found"
+            return None
+        import shutil
+        self.renders += 1
+        stem = os.path.splitext(os.path.basename(docx_path))[0]
+        final = os.path.join(out_dir, stem + ".pdf")
+        if os.path.exists(final):
+            os.remove(final)
+        work = os.path.join(self._ensure(), "w")
+        src = os.path.join(work, "d.docx")
+        out = os.path.join(work, "d.pdf")
+        shutil.copyfile(docx_path, src)
+        outcome = None
+        for attempt in range(3):
+            if os.path.exists(out):
+                os.remove(out)
+            if attempt == 2 and self._profile is None:
+                shutil.rmtree(self.profile, ignore_errors=True)
+            outcome = self._run(src, work)
+            if os.path.exists(out) and os.path.getsize(out) > 0:
+                shutil.move(out, final)
+                self.last_failure = None
+                return final
+            if isinstance(outcome, str):
+                break                 # a hang or a launch failure: not retried
+        if outcome == "timeout":
+            self.last_failure = ("LibreOffice did not finish within %ds"
+                                 % RENDER_TIMEOUT_S)
+        elif isinstance(outcome, str):
+            self.last_failure = outcome
+        else:
+            self.last_failure = ("LibreOffice exited with status %s without "
+                                 "writing a PDF (%d attempts)"
+                                 % (outcome, attempt + 1))
+        return None
+
+    def close(self):
+        if self.root is not None:
+            import shutil
+            shutil.rmtree(self.root, ignore_errors=True)
+            self.root = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
+        return False
+
 
 def docx_to_pdf(docx_path: str, out_dir: str, profile: Optional[str] = None
                 ) -> Optional[str]:
@@ -62,29 +262,13 @@ def docx_to_pdf(docx_path: str, out_dir: str, profile: Optional[str] = None
     `testkit/harness.py` deliberately does exactly that: soffice also refuses
     *rapid* restarts against differing profiles, so a tight batch loop wants one
     warm profile, while a product conversion wants isolation. Those are different
-    trade-offs and both are now expressible.
+    trade-offs and both are now expressible. A caller rendering the same
+    document repeatedly -- the refine loop -- wants a `SofficeSession`.
     """
     if SOFFICE is None:
         return None
-    env = dict(os.environ)
-    env.setdefault("HOME", tempfile.gettempdir())
-    owned = profile is None
-    prof = profile or tempfile.mkdtemp(prefix="exactdoc_soffice_")
-    out = os.path.join(out_dir, os.path.splitext(os.path.basename(docx_path))[0] + ".pdf")
-    if os.path.exists(out):
-        os.remove(out)
-    cmd = [SOFFICE, "--headless", "--norestore", "--invisible", "--nolockcheck",
-           "-env:UserInstallation=file:///" + prof.replace("\\", "/"),
-           "--convert-to", "pdf", "--outdir", out_dir, docx_path]
-    try:
-        subprocess.run(cmd, capture_output=True, timeout=300, env=env)
-    except (subprocess.TimeoutExpired, OSError):
-        return None
-    finally:
-        if owned:
-            import shutil
-            shutil.rmtree(prof, ignore_errors=True)
-    return out if os.path.exists(out) else None
+    with SofficeSession(profile=profile) as session:
+        return session.render(docx_path, out_dir)
 
 
 def _page_count(pdf_path: str, backend) -> int:

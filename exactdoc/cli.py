@@ -16,7 +16,10 @@ from .scan import MAX_PAGES_PER_DOCUMENT
 # whether or not anyone called it one, so these are part of the contract and do
 # not get renumbered casually.
 #
-# 0  success
+# 0  success -- including a conversion whose render oracle failed mid-run: the
+#    best DOCX produced so far is written and a `warning: the libreoffice
+#    oracle failed ...` line goes to stderr (OracleDegradedWarning). An oracle
+#    that is not installed at all is still exit 11 before anything is written.
 # 1  an unclassified exactdoc failure
 # 2  argparse usage error (argparse's own convention; not ours to change)
 EXIT_CODES = {
@@ -193,19 +196,32 @@ def _run(ap, argv):
     if args.out and len(args.pdf) > 1:
         ap.error("-o works with a single input")
 
-    from .convert import convert
+    import warnings
+    from .convert import convert_result
+    from .errors import OracleDegradedWarning
     for p in args.pdf:
         # A legacy --target wins over the new pair only when the new pair was
         # left at its default, so `--target gdocs --oracle none` is a conflict
         # rather than a silent override. options.replace() raises on that.
         legacy = {"target": args.target} if args.target else {
             "output_profile": args.output_profile, "oracle": args.oracle}
-        out = convert(p, args.out, dpi=args.dpi, refine_rounds=args.refine,
-                      backend=args.backend, verbose=args.verbose,
-                      allow_cloud_upload=args.allow_cloud_upload or None,
-                      max_pages=args.max_pages, ocr_layer=args.ocr_layer,
-                      **legacy)
+        with warnings.catch_warnings():
+            # Reported below from the result, once, in the CLI's own words.
+            warnings.simplefilter("ignore", OracleDegradedWarning)
+            res = convert_result(
+                p, args.out, dpi=args.dpi, refine_rounds=args.refine,
+                backend=args.backend, verbose=args.verbose,
+                allow_cloud_upload=args.allow_cloud_upload or None,
+                max_pages=args.max_pages, ocr_layer=args.ocr_layer,
+                **legacy)
+        out = res.output_path
         print("wrote", out)
+        for w in res.warnings:
+            if w.code == "image-dropped":
+                continue             # already printed by the conversion
+            print("warning: %s" % w.message, file=sys.stderr)
+            if w.detail:
+                print("  %s" % w.detail, file=sys.stderr)
         if args.verify:
             from .verify import verify, audit
             a = audit(p, out)
