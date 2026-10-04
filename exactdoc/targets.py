@@ -27,7 +27,34 @@ from .options import DEFAULT_ORACLE, ORACLES, canonical_oracle
 DEFAULT = DEFAULT_ORACLE
 
 
+class LibreOfficeRenderer:
+    """The LibreOffice oracle as a render callable that keeps its profile.
+
+    `render(docx_path, tmp_dir) -> pdf_path | None`, like every oracle, plus
+    `close()` and `last_failure`. One instance serves one refine loop: its
+    first render creates a private profile and the rest reuse it (see
+    `verify.SofficeSession` for what that saves), and the loop closes it, which
+    deletes the profile. `last_failure` is a content-free sentence saying why
+    the most recent render produced nothing, for the warning the loop raises.
+    """
+
+    def __init__(self):
+        from .verify import SofficeSession
+        self._session = SofficeSession()
+
+    @property
+    def last_failure(self):
+        return self._session.last_failure
+
+    def __call__(self, docx_path: str, tmp_dir: str) -> Optional[str]:
+        return self._session.render(docx_path, tmp_dir)
+
+    def close(self):
+        self._session.close()
+
+
 def _libreoffice_render(docx_path: str, tmp_dir: str) -> Optional[str]:
+    """One-shot form, kept for callers that render a single document."""
     from .verify import docx_to_pdf
     return docx_to_pdf(docx_path, tmp_dir)
 
@@ -70,4 +97,4 @@ def get_renderer(oracle: str):
             "the LibreOffice oracle was requested but soffice was not found. "
             "Install LibreOffice, choose another oracle, or set refine_rounds=0 "
             "to convert open-loop deliberately.")
-    return _libreoffice_render, "libreoffice"
+    return LibreOfficeRenderer(), "libreoffice"

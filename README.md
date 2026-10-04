@@ -64,8 +64,9 @@ pip install -e ".[gdocs]"   # exactdoc-gdocs CLI (Google auth + qualification)
 pip install -e ".[test]"    # test/measurement toolkit
 ```
 
-The refinement loop uses LibreOffice headless (`soffice`) if present.
-Conversion is local; nothing is uploaded.
+The shipping profile's refinement loop renders through LibreOffice headless
+(`soffice`); see *When LibreOffice is missing or fails* below for what happens
+without it. Conversion is local; nothing is uploaded.
 
 ## Usage
 
@@ -105,6 +106,40 @@ scans exit with an explicit OCR-required code (17, or 18 for partial batch
 failures). Output publication is transactional: candidates stay private until
 structural DOCX validation succeeds, then replace the destination atomically —
 a failed conversion never corrupts an existing output.
+
+### When LibreOffice is missing or fails
+
+Two different situations, deliberately handled differently:
+
+- **Not installed.** Asking for refinement (the default) with no `soffice` on
+  the machine is an error before anything is written: `OracleUnavailableError`,
+  **exit code 11**. Install LibreOffice, or pass `--refine 0` to convert
+  open-loop on purpose. Converting open-loop silently would make the default
+  profile mean the raw one on that machine, for every document, with nothing to
+  say so.
+- **Installed, but it crashes, hangs or writes nothing mid-run.** The
+  conversion has already produced a valid DOCX by then, so it is not thrown
+  away: the best candidate so far is published — the best measured refine
+  round, or, if the very first render failed, the open-loop DOCX — and the
+  failure is reported as a warning, not an error. The CLI exits **0** and
+  prints `warning: the libreoffice oracle failed in refine round N; …` to
+  stderr. From Python, `convert()` raises
+  `exactdoc.errors.OracleDegradedWarning` through `warnings.warn`, and
+  `exactdoc.convert.convert_result()` returns a `ConversionResult` whose
+  `warnings` carry an `oracle-degraded` entry and whose `degraded` is True
+  (`resolved_options` names the rounds that actually ran). A batch result
+  row lists the warning under `warnings`.
+
+  To get the old all-or-nothing behaviour, escalate the warning:
+  `warnings.simplefilter("error", OracleDegradedWarning)`. It is raised before
+  publication, so the conversion then fails and the destination is untouched.
+  The gate and the quality sweep do exactly that, so a degraded conversion is
+  never measured as the shipping product.
+
+LibreOffice keeps one private profile per conversion (created on the first
+render, removed at the end), under a short directory: a profile beneath a long
+TEMP path crashes soffice on Windows. Set `EXACTDOC_SOFFICE_ROOT` to choose
+that directory explicitly.
 
 ### The same DOCX everywhere — with one measured caveat
 
