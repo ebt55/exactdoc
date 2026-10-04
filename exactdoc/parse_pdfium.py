@@ -16,6 +16,7 @@ flipped on the way in. Sizes are in points throughout.
 """
 import ctypes
 import re
+from collections import namedtuple
 from typing import List, Optional
 
 import pypdfium2 as pdfium
@@ -126,6 +127,118 @@ def _hexcol(r, g, b):
     return "#%02x%02x%02x" % (r & 255, g & 255, b & 255)
 
 
+# ------------------------------------------------------------ page geometry
+class _Frame:
+    """PDF user space -> the VISIBLE page, in the IR's top-left points.
+
+    What a viewer shows is the CropBox (clipped to the MediaBox), turned by
+    /Rotate. PDFium reports glyph boxes, object bounds, path points, link
+    rectangles and destinations in USER space -- the content stream's own
+    coordinates, before either -- while page.get_width()/get_height() are the
+    displayed frame. Flipping user y against the displayed height, which is all
+    this parser used to do, is right only when the box starts at (0, 0) and
+    the page is not rotated. Measured on synthetic pages (design audit B6,
+    robust_make.py): a CropBox [50 50 562 742] put a baseline at -8 instead of
+    42 with x 50pt out; a MediaBox origin of (50, 50) put it at 92 instead of
+    142; /Rotate 90 put it at -88 and lost the rectangle.
+
+    The mapping is PDFium's own page matrix (CPDF_Page::UpdateDimensions), so
+    the frame is exactly what page.render() draws -- which is what
+    render_clip crops and what the verify loop compares against.
+
+    `plain` (box at the origin, no rotation) keeps the historical arithmetic
+    `h - y` to the bit, so every document that never had the bug parses to the
+    same IR it always did.
+    """
+    __slots__ = ("w", "h", "rot", "l", "b", "r", "t", "plain")
+
+    def __init__(self, w, h, box=None, rot=0):
+        self.w, self.h = float(w), float(h)
+        l, b, r, t = box if box is not None else (0.0, 0.0, w, h)
+        self.l, self.b, self.r, self.t = float(l), float(b), float(r), float(t)
+        self.rot = int(rot) % 4
+        self.plain = self.rot == 0 and self.l == 0.0 and self.b == 0.0
+
+    @classmethod
+    def of(cls, page) -> "_Frame":
+        try:
+            box = page.get_bbox()           # CropBox intersected with MediaBox
+            rot = (page.get_rotation() // 90) % 4
+        except Exception:
+            box, rot = None, 0
+        return cls(page.get_width(), page.get_height(), box, rot)
+
+    def pt(self, x, y):
+        """A user-space point in the frame."""
+        if self.plain:
+            return x, self.h - y
+        rot = self.rot
+        if rot == 0:
+            X, Y = x - self.l, y - self.b
+        elif rot == 1:                      # /Rotate 90: clockwise
+            X, Y = y - self.b, self.r - x
+        elif rot == 2:
+            X, Y = self.r - x, self.t - y
+        else:
+            X, Y = self.t - y, x - self.l
+        return X, self.h - Y
+
+    def rect(self, l, b, r, t):
+        """A user-space rectangle (left, bottom, right, top) in the frame."""
+        x0, y0 = self.pt(l, b)
+        x1, y1 = self.pt(r, t)
+        return (min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1))
+
+    def outside(self, bb) -> bool:
+        """Whether a frame bbox lies wholly off the visible page."""
+        return bb[2] < 0.0 or bb[0] > self.w or bb[3] < 0.0 or bb[1] > self.h
+
+    def holds(self, x, y) -> bool:
+        return 0.0 <= x <= self.w and 0.0 <= y <= self.h
+
+
+def _as_frame(frame) -> _Frame:
+    """Accept a bare page height, which is what callers passed before frames."""
+    if isinstance(frame, _Frame):
+        return frame
+    return _Frame(0.0, float(frame))
+
+
+def _compose(m1, m2):
+    """Apply m1, then m2. Matrices are PDF's (a, b, c, d, e, f); None = identity."""
+    if m1 is None:
+        return m2
+    if m2 is None:
+        return m1
+    a1, b1, c1, d1, e1, f1 = m1
+    a2, b2, c2, d2, e2, f2 = m2
+    return (a1 * a2 + b1 * c2, a1 * b2 + b1 * d2,
+            c1 * a2 + d1 * c2, c1 * b2 + d1 * d2,
+            e1 * a2 + f1 * c2 + e2, e1 * b2 + f1 * d2 + f2)
+
+
+def _map_rect(ctm, l, b, r, t):
+    """An object-space rectangle through `ctm`, as a user-space (l, b, r, t)."""
+    if ctm is None:
+        return l, b, r, t
+    xs, ys = [], []
+    for x in (l, r):
+        for y in (b, t):
+            px, py = _apply_matrix(ctm, x, y)
+            xs.append(px)
+            ys.append(py)
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+def _meet(a, b):
+    """Intersection of two frame boxes (None = unbounded)."""
+    if a is None:
+        return b
+    if b is None:
+        return a
+    return (max(a[0], b[0]), max(a[1], b[1]), min(a[2], b[2]), min(a[3], b[3]))
+
+
 class _Char:
     __slots__ = ("u", "x0", "y0", "x1", "y1", "ox", "oy", "size", "font",
                  "flags", "color", "gen", "sup", "link", "dest", "tracked")
@@ -146,8 +259,13 @@ class _Char:
         return bool(self.flags & _FLAG_FIXED) or "courier" in fl or "mono" in fl
 
 
-def _page_chars(textpage, page_h) -> List[_Char]:
+def _page_chars(textpage, frame, vis=None) -> List[_Char]:
     """Characters with geometry, in content-stream order.
+
+    `frame` maps PDFium's user space onto the visible page (see _Frame; a bare
+    page height is accepted and means an unrotated box at the origin). `vis`,
+    when given, is the page's _Visibility: characters it hides are skipped
+    before anything is measured, and the OCR layer it keeps is re-inked.
 
     A note on unmapped glyphs, because one of them crashed every conversion of
     the real-world corpus. When a font gives PDFium no usable ToUnicode entry,
@@ -168,10 +286,14 @@ def _page_chars(textpage, page_h) -> List[_Char]:
     fixed here and the recovery is left as its own problem, with the evidence
     written down rather than encoded as a constant.
     """
+    frame = _as_frame(frame)
+    hidden = vis.hidden if vis is not None else ()
     n = raw.FPDFText_CountChars(textpage.raw)
     out = []
     buf = ctypes.create_string_buffer(128)
     for i in range(n):
+        if i in hidden:
+            continue
         u = raw.FPDFText_GetUnicode(textpage.raw, i)
         if u in (0, 0xFFFE):
             continue
@@ -238,10 +360,11 @@ def _page_chars(textpage, page_h) -> List[_Char]:
 
         c = _Char()
         c.u = chr(u)
-        # flip y: PDFium is bottom-left origin, the IR is top-left
-        c.x0, c.x1 = lx0, max(lx1, lx0)
-        c.y0, c.y1 = page_h - max(ly1, float(t.value)), page_h - min(ly0, float(b.value))
-        c.ox, c.oy = float(ox.value), page_h - float(oy.value)
+        # into the visible frame: PDFium is bottom-left user space, the IR is
+        # top-left points on the page as displayed (see _Frame)
+        c.x0, c.y0, c.x1, c.y1 = frame.rect(lx0, min(ly0, float(b.value)),
+                                            max(lx1, lx0), max(ly1, float(t.value)))
+        c.ox, c.oy = frame.pt(float(ox.value), float(oy.value))
         # FPDFText_GetFontSize reports the size BEFORE the text matrix. Chromium
         # lays out in CSS pixels and applies a 0.75 matrix, so every size came
         # out 4/3 too large -- which inflated leading, paragraph heights and
@@ -271,6 +394,10 @@ def _page_chars(textpage, page_h) -> List[_Char]:
         c.font = _SUBSET_RE.sub("", font)
         c.flags = int(flags.value)
         c.color = _hexcol(cr.value, cg.value, cb.value)
+        if vis is not None and i in vis.ocr:
+            # An OCR layer's colour was never painted; the text it carries is
+            # what the scan shows, and a scan's text is ink.
+            c.color = OCR_INK
         out.append(c)
 
     # A generated space carries no box of its own worth the name: PDFium
@@ -1723,7 +1850,7 @@ def _obj_matrix(obj):
     """(a, b, c, d, e, f) for a page object, or None when unavailable."""
     try:
         m = raw.FS_MATRIX()
-        if raw.FPDFPageObj_GetMatrix(obj.raw, ctypes.byref(m)):
+        if raw.FPDFPageObj_GetMatrix(getattr(obj, "raw", obj), ctypes.byref(m)):
             return (m.a, m.b, m.c, m.d, m.e, m.f)
     except Exception:
         pass
@@ -1827,51 +1954,434 @@ def _frame_edges(sub_rects):
     return edges or None
 
 
-def _page_paths(page, page_h) -> List[DrawCmd]:
-    out = []
-    seen = set()
-    for obj in page.get_objects():
-        try:
-            if raw.FPDFPageObj_GetType(obj.raw) != raw.FPDF_PAGEOBJ_PATH:
-                continue
-        except Exception:
-            continue
+# ------------------------------------------------------------ page objects
+# pypdfium2's get_objects(max_depth=15) descends forms at nesting levels 0-13;
+# the walk below keeps that reach so it sees exactly the objects it replaced.
+_FORM_MAX_DEPTH = 14
+
+
+class _PObj:
+    """One page object, with what its Form XObject ancestry contributes.
+
+    `ctm` maps the object's own coordinate space to page user space: None at
+    page level, the composed form matrices inside a Form XObject. PDFium parses
+    a form's content against an identity base, so an object inside one reports
+    its bounds, segment points and clip path in FORM space, and only the form
+    object itself carries the matrix the form was drawn with. Measured (design
+    audit B7): a 120x40 rectangle in a form drawn at translate(150, 400) came
+    back at (0, 752, 120, 792) -- the form's own corner -- instead of
+    (150, 352, 270, 392). `get_objects()` descends into forms but hands every
+    child over without its parent's matrix, so the walk is done here.
+
+    `clip` is the intersection of the ancestor forms' clip boxes, in the frame:
+    a form painted under a clip clips everything inside it.
+    """
+    __slots__ = ("raw", "type", "ctm", "clip")
+
+    def __init__(self, h, t, ctm, clip):
+        self.raw, self.type, self.ctm, self.clip = h, t, ctm, clip
+
+    def bounds(self, frame):
+        """Frame bbox of the object, or None when PDFium cannot place it."""
         l = ctypes.c_float(); b = ctypes.c_float()
         r_ = ctypes.c_float(); t = ctypes.c_float()
-        if not raw.FPDFPageObj_GetBounds(obj.raw, ctypes.byref(l), ctypes.byref(b),
+        if not raw.FPDFPageObj_GetBounds(self.raw, ctypes.byref(l), ctypes.byref(b),
                                          ctypes.byref(r_), ctypes.byref(t)):
+            return None
+        return frame.rect(*_map_rect(self.ctm, float(l.value), float(b.value),
+                                     float(r_.value), float(t.value)))
+
+
+def _handle_key(h) -> int:
+    """A page-object handle as a hashable address (handles compare by pointer)."""
+    return ctypes.cast(h, ctypes.c_void_p).value or 0
+
+
+def _page_objects(page, frame) -> List[_PObj]:
+    """Every page object in content order, forms walked with their matrices.
+
+    Pre-order, like `page.get_objects()`: a form object precedes its children.
+    The order matters -- `_page_paths` dedupes by first occurrence.
+    """
+    out: List[_PObj] = []
+    page_raw = getattr(page, "raw", page)
+
+    def walk(form, ctm, anc_clip, depth):
+        if form is None:
+            n = raw.FPDFPage_CountObjects(page_raw)
+        else:
+            n = raw.FPDFFormObj_CountObjects(form)
+        for i in range(max(0, n)):
+            h = raw.FPDFPage_GetObject(page_raw, i) if form is None \
+                else raw.FPDFFormObj_GetObject(form, i)
+            if not h:
+                continue
+            try:
+                t = raw.FPDFPageObj_GetType(h)
+            except Exception:
+                continue
+            out.append(_PObj(h, t, ctm, anc_clip))
+            if t == raw.FPDF_PAGEOBJ_FORM and depth < _FORM_MAX_DEPTH:
+                inner = _compose(_obj_matrix(h), ctm)
+                walk(h, inner, _meet(anc_clip, _clip_box(h, ctm, frame)), depth + 1)
+
+    walk(None, None, None, 0)
+    return out
+
+
+def _clip_box(h, ctm, frame):
+    """Frame bbox of an object's clip path, or None when it has none.
+
+    The clip lives in the same space as the object's bounds (form space inside
+    a form), so it goes through the same `ctm`. Each clip path's bbox is a
+    superset of what it lets through and the clip is their intersection, so
+    the box over-admits -- which is the safe direction for a test that DROPS
+    text: a glyph outside this box is certainly invisible.
+    """
+    try:
+        cp = raw.FPDFPageObj_GetClipPath(h)
+    except Exception:
+        return None
+    if not cp:
+        return None
+    box = None
+    for k in range(max(0, raw.FPDFClipPath_CountPaths(cp))):
+        xs, ys = [], []
+        for s in range(max(0, raw.FPDFClipPath_CountPathSegments(cp, k))):
+            seg = raw.FPDFClipPath_GetPathSegment(cp, k, s)
+            if not seg:
+                continue
+            fx = ctypes.c_float(); fy = ctypes.c_float()
+            if not raw.FPDFPathSegment_GetPoint(seg, ctypes.byref(fx), ctypes.byref(fy)):
+                continue
+            px, py = _apply_matrix(ctm, float(fx.value), float(fy.value))
+            X, Y = frame.pt(px, py)
+            xs.append(X)
+            ys.append(Y)
+        if xs:
+            box = _meet(box, (min(xs), min(ys), max(xs), max(ys)))
+    return box
+
+
+# ------------------------------------------------------------ text visibility
+# PDF 32000-1 table 106: mode 3 paints nothing and mode 7 only adds to the
+# clip. Both are text a reader is not shown -- above all, the OCR layer a
+# scanner lays invisibly over its page image.
+_TR_INVISIBLE = (3, 7)
+_TR_FILL_ONLY = (0, 4)          # the fill colour is the only ink
+# A glyph filled in the page's own white is invisible where nothing has been
+# painted beneath it. 250 is the design audit's background-luma floor. Census
+# over the corpus (every channel >= 250): the gated documents carry 468 such
+# glyphs and every one sits on a fill; the only ones on the bare page are in
+# y12, y13 and y21.
+BACKGROUND_INK = 250
+# Glyph centre vs clip box, in points. The box already over-admits (see
+# _clip_box); this only absorbs float noise on a clip drawn flush to the text.
+CLIP_TOL = 0.5
+# A glyph drawn smaller than this is a speck, not text. Measured over all 57
+# corpus documents, the ONLY glyphs under 2pt are Antenna House's hidden
+# duplicates of its bold form numbers -- 43 of them in y12/y13, every one at
+# 0.01pt, white, stacked on one point -- which surfaced as "1040-X1040-X".
+TINY_PT = 0.5
+# An OCR layer: most of the page's text is invisible...
+OCR_INVISIBLE_SHARE = 0.5
+# ...and sits on an image covering at least half the page. A scanner's page
+# image covers all of it; a logo or a photo with a stray hidden caption does
+# not come close.
+OCR_IMAGE_COVER = 0.5
+OCR_INK = "#000000"
+OCR_LAYER_MODES = ("text", "image")
+
+
+class _Visibility:
+    """Which of a text page's characters a reader actually sees.
+
+    hidden      char indices that are not drawn, or not drawn anywhere visible
+    ocr         invisible chars kept as the page's text (an OCR layer, `text`
+                mode); _page_chars re-inks them
+    ocr_images  image handles (keys) the OCR text duplicates; not extracted
+    ocr_chars   non-space characters in the page's OCR layer, in either mode
+    counts      reason -> characters hidden, for reports and tests
+    """
+    __slots__ = ("hidden", "ocr", "ocr_images", "ocr_chars", "counts")
+
+    def __init__(self):
+        self.hidden, self.ocr, self.ocr_images = set(), set(), set()
+        self.ocr_chars = 0
+        self.counts = {}
+
+
+def _text_visibility(textpage, objs: List[_PObj], frame,
+                     ocr_layer: str = "text") -> _Visibility:
+    """Decide, per character, whether the page shows it (design audit B8).
+
+    PDFium's text page reports every glyph the content stream SHOWS, painted or
+    not. Five kinds are not seen by a reader and used to arrive as ordinary
+    text:
+
+      offpage     the glyph's centre lies outside the visible frame -- above
+                  all, the printer's slug Antenna House sets beyond the trim
+                  ("Page 2 of 52 Fileid: ... MUST be removed before printing"),
+                  measured on every page of y06/y12/y13: 22281, 10401 and 5469
+                  characters, which became the running header and the body's
+                  first lines (defect catalogue #5)
+      tiny        drawn under TINY_PT -- the same producer's 0.01pt duplicates
+                  of its bold form numbers
+      invisible   text render mode 3 or 7, or a fill with zero alpha. Distiller
+                  (y19) starts lines with mode-3 spaces, which arrived as
+                  doubled and leading spaces
+      clipped     the centre lies outside the object's clip
+      background  filled in the page's white with nothing painted beneath it:
+                  y21's white "Public Disclosure Authorized" marks. White text
+                  ON something -- any filled path, image or shading, of any
+                  colour, or a darker glyph -- is kept: that is a band or a
+                  badge (all 468 white glyphs in the gated corpus are on a fill)
+
+    Except the classic OCR layer: invisible text over an image covering the
+    page IS the document's text. In `text` mode (the default) it is kept and
+    the page images it duplicates are dropped, so a scan with an OCR layer
+    becomes an editable document instead of a picture with a second, visible
+    copy of its own words on top. `image` mode keeps the picture and drops the
+    layer.
+
+    Render mode, fill, clip and size belong to a text OBJECT (one show
+    operator), so they are read once per object; a glyph is measured on its
+    own only when its object is not plainly visible -- partly off the page or
+    outside its clip, white, invisible or tiny. Every other glyph costs two
+    calls.
+    """
+    vis = _Visibility()
+    tp = getattr(textpage, "raw", textpage)
+    n = raw.FPDFText_CountChars(tp)
+    if n <= 0:
+        return vis
+    text_objs = {}
+    paint = []          # frame boxes of anything that lays down colour
+    images = []         # (key, frame box)
+    for ob in objs:
+        if ob.type == raw.FPDF_PAGEOBJ_TEXT:
+            text_objs[_handle_key(ob.raw)] = ob
+        elif ob.type == raw.FPDF_PAGEOBJ_PATH:
+            fm = ctypes.c_int(); st = ctypes.c_int()
+            if raw.FPDFPath_GetDrawMode(ob.raw, ctypes.byref(fm), ctypes.byref(st)) \
+                    and fm.value:
+                bb = ob.bounds(frame)
+                if bb:
+                    paint.append(bb)
+        elif ob.type in (raw.FPDF_PAGEOBJ_IMAGE, raw.FPDF_PAGEOBJ_SHADING):
+            bb = ob.bounds(frame)
+            if bb:
+                paint.append(bb)
+                if ob.type == raw.FPDF_PAGEOBJ_IMAGE:
+                    images.append((_handle_key(ob.raw), bb))
+
+    def obj_info(h, i):
+        """(mode, clip, white, alpha0, plain, tiny) for the object of char i."""
+        try:
+            mode = raw.FPDFTextObj_GetTextRenderMode(h)
+        except Exception:
+            mode = 0
+        ob = text_objs.get(_handle_key(h))
+        clip = None
+        bb = None
+        if ob is not None:
+            clip = _meet(ob.clip, _clip_box(h, ob.ctm, frame))
+            bb = ob.bounds(frame)
+        white = alpha0 = False
+        if mode in _TR_FILL_ONLY:
+            r = ctypes.c_uint(); g = ctypes.c_uint()
+            b = ctypes.c_uint(); a = ctypes.c_uint()
+            if raw.FPDFPageObj_GetFillColor(h, ctypes.byref(r), ctypes.byref(g),
+                                            ctypes.byref(b), ctypes.byref(a)):
+                alpha0 = a.value == 0
+                white = min(r.value, g.value, b.value) >= BACKGROUND_INK
+        # One show operator has one size: a tiny object is tiny throughout.
+        # Its bounds say so cheaply; the glyph's own size confirms it.
+        tiny = bb is not None and (bb[2] - bb[0]) < 1.0 and (bb[3] - bb[1]) < 1.0 \
+            and _effective_size(tp, i) < TINY_PT
+        inside = bb is not None and 0.0 <= bb[0] and bb[2] <= frame.w and \
+            0.0 <= bb[1] and bb[3] <= frame.h and \
+            (clip is None or (clip[0] - CLIP_TOL <= bb[0] and bb[2] <= clip[2] + CLIP_TOL and
+                              clip[1] - CLIP_TOL <= bb[1] and bb[3] <= clip[3] + CLIP_TOL))
+        plain = inside and not (white or alpha0 or tiny) and mode not in _TR_INVISIBLE
+        return mode, clip, white, alpha0, plain, tiny
+
+    info = {}           # text-object key -> obj_info
+    status = [None] * n
+    centre = [None] * n
+    nonspace = [False] * n
+    white = []
+    prev = None
+    l = ctypes.c_double(); r_ = ctypes.c_double()
+    b = ctypes.c_double(); t = ctypes.c_double()
+    for i in range(n):
+        u = raw.FPDFText_GetUnicode(tp, i)
+        nonspace[i] = bool(u) and u != 0xFFFE and not chr(u).isspace()
+        h = raw.FPDFText_GetTextObject(tp, i)
+        if not h:
+            # Synthesised by PDFium (a space or a line break): it belongs to
+            # whatever it was synthesised next to.
+            status[i] = prev
             continue
-        bounds_bbox = (float(l.value), page_h - float(t.value),
-                       float(r_.value), page_h - float(b.value))
+        key = _handle_key(h)
+        got = info.get(key)
+        if got is None:
+            got = info[key] = obj_info(h, i)
+        mode, clip, is_white, alpha0, plain, tiny = got
+        if plain:
+            status[i] = prev = None
+            continue
+        if not raw.FPDFText_GetCharBox(tp, i, ctypes.byref(l), ctypes.byref(r_),
+                                       ctypes.byref(b), ctypes.byref(t)):
+            status[i] = prev
+            continue
+        cx, cy = frame.pt((l.value + r_.value) / 2.0, (b.value + t.value) / 2.0)
+        centre[i] = (cx, cy)
+        reason = None
+        if not frame.holds(cx, cy):
+            reason = "offpage"
+        elif tiny:
+            reason = "tiny"
+        elif mode in _TR_INVISIBLE or alpha0:
+            reason = "invisible"
+        elif clip is not None and not (clip[0] - CLIP_TOL <= cx <= clip[2] + CLIP_TOL and
+                                       clip[1] - CLIP_TOL <= cy <= clip[3] + CLIP_TOL):
+            reason = "clipped"
+        elif is_white:
+            white.append(i)
+        status[i] = prev = reason
+
+    # White glyphs: kept on anything painted, dropped on the bare page.
+    if white:
+        darker = None
+        for i in white:
+            cx, cy = centre[i]
+            if any(p[0] <= cx <= p[2] and p[1] <= cy <= p[3] for p in paint):
+                continue
+            if darker is None:
+                darker = _dark_glyph_boxes(tp, n, status, info, frame)
+            if any(p[0] <= cx <= p[2] and p[1] <= cy <= p[3] for p in darker):
+                continue
+            status[i] = "background"
+            # a synthesised space after it follows it out
+            j = i + 1
+            while j < n and status[j] is None and not raw.FPDFText_GetTextObject(tp, j):
+                status[j] = "background"
+                j += 1
+
+    # The OCR layer.
+    inv = [i for i in range(n) if status[i] == "invisible" and nonspace[i]]
+    if inv:
+        seen = sum(1 for i in range(n) if nonspace[i] and status[i] != "offpage")
+        area = max(1.0, frame.w * frame.h)
+        page_box = (0.0, 0.0, frame.w, frame.h)
+        covers = [(k, bb) for k, bb in images
+                  if _box_area(_meet(bb, page_box)) >= OCR_IMAGE_COVER * area]
+        if covers and len(inv) >= OCR_INVISIBLE_SHARE * seen:
+            def on(bb, c):
+                return c is not None and bb[0] <= c[0] <= bb[2] and bb[1] <= c[1] <= bb[3]
+            under = sum(1 for i in inv if any(on(bb, centre[i]) for _, bb in covers))
+            if under >= 0.5 * len(inv):
+                vis.ocr_chars = len(inv)
+                if ocr_layer == "text":
+                    for i in range(n):
+                        if status[i] == "invisible":
+                            status[i] = None
+                            vis.ocr.add(i)
+                    vis.ocr_images = {k for k, _ in covers} | {
+                        k for k, bb in images
+                        if any(on(bb, centre[i]) for i in inv)}
+    for i, s in enumerate(status):
+        if s is not None:
+            vis.hidden.add(i)
+            if nonspace[i]:
+                vis.counts[s] = vis.counts.get(s, 0) + 1
+    return vis
+
+
+def _dark_glyph_boxes(tp, n, status, info, frame):
+    """Frame boxes of the visible, non-white glyphs: a white glyph on one of
+    these (a digit in a dingbat disc) is drawn on ink, not on the page."""
+    out = []
+    l = ctypes.c_double(); r_ = ctypes.c_double()
+    b = ctypes.c_double(); t = ctypes.c_double()
+    for i in range(n):
+        if status[i] is not None:
+            continue
+        h = raw.FPDFText_GetTextObject(tp, i)
+        if not h:
+            continue
+        got = info.get(_handle_key(h))
+        if got is None or got[2]:           # unknown or itself white
+            continue
+        if raw.FPDFText_GetCharBox(tp, i, ctypes.byref(l), ctypes.byref(r_),
+                                   ctypes.byref(b), ctypes.byref(t)):
+            out.append(frame.rect(l.value, b.value, r_.value, t.value))
+    return out
+
+
+def _box_area(bb) -> float:
+    if bb is None:
+        return 0.0
+    return max(0.0, bb[2] - bb[0]) * max(0.0, bb[3] - bb[1])
+
+
+def _effective_size(tp, i) -> float:
+    """A glyph's drawn size: the font size through the text matrix (see the
+    note in _page_chars on Chromium's 0.75 matrix)."""
+    size = abs(float(raw.FPDFText_GetFontSize(tp, i)))
+    m = raw.FS_MATRIX()
+    try:
+        if raw.FPDFText_GetMatrix(tp, i, ctypes.byref(m)):
+            vs = (m.b * m.b + m.d * m.d) ** 0.5
+            if vs > 1e-6:
+                size *= vs
+    except Exception:
+        pass
+    return size
+
+
+def _page_paths(objs: List[_PObj], frame) -> List[DrawCmd]:
+    out = []
+    seen = set()
+    for ob in objs:
+        if ob.type != raw.FPDF_PAGEOBJ_PATH:
+            continue
+        po = ob.raw
+        bounds_bbox = ob.bounds(frame)
+        if bounds_bbox is None:
+            continue
         # Segment points are in OBJECT space: the path object's own matrix has
         # to be applied before they mean anything on the page. Skipping it is
         # not a small error -- measured across the corpus, 578 of 612 path
         # objects carry a non-identity matrix (every path on every Chromium
         # document) and untransformed points miss the true bounds by up to
         # 5438pt. testkit/backend_paths.py measures this and keeps measuring it.
-        mat = _obj_matrix(obj)
-        n = raw.FPDFPath_CountSegments(obj.raw)
+        # Inside a Form XObject the form's matrix follows it (see _PObj).
+        mat = _compose(_obj_matrix(po), ob.ctm)
+        n = raw.FPDFPath_CountSegments(po)
         pts = []
         for i in range(max(0, n)):
-            seg = raw.FPDFPath_GetPathSegment(obj.raw, i)
+            seg = raw.FPDFPath_GetPathSegment(po, i)
             if not seg:
                 continue
             sx = ctypes.c_float(); sy = ctypes.c_float()
             raw.FPDFPathSegment_GetPoint(seg, ctypes.byref(sx), ctypes.byref(sy))
             px, py = _apply_matrix(mat, float(sx.value), float(sy.value))
-            pts.append((px, page_h - py, raw.FPDFPathSegment_GetType(seg)))
+            X, Y = frame.pt(px, py)
+            pts.append((X, Y, raw.FPDFPathSegment_GetType(seg)))
         fillmode = ctypes.c_int(); stroke = ctypes.c_int()
-        raw.FPDFPath_GetDrawMode(obj.raw, ctypes.byref(fillmode), ctypes.byref(stroke))
+        raw.FPDFPath_GetDrawMode(po, ctypes.byref(fillmode), ctypes.byref(stroke))
         fr = ctypes.c_uint(); fg = ctypes.c_uint()
         fb = ctypes.c_uint(); fa = ctypes.c_uint()
-        raw.FPDFPageObj_GetFillColor(obj.raw, ctypes.byref(fr), ctypes.byref(fg),
+        raw.FPDFPageObj_GetFillColor(po, ctypes.byref(fr), ctypes.byref(fg),
                                      ctypes.byref(fb), ctypes.byref(fa))
         sr = ctypes.c_uint(); sg = ctypes.c_uint()
         sb = ctypes.c_uint(); sa = ctypes.c_uint()
-        raw.FPDFPageObj_GetStrokeColor(obj.raw, ctypes.byref(sr), ctypes.byref(sg),
+        raw.FPDFPageObj_GetStrokeColor(po, ctypes.byref(sr), ctypes.byref(sg),
                                        ctypes.byref(sb), ctypes.byref(sa))
         sw = ctypes.c_float()
-        raw.FPDFPageObj_GetStrokeWidth(obj.raw, ctypes.byref(sw))
+        raw.FPDFPageObj_GetStrokeWidth(po, ctypes.byref(sw))
         # ...in object space too, like the points, so it scales with the matrix.
         stroke_w = float(sw.value) * _matrix_scale(mat)
         has_fill = fillmode.value != 0 and fa.value > 0
@@ -1897,6 +2407,11 @@ def _page_paths(page, page_h) -> List[DrawCmd]:
             ys = [p[1] for p in pts]
             bbox = (min(xs), min(ys), max(xs), max(ys))
 
+        if frame.outside(bbox):
+            # Wholly beyond the visible page: a printer's crop mark, slug rule
+            # or bleed furniture. A reader never sees it, and inference would
+            # anchor margins and furniture zones on it.
+            continue
         w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
         fill = _hexcol(fr.value, fg.value, fb.value) if has_fill else None
         stroke_c = _hexcol(sr.value, sg.value, sb.value) if has_stroke else None
@@ -1954,19 +2469,20 @@ _DEGENERATE_EXTENT = 0.5
 
 def _obj_text(obj, textpage) -> str:
     """The characters PDFium recovered for one text page-object, if any."""
+    h = getattr(obj, "raw", obj)
     try:
-        n = raw.FPDFTextObj_GetText(obj.raw, textpage, None, 0)
+        n = raw.FPDFTextObj_GetText(h, textpage, None, 0)
     except Exception:
         return ""
     if n <= 0:
         return ""
     buf = ctypes.create_string_buffer(n * 2)
-    raw.FPDFTextObj_GetText(obj.raw, textpage,
+    raw.FPDFTextObj_GetText(h, textpage,
                             ctypes.cast(buf, ctypes.POINTER(ctypes.c_ushort)), n)
     return buf.raw[:n * 2].decode("utf-16-le", "replace").rstrip("\x00")
 
 
-def _page_undecoded(page, page_h, textpage) -> List[UndecodedGlyph]:
+def _page_undecoded(objs: List[_PObj], frame, textpage) -> List[UndecodedGlyph]:
     """Text page-objects the text page dropped entirely.
 
     LibreOffice writes its list bullets as a symbol-font glyph that PDFium
@@ -1982,74 +2498,192 @@ def _page_undecoded(page, page_h, textpage) -> List[UndecodedGlyph]:
     producer also emits empty text objects for trailing whitespace -- so the
     collapsed bounds are required too, and even then the mark is only a
     candidate.
+
+    Invisible text objects and marks off the visible page are not candidates:
+    a reader sees neither, so neither may become a bullet.
     """
     out = []
     tp_raw = getattr(textpage, "raw", textpage)
-    for obj in page.get_objects():
-        try:
-            if raw.FPDFPageObj_GetType(obj.raw) != raw.FPDF_PAGEOBJ_TEXT:
-                continue
-        except Exception:
+    for ob in objs:
+        if ob.type != raw.FPDF_PAGEOBJ_TEXT:
             continue
-        if _obj_text(obj, tp_raw).strip():
+        h = ob.raw
+        if _obj_text(h, tp_raw).strip():
             continue                      # decoded fine; already in the blocks
         l = ctypes.c_float(); b = ctypes.c_float()
         r_ = ctypes.c_float(); t = ctypes.c_float()
-        if not raw.FPDFPageObj_GetBounds(obj.raw, ctypes.byref(l), ctypes.byref(b),
+        if not raw.FPDFPageObj_GetBounds(h, ctypes.byref(l), ctypes.byref(b),
                                          ctypes.byref(r_), ctypes.byref(t)):
             continue
         if (float(r_.value) - float(l.value)) > _DEGENERATE_EXTENT or \
                 (float(t.value) - float(b.value)) > _DEGENERATE_EXTENT:
             continue                      # has extent: visible ink, not this
+        try:
+            if raw.FPDFTextObj_GetTextRenderMode(h) in _TR_INVISIBLE:
+                continue
+        except Exception:
+            pass
+        origin = frame.pt(*_apply_matrix(ob.ctm, float(l.value), float(t.value)))
+        if not frame.holds(*origin):
+            continue
         size = ctypes.c_float()
         try:
-            raw.FPDFTextObj_GetFontSize(obj.raw, ctypes.byref(size))
+            raw.FPDFTextObj_GetFontSize(h, ctypes.byref(size))
         except Exception:
             pass
         fr = ctypes.c_uint(); fg = ctypes.c_uint()
         fb = ctypes.c_uint(); fa = ctypes.c_uint()
         try:
-            raw.FPDFPageObj_GetFillColor(obj.raw, ctypes.byref(fr), ctypes.byref(fg),
+            raw.FPDFPageObj_GetFillColor(h, ctypes.byref(fr), ctypes.byref(fg),
                                          ctypes.byref(fb), ctypes.byref(fa))
         except Exception:
             pass
         out.append(UndecodedGlyph(
-            origin=(float(l.value), page_h - float(t.value)),
+            origin=origin,
             size=float(size.value) or 0.0,
             color=_hexcol(fr.value, fg.value, fb.value)))
     return out
 
 
-def _page_images(page, page_h, keep_data) -> List[ImageObj]:
+# Testing an image for transparency renders it at its native resolution, which
+# costs a decode. Past this many pixels the test is skipped and the image is
+# taken as opaque, which is what every image was taken to be before. 16MP is
+# 4x the largest image in the corpus (y21's cover art).
+ALPHA_PROBE_MAX_PX = 16_000_000
+# Mean absolute difference, in 8-bit levels, between a JPEG stream decoded on
+# its own and the same image as PDFium paints it, at or below which the stream
+# IS the picture and is embedded as it is. Two JPEG decoders disagree by a
+# level or two; a /Decode inversion, an odd colour space or a flip differs by
+# tens.
+PASSTHROUGH_TOL = 6.0
+
+
+def _rendered_rgba(img):
+    """The image as PDFium paints it -- soft mask, stencil, /Decode and colour
+    space applied -- at native resolution, as a PIL RGBA, or None."""
+    w = ctypes.c_uint(); h = ctypes.c_uint()
+    try:
+        if not raw.FPDFImageObj_GetImagePixelSize(img.raw, ctypes.byref(w),
+                                                  ctypes.byref(h)):
+            return None
+        if not w.value or not h.value or w.value * h.value > ALPHA_PROBE_MAX_PX:
+            return None
+        bm = img.get_bitmap(render=True, scale_to_original=True)
+    except Exception:
+        return None
+    try:
+        return bm.to_pil().convert("RGBA")
+    except Exception:
+        return None
+    finally:
+        bm.close()
+
+
+def _jpeg_passthrough(img, rendered) -> Optional[bytes]:
+    """The image's own DCT stream, when embedding it shows the same picture.
+
+    PNG-from-pixels re-encoded every JPEG losslessly at about four times its
+    size: measured, a 1.32MB photo became a 5.44MB PNG (design audit B10). The
+    stream is only taken when nothing between it and the page changes the
+    picture -- a single DCT filter, a grey or RGB JPEG (Adobe stores CMYK
+    inverted), no EXIF rotation a word processor would apply and PDFium does
+    not, and a thumbnail matching PDFium's own rendering within
+    PASSTHROUGH_TOL.
+    """
+    import io
+    from PIL import Image, ImageChops, ImageStat
+    try:
+        # The DCT stream may sit under transport filters (reportlab writes
+        # ASCII85 over it); those are undone, the JPEG itself is not.
+        filters = img.get_filters()
+        if img.get_filters(skip_simple=True) != ["DCTDecode"]:
+            return None
+        data = bytes(img.get_data(decode_simple=len(filters) > 1))
+    except Exception:
+        return None
+    if data[:2] != b"\xff\xd8":
+        return None
+    try:
+        pil = Image.open(io.BytesIO(data))
+        if pil.mode not in ("L", "RGB"):
+            return None
+        if pil.getexif().get(0x0112, 1) != 1:
+            return None
+        pil.draft("RGB", (64, 64))
+        a = pil.convert("RGB").resize((32, 32))
+        b = rendered.convert("RGB").resize((32, 32))
+        diff = sum(ImageStat.Stat(ImageChops.difference(a, b)).mean) / 3.0
+    except Exception:
+        return None
+    return data if diff <= PASSTHROUGH_TOL else None
+
+
+def _image_payload(img):
+    """(bytes, ext) for one placed image. Raises when PDFium cannot decode it.
+
+    Three outcomes, in order:
+      * any transparency -> the RENDERED pixels as an RGBA PNG. The base image
+        alone is what used to be embedded, so an SMask's transparent area came
+        out as whatever the base held there -- black, measured on a logo over
+        a blue box (design audit B10), on y20's cover logo and on y01's TOC
+        section numbers (defect catalogue #9).
+      * an opaque JPEG that renders as itself -> its stream, untouched.
+      * otherwise -> the base image as PNG, exactly as before.
+    """
+    import io
+    rendered = _rendered_rgba(img)
+    if rendered is not None:
+        lo, _ = rendered.getchannel("A").getextrema()
+        if lo < 255:
+            buf = io.BytesIO()
+            rendered.save(buf, format="PNG")
+            return buf.getvalue(), "png"
+        jpg = _jpeg_passthrough(img, rendered)
+        if jpg is not None:
+            return jpg, "jpeg"
+    bm = img.get_bitmap(render=False)
+    try:
+        buf = io.BytesIO()
+        bm.to_pil().save(buf, format="PNG")
+        return buf.getvalue(), "png"
+    finally:
+        bm.close()
+
+
+def _page_images(objs: List[_PObj], frame, keep_data, doc=None, page=None,
+                 skip=()):
+    """(images, dropped): placed rasters, and how many could not be extracted.
+
+    `dropped` exists because a failure here used to be silent: the image came
+    back with data=None, inference skipped it, and nothing in the writer's
+    image ledger said so (design audit B11). It is counted now, and the
+    conversion adds it to its image report.
+    """
     out = []
-    for obj in page.get_objects():
-        try:
-            if raw.FPDFPageObj_GetType(obj.raw) != raw.FPDF_PAGEOBJ_IMAGE:
-                continue
-        except Exception:
+    dropped = 0
+    for ob in objs:
+        if ob.type != raw.FPDF_PAGEOBJ_IMAGE:
             continue
-        l = ctypes.c_float(); b = ctypes.c_float()
-        r_ = ctypes.c_float(); t = ctypes.c_float()
-        if not raw.FPDFPageObj_GetBounds(obj.raw, ctypes.byref(l), ctypes.byref(b),
-                                         ctypes.byref(r_), ctypes.byref(t)):
+        if _handle_key(ob.raw) in skip:
+            continue                      # the scan an OCR layer replaces
+        bbox = ob.bounds(frame)
+        if bbox is None:
+            dropped += 1
             continue
-        bbox = (float(l.value), page_h - float(t.value),
-                float(r_.value), page_h - float(b.value))
-        data = None
+        if frame.outside(bbox):
+            continue
+        data, ext = None, "png"
         if keep_data:
             try:
-                import io
-                from PIL import Image
-                pil = obj.get_bitmap(render=False).to_pil()
-                buf = io.BytesIO()
-                pil.save(buf, format="PNG")
-                data = buf.getvalue()
+                img = pdfium.PdfObject(ob.raw, page=page, pdf=doc)
+                data, ext = _image_payload(img)
             except Exception:
                 data = None
+                dropped += 1
         out.append(ImageObj(bbox=bbox, xref=0,
                             width=int(bbox[2] - bbox[0]), height=int(bbox[3] - bbox[1]),
-                            data=data, ext="png"))
-    return out
+                            data=data, ext=ext))
+    return out, dropped
 
 
 def _link_uri(doc, link) -> Optional[str]:
@@ -2070,15 +2704,27 @@ def _link_uri(doc, link) -> Optional[str]:
     return xml_safe_uri(buf.raw[:max(0, need - 1)].decode("utf-8", "replace"))
 
 
-def _link_dest(doc, link) -> Optional[LinkDest]:
-    """A GoTo link's target as a LinkDest, or None if it is not one.
+class _RawDest(namedtuple("_RawDest", "page x y has_x")):
+    """A GoTo target in its page's USER space, resolved once every page's frame
+    is known (see _resolve_dests). Hashable and compared by value, like the
+    LinkDest it becomes, so `_style` splits spans on it exactly as before."""
+    __slots__ = ()
+
+
+def _link_dest(doc, link) -> Optional[_RawDest]:
+    """A GoTo link's target, or None if it is not one.
 
     A destination reaches a link either directly (`/Dest`, which is what
     Chromium writes) or through a GoTo action (`/A << /S /GoTo /D ... >>`), so
     both are asked for. FPDFDest_GetLocationInPage reports the raw PDF number
     in bottom-up user space for BOTH spellings -- unlike PyMuPDF, which flips
-    one and not the other (see parse._goto_dest) -- so a single flip here puts
-    the two backends on the same number.
+    one and not the other (see parse._goto_dest).
+
+    The number is returned raw. Putting it in the IR's frame needs the TARGET
+    page's box and rotation, which PDFium only exposes on a loaded page, and
+    loading it here would open a second handle on a page this parser may have
+    open -- closing it would invalidate the one in use, and not closing it
+    leaks one per link. parse_pdf resolves it once every page has been read.
 
     `has_y` is honoured rather than assumed: a `/Fit` destination carries no
     point, and reporting y=0 for it would anchor every such link to the top of
@@ -2092,7 +2738,7 @@ def _link_dest(doc, link) -> Optional[LinkDest]:
     if not dest:
         return None
     page_index = raw.FPDFDest_GetDestPageIndex(doc.raw, dest)
-    if page_index < 0:
+    if page_index < 0 or page_index >= len(doc):
         return None
     has_x = ctypes.c_int(); has_y = ctypes.c_int(); has_z = ctypes.c_int()
     x = ctypes.c_float(); y = ctypes.c_float(); z = ctypes.c_float()
@@ -2103,20 +2749,63 @@ def _link_dest(doc, link) -> Optional[LinkDest]:
         return None
     if not has_y.value:
         return None
-    # The TARGET page's height, and read without loading the page: a link can
-    # point at a page of a different size, and `doc[page_index]` would open a
-    # second handle on a page this parser may already have open -- closing it
-    # would invalidate the one in use, and not closing it leaks one per link.
-    size = raw.FS_SIZEF()
-    if not raw.FPDF_GetPageSizeByIndexF(doc.raw, page_index, ctypes.byref(size)):
+    return _RawDest(int(page_index), float(x.value), float(y.value),
+                    bool(has_x.value))
+
+
+def _resolve_dest(d, frames) -> Optional[LinkDest]:
+    """A _RawDest in its target page's frame, as the IR's LinkDest."""
+    if not isinstance(d, _RawDest):
+        return d
+    fr = frames.get(d.page)
+    if fr is None:
         return None
-    target_h = float(size.height)
-    return LinkDest(page=int(page_index),
-                    x=float(x.value) if has_x.value else 0.0,
-                    y=target_h - float(y.value))
+    if fr.plain:
+        # Bit-for-bit the historical arithmetic: target height minus raw y.
+        return LinkDest(page=d.page, x=d.x if d.has_x else 0.0, y=fr.h - d.y)
+    X, Y = fr.pt(d.x if d.has_x else fr.l, d.y)
+    return LinkDest(page=d.page, x=X if d.has_x else 0.0, y=Y)
 
 
-def _page_links(page, page_h, doc):
+def _resolve_dests(ir: DocIR, frames) -> None:
+    """Replace every _RawDest left in the IR by its LinkDest."""
+    cache = {}
+
+    def res(d):
+        if not isinstance(d, _RawDest):
+            return d
+        if d not in cache:
+            cache[d] = _resolve_dest(d, frames)
+        return cache[d]
+
+    for p in ir.pages:
+        for ln in [l for b in p.blocks for l in b.lines] + list(p.rotated):
+            for s in ln.spans:
+                if s.dest is not None:
+                    s.dest = res(s.dest)
+        for lk in p.links:
+            if "dest" in lk:
+                lk["dest"] = res(lk["dest"])
+
+
+def _one_link(doc, link, frame):
+    uri = _link_uri(doc, link)
+    target = None if uri else _link_dest(doc, link)
+    if not uri and target is None:
+        return None
+    r = raw.FS_RECTF()
+    if not raw.FPDFLink_GetAnnotRect(link, ctypes.byref(r)):
+        return None
+    entry = {"bbox": frame.rect(min(r.left, r.right), min(r.top, r.bottom),
+                                max(r.left, r.right), max(r.top, r.bottom))}
+    if uri:
+        entry["uri"] = uri
+    else:
+        entry["dest"] = target
+    return entry
+
+
+def _page_links(page, frame, doc):
     """URI and GoTo link rectangles for a page, read from its LINK ANNOTATIONS.
 
     This used to call `FPDFLink_LoadWebLinks`, which does something else
@@ -2134,39 +2823,39 @@ def _page_links(page, page_h, doc):
     cannot see an annotation. Against PyMuPDF's three, that was 1/3, and the
     two it missed are the ordinary case: prose linked by a word.
 
-    The rectangles agree with PyMuPDF's to the decimal once flipped into the
-    IR's top-left origin, which is the coordinate system `_tag_char_links` tests
+    The rectangles agree with PyMuPDF's to the decimal once put in the IR's
+    frame (see _Frame), which is the coordinate system `_tag_char_links` tests
     character centres against.
 
     `FPDFLink_Enumerate` walks the annotations without the caller owning a
     handle, so unlike the weblink set there is nothing here to leak or close.
+
+    Each annotation is read in its own guard. One try around the whole walk
+    meant a single malformed annotation discarded every link on the page,
+    including the ones already read (design audit B11).
     """
+    frame = _as_frame(frame)
     links = []
-    try:
-        start = ctypes.c_int(0)
-        link = raw.FPDF_LINK()
-        while raw.FPDFLink_Enumerate(page.raw, ctypes.byref(start),
-                                     ctypes.byref(link)):
-            uri = _link_uri(doc, link)
-            target = None if uri else _link_dest(doc, link)
-            if not uri and target is None:
-                continue
-            r = raw.FS_RECTF()
-            if not raw.FPDFLink_GetAnnotRect(link, ctypes.byref(r)):
-                continue
-            entry = {"bbox": (min(r.left, r.right), page_h - max(r.top, r.bottom),
-                              max(r.left, r.right), page_h - min(r.top, r.bottom))}
-            if uri:
-                entry["uri"] = uri
-            else:
-                entry["dest"] = target
+    start = ctypes.c_int(0)
+    link = raw.FPDF_LINK()
+    while True:
+        try:
+            if not raw.FPDFLink_Enumerate(page.raw, ctypes.byref(start),
+                                          ctypes.byref(link)):
+                break
+        except Exception:
+            break
+        try:
+            entry = _one_link(doc, link, frame)
+        except Exception:
+            continue
+        if entry is not None:
             links.append(entry)
-    except Exception:
-        pass
     return links
 
 
-def parse_pdf(path: str, keep_image_data: bool = True) -> DocIR:
+def parse_pdf(path: str, keep_image_data: bool = True,
+              ocr_layer: str = "text") -> DocIR:
     """Parse a PDF into the backend-neutral IR.
 
     Every native handle is closed on the way out, in reverse order of acquisition.
@@ -2180,7 +2869,16 @@ def parse_pdf(path: str, keep_image_data: bool = True) -> DocIR:
     GoTo (internal) links are carried as `Span.dest` (model.LinkDest), in the
     IR's top-left origin, and the writer turns them into w:hyperlink w:anchor
     against a bookmark. `_link_dest` explains the one coordinate subtlety.
+
+    Every coordinate is in the page's visible frame (_Frame): CropBox origin
+    removed, /Rotate applied, Form XObject matrices composed (_PObj). Text a
+    reader cannot see is not extracted (_text_visibility), except an OCR layer,
+    which `ocr_layer` turns into the page's text ("text", the default) or
+    leaves under its scan ("image").
     """
+    if ocr_layer not in OCR_LAYER_MODES:
+        raise ValueError("ocr_layer must be one of %s, got %r"
+                         % (", ".join(OCR_LAYER_MODES), ocr_layer))
     doc = pdfium.PdfDocument(path)
     try:
         meta = {}
@@ -2190,15 +2888,21 @@ def parse_pdf(path: str, keep_image_data: bool = True) -> DocIR:
         except Exception:
             pass
         ir = DocIR(path=path, meta=meta)
+        frames = {}
         for pno in range(len(doc)):
             page = doc[pno]
             try:
-                w, h = page.get_width(), page.get_height()
-                pir = PageIR(number=pno + 1, width=w, height=h)
-                pir.links = _page_links(page, h, doc)
+                frame = frames[pno] = _Frame.of(page)
+                w = frame.w
+                pir = PageIR(number=pno + 1, width=w, height=frame.h)
+                pir.links = _page_links(page, frame, doc)
+                objs = _page_objects(page, frame)
                 tp = page.get_textpage()
                 try:
-                    chars = _page_chars(tp, h)
+                    vis = _text_visibility(tp, objs, frame, ocr_layer)
+                    pir.hidden_chars = dict(vis.counts)
+                    pir.ocr_chars = vis.ocr_chars
+                    chars = _page_chars(tp, frame, vis)
                     # Before spans exist: a link is a property of characters, and
                     # settling it here lets _style end a span at the anchor's
                     # edge. See _tag_char_links for what the old span-level test
@@ -2208,15 +2912,18 @@ def parse_pdf(path: str, keep_image_data: bool = True) -> DocIR:
                     lines = _build_lines(_flow)
                     # Needs the text page open: the question is precisely which
                     # objects it kept nothing of.
-                    pir.undecoded = _page_undecoded(page, h, tp)
+                    pir.undecoded = _page_undecoded(objs, frame, tp)
                 finally:
                     tp.close()
                 pir.blocks = _build_blocks(lines, w)
-                pir.drawings = _page_paths(page, h)
-                pir.images = _page_images(page, h, keep_image_data)
+                pir.drawings = _page_paths(objs, frame)
+                pir.images, pir.images_dropped = _page_images(
+                    objs, frame, keep_image_data, doc=doc, page=page,
+                    skip=vis.ocr_images)
             finally:
                 page.close()
             ir.pages.append(pir)
+        _resolve_dests(ir, frames)
         return ir
     finally:
         doc.close()

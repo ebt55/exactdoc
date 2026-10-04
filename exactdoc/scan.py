@@ -93,8 +93,16 @@ def page_cap(max_pages: Optional[int] = None) -> Optional[int]:
 
 
 def _normal_chars(ir_page):
+    """Recoverable text on a page, OCR layer included.
+
+    A scan with an OCR layer is not an OCR refusal: its words are known. With
+    the layer converted (`ocr_layer="text"`) they are in the blocks already;
+    left under its scan (`"image"`) they are only counted, and a page whose
+    text was deliberately kept as a picture must not be refused as a page with
+    no text at all.
+    """
     text = "".join(line.text for block in ir_page.blocks for line in block.lines)
-    return len(re.sub(r"\s+", "", text))
+    return max(len(re.sub(r"\s+", "", text)), getattr(ir_page, "ocr_chars", 0))
 
 
 def _meaningful_visual(page):
