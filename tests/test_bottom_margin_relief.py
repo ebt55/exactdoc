@@ -69,7 +69,17 @@ def test_cover_band_documents_keep_inferred_margin():
 
 
 def test_graphic_overlap_documents_keep_inferred_margin():
-    for name in ("c3_tables", "c5_graphics"):
+    """c5's chart overlaps its own labels; the arm declines relief there.
+
+    c3_tables was pinned here too, and its "graphic overlap" was a defect:
+    the merged-header table was rasterised (the bar-chart test read its
+    two-row 'Region' cell as a bar) together with the heading above it, and
+    two empty card rows were laid over the picture. Since the fill-tiled
+    table is recognised as the table it is (infer._tile_bands, defect
+    catalogue #13) c3 carries no figure at all, and whether it takes relief
+    is the plain-flow question, not this one.
+    """
+    for name in ("c5_graphics",):
         lay = layout(name)
         check("%s graphic overlap disables relief" % name,
               not _can_relax_bottom_margin(lay))

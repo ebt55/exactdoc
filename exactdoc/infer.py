@@ -1,4 +1,5 @@
 """Structure inference: PageIR -> DocLayout (semantic, writer-ready)."""
+import copy
 import math
 import re
 from collections import Counter, defaultdict
@@ -1836,6 +1837,15 @@ def _regular_striped_table_segment(draws: List[Tuple[int, DrawCmd]], blocks,
     tbl = TableEl(role="striped-table", bbox=(x0, row_ys[0], x1, row_ys[-1]))
     tbl.col_widths = [sample_bounds[i + 1] - sample_bounds[i] for i in range(n_cols)]
     tbl.row_heights = [row_ys[i + 1] - row_ys[i] for i in range(len(row_ys) - 1)]
+    # The rule actually drawn at each row boundary (audit B24): this used to
+    # be one 0.5pt #d8dee5 for every table, which is c3_tables' own colour.
+    hsegs, _ = _draw_segments([d for _, d in draws if d.shape == "hline"])
+
+    def rule_at(y):
+        cov, style = _seg_cover(hsegs, y, x0, x1)
+        if cov < GRID_EDGE_COVER or style is None:
+            return None
+        return (max(0.25, min(style[0], 12.0)), style[1])
     for ri, (top, bot) in enumerate(zip(row_ys, row_ys[1:])):
         row = []
         for ci in range(n_cols):
@@ -1848,7 +1858,8 @@ def _regular_striped_table_segment(draws: List[Tuple[int, DrawCmd]], blocks,
                          bbox_overlap(d.bbox, rect) > 0.85 * bbox_area(rect)), None)
             if fill:
                 cell.shading = fill
-            cell.borders = {"top": (0.5, "#d8dee5"), "bottom": (0.5, "#d8dee5")}
+            cell.borders = {k: v for k, v in (("top", rule_at(top)), ("bottom", rule_at(bot)))
+                            if v}
             row.append(cell)
         tbl.rows.append(row)
     # All probes succeeded.  This is the sole point at which this detector is
@@ -2231,7 +2242,7 @@ def _center_cell(cell: Cell, lines: List[Line], rect: BBox) -> None:
     side = round(max(0.0, min(x0 - rect[0], rect[2] - x1, GRID_CENTER_PAD)), 1)
     cell.pad = (cell.pad[0], side, cell.pad[2], side)
     inner = (rect[2] - rect[0]) - 2 * side
-    for p in cell.paras:
+    for p in list(cell.paras):
         p.left_indent = p.right_indent = p.first_indent = 0.0
         if p.bbox is None or (p.src_lines or 0) < 2 or p.line_breaks:
             continue
@@ -2251,14 +2262,7 @@ def _center_cell(cell: Cell, lines: List[Line], rect: BBox) -> None:
                 break
         if not forced:
             continue
-        runs = []
-        for i, ln in enumerate(pl):
-            row = runs_from_spans(ln.spans)
-            if row and i < len(pl) - 1:
-                row[-1].text = row[-1].text.rstrip(" ") + "\n"
-            runs.extend(row)
-        p.runs = runs
-        p.line_breaks = True
+        _split_lines(cell, p, pl)
 
 
 def _para_lines(p: Para, lines: List[Line]) -> List[Line]:
@@ -2268,19 +2272,34 @@ def _para_lines(p: Para, lines: List[Line]) -> List[Line]:
     return _merge_row_lines([l for l in lines if contains(p.bbox, l.bbox, 0.5)])
 
 
-def _keep_lines(p: Para, pl: List[Line]) -> None:
-    """Rebuild a paragraph's runs with its source line breaks kept."""
-    runs = []
+def _split_lines(cell: Cell, p: Para, pl: List[Line]) -> None:
+    """Replace a cell paragraph by one paragraph per source line.
+
+    The author's line breaks are kept as paragraph ends rather than soft
+    breaks inside one paragraph: same positions under the exact line rule
+    (each paragraph one leading tall, no space between), and every value or
+    header line stays separately editable.
+    """
+    out = []
     for i, ln in enumerate(pl):
-        row = runs_from_spans(ln.spans)
-        if row and i < len(pl) - 1:
-            row[-1].text = row[-1].text.rstrip(" ") + "\n"
-        runs.extend(row)
-    p.runs = runs
-    p.line_breaks = True
-    if p.align == "justify":
-        p.align = "left"
-    p.right_indent = 0.0
+        q = copy.copy(p)
+        q.runs = runs_from_spans(ln.spans)
+        if q.runs:
+            q.runs[-1].text = q.runs[-1].text.rstrip(" ")
+        q.bbox = ln.bbox
+        q.space_before = p.space_before if i == 0 else 0.0
+        q.space_after = 0.0
+        q.src_lines = 1
+        q.src_widths = [round(ln.bbox[2] - ln.bbox[0], 1)]
+        q._vis_lines = 1
+        q.line_breaks = False
+        q.first_indent = 0.0
+        if q.align == "justify":
+            q.align = "left"
+        q.right_indent = 0.0
+        out.append(q)
+    k = cell.paras.index(p)
+    cell.paras[k:k + 1] = out
 
 
 def _fit_grid_cells(cells) -> None:
@@ -2309,12 +2328,12 @@ def _fit_grid_cells(cells) -> None:
                 not all(p.align in ("left", "justify", "right") for p in cell.paras):
             continue
         tokens = True
-        for p in cell.paras:
+        for p in list(cell.paras):
             pl = _para_lines(p, lines)
             one = all(len(ln.text.split()) == 1 for ln in pl)
             tokens = tokens and one
             if len(pl) >= 2 and one and not p.line_breaks:
-                _keep_lines(p, pl)
+                _split_lines(cell, p, pl)
         gap_r = min(rect[2] - ln.bbox[2] for ln in lines)
         gap_l = min(ln.bbox[0] - rect[0] for ln in lines)
         # a lone column of equal-width figures cannot show its flush edge;
@@ -2598,16 +2617,26 @@ def build_grid_table(cl, blocks, consumed, tiled: bool = False) -> Optional[Tabl
             else x >= col_xs[-1] - GRID_EDGE_TOL
 
     long_ys = [h[0] for h in hs if h[2] - h[1] > 40]
-    ys = [h[0] for h in hs if h[2] - h[1] > 40
-          and (not col_xs or (meets(h[1], -1) and meets(h[2], 1)))]
+    # a rule drawn in abutting pieces is tested as the one rule it is (IRS
+    # pub501 draws a box's divider as 41.8-82.4 + 82.4-570.3)
+    runs = []
+    for y, a, b, _d in sorted(hs, key=lambda h: (round(h[0], 0), h[1])):
+        if runs and abs(runs[-1][0] - y) <= 1.0 and a <= runs[-1][2] + 1.0:
+            runs[-1][2] = max(runs[-1][2], b)
+        else:
+            runs.append([y, a, b])
+    ys = [r[0] for r in runs if r[2] - r[1] > 40
+          and (not col_xs or (meets(r[1], -1) and meets(r[2], 1)))]
     ys += [h[0] for h in hs if h[2] - h[1] > 6
            and any(abs(h[1] - x) <= GRID_EDGE_TOL for x in col_xs)
            and any(abs(h[2] - x) <= GRID_EDGE_TOL for x in col_xs)]
     row_ys = _cluster(ys + tile_ys, 2.0)
-    if len(row_ys) < 2:
+    if len(row_ys) < 2 or (len(row_ys) < 3 and len(col_xs) < 3):
         # rules that stop short of every column line are still the only
         # rows this table has: keep the old reading rather than lose it
-        row_ys = _cluster(long_ys, 2.0)
+        # (IRS pub501's worksheets are a framed box whose rows are drawn
+        # only as answer blanks; refusing them rasterised the worksheet)
+        row_ys = _cluster(long_ys + tile_ys, 2.0)
     if len(row_ys) < 2 or len(col_xs) < 2 or (len(row_ys) < 3 and len(col_xs) < 3):
         return None
 
@@ -2744,7 +2773,18 @@ def build_grid_table(cl, blocks, consumed, tiled: bool = False) -> Optional[Tabl
         # OOXML border widths run 2..96 eighths of a point
         return (max(0.25, min(th, 12.0)), col)
 
-    tbl.rows = [[None] * nc for _ in range(nr)]
+    # A lattice line that every region crossing it spans (a row line drawn
+    # only as answer blanks inside one box, a column line only under the
+    # header) is no boundary of the table that results: the grid keeps only
+    # the lines some cell ends on. IRS pub501's worksheet is one framed box,
+    # not 26 rows of one merged cell.
+    keep_r = sorted({0, nr} | {r for (r, _c) in regions} | {r1 + 1 for (r1, _c) in regions.values()})
+    keep_c = sorted({0, nc} | {c for (_r, c) in regions} | {c1 + 1 for (_r, c1) in regions.values()})
+    rmap = {r: i for i, r in enumerate(keep_r)}
+    cmap = {c: i for i, c in enumerate(keep_c)}
+    tbl.col_widths = [col_xs[keep_c[i + 1]] - col_xs[keep_c[i]] for i in range(len(keep_c) - 1)]
+    tbl.row_heights = [row_ys[keep_r[i + 1]] - row_ys[keep_r[i]] for i in range(len(keep_r) - 1)]
+    tbl.rows = [[None] * (len(keep_c) - 1) for _ in range(len(keep_r) - 1)]
     by_col = defaultdict(list)
     for (r0, c0), (r1, c1) in sorted(regions.items()):
         rect = (col_xs[c0], row_ys[r0], col_xs[c1 + 1], row_ys[r1 + 1])
@@ -2756,13 +2796,13 @@ def build_grid_table(cl, blocks, consumed, tiled: bool = False) -> Optional[Tabl
         # a descender clear of the rule.
         cell = _cell_from_lines(lines, rect, pad_extra=(GRID_MIN_BOTTOM_PAD, 2.0))
         _center_cell(cell, lines, rect)
-        if r1 > r0 and cell.paras:
+        cell.col_span = cmap[c1 + 1] - cmap[c0]
+        cell.row_span = rmap[r1 + 1] - rmap[r0]
+        if cell.row_span > 1 and cell.paras:
             # A merged cell's rows are sized by their own cells; its bottom
             # pad must not claim the whole remainder of the merge, or the
             # last row grows by every rounding error in the ones above it.
             cell.pad = (cell.pad[0], cell.pad[1], 2.0, cell.pad[3])
-        cell.col_span = c1 - c0 + 1
-        cell.row_span = r1 - r0 + 1
         cell.borders = {
             "top": run_style([hstyle[r0][j] for j in range(c0, c1 + 1)]),
             "bottom": run_style([hstyle[r1 + 1][j] for j in range(c0, c1 + 1)]),
@@ -2771,9 +2811,9 @@ def build_grid_table(cl, blocks, consumed, tiled: bool = False) -> Optional[Tabl
         }
         cell.borders = {k: v for k, v in cell.borders.items() if v}
         cell.shading = shade(rect) or lat_shade[r0][c0]
-        tbl.rows[r0][c0] = cell
-        if c1 == c0:
-            by_col[c0].append((cell, lines, rect))
+        tbl.rows[rmap[r0]][cmap[c0]] = cell
+        if cell.col_span == 1:
+            by_col[cmap[c0]].append((cell, lines, rect))
     for col in by_col.values():
         _fit_grid_cells(col)
     return tbl

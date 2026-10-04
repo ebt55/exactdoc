@@ -212,6 +212,32 @@ class GridMerges(unittest.TestCase):
         self.assertIn("continued-link-text", t.rows[0][1].paras[-1].text)
 
 
+class LatticeHygiene(unittest.TestCase):
+    def test_a_rule_drawn_in_pieces_is_one_row_line(self):
+        # IRS pub501 draws a box divider as 41.8-82.4 + 82.4-570.3
+        draws = [_hseg(100, 42, 570), _hseg(140, 42, 82.4), _hseg(140, 82.4, 570),
+                 _hseg(180, 42, 570), _vseg(42, 100, 180), _vseg(570, 100, 180),
+                 _vseg(300, 100, 180)]
+        lines = [_line(_span("upper", 50, 110)), _line(_span("lower", 50, 150)),
+                 _line(_span("u2", 310, 110)), _line(_span("l2", 310, 150))]
+        t = build_grid_table(_cl(draws), _blocks(lines), set())
+        self.assertEqual(len(t.rows), 2)
+
+    def test_lines_no_cell_ends_on_are_dropped(self):
+        # a framed worksheet whose 'rows' are answer blanks in the right part
+        # only: one box, not a column of rows merged into one cell
+        draws = [_hseg(100, 42, 570), _hseg(300, 42, 570), _vseg(42, 100, 300),
+                 _vseg(570, 100, 300)]
+        draws += [_hseg(y, 460, 540) for y in (130.0, 160.0, 190.0, 220.0)]
+        lines = [_line(_span("1. Enter the total funds", 50, 115 + 30 * k, x1=440))
+                 for k in range(5)]
+        t = build_grid_table(_cl(draws), _blocks(lines), set())
+        self.assertIsNotNone(t)
+        self.assertEqual(len(t.rows), 1)
+        self.assertEqual(t.rows[0][0].row_span, 1)
+        self.assertAlmostEqual(t.row_heights[0], 200.0, places=1)
+
+
 class PerEdgeBorders(unittest.TestCase):
     def test_borders_follow_the_drawn_sides(self):
         # an outer frame in red 1pt, inner lines black 0.5pt, and the
@@ -455,7 +481,9 @@ class FiguresInNarrowColumns(unittest.TestCase):
         self.assertTrue(all(p.align == "right" for p in cell.paras))
         self.assertEqual(cell.pad[1], 1.0)
         self.assertAlmostEqual(cell.pad[3], 3.0, places=1)
-        self.assertIn("\n", "".join(p.text for p in cell.paras))
+        # one value per paragraph: the stack is not re-flowed as prose
+        self.assertEqual([p.text for p in cell.paras], ["1,205", "52", "1,217"])
+        self.assertEqual(cell.paras[1].space_before, 0.0)
 
     def test_left_aligned_words_stay_left(self):
         from exactdoc.infer import _fit_grid_cells
