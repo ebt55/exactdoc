@@ -347,6 +347,40 @@ Non-gating; the expansion parity policy re-pins its corpus hash only.
   pass costs 15–20% of character extraction; DOCX size rises where black boxes became
   real RGBA images (y01 0.79 → 0.98 MB) and falls where JPEGs pass through
   (y28 1.96 → 1.53 MB, y50 1.55 → 0.84 MB).
+- **tables: a cell exists where the author drew one (design audit finding 8,
+  B24; defect catalogue #13).** The grid builder made every lattice cell a
+  cell with four borders in one style. Missing internal edges are now merges
+  (`w:gridSpan`/`w:vMerge`; text on both sides of a missing line and none
+  across it vetoes a column merge), text is assigned by merged region, and
+  each cell side carries the rule drawn there. The lattice grows over
+  text-bearing fill tiles (FIPS 180 Fig. 1 kept 3 of its 5 columns), ignores
+  a link underline, keeps only lines some cell ends on, and refuses a framed
+  bar chart. Fill-tiled tables are joined across their unshaded rows (c3's
+  merged-header table was rasterised and its nested table flattened); a
+  shaded header over unruled rows is one table, continued onto the next page
+  (x04/x10 "Table 3" was four paragraphs a row); rules tables cut
+  parser-joined rows at their gaps (BLS); figure columns are set flush right,
+  one value per paragraph (IRS EIC tables broke '1,205' mid-token); striped
+  tables carry their own rules, not c3's colour. The parser ends a span (not
+  the line) at a forgiven cell gap or a space boxed across one. Row heights:
+  LibreOffice 24.2 applies the largest bottom pad of a row to every cell and
+  adds the border on top, so each row is written with one top and one bottom
+  pad, the offsets moved into space-before and the border width off the
+  bottom pad — NIST SP 800-171's tables had grown ~12pt a row. `trHeight
+  atLeast` on text rows measured neutral and is not used (THEORY §3.2).
+  Raw lane, canonical, all 90 swept documents against the integration head
+  5ef641a: pages 3453 → 3374, word recall 0.5620 → 0.5686, doc recall
+  0.9106 → 0.9122, within-2pt 0.1413 → 0.1513, SSIM 0.604 → 0.612, edit
+  score 0.5823 → 0.5851. y02 140 → 127 pages, y08 83 → 67 (recall 0.247 →
+  0.361), y01 103 → 95, y30 37 → 33 (page-exact, recall 0.424 → 0.731), y06
+  198 → 183 (doc recall 0.863 → 0.932), y12 88 → 84, y17 223 → 216. Gated:
+  both lanes PASS but for c3 *stale* records (doc recall 0.936 → 1.000, live
+  text 0.923 → 0.998, raw word recall 0.865 → 1.000); raw within-2pt c1
+  0.678 → 0.869, c7 0.557 → 0.892, r1 0.321 → 0.477, 01 0.207 → 0.314.
+  Losses: y03 word recall 0.285 → 0.276 (one page shorter; dy50 down, edit
+  score up), x10 within-2pt 0.019 → 0.015 (edit 0.685 → 0.677), y42 word
+  recall 0.317 → 0.311. 28 new tests (`tests/test_table_merges.py`, one in
+  `tests/test_bottom_margin_relief.py`).
 
 ## 1.0.1 — 2026-08-07
 
