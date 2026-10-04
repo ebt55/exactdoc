@@ -27,7 +27,7 @@ from ._docx_speed import enable_monotonic_ids    # also installs the fast paths
 from .layout import (DocLayout, Para, Run, Cell, TableEl, FigureEl, ImageEl,
                      RuleEl, ColBreak, HFPart, Chunk, PageLayout)
 from .fonts import (complex_script, complex_script_family, east_asian_family,
-                    font_table_desc, map_font)
+                    font_table_desc, map_font, writer_family)
 from .metrics import source_line_width
 from .structures import (add_footnote_ref_mark, add_footnote_reference,
                          apply_numpr, level_carries_indent, num_tab_override,
@@ -147,7 +147,7 @@ def _set_borders(el_pr, borders: dict, tag: str):
 
 def _style_run(r, run: Run, profile: str = "standard"):
     f = r.font
-    fam = map_font(run.font, mono=run.mono, serif=run.serif, profile=profile)
+    fam = writer_family(run.font, mono=run.mono, serif=run.serif, profile=profile)
     f.name = fam
     rpr = r._element.get_or_add_rPr()
     rf = rpr.find(qn("w:rFonts"))
@@ -2103,14 +2103,28 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
         at = list(tblPr).index(st) + 1 if st is not None else 0
         tblPr.insert(at, pp)
         tblPr.insert(at + 1, ov)
+    # The standard profile's table edge, placed the same way by Word and by
+    # LibreOffice (see _lead_pad): the first column's left pad becomes the
+    # table's default left cell margin and is added to the indent.
+    lead_pad = None
+    if frame is None and ctx.output_profile != "gdocs":
+        lead_pad = _lead_pad(t.rows, n_cols)
+    if lead_pad is not None:
+        edge = t.left_indent - getattr(t, "hang_left", 0.0)
+        if abs(edge + lead_pad) > 0.5:
+            ind = OxmlElement("w:tblInd")
+            ind.set(qn("w:w"), str(int(round((edge + lead_pad) * 20))))
+            ind.set(qn("w:type"), "dxa")
+            tblPr.append(ind)
     # Negative too: a panel the source bled into the margin (infer's
     # side-by-side columns) keeps its x. Nothing else asks for one.
-    elif abs(t.left_indent) > 0.5:
+    elif frame is None and abs(t.left_indent) > 0.5:
         ind = OxmlElement("w:tblInd")
         ind.set(qn("w:w"), str(int(round(t.left_indent * 20))))
         ind.set(qn("w:type"), "dxa")
         tblPr.append(ind)
-    # no default borders / spacing; zero default cell margins
+    # no default borders / spacing; zero default cell margins (but the left
+    # one, under the standard profile: the shared lead pad)
     tb = OxmlElement("w:tblBorders")
     for side in ("top", "left", "bottom", "right", "insideH", "insideV"):
         b = OxmlElement("w:" + side)
@@ -2120,7 +2134,8 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
     mar = OxmlElement("w:tblCellMar")
     for side in ("top", "left", "bottom", "right"):
         m = OxmlElement("w:" + side)
-        m.set(qn("w:w"), "0")
+        m.set(qn("w:w"), str(int(round(lead_pad * 20)))
+              if side == "left" and lead_pad else "0")
         m.set(qn("w:type"), "dxa")
         mar.append(m)
     tblPr.append(mar)
@@ -2336,6 +2351,12 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
             emitted_pads = (pads[0], 0.0, max(0.0, pads[2] - cell_cut),
                             max(0.0, pads[3] - 1.75)) \
                 if gdocs_cellpad else pads
+            # The first column's left pad is the table's shared lead pad (see
+            # _lead_pad); a cell whose own pad differs carries the difference
+            # as paragraph indent below, so its text stays where it was.
+            lead_cell = lead_pad is not None and ci == 0
+            if lead_cell:
+                emitted_pads = (pads[0], lead_pad, pads[2], pads[3])
             for side, val in zip(("top", "left", "bottom", "right"),
                                   emitted_pads):
                 m = OxmlElement("w:" + side)
@@ -2393,6 +2414,11 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
                                 pos = min(pos, max(
                                     0.0, inner - w * 1.15 - 1.0))
                         q.left_indent = pos
+                    elif lead_cell:
+                        # text lands at max(indent, own pad) from the cell
+                        # edge, as it did with the cell's own tcMar
+                        q.left_indent = max(0.0, max(p.left_indent, pads[1])
+                                            - lead_pad)
                     else:
                         q.left_indent = max(0.0, p.left_indent - pads[1])
                     q.right_indent = max(0.0, p.right_indent - pads[3])
@@ -2612,6 +2638,40 @@ def _row_border_allowance(row) -> float:
         w = sum((b.get(k) or (0.0,))[0] for k in ("top", "bottom")) / 2.0
         allow = max(allow, w)
     return allow
+
+
+def _lead_pad(rows, n_cols: int) -> Optional[float]:
+    """The left cell margin a table can share across its first column, or
+    None to write the table as before.
+
+    Word and LibreOffice disagree about where a table's edge goes whenever a
+    row's first cell has a left margin of its own. Word 2010 layout (the
+    `compatibilityMode` 14 python-docx's template declares) hangs every row
+    left of `w:tblInd` by its FIRST CELL's left margin, LibreOffice by the
+    TABLE's default left margin (`w:tblCellMar`). The writer used to emit a
+    zero default and the pads per cell, so LibreOffice drew each table at
+    its indent and Word drew it a pad further left -- c1's stat cards 49.6pt,
+    its callouts 13.3pt, its results table 6.2pt; text with them. Probed on
+    both renderers (Word 16.0.20430, LibreOffice 24.2, 2026-10-05): with the
+    first cell's margin equal to the table default the two agree to 0.5pt,
+    in mode 14 and in mode 15 alike.
+
+    So the first column's pad becomes the table default and is added to the
+    indent. Rows whose first cells differ share the smallest pad, the rest
+    moving into paragraph indent -- unless such a cell holds blocks (a
+    picture or a table, which no paragraph indent moves), when the table is
+    left as it was.
+    """
+    lead = [r[0] for r in rows if r and r[0] is not None and len(r[0].pad) >= 4]
+    if not lead:
+        return None
+    pads = [c.pad[1] for c in lead]
+    low = min(pads)
+    if max(pads) - low < 0.05:
+        return max(0.0, low)
+    if any(c.blocks and c.pad[1] - low >= 0.05 for c in lead):
+        return None
+    return max(0.0, low)
 
 
 def _uniform_row_pads(rows, n_cols: int):
@@ -3177,6 +3237,60 @@ _AFTER_PGNUM = ("w:cols", "w:formProt", "w:vAlign", "w:noEndnote", "w:titlePg",
                 "w:printerSettings", "w:sectPrChange")
 
 
+def _avoid_parity_blanks(secs: list, n_pages: int) -> list:
+    """Numbering sections Word can lay out without inserting a blank page.
+
+    With different odd and even headers, Word keeps every odd page NUMBER on
+    a right-hand page: a section that restarts at a number of the same parity
+    as the page before it (35, then 1) gets a blank page inserted ahead of it.
+    LibreOffice and Google Docs insert none, and neither does the source --
+    measured in Word 16.0.20430 on y19_scotus_loper, whose opinions each
+    restart at 1: page 44 came out blank, every later page one late, word
+    recall 0.991 -> 0.906; dropping `evenAndOddHeaders` alone restored 114
+    pages (2026-10-05). TeX by Topic (y25) does the same after its cover.
+
+    Word also chooses the odd or the even header by the page NUMBER, so no
+    renumbering is free: whichever section changes parity shows its other
+    header variant on every page it holds. So, for the standard profile with
+    even/odd parts, where a restart repeats the previous page's parity:
+
+    * if the section before it is the document's first and is a numberless
+      lead (`blank`) or a single page (a cover, usually under its first-page
+      header), that section is re-based -- start 0 or 1, whichever gives its
+      last page the opposite parity. At most one page changes variant (none
+      under a first-page header): y25's cover;
+    * otherwise the restart is dropped and the count runs on. That section
+      prints continued numbers and its other header variant -- measured on
+      y19 in the canonical LibreOffice, char recall 0.991 -> 0.982 -- where
+      the blank page would put every later page one late in Word. A
+      measured conflict between the two renderers, resolved for the one in
+      which the document would otherwise lose its page alignment.
+
+    One source page is one written page (every page ends in a break), which
+    is what lets the count be simulated here.
+    """
+    out = [copy.copy(s) for s in secs]
+    last = None                  # Word's number for the page before section i
+    for i, s in enumerate(out):
+        end = out[i + 1].start_page if i + 1 < len(out) else n_pages + 1
+        length = max(0, end - s.start_page)
+        if i and s.num_start is not None and s.num_fmt is not None \
+                and last is not None and last % 2 == s.num_start % 2:
+            prev = out[i - 1]
+            plen = s.start_page - prev.start_page
+            if i == 1 and (prev.blank or plen == 1) \
+                    and (prev.num_fmt or "decimal") == "decimal":
+                prev.num_start = (s.num_start - plen) % 2
+                prev.num_fmt = prev.num_fmt or "decimal"
+                last = prev.num_start + plen - 1
+            else:
+                s.num_start = None
+        first = s.num_start if s.num_start is not None else \
+            (last + 1 if last is not None else 1)
+        last = first + length - 1 if length else (first - 1)
+    return out
+
+
 def _set_page_numbering(sec, start: Optional[int], fmt: Optional[str]):
     """State a section's page numbering: `w:pgNumType w:start w:fmt`.
 
@@ -3662,6 +3776,64 @@ def _declare_fonts(doc):
             pass
 
 
+# Families python-docx's template declares that a stock Windows + Office
+# machine lacks, and what to declare instead (None: drop the declaration).
+# Courier is a printer font Windows never shipped (Courier New is the face);
+# the template's styles name it for its Macro Text and HTML styles, and its
+# font table lists it, so every DOCX this converter wrote asked a reader for
+# a family nothing in it uses. "ＭＳ 明朝" (MS Mincho) is in the font table
+# only, from the template's Japanese theme slot, and ships with Windows only
+# as the Japanese supplemental fonts. Census over the 93-document corpus
+# (WP21, 2026-10-05): both were in all 93 font tables, on no run.
+_TEMPLATE_FONT_FIXES = {"Courier": "Courier New", "ＭＳ 明朝": None}
+
+
+def _stock_template_fonts(doc):
+    """Make the template's own declarations stock (standard profile only).
+
+    Styles and the font table: a style naming Courier names Courier New; the
+    font table drops the entries `_TEMPLATE_FONT_FIXES` retires, unless a run
+    uses the family after all. Content families are `fonts.py`'s business."""
+    from lxml import etree
+    body_fonts = set()
+    for rf in doc.element.body.iter(qn("w:rFonts")):
+        for a in ("w:ascii", "w:hAnsi", "w:cs", "w:eastAsia"):
+            if rf.get(qn(a)):
+                body_fonts.add(rf.get(qn(a)))
+    for part in doc.part.package.iter_parts():
+        name = str(part.partname)
+        if name.endswith(("/styles.xml", "/stylesWithEffects.xml")):
+            root = part.element if hasattr(part, "element") else None
+            standalone = root is None
+            if standalone:
+                root = etree.fromstring(part.blob)
+            for rf in root.iter(qn("w:rFonts")):
+                for a in ("w:ascii", "w:hAnsi", "w:cs", "w:eastAsia"):
+                    new = _TEMPLATE_FONT_FIXES.get(rf.get(qn(a)), False)
+                    if new:
+                        rf.set(qn(a), new)
+            if standalone:
+                part._blob = etree.tostring(root, xml_declaration=True,
+                                            encoding="UTF-8", standalone=True)
+        elif name.endswith("/fontTable.xml"):
+            try:
+                root = etree.fromstring(part.blob)
+                have = {f.get(qn("w:name")) for f in root.findall(qn("w:font"))}
+                for f in list(root.findall(qn("w:font"))):
+                    fam = f.get(qn("w:name"))
+                    if fam in _TEMPLATE_FONT_FIXES and fam not in body_fonts:
+                        new = _TEMPLATE_FONT_FIXES[fam]
+                        if new and new not in have:
+                            f.set(qn("w:name"), new)
+                            have.add(new)
+                        else:
+                            root.remove(f)
+                part._blob = etree.tostring(root, xml_declaration=True,
+                                            encoding="UTF-8", standalone=True)
+            except Exception:
+                pass
+
+
 # Largest gap a joined page may carry into a merged flow (see
 # `_merge_grid_page_runs.cap_join_gaps`). A page-RELATIVE offset -- the
 # distance from a page's content to its bottom-pinned tail, or from its
@@ -4040,6 +4212,9 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
     # parts depend on it.
     booklet = _is_booklet(lay.pages)
     num_secs = [] if booklet else list(lay.hf_sections)
+    if num_secs and lay.even_odd and ctx.output_profile == "standard":
+        num_secs = _avoid_parity_blanks(
+            num_secs, max((pg.number for pg in lay.pages), default=0))
     sec1_blank = bool(num_secs) and num_secs[0].blank
     if lay.even_odd:
         doc.settings.odd_and_even_pages_header_footer = True
@@ -4490,6 +4665,8 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
         write_footnotes(doc, lay, ctx, write_para)
     _release_keeps_before_seams(body)
     _declare_fonts(doc)
+    if ctx.output_profile == "standard":
+        _stock_template_fonts(doc)
     doc.save(out_path)
     return out_path
 

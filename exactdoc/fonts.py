@@ -370,9 +370,85 @@ for _k, _name, _cls, _cs in (
         ("batang", "Batang", "serif", "81"), ("gulim", "Gulim", "sans", "81"),
         ("dotum", "Dotum", "sans", "81"), ("nanumgothic", "NanumGothic", "sans", "81"),
         ("nanummyeongjo", "NanumMyeongjo", "serif", "81"),
+        # DynaComware's KaiShu, Windows' Traditional Chinese "DFKai-SB"
+        # (PostScript DFKaiShu-SB-Estd-BF): y52's 25,111 characters of body
+        # text. Unknown, it took Arial in every slot and Word set the Chinese
+        # in its theme's Japanese face.
+        ("dfkaishu", "DFKai-SB", "serif", "88"),
         ("arialunicodems", "Arial Unicode MS", "sans", "00")):
     _FAMILY_TABLE[_k] = Family(_cls, TNR if _cls == "serif" else ARIAL,
                                ea=(_name, _cs))
+
+# Local names. A Japanese, Chinese or Korean producer names a system face by
+# its own-language name, and writes that name into BaseFont in the legacy
+# encoding of its locale: JUST PDF wrote y51's "ＭＳ ゴシック" as the
+# Shift-JIS bytes 82 6C 82 72 83 53 ... which no table key could match, so the
+# face fell to its FixedPitch bit -- Courier New in every slot, the East Asian
+# one included -- and Word, finding no CJK glyphs in Courier New, set 10,113
+# characters in its theme's fallback with full-width punctuation: every source
+# line wrapped its last character, and 12 pages became 23 (2026-10-05).
+# Keys are NFKC-normalised with spaces removed (NFKC folds the full-width
+# "ＭＳ" and the half-width katakana of "ｺﾞｼｯｸ"); values are table keys.
+_LOCAL_NAMES = {
+    "MSゴシック": "msgothic", "MSPゴシック": "mspgothic", "MS明朝": "msmincho",
+    "MSP明朝": "mspmincho", "游ゴシック": "yugothic", "游明朝": "yumincho",
+    "メイリオ": "meiryo", "IPAゴシック": "ipagothic", "IPAPゴシック": "ipapgothic",
+    "IPA明朝": "ipamincho",
+    # HG fonts (Ricoh, bundled with Japanese Office): HGP is the proportional
+    # cut, so its nearest system face is MS PGothic's proportional gothic.
+    "HGP創英角ゴシックUB": "mspgothic", "HG創英角ゴシックUB": "msgothic",
+    "HGPゴシックE": "mspgothic", "HGゴシックE": "msgothic",
+    "HGPゴシックM": "mspgothic", "HGゴシックM": "msgothic",
+    "HGP明朝B": "mspmincho", "HG明朝B": "msmincho",
+    "新細明體": "pmingliu", "細明體": "mingliu", "標楷體": "dfkaishu",
+    "微軟正黑體": "microsoftjhenghei", "宋体": "simsun", "新宋体": "nsimsun",
+    "黑体": "simhei", "微软雅黑": "microsoftyahei", "楷体": "kaiti",
+    "楷体_GB2312": "kaiti", "仿宋": "fangsong", "仿宋_GB2312": "fangsong",
+    "等线": "dengxian", "굴림": "gulim", "굴림체": "gulim", "바탕": "batang",
+    "바탕체": "batang", "돋움": "dotum", "돋움체": "dotum",
+    "맑은고딕": "malgungothic",
+}
+# The encodings a non-UTF-8 BaseFont is tried in, most common first.
+_LEGACY_NAME_ENCODINGS = ("cp932", "gbk", "big5", "cp949")
+
+
+def _local_key(pdf_font: str) -> Optional[str]:
+    """The table key of a localised family name, or None."""
+    import unicodedata
+    fam, _ = _split_name(pdf_font)
+    name = unicodedata.normalize("NFKC", fam).replace(" ", "")
+    return _LOCAL_NAMES.get(name)
+
+
+def decode_font_name(raw: bytes) -> str:
+    """A BaseFont's bytes as a font name.
+
+    UTF-8 when the bytes are UTF-8 (every ASCII name is). Otherwise the
+    legacy CJK encoding under which the name is a face the family table knows
+    (`_LOCAL_NAMES`); failing that, UTF-8 with replacement characters, which is
+    what both parsers produced before, so an unrecognised name changes nothing.
+    """
+    try:
+        return raw.decode("utf-8")
+    except UnicodeDecodeError:
+        pass
+    for enc in _LEGACY_NAME_ENCODINGS:
+        try:
+            name = raw.decode(enc)
+        except UnicodeDecodeError:
+            continue
+        if _local_key(_SUBSET_RE.sub("", name)) is not None:
+            return name
+    return raw.decode("utf-8", "replace")
+
+
+def decode_font_str(name: str) -> str:
+    """`decode_font_name` for a name a parser already turned into a str one
+    byte per character (PyMuPDF hands BaseFont bytes over as Latin-1)."""
+    if not name or all(ord(ch) < 0x80 for ch in name) or any(ord(ch) > 0xFF for ch in name):
+        return name
+    decoded = decode_font_name(name.encode("latin-1"))
+    return decoded if "�" not in decoded else name
 
 # Google Docs' native families pass through under their own names in both
 # profiles, as they always have. Their class is stated so the parser and the
@@ -633,6 +709,9 @@ def lookup_family(pdf_font: str) -> Optional[Family]:
     that prefixes a candidate -- which is how "HelveticaNeueLTStd-Roman" and
     "HelveticaWorld-Bold" reach `helvetica` without a row each.
     """
+    local = _local_key(pdf_font)
+    if local is not None:
+        return _FAMILY_TABLE[local]
     keys = _candidate_keys(pdf_font)
     for k in keys:
         hit = _FAMILY_TABLE.get(k) or _NATIVE.get(k)
@@ -728,6 +807,48 @@ def map_font(pdf_font: str, mono: bool = False, serif: bool = False,
     if serif:
         return "Times New Roman"
     return "Arial"
+
+
+# The Google Docs native families a stock Windows + Office machine also has
+# (the Windows 11 font list; Consolas ships with Office): the standard profile
+# writes these by name, like every Office family.
+_NATIVE_STOCK = {"arial", "times new roman", "courier new", "georgia", "verdana",
+                 "tahoma", "trebuchet ms", "impact", "comic sans ms", "consolas"}
+_NATIVE_NAMES = set(GDOCS_NATIVE) | {n.lower() for n in _NATIVE_EXTRA.values()}
+
+
+def writer_family(pdf_font: str, mono: bool = False, serif: bool = False,
+                  profile: str = "standard") -> str:
+    """The family the writer names in a run: `map_font`, except that the
+    standard profile writes a Google Docs native family a stock Windows +
+    Office machine lacks as a stock face of its class.
+
+    Those families pass through by name because Google Docs renders them, and
+    the gdocs profile keeps doing so. A Word reader lacks them. Measured in
+    Word 16.0.20430 with the families hidden (testkit/word_oracle.py
+    --stock-fonts, 2026-10-05), Word itself drew Noto Serif and Vollkorn in
+    Cambria and Noto Sans and Ubuntu in Calibri -- but Roboto and Figtree in
+    Times New Roman and Roboto Mono in Cambria, code in a proportional serif.
+    So the writer names Word's own good choices outright and corrects the
+    bad ones: serif Cambria, sans Calibri, mono Courier New. Mapping the
+    proportional ones to the core faces instead measured worse in stock Word
+    (y20's Vollkorn as Times New Roman: within-2pt 0.356 -> 0.038; Times is
+    11% narrower than Cambria's measure of a wide serif). Noto Serif, Noto
+    Sans, Roboto, Roboto Mono, Open Sans, Figtree, Ubuntu, Vollkorn and
+    Source Code Pro were named on 8 of 93 corpus DOCX. The canonical
+    LibreOffice has neither these nor Cambria and Calibri and draws all of
+    them as FreeSerif, so its proportional text does not move; Roboto Mono
+    and Source Code Pro advance 0.600em (median glyph pitch in y27's and
+    y45's own spans), Courier New's exact width, now monospaced there too.
+
+    Applied at write time only: the ladder and the width scale keep reading
+    `map_font`, so line decisions -- and the gdocs profile -- are unchanged.
+    """
+    fam = map_font(pdf_font, mono=mono, serif=serif, profile=profile)
+    low = fam.lower()
+    if profile == "standard" and low in _NATIVE_NAMES and low not in _NATIVE_STOCK:
+        return {"serif": "Cambria", "mono": COURIER}.get(_native_class(low), "Calibri")
+    return fam
 
 
 def _is_east_asian(ch: str) -> bool:
