@@ -8,7 +8,8 @@ Publishing* gives the workflow a credential that lasts minutes, for one upload,
 and only from this repository's release workflow.
 
 The first public beta will be **0.3.0b1**. The version in `pyproject.toml`
-stays `0.2.0a1` until the release commit itself.
+stays `0.2.0a1` until the release commit itself, and that commit is not made
+while any gating criterion of [the beta bar](beta-bar.md) fails.
 
 ## What runs, in order
 
@@ -73,11 +74,13 @@ tagged on a commit where `gate` and `install` are both green.
 
 The commands below use `0.3.0b1`; replace it with the version being released.
 
-1. **Check readiness.** On the commit to release: the canonical gate is green
+1. **Check readiness against [the beta bar](beta-bar.md)**, ratified by the
+   owner on 2026-10-05. On the commit to release: the canonical gate is green
    in both lanes, the `install` workflow is green, and
-   `python testkit/beta_readiness.py --runs <your runs folder>` has been read.
-   (Its bar is a proposal; whether to release with criteria failing is your
-   call, and the output says which.)
+   `python testkit/beta_readiness.py --runs <your runs folder>` reports no
+   gating criterion as FAIL or UNMEASURED (criteria 1–6, 8, 10–12). **0.3.0b1
+   is not tagged while any gating criterion fails.** Criteria 7, 9 and 13 are
+   reported for the beta and gate 1.0.
 
 2. **Bump the version, in one commit.**
    - `pyproject.toml`: `version = "0.3.0b1"`, and the classifier

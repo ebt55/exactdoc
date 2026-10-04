@@ -1,0 +1,103 @@
+{
+ "build": {
+  "scripts_check_dist": "passed",
+  "sdist_files": 47,
+  "sdist_files_before_wp20": 149,
+  "setuptools_warnings": [
+   "project.license as a TOML table is deprecated",
+   "License classifiers are deprecated"
+  ],
+  "twine_check_strict": "PASSED",
+  "wheel_files": 41,
+  "where": "python:3.12-slim, throwaway venv, `python -m build`"
+ },
+ "byte_identity": {
+  "canonical_gate_wp20-gate-1_vs_int-92c542c": "word/*.xml identical for all 16 gated documents in both lanes (raw and product, refine3 through LibreOffice 24.2)",
+  "windows_gdocs_and_raw_profiles_vs_integration_9cfcbcc": "word/*.xml identical for all 16 gated documents in the gdocs profile (pdfium/gdocs/none/refine0) and the raw standard profile: 32 of 32 DOCX"
+ },
+ "document_xml_sha256_16": {
+  "01_whitepaper_market gdocs profile (3.9-slim, 3.12-slim)": "6ecc10b7b81b9d24",
+  "01_whitepaper_market raw (3.9-slim, 3.12-slim)": "725ebfce61c01cdd",
+  "c3_tables gdocs profile (all three)": "5654c14f76405d9d",
+  "c3_tables raw (3.9-slim, 3.12-slim, Windows 3.13)": "3b76913b2a3eb75f"
+ },
+ "environments": [
+  {
+   "deps": {
+    "lxml": "6.1.3",
+    "numpy": "2.0.2",
+    "pillow": "11.3.0",
+    "pypdfium2": "5.14.0",
+    "python-docx": "1.2.0"
+   },
+   "libreoffice": null,
+   "name": "python:3.9-slim",
+   "pymupdf_importable": false,
+   "python": "3.9.25",
+   "results": {
+    "--diagnose": 0,
+    "--help": 0,
+    "--refine 3 without LibreOffice": 11,
+    "--version": 0,
+    "default 01_whitepaper_market (fallback note)": 0,
+    "default c3_tables (fallback note)": 0,
+    "default name exists": 3,
+    "gdocs profile, both": 0,
+    "missing input": 21
+   }
+  },
+  {
+   "deps": {
+    "lxml": "6.1.3",
+    "numpy": "2.5.3",
+    "pillow": "12.3.0",
+    "pypdfium2": "5.14.0",
+    "python-docx": "1.2.0"
+   },
+   "libreoffice": null,
+   "name": "python:3.12-slim",
+   "pymupdf_importable": false,
+   "python": "3.12.15",
+   "results": {
+    "--diagnose": 0,
+    "--help": 0,
+    "--refine 3 without LibreOffice": 11,
+    "--version": 0,
+    "default 01_whitepaper_market (fallback note)": 0,
+    "default c3_tables (fallback note)": 0,
+    "default name exists": 3,
+    "gdocs profile, both": 0,
+    "missing input": 21
+   }
+  },
+  {
+   "deps": {
+    "lxml": "6.1.3",
+    "numpy": "2.5.3",
+    "pillow": "12.3.0",
+    "pypdfium2": "5.14.0",
+    "python-docx": "1.2.0"
+   },
+   "libreoffice": "25.2.5.2 installed; the no-LibreOffice path run in-process with SOFFICE=None",
+   "name": "Windows 11, venv from the system Python 3.13 (py -3.13)",
+   "python": "3.13.12",
+   "results": {
+    "--diagnose": 0,
+    "--version": 0,
+    "default 01_whitepaper_market (product, 9.7s)": 0,
+    "default c3_tables with LibreOffice hidden (fallback note)": 0,
+    "gdocs profile c3_tables": 0,
+    "missing input": 21
+   }
+  }
+ ],
+ "name_on_pypi": "https://pypi.org/pypi/exactdoc/json and the TestPyPI equivalent both returned 404 on 2026-10-05",
+ "purpose": "Clean-install proof for the first beta: the wheel built from a git snapshot, installed with no extras into a fresh virtualenv with no LibreOffice, then the commands a first-time user runs.",
+ "recorded": "2026-10-05",
+ "schema": "exactdoc.evidence.beta-install.v1",
+ "unit_suite_in_clean_venv": {
+  "after WP20": "the two harness tests skip without PyMuPDF; test_width_scale accepts 87 on Python < 3.12",
+  "python:3.12-slim": "1252 tests, 2 errors before WP20 (harness needs PyMuPDF), 51 skipped",
+  "python:3.9-slim": "1252 tests, the same 2 errors plus test_width_scale (w:w 87 vs 88: Python 3.12 made sum() of floats compensated)"
+ }
+}

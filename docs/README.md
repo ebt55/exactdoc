@@ -9,6 +9,7 @@ it, and what works today. This folder holds the details, for when you want them.
 |---|---|
 | [usage.md](usage.md) | Every option, the Python API, batch mode, input errors and exit codes, and what happens when LibreOffice is missing or fails |
 | [releasing.md](releasing.md) | How a version reaches PyPI: the one-time Trusted Publishing setup, the version bump and tag, the TestPyPI check, and what to do when a step fails |
+| [beta-bar.md](beta-bar.md) | The bar the first beta must meet, ratified by the owner on 2026-10-05: 13 criteria, which gate, their thresholds and data, and why |
 
 ## Deep dive
 

@@ -21,8 +21,9 @@ left than in the PDF.</sub>
 
 ## Install
 
-You need Python 3.9 or newer (check with `python --version`). On Windows,
-macOS and Linux:
+You need Python 3.9 or newer (check with `python --version`). A clean install
+was checked on Linux and Windows
+([record](docs/evidence/beta-install-2026-10-05.json)):
 
 ```bash
 pip install exactdoc
@@ -41,7 +42,8 @@ That is all you need to convert PDFs. Two things are optional:
   compares each page with the PDF and corrects page breaks and spacing. Without
   it, exactdoc converts in one pass and prints a note saying so. The check takes
   time: on a desktop PC a 31-page IRS publication took 88 seconds with it and
-  19 without. `--refine 0` skips it.
+  19 without ([measurement](docs/evidence/beta-timing-2026-10-05.json)).
+  `--refine 0` skips it.
 - **The Google Docs tools** (`pip install "exactdoc[gdocs]"`) measure a DOCX
   inside Google Docs with your own Google account. You do not need them to make
   a DOCX for Google Docs: `--output-profile gdocs` works offline in every
@@ -195,7 +197,8 @@ The short version, for anyone testing the beta:
   in Google Docs than in LibreOffice.
 - **The LibreOffice layout check is slow on long documents.** It renders the
   document up to four times: a 126-page IRS booklet took 6 min 49 s on a
-  desktop PC, against 2 min 3 s with `--refine 0`.
+  desktop PC, against 2 min 3 s with `--refine 0`
+  ([measurement](docs/evidence/beta-timing-2026-10-05.json)).
 - **Equations, slides, brochures and posters** do not convert well yet.
 - **Word itself has not been measured.** Every number here comes from
   LibreOffice and Google Docs. If Word shows something different, please
