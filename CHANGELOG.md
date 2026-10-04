@@ -20,6 +20,20 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **gdocs: the other families' line heights re-measured in Google Docs.** The
+  same live probe, run over every family in `NATURAL_FACTORS`, found each one
+  equal to its font file's own hhea line, with no offset. The table's older
+  values sat 0.006 below that, which was the bias of the original four-line
+  probe. Courier New (1.133), Georgia, Roboto, Noto Serif/Sans, Verdana,
+  Vollkorn and Consolas (1.171) now carry the measured value. Live pass 12b:
+  overall pass, 0 blocking findings; c7 within-2pt 0.132 -> 0.409, l1 0.213 ->
+  0.227, 03 SSIM up (dy_p50 2.03 -> 2.15pt); the private report stays CLEAN
+  32/32 (within-2pt 0.156 -> 0.219). Arial and Times New Roman measure 1.150
+  too but stay at 1.144. Setting them alone helped 02 (0.09 -> 0.59) and c2,
+  but broke 01's SSIM bound (0.704 -> 0.680) and moved c6 0.34 -> 0.20,
+  because the profile's other levers were calibrated against 1.144. They have
+  to be corrected together with those levers
+  ([evidence](docs/evidence/gdocs-2026-10-04-natural-factors-remeasured.json)).
 - **gdocs: Calibri-family line heights measured in Google Docs; Word documents
   stop growing there (live, 2026-10-04).** The gdocs profile writes line
   height as a multiple of each family's natural line in Docs

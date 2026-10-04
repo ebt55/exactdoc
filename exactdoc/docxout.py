@@ -431,8 +431,21 @@ WRAP_CORRECTION = False
 # whose metric differs -- Roboto is 4% taller than Arial, which is exactly the
 # kind of quiet assumption this project exists to avoid.
 NATURAL_FACTORS = {
-    "arial": 1.144, "times new roman": 1.144, "courier new": 1.127,
-    "georgia": 1.130, "roboto": 1.194,
+    # Re-measured live 2026-10-04 (see the Calibri note below for the method):
+    # every family here equals its font file's own hhea line, with no offset.
+    # The "0.006 below the formula" the older values carried was the bias of
+    # the original four-line probe; at 9-16 lines and two sizes the pitch
+    # agrees with the formula to four decimals.
+    #
+    # Arial and Times New Roman measure 1.150 too, and are deliberately left
+    # at 1.144: the gdocs profile's other levers (the single-line -0.38pt in
+    # write_para among them) were calibrated live against 1.144, and setting
+    # the true factor alone moved the gated corpus both ways (pass 12:
+    # within-2pt sum 4.29 -> 5.05, 02 0.09 -> 0.59, c2 0.86 -> 0.91, but 01's
+    # mean SSIM 0.704 -> 0.680 broke its policy bound, and c6 0.34 -> 0.20).
+    # Correcting them needs those levers re-measured with it, in one change.
+    "arial": 1.144, "times new roman": 1.144, "courier new": 1.133,
+    "georgia": 1.1365, "roboto": 1.200,
     # Added when the metric fit began substituting these families. Docs' live
     # pass 2 rendered l1_word_native in Noto Serif at a 17.48pt pitch where the
     # source used 14.70pt: dividing by the 1.144 default inflated every line by
@@ -445,7 +458,7 @@ NATURAL_FACTORS = {
     # 1.136 -- each exactly 0.006 above its Docs-measured value here, a constant
     # offset across four independently probed families. Noto Serif reads 1.362
     # by the same formula, so 1.356 predicted against 1.360 observed.
-    "noto serif": 1.360, "noto sans": 1.356, "verdana": 1.209,
+    "noto serif": 1.362, "noto sans": 1.362, "verdana": 1.2155,
     # Vollkorn, measured live the Libre Baskerville way: Docs renders the
     # family natively (verified -- a self-mapped document's wraps came back
     # at the source's own line breaks), but its line box is far taller than
@@ -453,13 +466,13 @@ NATURAL_FACTORS = {
     # own export rendered 19.10pt (median over 30 consecutive body-line
     # gaps, y20 page 3) -- a natural factor of 1.392. With the default, the
     # document's lines rendered 22% tall and it went 5 pages to 7.
-    "vollkorn": 1.392,
+    "vollkorn": 1.393,
     # Consolas, read from the font file by the formula above (hhea
     # 1521/-527/350 over upm 2048 = 1.1709) minus the constant 0.006
     # offset the four probed families showed between that formula and
     # Docs' own pitch. No live probe has confirmed it yet; a
     # probe_font_metrics ride-along is the way to tighten it.
-    "consolas": 1.165,
+    "consolas": 1.171,
     # Also measured inside Docs rather than from a font file, by
     # testkit/probe_font_metrics.py in live pass 3 -- the family is not
     # installed here. The probe's own controls recovered Noto Serif at 1.362,

@@ -1,0 +1,438 @@
+{
+ "schema": 1,
+ "date": "2026-10-04",
+ "kind": "gdocs-live-probe+qualification-ab",
+ "probe_factors_pitch_over_size": {
+  "Arial": 1.15,
+  "Times New Roman": 1.15,
+  "Courier New": 1.133,
+  "Georgia": 1.1365,
+  "Roboto": 1.2003,
+  "Noto Serif": 1.3621,
+  "Noto Sans": 1.3621,
+  "Verdana": 1.2155,
+  "Vollkorn": 1.3931,
+  "Consolas": 1.171,
+  "Libre Baskerville": 1.2401,
+  "Carlito": 1.2207
+ },
+ "method": "one paragraph per page, single spacing, 9-16 lines at 11pt and 9pt; pitch from first to last x-height baseline on Google's export; both sizes agree to 4 decimals",
+ "gated_corpus": {
+  "pass11_before": {
+   "01_whitepaper_market.pdf": {
+    "page_match": true,
+    "word_recall": 0.9583,
+    "dy_p50": 2.55,
+    "dy_p90": 8.92,
+    "within2pt": 0.3647,
+    "mean_ssim": 0.7037
+   },
+   "02_research_paper.pdf": {
+    "page_match": true,
+    "word_recall": 0.9586,
+    "dy_p50": 2.55,
+    "dy_p90": 8.05,
+    "within2pt": 0.0888,
+    "mean_ssim": 0.8698
+   },
+   "03_tech_report_code.pdf": {
+    "page_match": true,
+    "word_recall": 0.9446,
+    "dy_p50": 2.03,
+    "dy_p90": 14.68,
+    "within2pt": 0.2088,
+    "mean_ssim": 0.8119
+   },
+   "04_exec_brief.pdf": {
+    "page_match": true,
+    "word_recall": 0.9061,
+    "dy_p50": 1.95,
+    "dy_p90": 20.39,
+    "within2pt": 0.3354,
+    "mean_ssim": 0.8794
+   },
+   "05_memo.pdf": {
+    "page_match": true,
+    "word_recall": 0.9398,
+    "dy_p50": 5.0,
+    "dy_p90": 9.07,
+    "within2pt": 0.0,
+    "mean_ssim": 0.9221
+   },
+   "c1_whitepaper.pdf": {
+    "page_match": true,
+    "word_recall": 0.9697,
+    "dy_p50": 3.69,
+    "dy_p90": 12.67,
+    "within2pt": 0.0531,
+    "mean_ssim": 0.8204
+   },
+   "c2_paper2col.pdf": {
+    "page_match": true,
+    "word_recall": 1.0,
+    "dy_p50": 0.98,
+    "dy_p90": 1.78,
+    "within2pt": 0.8597,
+    "mean_ssim": 0.8075
+   },
+   "c3_tables.pdf": {
+    "page_match": true,
+    "word_recall": 0.9809,
+    "dy_p50": 7.87,
+    "dy_p90": 20.31,
+    "within2pt": 0.0,
+    "mean_ssim": 0.7725
+   },
+   "c4_i18n.pdf": {
+    "page_match": true,
+    "word_recall": 1.0,
+    "dy_p50": 2.3,
+    "dy_p90": 16.26,
+    "within2pt": 0.1303,
+    "mean_ssim": 0.8731
+   },
+   "c5_graphics.pdf": {
+    "page_match": false,
+    "word_recall": 0.1667,
+    "dy_p50": 1.5,
+    "dy_p90": 141.08,
+    "within2pt": 0.8,
+    "mean_ssim": 0.4205
+   },
+   "c6_long.pdf": {
+    "page_match": true,
+    "word_recall": 1.0,
+    "dy_p50": 3.07,
+    "dy_p90": 5.36,
+    "within2pt": 0.341,
+    "mean_ssim": 0.763
+   },
+   "c7_code.pdf": {
+    "page_match": true,
+    "word_recall": 0.9034,
+    "dy_p50": 2.16,
+    "dy_p90": 3.16,
+    "within2pt": 0.1321,
+    "mean_ssim": 0.8473
+   },
+   "c8_toc_links.pdf": {
+    "page_match": true,
+    "word_recall": 0.9568,
+    "dy_p50": 3.93,
+    "dy_p90": 4.78,
+    "within2pt": 0.0977,
+    "mean_ssim": 0.8929
+   },
+   "f1_fpdf_brief.pdf": {
+    "page_match": true,
+    "word_recall": 1.0,
+    "dy_p50": 0.57,
+    "dy_p90": 3.48,
+    "within2pt": 0.121,
+    "mean_ssim": 0.8976
+   },
+   "l1_word_native.pdf": {
+    "page_match": true,
+    "word_recall": 0.9792,
+    "dy_p50": 0.9,
+    "dy_p90": 22.46,
+    "within2pt": 0.2128,
+    "mean_ssim": 0.8006
+   },
+   "r1_reportlab_report.pdf": {
+    "page_match": true,
+    "word_recall": 0.9845,
+    "dy_p50": 0.52,
+    "dy_p90": 9.26,
+    "within2pt": 0.5474,
+    "mean_ssim": 0.8268
+   }
+  },
+  "pass12_all_families_true": {
+   "overall_pass": false,
+   "blocking": "01_whitepaper_market mean_ssim 0.7037 -> 0.6796",
+   "documents": {
+    "01_whitepaper_market.pdf": {
+     "page_match": true,
+     "word_recall": 0.9583,
+     "dy_p50": 3.02,
+     "dy_p90": 8.37,
+     "within2pt": 0.3745,
+     "mean_ssim": 0.6796
+    },
+    "02_research_paper.pdf": {
+     "page_match": true,
+     "word_recall": 0.9586,
+     "dy_p50": 1.72,
+     "dy_p90": 7.16,
+     "within2pt": 0.5914,
+     "mean_ssim": 0.8873
+    },
+    "03_tech_report_code.pdf": {
+     "page_match": true,
+     "word_recall": 0.9446,
+     "dy_p50": 2.0,
+     "dy_p90": 13.83,
+     "within2pt": 0.2088,
+     "mean_ssim": 0.8163
+    },
+    "04_exec_brief.pdf": {
+     "page_match": true,
+     "word_recall": 0.9061,
+     "dy_p50": 1.96,
+     "dy_p90": 21.22,
+     "within2pt": 0.3598,
+     "mean_ssim": 0.8809
+    },
+    "05_memo.pdf": {
+     "page_match": true,
+     "word_recall": 0.9398,
+     "dy_p50": 4.54,
+     "dy_p90": 8.11,
+     "within2pt": 0.0,
+     "mean_ssim": 0.9281
+    },
+    "c1_whitepaper.pdf": {
+     "page_match": true,
+     "word_recall": 0.9697,
+     "dy_p50": 3.57,
+     "dy_p90": 14.12,
+     "within2pt": 0.1,
+     "mean_ssim": 0.8222
+    },
+    "c2_paper2col.pdf": {
+     "page_match": true,
+     "word_recall": 1.0,
+     "dy_p50": 0.42,
+     "dy_p90": 1.11,
+     "within2pt": 0.9117,
+     "mean_ssim": 0.8459
+    },
+    "c3_tables.pdf": {
+     "page_match": true,
+     "word_recall": 0.9809,
+     "dy_p50": 7.6,
+     "dy_p90": 19.31,
+     "within2pt": 0.0,
+     "mean_ssim": 0.7719
+    },
+    "c4_i18n.pdf": {
+     "page_match": true,
+     "word_recall": 1.0,
+     "dy_p50": 3.52,
+     "dy_p90": 17.91,
+     "within2pt": 0.1261,
+     "mean_ssim": 0.872
+    },
+    "c5_graphics.pdf": {
+     "page_match": false,
+     "word_recall": 0.1667,
+     "dy_p50": 1.37,
+     "dy_p90": 140.66,
+     "within2pt": 0.8,
+     "mean_ssim": 0.4229
+    },
+    "c6_long.pdf": {
+     "page_match": true,
+     "word_recall": 1.0,
+     "dy_p50": 4.02,
+     "dy_p90": 7.1,
+     "within2pt": 0.2028,
+     "mean_ssim": 0.7282
+    },
+    "c7_code.pdf": {
+     "page_match": true,
+     "word_recall": 0.9034,
+     "dy_p50": 0.98,
+     "dy_p90": 2.47,
+     "within2pt": 0.4277,
+     "mean_ssim": 0.8636
+    },
+    "c8_toc_links.pdf": {
+     "page_match": true,
+     "word_recall": 0.9568,
+     "dy_p50": 5.48,
+     "dy_p90": 6.23,
+     "within2pt": 0.0526,
+     "mean_ssim": 0.8805
+    },
+    "f1_fpdf_brief.pdf": {
+     "page_match": true,
+     "word_recall": 1.0,
+     "dy_p50": 0.23,
+     "dy_p90": 3.06,
+     "within2pt": 0.121,
+     "mean_ssim": 0.9069
+    },
+    "l1_word_native.pdf": {
+     "page_match": true,
+     "word_recall": 0.9792,
+     "dy_p50": 0.7,
+     "dy_p90": 22.18,
+     "within2pt": 0.227,
+     "mean_ssim": 0.8058
+    },
+    "r1_reportlab_report.pdf": {
+     "page_match": true,
+     "word_recall": 0.9845,
+     "dy_p50": 1.14,
+     "dy_p90": 7.76,
+     "within2pt": 0.5474,
+     "mean_ssim": 0.8287
+    }
+   }
+  },
+  "pass12b_committed_split": {
+   "overall_pass": true,
+   "blocking": 0,
+   "documents": {
+    "01_whitepaper_market.pdf": {
+     "page_match": true,
+     "word_recall": 0.9583,
+     "dy_p50": 2.55,
+     "dy_p90": 8.92,
+     "within2pt": 0.3647,
+     "mean_ssim": 0.7037
+    },
+    "02_research_paper.pdf": {
+     "page_match": true,
+     "word_recall": 0.9586,
+     "dy_p50": 2.55,
+     "dy_p90": 8.05,
+     "within2pt": 0.0888,
+     "mean_ssim": 0.8698
+    },
+    "03_tech_report_code.pdf": {
+     "page_match": true,
+     "word_recall": 0.9446,
+     "dy_p50": 2.15,
+     "dy_p90": 14.38,
+     "within2pt": 0.2088,
+     "mean_ssim": 0.8165
+    },
+    "04_exec_brief.pdf": {
+     "page_match": true,
+     "word_recall": 0.9061,
+     "dy_p50": 1.95,
+     "dy_p90": 20.39,
+     "within2pt": 0.3354,
+     "mean_ssim": 0.8794
+    },
+    "05_memo.pdf": {
+     "page_match": true,
+     "word_recall": 0.9398,
+     "dy_p50": 5.0,
+     "dy_p90": 9.07,
+     "within2pt": 0.0,
+     "mean_ssim": 0.9221
+    },
+    "c1_whitepaper.pdf": {
+     "page_match": true,
+     "word_recall": 0.9697,
+     "dy_p50": 3.69,
+     "dy_p90": 12.67,
+     "within2pt": 0.0531,
+     "mean_ssim": 0.8204
+    },
+    "c2_paper2col.pdf": {
+     "page_match": true,
+     "word_recall": 1.0,
+     "dy_p50": 0.98,
+     "dy_p90": 1.78,
+     "within2pt": 0.8597,
+     "mean_ssim": 0.8075
+    },
+    "c3_tables.pdf": {
+     "page_match": true,
+     "word_recall": 0.9809,
+     "dy_p50": 7.87,
+     "dy_p90": 20.31,
+     "within2pt": 0.0,
+     "mean_ssim": 0.7725
+    },
+    "c4_i18n.pdf": {
+     "page_match": true,
+     "word_recall": 1.0,
+     "dy_p50": 2.3,
+     "dy_p90": 16.32,
+     "within2pt": 0.1303,
+     "mean_ssim": 0.8735
+    },
+    "c5_graphics.pdf": {
+     "page_match": false,
+     "word_recall": 0.1667,
+     "dy_p50": 1.5,
+     "dy_p90": 141.08,
+     "within2pt": 0.8,
+     "mean_ssim": 0.4205
+    },
+    "c6_long.pdf": {
+     "page_match": true,
+     "word_recall": 1.0,
+     "dy_p50": 3.07,
+     "dy_p90": 5.36,
+     "within2pt": 0.341,
+     "mean_ssim": 0.763
+    },
+    "c7_code.pdf": {
+     "page_match": true,
+     "word_recall": 0.9034,
+     "dy_p50": 1.62,
+     "dy_p90": 2.25,
+     "within2pt": 0.4088,
+     "mean_ssim": 0.8547
+    },
+    "c8_toc_links.pdf": {
+     "page_match": true,
+     "word_recall": 0.9568,
+     "dy_p50": 3.93,
+     "dy_p90": 4.78,
+     "within2pt": 0.0977,
+     "mean_ssim": 0.8929
+    },
+    "f1_fpdf_brief.pdf": {
+     "page_match": true,
+     "word_recall": 1.0,
+     "dy_p50": 0.57,
+     "dy_p90": 3.48,
+     "within2pt": 0.121,
+     "mean_ssim": 0.8976
+    },
+    "l1_word_native.pdf": {
+     "page_match": true,
+     "word_recall": 0.9792,
+     "dy_p50": 0.7,
+     "dy_p90": 22.18,
+     "within2pt": 0.227,
+     "mean_ssim": 0.8058
+    },
+    "r1_reportlab_report.pdf": {
+     "page_match": true,
+     "word_recall": 0.9845,
+     "dy_p50": 0.52,
+     "dy_p90": 9.26,
+     "within2pt": 0.5474,
+     "mean_ssim": 0.8268
+    }
+   }
+  }
+ },
+ "private_report_32pp": {
+  "pass12b": {
+   "align_clean": true,
+   "within2pt": [
+    0.1563,
+    0.2186
+   ],
+   "dy_p50": [
+    7.14,
+    6.94
+   ],
+   "mean_ssim": [
+    0.5426,
+    0.5529
+   ]
+  }
+ },
+ "decision": "commit the true factor for Courier New, Georgia, Roboto, Noto Serif/Sans, Verdana, Vollkorn, Consolas; keep Arial/Times at the calibrated 1.144 until the gdocs levers tuned against it are re-measured together"
+}

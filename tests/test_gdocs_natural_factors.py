@@ -29,6 +29,21 @@ class CalibriFamily(unittest.TestCase):
         for fam in ("carlito", "calibri", "cambria", "caladea"):
             self.assertIn(fam, NATURAL_FACTORS)
 
+    def test_remeasured_families(self):
+        # live 2026-10-04: each equals its font file's hhea line
+        for fam, f in (("Courier New", 1.133), ("Georgia", 1.1365),
+                       ("Roboto", 1.200), ("Noto Serif", 1.362),
+                       ("Noto Sans", 1.362), ("Verdana", 1.2155),
+                       ("Vollkorn", 1.393), ("Consolas", 1.171)):
+            self.assertAlmostEqual(_natural_factor(fam), f, places=4, msg=fam)
+
+    def test_arial_and_times_stay_at_their_calibrated_value(self):
+        # They measure 1.150 as well, but the gdocs levers were calibrated
+        # against 1.144 and the true factor alone broke 01's SSIM bound
+        # (pass 12). Change these only together with those levers.
+        self.assertEqual(_natural_factor("Arial"), 1.144)
+        self.assertEqual(_natural_factor("Times New Roman"), 1.144)
+
     def test_a_carlito_line_at_its_natural_pitch_is_single_spacing(self):
         # 11pt Carlito at Docs' own 13.43pt pitch is exactly 1.0 x natural, so
         # the gdocs multiple is w:line 240 -- not the 256 (+6.7%) the 1.144
