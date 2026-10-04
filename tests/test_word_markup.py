@@ -157,6 +157,18 @@ class ParityBlanks(unittest.TestCase):
         self.assertEqual((out[0].num_start, out[0].num_fmt), (0, "decimal"))
         self.assertEqual(out[1].num_start, 1)
 
+    def test_a_one_page_cover_is_rebased_rather_than_the_body_renumbered(self):
+        # y25: a titlePg cover, then the body restarting at 1. Dropping the
+        # restart would flip the odd/even header of every body page.
+        secs = [HFSection(1, None, None), HFSection(2, 1, "decimal")]
+        out = docxout._avoid_parity_blanks(secs, 300)
+        self.assertEqual((out[0].num_start, out[1].num_start), (0, 1))
+
+    def test_a_roman_lead_is_never_rebased_to_zero(self):
+        secs = [HFSection(1, 1, "lowerRoman"), HFSection(2, 1, "decimal")]
+        out = docxout._avoid_parity_blanks(secs, 30)
+        self.assertEqual((out[0].num_start, out[1].num_start), (1, None))
+
     def test_no_collision_changes_nothing(self):
         secs = [HFSection(1, 1, "lowerRoman"), HFSection(5, 1, "decimal")]
         out = docxout._avoid_parity_blanks(secs, 40)

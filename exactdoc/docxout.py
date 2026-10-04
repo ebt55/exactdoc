@@ -3248,15 +3248,25 @@ def _avoid_parity_blanks(secs: list, n_pages: int) -> list:
     recall 0.991 -> 0.906; dropping `evenAndOddHeaders` alone restored 114
     pages (2026-10-05). TeX by Topic (y25) does the same after its cover.
 
-    So, for the standard profile with even/odd parts: where a restart repeats
-    the previous page's parity and the section before it shows no number (a
-    cover or title run, `blank`) and is the document's first, that section is
-    re-based instead -- start 0 or 1, whichever makes its last page the
-    opposite parity -- which costs nothing visible. Otherwise the restart is
-    dropped and the count runs on: a wrong number on those pages, where the
-    blank page would put every later page one late. One source page is one
-    written page (every page ends in a break), which is what lets the count
-    be simulated here.
+    Word also chooses the odd or the even header by the page NUMBER, so no
+    renumbering is free: whichever section changes parity shows its other
+    header variant on every page it holds. So, for the standard profile with
+    even/odd parts, where a restart repeats the previous page's parity:
+
+    * if the section before it is the document's first and is a numberless
+      lead (`blank`) or a single page (a cover, usually under its first-page
+      header), that section is re-based -- start 0 or 1, whichever gives its
+      last page the opposite parity. At most one page changes variant (none
+      under a first-page header): y25's cover;
+    * otherwise the restart is dropped and the count runs on. That section
+      prints continued numbers and its other header variant -- measured on
+      y19 in the canonical LibreOffice, char recall 0.991 -> 0.982 -- where
+      the blank page would put every later page one late in Word. A
+      measured conflict between the two renderers, resolved for the one in
+      which the document would otherwise lose its page alignment.
+
+    One source page is one written page (every page ends in a break), which
+    is what lets the count be simulated here.
     """
     out = [copy.copy(s) for s in secs]
     last = None                  # Word's number for the page before section i
@@ -3266,8 +3276,9 @@ def _avoid_parity_blanks(secs: list, n_pages: int) -> list:
         if i and s.num_start is not None and s.num_fmt is not None \
                 and last is not None and last % 2 == s.num_start % 2:
             prev = out[i - 1]
-            if i == 1 and prev.blank:
-                plen = s.start_page - prev.start_page
+            plen = s.start_page - prev.start_page
+            if i == 1 and (prev.blank or plen == 1) \
+                    and (prev.num_fmt or "decimal") == "decimal":
                 prev.num_start = (s.num_start - plen) % 2
                 prev.num_fmt = prev.num_fmt or "decimal"
                 last = prev.num_start + plen - 1
