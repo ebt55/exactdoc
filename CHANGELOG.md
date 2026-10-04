@@ -63,6 +63,19 @@ one verified fix at a time, each gated against the frozen 16.
   to a copy). Standard keeps the real leader tab. Flown on all twelve
   expansion documents with leaders, about 516 entries: no page number wrapped,
   and x02's char recall in Docs went 0.766 -> 0.997.
+- **The README is written for a first-time reader; the depth moved to
+  `docs/`.** The front page is now a pitch, install, a quick start, what
+  "editable" means, and what works and what does not yet, shown with real
+  before/after images (`docs/images/`, built by `scripts/readme_images.py`
+  from the canonical product run recorded in
+  `docs/evidence/readme-examples-2026-10-04.json`). THEORY.md, STATUS.md,
+  ROADMAP.md, ESCALATION_RULING_LINEBOX.md and the support-matrix SVG moved
+  to `docs/deep-dive/` (lower-case names; history follows the renames), and
+  the old README's long sections moved, unrewritten, to
+  `docs/deep-dive/{limitations,measured-state,how-it-works,licensing}.md` and
+  `docs/usage.md`. `docs/README.md` indexes all of it. Converter behaviour is
+  unchanged; only comments and one gate message that named a moved file by
+  path were edited.
 - **Google Docs round trips survive large documents.** y06 (IRS 1040
   instructions, a 9.9 MB DOCX of page images) could not be measured live at
   all: Drive's simple upload carries at most 5 MB, the create call then
@@ -330,7 +343,7 @@ Non-gating; the expansion parity policy re-pins its corpus hash only.
   restarted container (environment drift, not a code effect). 11 new
   tests.
 - **the support matrix is now by producing engine.** One diagram
-  (`docs/diagrams/support-by-engine.svg`, replacing the two per-renderer
+  (`docs/deep-dive/support-by-engine.svg`, replacing the two per-renderer
   matrices) answers the question a user actually asks — *my PDF came from
   LaTeX / Word / the browser: how will it convert?* Rows are producer
   engines, columns the two output profiles, and the Google Docs column

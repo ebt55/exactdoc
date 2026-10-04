@@ -458,7 +458,8 @@ def main(strict=None):
     thin one. The previous version made no such distinction -- it called
     subprocess with CHROME=None and died on a bare TypeError before writing a
     single file, which is the "gate that cannot run" failure mode this
-    repository has already been bitten by once (STATUS.md §5).
+    repository has already been bitten by once
+    (docs/deep-dive/status.md §5).
 
     `--strict` makes a skip fatal too, and CI passes it. The distinction is
     right for a contributor on a thin machine and wrong for the environment of

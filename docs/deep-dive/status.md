@@ -3,7 +3,7 @@
 **Current version: 0.2.0a1 (alpha)** — renumbered from 1.0.1 on 2026-10-04; see
 CHANGELOG. **Historical release record: 1.0.0, 2026-08-06.** Apache-2.0, PDFium core, live-validated against
 Google Docs. Artifact and the four proofs it rests on:
-[docs/evidence/release-1.0.0-2026-08-06.json](docs/evidence/release-1.0.0-2026-08-06.json).
+[docs/evidence/release-1.0.0-2026-08-06.json](../evidence/release-1.0.0-2026-08-06.json).
 Wheel `exactdoc-1.0.0-py3-none-any.whl`, sha256
 `82be220399cc4038146db809dc74a08296613980a8f46bea949c5d4adf822d4d`.
 
@@ -14,7 +14,7 @@ that every document meets release quality.
 
 ## Post-release queue
 
-1.0.0 ships with known limitations, stated with numbers in the README. What is
+1.0.0 ships with known limitations, stated with numbers in [limitations.md](limitations.md). What is
 queued against them, headline first:
 
 | # | Item | Why it leads |
@@ -135,8 +135,8 @@ work rather than migration work:
 
 1. ~~**A post-flip live Google Docs qualification pass.**~~ **PASSED at live
    pass 7** (2026-08-06, consented, tip `a3e5670`).
-   [Qualification](docs/evidence/gdocs-2026-08-06-pass7-qualification.json) ·
-   [assessment](docs/evidence/gdocs-2026-08-06-pass7-assessment.json).
+   [Qualification](../evidence/gdocs-2026-08-06-pass7-qualification.json) ·
+   [assessment](../evidence/gdocs-2026-08-06-pass7-assessment.json).
    `overall_pass: true`, **zero blocking findings**, on DOCX verified
    byte-identical to what a PyMuPDF-free install produces. Operationally clean:
    16/16 uploaded, converted, exported and deleted, zero orphans.
@@ -152,8 +152,8 @@ work rather than migration work:
    **Live pass 6 — the failure this fixed.**
    Live pass 6 (2026-08-06, consented, tip `38720b6`) was the migrated product's
    first live contact.
-   [Qualification](docs/evidence/gdocs-2026-08-06-pass6-qualification.json) ·
-   [assessment](docs/evidence/gdocs-2026-08-06-pass6-assessment.json).
+   [Qualification](../evidence/gdocs-2026-08-06-pass6-qualification.json) ·
+   [assessment](../evidence/gdocs-2026-08-06-pass6-assessment.json).
 
    **Operationally clean**: 16/16 uploaded, converted, exported and deleted;
    zero orphaned Drive objects. The uploaded DOCX were verified byte-identical
@@ -169,12 +169,12 @@ work rather than migration work:
    default on + figure merge) improved c1 to 2.69 on the LibreOffice proxy and
    was predicted to reach ~2–3pt live; it measured 21.91. **The prediction is
    falsified and recorded as such** in
-   [c1-band-and-cards-2026-08-05.json](docs/evidence/c1-band-and-cards-2026-08-05.json)
+   [c1-band-and-cards-2026-08-05.json](../evidence/c1-band-and-cards-2026-08-05.json)
    `live_prediction.graded`. c1 is the standing exemplar for the
    ordinary-document release bar, so this blocked release.
 
    **And the lock was innocent.** Attribution against Google's own export
-   ([c1-live-attribution-2026-08-06.json](docs/evidence/c1-live-attribution-2026-08-06.json))
+   ([c1-live-attribution-2026-08-06.json](../evidence/c1-live-attribution-2026-08-06.json))
    found the band rendering at 111.00pt against a 112.67pt source — the *locked*
    height, not the pre-lock one — with `lineRule="auto"` and no `trHeight`. The
    real defect was that c1's band was never recognised as a cover band
@@ -446,7 +446,7 @@ when both arms are under 2.0pt, *provided* `within2pt` did not move adversely on
 the same document. The metric definition deliberately stays glyph-tops —
 redefining it would invalidate the gate baseline, this policy's floors and every
 live-pass record simultaneously, to correct a reporting convention that moves
-nothing a reader sees. See [docs/dy-ascent-artifact.md](docs/dy-ascent-artifact.md).
+nothing a reader sees. See [docs/dy-ascent-artifact.md](../dy-ascent-artifact.md).
 
 The condition is doing real work, not decorating the rule. Five gated base-14
 documents sit inside the 2.0pt ceiling at the shipping settings; the exemption
@@ -572,9 +572,9 @@ better suit the intended distribution.
 All four migration gates were met before the switch: expanded same-profile
 parity ratified with zero unratified findings (`a3dd2ef`), two clean consented
 Google Docs passes, the base-wheel proof
-([docs/evidence/base-wheel-proof-2026-08-06.json](docs/evidence/base-wheel-proof-2026-08-06.json)),
+([docs/evidence/base-wheel-proof-2026-08-06.json](../evidence/base-wheel-proof-2026-08-06.json)),
 and the dependency/provenance/licence audit
-([docs/license-audit.md](docs/license-audit.md)).
+([docs/license-audit.md](../license-audit.md)).
 
 **What the switch did not do, listed here because a completed migration is
 exactly where it would otherwise vanish:**
@@ -602,7 +602,7 @@ name:
    distinction that is not there would be worse than silence.
 
 Both are measured in
-[docs/evidence/permissive-shaper-2026-08-06.json](docs/evidence/permissive-shaper-2026-08-06.json),
+[docs/evidence/permissive-shaper-2026-08-06.json](../evidence/permissive-shaper-2026-08-06.json),
 which also records where the new shaper deliberately disagrees with MuPDF —
 MuPDF's base-14 lookup is Latin-1 only and charges the space width for em
 dashes, curly quotes, the Euro sign and 24 other WinAnsi codepoints. The gated

@@ -103,7 +103,7 @@ def dependency_versions():
             out[name] = None
     # The bundled native libraries matter more than the wrapper versions: the
     # goldens are pinned to a PyMuPDF version because 1.26 and 1.28 group the
-    # same page differently (STATUS.md §5).
+    # same page differently (docs/deep-dive/status.md §5).
     try:
         import fitz
         out["mupdf"] = getattr(fitz, "mupdf_version", None) or \
