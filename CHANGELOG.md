@@ -20,6 +20,19 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **The README is written for a first-time reader; the depth moved to
+  `docs/`.** The front page is now a pitch, install, a quick start, what
+  "editable" means, and what works and what does not yet, shown with real
+  before/after images (`docs/images/`, built by `scripts/readme_images.py`
+  from the canonical product run recorded in
+  `docs/evidence/readme-examples-2026-10-04.json`). THEORY.md, STATUS.md,
+  ROADMAP.md, ESCALATION_RULING_LINEBOX.md and the support-matrix SVG moved
+  to `docs/deep-dive/` (lower-case names; history follows the renames), and
+  the old README's long sections moved, unrewritten, to
+  `docs/deep-dive/{limitations,measured-state,how-it-works,licensing}.md` and
+  `docs/usage.md`. `docs/README.md` indexes all of it. Converter behaviour is
+  unchanged; only comments and one gate message that named a moved file by
+  path were edited.
 - **Google Docs round trips survive large documents.** y06 (IRS 1040
   instructions, a 9.9 MB DOCX of page images) could not be measured live at
   all: Drive's simple upload carries at most 5 MB, the create call then

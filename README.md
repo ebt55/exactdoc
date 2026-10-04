@@ -1,631 +1,196 @@
 # exactdoc
 
-**exactdoc converts PDFs into editable DOCX files that look like the original.**
+**exactdoc turns a PDF into a Word document (DOCX) that looks like the original
+and that you can actually edit.**
 
-Most PDF→Word converters give you either a pile of text boxes frozen at absolute
-positions (looks right, unusable to edit) or reflowed text that has lost the
-layout (editable, looks wrong). exactdoc aims at both at once for ordinary
-digital documents: it infers the *semantic* structure — margins, paragraphs,
-headings, lists, tables, multi-column sections, headers/footers, hyperlinks —
-and writes real flowing Word constructs whose rendered geometry matches the
-source page to within points, verified by measurement.
+Most PDF-to-Word converters give you one of two things: text boxes frozen in
+place (looks right, painful to edit) or plain reflowed text (easy to edit, looks
+wrong). exactdoc writes real headings, paragraphs, lists and tables, and places
+them so the page matches the PDF. Every change is measured against real
+renderers, and conversion runs entirely on your machine.
 
-**Version 0.2.0a1 — alpha.** The 1.0.0 / 1.0.1 tags were renumbered back into the 0.x
-line on 2026-10-04: the converter is changing fast and is not yet stable enough to
-carry a 1.x number (see CHANGELOG). Apache-2.0. Every claim below is measured against
-a frozen 16-document corpus and validated live in Google Docs itself; use those
-measurements rather than assuming every PDF dialect works. The classes it does
-*not* handle are listed as plainly as the ones it does.
+> **Alpha (version 0.2.0a1).** It works well on ordinary digital documents and is
+> still changing quickly. The [Works well / Not yet](#what-works-and-what-does-not-yet)
+> section below shows both sides with real examples.
 
-### Where to look
+![A whitepaper page as a PDF on the left, and the DOCX exactdoc made from it, opened in LibreOffice, on the right. The two pages look almost the same.](docs/images/hero-whitepaper.png)
 
-| | |
-|---|---|
-| [Support matrix](#where-it-works-and-where-it-does-not) | which engines convert well, and in which viewer — start here |
-| [CHANGELOG.md](CHANGELOG.md) | what shipped in 1.0.0, and what changed to get there |
-| [STATUS.md](STATUS.md) | the current measured state, defect by defect |
-| [ROADMAP.md](ROADMAP.md) | sequencing, and the gates a change has to pass |
-| [THEORY.md](THEORY.md) | the laws the codebase is built around, and what each cost to learn |
-| [What is not done](#what-is-not-done) | the post-release queue, with numbers |
-| [docs/license-audit.md](docs/license-audit.md) | every dependency licence, read from installed metadata |
-| [docs/corpus-expansion.md](docs/corpus-expansion.md) | how the test corpus grows without invalidating a number |
-| [docs/evidence/](docs/evidence/) | **the evidence system.** Every quality claim in this repository is a committed JSON artifact recording the numbers, the environment fingerprint and the commit that produced them — so any figure here traces to the run that measured it rather than to somebody's memory |
-
-## What it does
-
-- **Editable output, not text boxes.** Paragraphs are real paragraphs with
-  correct spacing, indents, alignment and line leading; tables are real DOCX
-  tables; lists keep their markers; hyperlinks and internal TOC links stay live.
-- **Measured fidelity.** A closed refinement loop renders the produced DOCX
-  back to PDF (LibreOffice headless by default), compares word positions
-  against the source, and corrects page overflow and per-page offsets. The
-  test harness reports word recall, horizontal/vertical drift percentiles,
-  SSIM and ink IoU per document.
-- **Honest degradation.** Designed regions it cannot represent as flowing text
-  (gradient graphics, rotated art) are rasterised so the rest of the document
-  stays editable — and the live-text metric counts that trade-off instead of
-  hiding it. Image-only scans are rejected with an explicit OCR-required error
-  rather than silently converted to blank output.
-- **Two parser backends.** PDFium via pypdfium2 (core, shipping) and PyMuPDF
-  (optional `[mupdf]`, the reference arm every parity record is measured
-  against). Shared inference contains no backend conditionals; a parity harness
-  compares the two. A default install contains no AGPL code.
-- **A Google Docs output profile.** `output_profile="gdocs"` writes OOXML that
-  survives Google Docs' importer (which mistranslates exact line heights,
-  ignores cell margins in places, and inserts extra paragraph spacing) using a
-  static, offline translation layer — no upload required.
+<sub>Page 1 of a test whitepaper from this project's own corpus, converted with the
+default settings. Small differences remain: the footer's page number sits further
+left than in the PDF.</sub>
 
 ## Install
 
+You need Python 3.9 or newer.
+
 ```bash
 git clone https://github.com/ebt55/exactdoc && cd exactdoc
-pip install -e .            # core (PDFium backend) — no AGPL code
-# optional extras:
-pip install -e ".[mupdf]"   # PyMuPDF reference backend — AGPL-3.0, see Licensing
-pip install -e ".[gdocs]"   # exactdoc-gdocs CLI (Google auth + qualification)
-pip install -e ".[test]"    # test/measurement toolkit
+pip install -e .
 ```
 
-The shipping profile's refinement loop renders through LibreOffice headless
-(`soffice`); see *When LibreOffice is missing or fails* below for what happens
-without it. Conversion is local; nothing is uploaded.
+Also install [LibreOffice](https://www.libreoffice.org/) if you can. By default
+exactdoc renders its own output with it, compares the result with the PDF and
+corrects the layout. Without LibreOffice, add `--refine 0` to skip that check.
 
-## Usage
+## Quick start
 
 ```bash
+# Convert one PDF
 exactdoc report.pdf -o report.docx
 
-# Google-Docs-safe OOXML, still fully offline:
-exactdoc --output-profile gdocs report.pdf -o report.docx
+# Make a DOCX for Google Docs (still offline: nothing is uploaded)
+exactdoc report.pdf -o report.docx --output-profile gdocs --refine 0
+
+# Convert a whole folder, including subfolders
+exactdoc --input-dir pdfs --out-dir docx --recursive
+
+# No LibreOffice? Convert without the self-check
+exactdoc report.pdf -o report.docx --refine 0
 ```
+
+From Python:
 
 ```python
 from exactdoc import convert
 
 convert("report.pdf", "report.docx")
-
-# Google-Docs-safe OOXML, still fully offline:
-convert("report.pdf", "report.docx", output_profile="gdocs", oracle="none",
-        refine_rounds=0)
 ```
 
-Batch conversion over folders is deterministic and safe to re-run:
+The Google Docs option writes the same document in a form that Google Docs'
+importer reads correctly. Upload the DOCX to Google Drive and open it with Google
+Docs. Every option, exit code and batch limit is in [docs/usage.md](docs/usage.md).
 
-```bash
-exactdoc --input-dir pdfs --out-dir docx --recursive --result-json batch.json
+## What "editable" means here
+
+The DOCX is built from the same pieces you would use to write the document in
+Word yourself, not from text boxes pinned to the page:
+
+![The DOCX from page 2 of the whitepaper, with its parts labelled: a header that repeats on every page, a bulleted list, Heading 2 and Heading 1 styles, a table with real rows and cells, a chart kept as a picture, and a footer with a live page number.](docs/images/editable-structure.png)
+
+- **Headings** use Word's heading styles, so the navigation pane and Google Docs'
+  outline work.
+- **Paragraphs** flow and re-wrap when you edit them.
+- **Lists** are real bulleted and numbered lists.
+- **Tables** are real tables, including merged cells and tables that run over
+  several pages.
+- **Headers and footers** repeat on every page, with live page numbers.
+- **Footnotes** are real footnotes. **Links** still work.
+- Charts, logos and artwork stay **pictures**, placed where the PDF has them.
+
+## What works, and what does not yet
+
+### Works well
+
+Ordinary digital documents: reports, memos, letters, whitepapers, simple papers
+and résumés.
+
+<table>
+<tr>
+<td width="50%"><img src="docs/images/works-tables.png" alt="A page of tables, PDF beside DOCX. Merged header cells and a table nested inside a table come through unchanged."></td>
+<td width="50%"><img src="docs/images/works-two-column.png" alt="A two-column paper page, PDF beside DOCX. Title, abstract, two columns and a footnote are in the same places."></td>
+</tr>
+<tr>
+<td><b>Tables</b>: merged header cells and a table inside a table become real Word tables.</td>
+<td><b>Two-column pages</b> keep their columns as a real two-column section.</td>
+</tr>
+<tr>
+<td><img src="docs/images/works-resume.png" alt="A résumé page, PDF beside DOCX. Section rules, role and date rows, and bullets match."></td>
+<td><img src="docs/images/works-footnotes.png" alt="A consultation response, PDF beside DOCX. The running header, block quotes and links match; the footnotes sit at the foot of the page."></td>
+</tr>
+<tr>
+<td><b>Résumés</b>: role and date on one line, rules under section headings, bullet lists.</td>
+<td><b>Headers, quotes, links and footnotes.</b> Footnotes become real Word footnotes, so they move to the foot of the page.</td>
+</tr>
+</table>
+
+<sub>All four are test documents this project generated (Apache-2.0). Each DOCX
+was rendered by LibreOffice in the project's pinned test container.</sub>
+
+### Not yet
+
+Real-world documents vary more than test documents. These are the main gaps,
+shown on public documents converted with the default settings.
+
+![Slide 3 of a US Census Bureau presentation beside the DOCX page. In the DOCX the speaker names and titles run together and the layout falls apart.](docs/images/not-yet-slides.png)
+
+<sub><b>Slide decks.</b> Slide 3 of a US Census Bureau webinar deck (public domain).
+Slide layouts fall apart, and the 40-slide deck became 72 pages.</sub>
+
+<table>
+<tr>
+<td width="50%"><img src="docs/images/not-yet-dense-paper.png" alt="Page 1 of a two-column arXiv paper beside the DOCX. In the DOCX an equation is split over several lines and one word is stacked one letter per line."></td>
+<td width="50%"><img src="docs/images/not-yet-designed.png" alt="A designed Social Security Statement beside the DOCX. It looks similar, but the grey panels are pictures and some text spills out at the bottom."></td>
+</tr>
+<tr>
+<td><b>Dense journal papers with equations.</b> Bu and Plancher, arXiv:2309.06427 (CC BY 4.0). Equations come apart, and the 8-page paper became 19 pages.</td>
+<td><b>Heavily designed layouts.</b> A sample Social Security Statement (US government, public domain; "Wanda Worker" is SSA's fictional sample). It looks close, but the grey panels became pictures: only about 12% of the words stay editable, and some text spills out below.</td>
+</tr>
+</table>
+
+| Kind of PDF | Today |
+|---|---|
+| Reports, memos, letters, whitepapers | ✅ Works well. Long reports can gain pages: 12–22% more on NIST publications of 59–114 pages ([sweep](docs/evidence/engine-sweep-2026-09-11b.json)) |
+| Tables (merged cells, tables over several pages) | ✅ Works well |
+| Simple two-column layouts | ✅ Works well |
+| Résumés | ✅ Mostly. Some designed two-column templates still spill onto an extra page |
+| Headers, footers, page numbers, footnotes, links | ✅ Works well |
+| Latin, Cyrillic and Greek text | ✅ Works well |
+| Chinese, Japanese and Korean text | ⚠️ Partly. The text survives, but some runs become pictures |
+| Long documents in Google Docs | ⚠️ Pages multiply. In live Google Docs runs, the 126-page IRS Form 1040 instructions came back as 189 pages ([CHANGELOG](CHANGELOG.md)) |
+| Dense journal papers, equations | ⚠️ Not yet. Equations are not rebuilt as editable math |
+| Slide decks, brochures, posters | ⚠️ Not yet. Layouts break or become pictures |
+| Arabic and Hebrew (right-to-left) | ⚠️ Not converted correctly yet |
+| Scanned pages with no text layer | ⛔ Refused (exit code 17). No OCR is built in. Scans that already have an OCR text layer do convert |
+| Fillable forms | ⛔ Refused (exit code 19), because the result would look like the form without being one |
+| Over 250 pages | ⛔ Refused (exit code 20) unless you raise the limit with `--max-pages N` (`0` removes it) |
+
+A refusal writes nothing and says why. For example:
+
+```text
+$ exactdoc scanned_letter.pdf -o letter.docx
+error: this PDF appears to require OCR before conversion
+
+$ exactdoc f1040.pdf -o f1040.docx
+error: this PDF is an interactive form: its content lives in fillable fields,
+which this converter does not preserve. Converting it would produce a document
+that looks like the form and is not one.
 ```
 
-Use `--continue-on-error`, `--overwrite`, or `--scan-only` as appropriate.
-Discovery is case-insensitive and preserves relative paths; existing outputs
-require `--overwrite`; batch runs are serial today (`--workers` must be `1`).
-Limits are 500 documents, 250 pages/document, 2,000 pages/run, 250 MiB/file.
-Result JSON is atomically published and contains only relative paths, safe
-errors, hashes, counts and options.
-
-Input errors are deliberately stable: encrypted PDFs report unsupported input;
-malformed or truncated PDFs report parse errors; high-confidence image-only
-scans exit with an explicit OCR-required code (17, or 18 for partial batch
-failures). Output publication is transactional: candidates stay private until
-structural DOCX validation succeeds, then replace the destination atomically —
-a failed conversion never corrupts an existing output.
-
-### When LibreOffice is missing or fails
-
-Two different situations, deliberately handled differently:
-
-- **Not installed.** Asking for refinement (the default) with no `soffice` on
-  the machine is an error before anything is written: `OracleUnavailableError`,
-  **exit code 11**. Install LibreOffice, or pass `--refine 0` to convert
-  open-loop on purpose. Converting open-loop silently would make the default
-  profile mean the raw one on that machine, for every document, with nothing to
-  say so.
-- **Installed, but it crashes, hangs or writes nothing mid-run.** The
-  conversion has already produced a valid DOCX by then, so it is not thrown
-  away: the best candidate so far is published — the best measured refine
-  round, or, if the very first render failed, the open-loop DOCX — and the
-  failure is reported as a warning, not an error. The CLI exits **0** and
-  prints `warning: the libreoffice oracle failed in refine round N; …` to
-  stderr. From Python, `convert()` raises
-  `exactdoc.errors.OracleDegradedWarning` through `warnings.warn`, and
-  `exactdoc.convert.convert_result()` returns a `ConversionResult` whose
-  `warnings` carry an `oracle-degraded` entry and whose `degraded` is True
-  (`resolved_options` names the rounds that actually ran). A batch result
-  row lists the warning under `warnings`.
-
-  To get the old all-or-nothing behaviour, escalate the warning:
-  `warnings.simplefilter("error", OracleDegradedWarning)`. It is raised before
-  publication, so the conversion then fails and the destination is untouched.
-  The gate and the quality sweep do exactly that, so a degraded conversion is
-  never measured as the shipping product.
-
-LibreOffice keeps one private profile per conversion (created on the first
-render, removed at the end), under a short directory: a profile beneath a long
-TEMP path crashes soffice on Windows. Set `EXACTDOC_SOFFICE_ROOT` to choose
-that directory explicitly.
-
-### The same DOCX everywhere — with one measured caveat
-
-Conversion consults **no system fonts**. The base-14 text metrics are the
-published Adobe AFM widths, compiled into the package
-(`exactdoc/_base14_widths.py`); PDFium reads the fonts the PDF itself embeds.
-Nothing in the layout path asks the operating system what a glyph is worth, so a
-Linux user and a Windows user get the same *text geometry* from the same input.
-The most font-sensitive fixture in the corpus, `c4_i18n` (CJK, Arabic and
-Hebrew), converts **byte-identical** across the two platforms, as do
-`l1_word_native`, `c7_code`, `c8_toc_links`, `c6_long` and `c2_paper2col`.
-
-The DOCX is **not** byte-identical in general, and it would be wrong to claim it
-is. Measured Windows-against-container on all 16 gated fixtures at the RAW
-profile: 6 match exactly, and 10 differ. All six documents carrying a rasterised
-figure region differ by hundreds of bytes — image encoders are not required to
-be reproducible across platforms — and four documents with no image at all
-differ by 2 to 11 bytes, a cause this project has not yet chased down.
-Conversion is deterministic on a *given* machine: two runs produce identical ZIP
-members on all 16.
-
-What a reader sees is a separate question from what a hash sees. Google Docs
-renders with Google's fonts, so a document opened there looks the same for
-everyone; Word and LibreOffice substitute from locally installed fonts, exactly
-as they do for any DOCX from any source.
-
-## Where it works, and where it does not
-
-![Support matrix by producing engine and target renderer](docs/diagrams/support-by-engine.svg)
-
-The matrix is organised the way you meet the question: rows are the engine
-that produced the PDF (the producer string any PDF inspector shows), columns
-are the renderer the DOCX will be opened in. Both columns are the same
-converter — only the serialisation differs (`gdocs` vs `standard` output
-profiles).
-
-The headline the sweep carries: office and web producers — Word, LibreOffice,
-Chromium-printed pages, ReportLab-style generators — land between page-exact
-and 1.22× reflow, and three real documents land page-exact (the 114-page
-Distiller-set SCOTUS opinion, the 214-page GNU Bash manual, and the Typst
-specimen on Google's own render). Typst landed
-page-exact on Google's own render. The measured weak class is dense designed
-multi-column booklets (the IRS instruction books, 1.4–1.7×), and the refusals
-are contractual, not quality failures: fillable forms, scans without a text
-layer, and documents over the 250-page cap.
-
-Cells marked **live** carry a live Google Docs artifact: the DOCX went to
-Drive through the API, Google's own PDF export came back, every page was
-aligned against the source by text content and the renders inspected
-([pass 7](docs/evidence/gdocs-2026-08-06-pass7-qualification.json), the
-[2026-09-11 campaign](docs/evidence/gdocs-2026-09-11-b13-port-round1.md) —
-a 32-page Chromium-printed report at CLEAN 1:1 — and the Typst specimen).
-Cells marked † have no live run for that engine yet and carry the measured
-LibreOffice-lane level. The LibreOffice/Word column is the gated lane: the
-committed gate baseline for the synthetic corpus, and the
-[2026-09-11 engine sweeps](docs/evidence/engine-sweep-2026-09-11b.json) —
-every real-producer fixture converted and rendered in the canonical
-container — for the engine rows. The sections below repeat the matrix in
-prose, with the numbers.
-
-For the Google Docs column specifically, the confirming measurement is always
-the live test: the DOCX goes to Drive through the API, Google's own PDF export
-comes back, every page is aligned against the source by text content, and the
-renders are inspected. Offline proxies are used for triage only — Docs
-mistranslates enough OOXML (and LibreOffice mispredicts enough Docs) that a
-local render has never been accepted as evidence for this column.
-
-## What to expect (quality examples)
-
-Typical results from the measured corpus, described rather than screenshotted:
-
-- **A three-page business whitepaper** (cover band, headings, callout boxes,
-  a bar chart, numbered and bulleted lists, footer with page numbers) converts
-  to a fully editable document: the coloured cover band is a real table with
-  live text, the chart is rasterised in place, callouts keep their tinted
-  backgrounds and border bars, and body text lands within ~1–2pt of the
-  source. You can retitle the cover and re-wrap paragraphs like any Word file.
-- **A two-column academic paper** with an inset abstract keeps its two-column
-  section: column boundaries, the abstract inset, superscripts and references
-  survive, and the column geometry is inferred from the page itself — no
-  template assumptions.
-- **A technical report with code blocks** keeps code as monospace text in
-  shaded single-cell tables with preserved indentation — editable, not an
-  image.
-- **A 45-row striped table** spanning three pages becomes one continuous
-  editable DOCX table with every row present exactly once, paginating
-  naturally.
-- **An international text page** (CJK, Cyrillic, Greek, accented Latin)
-  retains live, correctly positioned text through metric-compatible font
-  mapping.
-
-## Limitations, in tiers
-
-**Tier 1 — works today (the target class).** Ordinary digital documents:
-reports, memos, letters, whitepapers, academic papers, multi-column pages,
-common (striped/ruled) tables, code listings, headers/footers, hyperlinks and
-TOC links, most Latin/CJK/Cyrillic text. This is what the corpus measures and
-the numbers below describe.
-
-**Tier 2 — partially supported, measured limitations.**
-
-- *Complex and nested tables*: regional/nested table layouts are deferred;
-  only conservative, strongly-evidenced striped tables are assembled.
-- *Designed/vector-heavy pages*: gradients, rounded and rotated artwork are
-  rasterised regions inside an otherwise-editable document, not recreated
-  vector art (`c5_graphics`, parts of `04_exec_brief`).
-- *Google Docs as the renderer*: the offline `gdocs` profile compensates for
-  measured importer quirks (line-height mistranslation, ignored cell margins,
-  whole-point row rounding, border-against-text-area charging, `pBdr` schema
-  order, sub-minimum column merging). **The gdocs profile's confirmation is
-  the Google Docs live test itself**: upload through the Drive API, export
-  Google's own PDF, align page-by-page against the source, and inspect the
-  renders — the local LibreOffice proxy is known to mispredict Docs, so no
-  offline number is quoted for this profile without a live artifact behind
-  it. The 2026-09-11 campaign on that protocol took a real 32-page report
-  (tables, quote bars, a callout box, inline code) from 58 export pages to
-  **CLEAN 1:1 at 32** — every source page mapping to exactly one export page
-  — with named Heading styles so Docs' outline sidebar populates, quote bars
-  and the callout box as real borders, tables partitioned cell-for-cell at
-  the source's own column pitch, and hyphens kept where the source drew them.
-
-**Tier 3 — explicitly out of scope for now.**
-
-- *Heavy LaTeX/mathematics*: stacked scripts and equation layout are not
-  reconstructed as editable math.
-- *Highly designed pages* (magazine spreads, posters): not representable as
-  flowing Word constructs; expect rasterised regions at best.
-- *RTL scripts* (Arabic, Hebrew): waiting on a logical-Unicode-ordering
-  contract; not converted correctly today.
-- *Scanned / image-only PDFs*: rejected with an explicit OCR-required error.
-  No OCR engine is bundled — by design, a wrong-but-confident transcription is
-  worse than an honest refusal. A scan that already carries an OCR text layer
-  (invisible text over the page image, as every scan-to-PDF workflow writes) is
-  converted: the layer becomes editable text and the page image it duplicates
-  is left out; `--ocr-layer image` keeps the scan as a picture instead.
-
-### The specific ones, with numbers
-
-Generated from the ratified quality policy and the live pass-7 evidence rather
-than from recollection. Where a number is quoted it is measured.
-
-**Long, dense, multi-column documents inflate their page count — how much
-now depends on the class.** The 2026-09 measurement, on the non-gating
-expansion corpus in the canonical container: single-column NIST-class
-publications come out at roughly **1.2×** (an 80-page one at 96, a
-114-page one at 136 — these were 1.98× and 2.75× before the inflation
-campaign, and ~1.3× at the last release); genuinely 3-column IRS booklets
-(the Antenna House dialect) still inflate to **~2.3×** (a 126-page
-instruction booklet at 294), and that class is where the remaining work
-lives. Document recall holds around 0.90–0.96 throughout — the words
-survive; pagination is what moves. The gated corpus is 1–7 pages and
-cannot compound a per-page error into a page-count error, which is exactly
-why this class is measured separately. **If your documents are dense
-multi-column booklets, check the class: ~1.2× is today's ordinary result,
-and the 3-column dialect is not ready.** Tracked as the headline
-post-release item (n-column reconstruction).
-
-**Interactive forms are refused, by contract.** A fillable AcroForm whose
-content lives in its field values converts to a convincing-looking non-form —
-measured at 0.085 SSIM on IRS Form 1040 while exiting zero, which is worse than
-failing. `InteractiveFormError`, **exit code 19**. The threshold is a per-page
-widget census: a page is a form page at 12+ widgets and the document is a form
-when form pages are a tenth of it.
-
-**There is a page cap, and it is a decision you can make.** 250 pages by
-default. Over it, `PageLimitError`, **exit code 20** — the one resource refusal
-you can answer: `--max-pages N` raises it, `--max-pages 0` removes it. Its own
-exit code rather than a generic resource error precisely because it is
-answerable.
-
-**Image-only scans are refused.** `OcrRequiredError`, **exit code 17**. No OCR
-engine is bundled.
-
-**Google Docs adds about 14.6pt of white above a page-one cover band, and we
-cannot remove it.** Probe-measured on Docs itself: requested top margins of
-0/4/8/14.4/20pt render as 14.55/18.83/22.83/29.23/34.83 — an *addition*, not a
-clamp, so no requested value reaches the paper edge. The writer compensates what
-is compensable and accepts the floor. It costs `01_whitepaper_market` structural
-similarity (mean_ssim 0.6909 against a 0.70 bar) and that document carries a
-bounded, self-retiring waiver in the ratified policy. Side margins, by contrast,
-Docs honours exactly, so a true side bleed is reachable and is used.
-
-**Small residual drift on cover-heavy pages.** After the band itself is placed
-correctly, a rasterised figure region can render a few points taller than its
-source (measured +5.91pt on `c1_whitepaper`'s merged stat-card row), and the
-error accumulates gently down a dense page. `c1_whitepaper` lands at dy_p50
-5.56pt live against a 10.0pt bound — inside, and not zero.
-
-**Page-top spacing after a hard break.** Renderers drop `w:spacing w:before` at
-the top of a page following a hard break, so a paragraph that should start low
-on a fresh page starts flush. Measured at −53pt on one gated document's page 2.
-Emitting an explicit spacer paragraph is the shape of the fix; it is not done.
-
-**Designed/vector pages score poorly and that is the honest outcome.**
-`c5_graphics` is a page out and recalls 17% of its words, because the page *is*
-artwork: the text is inside rasterised regions and counted as non-live by
-design. It sits in the policy's non-blocking `designed_stress` tier for that
-reason, not as an excuse.
-
-**The `[mupdf]` extra changes nothing about output.** Both installs produce
-identical DOCX content on all 16 gated fixtures, proven by content hash. It
-exists only for the legacy PyMuPDF parser path and as the reference arm for
-parity measurement — and it is AGPL-3.0-or-later, so installing it changes your
-obligations for anything you distribute.
-
-## Measured state
-
-Shipping profile (quality-first): `pdfium/standard/libreoffice/refine3@240dpi`.
-`raw` is the same path with refinement off. Canonical figures come from the
-pinned Linux/LibreOffice CI environment:
-
-| Canonical profile | Page match | Mean within 2pt | Mean live text | Median dy50 |
-|---|---:|---:|---:|---:|
-| product | 16/16 | 0.5274 | 0.9588 | 1.045pt |
-| raw | 15/16 | 0.3615 | 0.9588 | 1.6pt |
-
-Measured 2026-08-06, both lanes PASS. The regression record asks "did anything
-get worse?", not "is everything perfect"; the absolute qualification still
-exposes the Tier 2/3 items above.
-
-**These numbers moved when the default parser did, and slightly for the worse.**
-The baseline was re-recorded because `profile_id` changed from `pymupdf/…` to
-`pdfium/…`, which makes the old record a description of a configuration nothing
-ships. Every one of the 32 per-document movements reproduces
-`docs/evidence/parity-expanded-2026-08-05f.json` — measured and ratified
-*before* the swap — to the recorded digit, and a control run confirmed the old
-parser still reproduces the old record exactly from this tree, so the movement
-is the parser and nothing else. See
-[docs/evidence/parser-default-flip-2026-08-06.json](docs/evidence/parser-default-flip-2026-08-06.json).
-
-**These figures describe every install.** They did not for one day: the
-measurement environment carries the `[mupdf]` extra for the parity reference
-arm, the quality ladder needed that extra to shape text, and a default install
-therefore ran an inert ladder and produced worse output on `c1_whitepaper`,
-`l1_word_native` and `c4_i18n`. `exactdoc/metrics.py` now ships the published
-Adobe AFM widths, so both installs shape text with the same tables — verified by
-converting all 16 fixtures in a virtualenv that never had PyMuPDF and comparing
-the DOCX content hash against the measurement environment's. Identical on all
-16, so `profile_id` needs no text-metrics term. See
-[docs/evidence/permissive-shaper-2026-08-06.json](docs/evidence/permissive-shaper-2026-08-06.json).
-
-A separate, deliberately **non-gating** corpus of 29 further documents — 16
-generated, 13 real documents this project did not write — lives in
-`testkit/fixtures_expansion/`. It is measured by `testkit/parity_expansion.py`,
-has no baseline, and gates nothing; see
-[docs/corpus-expansion.md](docs/corpus-expansion.md). It is what found the two
-limitations above, and it earned its place by embarrassing the gated corpus:
-
-- running headers, footers and browser page furniture dominate the geometry
-  error in ordinary documents — a construct the frozen 16 barely sample;
-- page inflation on long dense documents is invisible to a 1–7 page corpus,
-  because a per-page error cannot compound into a page-count error there. No
-  gated number has ever moved in response to it;
-- a 199-widget fillable form once converted anyway, at 0.085 SSIM while exiting
-  zero. That is the measurement that produced the refusal contract and exit
-  code 19 — the limitation became a typed error rather than staying a surprise.
-
-### The Google Docs profile — measured live, still not the shipping profile
-
-`pdfium/gdocs/none/refine0@240dpi`. The parser in that name is now simply the
-default; what still makes this profile non-shipping is the pair of axes after
-it — Google-safe serialisation with the correction loop off.
-
-**Four** consented live Google qualifications ran on 2026-08-04, all
-operationally successful — 16/16 documents attempted and succeeded, zero
-failures, zero orphaned Drive objects — with blocking quality findings falling
-**11 → 4 → 3 → 1** across the day. The vertical-drift blockers were a 3pt
-per-boundary spacing compensation, retired after remeasurement against Google's
-own exports put the real figure near +0.1pt; `l1_word_native` horizontal drift
-was a font-substitution error, fixed by adopting Libre Baskerville from
-Docs-measured metrics (39.82 → 1.35pt); `c2_paper2col` cleared its similarity
-bound on a scoped section-break compensation (0.6772 → 0.7087).
-
-Twelve of the thirteen blocking fixtures now clear every threshold unaided. The
-thirteenth, `01_whitepaper_market`, misses only structural similarity, because
-Google Docs adds space above a page-leading cover band unconditionally — probe
-measured, an addition rather than a clamp, and the writer already compensates
-what is compensable. The quality policy has been **ratified** with a single
-bounded waiver for exactly that metric on exactly that document, floored just
-below the measured value, and it retires itself: if `01` reaches the bar unaided
-the waiver goes stale and blocks until it is deleted.
-
-Assessed against the fourth pass, the ratified policy returns `overall_pass:
-true` with zero blocking findings, and a second fresh consented run made two
-clean passes — which is what the migration gate asked for.
-
-Same-profile PDFium/PyMuPDF parity is **ratified and closed**
-([docs/evidence/parity-expanded-2026-08-05f.json](docs/evidence/parity-expanded-2026-08-05f.json)),
-which is what let the parser default change. Four findings sit at the shipping
-profile — `02_research_paper` and `03_tech_report_code` (within-2pt and drift),
-`r1_reportlab_report` (within-2pt), and `c4_i18n` (complex-script runs becoming
-raster, a D10 shortfall). Those four are why the gate baseline moved, and all of
-them were measured and adjudicated *before* the swap, against Google's own
-exports rather than the LibreOffice proxy. **No policy here was ratified merely
-to turn a gate green**, and a ratified finding is not a fixed one: each stays
-floored in both directions, and clearing one entirely still fails as a stale
-record. See [STATUS.md](STATUS.md) for the full numbers.
-
-Google qualification is separate, two-step and consent-gated:
-
-```bash
-python testkit/gdocs_oracle.py prepare <dir>              # offline, hash-binds the candidate
-python testkit/gdocs_oracle.py run <dir> --allow-cloud-upload   # the only step that uploads
-python testkit/gdocs_oracle.py assess <gdocs_qualification.json> # re-assess without uploading
-```
-
-## How it works, and how it got here
-
-The hard part of PDF→DOCX is not parsing. It is that a PDF says *where ink went*
-and a DOCX says *what the document is*, and the second cannot be derived from the
-first without guessing. Everything below is about making those guesses
-falsifiable.
-
-**Measurement came before the converter.** The harness renders the produced DOCX
-back to PDF, matches words to the source, and reports word recall, drift
-percentiles, SSIM and ink IoU per document. That loop is not a test suite bolted
-on afterwards — it is the thing the converter is written against, and it is also
-a *closed* loop at runtime: the refinement pass reads its own rendered output and
-corrects page overflow and per-page offsets before publishing.
-
-**The corpus is frozen, and freezing it was the point.** Sixteen documents pinned
-by SHA-256, because a corpus that regenerates is a corpus whose numbers mean
-nothing across commits. That is not theoretical: a Chromium update once changed
-`c4_i18n` into a different document and moved its drift fivefold with nothing in
-the repository changing. Fixtures are bytes, not recipes
-([docs/corpus-expansion.md](docs/corpus-expansion.md)).
-
-**The environment is an artifact with a digest.** Fidelity is a property of a
-renderer as much as a converter, so "canonical" cannot mean "our CI runner" —
-`ubuntu-24.04` moves its LibreOffice build, its fonts and its Python underneath
-you. `docker/gate.Dockerfile` pins the base image by digest and the five font
-packages `scripts/fonts.conf` makes visible; an unpinned font set once moved
-`c4_i18n`'s drift 0.15pt → 2.1pt. A new digest is a new environment and a
-deliberate baseline migration, never a side effect of a rebuild.
-
-**LibreOffice is a proxy, and proxies lie.** The product targets Google Docs, so
-the project built a consented, two-step, offline-preparable oracle that uploads
-the real DOCX, converts it in Docs, exports the result and measures *that*. It
-found things no local renderer could. Docs adds ~14.6pt above a page-leading
-cover band unconditionally — probe-measured as an addition, not a clamp
-(requested 0/4/8/14.4/20pt render as 14.55/18.83/22.83/29.23/34.83). A 3pt
-per-boundary compensation that looked right against LibreOffice was, measured
-against Google's own exports across 187 boundaries, subtracting space Docs never
-added — its real contribution is about +0.1pt. Seven live passes took blocking
-findings from eleven to zero.
-
-**Acceptance is data the gate executes, not prose someone is trusted to apply.**
-Every known shortfall lives in a policy file with numeric floors in *both*
-directions: worsening past a floor fails, and so does clearing the divergence
-entirely, because a waiver describing nothing still excuses a document and hides
-the next regression on it. Waivers separate `provisional` (visible, bounded,
-authorises nothing) from `ratified` (a named owner, a date, an issue and a review
-condition — all four required and checked). Policies bind to one full profile and
-one corpus and refuse to adjudicate anything else, which is why there are three of
-them; a finding measured at the shipping settings says nothing about the
-candidate profile, and the readers refuse to borrow across that line.
-
-**The parser swap was gated on proofs, not confidence.** PyMuPDF is AGPL, which
-made the whole project AGPL, so the target was PDFium — but PDFium hands you
-glyphs, not lines and blocks, so that clustering had to be written here
-(`exactdoc/parse_pdfium.py`). Parity was measured document by document and
-dimension by dimension, and the four findings at the shipping profile were
-ratified *before* the swap, against Google's evidence rather than the proxy.
-A control run confirmed the old parser still reproduces the old record exactly
-from the same tree, so the baseline movement is the parser and nothing else
-([parity](docs/evidence/parity-expanded-2026-08-05f.json) ·
-[flip](docs/evidence/parser-default-flip-2026-08-06.json)).
-
-**The last AGPL thread was a text metric.** The quality ladder shapes text, the
-only shaper was MuPDF's base-14 width tables, and that quietly made an optional
-extra a quality axis: a default install produced worse output on three fixtures.
-Those tables are published Adobe AFM data, so they now ship
-(`exactdoc/_base14_widths.py`), and both installs produce byte-identical DOCX on
-all 16 fixtures — verified by content hash from a virtualenv that never had
-PyMuPDF ([proof](docs/evidence/base-wheel-proof-2026-08-06.json) ·
-[shaper](docs/evidence/permissive-shaper-2026-08-06.json)).
-
-**What refuses is as designed as what converts.** An interactive form whose
-content lives in field values converts into a convincing-looking non-form; it was
-measured at 0.085 SSIM *while exiting zero*, which is worse than failing. Scans,
-forms and over-cap documents now raise typed errors with stable exit codes (17,
-19, 20). A wrong-but-confident answer is the one outcome the project treats as
-unacceptable.
-
-## What is not done
-
-Honest queue, post-release. None of this is hidden in an issue tracker; the
-numbers are measured.
-
-**Headline defect — the 3-column booklet dialect (#38).** Long booklets
-under-pack their columns and inflate page counts. The 2026-09 state splits
-the class: single-column NIST-class documents now land at ~1.2× (80pp → 96,
-114pp → 136), while the genuinely 3-column IRS/Antenna House booklets still
-reach ~2.3× (126pp → 294). Everything after the first overflow lands on the
-wrong page, so word recall collapses even though document recall holds near
-0.90. If your documents are that dialect, this release is not for them yet.
-
-| # | Item | Measured |
-|---|---|---|
-| **#38** | n-column under-packing | the page-inflation numbers above |
-| #20 | `c2_paper2col` paragraph-box residual | 2.3pt |
-| #23 | `assess` evidence-stamp schema | archived runs carry a `git` key the strict validator rejects, so a committed run cannot be re-assessed without de-stamping |
-| #37 | gutter accumulation | drift compounds down multi-column pages |
-| #42 | page-top spacing after a hard break | renderers drop `w:spacing w:before`; measured −53pt on one gated page 2 |
-| #43 | `05_memo` shared displacement | +4.64pt on both arms — explicitly *not* excused by the ratified within2pt entry |
-| #44 | `y10` discriminator | the metric moved because the reference degraded; the trade is adjudicated, the discriminator is not fixed |
-| #47 | cross-platform byte deltas | 6 of 16 gated fixtures byte-identical across platforms; rasterised regions differ by hundreds of bytes, four image-free documents by 2–11 |
-
-**Résumés got a fixture in 1.0.1, and it found six defects.** The corpus had no
-résumé, so nothing had ever exercised role/date pairs sharing a baseline,
-contact anchors covering less than half their span, or letter-spaced headings.
-All six are fixed (see [CHANGELOG.md](CHANGELOG.md)); what remains is the tail.
-Two-column résumés now land at `dy_p50` 0.38pt with `dy_p90` still 8.92pt — the
-median is excellent and one word in ten is around nine points out. Reviewed live
-in Google Docs and judged good enough to ship, not perfect. Single-column
-résumés have no fixture and are therefore unmeasured, not implied.
-
-**Font-style substitution is parked, by decision rather than by oversight.**
-The fontTable now declares every family the document emits and an explicit
-Normal typeface, so Docs is no longer guessing. What Docs then does with a style
-it does not have — substituting a face of its own — is Docs' behaviour, and this
-project does not chase it.
-
-**The `01_whitepaper_market` waiver is live and nearly retired.** It sits at
-mean_ssim 0.6909 against a 0.70 bar — **0.0091 away**. It is bounded, cites its
-cause (Google's cover-band addition), and retires itself: if `01` reaches the bar
-unaided the waiver goes stale and *blocks* every assess until it is deleted.
-
-**Two items belong to the owner and cannot be closed by engineering.** LIC-01,
-the provenance of the initial source and the right to relicense it, which
-[docs/license-audit.md](docs/license-audit.md) explicitly does *not* cover; and
-legal review of that audit, in particular the five corpus fixtures whose
-public-domain basis is publisher identity rather than an explicit written grant.
-Sole authorship removes no third-party obligation, and this is engineering work
-rather than legal advice.
-
-## Licensing
-
-**exactdoc is [Apache-2.0](LICENSE).** A default install resolves eight packages
-and none of them carries a copyleft term — the shipping PDF parser is PDFium via
-pypdfium2 (Apache-2.0/BSD-3).
-
-**The optional `[mupdf]` extra pulls in PyMuPDF, which is AGPL-3.0-or-later.**
-Installing it changes your obligations for anything you distribute. Nothing
-installs it for you, nothing needs it to convert a PDF, and **it does not change
-the output**: it exists solely as the independent reference arm every parity
-measurement is written against. Asking for `backend="pymupdf"` without it raises
-a typed error naming it rather than failing obscurely.
-
-It briefly did change the output. The quality ladder shapes text, the only
-shaper was MuPDF's base-14 tables, and that made the extra a quality axis. The
-tables are published Adobe AFM data, so `exactdoc/metrics.py` now carries them
-(from reportlab's BSD-3 copy, generated by `testkit/gen_base14_widths.py`) and
-the axis is gone.
-
-That distinction is verified rather than asserted. `tests/test_no_pymupdf.py`
-makes `fitz` unimportable and converts the corpus through the shipping profile
-anyway, and
-[docs/evidence/base-wheel-proof-2026-08-06.json](docs/evidence/base-wheel-proof-2026-08-06.json)
-goes further: it builds the wheel, installs it into a virtualenv that never had
-PyMuPDF, and records the package list, the conversions and the test run there.
-[docs/evidence/permissive-shaper-2026-08-06.json](docs/evidence/permissive-shaper-2026-08-06.json)
-then closes the one cost that proof found, and shows the two installs producing
-identical DOCX content on all 16 fixtures.
-
-[docs/license-audit.md](docs/license-audit.md) is the audit the switch rests on:
-every dependency licence read from installed metadata, the 16 components inside
-the PDFium binary (including the AGG 2.3-vs-2.4 question, which had to be
-checked rather than recalled), the redistribution basis of every committed
-corpus PDF, and the four migration gates. **Its open items did not close with
-the migration** — in particular the provenance of the source itself, and legal
-review of the corpus bases — and neither did the fact that this is engineering
-work rather than legal advice. Sole authorship removes no third-party
-obligation.
-
-## Verification
-
-```bash
-bash scripts/bootstrap.sh --strict
-python testkit/corpus_manifest.py verify
-python testkit/runall.py
-python tests/test_gate_mutations.py
-```
-
-See [STATUS.md](STATUS.md) for the measured state and defects,
-[ROADMAP.md](ROADMAP.md) for sequencing, and [THEORY.md](THEORY.md) for the
-laws the codebase is built around.
+The full list, with measurements, is in
+[docs/deep-dive/limitations.md](docs/deep-dive/limitations.md).
+
+## How good is it, and how do we know?
+
+Every change has to pass a gate that converts 16 frozen test documents and
+renders the results in a pinned copy of LibreOffice. Today all 16 keep their page
+count, and on average 60% of the words land within 2 points of where the PDF puts
+them ([`testkit/gate_baseline.json`](testkit/gate_baseline.json)). The Google Docs
+output is checked in Google Docs itself: the same 16 documents are uploaded, and
+Google's own export is compared with the PDF
+([latest pass](docs/evidence/gdocs-2026-10-04-pass9b-qualification.json)).
+Another 79 PDFs, most of them real-world documents, are measured too but do not
+gate changes.
+
+Every number on this page traces to a committed file (the gate baseline, the
+CHANGELOG, or a measurement record in [docs/evidence/](docs/evidence/)), not to
+memory. The example images come from
+[this run](docs/evidence/readme-examples-2026-10-04.json).
+
+## Learn more
+
+| | |
+|---|---|
+| [docs/usage.md](docs/usage.md) | Every option, the Python API, batch mode, exit codes, what happens without LibreOffice |
+| [docs/deep-dive/limitations.md](docs/deep-dive/limitations.md) | What does not work yet, with numbers |
+| [docs/deep-dive/measured-state.md](docs/deep-dive/measured-state.md) | Support by the program that made the PDF, and the measurements behind it |
+| [docs/deep-dive/how-it-works.md](docs/deep-dive/how-it-works.md) | How the converter works, and how it got here |
+| [CHANGELOG.md](CHANGELOG.md) | What changed, release by release |
+| [docs/README.md](docs/README.md) | Index of all the deeper documents: design notes, status, roadmap, corpus, evidence |
+
+## Licence
+
+exactdoc is [Apache-2.0](LICENSE). A default install pulls in no copyleft code.
+The optional `mupdf` extra (`pip install -e ".[mupdf]"`) adds PyMuPDF, which is
+AGPL-3.0; it is only a reference for measurements and does not change the output.
+Details: [docs/deep-dive/licensing.md](docs/deep-dive/licensing.md) and
+[docs/license-audit.md](docs/license-audit.md).
