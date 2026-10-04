@@ -1297,7 +1297,7 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
         if cur:
             spans.append((cur, cur_key))
 
-        sp_objs = []
+        sp_objs, full = [], []
         for cs, key in spans:
             if not cs:
                 continue
@@ -1314,6 +1314,12 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
                 and _wide_space(cs[-1]) else cs
             bb = (min(c.x0 for c in cs), min(c.y0 for c in cs),
                   max(max(c.x1 for c in ink), cs[-1].x0), max(c.y1 for c in cs))
+            # The LINE keeps the box it always had, every character's: an
+            # OCR text layer boxes its synthesised spaces past the next word
+            # ('Washington, D. C.' ends at 94.7 in ink and 106.0 in boxes),
+            # and margins are read from line ends.
+            full.append((min(c.x0 for c in cs), min(c.y0 for c in cs),
+                         max(c.x1 for c in cs), max(c.y1 for c in cs)))
             # Both link fields ride the style key, so every character in this
             # span agreed on them by construction; there is nothing to re-derive
             # from cs[0].
@@ -1324,8 +1330,8 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
                 link=link, dest=dest, tracked=tracked))
         if not sp_objs:
             continue
-        lb = (min(s.bbox[0] for s in sp_objs), min(s.bbox[1] for s in sp_objs),
-              max(s.bbox[2] for s in sp_objs), max(s.bbox[3] for s in sp_objs))
+        lb = (min(b[0] for b in full), min(b[1] for b in full),
+              max(b[2] for b in full), max(b[3] for b in full))
         lines.append(Line(spans=sp_objs, bbox=lb))
     lines.sort(key=lambda l: (round(l.bbox[1], 1), l.bbox[0]))
     _reconstruct_indents(lines, mono_cells)
