@@ -890,3 +890,388 @@ the weaker evidence they are, as in §9.
 LaTeX-light goes 1 → 6 (target 8) and other real-world 1 → 6 (target 6, met),
 without touching arXiv: every TeX engine held arrived through CTAN, GNU, or a
 publisher that states its terms. All ten are tiered `ordinary_digital`.
+
+---
+
+## 13. Tranche 4: what people actually convert
+
+After tranche 3 the corpus could say a lot about NIST standards, IRS booklets
+and TeX manuals, and almost nothing about the files an ordinary user hands a
+converter: a memo from Word, a slide deck, a spreadsheet printed to PDF, a
+Google Docs export, a journal article, a résumé, a letter, a statement, a
+document in Arabic or Thai. On 2026-10-04 the owner reopened acquisition for
+exactly that ("improve our testing... download more publicly available
+documents, curating it"). The plan is `testkit/expansion_download_plan_tranche4.json`;
+the tranche-2 and tranche-3 plans stay closed and untouched.
+
+**38 documents sealed as `y28`–`y65`, 21.9 MB.** The corpus is now **16 gated +
+79 expansion = 95 documents**. That is past the 40–60 range ROADMAP.md set
+for the corpus as a whole, and the overshoot is deliberate rather than drift.
+The range was sized for what could plausibly be promoted into the gate. The
+expansion corpus is non-gating and is measured on demand, so its size is a
+budget question, not a gate question. The owner asked for breadth. Every
+document added here is a producer chain or a document class the corpus did not
+have (see below), not a repeat sample.
+
+Every URL was verified by full download (%PDF magic, Producer/Creator read
+from the file) before it entered the plan. The research behind the plan
+fully downloaded and inspected 259 candidate PDFs. Of the 38 sealed:
+
+- **37 were fetched by `fetch_expansion.py` in the canonical container**, and
+  each is byte-identical to its verification download.
+- **The 38th, `y33_nz_paper_powerpdf`, met a 403 in the container.** It was not
+  retried and the User-Agent was not changed (§9). It is sealed from the bytes
+  the same client, with the same User-Agent and Accept header, had already been
+  served twice that day from the same URL; both copies hash to `5066a236…`.
+  Those are bytes the host served, not bytes obtained around a refusal. Its
+  `why` field records this in full.
+
+### Licence verification, per document
+
+The statement **printed in the document** is quoted where one exists. Where
+the basis is a terms page or publisher identity, that is recorded as the
+weaker basis it is, as in §9. Zenodo licences were read from the records API
+(`metadata.license.id == "cc-by-4.0"` for all seven). arXiv licences were read
+from the versioned abs page's licence link (`licenses/by/4.0` for all three),
+never assumed.
+
+| fixture | basis | evidence |
+|---|---|---|
+| `y28_doe_oig_word365` | US Gov work | DOE web policy: "Government information at DOE websites is in the public domain." None in the PDF |
+| `y29_uk_letter_word365` | OGL-UK-3.0 | GOV.UK publication page: "All content is available under the Open Government Licence v3.0, except where otherwise stated." Site-level |
+| `y30_nz_guideline_word365` | CC-BY-4.0 | p3: "This work is licensed under the Creative Commons Attribution 4.0 International licence." |
+| `y31_uk_policy_printtopdf` | OGL-UK-3.0 | p3: "This publication is licensed under the terms of the Open Government Licence v3.0 except where otherwise stated." |
+| `y32_uk_response_gdocs` | OGL-UK-3.0 | p4: the same OGL sentence |
+| `y33_nz_paper_powerpdf` | CC-BY-4.0 | p2: "This work is licensed under the Creative Commons Attribution 4.0 International License." |
+| `y34_census_slides_pptx365` | US Gov work | publisher identity (Census Bureau staff presentation); none in the PDF |
+| `y35_uk_rates_excel365` | OGL-UK-3.0 | GOV.UK publication page, as `y29`. Site-level |
+| `y36_lo_writer_guide` | GPL-3.0-or-later OR CC-BY-4.0 | p2: GPL "version 3 or later, or the Creative Commons Attribution License … version 4.0 or later" |
+| `y37_plos_one_dvipdfmx` | CC-BY-4.0 | p1: "distributed under the terms of the Creative Commons Attribution License"; the article page links by/4.0 |
+| `y38_elife_arbortext_gs` | CC-BY-4.0 | p1, same sentence; the eLife API record: `"license": "CC-BY-4.0"` |
+| `y39_copernicus_npg_2col` | CC-BY-4.0 | p1: "This work is distributed under the Creative Commons Attribution 4.0 License." |
+| `y40_frontiers_dvips_gs` | CC-BY-4.0 | p1: "…Creative Commons Attribution License (CC BY)"; the article page links by/4.0 |
+| `y41_arxiv_ieeetran` | CC-BY-4.0 | arXiv abs 2309.06427v2 licence link by/4.0; none in the PDF |
+| `y42_arxiv_acmart` | CC-BY-4.0 | p1: "This work is licensed under a Creative Commons Attribution International 4.0 License."; abs 2405.07767v1 |
+| `y43_arxiv_neurips` | CC-BY-4.0 | arXiv abs 2310.20030v1 licence link by/4.0; none in the PDF |
+| `y44_cv_rendercv_typst` | MIT | repository LICENSE at the pinned commit; placeholder person "John Doe" |
+| `y45_cv_academic_pdftex` | MIT | repository LICENSE.md at the pinned commit; a fictional character |
+| `y46_cv_twocol_xdvipdfmx` | MIT | repository LICENSE at the pinned commit; fictional person |
+| `y47_ar_ilo_word365` | CC-BY-4.0 | p3 (Arabic, translated): "This work is licensed under the Creative Commons Attribution 4.0 International licence"; ILO: publications since 3 May 2023 are CC BY 4.0 |
+| `y48_ar_weasyprint` | CC-BY-4.0 | p7: "CC BY 4.0 (Creative Commons Attribution 4.0 International)"; Zenodo record |
+| `y49_he_word2016` | CC-BY-4.0 | authors' Zenodo record; none in the PDF |
+| `y50_fa_word2016` | CC-BY-4.0 | authors' Zenodo record; none in the PDF. **Caveat:** the proceedings also appeared with an ISBN, and the licence rests on the authors' own deposit |
+| `y51_ja_justpdf` | Japan PDL 1.0 (`LicenseRef-Japan-PDL-1.0`) | Digital Agency copyright policy: PDL1.0 applies unless a rights notice is shown; PDL1.0 §1.7.3 declares CC BY 4.0 compatibility |
+| `y52_zh_tw_word365` | CC0-1.0 | Ministry of Digital Affairs open-data declaration: all site materials under CC0 1.0. Site-level |
+| `y53_ko_word2016` | CC-BY-4.0 | author's Zenodo record; none in the PDF |
+| `y54_hi_gdocs` | CC-BY-4.0 | author's Zenodo record; none in the PDF |
+| `y55_th_pages_quartz` | CC-BY-4.0 | author's Zenodo record; none in the PDF |
+| `y56_scan_usda1921_lura` | US Gov work, and pre-1929 | archive.org: "The contributing institution believes that this item is not in copyright." |
+| `y57_scan_usda1950_ia` | US Gov work | archive.org, the same statement |
+| `y58_ssa_statement_indd20` | US Gov work | publisher identity; SSA's policy page answers automated fetches with 403, so the usa.gov page is cited. Fictional "Wanda Worker" |
+| `y59_cms_notice_inddcs4` | US Gov work | CMS "Link to Us": "It is a public domain web site." |
+| `y60_cdc_mmwr_indd19` | US Gov work | p24: "All material in the MMWR Series is in the public domain and may be used and reprinted without permission" |
+| `y61_fedreg_gpo_3col` | US Gov work | govinfo policy (17 U.S.C. 105) |
+| `y62_bill_gpo_linenum` | US Gov work | govinfo policy |
+| `y63_court_pleading_word365` | US Gov work | govinfo policy; a federal court order, plaintiff anonymised by the court |
+| `y64_bls_release_xpp` | US Gov work | BLS: published material is in the public domain except previously copyrighted photographs; this release has none |
+| `y65_nrc_jasperreports` | US Gov work | publisher identity; none in the PDF |
+
+### The redistribution rule this tranche had to write down
+
+Tranche 2 threw away one fetched document partly because its redistribution
+carried a qualification (§9). This tranche met that question about a dozen
+times, so here is the rule as it was actually applied.
+
+**Rejected when the grant itself, or the publisher's own terms, carves part
+of the document out of verbatim redistribution.**
+- *Federal Reserve G.19 and H.4.1* — Ghostscript/FAME and Aspose.Words, two
+  producers that would have been new. The Board's disclaimer makes its pages
+  public domain but says the seals "may not be used or reproduced" without
+  written permission, and both releases print the seal on p1.
+- *NASA items*: the EUS and HST fact sheets, and the NTRS TN D-3645 scan,
+  whose cover prints the insignia (the other NTRS scans were also over the
+  size budget). NASA's media guidelines put the insignia outside the public
+  domain and restrict its use to NASA-sponsored publications.
+- *A Korean PIPC press release* (Hancom PDF / Hwp 2020, the only Hancom
+  specimen found). Its KOGL Type 1 grant covers "text only", excluding the
+  emblem and three ministry infographics.
+
+**Rejected when it contains third-party material excluded from the grant.**
+- *The Australian aviation white paper.* Its cover is credited "Adobe Stock".
+- *The Australian energy webinar deck.* Its CC BY grant excludes the Coat of
+  Arms, the logo and third-party artwork.
+- *The NOAA PSL newsletter* (wkhtmltopdf/Qt — WebKit, which would also have
+  been new). One photo is credited to a University of Colorado employee.
+- *The World Bank Arabic MENA report.* It has an iStock cover.
+- *Two USGS fact sheets.* One has a figure "Modified from" a university site;
+  the other carries a "used with permission" credit.
+
+**Accepted** where the only restricted element is the publisher's own emblem
+and its protection is against misuse or implied endorsement, not against
+copying. That covers CDC's, USGS's and CMS's logo rules, the Royal Arms under
+OGL v3, which covers crests "that form an integral part of a document", and
+New Zealand's emblem. Verbatim redistribution of the official document does
+not use the mark as a mark, and this is how NIST's and IRS's logos were
+already treated in tranches 2–3.
+
+### Other rejects, recorded rather than rounded away
+
+- **Licence.**
+  - The World Bank's Thai TEM reports (Aspose.PDF for Java, a rare producer)
+    are not in the Open Knowledge Repository, and the default World Bank
+    terms are non-commercial, no-derivatives.
+  - arXiv 2405.07526 is CC BY on arXiv while its PDF prints an ACM rights
+    block — a contradiction, so out.
+  - Hindi Zenodo items printed CC BY-NC-SA, "CC BY NC ND" beside a by/4.0
+    link, or "© AAASSHER".
+  - A Thai Canva PDF prints "Suggested license: CC BY-NC-ND 4.0" against
+    Zenodo's CC BY.
+  - PeerJ, MDPI, the Asian Development Bank, CRS, ed.gov and NIH OB answered
+    403 to the honest User-Agent. Not retried.
+- **Personal data.**
+  - The Awesome-CV and jankapunkt/latexcv examples are their authors' real
+    CVs, with phone numbers and photos.
+  - A scanned habeas opinion names the petitioner in a sexual-offence
+    conviction.
+- **Asset terms.** The AltaCV sample embeds an icon set whose terms forbid
+  redistribution.
+- **Not text.**
+  - Three Hindi items set in the legacy Kruti Dev font carry no Unicode
+    Devanagari at all.
+  - Two NTRS downloads were not PDFs (magic `f5 52 80 df`).
+- **Encrypted.** The NPS site bulletins, a NOAA newsletter and the Korean NABO
+  annual report.
+- **Chains already held.**
+  - Every Acrobat PDFMaker-for-Word export, generations 21–26, and Distiller
+    25. Plenty were found and none adds a chain.
+  - The Hebrew Microsoft Print To PDF article. Its text layer maps nun to "©"
+    1,418 times. A real defect, but text metrics on it would be noise, and
+    `y31` already carries that producer.
+
+### Producer census — chains new to the corpus
+
+| class | chain | fixtures |
+|---|---|---|
+| Office, direct | Microsoft Word for Microsoft 365 (en, fr and zh-TW UI strings) | `y28` `y29` `y30` `y47` `y52`, and `y63` under GPO/AO iText stamps |
+| Office, direct | Microsoft Word 2016 | `y49` `y50` `y53` |
+| Office, direct | Microsoft PowerPoint for Microsoft 365 | `y34` |
+| Office, direct | Microsoft Excel for Microsoft 365 | `y35` |
+| Office, other | Microsoft: Print To PDF | `y31` |
+| Office, other | Kofax/Nuance Power PDF Create | `y33` |
+| Google Docs | Skia/PDF m147 and m136 Google Docs Renderer | `y32` `y54` |
+| Apple | macOS 15.7 Quartz PDFContext / Pages | `y55` |
+| LibreOffice, real-world | LibreOffice 7.1 / Writer | `y36` |
+| HTML to PDF | WeasyPrint 70 | `y48` |
+| Japanese writer | JUST PDF 4 (JustSystems) | `y51` |
+| journal pipelines | MiKTeX dvipdfmx (PLOS); Ghostscript 9.15 from Arbortext APP 9 (eLife); dvips + Ghostscript 9.0 (Frontiers); copernicus.cls from XML | `y37` `y38` `y40` `y39` |
+| arXiv LaTeX classes | IEEEtran, acmart sigconf, NeurIPS (pdfTeX 1.40.25) | `y41` `y42` `y43` |
+| résumé templates | Typst 0.14.2 (RenderCV); pdfTeX 1.40.28; xdvipdfmx (0.1) | `y44` `y45` `y46` |
+| typesetting systems | XPP (BLS) | `y64` |
+| report generators | JasperReports / iText 2.1.7 | `y65` |
+| GPO | iText 7.2.3 / govinfo (Federal Register); Distiller 23 + GPO iText (bill) | `y61` `y62` |
+| InDesign | CS4 (6.0.6) / PDF Library 9.0; 19.4 and 20.2 / PDF Library 17.0 | `y59` `y60` `y58` |
+| scans | Internet Archive: LuraDocument PDF 2.53 (MRC) and IA PDF 1.2.2 (mupdf, GlyphLessFont) | `y56` `y57` |
+
+### Tiers, assigned from measured geometry
+
+The §10 census (prose blocks that overlap vertically while horizontally
+disjoint) was re-run on all 38, plus checks for rotated text, render-mode-3
+OCR layers, line-number gutters and column-spanning elements. Result:
+**25 `ordinary_digital`, 13 `designed_stress`, 0 `unsupported`** (no fillable
+forms; nothing over the page cap).
+
+- **Scripts** — `y47`–`y55` are `designed_stress`: RTL (Arabic, Hebrew,
+  Persian), CJK, Devanagari and Thai all need fallback beyond the pinned font
+  set (§4).
+- **OCR'd scans are `designed_stress`, a clarification §4 did not spell out.**
+  `y56`/`y57` fail "born-digital" but carry a usable text layer, so they are
+  neither ordinary nor the pure-scan `unsupported` case. Measured:
+  full-page images on every page; render-mode-3 text on 7/10 and 13/16 pages.
+- **Multi-column** — `y61` (Federal Register) is 3+ columns on 4/4 pages and
+  `y59` (CMS notice) on 4/6. That is the `y13` precedent: `designed_stress`.
+  `y59` also prints a Mandarin help line.
+- **Plain two-column stays ordinary** (§4). This covers the arXiv and
+  Copernicus papers, the SSA statement and MMWR. A few pages carry a
+  column-spanning float — `y40` on 3 pages, `y39` and `y60` on 1 — the same
+  order as `y12` (2) and `y21` (7), which were tiered `ordinary_digital`. The
+  rule was not tightened in passing.
+- **Rotated margin furniture does not move a tier**, as `y02`/`y21` already
+  established. Examples: the arXiv stamp, GPO's production slug on every bill
+  page, chart axis labels.
+- **Widgets.**
+  - `y47` carries 333 navigation push-buttons, at most 6 on a page, under
+    `scan.FORM_PAGE_WIDGETS = 12`.
+  - `y37` carries 22 invisible 3×3 pt `pbs@ARFix@N` button widgets.
+  - `y61`–`y63` each carry one GPO digital-signature field.
+  - None is data entry, and the converter refused none.
+- **Edge case flagged, not resolved:** `y34` (a 16:9 PowerPoint deck) is
+  `ordinary_digital` because nothing in §4 excludes free-positioned slide
+  text. Whether slides belong in the blocking tier is a policy question
+  worth asking before any promotion.
+
+### First measurement
+
+`testkit/quality_sweep.py --corpus expansion --only y28_ … y65_ --jobs 6`, in
+the canonical container at converter commit `ec22cbf` (the profile is
+`pdfium/standard/libreoffice/refine3@240dpi`). The payload is committed as
+`docs/evidence/quality-sweep-tranche4-2026-10-04.json`. The LibreOffice
+proxy caveat of §8 applies: this is not the Google Docs oracle.
+
+**Every one of the 38 converts.** None was refused and none crashed; the
+`UnrecognizedImageError` class §9–§10 found on Antenna House and Adobe PDF
+Library 11 documents did not recur on any of these producers.
+
+| fixture | tier | pages in → out | ratio | word_recall | doc_recall | live_text | dy_p50 | mean_ssim | sec |
+|---|---|---|---|---|---|---|---|---|---|
+| `y28_doe_oig_word365` | ordinary | 21 → 37 | 1.76× | 0.186 | 0.968 | 0.986 | 61.2 | 0.335 | 31 |
+| `y29_uk_letter_word365` | ordinary | 4 → 4 | 1.00× | 1.000 | 1.000 | 0.999 | 1.5 | 0.719 | 6 |
+| `y30_nz_guideline_word365` | ordinary | 33 → 35 | 1.06× | 0.437 | 0.935 | 0.946 | 14.2 | 0.631 | 44 |
+| `y31_uk_policy_printtopdf` | ordinary | 18 → 17 | 0.94× | 0.319 | 0.993 | 0.997 | 88.2 | 0.720 | 11 |
+| `y32_uk_response_gdocs` | ordinary | 37 → 37 | 1.00× | 0.299 | 0.985 | 0.990 | 76.5 | 0.771 | 17 |
+| `y33_nz_paper_powerpdf` | ordinary | 60 → 70 | 1.17× | 0.224 | 0.856 | 0.870 | 63.1 | 0.563 | 130 |
+| `y34_census_slides_pptx365` | ordinary | 40 → 86 | 2.15× | 0.241 | 0.923 | 0.885 | 31.5 | 0.342 | 29 |
+| `y35_uk_rates_excel365` | ordinary | 14 → 14 | 1.00× | 0.935 | 0.979 | 0.970 | 30.0 | 0.836 | 25 |
+| `y36_lo_writer_guide` | ordinary | 25 → 37 | 1.48× | 0.198 | 0.923 | 0.929 | 70.8 | 0.427 | 54 |
+| `y37_plos_one_dvipdfmx` | ordinary | 22 → 28 | 1.27× | 0.280 | 0.890 | 0.876 | 40.6 | 0.500 | 95 |
+| `y38_elife_arbortext_gs` | ordinary | 33 → 53 | 1.61× | 0.199 | 0.963 | 0.953 | 38.5 | 0.366 | 159 |
+| `y39_copernicus_npg_2col` | ordinary | 11 → 27 | 2.46× | 0.174 | 0.857 | 0.938 | 31.0 | 0.189 | 69 |
+| `y40_frontiers_dvips_gs` | ordinary | 10 → 12 | 1.20× | 0.427 | 0.796 | 0.892 | 22.4 | 0.519 | 99 |
+| `y41_arxiv_ieeetran` | ordinary | 8 → 21 | 2.62× | 0.157 | 0.817 | 0.930 | 32.0 | 0.216 | 80 |
+| `y42_arxiv_acmart` | ordinary | 5 → 12 | 2.40× | 0.158 | 0.593 | 0.623 | 89.8 | 0.219 | 47 |
+| `y43_arxiv_neurips` | ordinary | 15 → 26 | 1.73× | 0.261 | 0.961 | 0.979 | 54.3 | 0.366 | 70 |
+| `y44_cv_rendercv_typst` | ordinary | 3 → 3 | 1.00× | 0.996 | 0.996 | 0.992 | 11.8 | 0.756 | 5 |
+| `y45_cv_academic_pdftex` | ordinary | 3 → 3 | 1.00× | 0.993 | 0.993 | 0.965 | 5.3 | 0.779 | 8 |
+| `y46_cv_twocol_xdvipdfmx` | ordinary | 1 → 2 | 2.00× | 0.200 | 0.588 | 0.644 | 54.6 | 0.299 | 5 |
+| `y47_ar_ilo_word365` | stress | 57 → 78 | 1.37× | 0.166 | 0.752 | 0.832 | 64.3 | 0.391 | 315 |
+| `y48_ar_weasyprint` | stress | 7 → 10 | 1.43× | 0.151 | 0.711 | 0.759 | 36.3 | 0.508 | 29 |
+| `y49_he_word2016` | stress | 28 → 60 | 2.14× | 0.117 | 0.773 | 0.803 | 52.5 | 0.288 | 154 |
+| `y50_fa_word2016` | stress | 15 → 21 | 1.40× | 0.224 | 0.711 | 0.873 | 42.0 | 0.485 | 52 |
+| `y51_ja_justpdf` | stress | 12 → 12 | 1.00× | 0.994 | 0.994 | 0.998 | 2.7 | 0.642 | 24 |
+| `y52_zh_tw_word365` | stress | 51 → 51 | 1.00× | 0.543 | 0.988 | 0.994 | 34.2 | 0.625 | 62 |
+| `y53_ko_word2016` | stress | 28 → 32 | 1.14× | 0.646 | 0.940 | 0.937 | 24.0 | 0.627 | 45 |
+| `y54_hi_gdocs` | stress | 4 → 4 | 1.00× | 0.095 | 0.095 | 0.717 | 5.3 | 0.751 | 5 |
+| `y55_th_pages_quartz` | stress | 3 → 3 | 1.00× | 0.061 | 0.061 | 1.000 | 16.5 | 0.698 | 6 |
+| `y56_scan_usda1921_lura` | stress | 10 → 29 | 2.90× | 0.000 | 0.965 | 0.955 | — | 0.237 | 129 |
+| `y57_scan_usda1950_ia` | stress | 16 → 45 | 2.81× | 0.015 | 0.756 | 0.766 | 56.0 | 0.257 | 271 |
+| `y58_ssa_statement_indd20` | ordinary | 2 → 4 | 2.00× | 0.037 | 0.119 | 0.119 | 96.4 | 0.245 | 17 |
+| `y59_cms_notice_inddcs4` | stress | 6 → 17 | 2.83× | 0.110 | 0.782 | 0.778 | 44.4 | 0.231 | 34 |
+| `y60_cdc_mmwr_indd19` | ordinary | 24 → 38 | 1.58× | 0.262 | 0.931 | 0.941 | 88.8 | 0.311 | 165 |
+| `y61_fedreg_gpo_3col` | stress | 4 → 6 | 1.50× | 0.438 | 0.963 | 0.951 | 29.0 | 0.224 | 60 |
+| `y62_bill_gpo_linenum` | ordinary | 20 → 25 | 1.25× | 0.407 | 0.913 | 0.787 | 14.1 | 0.648 | 38 |
+| `y63_court_pleading_word365` | ordinary | 5 → 13 | 2.60× | 0.132 | 0.970 | 0.918 | 28.6 | 0.242 | 35 |
+| `y64_bls_release_xpp` | ordinary | 39 → 48 | 1.23× | 0.112 | 0.955 | 0.957 | 38.1 | 0.480 | 162 |
+| `y65_nrc_jasperreports` | ordinary | 3 → 3 | 1.00× | 1.000 | 1.000 | 0.991 | 8.3 | 0.843 | 14 |
+
+Totals: 697 source pages became 1,023; **10 of 38 page-exact**; median page
+ratio 1.38×; 2,601 s of conversion. By class:
+
+| class | n | page-exact | median ratio | mean doc_recall | mean live_text |
+|---|---|---|---|---|---|
+| office exports `y28`–`y36` | 9 | 3 | 1.06× | 0.951 | 0.952 |
+| academic `y37`–`y43` | 7 | **0** | **1.73×** | 0.840 | 0.884 |
+| résumés `y44`–`y46` | 3 | 2 | 1.00× | 0.859 | 0.867 |
+| scripts `y47`–`y55` | 9 | 4 | 1.14× | 0.669 | 0.879 |
+| scans `y56`–`y57` | 2 | 0 | **2.86×** | 0.860 | 0.861 |
+| designed/legal/statistics `y58`–`y65` | 8 | 1 | 1.54× | 0.829 | 0.805 |
+
+### What it exposes
+
+Read the per-document table; the tier medians would hide all of this
+(§9's warning still holds).
+
+1. **Two-column academic layouts are the worst ordinary class.**
+   - None of the seven is page-exact.
+   - Inflation: IEEEtran `y41` 8 → 21 (2.62×), Copernicus `y39` 11 → 27
+     (2.46×), acmart `y42` 5 → 12 (2.40×). The worst drift is on p2 in all
+     three.
+   - `y42` also loses text: doc_recall 0.593 and live text 0.623. Only 62% of
+     the source letters reach the DOCX as text; three images of about a full
+     text block each (1854–2026 × 1830 px at 240 dpi) carry the rest. That
+     is the same signature as item 2.
+   - The one-column NeurIPS paper `y43` still inflates 1.73×, and eLife `y38`
+     1.61×.
+   - This is the class every researcher converts, and the corpus had never
+     held a journal or conference paper.
+
+2. **Panel-backed designed text is rasterised wholesale.**
+   - `y58_ssa_statement_indd20`, a two-page InDesign statement, keeps live
+     text 0.119. Only 572 of 4,247 source letters are editable in the DOCX.
+   - On p1 the shaded rounded-panel region is emitted as one 1822×1574 px
+     image: every benefits paragraph and the chart. That pushes it to an
+     output p2; source p2 suffers the same as a 1812×2250 px image.
+   - The same signature, milder:
+     - the two-column CV `y46` (live 0.644, 1 → 2 pages), whose left column
+       arrives as a 914×1757 px image;
+     - the CMS notice `y59` (live 0.778, 6 → 17);
+     - WeasyPrint's stat cards on `y48` p6 (64% of words present).
+   - A statement, a résumé sidebar and a callout box are ordinary designed
+     content. Turning them into pictures is the "convincing-looking wrong
+     answer" `scan.py` says the converter must never produce.
+
+3. **Word for Microsoft 365 is not uniformly safe.**
+   - Fine: the letter `y29` is perfect (word_recall 1.000); the Excel export
+     `y35`, the Google Docs export `y32` and the zh-TW Word export `y52` are
+     page-exact; the NZ guideline `y30` is within 6%.
+   - Not fine: the DOE audit report `y28` — a plain Word for Microsoft 365
+     file with a memo page, a two-column Highlights page, a TOC and
+     footnotes — goes 21 → 37 (1.76×). Worst drift is on p12, p1 and p13.
+   - The pleading-paper order `y63`, Word for Microsoft 365 with a 1–28
+     line-number gutter, goes 5 → 13 (2.60×).
+   - The PowerPoint deck `y34` goes 40 → 86 (2.15×).
+   - None of these is a PDFMaker chain. So §10's "Word direct does not
+     inflate" (`y10`) holds for prose letters and reports, not for every
+     Word layout.
+
+4. **Page-exact is not position-exact.**
+   - `y32`, the Google Docs export, is 37 → 37 with doc_recall 0.985. Yet
+     word_recall is 0.299 and median drift 76.5 pt: the right number of
+     pages, with text sliding within them.
+   - `y52` (51 → 51, word_recall 0.543) and `y31` (18 → 17, 88.2 pt drift)
+     say the same.
+   - A Google Docs export round-tripping to Google Docs is the release bar's
+     exemplar case, and the first real one in the corpus is already
+     measurably off.
+
+5. **Scans inflate and balloon.**
+   - Pages: `y56` 10 → 29 and `y57` 16 → 45 (2.9× and 2.8×).
+   - DOCX size: 31.4 MB and 73.1 MB from 0.54 MB and 1.37 MB inputs (58× and
+     53×).
+   - Time: 129 s and 271 s.
+   - Every OCR word reaches the DOCX (`y56`: 8,459 letters for 8,457), yet
+     `y56` scores word_recall 0.000, and no drift can be computed because not
+     one word lands on its own page.
+
+6. **RTL text partly fails to arrive.**
+   - Pages: Hebrew `y49` 28 → 60 (2.14×), Persian `y50` 1.40×, Arabic `y48`
+     1.43× and `y47` 1.37×.
+   - doc_recall is 0.71–0.77 across the four.
+   - Measured at character level: 14% of `y49`'s Hebrew and 11% of `y48`'s
+     Arabic never reach the DOCX.
+   - `y47`, 57 pages at 315 s (5.5 s/page), is the slowest document in the
+     tranche.
+
+7. **The harness cannot grade Thai or Devanagari, which is a measurement
+   defect, not a converter one.**
+   - `y55` (Thai, Apple Pages) scores doc_recall 0.061, yet **all 5,081 Thai
+     characters are in the DOCX and in its render**. Thai has no inter-word
+     spaces, so a word-tokenised recall collapses on any rewrap.
+   - `y54` (Hindi, Google Docs) scores 0.095 while 88% of its Devanagari
+     characters arrive. The remaining 12% is a real loss the metric cannot
+     isolate.
+   - A character-level recall is needed before either script can be measured
+     honestly. Until then, these two rows grade the metric, not the
+     converter.
+
+8. **What works, and is worth protecting.**
+   - JasperReports `y65`: word_recall 1.000.
+   - The Word letter `y29`: 1.000.
+   - The single-column and grid CVs `y44`/`y45`: 0.99+.
+   - Japanese via JUST PDF `y51`: 0.994, page-exact, 2.7 pt drift.
+   - The Excel rate tables `y35`: 0.935, page-exact.
+   - The JUST PDF and JasperReports chains are in the corpus at all only
+     because of this tranche.
+
+None of this gates anything: no baseline describes `y28`–`y65`, and
+`gate.py` has never seen them. Promotion stays the single deliberate commit
+of §7, and items 1–4 are the reason to want one — the converter's weakest
+measured classes are the ones users most often feed it.
