@@ -1493,6 +1493,7 @@
    "boundaries": 136,
    "total_median": 3.9
   },
+  "lead_bias_note": "residuals.lead_bias (IR median pitch over the source mean, Word grid jitter) is placement inside a paragraph, not page height: infer's baseline-anchored gaps are computed against the same median. Asking for the mean was tried and reverted (f205787).",
   "zero_width_space": {
    "words": 990342,
    "with_u200b": 16526,
