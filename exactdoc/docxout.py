@@ -1166,7 +1166,7 @@ def predict_lines_for(p: Para, avail_w: float, metrics) -> Optional[int]:
     return predict_lines(p, avail_w, metrics)
 
 
-def _text_metrics():
+def _text_metrics(output_profile: str = "standard"):
     """Shaping metrics, or None if even constructing them fails.
 
     This asked for `get_metrics("mupdf")`, so the column-overflow and page-spill
@@ -1180,17 +1180,18 @@ def _text_metrics():
     caller here treats it as "do not act".
     """
     try:
-        from .metrics import get_metrics
-        return get_metrics()
+        from .metrics import for_profile, get_metrics
+        return for_profile(get_metrics(), output_profile)
     except Exception:
         return None
 
 
-def _column_one_overflows(ch, content_w: float, lay: DocLayout) -> bool:
+def _column_one_overflows(ch, content_w: float, lay: DocLayout,
+                          output_profile: str = "standard") -> bool:
     """Is the first column's content predicted to outgrow its column?"""
     if ch.n_cols < 2:
         return False
-    metrics = _text_metrics()
+    metrics = _text_metrics(output_profile)
     if metrics is None:
         return False
     gap = ch.col_gap or 0.0
@@ -1367,7 +1368,8 @@ def _stack_fits(pg, lay: DocLayout) -> bool:
     return used <= _body_capacity(lay)
 
 
-def _page_spill(pg, content_w: float, lay: DocLayout, notes_h: float = 0.0):
+def _page_spill(pg, content_w: float, lay: DocLayout, notes_h: float = 0.0,
+                output_profile: str = "standard"):
     """-> (overflow_pt, stranded_lines) for one source page, or None.
 
     `notes_h` is the footnote area this page carries when its notes are
@@ -1392,7 +1394,7 @@ def _page_spill(pg, content_w: float, lay: DocLayout, notes_h: float = 0.0):
         return None
     if any(ch.n_cols > 1 for ch in pg.chunks):
         return None
-    metrics = _text_metrics()
+    metrics = _text_metrics(output_profile)
     if metrics is None:
         return None
     capacity = _body_capacity(lay) - notes_h
@@ -1430,7 +1432,8 @@ def _page_spill(pg, content_w: float, lay: DocLayout, notes_h: float = 0.0):
 
 
 def _absorb_page_spill(pg, content_w: float, lay: DocLayout,
-                       notes_h: float = 0.0) -> dict:
+                       notes_h: float = 0.0,
+                       output_profile: str = "standard") -> dict:
     """Plan the gap reductions that keep a small spill on its own page.
 
     Returns `{id(element): new_space_before}`, empty when the page is to be
@@ -1445,7 +1448,7 @@ def _absorb_page_spill(pg, content_w: float, lay: DocLayout,
     paragraph gaps cannot cover the overflow in full is left alone: a partial
     payment spends the spacing and still loses the page.
     """
-    got = _page_spill(pg, content_w, lay, notes_h)
+    got = _page_spill(pg, content_w, lay, notes_h, output_profile)
     if got is None:
         return {}
     overflow, stranded = got
@@ -3574,13 +3577,15 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
         # and is never asked. See `_absorb_page_spill`.
         spill_plan = {} if (has_cover and pi == 0) \
             else _absorb_page_spill(pg, cw_ctx, glay,
-                                    notes_h.get(pg.number, 0.0))
+                                    notes_h.get(pg.number, 0.0),
+                                    ctx.output_profile)
         for ci, ch in enumerate(pg.chunks):
             if ch.n_cols != cur_cols:
                 if ch.pre_gap > 0.5:
                     _spacer(doc, ch.pre_gap - _sect_break_comp(ctx))
                 new_section(WD_SECTION.CONTINUOUS, ch.n_cols, ch.col_gap)
-            drop_col_break = _column_one_overflows(ch, cw_ctx, glay)
+            drop_col_break = _column_one_overflows(ch, cw_ctx, glay,
+                                                   ctx.output_profile)
             for el in ch.elements:
                 if ctx.note_ids and getattr(el, "role", "") == "footnote":
                     continue        # carried by footnotes.xml instead

@@ -20,6 +20,24 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **gdocs: the ladder no longer fits locked lines with tracking Google Docs
+  discards (live, 2026-10-04).** The ladder pins a re-wrapping paragraph to
+  its source lines and makes each pinned line fit by compressing it with
+  negative w:spacing -- under every profile. Docs drops w:spacing (x10 flown as
+  written, without it, and with it x10: identical exports), so under gdocs each
+  compressed line was set at full width and wrapped: locking without fitting,
+  which the ladder's own notes measure as worse than flow. `metrics.for_profile`
+  now wraps the shaper in `RendererMetrics(honours_tracking=False)` for gdocs;
+  the ladder then shapes at natural advances and refuses a lock that only
+  compression would fit, and the writer's spill and column predictions use
+  the same view. Standard is unchanged. A/B live on the 11 documents with the
+  most compression, same tree, the old belief restored for A
+  ([evidence](docs/evidence/gdocs-2026-10-04-tracking-ab.json)): page error
+  280 -> 276, summed word recall 3.887 -> 4.139, summed dy_p50 425 -> 378pt;
+  y24 word recall 0.395 -> 0.604 (dy_p50 16.0 -> 7.3pt), y43 27 -> 26 pages
+  (0.185 -> 0.240), y03 69 -> 67 pages, y18 262 -> 260. Worse: y03 word
+  recall 0.408 -> 0.390, y60 dy_p50 68.3 -> 70.2pt, y13/y37 -0.001; x10, the
+  control, identical.
 - **gdocs: contents-page dot leaders are typed, because Google Docs draws no
   tab leaders (live, 2026-10-04).** The live sweep of the expansion corpus
   found x02's contents page back from Docs with all 1,277 leader dots gone,
