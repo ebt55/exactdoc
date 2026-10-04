@@ -1,6 +1,13 @@
-# WP12 RESUME (paused: usage limit, 2026-10-04)
+# WP12 RESUME (paused again: usage limit, 2026-10-04)
 
-Branch `worktree-agent-aad6d0fa9d5e74b5e`. Integration branch 0b0f787 is ALREADY MERGED (commit 3ff9067).
+**Latest:** integration head 50f7436 (gdocs Calibri factors e6086c7, docs moved to docs/deep-dive/) is
+ALREADY MERGED cleanly as 86c40e4 -- no conflicts, no code changes needed. THEORY/STATUS now live in
+docs/deep-dive/ (cite those paths in the CHANGELOG/commit text). Nothing measured since the merge.
+**Exact next step:** step 1 below (recreate wp12-dev), but export the BASE from 50f7436, not 0b0f787:
+`git archive --format=tar -o SCR/wp12/int50f.tar 50f7436` -> extract to SCR/wp12/int50f, sweep that as
+`wp12-int50f-raw`. Then y40 p2/p3 (top priority per coordinator), unit suite, both sweeps, gate, CHANGELOG.
+
+Branch `worktree-agent-aad6d0fa9d5e74b5e`. Integration branch 0b0f787 was merged earlier (commit 3ff9067).
 Scratch: `SCR\wp12\` (scripts: micro.py microscope, laydump.py, laydiff.sh, qs.sh/qtab.py targeted sweeps,
 dx.sh runs a scratch script in container `wp12-dev`; sync.sh copies the worktree in; set FULL=. for a full copy).
 
