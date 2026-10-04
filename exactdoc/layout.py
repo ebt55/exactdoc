@@ -128,6 +128,11 @@ class Para:
     # position the source drew it (w:framePr), out of the flow. Set only on a
     # slide (infer._lock_slide); None for every flowing paragraph.
     frame: Optional[Tuple[float, float, float]] = None
+    # A right-to-left paragraph (Hebrew, Arabic): its runs are in logical
+    # order, and `align`, `left_indent`, `right_indent`, `first_indent` and
+    # `tab_stops` are in START/END terms -- "left" is the start, which is the
+    # right edge -- exactly as OOXML reads them in a w:bidi paragraph.
+    rtl: bool = False
 
     @property
     def text(self) -> str:
@@ -280,6 +285,10 @@ class Chunk:
     col_gap: float = 24.0
     pre_gap: float = 0.0   # vertical gap to emit BEFORE entering this chunk's section
     elements: List[Any] = field(default_factory=list)
+    # The columns' own widths in pt, left to right, when they are not equal (a
+    # sidebar beside a main column); empty means equal widths. The gap between
+    # them is `col_gap`.
+    col_widths: List[float] = field(default_factory=list)
 
 
 @dataclass

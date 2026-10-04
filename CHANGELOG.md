@@ -20,6 +20,99 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **gdocs: right-to-left paragraphs are real RTL paragraphs in Google Docs
+  (live, 2026-10-04).** WP14's probe set flown live
+  ([evidence](docs/evidence/gdocs-2026-10-04-rtl-probe.json)): with `bidi`,
+  justified Hebrew lands within 2pt for 94% of words (35% as the visual
+  left-to-right equivalent; dx_p50 26.1 -> 0.24pt), and a Hebrew list's
+  worst words move 3pt instead of 148pt. Its uniform 3pt offset leaves its
+  within-2pt 0.50 -> 0.17. c4, y48 and y49 are unchanged.
+  `PROFILE_CAPABILITIES["gdocs"]` gains `bidi`.
+- **tables: an indented table no longer grows into the margin; a label too
+  wide for its column spans the blank cells beside it.** x14's totals block
+  (an indented table, 322pt in) put its amounts 48-52pt into the right
+  margin in LibreOffice and Google Docs alike. The width fit funded a
+  too-narrow label column from "free room" counted from the container's
+  left edge -- room that lay LEFT of the table -- and grew the table to the
+  right. The room is now what lies to the table's right
+  (`_fit_col_widths`), and a one-line cell that overflows its column spans
+  the blank cells beside it when they draw nothing of their own and share
+  its top and bottom rules (`_span_into_blank_neighbours`; clustered-edge
+  tables only). x14 in LibreOffice: amounts within 3pt of the source (were
+  52pt off), the label on one line, the content below within 3.4pt (24pt
+  when the label wrapped).
+- **gdocs: the other families' line heights re-measured in Google Docs.** The
+  same live probe, run over every family in `NATURAL_FACTORS`, found each one
+  equal to its font file's own hhea line, with no offset. The table's older
+  values sat 0.006 below that, which was the bias of the original four-line
+  probe. Courier New (1.133), Georgia, Roboto, Noto Serif/Sans, Verdana,
+  Vollkorn and Consolas (1.171) now carry the measured value. Live pass 12b:
+  overall pass, 0 blocking findings; c7 within-2pt 0.132 -> 0.409, l1 0.213 ->
+  0.227, 03 SSIM up (dy_p50 2.03 -> 2.15pt); the private report stays CLEAN
+  32/32 (within-2pt 0.156 -> 0.219). Arial and Times New Roman measure 1.150
+  too but stay at 1.144. Setting them alone helped 02 (0.09 -> 0.59) and c2,
+  but broke 01's SSIM bound (0.704 -> 0.680) and moved c6 0.34 -> 0.20,
+  because the profile's other levers were calibrated against 1.144. They have
+  to be corrected together with those levers
+  ([evidence](docs/evidence/gdocs-2026-10-04-natural-factors-remeasured.json)).
+- **right-to-left and complex scripts (WP14).** Hebrew, Arabic and Persian
+  documents converted to about twice their pages with their text in the wrong
+  order. *Parser*: lines are reordered by an inverse of the Unicode bidi
+  algorithm at each line's base direction (`Line.rtl`), not by reversing RTL
+  letters only, so punctuation, numbers (`114، 2026`), Latin islands and
+  brackets land where they belong; Word's RTL word spaces (font-less, 1pt,
+  not flagged generated: 1,708 in the five RTL documents, none elsewhere) are
+  spaces; a space inside a joined Arabic word is dropped (`وتكي يف`); marks
+  snap to their letter; Indic spaces PDFium inserts inside a cluster are
+  dropped (`डेट ा`). *Inference*: no undecoded-glyph bullets on RTL lines
+  (y49: 121, each splitting off a paragraph's last line); RTL paragraphs are
+  measured in mirror image, so alignment and indents come out start/end; RTL
+  list markers, notes and line joins work from the right edge. *Writer*
+  (standard profile, new `bidi` capability): `w:bidi` with start/end
+  `jc`/`ind` (probed in the pinned LibreOffice), `w:rtl`,
+  `szCs`/`bCs`/`iCs`, `lang/@bidi` and the source's complex-script face in
+  `w:cs`; gdocs keeps a visually equivalent left-to-right paragraph until
+  `testkit/gdocs_probe_rtl.py` is flown live. Raw lane, all 90 documents
+  against a4fca48: only the 7 targets move — pages y47 100 → 89, y48 11 → 10,
+  y49 56 → 54, y50 25 → 19, y54 5 → 4; word recall y54 0.06 → 0.66 and y55
+  (Thai) 0.06 → 0.84; page-exact 39 → 40, mean |page ratio−1| 0.2867 →
+  0.2749. Product lane against 50f7436: y49 49 → 29 pages (char recall
+  0.52 → 0.92), y47 73 → 66, y48 9 → 9, y50 15 → 15 (the base's own run
+  times out in LibreOffice in refine round 2, twice); CJK y51–y53 identical.
+  Gated c4_i18n within-2pt 0.621 → 0.872 in both lanes (better than its
+  record; not re-recorded), live text 0.909 → 0.901 (inside tolerance:
+  PyMuPDF reads c4's Arabic words in visual order). Worse: y54 product
+  within-2pt 0.219 → 0.159, over six times as many matched words. Still
+  open: the pinned renderer sets Arabic 27–45% wider than Arial or Noto
+  Naskh, raw y49 spills a few lines per page (David → FreeSerif, +2.6%), no
+  `w:bidiVisual` tables. 41 new tests.
+- **Journal and arXiv papers: two-column pages read from the gutter, display
+  maths from its rows (WP12).** The line microscope (docs/deep-dive/theory.md
+  §4) on the seven academic papers found the two-column split taken from the most
+  populous block cluster: display-maths fragments outnumbered y41's right column,
+  the split landed 52pt inside the left one and page 2 rendered one character per
+  line; equation numbers at a NeurIPS page's margin passed for a second column;
+  full-width floats moved below the columns; a Frontiers title page's sidebar was
+  set at the average column width. Now a two-column page is the white band its
+  column lines never cross, each LINE is placed left, right or across, and what
+  spans the page cuts it into bands in source order (`infer._two_column_gutter`,
+  `_gutter_chunks`); a narrow sidebar on its own baselines is a column of its own
+  width (`Chunk.col_widths`, written `w:equalWidth="0"`, standard profile only);
+  the parser no longer reads a two-column body with inline maths as table rows
+  (`_visual_pieces`). A displayed equation is one paragraph per baseline row at
+  the row's own pitch with its number on a right tab stop, and glyphs TeX stacks
+  over a line (the "~" of a congruence) join that line; Libertine, Biolinum,
+  MathTime and txfonts are named. Raw lane against 50f7436, all 95 documents:
+  y41 20→10 pages (word recall 0.159→0.523), y39 29→12 (0.195→0.742), y43 27→22,
+  y37 38→34, y40 15→14 (0.245→0.408, dy_p50 117→28pt), y42 7, y38 55; also y12
+  78→66, y21 72→54, y03 66→59, y06 168→164, y60 37→35. Product lane: y41 19→9,
+  y39 26→12, y40 13→10 (page-exact, recall 0.273→0.759), y43 22→18, y37 28→26.
+  Means: |page ratio−1| 0.287→0.236, word recall 0.590→0.606, within-2pt
+  0.2145→0.2149. Worse: y26 215→216 pages (recall 0.973→0.924) -- its index
+  pages already overflow (TeX's spaced leaders re-wrap), and with their headings
+  now where the source sets them the overflow costs a page; y64 within-2pt
+  0.112→0.062 (recall 0.130→0.180). The 16 gated layouts are identical. Under
+  gdocs the inference changes apply too (columns stay equal-width): unflown.
 - **gdocs: Calibri-family line heights measured in Google Docs; Word documents
   stop growing there (live, 2026-10-04).** The gdocs profile writes line
   height as a multiple of each family's natural line in Docs

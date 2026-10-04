@@ -20,7 +20,10 @@ from .lists import assign_lists
 from .notes import bind_page_notes, find_page_notes, number_footnotes
 
 BULLET_CHARS = set("•◦▪‣·-–—*➤►○●♦")
-NUM_RE = re.compile(r"^\(?(\d{1,3}|[a-zA-Z]|[ivxlIVXL]{1,5})[\.\)\:]$")
+# A single Hebrew or Arabic letter is an ordinal too: y49's contents and
+# y47's sub-lists number items `א.` `ב.` / `أ.` `ب.` as Latin lists use `a.`.
+NUM_RE = re.compile(r"^\(?(\d{1,3}|[a-zA-Zא-תء-ي]|"
+                    r"[ivxlIVXL]{1,5})[\.\)\:]$")
 SECTION_NUM_RE = re.compile(r"^\d{1,3}(\.\d{1,3}){1,4}\.?$")   # "2.5", "2.5.1."
 
 # --- figure-detection budget ----------------------------------------------
@@ -109,6 +112,140 @@ def _prose_between(wide_items, col_items) -> bool:
     hi = max(t[1][3] for t in col_items)
     return any(kind == "blk" and lo < (bb[1] + bb[3]) / 2 < hi
                for kind, bb, _o in wide_items)
+
+
+# --- two-column pages, read from the gutter ---------------------------------
+# The block-cluster test above finds a two-column page from where its BLOCKS
+# start, and takes the split from the most populous right-hand cluster. On a
+# page of display maths neither survives: equation numbers flush at a single
+# column's right margin are a right-hand "cluster" of many blocks (y43 p3, a
+# one-column NeurIPS page, was laid out as a 14pt-wide second column holding
+# "(7)".."(14)" with every prose line in a tail below), and on a genuine
+# two-column page the fragments of a display can outnumber the right column's
+# own blocks (y41 p2's split landed 52pt inside the LEFT column, every line of
+# both columns then sat in the wrong flow with page-absolute indents, and the
+# page rendered one character per line). The gutter is the evidence that does
+# not move: a vertical band of white that the column-sized lines never cross,
+# the same reading `column_grid` makes for three columns and more.
+#
+# A two-column page leaves both columns at roughly half the content width;
+# measured over the corpus, the narrowest genuine column is 0.46 of it (the
+# journal and arXiv classes sit at 0.47-0.49). A sidebar beside one wide column
+# (PLOS, Frontiers title pages: 0.24-0.32) is not this shape, and neither is a
+# right-margin column of equation numbers (0.04).
+TWO_COL_MIN_BAND_FRAC = 0.38
+# Each column must actually be set in lines that fill it. The crossing test
+# below does the real work against a one-column page; this keeps a white band
+# under a scatter of short fragments from passing for a gutter.
+TWO_COL_FULL_LINE_FRAC = 0.75
+TWO_COL_MIN_FULL_LINES = 6
+# Of the lines lying within the columns' vertical extent, the share allowed to
+# cross the gutter. On a two-column page those are the spanning floats and
+# their captions; on a one-column page they are its prose. Measured: the
+# journal pages cross at 0.00-0.08, y43's one-column maths pages at 0.55-0.80.
+TWO_COL_MAX_CROSS_FRAC = 0.25
+# A white band beside a few lines of text is an inset, not a gutter: the
+# shorter column must run at least this share of the body's height, unless the
+# block-cluster detector reads two columns too (it accepts a short right
+# column of several blocks -- an article's last page). y39 p1's right column,
+# one 250pt block under the abstract, is 0.33; tests/test_column_grid's 88pt
+# inset is 0.11.
+TWO_COL_MIN_EXTENT_FRAC = 0.2
+# A SIDEBAR beside a main column is a column too, of its own width: Frontiers'
+# title page (y40 p1) sets its editor/review/citation metadata in a 0.2-wide
+# column beside the 0.67-wide title, abstract and introduction. Read with the
+# half-width bar above it fell to the block clusters, which split it at the
+# wrong place, sent the main column's lines to a page-wide tail and set both
+# halves at the average width -- three rendered pages, and the next page's
+# left column landed 270pt to the right. A narrow side down to this share of
+# the measure is accepted (an equation-number column is 0.04)...
+TWO_COL_SIDE_MIN_FRAC = 0.15
+# ...when it runs on its own baselines. A glossary's terms and a form's labels
+# are narrow left columns too, but each sits on the baseline of the text it
+# labels: that is a row structure, and the row and table readings own it. A
+# sidebar set in its own type keeps its own grid (y40 p1: 6.4/9pt against the
+# main column's 12pt). Of the narrow column's lines, at most this share may
+# share a baseline with the wide column's.
+TWO_COL_SIDE_MAX_SHARED = 0.5
+# Columns this much apart in width (of the wider) are written at their own
+# widths (Chunk.col_widths); closer than that, equal columns as before -- the
+# journal classes differ by 0-3%, a sidebar by 60-70%.
+TWO_COL_UNEQUAL_FRAC = 0.10
+
+
+def _two_column_gutter(lines, content_l: float, content_r: float):
+    """(left x, right x, shorter column's height) of a two-column page's
+    gutter, or None.
+
+    `lines` are the page's flow lines. The occupancy scan reads only lines
+    that fit a column (wider than COL_SCAN_W_FRAC is page-spanning by
+    construction) and tolerates GUTTER_CROSS_FRAC of them through the band,
+    exactly as `column_grid` does. A band qualifies when it leaves two columns
+    of TWO_COL_MIN_BAND_FRAC or more, each holding TWO_COL_MIN_FULL_LINES lines
+    that fill it, and when no more than TWO_COL_MAX_CROSS_FRAC of all the lines
+    in the columns' vertical extent run across it.
+    """
+    w = content_r - content_l
+    n = int(round(w))
+    if n < 120:
+        return None
+    boxes = [l.bbox for l in lines if l.horizontal and l.text.strip()]
+    scan = [b for b in boxes if (b[2] - b[0]) <= COL_SCAN_W_FRAC * w]
+    if len(scan) < 2 * TWO_COL_MIN_FULL_LINES:
+        return None
+    occ = [0] * n
+    for b in scan:
+        a0 = max(0, int(b[0] - content_l))
+        a1 = min(n, int(math.ceil(b[2] - content_l)))
+        for i in range(a0, a1):
+            occ[i] += 1
+    tol = max(1, int(GUTTER_CROSS_FRAC * len(scan)))
+    best = None
+    i = 0
+    while i < n:
+        if occ[i] > tol:
+            i += 1
+            continue
+        j = i
+        while j < n and occ[j] <= tol:
+            j += 1
+        gl, gr = content_l + i, content_l + j
+        narrow = min(gl - content_l, content_r - gr)
+        wide = max(gl - content_l, content_r - gr)
+        if i > 0 and j < n and (j - i) >= MIN_GUTTER_W and \
+                wide >= TWO_COL_MIN_BAND_FRAC * w and \
+                narrow >= TWO_COL_SIDE_MIN_FRAC * w:
+            # the widest qualifying band is the gutter; a second one would be
+            # a three-column grid, which column_grid owns
+            if best is None or (j - i) > (best[1] - best[0]):
+                best = (gl, gr)
+        i = j
+    if best is None:
+        return None
+    gl, gr = best
+    lw, rw = gl - content_l, content_r - gr
+    left = [b for b in boxes if b[2] <= gl + 2.0]
+    right = [b for b in boxes if b[0] >= gr - 2.0]
+    full_l = [b for b in left if b[2] - b[0] >= TWO_COL_FULL_LINE_FRAC * lw]
+    full_r = [b for b in right if b[2] - b[0] >= TWO_COL_FULL_LINE_FRAC * rw]
+    if len(full_l) < TWO_COL_MIN_FULL_LINES or \
+            len(full_r) < TWO_COL_MIN_FULL_LINES:
+        return None
+    y0 = min(b[1] for b in left + right)
+    y1 = max(b[3] for b in left + right)
+    inside = [b for b in boxes if y0 <= (b[1] + b[3]) / 2.0 <= y1]
+    crossing = [b for b in inside if b[0] < gl and b[2] > gr]
+    if len(crossing) > TWO_COL_MAX_CROSS_FRAC * max(1, len(inside)):
+        return None
+    if min(lw, rw) < TWO_COL_MIN_BAND_FRAC * w:
+        side, other = (left, right) if lw < rw else (right, left)
+        bases = [b[3] for b in other]
+        shared = sum(1 for b in side if any(abs(b[3] - y) <= 1.0 for y in bases))
+        if shared > TWO_COL_SIDE_MAX_SHARED * max(1, len(side)):
+            return None
+    short =min(max(b[3] for b in left) - min(b[1] for b in left),
+                max(b[3] for b in right) - min(b[1] for b in right))
+    return gl, gr, short
 
 # --- side-margin page furniture -------------------------------------------
 # Clearance a shape must keep from the body column before it is called margin
@@ -794,14 +931,22 @@ def _merge_row_lines(lines: List[Line]) -> List[Line]:
 
     out = []
     for row in rows:
-        row.sort(key=lambda l: l.bbox[0])
+        # A right-to-left row reads from its rightmost fragment (see
+        # _rtl_lines); its pieces join in that order, the gap measured from
+        # each piece's left end to the next one's right end.
+        rtl = len(row) > 1 and _rtl_lines(row)
+        if rtl:
+            row.sort(key=lambda l: -l.bbox[2])
+        else:
+            row.sort(key=lambda l: l.bbox[0])
         if len(row) == 1:
             out.append(row[0])
             continue
         spans = []
         for i, ln in enumerate(row):
             if i > 0 and spans:
-                gap = ln.bbox[0] - row[i - 1].bbox[2]
+                gap = (row[i - 1].bbox[0] - ln.bbox[2]) if rtl else \
+                    (ln.bbox[0] - row[i - 1].bbox[2])
                 if gap > 0.25 * (spans[-1].size or 10) and \
                         not spans[-1].text.endswith(" "):
                     spans[-1].text += " "
@@ -809,7 +954,7 @@ def _merge_row_lines(lines: List[Line]) -> List[Line]:
         bb = None
         for ln in row:
             bb = bbox_union(bb, ln.bbox)
-        out.append(Line(spans=spans, bbox=bb, dir=row[0].dir))
+        out.append(Line(spans=spans, bbox=bb, dir=row[0].dir, rtl=rtl))
     out.sort(key=lambda l: (l.bbox[1], l.bbox[0]))
     return out
 
@@ -875,9 +1020,22 @@ def _line_starts_with_marker(ln: Line) -> bool:
 # block are code, and splitting would break the verbatim block apart.
 _INLINE_GLYPHS = frozenset("•◦▪‣●○■□➤►♦❖➢✓✔∙⁃")
 _INLINE_DASHES = frozenset("-–—*·")
-_INLINE_ORD_RE = re.compile(r"(\(?)(\d{1,3}|[ivx]{1,5}|[a-zA-Z])([.)])(?=\s+\S)")
+_INLINE_ORD_RE = re.compile(r"(\(?)(\d{1,3}|[ivx]{1,5}|[a-zA-Zא-ת"
+                            r"ء-ي])([.)])(?=\s+\S)")
 _INLINE_X_TOL = 2.0     # same list column: markers of one list share their x
 _INLINE_HANG_MAX = 40.0  # a hang wider than this is a new column, not a marker's width
+# Letter ordinals of right-to-left lists: Hebrew in alphabet order (final forms
+# are not ordinals), Arabic in abjad order (أ ب ج د ه و ز ح ط ي ...), which is
+# how Arabic sub-lists count.
+_HEB_ORD = "אבגדהוזחטיכלמנסעפצקרשת"
+_ABJAD_ORD = "أبجدهوزحطيكلمنسعفصقرشتثخذضظغ"
+
+
+def _start_x(ln: Line) -> float:
+    """Where a line STARTS, signed so that larger means further along its
+    reading direction: the left edge of a Latin line, the negated right edge
+    of a right-to-left one."""
+    return -ln.bbox[2] if getattr(ln, "rtl", False) else ln.bbox[0]
 
 
 def _roman_value(tok: str) -> int:
@@ -909,6 +1067,11 @@ def _inline_marker(text: str):
         return None                     # "(1." is not a marker
     if tok.isdigit():
         return (("num", op, cl), {int(tok)})
+    if tok in _HEB_ORD or tok in _ABJAD_ORD:
+        order = _HEB_ORD if tok in _HEB_ORD else _ABJAD_ORD
+        return (("rtl-letter", op, cl), {order.index(tok) + 1})
+    if not tok.isascii():
+        return None
     if tok.isupper():
         # "A." opens initials ("J. Smith") and outline headings; only the
         # parenthesised forms are unambiguous enough to take.
@@ -947,7 +1110,7 @@ def _inline_list_starts(blocks) -> set:
             if i + 1 < len(rows):
                 nx = rows[i + 1]
                 sz = _line_size(ln)
-                if 1.5 < nx.bbox[0] - ln.bbox[0] <= _INLINE_HANG_MAX \
+                if 1.5 < _start_x(nx) - _start_x(ln) <= _INLINE_HANG_MAX \
                         and 0 < nx.baseline - ln.baseline <= 2.2 * sz \
                         and _inline_marker(nx.text) is None:
                     hang = True
@@ -955,7 +1118,7 @@ def _inline_list_starts(blocks) -> set:
     out = set()
     for ln, style, vals, hang in cands:
         peers = [c for c in cands if c[1] == style and c[0] is not ln
-                 and abs(c[0].bbox[0] - ln.bbox[0]) <= _INLINE_X_TOL]
+                 and abs(_start_x(c[0]) - _start_x(ln)) <= _INLINE_X_TOL]
         if style[0] == "glyph":
             ok = bool(peers) or hang
         elif style[0] == "dash":
@@ -989,10 +1152,61 @@ def _line_tracked(ln: Line) -> Optional[bool]:
 _RTL_TEXT = re.compile("[֐-ࣿיִ-﷿ﹰ-﻿]")
 
 
+# ---------------------------------------------------------- right-to-left lines
+# A Hebrew or Arabic paragraph is the mirror image of a Latin one: it starts on
+# the right, its ragged last line is flush RIGHT, its first-line indent and its
+# list hang are measured from the right edge. Every geometric test below was
+# written for the Latin shape, and measured on the tranche-4 RTL documents
+# (y47-y50) that was much of their page inflation: a justified Hebrew
+# paragraph's ragged-left last line failed `left_flush`, the full-width lines
+# passed the centring test, and y49 p2's first paragraph came out CENTRED; a
+# right-flush paragraph got a left indent the width of its last line's gap.
+#
+# The parser already hands over RTL lines in logical order (Line.rtl), so the
+# first span is the rightmost. Mirroring the geometry about the column's axis
+# makes such a paragraph exactly the Latin shape the tests expect -- logical
+# span order then runs left to right too -- and the answer comes back in
+# START/END terms, which is what OOXML's w:jc and w:ind mean in a w:bidi
+# paragraph (left = start, right = end; probed in the pinned LibreOffice: a
+# bidi paragraph with jc=left sets flush right, ind left=1in pulls the right
+# edge in by 1in, firstLine indents the right end of the first line).
+def _rtl_lines(lines) -> bool:
+    """Do these lines read right to left? Majority by text, ties to RTL."""
+    n_r = n_l = 0
+    for ln in lines:
+        n = len(ln.text.strip())
+        if getattr(ln, "rtl", False):
+            n_r += n
+        else:
+            n_l += n
+    return n_r > 0 and n_r >= n_l
+
+
+def _mirror_box(b, axis: float):
+    return (axis - b[2], b[1], axis - b[0], b[3])
+
+
+def _mirror_line(ln: Line, axis: float) -> Line:
+    """A copy of `ln` reflected about x = axis / 2 (spans copied, text shared)."""
+    spans = []
+    for s in ln.spans:
+        m = replace(s, bbox=_mirror_box(s.bbox, axis),
+                    origin=(axis - s.origin[0], s.origin[1]))
+        for k in ("_note_mark", "_ul"):          # inference's own span marks
+            if hasattr(s, k):
+                setattr(m, k, getattr(s, k))
+        spans.append(m)
+    return Line(spans=spans, bbox=_mirror_box(ln.bbox, axis), dir=ln.dir,
+                rtl=getattr(ln, "rtl", False))
+
+
 def _opens_note(ln: Line) -> bool:
     """Does the line open with a glued footnote number (`_merge_list_markers`)?"""
-    first = min((s for s in ln.spans if s.text.strip()),
-                key=lambda s: s.bbox[0], default=None)
+    inked = [s for s in ln.spans if s.text.strip()]
+    if getattr(ln, "rtl", False):
+        first = max(inked, key=lambda s: s.bbox[2], default=None)
+    else:
+        first = min(inked, key=lambda s: s.bbox[0], default=None)
     return first is not None and getattr(first, "_note_mark", False)
 
 
@@ -1045,13 +1259,45 @@ def _author_break(a: Line, b: Line, right: float, lead: float) -> bool:
 DOUBLE_SPACED_PITCH = 1.6
 
 
+# A justified paragraph's lines all reach both column edges except its last,
+# so a short line between two full ones is a paragraph END even with no extra
+# leading after it. Word sets Hebrew and Arabic at 1.5 lines with no space
+# between paragraphs (y49, y50), and there that short line is the only
+# boundary there is: y49 p2's five paragraphs read as one. A line is "full"
+# within FULL_EDGE_PT of both edges; "short" when its end stops more than
+# SHORT_END_EM of its own size from the end edge (y49's last lines stop 60-410pt
+# short at 12pt; its justified lines within 0.4pt). Right-to-left groups only
+# for now: their bogus list markers had been doing this job by accident (see
+# dialect._labelled_line), and the Latin rule's effect on the gated corpus is
+# unmeasured.
+FULL_EDGE_PT = 3.0
+SHORT_END_EM = 2.0
+
+
+def _short_line_ends_para(prev: Line, ln: Line, nxt: Line,
+                          col_l: float, col_r: float) -> bool:
+    """`ln`, between a full line and a line starting at the start edge, ends
+    its paragraph (right-to-left lines; see FULL_EDGE_PT)."""
+    def full(x):
+        return abs(x.bbox[0] - col_l) <= FULL_EDGE_PT and \
+            abs(x.bbox[2] - col_r) <= FULL_EDGE_PT
+    sz = _line_size(ln)
+    return (full(prev) and abs(ln.bbox[2] - col_r) <= FULL_EDGE_PT
+            and ln.bbox[0] - col_l > SHORT_END_EM * sz
+            and abs(nxt.bbox[2] - col_r) <= FULL_EDGE_PT)
+
+
 def _split_lines_to_paras(lines: List[Line],
-                          list_starts: Optional[set] = None) -> List[List[Line]]:
+                          list_starts: Optional[set] = None,
+                          col_l: Optional[float] = None,
+                          col_r: Optional[float] = None) -> List[List[Line]]:
     """Group a flat list of lines into paragraphs on large baseline gaps,
     dominant-size jumps, letter-spacing changes, or list-marker starts.
 
     `list_starts` holds the `_line_key`s of lines that open a list item with a
-    typed marker, decided over the whole flow by `_inline_list_starts`."""
+    typed marker, decided over the whole flow by `_inline_list_starts`.
+    With the column edges, a right-to-left group also ends at a short line
+    between full ones (_short_line_ends_para)."""
     lines = _merge_row_lines(lines)
     list_starts = list_starts or set()
     if len(lines) <= 1:
@@ -1103,9 +1349,15 @@ def _split_lines_to_paras(lines: List[Line],
         track_prev, track_new = _line_tracked(cur[-1]), _line_tracked(ln)
         track_jump = (track_prev is not None and track_new is not None
                       and track_prev != track_new)
+        short_end = (col_l is not None and len(cur) >= 2
+                     and getattr(cur[-1], "rtl", False)
+                     and getattr(ln, "rtl", False)
+                     and _short_line_ends_para(cur[-2], cur[-1], ln,
+                                               col_l, col_r))
         if deltas[i] > max(lead * 1.55, lead + 4.0) or size_jump or track_jump \
                 or _line_starts_with_marker(ln) or _line_key(ln) in list_starts \
-                or _opens_note(ln) or _author_break(cur[-1], ln, right, lead):
+                or _opens_note(ln) or short_end or \
+                _author_break(cur[-1], ln, right, lead):
             groups.append(cur)
             cur = [ln]
         else:
@@ -1124,7 +1376,31 @@ def para_from_lines(lines: List[Line], col_l: float, col_r: float,
     bbox = None
     for ln in lines:
         bbox = bbox_union(bbox, ln.bbox)
+    # The paragraph reads right to left when most of its text does, or when
+    # its FIRST line does -- the paragraph-level rule of UAX #9 (P2: the first
+    # strong character), seen from the page. y47's notes open `١٦ انظر:` and
+    # continue with two lines of English citation: by letters they are Latin,
+    # by their first line (and by the page) they are Arabic, right-aligned,
+    # mark on the right.
+    first = next((ln for ln in lines if ln.text.strip()), None)
+    rtl = _rtl_lines(lines) or bool(first is not None and getattr(first, "rtl", False))
+    if any(getattr(ln, "rtl", False) != rtl for ln in lines):
+        # A line read at the other direction than its paragraph renders in
+        # is re-read at the paragraph's (parse_pdfium.relogical_spans): y50's
+        # `.(Basiri, et al., 2014)` closing a Persian paragraph.
+        from .parse_pdfium import relogical_spans
+        lines = [ln if getattr(ln, "rtl", False) == rtl else
+                 Line(spans=relogical_spans(ln.spans, getattr(ln, "rtl", False),
+                                            rtl),
+                      bbox=ln.bbox, dir=ln.dir, rtl=rtl)
+                 for ln in lines]
+    if rtl:
+        # Measured in the mirror image from here on; see _rtl_lines. The
+        # column is symmetric about its own axis, so col_l/col_r stand, and
+        # every indent and alignment below comes out in start/end terms.
+        lines = [_mirror_line(ln, col_l + col_r) for ln in lines]
     p = Para(bbox=bbox)
+    p.rtl = rtl
     p._vis_lines = len(lines)
     p._list_item = bool(list_start)
     if list_start:
@@ -1336,7 +1612,7 @@ def paras_from_line_list(lines: List[Line], col_l: float, col_r: float,
     out = []
     ccx = (col_l + col_r) / 2
     list_starts = list_starts or set()
-    for grp in _split_lines_to_paras(lines, list_starts):
+    for grp in _split_lines_to_paras(lines, list_starts, col_l, col_r):
         if not grp:
             continue
         # centered short lines with strongly varying widths are separate
@@ -4274,7 +4550,72 @@ def infer(ir: DocIR, anchored: bool = True) -> DocLayout:
     finally:
         hyphen.deactivate(token)
     hyphen.mark_unhyphenated(lay)
+    from .layout import iter_paras
+    for p in iter_paras(lay):
+        if getattr(p, "rtl", False):
+            _balance_brackets(p.runs)
     return lay
+
+
+# Brackets in right-to-left text, and why a paragraph pass follows the parser's
+# per-line mirroring (parse_pdfium._visual_to_logical). A producer draws a
+# bracket at an RTL level with its mirrored glyph; what the PDF's ToUnicode
+# says for that glyph is the producer's choice (Word maps it to the logical
+# character, a visual-order producer to the shape), and PDFium mirrors again
+# inside a text object it judges right-to-left (probed: `ואר)` drawn as one
+# string reads back `(ראו`) but not in a bracket's own object. So the
+# character that arrives can be either, and no per-character rule recovers
+# it: measured, y50 p1 read `)Pang, et al., 2002)` and `(Wang & Manning,
+# 2012(`, y49 p1 `)להלן: "מחקר הבסיס")`, a synthetic Hebrew page `)ראו להלן(`.
+#
+# The paragraph does recover it. A bracket left unmatched by a depth scan is
+# re-read by its SHAPE in the text: an opener has a space (or nothing, or an
+# opening quote) before it and text after it; a closer has text before it and
+# a space, punctuation or the end after it. An unmatched closer shaped like an
+# opener opened something, and vice versa. A matched bracket is never touched,
+# and neither is an unmatched one whose shape agrees with it -- a `1)` list
+# marker, a parenthetical continuing from the previous page.
+_BRACKET_PAIRS = (("(", ")"), ("[", "]"), ("{", "}"))
+_OPEN_BEFORE = frozenset("([{\"'«“‘")
+_CLOSE_AFTER = frozenset(".,;:!?)]}\"'»”’،؛")
+
+
+def _balance_brackets(runs) -> int:
+    """Flip mis-oriented brackets in one paragraph's runs; returns the count."""
+    flat = [(i, k, ch) for i, r in enumerate(runs) if not r.is_tab
+            for k, ch in enumerate(r.text)]
+    if not any(ch in "()[]{}" for _, _, ch in flat):
+        return 0
+    text = "".join(ch for _, _, ch in flat)
+    flips = 0
+    for op, cl in _BRACKET_PAIRS:
+        stack, stray = [], []
+        for n, ch in enumerate(text):
+            if ch == op:
+                stack.append(n)
+            elif ch == cl:
+                if stack:
+                    stack.pop()
+                else:
+                    stray.append(n)
+        stray += stack
+        for n in stray:
+            prev = text[n - 1] if n else None
+            nxt = text[n + 1] if n + 1 < len(text) else None
+            opener = (prev is None or prev.isspace() or prev in _OPEN_BEFORE) \
+                and nxt is not None and not nxt.isspace() and nxt not in _CLOSE_AFTER
+            closer = prev is not None and not prev.isspace() \
+                and prev not in _OPEN_BEFORE \
+                and (nxt is None or nxt.isspace() or nxt in _CLOSE_AFTER)
+            want = op if opener and not closer else cl if closer and not opener \
+                else text[n]
+            if want != text[n]:
+                i, k, _ = flat[n]
+                t = runs[i].text
+                runs[i].text = t[:k] + want + t[k + 1:]
+                text = text[:n] + want + text[n + 1:]
+                flips += 1
+    return flips
 
 
 def _infer(ir: DocIR, anchored: bool = True) -> DocLayout:
@@ -5378,7 +5719,10 @@ def _lock_slide(pl: PageLayout, lay: DocLayout) -> None:
             if isinstance(el, ColBreak):
                 continue
             if isinstance(el, Para) and el.runs and \
-                    getattr(el, "_b1", None) is not None:
+                    getattr(el, "_b1", None) is not None and \
+                    not getattr(el, "rtl", False):
+                # (a right-to-left paragraph's indents are start/end, which
+                # `_frame_para` does not read; it keeps the flow)
                 cl, cr = getattr(el, "_col", (content_l, content_r))
                 _frame_para(el, cl, cr)
             elif isinstance(el, RuleEl) and getattr(el, "_bbox", None):
@@ -6095,6 +6439,380 @@ def _grid_para(frags, col_l: float, col_r: float) -> Para:
     return p
 
 
+# --- display maths ----------------------------------------------------------
+# A displayed equation reaches inference as fragments: the expression, its
+# number flush at the margin, a fraction's numerator above and denominator
+# below, a sum's limits, each a block of its own (pdfTeX and the journal
+# pipelines alike). Built as ordinary flow, every fragment became a paragraph
+# one full line tall, stacked: y43 p2's equation (2) is 24pt in the source --
+# rows at baselines 513.9 / 520.7 / 527.5 -- and was laid out as six lines,
+# 70pt; every numbered equation paid a whole extra line for its number. On the
+# maths-heavy papers that was most of the page inflation left once the columns
+# were right (y43: 15 source pages -> 29).
+#
+# A display is written as what it is on the page: one paragraph per BASELINE
+# ROW, the row's pieces at their own x by tab stops (the number on a right stop
+# at the margin), and each row's exact line height the distance to the next
+# row, so the rows overlap exactly as the source's do and the display occupies
+# the source's height. LibreOffice 24.2 draws glyphs in an exact line box
+# smaller than the font without clipping (measured: a 10pt row in a 6.8pt box
+# renders whole, 6.8pt below the row above it).
+#
+# Rows chain into one display when their baselines are closer than a line of
+# text could be: DISPLAY_PITCH_EM of the larger size. Prose never sets lines
+# that close (the corpus' tightest body leading is 1.0em); a fraction's rows
+# sit 0.68em apart (y43), a script 0.3-0.4em off its row.
+DISPLAY_PITCH_EM = 0.9
+# White between two pieces of one row that makes them separate pieces (an
+# equation and its number, "Φ = diag(S)   or   Φ = block-diag(S)"), rather than
+# words of one expression: GRID_CELL_GAP_MIN, the same "real gap" the rule-less
+# table rows use.
+DISPLAY_PIECE_GAP = 12.0
+# A display fragment is a block of one or two baselines; a bigger block is
+# prose, except that its first or last line can be a fragment the parser
+# glued on (y43 p2's denominator "2" opens the next paragraph's block) when it
+# is no wider than this share of the column.
+DISPLAY_EDGE_FRAG_FRAC = 0.35
+# An equation number at a column edge: "(1)", "(12a)", "(A.3)", "(S2)".
+_EQNO_RE = re.compile(r"^\(\s*[A-Z]?\d{1,3}(\.\d{1,3})*[a-z]?\s*\)$")
+# Faces that set mathematics, by `_font_key` prefix. A display must show
+# maths -- one of these, or a mathematical operator in its text -- before its
+# rows are touched: rows of short text that merely sit close are left alone.
+_MATH_FONTS = ("cmmi", "cmsy", "cmex", "cmbsy", "cmmib", "msam", "msbm",
+               "eufm", "eufb", "eurm", "eusm", "rsfs", "mtmi", "mtsy", "mtex",
+               "rmtmi", "txmi", "txsy", "txex", "pxmi", "pxsy", "pxex",
+               "ntxmi", "ntxsy", "ntxex", "newtxmi", "mnsymbol", "stixmath",
+               "stixtwomath", "latinmodernmath", "lmmath", "cambriamath",
+               "xitsmath", "libertinemath", "esint", "stmary", "wasy",
+               "symbol", "mtextra")
+_MATH_CHARS = frozenset("=+−×÷±∓∑∏∫∮∂∇√∞≤≥≠≈≡∼∝∈∉⊂⊃⊆⊇∪∩∧∨→←↔⇒⇐⇔∀∃"
+                        "αβγδεζηθικλμνξπρστυφχψωΓΔΘΛΞΠΣΦΨΩ")
+# Accents TeX draws as glyphs of their own above a letter (y40's "Û" is a
+# "ˆ" 1.6pt above the U's baseline). A row of nothing else is an overlay on
+# the row beneath it, not a row of the display: it rides along when its
+# neighbour is in one and never makes a display out of a line of prose.
+_ACCENTS = frozenset("ˆ˜¯˙¨´`ˇ˘˚^~·→⃗") | frozenset(chr(c) for c in range(0x300, 0x370))
+
+
+# A line of PROSE with a script set below it chains like a display -- y40 p1's
+# "where Ω = Ns × M = (0, 1) × (0, T], T is fixed time, ..." over a lone "t" --
+# and as a display row it would be given the 2.5pt pitch to its script, which
+# a wrapped line of text cannot survive. Words decide it: a display row reads
+# as symbols and operators with the odd "max" or "if"; prose carries words.
+_WORD_RE = re.compile(r"[A-Za-z]{3,}")
+DISPLAY_MAX_WORDS = 3
+
+
+def _prose_row(row: List[Line]) -> bool:
+    text = " ".join(s.text for l in row for s in l.spans
+                    if not _font_key(s.font).startswith(_MATH_FONTS))
+    return len(_WORD_RE.findall(text)) > DISPLAY_MAX_WORDS
+
+
+def _accent_row(row: List[Line]) -> bool:
+    chars = [ch for l in row for ch in l.text if not ch.isspace()]
+    return bool(chars) and all(ch in _ACCENTS for ch in chars)
+
+
+def _font_key(name: str) -> str:
+    return re.sub(r"[^a-z]", "", (name or "").lower())
+
+
+def _mathy(lines) -> bool:
+    for ln in lines:
+        for s in ln.spans:
+            if _font_key(s.font).startswith(_MATH_FONTS):
+                return True
+            if any(ch in _MATH_CHARS for ch in s.text):
+                return True
+    return False
+
+
+def _row_pieces(row: List[Line]) -> List[List[Line]]:
+    """A baseline row's lines, grouped left to right into pieces at
+    DISPLAY_PIECE_GAP."""
+    row = sorted(row, key=lambda l: ink_extent(l.spans[0])[0] if l.spans
+                 else l.bbox[0])
+    pieces = [[row[0]]]
+    for ln in row[1:]:
+        x1 = max(l.bbox[2] for l in pieces[-1])
+        if ln.bbox[0] - x1 >= DISPLAY_PIECE_GAP:
+            pieces.append([ln])
+        else:
+            pieces[-1].append(ln)
+    return pieces
+
+
+def _display_rows(items, col_l: float, col_r: float):
+    """-> ([rows per display], {id(line)}) for displayed equations.
+
+    Each display is a list of rows top to bottom, each row a list of Lines on
+    one baseline. See DISPLAY_PITCH_EM for what chains rows."""
+    width = max(1.0, col_r - col_l)
+    cands = []
+    for kind, _bb, o in items:
+        if kind != "blk":
+            continue
+        lines = [ln for ln in _blk_lines(o) if ln.horizontal and ln.spans
+                 and ln.text.strip()]
+        if not lines:
+            continue
+        bases = sorted({round(ln.baseline, 0) for ln in lines})
+        if len(bases) <= 2:
+            cands.extend(lines)
+            continue
+        lines.sort(key=lambda l: (l.baseline, l.bbox[0]))
+        for edge in (lines[0], lines[-1]):
+            if edge.bbox[2] - edge.bbox[0] <= DISPLAY_EDGE_FRAG_FRAC * width:
+                cands.append(edge)
+    if len(cands) < 2:
+        return [], set()
+    cands.sort(key=lambda l: (l.baseline, l.bbox[0]))
+    rows = []
+    for ln in cands:
+        if rows and abs(ln.baseline - rows[-1][0].baseline) <= \
+                max(1.2, 0.18 * _line_size(rows[-1][0])):
+            rows[-1].append(ln)
+        else:
+            rows.append([ln])
+    groups, cur = [], [rows[0]]
+    for prev, row in zip(rows, rows[1:]):
+        em = max(max(_line_size(l) for l in prev), max(_line_size(l) for l in row))
+        if row[0].baseline - prev[0].baseline < DISPLAY_PITCH_EM * em:
+            cur.append(row)
+        else:
+            groups.append(cur)
+            cur = [row]
+    groups.append(cur)
+    out, consumed = [], set()
+    for g in groups:
+        lines = [l for r in g for l in r]
+        if not _mathy(lines):
+            continue
+        real = [r for r in g if not _accent_row(r)]
+        if not real:
+            continue
+        if len(real) >= 2 and any(_prose_row(r) for r in real):
+            continue                # a line of text and its scripts
+        if len(real) < 2:
+            pieces = _row_pieces(real[0])
+            if len(pieces) < 2:
+                continue
+            # one row: an equation and its number, or an expression broken
+            # at a wide space -- both need a number at the edge to be told
+            # from a row of a table or a label beside its value
+            if not any(_EQNO_RE.match(" ".join(l.text for l in p).strip())
+                       for p in (pieces[0], pieces[-1])):
+                continue
+        out.append(g)
+        consumed.update(id(l) for l in lines)
+    return out, consumed
+
+
+# A glyph or three set ABOVE or BELOW a line of text rather than beside it --
+# the "∼" TeX stacks over "=" to draw ≅, a script whose line the parser broke
+# off, an accent -- arrives as a line of its own in a block of its own. Built
+# as flow it became a paragraph a full line tall between the lines of its
+# paragraph: y43 p4's two-line "Examples. Lie Groups G ≅ G/{e} ..." came out
+# as five paragraphs, +30pt, and the page spilled. Such a fragment belongs to
+# the line it sits on: within FRAG_REACH_EM of that line's baseline, inside
+# its horizontal extent, and much narrower than it.
+FRAG_REACH_EM = 0.75       # the host's em box, as `_merge_row_lines` uses
+FRAG_MAX_SHARE = 0.25      # of the host's width: a few glyphs, not a line
+FRAG_SCRIPT_SIZE = 0.85    # smaller than this share of the host: a script
+FRAG_MAX_GLYPHS = 3        # longer non-maths text is a line, not a fragment
+# The same line's own continuation, cut off where a script was lifted out of
+# it: y43 p4's "...diagonal matrices {diag(e" / ", . . . , e" / ") : θk ∈
+# [0, 2π)}." share baseline 595.8 in three blocks, 11.0 and 12.0pt apart --
+# past the dialect's fragment join, and each became a one-line paragraph. Once
+# the row constructs (tables, label/field rows) have taken their lines, a piece
+# of maths on the same baseline starting within this many ems of a line's end,
+# and a few glyphs wide against it (FRAG_MAX_SHARE), continues it. A
+# neighbouring column's line is neither: prose, and as wide as the line.
+FRAG_JOIN_GAP_EM = 1.5
+
+
+def _insert_spans(host: List[Span], frags: List[Span]) -> List[Span]:
+    """`host` with `frags` placed in reading order by x.
+
+    A host span is often a whole line, so sorting by span start would put a
+    fragment that sits over the middle of it after its end. A host span the
+    fragment falls inside is cut at the character the fragment stands over,
+    by the span's mean advance -- a character either way at worst."""
+    out = sorted(host, key=lambda s: s.bbox[0])
+    for f in sorted(frags, key=lambda s: s.bbox[0]):
+        fx = f.bbox[0]
+        k = 0
+        while k < len(out) and out[k].bbox[2] <= fx:
+            k += 1
+        if k < len(out) and out[k].bbox[0] < fx and out[k].text:
+            s = out[k]
+            adv = (s.bbox[2] - s.bbox[0]) / max(1, len(s.text))
+            cut = int(round((fx - s.bbox[0]) / adv)) if adv > 0 else 0
+            if 0 < cut < len(s.text):
+                xc = s.bbox[0] + cut * adv
+                a, b = copy.copy(s), copy.copy(s)   # keeps set-on attributes
+                a.text, a.bbox = s.text[:cut], (s.bbox[0], s.bbox[1], xc, s.bbox[3])
+                b.text, b.bbox = s.text[cut:], (xc, s.bbox[1], s.bbox[2], s.bbox[3])
+                b.origin = (xc, s.origin[1])
+                out[k:k + 1] = [a, f, b]
+                continue
+            if cut >= len(s.text):
+                k += 1
+        out.insert(k, f)
+    return out
+
+
+def _absorb_fragments(items):
+    """`items` with small fragment lines moved into the line they are set on.
+    Lines are edited in place; a block left empty is dropped."""
+    blocks = [o for kind, _bb, o in items if kind == "blk"]
+    lines = [(bi, ln) for bi, o in enumerate(blocks) for ln in _blk_lines(o)
+             if ln.horizontal and ln.spans and ln.text.strip()]
+    if len(lines) < 2:
+        return items
+    moved, hosts = set(), set()
+    # left to right, so a line's continuation pieces join it one after another
+    lines.sort(key=lambda t: (round(t[1].baseline), t[1].bbox[0]))
+    size = {id(ln): _line_size(ln) for _bi, ln in lines}
+    widest = max(ln.bbox[2] - ln.bbox[0] for _bi, ln in lines)
+    for bi, fr in lines:
+        if id(fr) in moved or id(fr) in hosts:
+            continue
+        fsz = size[id(fr)]
+        fw = fr.bbox[2] - fr.bbox[0]
+        # Only maths, or a glyph or three, is ever a fragment (both branches
+        # below); deciding that first keeps a page of prose linear here.
+        # A short line of WORDS set close above another is a heading or a
+        # running head (x07's "Network Planning", 9.3pt over its body line),
+        # not a script of it.
+        if fw > FRAG_MAX_SHARE * widest:
+            continue
+        mathy = _mathy([fr])
+        if not mathy and len(fr.text.strip()) > FRAG_MAX_GLYPHS:
+            continue
+        best = None
+        for hj, h in lines:
+            if h is fr or id(h) in moved:
+                continue
+            hsz = size[id(h)]
+            hw = h.bbox[2] - h.bbox[0]
+            if fsz > hsz + 0.1:
+                continue
+            d = abs(fr.baseline - h.baseline)
+            if d < 0.05 * hsz:
+                # a continuation: maths, a few glyphs wide -- never the line of
+                # a neighbouring column, which is prose as wide as its own
+                gap = fr.bbox[0] - h.bbox[2]
+                if hj == bi or fw > FRAG_MAX_SHARE * hw or not mathy \
+                        or not 0.0 <= gap <= FRAG_JOIN_GAP_EM * hsz:
+                    continue
+                if best is None or gap < best[0]:
+                    best = (gap, h)
+                continue
+            if fw > FRAG_MAX_SHARE * hw or d > FRAG_REACH_EM * hsz:
+                continue
+            em = 0.5 * hsz
+            if fr.bbox[0] < h.bbox[0] - em or fr.bbox[2] > h.bbox[2] + em:
+                continue
+            if best is None or d < best[0]:
+                best = (d, h)
+        if best is None:
+            continue
+        h = best[1]
+        hsz = size[id(h)]
+        if abs(fr.baseline - h.baseline) < 0.05 * hsz and h.spans and \
+                fr.bbox[0] - h.bbox[2] > 0.25 * hsz and \
+                not h.spans[-1].text.endswith(" "):
+            last = copy.copy(h.spans[-1])
+            last.text += " "
+            h.spans = h.spans[:-1] + [last]
+        for s in fr.spans:
+            if s.size < FRAG_SCRIPT_SIZE * hsz and \
+                    fr.baseline < h.baseline - 0.12 * hsz:
+                s.superscript = True
+        h.spans = _insert_spans(h.spans, fr.spans)
+        # Horizontally only: the host keeps its own line box, or the
+        # fragment's height above it closes the gap to the paragraph before
+        # and the two paragraphs merge.
+        h.bbox = (min(h.bbox[0], fr.bbox[0]), h.bbox[1],
+                  max(h.bbox[2], fr.bbox[2]), h.bbox[3])
+        moved.add(id(fr))
+        hosts.add(id(h))
+    if not moved:
+        return items
+    out = []
+    for kind, bb, o in items:
+        if kind == "blk":
+            ls = _blk_lines(o)
+            keep = [l for l in ls if id(l) not in moved]
+            if not keep:
+                continue
+            if len(keep) != len(ls):
+                ls[:] = keep
+                if isinstance(o, TextBlock):
+                    o.bbox = _mk_block(keep).bbox
+                bb = _mk_block(keep).bbox
+        out.append((kind, bb, o))
+    return out
+
+
+def _display_paras(rows, col_l: float, col_r: float) -> List[Para]:
+    """One paragraph per row of a display; see the block comment above."""
+    bases = [r[0].baseline for r in rows]
+    pitches = [b - a for a, b in zip(bases, bases[1:])]
+    out = []
+    for i, row in enumerate(rows):
+        pieces = _row_pieces(row)
+        size = max(_line_size(l) for l in row)
+        runs, stops = [], []
+        for k, piece in enumerate(pieces):
+            spans = sorted((s for l in piece for s in l.spans if s.text),
+                           key=lambda s: s.bbox[0])
+            rr = runs_from_spans(_frag_spans(spans))
+            if rr:
+                rr[0].text = rr[0].text.lstrip(" ")
+                rr[-1].text = rr[-1].text.rstrip(" ")
+            rr = [r for r in rr if r.text]
+            if not rr:
+                continue
+            if runs:
+                ref = runs[-1]
+                runs.append(Run(text="\t", font=ref.font, size=ref.size,
+                                color=ref.color, is_tab=True))
+                x0 = min(l.bbox[0] for l in piece)
+                x1 = max(l.bbox[2] for l in piece)
+                text = " ".join(l.text for l in piece).strip()
+                if k == len(pieces) - 1 and x1 >= col_r - 3.0 and \
+                        _EQNO_RE.match(text):
+                    stops.append((round(col_r - col_l, 1), "right"))
+                else:
+                    stops.append((round(x0 - col_l, 1), "left"))
+            runs.extend(rr)
+        if not runs:
+            continue
+        x0 = min(l.bbox[0] for l in row)
+        p = Para(runs=runs, align="left", tab_stops=stops)
+        p.left_indent = max(0.0, round(x0 - col_l, 1))
+        p.bbox = None
+        for l in row:
+            p.bbox = bbox_union(p.bbox, l.bbox)
+        natural = round(max(size * 1.16, 4.0), 2)
+        if pitches:
+            pitch = pitches[i] if i < len(pitches) else pitches[-1]
+            p.leading = round(min(natural, pitch), 2)
+        else:
+            p.leading = natural
+        p._b1 = row[0].baseline
+        p._size1 = size
+        p._vis_lines = 1
+        p._display = True
+        p.src_lines = 1
+        p.src_widths = [round(max(l.bbox[2] for l in row) - x0, 1)]
+        out.append(p)
+    return out
+
+
 _GAP_TOL = 0.5   # pt of overlap forgiven between an element and a line box (rounding)
 
 
@@ -6200,6 +6918,16 @@ def _to_flow(items, col_l, col_r, doc_rows=None):
     if lconsumed:
         items = _drop_row_lines(items, lconsumed) + \
             [("leader", ln.bbox, (ln, edge)) for ln, edge in leaders]
+    displays, dconsumed = _display_rows(items, col_l, col_r)
+    if dconsumed:
+        def _dbb(rows):
+            b = None
+            for r in rows:
+                for l in r:
+                    b = bbox_union(b, l.bbox)
+            return b
+        items = _drop_row_lines(items, dconsumed) + \
+            [("display", _dbb(d), d) for d in displays]
     grid, gconsumed = _grid_rows(items, col_l, col_r)
     if gconsumed:
         def _fbb(frags):
@@ -6217,10 +6945,15 @@ def _to_flow(items, col_l, col_r, doc_rows=None):
     if consumed:
         items = _drop_row_lines(items, consumed) + \
             [("row", bbox_union(l.bbox, r.bbox), (l, r)) for l, r in pairs]
+    # After every row construct has taken its lines: what is left on a shared
+    # baseline is a broken line of prose, not cells.
+    items = _absorb_fragments(items)
     out = []
     for kind, bb, o in sorted(items, key=lambda t: (t[1][1], t[1][0])):
         if kind == "leader":
             out.append(_leader_para(o[0], o[1], col_l, col_r))
+        elif kind == "display":
+            out.extend(_display_paras(o, col_l, col_r))
         elif kind == "grid":
             out.append(_grid_para(o, col_l, col_r))
         elif kind == "row":
@@ -6246,7 +6979,14 @@ def _to_flow(items, col_l, col_r, doc_rows=None):
     return out
 
 
-def _mergeable(a: Para, b: Para) -> bool:
+# How far apart (in ems of the text) two right-to-left fragments may stand and
+# still join when the first one's last line is full: 1.5-line leading leaves
+# 0.48em between line boxes (y49: 5.7pt at 12pt), double spacing ~1em.
+RTL_JOIN_GAP_EM = 1.1
+
+
+def _mergeable(a: Para, b: Para, col_l: Optional[float] = None,
+               col_r: Optional[float] = None) -> bool:
     if a.heading or b.heading:
         return False
     # A paragraph that carries its own line breaks (verbatim blocks, the
@@ -6256,6 +6996,9 @@ def _mergeable(a: Para, b: Para) -> bool:
     if getattr(a, "line_breaks", False) or getattr(b, "line_breaks", False):
         return False
     if any(r.is_tab for r in a.runs) or any(r.is_tab for r in b.runs):
+        return False
+    # A display's rows are rows of one equation, set at their own pitch.
+    if getattr(a, "_display", False) or getattr(b, "_display", False):
         return False
     if a.align in ("center", "right") or b.align in ("center", "right"):
         return False
@@ -6270,33 +7013,69 @@ def _mergeable(a: Para, b: Para) -> bool:
     # Likewise a footnote that opens with its own number (`_opens_note`).
     if getattr(b, "_note", False):
         return False
-    gap = b.bbox[1] - a.bbox[3]
-    if not (-2.0 <= gap <= 3.2):
+    # Paragraphs continue each other only in one direction, and a
+    # right-to-left paragraph continues at its START, which is its right
+    # edge: its ragged last line ends anywhere on the left (see _rtl_lines).
+    rtl = getattr(a, "rtl", False)
+    if rtl != getattr(b, "rtl", False):
         return False
+    gap = b.bbox[1] - a.bbox[3]
+    reach = 3.2
+    if rtl and col_l is not None and col_r is not None and a.src_widths:
+        # A right-to-left fragment whose last line runs edge to edge has not
+        # ended: in justified text only the paragraph's last line stops short.
+        # That is evidence enough to join across 1.5-line leading, which the
+        # 3.2pt window cannot span: y49 p1 sets its 12pt body at a 17.7pt
+        # pitch (5.7pt between line boxes), the page's tight contents list
+        # split every body line into a block of its own, and each became a
+        # paragraph that re-wrapped onto two lines -- p1 alone filled 2 pages.
+        last_l = a.bbox[2] - a.src_widths[-1]
+        sz = max((r.size for r in a.runs if r.text.strip()), default=10.0)
+        if abs(a.bbox[2] - col_r) <= FULL_EDGE_PT and \
+                abs(last_l - col_l) <= FULL_EDGE_PT:
+            reach = max(reach, RTL_JOIN_GAP_EM * sz)
+    if not (-2.0 <= gap <= reach):
+        return False
+    # A justified right-to-left paragraph whose last line stops short has
+    # ended (see _short_line_ends_para); the next one is a new paragraph.
+    if rtl and a.align == "justify" and len(a.src_widths) >= 2:
+        sz = max((r.size for r in a.runs if r.text.strip()), default=10.0)
+        if a.src_widths[-1] < max(a.src_widths) - SHORT_END_EM * sz:
+            return False
     # An item that hangs continues at its TEXT column, not at its marker: a
     # paragraph starting under the marker is the next paragraph after the
     # list, and one starting at the hang is the item's own continuation.
-    ax = a.bbox[0]
-    if getattr(a, "_list_item", False) and a.first_indent < -1.0:
-        ax = a.bbox[0] - a.first_indent
-    if abs(b.bbox[0] - ax) > 2.5:
-        return False
+    if rtl:
+        ax = a.bbox[2]
+        if getattr(a, "_list_item", False) and a.first_indent < -1.0:
+            ax = a.bbox[2] + a.first_indent
+        if abs(b.bbox[2] - ax) > 2.5:
+            return False
+    else:
+        ax = a.bbox[0]
+        if getattr(a, "_list_item", False) and a.first_indent < -1.0:
+            ax = a.bbox[0] - a.first_indent
+        if abs(b.bbox[0] - ax) > 2.5:
+            return False
     sa = max((r.size for r in a.runs if r.text.strip()), default=0)
     sb = max((r.size for r in b.runs if r.text.strip()), default=0)
     return abs(sa - sb) < 0.6
 
 
-def _merge_flow_paras(seq, col_r):
+def _merge_flow_paras(seq, col_r, col_l=None):
     out = []
     for el in seq:
         if out and isinstance(el, Para) and isinstance(out[-1], Para) \
-                and _mergeable(out[-1], el):
+                and _mergeable(out[-1], el, col_l, col_r):
             a = out[-1]
             if getattr(a, "_vis_lines", 1) == 1 and el.bbox and a.bbox:
                 delta = round(el.bbox[1] - a.bbox[1], 2)
                 if delta > 2:
                     a.leading = delta
-            was_flush = abs(a.bbox[2] - col_r) < 3.0
+            if getattr(a, "rtl", False) and col_l is not None:
+                was_flush = abs(a.bbox[0] - col_l) < 3.0   # its END edge
+            else:
+                was_flush = abs(a.bbox[2] - col_r) < 3.0
             _soft_join(a.runs, el.text, dehyphenate=was_flush)
             a.runs += el.runs
             a.bbox = bbox_union(a.bbox, el.bbox)
@@ -6322,8 +7101,31 @@ def _merge_flow_paras(seq, col_r):
     return out
 
 
-def _is_marker_line(ln: Line) -> bool:
+_DIGIT_RUN = re.compile(r"\d+|.", re.S)
+_MIRRORED = dict(zip("()[]{}<>", ")(][}{><"))
+
+
+def _neutral_rtl_text(t: str) -> str:
+    """The logical text of a fragment with no letters drawn in an RTL context.
+
+    A list number separated from its Hebrew item (y49's contents: `2.` set a
+    tab's width right of its entry) is a line of its own with no RTL letter, so
+    the parser left it in visual order -- `.2`. Read at an RTL base, digits stay
+    a unit, everything else reverses and brackets mirror
+    (parse_pdfium._visual_to_logical for the letterless case).
+    """
+    units = _DIGIT_RUN.findall(t)
+    return "".join(_MIRRORED.get(u, u) for u in reversed(units))
+
+
+def _is_marker_line(ln: Line, rtl_form: bool = False) -> bool:
     t = ln.text.strip()
+    if rtl_form:
+        # The visual form of a right-to-left number marker: `.2` for `2.`.
+        # Only ever glued to a right-to-left item (see _merge_list_markers).
+        if re.search(r"[^\W\d_]", t):
+            return False
+        t = _neutral_rtl_text(t)
     # Bare digits count too: step/badge lists number their items "1", "2"
     # without trailing punctuation, and some producers emit each such
     # marker as its own block. Only the separated-marker merge uses this
@@ -6359,9 +7161,17 @@ def _merge_list_markers(flow_blocks):
     sometimes several markers stacked in ONE block. Glue each marker line back
     onto the item text line that shares its baseline."""
     marker_lines = []
+    rtl_forms = set()
+    any_rtl = any(getattr(l, "rtl", False) for b in flow_blocks for l in b.lines)
     for b in flow_blocks:
-        if all(_is_marker_line(l) or not l.text.strip() for l in b.lines):
-            marker_lines.extend((l, b) for l in b.lines if _is_marker_line(l))
+        if all(_is_marker_line(l) or (any_rtl and _is_marker_line(l, rtl_form=True))
+               or not l.text.strip() for l in b.lines):
+            for l in b.lines:
+                if _is_marker_line(l):
+                    marker_lines.append((l, b))
+                elif any_rtl and _is_marker_line(l, rtl_form=True):
+                    marker_lines.append((l, b))
+                    rtl_forms.add(id(l))
         elif len(b.lines) > 1 and _is_marker_line(b.lines[-1]) and \
                 _has_item_beside(b.lines[-1], b, flow_blocks):
             # A marker that ENDS a block of prose: in text set at one pitch
@@ -6383,6 +7193,15 @@ def _merge_list_markers(flow_blocks):
                 if id(fl) in marker_ids or id(fl) in consumed or not fl.spans:
                     continue
                 gap = fl.bbox[0] - ln.bbox[2]
+                # A right-to-left item puts its marker on its RIGHT (y49's
+                # contents list: `2.` 26pt right of its entry), and stranded
+                # there it became a one-digit paragraph of its own.
+                rtl_right = getattr(fl, "rtl", False) and \
+                    ln.bbox[0] >= fl.bbox[2] - 1.0
+                if rtl_right:
+                    gap = ln.bbox[0] - fl.bbox[2]
+                elif id(ln) in rtl_forms:
+                    continue
                 if abs(fl.baseline - ln.baseline) < 2.5 and -1.0 < gap < 60:
                     if best is None or gap < best[0]:
                         best = (gap, fl, c)
@@ -6413,12 +7232,24 @@ def _merge_list_markers(flow_blocks):
                 # one paragraph that re-wrapped as prose. At the LEFT end of
                 # a right-to-left line the same mark is an in-text reference
                 # closing that line (y50's body), not a note.
-                opens = not _RTL_TEXT.search(fl.text)
+                opens = not _RTL_TEXT.search(fl.text) or (
+                    getattr(fl, "rtl", False) and ln.bbox[0] >= fl.bbox[2] - 1.0)
                 for s in ln.spans:
                     s.superscript = True
                     s.origin = (s.origin[0], host_base)
                     s._note_mark = opens
-            fl.spans[0:0] = list(ln.spans)
+            if id(ln) in rtl_forms:
+                # Read at the item's direction: `.2` is `2.`.
+                for s in ln.spans:
+                    s.text = _neutral_rtl_text(s.text)
+                ln.spans.reverse()
+                if not ln.spans[-1].text.endswith(" "):
+                    ln.spans[-1].text += " "
+            if getattr(fl, "rtl", False) and ln.bbox[2] <= fl.bbox[0] + 1.0:
+                # Left of a right-to-left line is its logical END.
+                fl.spans.extend(ln.spans)
+            else:
+                fl.spans[0:0] = list(ln.spans)
             fl.bbox = bbox_union(fl.bbox, ln.bbox)
             c.bbox = bbox_union(c.bbox, ln.bbox)
             consumed.add(id(ln))
@@ -6613,7 +7444,8 @@ def _grid_chunks(elements, flow_blocks, bands, lay: DocLayout,
         lead.sort(key=lambda t: (t[1][1], t[1][0]))
         ch = Chunk(n_cols=1)
         ch.elements = _merge_flow_paras(
-            _to_flow(lead, content_l, content_r, doc_rows=lay_rows), content_r)
+            _to_flow(lead, content_l, content_r, doc_rows=lay_rows), content_r,
+            content_l)
         chunks.append(ch)
     gaps = [bands[i + 1][0] - bands[i][1] for i in range(len(bands) - 1)]
     ch = Chunk(n_cols=len(bands), col_gap=max(10.0, round(sum(gaps) / len(gaps), 1)))
@@ -6622,7 +7454,7 @@ def _grid_chunks(elements, flow_blocks, bands, lay: DocLayout,
         items = sorted((t for bi, t in banded if bi == i),
                        key=lambda t: (t[1][1], t[1][0]))
         flows.append(_merge_flow_paras(
-            _to_flow(items, a, b, doc_rows=lay_rows), b))
+            _to_flow(items, a, b, doc_rows=lay_rows), b, a))
         for el in flows[-1]:
             el._col = (a, b)          # see _assemble_chunks
     ch.elements = flows[0]
@@ -6633,9 +7465,243 @@ def _grid_chunks(elements, flow_blocks, bands, lay: DocLayout,
         tail.sort(key=lambda t: (t[1][1], t[1][0]))
         ch2 = Chunk(n_cols=1)
         ch2.elements = _merge_flow_paras(
-            _to_flow(tail, content_l, content_r, doc_rows=lay_rows), content_r)
+            _to_flow(tail, content_l, content_r, doc_rows=lay_rows), content_r,
+            content_l)
         chunks.append(ch2)
     return chunks
+
+
+# The block-cluster split and the gutter agree to the point on a page both
+# read correctly (c2_paper2col, 02_research_paper: 0.0-0.6pt); a wrong cluster
+# misses by a column's worth (y41 p2: 52pt).
+TWO_COL_SPLIT_AGREE = 6.0
+# A line belongs to the side of the gutter its centre is on unless it runs
+# across the gutter's middle by more than this on BOTH sides -- an overfull
+# TeX line pokes a few points into the gutter, a page-wide one crosses it.
+GUTTER_SIDE_TOL = 2.0
+# How near a joined line's piece must stop to the gutter's edge to be column
+# text: the band is measured between the column lines' ink, and a piece stops
+# short of it by a glyph's side bearing or a ragged last word.
+GUTTER_SPLIT_SLACK = 8.0
+
+
+def _lead_bottom(lines, content_l: float, content_r: float) -> Optional[float]:
+    """The bottom of the page's lowest page-wide line with a column's worth of
+    narrower text under it, or None.
+
+    Page-wide is the column scan's own bar (COL_SCAN_W_FRAC); "a column's
+    worth" is what `_two_column_gutter` needs to read two columns at all."""
+    w = content_r - content_l
+    wide = sorted((l.bbox[3] for l in lines if l.horizontal and
+                   (l.bbox[2] - l.bbox[0]) > COL_SCAN_W_FRAC * w), reverse=True)
+    for y in wide:
+        under = sum(1 for l in lines if l.bbox[1] >= y and l.horizontal and
+                    (l.bbox[2] - l.bbox[0]) <= COL_SCAN_W_FRAC * w)
+        if under >= 2 * TWO_COL_MIN_FULL_LINES:
+            return y
+    return None
+
+
+def _split_crossed(lines, col_split: float, content_l: float,
+                   content_r: float) -> bool:
+    """Is a block-cluster split refuted by the lines that run across it?
+
+    The block-cluster test never asks whether the white left of its right
+    cluster is a gutter. On a one-column page of display maths it is not: the
+    equation numbers at the margin make the cluster and the page's prose runs
+    straight through the "gutter" (y43 p3: 33 of 52 lines). Counted over the
+    lines below the topmost right-cluster line, like `_two_column_gutter`'s
+    own crossing test.
+
+    Only a split that leaves a margin-narrow "column" is refuted. A right side
+    of real width that prose also crosses is a local side-by-side region the
+    block path reads as columns -- lshort's code-and-output example boxes,
+    which laid out as one column stacked each code line over its output line
+    (y22 223 -> 228 pages); that is not this rule's case.
+    """
+    if content_r - col_split >= TWO_COL_MIN_BAND_FRAC * (content_r - content_l):
+        return False
+    probe = col_split - 4.0
+    right = [l.bbox for l in lines if l.bbox[0] >= col_split - 2.0]
+    if not right:
+        return True
+    y0 = min(b[1] for b in right)
+    inside = [l.bbox for l in lines if l.horizontal and l.text.strip()
+              and (l.bbox[1] + l.bbox[3]) / 2.0 >= y0]
+    crossing = [b for b in inside if b[0] < probe - GUTTER_SIDE_TOL
+                and b[2] > col_split + GUTTER_SIDE_TOL]
+    return len(crossing) > TWO_COL_MAX_CROSS_FRAC * max(1, len(inside))
+
+
+def _split_at_gutter(ln: Line, gutter) -> List[Line]:
+    """A line the parser joined across the gutter, as its two column halves.
+
+    An equation number at the foot of the left column's measure and the right
+    column's line beside it are 15pt apart on y41 p2 -- inside the parser's
+    line-join reach -- and arrived as one Line, "(3) ditioning matrix Φ ≈ S
+    is often...", which spans the page and cut the columns into three chunks.
+    Spans keep their own boxes; a span boundary whose white covers the
+    gutter's middle is where the line divides, when one of the two pieces
+    stops at that gutter's own edge -- the left piece at the left column's
+    measure, or the right piece at the right column's start. The parser also
+    keeps a "(14)" with the text after it as a list marker, however far away:
+    y41 p3's right-column equation sat 100pt beyond its neighbour's number.
+    Nothing else is cut: a span running across the gutter is page-spanning
+    text, and a running head's halves (y42: "SIGIR '24, ..." at the left
+    margin, the authors 110pt away at the right) touch neither column edge
+    and stay one page-wide line.
+    """
+    if len(ln.spans) < 2:
+        return [ln]
+    mid = (gutter[0] + gutter[1]) / 2.0
+    gw = gutter[1] - gutter[0]
+    spans = sorted(ln.spans, key=lambda s: s.bbox[0])
+    for k in range(len(spans) - 1):
+        a, b = ink_extent(spans[k])[1], ink_extent(spans[k + 1])[0]
+        at_edge = abs(a - gutter[0]) <= GUTTER_SPLIT_SLACK or \
+            abs(b - gutter[1]) <= GUTTER_SPLIT_SLACK
+        if a <= mid <= b and b - a >= 0.5 * gw and at_edge and \
+                all(ink_extent(s)[1] <= mid for s in spans[:k + 1]) and \
+                all(ink_extent(s)[0] >= mid for s in spans[k + 1:]):
+            parts = (spans[:k + 1], spans[k + 1:])
+            return [Line(spans=list(p), dir=ln.dir,
+                         bbox=(min(s.bbox[0] for s in p),
+                               min(s.bbox[1] for s in p),
+                               max(s.bbox[2] for s in p),
+                               max(s.bbox[3] for s in p)))
+                    for p in parts]
+    return [ln]
+
+
+def _gutter_chunks(elements, flow_blocks, lay: DocLayout, gutter,
+                   col_split: float, page_top: Optional[float],
+                   lead_y: Optional[float] = None) -> List[Chunk]:
+    """Lay a two-column page out in reading order, cut at what spans it.
+
+    Every LINE, not every block, is placed: left of the gutter, right of it,
+    or across it. Blocks are the parser's grouping and are not trustworthy
+    across a gutter -- y39 p3's two biggest blocks each held lines of both
+    columns -- whereas a line is never wider than the column it is set in
+    unless it really spans the page.
+
+    What spans the page then cuts the page into horizontal bands, in the order
+    the source stacks them: a title and abstract above the columns, a
+    full-width figure between two runs of columns, a table at the foot. Each
+    run of columns between two spanning bands is one two-column chunk, so a
+    float in the middle of the page stays in the middle of the page. The
+    block-cluster path sends every spanning item below the columns' top to a
+    single tail AFTER the columns, which moves a mid-page float -- and the
+    column text beneath it -- to the wrong place.
+    """
+    content_l, content_r = lay.margin_l, lay.page_w - lay.margin_r
+    lay_rows = getattr(lay, "_row_evidence", None)
+    mid = (gutter[0] + gutter[1]) / 2.0
+
+    def side(bb):
+        if bb[0] < mid - GUTTER_SIDE_TOL and bb[2] > mid + GUTTER_SIDE_TOL:
+            return 2
+        if lead_y is not None and bb[3] <= lead_y + GUTTER_SIDE_TOL:
+            return 2                # the page's lead: one column above them
+        return 0 if (bb[0] + bb[2]) / 2.0 < mid else 1
+
+    placed = []                     # (side, item)
+    for b in flow_blocks:
+        groups = defaultdict(list)
+        for ln in b.lines:
+            for l in _split_at_gutter(ln, gutter):
+                groups[side(l.bbox)].append(l)
+        if len(groups) == 1:
+            placed.append((next(iter(groups)), ("blk", b.bbox, b)))
+            continue
+        for k, ls in groups.items():
+            blk = _mk_block(ls)
+            placed.append((k, ("blk", blk.bbox, blk)))
+    for e in elements:
+        bb = _el_bbox(e) or (content_l, 0.0, content_r, 0.0)
+        placed.append((side(bb), ("el", bb, e)))
+
+    def cy(t):
+        return (t[1][1] + t[1][3]) / 2.0
+
+    spans = sorted((t for k, t in placed if k == 2),
+                   key=lambda t: (t[1][1], t[1][0]))
+    cols = [(k, t) for k, t in placed if k != 2]
+    groups = []
+    for t in spans:
+        if groups:
+            bottom = max(u[1][3] for u in groups[-1])
+            if not any(bottom < cy(c) < t[1][1] for _k, c in cols):
+                groups[-1].append(t)
+                continue
+        groups.append([t])
+    # A column item goes after every spanning band that starts above it. One
+    # that starts inside a band's extent sits beside it or inside it -- a
+    # table's rules inside a full-width figure region that swallowed the
+    # table's art (y42 p3) -- and the source shows it no higher than the band.
+    cuts = [min(u[1][1] for u in g) for g in groups]
+    segs = [[] for _ in range(len(groups) + 1)]
+    for k, t in cols:
+        segs[sum(1 for c in cuts if t[1][1] > c)].append((k, t))
+
+    left_edges = [t[1][2] for k, t in cols if k == 0]
+    gap = col_split - max(left_edges, default=col_split - 24)
+    gap = max(10.0, round(gap, 1))
+    colr_edge = col_split - gap
+
+    def one_sided_lines(seg):
+        """A run of single lines all on one side -- a chapter title above the
+        first spanning heading (y26's "Appendix D Indexes") -- is a one-column
+        band, not a column section with an empty column: as a section it cost
+        an extra section break and its column break at the page top."""
+        if len({k for k, _t in seg}) != 1:
+            return False
+        for _k, (kind, _bb, o) in seg:
+            if kind != "blk" or len({round(l.baseline) for l in _blk_lines(o)}) > 1:
+                return False
+        return True
+
+    plan = []                       # [n_cols, items]
+    for i, seg in enumerate(segs):
+        if seg and one_sided_lines(seg) and (i < len(groups) or plan):
+            seg_items = [t for _k, t in seg]
+            if plan and plan[-1][0] == 1:
+                plan[-1][1].extend(seg_items)
+            else:
+                plan.append([1, seg_items])
+        elif seg:
+            if plan and plan[-1][0] == 2:
+                plan[-1][1].extend(seg)
+            else:
+                plan.append([2, list(seg)])
+        if i < len(groups):
+            if plan and plan[-1][0] == 1:
+                plan[-1][1].extend(groups[i])
+            else:
+                plan.append([1, list(groups[i])])
+
+    chunks: List[Chunk] = []
+    for n, its in plan:
+        if n == 1:
+            ch = Chunk(n_cols=1)
+            ch.elements = _merge_flow_paras(
+                _to_flow(its, content_l, content_r, doc_rows=lay_rows),
+                content_r)
+        else:
+            colL = [t for k, t in its if k == 0]
+            colR = [t for k, t in its if k == 1]
+            ch = Chunk(n_cols=2, col_gap=gap)
+            wl, wr = colr_edge - content_l, content_r - col_split
+            if abs(wl - wr) > TWO_COL_UNEQUAL_FRAC * max(wl, wr):
+                ch.col_widths = [round(wl, 1), round(wr, 1)]
+            left_flow = _merge_flow_paras(
+                _to_flow(colL, content_l, colr_edge, doc_rows=lay_rows),
+                colr_edge)
+            right_flow = _merge_flow_paras(
+                _to_flow(colR, col_split, content_r, doc_rows=lay_rows),
+                content_r)
+            ch.elements = left_flow + [ColBreak()] + right_flow
+        chunks.append(ch)
+    return _position_chunks(chunks, lay, page_top)
 
 
 def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
@@ -6710,6 +7776,38 @@ def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
                     twocol = True
                     col_y0 = min(cands) - 4
 
+    flow_lines = [l for b in flow_blocks for l in b.lines]
+    gutter = _two_column_gutter(flow_lines, content_l, content_r)
+    lead_y = None
+    if gutter is None and not twocol:
+        # Below a page's lead. A title block's centred author, affiliation
+        # and date lines are narrower than the column-scan bar and cross the
+        # gutter, and its corner header stretches the crossing test over the
+        # title and abstract: y39 p1's introduction, two columns under a
+        # full-width abstract, was read by neither test and laid out as one
+        # column -- its first page took two. Read again from below the page's
+        # lowest wide line that still has a column's worth of text under it;
+        # what is above stays a one-column lead, as the block path keeps it.
+        lead_y = _lead_bottom(flow_lines, content_l, content_r)
+        if lead_y is not None:
+            gutter = _two_column_gutter(
+                [l for l in flow_lines if l.bbox[1] >= lead_y],
+                content_l, content_r)
+    if gutter is not None and not twocol and \
+            gutter[2] < TWO_COL_MIN_EXTENT_FRAC * max(1.0, body_h):
+        gutter = None                    # an inset beside the text, not a column
+    if gutter is not None:
+        gutter = gutter[:2]
+        # The block clusters agree with the white band on every page they
+        # already read correctly; their split is kept there, so those pages
+        # are assembled from the same numbers as before.
+        if not (twocol and abs(col_split - gutter[1]) <= TWO_COL_SPLIT_AGREE):
+            col_split = float(round(gutter[1]))
+        return _gutter_chunks(elements, flow_blocks, lay, gutter, col_split,
+                              page_top, lead_y=lead_y)
+    if twocol and _split_crossed(flow_lines, col_split, content_l, content_r):
+        twocol = False
+
     items = [("blk", b.bbox, b) for b in flow_blocks]
     for e in elements:
         bb = _el_bbox(e)
@@ -6720,7 +7818,8 @@ def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
     if not twocol:
         ch = Chunk(n_cols=1)
         ch.elements = _merge_flow_paras(
-            _to_flow(items, content_l, content_r, doc_rows=lay_rows), content_r)
+            _to_flow(items, content_l, content_r, doc_rows=lay_rows), content_r,
+            content_l)
         chunks.append(ch)
     else:
         # gutter between the columns (approximate)
@@ -6756,7 +7855,8 @@ def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
         if lead:
             ch = Chunk(n_cols=1)
             ch.elements = _merge_flow_paras(
-                _to_flow(lead, content_l, content_r, doc_rows=lay_rows), content_r)
+                _to_flow(lead, content_l, content_r, doc_rows=lay_rows), content_r,
+                content_l)
             chunks.append(ch)
         colL = [t for t in colitems if t[1][0] < col_split - 20]
         colR = [t for t in colitems if t[1][0] >= col_split - 20]
@@ -6771,14 +7871,16 @@ def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
             ch = Chunk(n_cols=1)
             ch.elements = _merge_flow_paras(
                 _to_flow(items, content_l, content_r, doc_rows=lay_rows),
-                content_r)
+                content_r, content_l)
             return _position_chunks([ch], lay, page_top)
         ch = Chunk(n_cols=2, col_gap=gap)
         colr_edge = col_split - gap
         left_flow = _merge_flow_paras(
-            _to_flow(colL, content_l, colr_edge, doc_rows=lay_rows), colr_edge)
+            _to_flow(colL, content_l, colr_edge, doc_rows=lay_rows), colr_edge,
+            content_l)
         right_flow = _merge_flow_paras(
-            _to_flow(colR, col_split, content_r, doc_rows=lay_rows), content_r)
+            _to_flow(colR, col_split, content_r, doc_rows=lay_rows), content_r,
+            col_split)
         # The column each paragraph's indents are measured from, for a pass
         # that takes it out of the column (_lock_slide).
         for el in left_flow:
@@ -6791,7 +7893,7 @@ def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
             ch2 = Chunk(n_cols=1)
             ch2.elements = _merge_flow_paras(
                 _to_flow(wide_tail, content_l, content_r, doc_rows=lay_rows),
-                content_r)
+                content_r, content_l)
             chunks.append(ch2)
 
     return _position_chunks(chunks, lay, page_top)

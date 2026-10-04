@@ -83,6 +83,10 @@ OUTPUT_PROFILES = ("standard", "gdocs")
 #               in the flow; inference reads a slide only for a profile that
 #               has it (infer._deck_pages). Docs' handling of page-anchored
 #               pictures is unmeasured, so the gdocs profile keeps the flow.
+#   bidi        right-to-left paragraphs as w:bidi with start/end alignment
+#               and indents, and their runs as w:rtl with complex-script
+#               size, weight and language, instead of left-to-right
+#               paragraphs whose geometry is mirrored to look the same.
 #
 # Google Docs gets each structure only once a live pass shows its importer
 # places it correctly, because LibreOffice does not predict Docs: a list-indent
@@ -102,9 +106,16 @@ OUTPUT_PROFILES = ("standard", "gdocs")
 #               renumbers custom marks: a "*" note and a numbering restart at
 #               1 print as continuing automatic numbers ("3" where the source
 #               says "1"), which is wrong text, not wrong placement.
+#   bidi        granted. Its probe set (testkit/gdocs_probe_rtl.py) was flown
+#               live on 2026-10-04 (docs/evidence/gdocs-2026-10-04-rtl-probe
+#               .json): justified Hebrew within-2pt 0.35 -> 0.94 (dx_p50 26.1
+#               -> 0.24pt) against the visual left-to-right equivalent; a
+#               Hebrew list's dx_p90 148.4 -> 3.0pt (a uniform 3pt offset
+#               leaves its within-2pt 0.50 -> 0.17); c4, y48 and y49
+#               unchanged.
 PROFILE_CAPABILITIES = {
-    "standard": frozenset({"numbering", "footnotes", "anchored"}),
-    "gdocs": frozenset({"numbering"}),
+    "standard": frozenset({"numbering", "footnotes", "bidi", "anchored"}),
+    "gdocs": frozenset({"numbering", "bidi"}),
 }
 
 

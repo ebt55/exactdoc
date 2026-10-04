@@ -25,7 +25,8 @@ from docx.opc.constants import RELATIONSHIP_TYPE as RT
 
 from .layout import (DocLayout, Para, Run, Cell, TableEl, FigureEl, ImageEl,
                      RuleEl, ColBreak, HFPart, Chunk, PageLayout)
-from .fonts import east_asian_family, font_table_desc, map_font
+from .fonts import (complex_script, complex_script_family, east_asian_family,
+                    font_table_desc, map_font)
 from .metrics import source_line_width
 from .structures import (add_footnote_ref_mark, add_footnote_reference,
                          apply_numpr, level_carries_indent, num_tab_override,
@@ -93,6 +94,12 @@ class WriteCtx:
         """Does this profile write footnotes as real notes? (options.py)"""
         from .options import capabilities
         return "footnotes" in capabilities(self.output_profile)
+
+    @property
+    def bidi(self) -> bool:
+        """Does this profile declare right-to-left paragraphs? (options.py)"""
+        from .options import capabilities
+        return "bidi" in capabilities(self.output_profile)
 
 
 _DEFAULT_CTX = WriteCtx()
@@ -183,6 +190,96 @@ def _style_run(r, run: Run, profile: str = "standard"):
         f.color.rgb = RGBColor.from_string(_hex(run.color))
     except Exception:
         pass
+    _complex_script_rpr(r, run, profile)
+
+
+# CT_RPr's child sequence (ECMA-376 Part 1, 17.3.2.28): Word refuses a run
+# whose properties are out of order, so every element added below goes in
+# before the first existing sibling that must follow it.
+_RPR_SEQ = ("rStyle", "rFonts", "b", "bCs", "i", "iCs", "caps", "smallCaps",
+            "strike", "dstrike", "outline", "shadow", "emboss", "imprint",
+            "noProof", "snapToGrid", "vanish", "webHidden", "color", "spacing",
+            "w", "kern", "position", "sz", "szCs", "highlight", "u", "effect",
+            "bdr", "shd", "fitText", "vertAlign", "rtl", "cs", "em", "lang",
+            "eastAsianLayout", "specVanish", "oMath")
+
+
+def _rpr_put(rpr, tag: str, **attrs):
+    """Set child `w:<tag>` of rPr (created in schema order) with `attrs`."""
+    el = rpr.find(qn("w:" + tag))
+    if el is None:
+        el = OxmlElement("w:" + tag)
+        later = _RPR_SEQ[_RPR_SEQ.index(tag) + 1:]
+        for child in rpr:
+            name = child.tag.rsplit("}", 1)[-1]
+            if name in later:
+                child.addprevious(el)
+                break
+        else:
+            rpr.append(el)
+    for k, v in attrs.items():
+        el.set(qn("w:" + k), v)
+    return el
+
+
+def _in_bidi_para(r_el) -> bool:
+    """Is this run element inside a w:bidi paragraph (write_para sets it first)?"""
+    p = r_el.getparent()
+    while p is not None and p.tag != qn("w:p"):
+        p = p.getparent()
+    if p is None:
+        return False
+    ppr = p.find(qn("w:pPr"))
+    return ppr is not None and ppr.find(qn("w:bidi")) is not None
+
+
+_STRONG_LTR = re.compile(r"[A-Za-zÀ-ɏͰ-ϿЀ-ӿ]")
+
+
+def _complex_script_rpr(r, run: Run, profile: str = "standard") -> None:
+    """The complex-script half of a run's properties, where it has one.
+
+    Word sets Hebrew, Arabic, Indic and Thai text from the run's
+    complex-script properties and LibreOffice from its CTL ones; the Latin
+    w:sz/w:b/w:i do not reach them. So a run carrying such text, or sitting in
+    a right-to-left paragraph, gets w:szCs (= its size), w:bCs/w:iCs (= its
+    weight and slant) and lang/@bidi; a run that reads right to left gets
+    w:rtl. "Reads right to left" is an RTL letter, or -- in a w:bidi
+    paragraph -- no left-to-right letter at all: Word resolves the digits and
+    punctuation of a run without w:rtl as left-to-right text, which would move
+    the full stop of `...בפסק דין.` back to the wrong end.
+
+    A run with no complex script outside an RTL paragraph is left exactly as
+    it was. The Google Docs profile writes none of this: its paragraphs are
+    declared right-to-left only when the `bidi` capability is on
+    (options.PROFILE_CAPABILITIES), and then its runs get the direction alone
+    (testkit/gdocs_probe_rtl.py makes that variant for a live pass).
+    """
+    text = run.text or ""
+    lang, has_rtl = complex_script(text)
+    in_bidi = _in_bidi_para(r._element)
+    if lang is None and not in_bidi:
+        return
+    if profile != "standard" and not in_bidi:
+        return
+    rpr = r._element.get_or_add_rPr()
+    rtl = has_rtl or (in_bidi and not _STRONG_LTR.search(text))
+    if profile == "standard":
+        cs = complex_script_family(run.font) if lang is not None else None
+        rf = rpr.find(qn("w:rFonts"))
+        if cs and rf is not None:
+            rf.set(qn("w:cs"), cs)
+        if run.bold:
+            _rpr_put(rpr, "bCs")
+        if run.italic:
+            _rpr_put(rpr, "iCs")
+        sz = rpr.find(qn("w:sz"))
+        if sz is not None:
+            _rpr_put(rpr, "szCs", val=sz.get(qn("w:val")))
+    if rtl:
+        _rpr_put(rpr, "rtl")
+    if profile == "standard" and lang is not None:
+        _rpr_put(rpr, "lang", bidi=lang)
 
 
 def _add_field(par, instr: str, sample: str, style_from: Run,
@@ -431,8 +528,21 @@ WRAP_CORRECTION = False
 # whose metric differs -- Roboto is 4% taller than Arial, which is exactly the
 # kind of quiet assumption this project exists to avoid.
 NATURAL_FACTORS = {
-    "arial": 1.144, "times new roman": 1.144, "courier new": 1.127,
-    "georgia": 1.130, "roboto": 1.194,
+    # Re-measured live 2026-10-04 (see the Calibri note below for the method):
+    # every family here equals its font file's own hhea line, with no offset.
+    # The "0.006 below the formula" the older values carried was the bias of
+    # the original four-line probe; at 9-16 lines and two sizes the pitch
+    # agrees with the formula to four decimals.
+    #
+    # Arial and Times New Roman measure 1.150 too, and are deliberately left
+    # at 1.144: the gdocs profile's other levers (the single-line -0.38pt in
+    # write_para among them) were calibrated live against 1.144, and setting
+    # the true factor alone moved the gated corpus both ways (pass 12:
+    # within-2pt sum 4.29 -> 5.05, 02 0.09 -> 0.59, c2 0.86 -> 0.91, but 01's
+    # mean SSIM 0.704 -> 0.680 broke its policy bound, and c6 0.34 -> 0.20).
+    # Correcting them needs those levers re-measured with it, in one change.
+    "arial": 1.144, "times new roman": 1.144, "courier new": 1.133,
+    "georgia": 1.1365, "roboto": 1.200,
     # Added when the metric fit began substituting these families. Docs' live
     # pass 2 rendered l1_word_native in Noto Serif at a 17.48pt pitch where the
     # source used 14.70pt: dividing by the 1.144 default inflated every line by
@@ -445,7 +555,7 @@ NATURAL_FACTORS = {
     # 1.136 -- each exactly 0.006 above its Docs-measured value here, a constant
     # offset across four independently probed families. Noto Serif reads 1.362
     # by the same formula, so 1.356 predicted against 1.360 observed.
-    "noto serif": 1.360, "noto sans": 1.356, "verdana": 1.209,
+    "noto serif": 1.362, "noto sans": 1.362, "verdana": 1.2155,
     # Vollkorn, measured live the Libre Baskerville way: Docs renders the
     # family natively (verified -- a self-mapped document's wraps came back
     # at the source's own line breaks), but its line box is far taller than
@@ -453,13 +563,13 @@ NATURAL_FACTORS = {
     # own export rendered 19.10pt (median over 30 consecutive body-line
     # gaps, y20 page 3) -- a natural factor of 1.392. With the default, the
     # document's lines rendered 22% tall and it went 5 pages to 7.
-    "vollkorn": 1.392,
+    "vollkorn": 1.393,
     # Consolas, read from the font file by the formula above (hhea
     # 1521/-527/350 over upm 2048 = 1.1709) minus the constant 0.006
     # offset the four probed families showed between that formula and
     # Docs' own pitch. No live probe has confirmed it yet; a
     # probe_font_metrics ride-along is the way to tighten it.
-    "consolas": 1.165,
+    "consolas": 1.171,
     # Also measured inside Docs rather than from a font file, by
     # testkit/probe_font_metrics.py in live pass 3 -- the family is not
     # installed here. The probe's own controls recovered Noto Serif at 1.362,
@@ -701,8 +811,12 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None,
     # its separator leave the runs (structures.py). `ctx.list_defs` holds only
     # the lists whose every item strips cleanly (structures.numbering_plan).
     num, num_runs, lvl = None, None, None
+    # A right-to-left item in a profile that does not declare direction stays
+    # typed: in a left-to-right paragraph the list level would draw its
+    # number at the left of right-aligned Hebrew.
+    rtl_undeclared = getattr(p, "rtl", False) and not ctx.bidi
     if p.numbering is not None and p.numbering.list_id in ctx.list_defs \
-            and not gdocs_rows:
+            and not gdocs_rows and not rtl_undeclared:
         num_runs = strip_marker(p.runs, p.numbering)
         if num_runs is not None:
             num = p.numbering
@@ -710,7 +824,28 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None,
     ind_from_level = lvl is not None and level_carries_indent(p, lvl)
     right_indent = 0.0 if gdocs_rows else p.right_indent + _wrap_correction(p, content_w)
     pf = par.paragraph_format
-    par.alignment = ALIGN.get("left" if gdocs_rows else p.align, WD_ALIGN_PARAGRAPH.LEFT)
+    # A right-to-left paragraph's alignment and indents are in start/end terms
+    # (infer._rtl_lines), which is how w:jc and w:ind read under w:bidi, so a
+    # profile that declares the direction writes them unchanged. One that does
+    # not (options.PROFILE_CAPABILITIES) gets the visual equivalent in a
+    # left-to-right paragraph: start is the right edge, so the sides swap; a
+    # first-line indent on the right has no left-to-right form and is dropped.
+    align, left_ind, first_ind, tab_stops = (p.align, p.left_indent,
+                                             p.first_indent, p.tab_stops)
+    if getattr(p, "rtl", False):
+        if ctx.bidi:
+            # Written first: _complex_script_rpr asks the paragraph for it.
+            ppr = par._p.get_or_add_pPr()
+            if ppr.find(qn("w:bidi")) is None:
+                after = _PPR_AFTER_SUPPRESS_HYPHENS[
+                    _PPR_AFTER_SUPPRESS_HYPHENS.index("bidi") + 1:]
+                ppr.insert_element_before(OxmlElement("w:bidi"),
+                                          *("w:" + t for t in after))
+        elif not gdocs_rows:
+            align = {"left": "right", "right": "left"}.get(align, align)
+            left_ind, right_indent = right_indent, left_ind
+            first_ind, tab_stops = 0.0, []
+    par.alignment = ALIGN.get("left" if gdocs_rows else align, WD_ALIGN_PARAGRAPH.LEFT)
     gap = p.space_before if space_before is None else space_before
     if gap > 0.05:
         pf.space_before = Pt(round(gap, 1))
@@ -743,16 +878,16 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None,
     if num is not None and not ind_from_level:
         # A numbered paragraph inherits its level's indents unless it says
         # otherwise, so a paragraph that differs must say so -- zeros included.
-        pf.left_indent = Pt(round(p.left_indent, 1))
-        pf.first_line_indent = Pt(round(p.first_indent, 1))
+        pf.left_indent = Pt(round(left_ind, 1))
+        pf.first_line_indent = Pt(round(first_ind, 1))
     elif num is None:
-        if p.left_indent > 0.05:
-            pf.left_indent = Pt(round(p.left_indent, 1))
-        if abs(p.first_indent) > 0.05:
-            pf.first_line_indent = Pt(round(p.first_indent, 1))
+        if left_ind > 0.05:
+            pf.left_indent = Pt(round(left_ind, 1))
+        if abs(first_ind) > 0.05:
+            pf.first_line_indent = Pt(round(first_ind, 1))
     if right_indent > 0.05:
         pf.right_indent = Pt(round(right_indent, 1))
-    for ts in p.tab_stops:
+    for ts in tab_stops:
         pos, al = ts[0], ts[1]
         if lvl is not None and lvl.sep == "tab" and al == "left" and                 abs(pos - p.left_indent) < 0.05:
             continue                # the item's own text stop: see below
@@ -1014,6 +1149,74 @@ def _col_floors(t: TableEl) -> List[float]:
     return floor
 
 
+def _absorbable(cell, nb) -> bool:
+    """Can `cell` span over its right-hand neighbour `nb` without losing ink?
+
+    `nb` must draw nothing of its own -- no text, fill or span -- and the two
+    must agree on their top and bottom rules, with no vertical rule between
+    them. A rule running under the whole row (x14's totals) is then drawn by
+    the merged cell exactly as the separate cells drew it.
+    """
+    if nb is None or nb.shading or \
+            max(1, getattr(nb, "col_span", 1)) > 1 or \
+            max(1, getattr(nb, "row_span", 1)) > 1 or \
+            any(p.text.strip() for p in nb.paras):
+        return False
+    for side in ("top", "bottom"):
+        if (cell.borders.get(side) or None) != (nb.borders.get(side) or None):
+            return False
+    return not cell.borders.get("right") and not nb.borders.get("left")
+
+
+def _span_into_blank_neighbours(t: TableEl) -> TableEl:
+    """`t` with each one-line cell that overflows its column spanning the
+    blank cells beside it, instead of widening the column.
+
+    A totals label runs across the empty column next to it: x14's
+    "Contingency applied" drew 81.5pt from a 35pt column through the empty
+    54.5pt one beside it. Widening its column moved the whole indented table
+    48-52pt into the right margin; keeping it wrapped the label. Spanning is
+    what the source drew. Clustered-edge tables only: a drawn grid is the
+    author's own statement of the columns (see `_fit_col_widths`).
+    """
+    if getattr(t, "col_edges_drawn", False) or len(t.col_widths) < 2:
+        return t
+    rows, changed = [], False
+    for row in t.rows:
+        row = list(row)
+        for ci, cell in enumerate(row):
+            if cell is None or max(1, getattr(cell, "col_span", 1)) > 1 or \
+                    max(1, getattr(cell, "row_span", 1)) > 1:
+                continue
+            w = _cell_text_width(cell)
+            if w <= 0 or ci >= len(t.col_widths):
+                continue
+            pads = cell.pad[1] + cell.pad[3] if len(cell.pad) >= 4 else 8.0
+            need = w + pads + 1.0
+            have, span = t.col_widths[ci], 1
+            while have < need and ci + span < len(row) and \
+                    ci + span < len(t.col_widths) and \
+                    _absorbable(cell, row[ci + span]):
+                have += t.col_widths[ci + span]
+                span += 1
+            if span > 1 and have >= need:
+                borders = dict(cell.borders)
+                outer = row[ci + span - 1].borders.get("right")
+                if outer:
+                    borders["right"] = outer
+                row[ci] = dataclasses.replace(cell, col_span=span,
+                                              borders=borders)
+                for k in range(ci + 1, ci + span):
+                    row[k] = None
+                changed = True
+        rows.append(row)
+    if not changed:
+        return t
+    out = copy.copy(t)
+    out.rows = rows
+    return out
+
+
 def _fit_col_widths(t: TableEl, content_w: float = 0.0) -> List[float]:
     """Widen any column too narrow for its own single-line content, funded by
     columns with slack. Table width is unchanged.
@@ -1084,7 +1287,14 @@ def _fit_col_widths(t: TableEl, content_w: float = 0.0) -> List[float]:
     # measured effect: zero.) Funds are the gap up to the container width
     # first -- growing the table costs nothing visually, the source usually
     # leaves room -- then slack shaved from over-wide columns.
-    grow = max(0.0, (content_w or 0.0) - sum(widths)) if content_w else 0.0
+    # The free room is what lies to the table's RIGHT: the writer places it at
+    # `left_indent` (w:tblInd), so room left of it cannot be grown into. Counted
+    # from the container's left edge instead, x14's totals block -- indented
+    # 322pt -- "found" 318pt and widened its label column 35 -> 83.5pt, which
+    # pushed its amounts 48-52pt into the right margin in LibreOffice and
+    # Google Docs alike.
+    grow = max(0.0, (content_w or 0.0) - max(0.0, t.left_indent)
+               - sum(widths)) if content_w else 0.0
     have = grow + sum(surplus)
     order = sorted((i for i in range(n) if deficit[i] > 0),
                    key=lambda i: deficit[i])
@@ -1252,15 +1462,17 @@ def _text_metrics(output_profile: str = "standard"):
 
 
 def _column_one_overflows(ch, content_w: float, lay: DocLayout,
-                          output_profile: str = "standard") -> bool:
-    """Is the first column's content predicted to outgrow its column?"""
+                          output_profile: str = "standard",
+                          widths=None) -> bool:
+    """Is the first column's content predicted to outgrow its column?
+    `widths`: the section's unequal column widths (`_section_widths`)."""
     if ch.n_cols < 2:
         return False
     metrics = _text_metrics(output_profile)
     if metrics is None:
         return False
     gap = ch.col_gap or 0.0
-    col_w = (content_w - gap * (ch.n_cols - 1)) / ch.n_cols
+    col_w = widths[0] if widths else         (content_w - gap * (ch.n_cols - 1)) / ch.n_cols
     if col_w <= 1.0:
         return False
     capacity = lay.page_h - lay.margin_t - lay.margin_b - max(0.0, ch.pre_gap)
@@ -1711,7 +1923,7 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
     n_cols = len(t.col_widths)
     if n_rows == 0 or n_cols == 0:
         return None
-    t = copy.copy(t)
+    t = _span_into_blank_neighbours(copy.copy(t))
     t.col_widths = _fit_col_widths(t, content_w)
     # the importer drops sub-minimum columns' boundaries (see the constant);
     # lift them before the grid is written
@@ -2673,8 +2885,26 @@ def _part_distance(lay: DocLayout, side: str) -> float:
     return next((p.distance for p in parts if p is not None), 36.0)
 
 
+def _section_widths(ch, ctx) -> Optional[tuple]:
+    """A chunk's unequal column widths as the section states them, or None.
+
+    `Chunk.col_widths` is inference's measurement of a page whose columns are
+    not the same width -- a journal title page's metadata sidebar beside its
+    main column (y40, Frontiers: 0.2 and 0.67 of the measure). Written as
+    equal columns, both halves set at the average width: every sidebar line
+    wrapped and every main-column line ran twice as long, and the title page
+    took three rendered pages. Under the gdocs profile the section stays
+    equal-width, as it always has been: Google Docs' handling of unequal
+    columns is unmeasured.
+    """
+    w = getattr(ch, "col_widths", None)
+    if not w or ch.n_cols < 2 or ctx.output_profile == "gdocs":
+        return None
+    return tuple(round(x, 1) for x in w)
+
+
 def _config_section(sec, lay: DocLayout, margin_t=None, cols: int = 1,
-                    col_gap: float = 24.0, margin_lr=None):
+                    col_gap: float = 24.0, margin_lr=None, col_widths=None):
     sec.page_width = Emu(int(lay.page_w * 12700))
     sec.page_height = Emu(int(lay.page_h * 12700))
     # Stated, not inferred from the size: Word prints by w:orient, and a new
@@ -2697,7 +2927,20 @@ def _config_section(sec, lay: DocLayout, margin_t=None, cols: int = 1,
     if cols_el is None:
         cols_el = OxmlElement("w:cols")
         sectPr.append(cols_el)
-    if cols > 1:
+    # A clone of the previous section's sectPr may carry its w:col children.
+    for c in cols_el.findall(qn("w:col")):
+        cols_el.remove(c)
+    if cols > 1 and col_widths and len(col_widths) == cols:
+        cols_el.set(qn("w:num"), str(cols))
+        cols_el.set(qn("w:space"), str(int(round(col_gap * 20))))
+        cols_el.set(qn("w:equalWidth"), "0")
+        for i, w in enumerate(col_widths):
+            c = OxmlElement("w:col")
+            c.set(qn("w:w"), str(int(round(w * 20))))
+            if i < cols - 1:
+                c.set(qn("w:space"), str(int(round(col_gap * 20))))
+            cols_el.append(c)
+    elif cols > 1:
         cols_el.set(qn("w:num"), str(cols))
         cols_el.set(qn("w:space"), str(int(round(col_gap * 20))))
         cols_el.set(qn("w:equalWidth"), "1")
@@ -3000,6 +3243,11 @@ _FONT_DESC = {
     "Symbol": ("decorative", "variable"),
 }
 
+# w:charset for a complex-script face, by the language its runs declare
+# (ECMA-376 Part 1 17.8.3.2; the Windows charset values): Hebrew, Arabic,
+# Thai. Other scripts have no charset of their own and stay "00".
+_CS_CHARSET = {"he": "B1", "ar": "B2", "fa": "B2", "ur": "B2", "th": "DE"}
+
 
 def _restyle_outline_styles(doc):
     """Strip the stock Heading styles down to pure outline metadata.
@@ -3079,6 +3327,7 @@ def _declare_fonts(doc):
     body = doc.element.body
     used = {}
     east = set()
+    complex_ = {}
     for rf in body.iter(qn("w:rFonts")):
         name = rf.get(qn("w:ascii")) or rf.get(qn("w:hAnsi"))
         if name:
@@ -3086,6 +3335,14 @@ def _declare_fonts(doc):
         ea = rf.get(qn("w:eastAsia"))
         if ea and ea != name:
             east.add(ea)
+        cs = rf.get(qn("w:cs"))
+        if cs and cs != name:
+            # A complex-script face of its own (_complex_script_rpr): declared
+            # with its script's charset, which is what Word's substitution
+            # reads when the reader lacks the face.
+            lang = rf.getparent().find(qn("w:lang"))
+            tag = (lang.get(qn("w:bidi")) or "") if lang is not None else ""
+            complex_.setdefault(cs, _CS_CHARSET.get(tag[:2], "00"))
     if not used:
         return
     dominant = max(sorted(used), key=lambda k: used[k])
@@ -3104,6 +3361,12 @@ def _declare_fonts(doc):
         try:
             root = etree.fromstring(ft.blob)
             have = {f.get(qn("w:name")) for f in root.findall(qn("w:font"))}
+            for name in sorted(set(complex_) - set(used) - east - have):
+                el = etree.SubElement(root, qn("w:font"))
+                el.set(qn("w:name"), name)
+                for tag, val in (("w:charset", complex_[name]),
+                                 ("w:family", "auto"), ("w:pitch", "variable")):
+                    etree.SubElement(el, qn(tag)).set(qn("w:val"), val)
             for name in sorted((set(used) | east) - {None} - have):
                 # The explicit table first (its entries predate the family
                 # table and are byte-stable); otherwise the family's class --
@@ -3567,10 +3830,10 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
     # previously-applied properties between sections
     cur_cfg = {"margin_t": (lay.cover_top if has_cover else None), "cols": 1,
                "gap": 24.0, "margin_lr": (band_bleed if has_cover else None),
-               "hdr0": has_cover, "geo": lay}
+               "hdr0": has_cover, "geo": lay, "widths": None}
 
     def new_section(kind, cols, gap=24.0, margin_t=None, margin_lr=None,
-                    geo=None):
+                    geo=None, widths=None):
         # `geo` is the new section's paper and margins (a DocLayout); a
         # section opened without one keeps the current page's.
         nonlocal sec, cur_cols, cur_cfg
@@ -3581,12 +3844,13 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
         fin = doc.sections[-2]
         _config_section(fin, cur_cfg["geo"], margin_t=cur_cfg["margin_t"],
                         cols=cur_cfg["cols"], col_gap=cur_cfg["gap"],
-                        margin_lr=cur_cfg["margin_lr"])
+                        margin_lr=cur_cfg["margin_lr"],
+                        col_widths=cur_cfg.get("widths"))
         if cur_cfg.get("hdr0"):
             fin.header_distance = Emu(0)
         sec = doc.sections[-1]
         _config_section(sec, geo, margin_t=margin_t, cols=cols, col_gap=gap,
-                        margin_lr=margin_lr)
+                        margin_lr=margin_lr, col_widths=widths)
         # `add_section` hands the new section a clone of the last sectPr. A
         # distinct first page belongs to the document's first page only, and a
         # numbering restart to the section that states it: neither may ride
@@ -3596,7 +3860,8 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
             sec.different_first_page_header_footer = False
         _continue_numbering(sec)
         cur_cfg = {"margin_t": margin_t, "cols": cols, "gap": gap,
-                   "margin_lr": margin_lr, "hdr0": False, "geo": geo}
+                   "margin_lr": margin_lr, "hdr0": False, "geo": geo,
+                   "widths": widths}
         cur_cols = cols
         # Shrink section-break paragraphs to the least height a renderer will
         # give them. That is SECT_BREAK_PARA_PT, not zero -- see the constant.
@@ -3702,6 +3967,7 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
             page_written[0] = False
             after_cover = has_cover and pi == 1
             next_cols = pg.chunks[0].n_cols if pg.chunks else 1
+            next_w = _section_widths(pg.chunks[0], ctx) if pg.chunks else None
             num = None
             while pending_secs and pending_secs[0].start_page <= pg.number:
                 num = pending_secs.pop(0)
@@ -3715,7 +3981,7 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                 pre = pg.chunks[0].pre_gap if pg.chunks else 0.0
                 mt = (glay.margin_t + pre) if (next_cols > 1 and pre > 0.5) else None
                 s = new_section(WD_SECTION.NEW_PAGE, next_cols, gap, margin_t=mt,
-                                geo=glay)
+                                geo=glay, widths=next_w)
                 if after_cover:
                     spec = num if (num is not None and num.parts is not None) \
                         else (num_secs[0] if num_secs and
@@ -3743,12 +4009,12 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                 # under the same cap as every other joined-page gap.
                 if pg.chunks and pg.chunks[0].pre_gap > _JOIN_GAP_CAP_PT:
                     pg.chunks[0].pre_gap = _JOIN_GAP_CAP_PT
-            elif cur_cols != next_cols:
+            elif cur_cols != next_cols or next_w != cur_cfg.get("widths"):
                 gap = pg.chunks[0].col_gap if pg.chunks else 24.0
                 pre = pg.chunks[0].pre_gap if pg.chunks else 0.0
                 mt = (glay.margin_t + pre) if (next_cols > 1 and pre > 0.5) else None
                 new_section(WD_SECTION.NEW_PAGE, next_cols, gap, margin_t=mt,
-                            geo=glay)
+                            geo=glay, widths=next_w)
             else:
                 # Defect catalogue #1: a carrier paragraph spills to the
                 # next page exactly when the page before it fills exactly,
@@ -3803,12 +4069,15 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
             _blank_page_holder(doc, False)
         framed_ids = {id(el) for el in framed}
         for ci, ch in enumerate(pg.chunks):
-            if ch.n_cols != cur_cols:
+            ch_w = _section_widths(ch, ctx)
+            if ch.n_cols != cur_cols or ch_w != cur_cfg.get("widths"):
                 if ch.pre_gap > 0.5:
                     _spacer(doc, ch.pre_gap - _sect_break_comp(ctx))
-                new_section(WD_SECTION.CONTINUOUS, ch.n_cols, ch.col_gap)
+                new_section(WD_SECTION.CONTINUOUS, ch.n_cols, ch.col_gap,
+                            widths=ch_w)
             drop_col_break = _column_one_overflows(ch, cw_ctx, glay,
-                                                   ctx.output_profile)
+                                                   ctx.output_profile,
+                                                   widths=ch_w)
             for el in ch.elements:
                 if ctx.note_ids and getattr(el, "role", "") == "footnote":
                     continue        # carried by footnotes.xml instead
