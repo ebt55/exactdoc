@@ -668,6 +668,18 @@ def para_from_lines(lines: List[Line], col_l: float, col_r: float) -> Para:
         s.mono for ln in lines for s in ln.spans if s.text.strip())
     if mono_block:
         p.line_breaks = True
+        # Equal-length lines are routine in monospace -- two 22-character
+        # lines end at the same x by construction -- and the justify test
+        # above reads that as a right edge to pin. On the Bash manual (y26)
+        # `if test-commands; then` / `  consequent-commands;` gave a 219.6pt
+        # right indent that left the block exactly its widest line, and the
+        # third line wrapped and spilled the page; FIPS 197's S-box rows, the
+        # pandoc manual's templates and lshort's logs did the same. Lines
+        # ended by w:br have no wrap to pin, and a justified line before a
+        # break is stretched to the margin in Word.
+        if p.align == "justify":
+            p.align = "left"
+        p.right_indent = 0.0
     for i, ln in enumerate(lines):
         row = runs_from_spans(ln.spans)
         if mono_block and i < len(lines) - 1 and row:
@@ -2095,6 +2107,7 @@ def _figure_in_budget(cl_ds, blocks, images, consumed, page, text_area):
 # ------------------------------------------------------------------ main
 def infer(ir: DocIR) -> DocLayout:
     lay = DocLayout(src_path=ir.path)
+    lay.font_advances = getattr(ir, "font_advances", None) or {}
     if not ir.pages:
         return lay
     p0 = ir.pages[0]

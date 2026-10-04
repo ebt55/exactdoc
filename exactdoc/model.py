@@ -239,6 +239,10 @@ class DocIR:
     path: str
     pages: List[PageIR] = field(default_factory=list)
     meta: Dict[str, Any] = field(default_factory=dict)
+    # {font name: {character: advance in em}}, measured from the PDF's own
+    # glyph advances (the PDFium backend fills it; see parse_pdfium
+    # `_collect_advances`). Empty means unmeasured, never zero width.
+    font_advances: Dict[str, Dict[str, float]] = field(default_factory=dict)
 
     def summary(self) -> str:
         out = [f"{self.path}: {len(self.pages)} pages"]

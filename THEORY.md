@@ -212,6 +212,19 @@ substitutes share advance widths with the originals, justified paragraphs
 usually re-wrap onto the **same line breaks** — which is what keeps paragraph
 heights (n × leading) truthful.
 
+*Addendum, 2026-10-04.* The mapping is only as good as its knowledge of the
+source's NAME. The FontDescriptor's Serif/FixedPitch bits are absent in pdfTeX
+output and wrong in others (CMUSansSerif arrives "serif"), so a name the table
+did not know fell to a flag heuristic that sent URW's Times clone to Arial and
+Computer Modern's typewriter to a proportional face. `fonts._FAMILY_TABLE` now
+names the families real documents use — URW base 35, CM/CMU/LM, EC, Helvetica
+Neue, the Office ClearType set, CJK faces — with class, weight/slant codes and a
+target per output profile, and the parser takes class from it before the flags.
+Where the target cannot match the source's widths exactly — a half-point font
+size, Courier New for a 0.525em typewriter — the run carries a w:w scale computed
+from the PDF's own glyph advances, and the ladder shapes at that width
+(`metrics.run_width_scale`).
+
 ### 3.7 Neutralize the template
 
 python-docx's default template carries Normal = 1.08× line + 8pt space-after,

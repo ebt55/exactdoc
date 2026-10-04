@@ -12,6 +12,36 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **fonts: a family table replaces the descriptor-flag heuristic (audit B12–B15,
+  B30, defect catalogue #3/#19).** pdfTeX's Type 1 fonts carry no Serif or
+  FixedPitch bit, so `NimbusRomNo9L` (Times' metric clone) became Arial,
+  `CMTT10`/`NimbusMonL` code became proportional, `CMBX12` headings lost their
+  bold, EUR-Lex's `EUAlbertina` became Arial and `HelveticaNeueLTStd-Roman`
+  became Times New Roman ("roman" counted as serif evidence). `fonts.py` now
+  names the URW 35, CM/CMU/LM/EC, Helvetica Neue, the Office set and CJK faces
+  with class, weight/slant codes (Bd, Blk, Demi, Medi, Ital, CMBX, CMSL…) and a
+  target per profile; the parser takes class from it before the flags. The
+  standard profile writes Calibri/Cambria by name (gdocs keeps Carlito/Georgia
+  until a live pass grades them). Calibri is shaped from Carlito's own widths
+  (OFL; was Helvetica's, 8.6% wide), CJK runs name their face in `w:eastAsia`,
+  and a run whose emitted width cannot match the source — a half-point size
+  (c1's 9.33pt written 9.5) or Courier New for a 0.525em typewriter — carries a
+  `w:w` scale from the PDF's own glyph advances, which the ladder shapes with.
+  Measured in the canonical container against HEAD. Product lane: y03 62→57
+  pages, y18 147→145 (word recall 0.435→0.756), y22 167→166 (recall
+  0.261→0.423); c1 within-2pt 0.334→0.678 and c4 0.440→0.621 in both gated
+  lanes (gate PASS; product mean within-2pt 0.5274→0.5689); x17/x18 up. Raw
+  lane: y03 71→65, y25 361→338, y18 279→265; over all 52 swept documents mean
+  within-2pt 0.2107→0.2216, mean |page ratio−1| 0.1517→0.1483, mean word
+  recall 0.7445→0.7401 (y24, y22). TeX code blocks now keep their
+  line breaks (catalogue #2), which costs raw-lane pages where an unrelated
+  overflow had been absorbed by code collapsed into prose — y22 222→229, y24
+  168→169 (recall 0.645→0.388 in both lanes, a page-alignment shift), the
+  attribution checked by disabling only the name-based monospace class; y06
+  202→204 because its cover title is now bold, as drawn. Proportional width
+  matching was measured and NOT taken: per-run ratios carry clone-rounding
+  noise that moved 02, x05, x06 and x15.
+
 Ported so far, all first verified live on Google's own render:
 
 - **#6 the cells the parser joins.** Adjacent table cells whose gap is under
