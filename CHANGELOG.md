@@ -175,9 +175,15 @@ Word→PostScript→Distiller — and closing LaTeX-light 1→6, other real-worl
   had wrapped 56 of 59 pages in a quote table. Raw lane, canonical sweep:
   y09 72 → 67 pages, y01 107 → 103 (word recall 0.184 → 0.199), y02 142 →
   140 (doc recall 0.903 → 0.922), y03 71 → 70, x11 4 → 3; y10 within-2pt
-  0.273 → 0.272, everything else identical. Gated 16: raw DOCX
-  byte-identical to before, gate PASS both lanes at the recorded numbers.
-  30 new tests.
+  0.273 → 0.272, everything else identical. Product lane: y09 72 → 65,
+  y03 62 → 60, y02 128 → 126, y01 96 → 95. One honest loss: y08's product
+  within-2pt 0.336 → 0.321, all of it on p6 (269 words within 2pt → 0).
+  The phantom "•" had been that page's first paragraph and so carried its
+  `pageBreakBefore`; without it the page opens with the heading box's
+  rule after a `w:br` carrier, LibreOffice drops the space before it
+  (audit B23) and the page sits 17.5pt high. Disabling only the marker
+  rule restores 0.336 exactly. Gated 16: raw DOCX byte-identical to
+  before, gate PASS both lanes at the recorded numbers. 30 new tests.
 
 ## 1.0.1 — 2026-08-07
 
