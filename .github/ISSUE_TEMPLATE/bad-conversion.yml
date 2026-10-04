@@ -1,0 +1,101 @@
+name: Bad conversion
+description: A PDF converted, but the DOCX looks wrong or is hard to edit.
+title: "Bad conversion: "
+labels: ["bad-conversion"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for testing exactdoc.
+
+        > [!WARNING]
+        > **Do not attach a confidential PDF, DOCX or screenshot.** Everything
+        > in this issue is public, for ever, including attachments. If the
+        > document is private, leave it out: the output of
+        > `exactdoc --diagnose your.pdf` describes it without any of its text,
+        > and a screenshot can be cropped or blurred to the part that is wrong.
+
+  - type: input
+    id: version
+    attributes:
+      label: exactdoc version
+      description: The output of `exactdoc --version`.
+      placeholder: exactdoc 0.3.0b1
+    validations:
+      required: true
+
+  - type: dropdown
+    id: app
+    attributes:
+      label: Where did you open the DOCX?
+      multiple: true
+      options:
+        - Microsoft Word (Windows)
+        - Microsoft Word (Mac)
+        - Microsoft Word (web)
+        - Google Docs
+        - LibreOffice
+        - Other (say which below)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: profile
+    attributes:
+      label: How did you convert it?
+      options:
+        - "exactdoc file.pdf (the default)"
+        - "--output-profile gdocs"
+        - "--refine 0"
+        - Other options (paste the command below)
+    validations:
+      required: true
+
+  - type: textarea
+    id: wrong
+    attributes:
+      label: What looked wrong?
+      description: >-
+        Which page, and what you expected instead. For example: "page 3, the
+        table's last column is cut off", "the headings are ordinary text",
+        "the DOCX has 14 pages, the PDF has 12".
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: Screenshot
+      description: >-
+        The PDF and the DOCX side by side, cropped to the problem. Drag the
+        image in here. Leave this empty rather than share anything private.
+    validations:
+      required: false
+
+  - type: textarea
+    id: diagnose
+    attributes:
+      label: Output of `exactdoc --diagnose your.pdf`
+      description: >-
+        No text from the document is included, but the program that made the
+        PDF and its font names are. Read it through and remove anything you
+        would rather not share.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: command
+    attributes:
+      label: Command and any error or warning lines
+      render: text
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      options:
+        - label: Nothing I attached or pasted here is confidential.
+          required: true

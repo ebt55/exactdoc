@@ -1,0 +1,12 @@
+# What goes into the source distribution (sdist) uploaded to PyPI.
+#
+# The sdist is the wheel's source plus what a packager needs to rebuild it:
+# exactdoc/, pyproject.toml, README.md and LICENSE, which setuptools includes
+# on its own. Everything else stays in the repository.
+#
+# tests/ is pruned explicitly because setuptools adds tests/test*.py by
+# default, and those files cannot run from an sdist: they need testkit/, the
+# frozen corpus and the golden IR, none of which belong in a package download.
+# scripts/check_dist.py enforces this list on every build (CI and release).
+prune tests
+global-exclude *.py[cod] __pycache__

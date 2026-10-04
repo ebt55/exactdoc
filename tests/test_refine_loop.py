@@ -375,9 +375,16 @@ class CliDegradationTests(unittest.TestCase):
                         "published DOCX is the open-loop conversion, unrefined",
                 detail="LibreOffice did not finish within 300s"),))
         err, out = io.StringIO(), io.StringIO()
-        with mock.patch("exactdoc.convert.convert_result", return_value=res), \
-                redirect_stderr(err), redirect_stdout(out):
-            code = cli.main(["in.pdf", "-o", "o.docx"])
+        # The CLI checks that the input exists and the output folder is
+        # writable before converting, so the input has to be a real file.
+        with tempfile.TemporaryDirectory() as d:
+            src = os.path.join(d, "in.pdf")
+            with open(src, "wb") as fh:
+                fh.write(b"%PDF-1.7\n")
+            with mock.patch("exactdoc.convert.convert_result",
+                            return_value=res), \
+                    redirect_stderr(err), redirect_stdout(out):
+                code = cli.main([src, "-o", os.path.join(d, "o.docx")])
         self.assertIn(code, (0, None))
         self.assertIn("wrote o.docx", out.getvalue())
         self.assertIn("warning: the libreoffice oracle failed", err.getvalue())

@@ -4,6 +4,7 @@
    "bytes": 42108,
    "content": "1b4ce034af06b7c7ae6b3b004902ee39",
    "dialect": "libreoffice",
+   "promised": true,
    "provenance": {
     "acquired": "2026-08-04",
     "license": "Apache-2.0",
@@ -21,6 +22,7 @@
    "bytes": 43971,
    "content": "368081a5d843ce8d4f416f0c1c6674d1",
    "dialect": "libreoffice",
+   "promised": true,
    "provenance": {
     "acquired": "2026-08-04",
     "license": "Apache-2.0",
@@ -38,6 +40,7 @@
    "bytes": 42852,
    "content": "562f92be258d636b11aab5984a186235",
    "dialect": "libreoffice",
+   "promised": true,
    "provenance": {
     "acquired": "2026-08-04",
     "license": "Apache-2.0",
@@ -55,6 +58,7 @@
    "bytes": 63621,
    "content": "437e4bd982d02d5da2650bcca56c20d4",
    "dialect": "libreoffice",
+   "promised": true,
    "provenance": {
     "acquired": "2026-08-04",
     "license": "Apache-2.0",
@@ -72,6 +76,7 @@
    "bytes": 38065,
    "content": "3a4b5aa9c4e10b932bebefee122bc18a",
    "dialect": "libreoffice",
+   "promised": true,
    "provenance": {
     "acquired": "2026-08-04",
     "license": "Apache-2.0",
@@ -89,6 +94,7 @@
    "bytes": 43998,
    "content": "d132602dd86f1888df0cedf5a0608c76",
    "dialect": "libreoffice",
+   "promised": true,
    "provenance": {
     "acquired": "2026-08-04",
     "license": "Apache-2.0",
@@ -106,6 +112,7 @@
    "bytes": 42943,
    "content": "4128d918a1928433a9b1afd429e5dced",
    "dialect": "chromium",
+   "promised": true,
    "provenance": {
     "acquired": "2026-08-04",
     "license": "Apache-2.0",
@@ -123,6 +130,7 @@
    "bytes": 40027,
    "content": "b730e8f8eaa4490b1c02557d08d05267",
    "dialect": "chromium",
+   "promised": true,
    "provenance": {
     "acquired": "2026-08-04",
     "license": "Apache-2.0",
@@ -140,6 +148,7 @@
    "bytes": 37654,
    "content": "74930043789984e297cdb1f570cf6779",
    "dialect": "chromium",
+   "promised": true,
    "provenance": {
     "acquired": "2026-08-04",
     "license": "Apache-2.0",
@@ -157,6 +166,7 @@
    "bytes": 59517,
    "content": "40f9279897207e5f7453844118bb6de9",
    "dialect": "chromium",
+   "promised": true,
    "provenance": {
     "acquired": "2026-08-04",
     "license": "Apache-2.0",
@@ -174,6 +184,7 @@
    "bytes": 60224,
    "content": "4c63be891343980568729c9989e372cb",
    "dialect": "chromium",
+   "promised": true,
    "provenance": {
     "acquired": "2026-08-04",
     "license": "Apache-2.0",
@@ -191,6 +202,7 @@
    "bytes": 54207,
    "content": "01037d342ed2d0ed9c8e3b5fb80e9181",
    "dialect": "chromium",
+   "promised": true,
    "provenance": {
     "acquired": "2026-08-04",
     "license": "Apache-2.0",
@@ -208,6 +220,7 @@
    "bytes": 5417,
    "content": "5a0cd3e56a5505f8ee58c4eff924a3b1",
    "dialect": "reportlab",
+   "promised": true,
    "provenance": {
     "acquired": "2026-08-04",
     "license": "Apache-2.0",
@@ -225,6 +238,7 @@
    "bytes": 3076,
    "content": "16eccb6c7dfdf90957b5bc25485746f2",
    "dialect": "reportlab",
+   "promised": true,
    "provenance": {
     "acquired": "2026-08-04",
     "license": "Apache-2.0",
@@ -242,6 +256,7 @@
    "bytes": 5238,
    "content": "eb8a99b137eaad08d9c5ef36a3480e1b",
    "dialect": "reportlab",
+   "promised": true,
    "provenance": {
     "acquired": "2026-08-04",
     "license": "Apache-2.0",
@@ -259,6 +274,7 @@
    "bytes": 2541,
    "content": "a9e78f386fe188f9138416d92a1c26e9",
    "dialect": "fpdf2",
+   "promised": true,
    "provenance": {
     "acquired": "2026-08-04",
     "license": "Apache-2.0",
@@ -276,6 +292,7 @@
    "bytes": 64628,
    "content": "fd11d40dee73ed41c89b34430e0583cd",
    "dialect": "chromium",
+   "promised": true,
    "provenance": {
     "acquired": "2026-08-06",
     "license": "Apache-2.0",
@@ -293,6 +310,7 @@
    "bytes": 57117,
    "content": "16dcd5395147ee83da15aabc699d8f0c",
    "dialect": "chromium",
+   "promised": true,
    "provenance": {
     "acquired": "2026-08-06",
     "license": "Apache-2.0",
@@ -310,6 +328,7 @@
    "bytes": 1480377,
    "content": "3018511af85b5b8d22b9781f31aafa08",
    "dialect": "Adobe PDF Library 15.0 / Acrobat PDFMaker 17 for Word",
+   "promised": true,
    "provenance": {
     "acquired": "2026-08-04",
     "creator": "Acrobat PDFMaker 17 for Word",
@@ -330,6 +349,7 @@
    "bytes": 1539170,
    "content": "9fc50e9f5d1e12c8a657a3d168081a44",
    "dialect": "Adobe PDF Library 20.13.106 / Acrobat PDFMaker 20 for Word",
+   "promised": true,
    "provenance": {
     "acquired": "2026-08-04",
     "creator": "Acrobat PDFMaker 20 for Word",
@@ -350,6 +370,7 @@
    "bytes": 1184436,
    "content": "4cdf070f4b3b92caf8a1e53b7a5ae675",
    "dialect": "pdfTeX 3.14159265-2.6-1.40.21 (TeX Live 2020) / LaTeX with hyperref",
+   "promised": true,
    "provenance": {
     "acquired": "2026-08-04",
     "creator": "LaTeX with hyperref",
@@ -370,6 +391,8 @@
    "bytes": 4434643,
    "content": "6389238a68936c49c43db7277f3029bf",
    "dialect": "Antenna House PDF Output Library 6.6.1437 / AH XSL Formatter V6.6",
+   "promised": false,
+   "promised_reason": "README 'Not yet': heavily designed layout",
    "provenance": {
     "acquired": "2026-08-04",
     "creator": "AH XSL Formatter V6.6 MR4 for Linux64",
@@ -390,6 +413,8 @@
    "bytes": 220237,
    "content": "56c42fa6c9d2bf1ca4b86fb7635668aa",
    "dialect": "Adobe LiveCycle Designer 6.5",
+   "promised": false,
+   "promised_reason": "README: refused by design (form, scan without text, or over the page cap)",
    "provenance": {
     "acquired": "2026-08-04",
     "creator": "Designer 6.5",
@@ -410,6 +435,7 @@
    "bytes": 714563,
    "content": "2343f8eba394409aea30a05cb3428760",
    "dialect": "Adobe PDF Library 11.0 / Acrobat PDFMaker 11 for Word",
+   "promised": true,
    "provenance": {
     "acquired": "2026-08-04",
     "creator": "Acrobat PDFMaker 11 for Word",
@@ -430,6 +456,7 @@
    "bytes": 966908,
    "content": "8f3b42b6e0b05829517695ecd14de408",
    "dialect": "Adobe PDF Library 20.9.95 / Acrobat PDFMaker 20 for Word",
+   "promised": true,
    "provenance": {
     "acquired": "2026-08-04",
     "creator": "Acrobat PDFMaker 20 for Word",
@@ -450,6 +477,7 @@
    "bytes": 833315,
    "content": "2f7042b4584ea0a26f8d6c06cc6d52f1",
    "dialect": "Microsoft Word 2010 (direct export, no Acrobat in the chain)",
+   "promised": true,
    "provenance": {
     "acquired": "2026-08-04",
     "creator": "Microsoft Word 2010",
@@ -470,6 +498,8 @@
    "bytes": 6073678,
    "content": "b6437a2123ed7cebce041c26d70e49a3",
    "dialect": "Adobe PDF Library 20.13.96 / Acrobat PDFMaker 20 for Word",
+   "promised": false,
+   "promised_reason": "README: refused by design (form, scan without text, or over the page cap)",
    "provenance": {
     "acquired": "2026-08-04",
     "creator": "Acrobat PDFMaker 20 for Word",
@@ -490,6 +520,7 @@
    "bytes": 1713916,
    "content": "af4093dc4f702534373520fad29ee47b",
    "dialect": "Antenna House PDF Output Library 6.6.1437 / AH XSL Formatter V6.6",
+   "promised": true,
    "provenance": {
     "acquired": "2026-08-04",
     "creator": "AH XSL Formatter V6.6 MR4 for Linux64",
@@ -510,6 +541,8 @@
    "bytes": 1553735,
    "content": "0d13632e902985d118e3039955e39232",
    "dialect": "Antenna House PDF Output Library 6.6.1437 / AH XSL Formatter V6.6",
+   "promised": false,
+   "promised_reason": "README 'Not yet': heavily designed layout",
    "provenance": {
     "acquired": "2026-08-04",
     "creator": "AH XSL Formatter V6.6 MR4 for Linux64",
@@ -530,6 +563,8 @@
    "bytes": 140815,
    "content": "6badc77060b7df8092109d4ef7165db8",
    "dialect": "Adobe LiveCycle Designer 6.5",
+   "promised": false,
+   "promised_reason": "README: refused by design (form, scan without text, or over the page cap)",
    "provenance": {
     "acquired": "2026-08-04",
     "creator": "Designer 6.5",
@@ -550,6 +585,7 @@
    "bytes": 2858365,
    "content": "e30e43dae3017e1d7f82d08f066cc78a",
    "dialect": "cairo 1.16.0 / xml2rfc 3.12.10",
+   "promised": true,
    "provenance": {
     "acquired": "2026-08-04",
     "creator": "xml2rfc 3.12.10",
@@ -570,6 +606,7 @@
    "bytes": 2583319,
    "content": "4f754a74c0169870b88b0cf670418a70",
    "dialect": "PDFlib+PDI 9.0.7p3 (C++/Win64)",
+   "promised": true,
    "provenance": {
     "acquired": "2026-09-11",
     "license": "CC-BY-4.0",
@@ -588,6 +625,7 @@
    "bytes": 637387,
    "content": "195341ce39bee1901c31b8aa8cfbf045",
    "dialect": "Acrobat Distiller 23.0 (Windows)",
+   "promised": true,
    "provenance": {
     "acquired": "2026-09-11",
     "license": "US-Government-Public-Domain",
@@ -606,6 +644,7 @@
    "bytes": 68335,
    "content": "1271d7eb15497a339594a65923b41dc7",
    "dialect": "unknown-producer",
+   "promised": true,
    "provenance": {
     "acquired": "2026-09-11",
     "license": "MIT",
@@ -624,6 +663,7 @@
    "bytes": 2125981,
    "content": "0fee3d303ac1f6d1e849c36c943cc542",
    "dialect": "Adobe PDF Library 15.0 / PDF PT 4.7.24.2 (pdf-tools.com)",
+   "promised": true,
    "provenance": {
     "acquired": "2026-09-11",
     "license": "CC-BY-3.0-IGO",
@@ -642,6 +682,7 @@
    "bytes": 641763,
    "content": "27a667b5dda1b5842fbe2e80ae31f703",
    "dialect": "xdvipdfmx (20190824)",
+   "promised": true,
    "provenance": {
     "acquired": "2026-09-11",
     "license": "GPL-2.0-or-later",
@@ -660,6 +701,8 @@
    "bytes": 1697207,
    "content": "dda322e815a898cb4f347187bcc1d34d",
    "dialect": "LuaTeX-1.24",
+   "promised": false,
+   "promised_reason": "README: refused by design (form, scan without text, or over the page cap)",
    "provenance": {
     "acquired": "2026-09-11",
     "license": "GPL-2.0-or-later",
@@ -678,6 +721,7 @@
    "bytes": 543095,
    "content": "d8d6de9121e6328c9ac48cd6bfbdab9a",
    "dialect": "LuaTeX-1.21.0",
+   "promised": true,
    "provenance": {
     "acquired": "2026-09-11",
     "license": "GPL-2.0-or-later",
@@ -696,6 +740,8 @@
    "bytes": 1509267,
    "content": "7deec6481ccc4afeaf02280c7fc8706f",
    "dialect": "pdfeTeX-1.21a",
+   "promised": false,
+   "promised_reason": "README: refused by design (form, scan without text, or over the page cap)",
    "provenance": {
     "acquired": "2026-09-11",
     "license": "GFDL-1.2-or-later",
@@ -714,6 +760,7 @@
    "bytes": 855783,
    "content": "136f1333accb034ac8df4a03894a59b9",
    "dialect": "pdfTeX-1.40.26",
+   "promised": true,
    "provenance": {
     "acquired": "2026-09-11",
     "license": "GFDL-1.3-or-later",
@@ -732,6 +779,7 @@
    "bytes": 1535216,
    "content": "18b98c3ce7b1a6b6559b192aa2ac02b6",
    "dialect": "cairo 1.16.0 (https://cairographics.org)",
+   "promised": true,
    "provenance": {
     "acquired": "2026-09-11",
     "license": "IETF-TLP-5a-verbatim",
@@ -750,6 +798,7 @@
    "bytes": 694088,
    "content": "662f10f39922fcf8be1d90b867c48481",
    "dialect": "Microsoft Word for Microsoft 365 (direct export)",
+   "promised": true,
    "provenance": {
     "acquired": "2026-10-04",
     "creator": "Microsoft\u00ae Word for Microsoft 365",
@@ -769,6 +818,7 @@
    "bytes": 179985,
    "content": "dc5037cda1db4e2f4fd8a2fc16ad7e19",
    "dialect": "Microsoft Word for Microsoft 365 (direct export)",
+   "promised": true,
    "provenance": {
     "acquired": "2026-10-04",
     "creator": "Microsoft\u00ae Word for Microsoft 365",
@@ -788,6 +838,7 @@
    "bytes": 585475,
    "content": "1f58ced755ec06d79038be95f3ba97e3",
    "dialect": "Microsoft Word for Microsoft 365 (direct export)",
+   "promised": true,
    "provenance": {
     "acquired": "2026-10-04",
     "creator": "Microsoft\u00ae Word for Microsoft 365",
@@ -807,6 +858,7 @@
    "bytes": 317510,
    "content": "b0e2278fee179c1a273a1091e2cc0be6",
    "dialect": "Microsoft: Print To PDF (Word via the Windows print driver)",
+   "promised": true,
    "provenance": {
     "acquired": "2026-10-04",
     "creator": null,
@@ -826,6 +878,7 @@
    "bytes": 401904,
    "content": "72ce40fbdcdf3ac36dc89d2a20b6ec4f",
    "dialect": "Skia/PDF m147 Google Docs Renderer",
+   "promised": true,
    "provenance": {
     "acquired": "2026-10-04",
     "creator": null,
@@ -845,6 +898,7 @@
    "bytes": 947590,
    "content": "69b7ceb72e21aea844bf2a7cf1155541",
    "dialect": "Power PDF Create (Kofax/Nuance)",
+   "promised": true,
    "provenance": {
     "acquired": "2026-10-04",
     "creator": "Power PDF Create",
@@ -864,6 +918,8 @@
    "bytes": 1964460,
    "content": "5c5b281dcead7e857ef86fc58f76e668",
    "dialect": "Microsoft PowerPoint for Microsoft 365 (direct export)",
+   "promised": false,
+   "promised_reason": "README 'Slide decks, brochures, posters': Not yet; README's own Not-yet example",
    "provenance": {
     "acquired": "2026-10-04",
     "creator": "Microsoft\u00ae PowerPoint\u00ae for Microsoft 365",
@@ -883,6 +939,7 @@
    "bytes": 171072,
    "content": "949e196c04e62fcba3829a9811188d34",
    "dialect": "Microsoft Excel for Microsoft 365 (direct export)",
+   "promised": true,
    "provenance": {
     "acquired": "2026-10-04",
     "creator": "Microsoft\u00ae Excel\u00ae for Microsoft 365",
@@ -902,6 +959,7 @@
    "bytes": 826728,
    "content": "3d62b7fee040450f3dde9f71d2c7d91b",
    "dialect": "LibreOffice 7.1 / Writer (real-world export)",
+   "promised": true,
    "provenance": {
     "acquired": "2026-10-04",
     "creator": "Writer",
@@ -921,6 +979,8 @@
    "bytes": 289185,
    "content": "03c820b32976e75bdb7d1a86a6a91105",
    "dialect": "MiKTeX-dvipdfmx (20220710) / LaTeX (PLOS ONE)",
+   "promised": false,
+   "promised_reason": "README 'Dense journal papers, equations': Not yet (academic journal or conference paper)",
    "provenance": {
     "acquired": "2026-10-04",
     "creator": "LaTeX with hyperref",
@@ -940,6 +1000,8 @@
    "bytes": 1094698,
    "content": "da44ab5272e5dcb5e6b8c6822a36cfce",
    "dialect": "GPL Ghostscript 9.15 / Arbortext Advanced Print Publisher 9.0",
+   "promised": false,
+   "promised_reason": "README 'Dense journal papers, equations': Not yet (academic journal or conference paper)",
    "provenance": {
     "acquired": "2026-10-04",
     "creator": "Arbortext Advanced Print Publisher 9.0.215/W Unicode",
@@ -959,6 +1021,8 @@
    "bytes": 844528,
    "content": "78ea1a5ad280802e0ef051659aace44c",
    "dialect": "pdfTeX-1.40.19 / copernicus.cls (XML to LaTeX)",
+   "promised": false,
+   "promised_reason": "README 'Dense journal papers, equations': Not yet (academic journal or conference paper)",
    "provenance": {
     "acquired": "2026-10-04",
     "creator": "copernicus.cls Version 2023/02/06 10.1.6 Copernicus papers, produced from XML",
@@ -978,6 +1042,8 @@
    "bytes": 1117858,
    "content": "ae5b13a46f350bc1134bf7c203e91e9b",
    "dialect": "dvips + MiKTeX GPL Ghostscript 9.0 / LaTeX hypdvips",
+   "promised": false,
+   "promised_reason": "README 'Dense journal papers, equations': Not yet (academic journal or conference paper)",
    "provenance": {
     "acquired": "2026-10-04",
     "creator": "LaTeX with hyperref package + hypdvips",
@@ -997,6 +1063,8 @@
    "bytes": 474236,
    "content": "2ce4214be7ed0a78cc4d0babc17bdffe",
    "dialect": "pdfTeX-1.40.25 / LaTeX IEEEtran (arXiv)",
+   "promised": false,
+   "promised_reason": "README 'Dense journal papers, equations': Not yet (academic journal or conference paper); README's own Not-yet example",
    "provenance": {
     "acquired": "2026-10-04",
     "creator": "LaTeX with hyperref",
@@ -1016,6 +1084,8 @@
    "bytes": 612548,
    "content": "70ed3f6f38fa01425155fa8c4d16b97e",
    "dialect": "pdfTeX-1.40.25 (TeX Live 2023) / LaTeX acmart (arXiv)",
+   "promised": false,
+   "promised_reason": "README 'Dense journal papers, equations': Not yet (academic journal or conference paper)",
    "provenance": {
     "acquired": "2026-10-04",
     "creator": "LaTeX with acmart 2023/11/05 v2.00 Typesetting articles for the Association for Computing Machinery and hyperref 2023-04-22 v7.00x Hypertext links for LaTeX",
@@ -1035,6 +1105,8 @@
    "bytes": 1567574,
    "content": "dad8b4a0917eadce06e7d9aec42d077f",
    "dialect": "pdfTeX-1.40.25 / LaTeX NeurIPS style (arXiv)",
+   "promised": false,
+   "promised_reason": "README 'Dense journal papers, equations': Not yet (academic journal or conference paper)",
    "provenance": {
     "acquired": "2026-10-04",
     "creator": "LaTeX with hyperref",
@@ -1054,6 +1126,7 @@
    "bytes": 91886,
    "content": "e8c04b77aa4a3e944cd9bfb573ce7f7e",
    "dialect": "Typst 0.14.2 (RenderCV)",
+   "promised": true,
    "provenance": {
     "acquired": "2026-10-04",
     "creator": "Typst 0.14.2",
@@ -1073,6 +1146,7 @@
    "bytes": 220505,
    "content": "2c7364dd43c3a9d2a96dbe0da7a70daf",
    "dialect": "pdfTeX-1.40.28 / LaTeX",
+   "promised": true,
    "provenance": {
     "acquired": "2026-10-04",
     "creator": "LaTeX with hyperref",
@@ -1092,6 +1166,7 @@
    "bytes": 46029,
    "content": "3b994af4dd86f8cb2a9da0cfd5262584",
    "dialect": "xdvipdfmx (0.1) / LaTeX",
+   "promised": true,
    "provenance": {
     "acquired": "2026-10-04",
     "creator": "LaTeX with hyperref",
@@ -1111,6 +1186,8 @@
    "bytes": 1787113,
    "content": "3d04c9718cd5d4029af1f3bdb75d1455",
    "dialect": "Microsoft Word pour Microsoft 365 (direct export)",
+   "promised": false,
+   "promised_reason": "README 'Arabic, Hebrew and Persian (right-to-left)': Partly",
    "provenance": {
     "acquired": "2026-10-04",
     "creator": "Microsoft\u00ae Word pour Microsoft 365",
@@ -1130,6 +1207,8 @@
    "bytes": 205194,
    "content": "6dcfb9a9dc082ee87eb46c7fec76f0f8",
    "dialect": "WeasyPrint 70.0",
+   "promised": false,
+   "promised_reason": "README 'Arabic, Hebrew and Persian (right-to-left)': Partly",
    "provenance": {
     "acquired": "2026-10-04",
     "creator": null,
@@ -1149,6 +1228,8 @@
    "bytes": 1478255,
    "content": "7e29d914c6a83a0937819e9c46caab37",
    "dialect": "Microsoft Word 2016 (direct export)",
+   "promised": false,
+   "promised_reason": "README 'Arabic, Hebrew and Persian (right-to-left)': Partly",
    "provenance": {
     "acquired": "2026-10-04",
     "creator": "Microsoft\u00ae Word 2016",
@@ -1168,6 +1249,8 @@
    "bytes": 927090,
    "content": "4b93cb74650c1596ee0bc229c6423d16",
    "dialect": "Microsoft Word 2016 (direct export)",
+   "promised": false,
+   "promised_reason": "README 'Arabic, Hebrew and Persian (right-to-left)': Partly",
    "provenance": {
     "acquired": "2026-10-04",
     "creator": "Microsoft\u00ae Word 2016",
@@ -1187,6 +1270,8 @@
    "bytes": 215852,
    "content": "85de6905e6e225540f77be04a8a337e0",
    "dialect": "JUST PDF 4 (JustSystems)",
+   "promised": false,
+   "promised_reason": "README 'Chinese, Japanese and Korean text': Partly",
    "provenance": {
     "acquired": "2026-10-04",
     "creator": null,
@@ -1206,6 +1291,8 @@
    "bytes": 600388,
    "content": "4f33586c4926ebc60507b1d19b8f0f62",
    "dialect": "Microsoft Word for Microsoft 365, zh-TW UI (direct export)",
+   "promised": false,
+   "promised_reason": "README 'Chinese, Japanese and Korean text': Partly",
    "provenance": {
     "acquired": "2026-10-04",
     "creator": "\u9069\u7528\u65bc Microsoft 365 \u7684 Microsoft\u00ae Word",
@@ -1225,6 +1312,8 @@
    "bytes": 860615,
    "content": "0ba7cd251f34be24bc4c03259743b752",
    "dialect": "Microsoft Word 2016 (direct export)",
+   "promised": false,
+   "promised_reason": "README 'Chinese, Japanese and Korean text': Partly",
    "provenance": {
     "acquired": "2026-10-04",
     "creator": "Microsoft\u00ae Word 2016",
@@ -1244,6 +1333,8 @@
    "bytes": 158176,
    "content": "57055a5c773cbacd424bfccf8ff3e7bb",
    "dialect": "Skia/PDF m136 Google Docs Renderer",
+   "promised": false,
+   "promised_reason": "script outside README's 'Latin, Cyrillic and Greek text: Works well' row",
    "provenance": {
     "acquired": "2026-10-04",
     "creator": null,
@@ -1263,6 +1354,8 @@
    "bytes": 108946,
    "content": "34a4de93354d9973016b15eda20f6c2f",
    "dialect": "macOS 15.7.1 Quartz PDFContext / Apple Pages",
+   "promised": false,
+   "promised_reason": "script outside README's 'Latin, Cyrillic and Greek text: Works well' row",
    "provenance": {
     "acquired": "2026-10-04",
     "creator": "Pages",
@@ -1282,6 +1375,8 @@
    "bytes": 543127,
    "content": "9fd5a8a65aefbe79abdfb6172f34c712",
    "dialect": "Recoded by LuraDocument PDF v2.53 / Internet Archive scan",
+   "promised": false,
+   "promised_reason": "README 'Scanned pages': no OCR built in; a scan with a text layer converts, but its look is not promised",
    "provenance": {
     "acquired": "2026-10-04",
     "creator": "Digitized by the Internet Archive",
@@ -1301,6 +1396,8 @@
    "bytes": 1367570,
    "content": "008b1532a4fc20f55bf167bd7f257c67",
    "dialect": "Internet Archive PDF 1.2.2 (mupdf, pymupdf) / Scribe scan",
+   "promised": false,
+   "promised_reason": "README 'Scanned pages': no OCR built in; a scan with a text layer converts, but its look is not promised",
    "provenance": {
     "acquired": "2026-10-04",
     "creator": "Internet Archive (Scribe Version 4.5-initial-68-gb9b4dcd8)",
@@ -1320,6 +1417,8 @@
    "bytes": 163235,
    "content": "fd2d6fbfd04e5c45065e79b1ca354dbf",
    "dialect": "Adobe PDF Library 17.0 / Adobe InDesign 20.2",
+   "promised": false,
+   "promised_reason": "README 'Not yet': heavily designed layout; README's own Not-yet example",
    "provenance": {
     "acquired": "2026-10-04",
     "creator": "Adobe InDesign 20.2 (Windows)",
@@ -1339,6 +1438,8 @@
    "bytes": 382449,
    "content": "bb168034c782ae9635a9bb9f93dd756a",
    "dialect": "Adobe PDF Library 9.0 / Adobe InDesign CS4 (6.0.6)",
+   "promised": false,
+   "promised_reason": "README 'Not yet': heavily designed layout",
    "provenance": {
     "acquired": "2026-10-04",
     "creator": "Adobe InDesign CS4 (6.0.6)",
@@ -1358,6 +1459,8 @@
    "bytes": 536343,
    "content": "6b8c26d583fc673e43fa84500ad7d13c",
    "dialect": "Adobe PDF Library 17.0 / Adobe InDesign 19.4",
+   "promised": false,
+   "promised_reason": "README 'Dense journal papers, equations': Not yet (academic journal or conference paper)",
    "provenance": {
     "acquired": "2026-10-04",
     "creator": "Adobe InDesign 19.4 (Windows)",
@@ -1377,6 +1480,8 @@
    "bytes": 269715,
    "content": "89d1b20b81e27567e90032e9dc1ce668",
    "dialect": "iText Core 7.2.3 / govinfo (GPO Federal Register)",
+   "promised": false,
+   "promised_reason": "README 'Not yet': heavily designed layout",
    "provenance": {
     "acquired": "2026-10-04",
     "creator": "govinfo, U. S. Government Publishing Office",
@@ -1396,6 +1501,7 @@
    "bytes": 238156,
    "content": "4ebcb1a283c7aa7e6d0e0c47820c05f8",
    "dialect": "Acrobat Distiller 23.0 + GPO iText 7.2.3 (bill)",
+   "promised": true,
    "provenance": {
     "acquired": "2026-10-04",
     "creator": "U.S. Gov. Printing Office -- G.S.D.D.",
@@ -1415,6 +1521,7 @@
    "bytes": 222224,
    "content": "70954c0fa7664beb52ff4f7fbdac2c95",
    "dialect": "Word for Microsoft 365 + AO and GPO iText 7.2.3",
+   "promised": true,
    "provenance": {
     "acquired": "2026-10-04",
     "creator": "Microsoft\u00ae Word for Microsoft 365",
@@ -1434,6 +1541,7 @@
    "bytes": 428922,
    "content": "0ad4d31d86d27c0ad557031c7b037afb",
    "dialect": "Adobe Acrobat Pro 25.1 / XPP",
+   "promised": true,
    "provenance": {
     "acquired": "2026-10-04",
     "creator": "XPP",
@@ -1453,6 +1561,7 @@
    "bytes": 74324,
    "content": "64044425bcd9f1c24ce81e33810b2fe1",
    "dialect": "iText 2.1.7 / JasperReports",
+   "promised": true,
    "provenance": {
     "acquired": "2026-10-04",
     "creator": "JasperReports (MeetingDetails)",
