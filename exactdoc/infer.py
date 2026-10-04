@@ -2576,7 +2576,7 @@ def _measure_margins(lay: DocLayout, ir: DocIR, hf: dict,
     # The same one-way door once more, from the lines that wrapped: the
     # column is at least as wide as the widest of them (WRAP_EDGE_* above).
     base_edge = mr if mr is not None else lay.page_w - lay.margin_l
-    wrap_edge = _wrapped_right_edge(ir, hf, lay.page_w)
+    wrap_edge = _wrapped_right_edge(sub_ir, hf, lay.page_w)
     if wrap_edge is not None and wrap_edge > base_edge + WRAP_EDGE_MIN_GAIN:
         mirror = lay.page_w - lay.margin_l
         mr = mirror if wrap_edge <= mirror <= wrap_edge + WRAP_EDGE_MIRROR_PT \
