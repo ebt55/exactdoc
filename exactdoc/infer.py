@@ -11,7 +11,8 @@ from .model import (DocIR, PageIR, TextBlock, Line, Span, DrawCmd, ImageObj,
                     BBox, bbox_union, bbox_overlap, bbox_area, contains,
                     ink_extent)
 from .layout import (Run, Para, Cell, TableEl, FigureEl, ImageEl, RuleEl,
-                     ColBreak, Chunk, PageLayout, HFPart, DocLayout)
+                     ColBreak, Chunk, PageLayout, HFPart, DocLayout,
+                     hf_part_height)
 from . import hyphen
 from .lists import assign_lists
 from .notes import bind_page_notes, find_page_notes, number_footnotes
@@ -3797,20 +3798,7 @@ def _header_body_top(lay: DocLayout, page_no: int) -> float:
     if part is None or not part.elements:
         return 0.0
     y = lay.header_default.distance if lay.header_default else 36.0
-    for el in part.elements:
-        if isinstance(el, Para):
-            y += max(0.0, el.space_before or 0.0)
-            y += (el.leading or 0.0) * max(1, getattr(el, "_vis_lines", 1) or 1)
-            for side in ("border_top", "border_bottom"):
-                b = getattr(el, side, None)
-                if b:
-                    y += b[2] + b[0]
-        elif isinstance(el, TableEl):
-            bb = el.bbox
-            y += (bb[3] - bb[1]) if bb else sum(h or 0.0 for h in el.row_heights)
-        elif isinstance(el, RuleEl):
-            y += (el.space_before or 0.0) + max(2.0, el.thickness)
-    return y
+    return y + hf_part_height(part)
 
 
 def _geometry(lay: DocLayout, own: Optional[DocLayout]) -> DocLayout:
@@ -5073,6 +5061,137 @@ def _display_rows(items, col_l: float, col_r: float):
     return out, consumed
 
 
+# A glyph or three set ABOVE or BELOW a line of text rather than beside it --
+# the "∼" TeX stacks over "=" to draw ≅, a script whose line the parser broke
+# off, an accent -- arrives as a line of its own in a block of its own. Built
+# as flow it became a paragraph a full line tall between the lines of its
+# paragraph: y43 p4's two-line "Examples. Lie Groups G ≅ G/{e} ..." came out
+# as five paragraphs, +30pt, and the page spilled. Such a fragment belongs to
+# the line it sits on: within FRAG_REACH_EM of that line's baseline, inside
+# its horizontal extent, and much narrower than it.
+FRAG_REACH_EM = 0.75       # the host's em box, as `_merge_row_lines` uses
+FRAG_MAX_SHARE = 0.25      # of the host's width: a few glyphs, not a line
+FRAG_SCRIPT_SIZE = 0.85    # smaller than this share of the host: a script
+# The same line's own continuation, cut off where a script was lifted out of
+# it: y43 p4's "...diagonal matrices {diag(e" / ", . . . , e" / ") : θk ∈
+# [0, 2π)}." share baseline 595.8 in three blocks, 11.0 and 12.0pt apart --
+# past the dialect's fragment join, and each became a one-line paragraph. Once
+# the row constructs (tables, label/field rows) have taken their lines, a piece
+# on the same baseline starting within this many ems of a line's end, and no
+# wider than it, continues it.
+FRAG_JOIN_GAP_EM = 1.5
+
+
+def _insert_spans(host: List[Span], frags: List[Span]) -> List[Span]:
+    """`host` with `frags` placed in reading order by x.
+
+    A host span is often a whole line, so sorting by span start would put a
+    fragment that sits over the middle of it after its end. A host span the
+    fragment falls inside is cut at the character the fragment stands over,
+    by the span's mean advance -- a character either way at worst."""
+    out = sorted(host, key=lambda s: s.bbox[0])
+    for f in sorted(frags, key=lambda s: s.bbox[0]):
+        fx = f.bbox[0]
+        k = 0
+        while k < len(out) and out[k].bbox[2] <= fx:
+            k += 1
+        if k < len(out) and out[k].bbox[0] < fx and out[k].text:
+            s = out[k]
+            adv = (s.bbox[2] - s.bbox[0]) / max(1, len(s.text))
+            cut = int(round((fx - s.bbox[0]) / adv)) if adv > 0 else 0
+            if 0 < cut < len(s.text):
+                xc = s.bbox[0] + cut * adv
+                a, b = copy.copy(s), copy.copy(s)   # keeps set-on attributes
+                a.text, a.bbox = s.text[:cut], (s.bbox[0], s.bbox[1], xc, s.bbox[3])
+                b.text, b.bbox = s.text[cut:], (xc, s.bbox[1], s.bbox[2], s.bbox[3])
+                b.origin = (xc, s.origin[1])
+                out[k:k + 1] = [a, f, b]
+                continue
+            if cut >= len(s.text):
+                k += 1
+        out.insert(k, f)
+    return out
+
+
+def _absorb_fragments(items):
+    """`items` with small fragment lines moved into the line they are set on.
+    Lines are edited in place; a block left empty is dropped."""
+    blocks = [o for kind, _bb, o in items if kind == "blk"]
+    lines = [(bi, ln) for bi, o in enumerate(blocks) for ln in _blk_lines(o)
+             if ln.horizontal and ln.spans and ln.text.strip()]
+    if len(lines) < 2:
+        return items
+    moved, hosts = set(), set()
+    # left to right, so a line's continuation pieces join it one after another
+    lines.sort(key=lambda t: (round(t[1].baseline), t[1].bbox[0]))
+    for bi, fr in lines:
+        if id(fr) in moved or id(fr) in hosts:
+            continue
+        fsz = _line_size(fr)
+        fw = fr.bbox[2] - fr.bbox[0]
+        best = None
+        for hj, h in lines:
+            if h is fr or id(h) in moved:
+                continue
+            hsz = _line_size(h)
+            hw = h.bbox[2] - h.bbox[0]
+            if fsz > hsz + 0.1:
+                continue
+            d = abs(fr.baseline - h.baseline)
+            if d < 0.05 * hsz:
+                gap = fr.bbox[0] - h.bbox[2]
+                if hj == bi or fw > hw or not 0.0 <= gap <= FRAG_JOIN_GAP_EM * hsz:
+                    continue
+                if best is None or gap < best[0]:
+                    best = (gap, h)
+                continue
+            if fw > FRAG_MAX_SHARE * hw or d > FRAG_REACH_EM * hsz:
+                continue
+            em = 0.5 * hsz
+            if fr.bbox[0] < h.bbox[0] - em or fr.bbox[2] > h.bbox[2] + em:
+                continue
+            if best is None or d < best[0]:
+                best = (d, h)
+        if best is None:
+            continue
+        h = best[1]
+        hsz = _line_size(h)
+        if abs(fr.baseline - h.baseline) < 0.05 * hsz and h.spans and \
+                fr.bbox[0] - h.bbox[2] > 0.25 * hsz and \
+                not h.spans[-1].text.endswith(" "):
+            last = copy.copy(h.spans[-1])
+            last.text += " "
+            h.spans = h.spans[:-1] + [last]
+        for s in fr.spans:
+            if s.size < FRAG_SCRIPT_SIZE * hsz and \
+                    fr.baseline < h.baseline - 0.12 * hsz:
+                s.superscript = True
+        h.spans = _insert_spans(h.spans, fr.spans)
+        # Horizontally only: the host keeps its own line box, or the
+        # fragment's height above it closes the gap to the paragraph before
+        # and the two paragraphs merge.
+        h.bbox = (min(h.bbox[0], fr.bbox[0]), h.bbox[1],
+                  max(h.bbox[2], fr.bbox[2]), h.bbox[3])
+        moved.add(id(fr))
+        hosts.add(id(h))
+    if not moved:
+        return items
+    out = []
+    for kind, bb, o in items:
+        if kind == "blk":
+            ls = _blk_lines(o)
+            keep = [l for l in ls if id(l) not in moved]
+            if not keep:
+                continue
+            if len(keep) != len(ls):
+                ls[:] = keep
+                if isinstance(o, TextBlock):
+                    o.bbox = _mk_block(keep).bbox
+                bb = _mk_block(keep).bbox
+        out.append((kind, bb, o))
+    return out
+
+
 def _display_paras(rows, col_l: float, col_r: float) -> List[Para]:
     """One paragraph per row of a display; see the block comment above."""
     bases = [r[0].baseline for r in rows]
@@ -5261,6 +5380,9 @@ def _to_flow(items, col_l, col_r, doc_rows=None):
     if consumed:
         items = _drop_row_lines(items, consumed) + \
             [("row", bbox_union(l.bbox, r.bbox), (l, r)) for l, r in pairs]
+    # After every row construct has taken its lines: what is left on a shared
+    # baseline is a broken line of prose, not cells.
+    items = _absorb_fragments(items)
     out = []
     for kind, bb, o in sorted(items, key=lambda t: (t[1][1], t[1][0])):
         if kind == "leader":
@@ -5679,7 +5801,15 @@ def _split_crossed(lines, col_split: float, content_l: float,
     straight through the "gutter" (y43 p3: 33 of 52 lines). Counted over the
     lines below the topmost right-cluster line, like `_two_column_gutter`'s
     own crossing test.
+
+    Only a split that leaves a margin-narrow "column" is refuted. A right side
+    of real width that prose also crosses is a local side-by-side region the
+    block path reads as columns -- lshort's code-and-output example boxes,
+    which laid out as one column stacked each code line over its output line
+    (y22 223 -> 228 pages); that is not this rule's case.
     """
+    if content_r - col_split >= TWO_COL_MIN_BAND_FRAC * (content_r - content_l):
+        return False
     probe = col_split - 4.0
     right = [l.bbox for l in lines if l.bbox[0] >= col_split - 2.0]
     if not right:

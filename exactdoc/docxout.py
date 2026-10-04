@@ -24,7 +24,8 @@ from docx.oxml.ns import qn
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 
 from .layout import (DocLayout, Para, Run, Cell, TableEl, FigureEl, ImageEl,
-                     RuleEl, ColBreak, HFPart, Chunk, PageLayout)
+                     RuleEl, ColBreak, HFPart, Chunk, PageLayout,
+                     hf_part_height)
 from .fonts import east_asian_family, font_table_desc, map_font
 from .metrics import source_line_width
 from .structures import (add_footnote_ref_mark, add_footnote_reference,
@@ -3031,6 +3032,28 @@ def _script_base_sizes(lay: DocLayout) -> int:
     return n
 
 
+def _seat_footer(lay: DocLayout) -> None:
+    """Lower a footer that reaches above the bottom margin until it does not.
+
+    The bottom margin is inferred from the lowest BODY content, and the footer
+    distance from the footer's own baseline; nothing made the footer fit in
+    the margin. Word and LibreOffice then end the body above the footer, not
+    at the margin, and the page's last lines go to a page of their own:
+    y43 (NeurIPS) carries a 40pt footer distance and an 11.6pt page-number
+    line under a 34.2pt bottom margin, so every page lost 17pt at its foot and
+    page 1's last line rendered alone on page 2. Censused over both corpora,
+    eleven documents' footers intrude (2.5-49pt) and no gated one does. The
+    footer moves toward the paper edge by exactly the intrusion -- a page
+    number a few points lower -- rather than the body losing lines.
+    """
+    fh = max(hf_part_height(lay.footer_default), hf_part_height(lay.footer_first))
+    if lay.footer_default is None or fh <= 0:
+        return
+    room = lay.margin_b - fh
+    if lay.footer_default.distance > room:
+        lay.footer_default.distance = round(max(0.0, room), 1)
+
+
 def _paper(pg: PageLayout):
     """A page's own geometry, as inference recorded it (None: the document's)."""
     return (pg.page_w, pg.page_h, pg.margins)
@@ -3058,6 +3081,7 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
         # gdocs profile -- Google Docs' own superscript ratio is unmeasured,
         # and that profile changes only on live evidence.
         _script_base_sizes(lay)
+        _seat_footer(lay)
     # Real lists and real notes, where the profile writes them (options.py).
     # Planned before anything is written: a list or a note that cannot be
     # written whole is written typed, never half-converted.

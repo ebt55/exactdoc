@@ -296,6 +296,29 @@ class HFPart:
     distance: float = 36.0       # from page edge
 
 
+def hf_part_height(part: Optional[HFPart]) -> float:
+    """The height a header or footer occupies as the writer lays it out: each
+    element's space before, exact line height and paragraph-border space and
+    width; a table its box, a rule its 2pt paragraph. 0.0 for no part."""
+    if part is None:
+        return 0.0
+    y = 0.0
+    for el in part.elements:
+        if isinstance(el, Para):
+            y += max(0.0, el.space_before or 0.0)
+            y += (el.leading or 0.0) * max(1, getattr(el, "_vis_lines", 1) or 1)
+            for side in ("border_top", "border_bottom"):
+                b = getattr(el, side, None)
+                if b:
+                    y += b[2] + b[0]
+        elif isinstance(el, TableEl):
+            bb = el.bbox
+            y += (bb[3] - bb[1]) if bb else sum(h or 0.0 for h in el.row_heights)
+        elif isinstance(el, RuleEl):
+            y += (el.space_before or 0.0) + max(2.0, el.thickness)
+    return y
+
+
 @dataclass
 class DocLayout:
     page_w: float = 612.0
