@@ -375,8 +375,17 @@ class TheWriter(unittest.TestCase):
         # while keeping the tail gap positive; a negative gap is written as
         # zero and would show up as the writer adding space it was not asked
         # for.
+        #
+        # The spilling page spreads its gaps evenly (10.4pt, its last one
+        # 12.4pt): `_page`'s default puts all of a page's slack in front of its
+        # last paragraph -- 82pt, seven lines -- and an element set that far
+        # below the one before it is placed by its gap, which
+        # `docxout._guard_page_tail` then keeps a body line inside the box.
+        # That is tested on its own (test_page_tail_guard); here only the
+        # spill plan is measured.
         lay = _lay()
-        lay.pages = [_page(lay, over_pt), _page(lay, -40.0)]
+        lay.pages = [_page(lay, over_pt, gap=10.4 if over_pt > 0 else 8.0),
+                     _page(lay, -40.0)]
         for i, pg in enumerate(lay.pages):
             pg.number = i + 1
         return lay
