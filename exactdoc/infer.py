@@ -4406,19 +4406,36 @@ def _blk_lines(o):
 
 
 def _drop_row_lines(items, consumed):
-    """items with the paired lines removed, and emptied blocks dropped."""
+    """items with the paired lines removed, and emptied blocks dropped.
+
+    A block is cut where a removed line stood. The flow is ordered at block
+    granularity (see `_split_blocks_at_elements`), so lines kept on BOTH
+    sides of a removed one, left in one block, all sorted at the block's top
+    -- ahead of the rows taken out from between them. y64's household tables
+    are one block per table: the section headings ("WHITE", "Men, 20 years
+    and over") stayed in it, came out first, and every row of the table
+    followed them, 1-3 pages of spill per table.
+    """
     out = []
     for kind, bb, o in items:
         if kind != "blk":
             out.append((kind, bb, o))
             continue
-        keep = [ln for ln in _blk_lines(o) if id(ln) not in consumed]
-        if not keep:
-            continue
-        nb = None
-        for ln in keep:
-            nb = bbox_union(nb, ln.bbox)
-        out.append((kind, nb or bb, keep))
+        groups, cur = [], []
+        for ln in _blk_lines(o):
+            if id(ln) in consumed:
+                if cur:
+                    groups.append(cur)
+                    cur = []
+            else:
+                cur.append(ln)
+        if cur:
+            groups.append(cur)
+        for keep in groups:
+            nb = None
+            for ln in keep:
+                nb = bbox_union(nb, ln.bbox)
+            out.append((kind, nb or bb, keep))
     return out
 
 
@@ -4501,6 +4518,35 @@ def _slice_runs_at(runs: List[Run], a: int, b: int) -> List[Run]:
     return out
 
 
+_LEADER_DOTS = re.compile(r"[.·…]{4,}")
+# A label that ENDS in a dense dot leader, the leader to be drawn by a tab.
+_TRAILING_LEADER_RE = re.compile(r"^(?P<label>.*?\S)[ \t]*(?P<dots>[.·…]{4,})[ \t]*$")
+
+
+def _label_before_leader(runs: List[Run], end: int) -> List[Run]:
+    """The label's runs, text [0, end), without the letter-spacing the
+    parser measured over a span that also held the leader.
+
+    `parse_pdfium._span_tracking` reads letter-spacing from the mean gap
+    between a span's glyphs, and a dot leader is mostly gap: y64's
+    "Civilian noninstitutional population......" measured 0.47pt, its
+    "Civilian labor force......" 0.62pt, against ~0 for the words. With the
+    dots drawn by a tab, that tracking would only letter-space the label
+    (and widen it past its tab stop, wrapping the row).
+    """
+    out, pos = [], 0
+    for r in runs:
+        n = len(r.text)
+        if pos < end and r.text:
+            c = replace(r, text=r.text[:max(0, min(n, end - pos))])
+            if _LEADER_DOTS.search(r.text):
+                c.tracking = 0.0
+            if c.text:
+                out.append(c)
+        pos += n
+    return out
+
+
 def _leader_para(ln: Line, edge: float, col_l: float, col_r: float) -> Para:
     """Title, TAB, number -- against a right stop with a dot leader."""
     p = para_from_lines([ln], col_l, col_r)
@@ -4509,7 +4555,7 @@ def _leader_para(ln: Line, edge: float, col_l: float, col_r: float) -> Para:
     m = _LEADER_RE.match(text)
     if m is None:                       # spans re-joined differently: keep it
         return p
-    label = _slice_runs_at(runs, 0, m.end("label"))
+    label = _label_before_leader(runs, m.end("label"))
     num = _slice_runs_at(runs, m.start("num"), m.end("num"))
     dots = _slice_runs_at(runs, m.start("dots"), m.end("dots"))
     ref = (label or runs)[-1]
@@ -4672,12 +4718,22 @@ def _grid_para(frags, col_l: float, col_r: float) -> Para:
     line = Line(spans=spans, bbox=bb)
     p = para_from_lines([line], col_l, col_r)
     runs, stops = [], []
+    leader = None
     for i, f in enumerate(frags):
         rr = runs_from_spans(_frag_spans(f))
         if rr:
             rr[0].text = rr[0].text.lstrip(" ")
             rr[-1].text = rr[-1].text.rstrip(" ")
         rr = [r for r in rr if r.text]
+        if i == 0 and len(frags) > 1:
+            # A stub ending in a dense dot leader (y64's statistical tables:
+            # "Civilian labor force........ 167,988 170,359 ...") is drawn
+            # the way a word processor draws it: the leader is the first
+            # stop's, and the dots are not text that can overrun the stop.
+            m = _TRAILING_LEADER_RE.match("".join(r.text for r in rr))
+            if m is not None:
+                rr = _label_before_leader(rr, m.end("label"))
+                leader = "dot"
         if i:
             ref = runs[-1] if runs else (rr[0] if rr else None)
             runs.append(Run(text="\t", font=ref.font if ref else f[0].font,
@@ -4688,6 +4744,8 @@ def _grid_para(frags, col_l: float, col_r: float) -> Para:
                 stops.append((round(f[-1].bbox[2] - col_l, 1), "right"))
             else:
                 stops.append((round(f[0].bbox[0] - col_l, 1), "left"))
+            if i == 1 and leader:
+                stops[-1] = stops[-1] + (leader,)
         runs.extend(rr)
     p.runs = runs
     p.align = "left"
