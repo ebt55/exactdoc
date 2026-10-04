@@ -20,6 +20,126 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **gdocs: the ladder no longer fits locked lines with tracking Google Docs
+  discards (live, 2026-10-04).** The ladder pins a re-wrapping paragraph to
+  its source lines and makes each pinned line fit by compressing it with
+  negative w:spacing -- under every profile. Docs drops w:spacing (x10 flown as
+  written, without it, and with it x10: identical exports), so under gdocs each
+  compressed line was set at full width and wrapped: locking without fitting,
+  which the ladder's own notes measure as worse than flow. `metrics.for_profile`
+  now wraps the shaper in `RendererMetrics(honours_tracking=False)` for gdocs;
+  the ladder then shapes at natural advances and refuses a lock that only
+  compression would fit, and the writer's spill and column predictions use
+  the same view. Standard is unchanged. A/B live on the 11 documents with the
+  most compression, same tree, the old belief restored for A
+  ([evidence](docs/evidence/gdocs-2026-10-04-tracking-ab.json)): page error
+  280 -> 276, summed word recall 3.887 -> 4.139, summed dy_p50 425 -> 378pt;
+  y24 word recall 0.395 -> 0.604 (dy_p50 16.0 -> 7.3pt), y43 27 -> 26 pages
+  (0.185 -> 0.240), y03 69 -> 67 pages, y18 262 -> 260. Worse: y03 word
+  recall 0.408 -> 0.390, y60 dy_p50 68.3 -> 70.2pt, y13/y37 -0.001; x10, the
+  control, identical.
+- **gdocs: contents-page dot leaders are typed, because Google Docs draws no
+  tab leaders (live, 2026-10-04).** The live sweep of the expansion corpus
+  found x02's contents page back from Docs with all 1,277 leader dots gone,
+  only the page numbers left at the right edge: the right tab stop imported,
+  its `w:leader="dot"` did not. Typed dots render, so under the gdocs profile a
+  contents line now carries the source's own leader, two dots short, before a
+  plain right tab that absorbs the rest (`Para.leader_text`, set where
+  `infer._leader_para` makes the stop; `docxout._gdocs_typed_leader`, applied
+  to a copy). Standard keeps the real leader tab. Flown on all twelve
+  expansion documents with leaders, about 516 entries: no page number wrapped,
+  and x02's char recall in Docs went 0.766 -> 0.997.
+- **Google Docs round trips survive large documents.** y06 (IRS 1040
+  instructions, a 9.9 MB DOCX of page images) could not be measured live at
+  all: Drive's simple upload carries at most 5 MB, the create call then
+  outlived httplib2's default socket timeout while Google converted it, and
+  `files.export` refuses a PDF over 10 MB. Both the product oracle
+  (`exactdoc/gdocs.py`) and the qualification oracle now upload over 5 MB
+  resumably, give Drive calls a 600 s timeout, and fetch a too-large export
+  through the Doc's own export link (only on that 403). Each upload carries a
+  unique name, so a create the client gave up on is found and deleted rather
+  than left in the user's Drive. y06 now round-trips in 113 s (189 pages,
+  15 MB) with nothing left behind.
+- **A picture that fills the page is placed on the page (live, 2026-10-04).**
+  A designed cover or a scanned page kept as its image was written inline at
+  612x792 inside the section margins: Google Docs put y28's cover at (73.5,
+  39.6), ran it off the right and bottom edges, and its overflow pushed a blank
+  page in front of the memo; LibreOffice did the same at (81.1, 38.8). Four
+  writer forms were flown live on y28's own DOCX
+  ([evidence](docs/evidence/gdocs-2026-10-04-cover-picture.json)): anchored
+  behind text at the page origin it lands at (0, 0, 612, 792) in both
+  renderers, where a zero-margin section still left it 1.5–9pt off and a
+  crop was ignored. Any picture ≥ 97% of the paper in both dimensions now
+  takes that form (`docxout._picture_paragraph`), in every profile. It
+  touches four of the 95 documents, none gated. Canonical raw: y28 37 → 36
+  pages (word recall 0.176 → 0.214), y56 17 → 14 (0.213 → 0.440), y57 29 →
+  26 (0.068 → 0.086), char recall and SSIM up on all three, y34 identical;
+  within-2pt slips on the three (y28 0.014 → 0.012), all of them documents
+  whose pages are already misaligned. Live Docs, y28: 28 → 27 pages, word
+  recall 0.255 → 0.300, dy_p50 72.2 → 55.5pt.
+- **gdocs: tab-separated lists are real Word lists in Google Docs; footnotes
+  stay typed (live, 2026-10-04).** The WP17 probe set was flown through Google
+  Docs, then the whole gated corpus, seven list-bearing expansion documents and
+  a private 32-page report, each typed vs real
+  ([evidence](docs/evidence/gdocs-2026-10-04-lists-notes-probe.json)). Bullets
+  and decimal/alpha/roman lists separated by a tab render with every metric
+  identical to the typed form — 577 list paragraphs: 71 in eight gated
+  documents (c6_long 50), 444 in x03, x09, y17, y24 (253), y28 and y30, 62 in
+  the report — and print the source's numbers
+  across an interrupted list, so `PROFILE_CAPABILITIES["gdocs"]` now has
+  `numbering`. Two Docs rules found on the way: it ignores `w:suff
+  space`/`nothing` and draws a tab where the space was, about half an inch
+  past the label's indent (c1's run-in "1. text" recommendations 79.6 →
+  106.0pt), so under gdocs a list with a
+  non-tab level stays typed, whole (`structures.numbering_plan(tab_only=)`);
+  and real footnotes sit at the foot of the text area (dy_p90 3.3 → 73.9pt)
+  with custom marks and restarts renumbered as automatic ("3" where the source
+  says "1"), so footnotes stay typed. Live pass 9b
+  ([qualification](docs/evidence/gdocs-2026-10-04-pass9b-qualification.json)):
+  overall pass, zero blocking findings, every fidelity metric identical to pass
+  8b on all 16 documents; the private report stays CLEAN 32/32.
+- **running headers, footers and page numbers (audit finding 3: B1, B2, B3,
+  B26).** Parts were built from page 2 alone, so NIST SP 800-171 — whose page
+  2 is its title page — had its running head and folios consumed from 111
+  pages and written nowhere. They now come from the page carrying the *modal*
+  furniture, with `w:titlePg` when page 1 differs (and states its own footer,
+  including none) and `w:evenAndOddHeaders` when each parity has its own
+  (a slip opinion's verso/recto heads, lshort's folio side). Furniture is
+  searched past the fixed 62/64pt bands to 0.2 H where a row carries the
+  page's own number in an unbroken chain from the paper edge: RFC footers 105pt
+  up, the Supreme Court's head 114pt down. A printed number is a live PAGE
+  field when it tracks the physical index at a constant offset (arabic or
+  roman; ≥3 pages, 2 with agreeing `/PageLabels`), and a restart or format
+  change opens a section stating `w:pgNumType w:start/w:fmt` (y02: blank
+  lead-in, roman i…x, arabic from 1). Heads whose text changes by chapter
+  (bash, pandoc, lshort, "CHAPTER ONE") are stated per section instead of
+  dropped. `margin_t`/`margin_b` never sit inside a part's extent (y17 was
+  written with `pgMar top=200tw` under a 35pt header). Measured in the
+  canonical LibreOffice on the way: a first-page part with no default part
+  beside it shrinks every later page's body, so neither is written alone; the
+  bottom reserve now relaxes to the footer's top instead of being refused.
+  A footer keeps its parts but never shrinks the one body box below what
+  the source body uses on any page (it moves down just enough, floor 18pt,
+  only when that frees a 12pt line), and a footer line set beside another
+  row joins it instead of stacking (y30's footer was 31.5pt against 18).
+  The refine loop spends the footer's distance down to the same floor when
+  its render still spills. Measured on the integration tree (64d3e2a/79d2100
+  plus WP2), canonical container: gate PASS both lanes at the re-recorded
+  floors (product 16/16, <2pt 0.6019; raw 15/16, 0.4568; per-document lines
+  identical to the integration tree), gated outputs byte-identical except
+  02/03's `pgMar` bottom. Raw sweep, 90 measured, against 64d3e2a: rendered
+  pages 3330 → 3236, mean |ratio−1| 0.3095 → 0.2926, word recall 0.5796 →
+  0.5872, doc recall 0.9157 → 0.9192; y17 210 → 204 (recall 0.341 → 0.889),
+  y22 223 → 182, y18 264 → 242, y28 37 → 28, y06 178 → 168, y33 82 → 74.
+  Open-loop cost that remains: y52 54 → 61, y10 38 → 40, y30 33 → 35, y01
+  89 → 92, y02 125 → 127 — documents whose re-wrapped text used the 14pt
+  reserve the body had when their folio was not a footer; giving it back
+  would move the footer away from where the source prints it. Product
+  profile on the 14 most-affected documents: word recall 0.589 → 0.629, doc
+  recall 0.934 → 0.949, within-2pt 0.121 → 0.133, pages 979 → 980; y18
+  145 → 144 (recall 0.843 → 0.986), y30 recall 0.724 → 0.982, y02 0.918 →
+  0.958; y03 53 → 54 and y33 69 → 70 the only page losses.
+
 - **fonts: a family table replaces the descriptor-flag heuristic (audit B12–B15,
   B30, defect catalogue #3/#19).** pdfTeX's Type 1 fonts carry no Serif or
   FixedPitch bit, so `NimbusRomNo9L` (Times' metric clone) became Arial,
@@ -504,9 +624,10 @@ Non-gating; the expansion parity policy re-pins its corpus hash only.
   reproduces the source and are custom marks elsewhere (symbols, SCOTUS's
   dissent restarting at 1). *Writing* (`structures.py`) is a profile
   capability (`options.PROFILE_CAPABILITIES`): standard writes
-  numbering.xml and footnotes.xml, gdocs keeps both typed (text-identical on
-  all 13 documents with notes) until a live pass grades the probe set
-  `testkit/gdocs_probe_lists_notes.py` writes. Typed vs numbered renders in
+  numbering.xml and footnotes.xml, gdocs kept both typed (text-identical on
+  all 13 documents with notes) until a live pass graded the probe set
+  `testkit/gdocs_probe_lists_notes.py` writes (it since has: see the gdocs
+  lists entry above). Typed vs numbered renders in
   the canonical LibreOffice: 0 words moved > 0.5pt on x03, x09, x17, x18,
   c1, c6, 01, 04, 05, l1, c8, r1, y17, y28, y30 (y24: 4 of 44,352, ≤ 0.66pt)
   — after designing around three LibreOffice rules: the tab after a label

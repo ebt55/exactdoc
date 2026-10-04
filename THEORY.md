@@ -117,9 +117,14 @@ Two stages were added after the original design and are load-bearing:
    minus inner rect) into their 4 visible edge bars — otherwise a decorative
    frame's bounding box swallows everything inside it.
 2. **Infer** (`infer.py`) — the semantic decompiler:
-   - repeating headers/footers across pages; page numbers become live
-     `PAGE`/`NUMPAGES` fields only after **cross-page verification** (the
-     digit must equal the page number on ≥2 pages — "v3.2" stays text);
+   - repeating headers/footers across pages, built from the page carrying the
+     modal furniture (first-page and verso/recto parts when the evidence
+     differs); page numbers become live `PAGE`/`NUMPAGES` fields only after
+     **cross-page verification** (the number must track the physical page
+     index at a constant offset — arabic or roman — over a run of pages: ≥2
+     for offset 0, ≥3 otherwise — "v3.2" stays text), and a restart or a
+     change of format opens a section that states it in `w:pgNumType`
+     (`furniture.py`);
    - cover bands, continuation strips, grid tables (lattice from h/v edges),
      booktabs tables (rules + text-column clustering), zebra stripes,
      stat-card rows, callout/quote/code boxes, figure regions;

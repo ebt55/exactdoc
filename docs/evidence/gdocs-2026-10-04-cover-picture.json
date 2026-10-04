@@ -1,0 +1,165 @@
+{
+ "schema": 1,
+ "date": "2026-10-04",
+ "kind": "gdocs-live-writer-probe",
+ "question": "how should a picture that fills the page (designed cover, scanned page) be written so Google Docs and LibreOffice place it on the page?",
+ "document": "testkit/fixtures_expansion/y28_doe_oig_word365.pdf (cover = one 612x792 picture; body section margins L72 R57.7 T25.4 B14)",
+ "method": "the gdocs-candidate DOCX patched four ways, uploaded, exported by Google, page-1 image boxes read with pdfium (pt, top-down); LibreOffice column is local Windows triage, not canonical",
+ "variants": {
+  "V0_inline_in_margins": {
+   "gdocs": {
+    "pages": 28,
+    "image_ltrb": [
+     73.5,
+     39.6,
+     685.5,
+     831.6
+    ],
+    "memo_on_page": 3
+   },
+   "libreoffice_triage": {
+    "image_ltrb": [
+     81.1,
+     38.8,
+     693.0,
+     830.8
+    ],
+    "memo_on_page": 3
+   }
+  },
+  "V1_own_zero_margin_section_inline": {
+   "gdocs": {
+    "pages": 27,
+    "image_ltrb": [
+     1.5,
+     3.6,
+     613.5,
+     795.6
+    ],
+    "memo_on_page": 2
+   },
+   "libreoffice_triage": {
+    "image_ltrb": [
+     9.1,
+     2.8,
+     621.0,
+     794.8
+    ],
+    "memo_on_page": 2
+   }
+  },
+  "V2_V1_plus_srcRect_crop_14.8pt": {
+   "gdocs": {
+    "pages": 27,
+    "image_ltrb": [
+     1.5,
+     3.6,
+     613.5,
+     795.4
+    ],
+    "memo_on_page": 2
+   },
+   "note": "Docs ignored the crop"
+  },
+  "V3_anchor_behind_text_page_origin": {
+   "gdocs": {
+    "pages": 27,
+    "image_ltrb": [
+     0.0,
+     0.0,
+     612.0,
+     792.0
+    ],
+    "memo_on_page": 2
+   },
+   "libreoffice_triage": {
+    "image_ltrb": [
+     0.0,
+     0.0,
+     612.0,
+     791.9
+    ],
+    "memo_on_page": 2
+   }
+  }
+ },
+ "chosen": "V3, in docxout._picture_paragraph for any picture >= 97% of the paper in both dimensions",
+ "after_change": {
+  "canonical_raw_sweep": {
+   "y28": {
+    "out_pages": [
+     37,
+     36
+    ],
+    "word_recall": [
+     0.1758,
+     0.2143
+    ],
+    "char_recall": [
+     0.3814,
+     0.4227
+    ],
+    "mean_ssim": [
+     0.3308,
+     0.3519
+    ]
+   },
+   "y56": {
+    "out_pages": [
+     17,
+     14
+    ],
+    "word_recall": [
+     0.2127,
+     0.4404
+    ],
+    "char_recall": [
+     0.5172,
+     0.58
+    ],
+    "mean_ssim": [
+     0.3917,
+     0.4875
+    ]
+   },
+   "y57": {
+    "out_pages": [
+     29,
+     26
+    ],
+    "word_recall": [
+     0.0681,
+     0.086
+    ],
+    "char_recall": [
+     0.3245,
+     0.384
+    ],
+    "mean_ssim": [
+     0.3816,
+     0.4265
+    ]
+   },
+   "y34": "identical",
+   "gated_16": "no full-page picture: untouched"
+  },
+  "gdocs_live_y28": {
+   "out_pages": [
+    28,
+    27
+   ],
+   "word_recall": [
+    0.2553,
+    0.3004
+   ],
+   "char_recall": [
+    0.6068,
+    0.635
+   ],
+   "dy_p50": [
+    72.21,
+    55.46
+   ]
+  }
+ }
+}

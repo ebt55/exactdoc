@@ -114,6 +114,10 @@ class Para:
     # rows as an alternate, target-specific serialization; standard DOCX keeps
     # its existing flow form while the Google Docs profile can preserve them.
     gdocs_rows: List[List[Run]] = field(default_factory=list)
+    # A contents line's leader as the source typed it ("....."), kept beside
+    # the dot-leader tab stop that replaces it: Google Docs draws no tab
+    # leaders, so that profile types these dots instead (docxout).
+    leader_text: str = ""
     # Membership of a real list; None for every other paragraph. See ListItem.
     numbering: Optional[ListItem] = None
     # "" for ordinary flow. "footnote": this paragraph is the source's footnote
@@ -282,11 +286,6 @@ class PageLayout:
     # it moves any gap, so the form cannot flip under its own corrections.
     # None (every open-loop write) keeps the 1pt carrier.
     top_gap_fits: Optional[bool] = None
-    # Where this page's body starts when its running head ends below the top
-    # margin (infer._header_body_top); None means the margin. Its chunks'
-    # space_before and pre_gap are measured from here, so a writer that pins a
-    # column section's start as a page margin must start from here too.
-    body_top: Optional[float] = None
 
 
 @dataclass
@@ -296,27 +295,30 @@ class HFPart:
     distance: float = 36.0       # from page edge
 
 
-def hf_part_height(part: Optional[HFPart]) -> float:
-    """The height a header or footer occupies as the writer lays it out: each
-    element's space before, exact line height and paragraph-border space and
-    width; a table its box, a rule its 2pt paragraph. 0.0 for no part."""
-    if part is None:
-        return 0.0
-    y = 0.0
-    for el in part.elements:
-        if isinstance(el, Para):
-            y += max(0.0, el.space_before or 0.0)
-            y += (el.leading or 0.0) * max(1, getattr(el, "_vis_lines", 1) or 1)
-            for side in ("border_top", "border_bottom"):
-                b = getattr(el, side, None)
-                if b:
-                    y += b[2] + b[0]
-        elif isinstance(el, TableEl):
-            bb = el.bbox
-            y += (bb[3] - bb[1]) if bb else sum(h or 0.0 for h in el.row_heights)
-        elif isinstance(el, RuleEl):
-            y += (el.space_before or 0.0) + max(2.0, el.thickness)
-    return y
+@dataclass
+class HFSection:
+    """A run of source pages with its own page numbering.
+
+    The writer opens a NEW_PAGE section at `start_page` (1-based source page)
+    and states the numbering on it as `w:pgNumType`: `num_start` is the number
+    the source prints on that page, `num_fmt` its format ('decimal',
+    'lowerRoman', 'upperRoman'). Both None: the section continues numbering.
+    `blank`: the section's pages carry no running furniture in the source (a
+    cover and title page ahead of numbered front matter), so its header and
+    footer are written empty and the next section restates the document's.
+    The first entry always has start_page 1.
+    """
+    start_page: int
+    num_start: Optional[int] = None
+    num_fmt: Optional[str] = None
+    blank: bool = False
+    # Running-head parts this section states itself, because the source's
+    # varying furniture changes here (a new chapter title in the head). Keys
+    # 'header', 'footer', 'header_even', 'footer_even', 'header_first',
+    # 'footer_first'; None (the attribute) = inherit the previous section's.
+    parts: Optional[Dict[str, Optional["HFPart"]]] = None
+    # The section's first page is a chapter opener without the running head.
+    title_pg: bool = False
 
 
 @dataclass
@@ -332,6 +334,13 @@ class DocLayout:
     footer_default: Optional[HFPart] = None
     footer_first: Optional[HFPart] = None
     different_first: bool = False
+    # Verso/recto furniture: when set, `header_default`/`footer_default` are the
+    # odd-page parts and these the even-page ones (None = same as default).
+    even_odd: bool = False
+    header_even: Optional[HFPart] = None
+    footer_even: Optional[HFPart] = None
+    # Page-numbering sections; empty when the document numbers 1..n in arabic.
+    hf_sections: List[HFSection] = field(default_factory=list)
     hyphenated: bool = False               # source uses hyphenated justification
     cover_band: Optional[TableEl] = None   # page-1 full-width band (own section, small top margin)
     cover_top: float = 0.0                 # top margin for the cover section

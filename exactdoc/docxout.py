@@ -24,8 +24,7 @@ from docx.oxml.ns import qn
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 
 from .layout import (DocLayout, Para, Run, Cell, TableEl, FigureEl, ImageEl,
-                     RuleEl, ColBreak, HFPart, Chunk, PageLayout,
-                     hf_part_height)
+                     RuleEl, ColBreak, HFPart, Chunk, PageLayout)
 from .fonts import east_asian_family, font_table_desc, map_font
 from .metrics import source_line_width
 from .structures import (add_footnote_ref_mark, add_footnote_reference,
@@ -626,6 +625,29 @@ _PPR_AFTER_SUPPRESS_HYPHENS = (
     "divId", "cnfStyle", "rPr", "sectPr", "pPrChange")
 
 
+# Google Docs draws no tab leaders: x02's contents page lost every one of its
+# 1,277 dots while the right tab still placed the page numbers. Typed dots
+# render, so under that profile a contents line carries the source's own dots,
+# two short, before a plain right tab that absorbs whatever they leave. Live,
+# 2026-10-04: all nine x02 entries kept one line, numbers at the source edge.
+_GDOCS_LEADER_SLACK = 2
+
+
+def _gdocs_typed_leader(p: Para) -> Para:
+    """`p` with its dot-leader tab drawn as typed dots (a copy; see above)."""
+    if not p.leader_text:
+        return p
+    i = next((k for k, r in enumerate(p.runs) if r.is_tab), None)
+    if i is None:
+        return p
+    keep = max(0, len(p.leader_text) - _GDOCS_LEADER_SLACK)
+    dots = dataclasses.replace(p.runs[i], text=p.leader_text[:keep], is_tab=False)
+    stops = [tuple(ts[:2]) if len(ts) > 2 and ts[2] == "dot" else ts
+             for ts in p.tab_stops]
+    return dataclasses.replace(p, runs=p.runs[:i] + [dots] + p.runs[i:],
+                               tab_stops=stops)
+
+
 def write_para(container, p: Para, content_w: float, par=None, ctx=None,
                space_before: Optional[float] = None,
                page_break_before: bool = False):
@@ -636,6 +658,8 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None,
     -- see the note below on why nothing here may be mutated.
     """
     ctx = ctx or _DEFAULT_CTX
+    if ctx.output_profile == "gdocs":
+        p = _gdocs_typed_leader(p)
     if par is None:
         par = container.add_paragraph()
     if page_break_before:
@@ -1142,7 +1166,7 @@ def predict_lines_for(p: Para, avail_w: float, metrics) -> Optional[int]:
     return predict_lines(p, avail_w, metrics)
 
 
-def _text_metrics():
+def _text_metrics(output_profile: str = "standard"):
     """Shaping metrics, or None if even constructing them fails.
 
     This asked for `get_metrics("mupdf")`, so the column-overflow and page-spill
@@ -1156,17 +1180,18 @@ def _text_metrics():
     caller here treats it as "do not act".
     """
     try:
-        from .metrics import get_metrics
-        return get_metrics()
+        from .metrics import for_profile, get_metrics
+        return for_profile(get_metrics(), output_profile)
     except Exception:
         return None
 
 
-def _column_one_overflows(ch, content_w: float, lay: DocLayout) -> bool:
+def _column_one_overflows(ch, content_w: float, lay: DocLayout,
+                          output_profile: str = "standard") -> bool:
     """Is the first column's content predicted to outgrow its column?"""
     if ch.n_cols < 2:
         return False
-    metrics = _text_metrics()
+    metrics = _text_metrics(output_profile)
     if metrics is None:
         return False
     gap = ch.col_gap or 0.0
@@ -1343,7 +1368,8 @@ def _stack_fits(pg, lay: DocLayout) -> bool:
     return used <= _body_capacity(lay)
 
 
-def _page_spill(pg, content_w: float, lay: DocLayout, notes_h: float = 0.0):
+def _page_spill(pg, content_w: float, lay: DocLayout, notes_h: float = 0.0,
+                output_profile: str = "standard"):
     """-> (overflow_pt, stranded_lines) for one source page, or None.
 
     `notes_h` is the footnote area this page carries when its notes are
@@ -1368,7 +1394,7 @@ def _page_spill(pg, content_w: float, lay: DocLayout, notes_h: float = 0.0):
         return None
     if any(ch.n_cols > 1 for ch in pg.chunks):
         return None
-    metrics = _text_metrics()
+    metrics = _text_metrics(output_profile)
     if metrics is None:
         return None
     capacity = _body_capacity(lay) - notes_h
@@ -1406,7 +1432,8 @@ def _page_spill(pg, content_w: float, lay: DocLayout, notes_h: float = 0.0):
 
 
 def _absorb_page_spill(pg, content_w: float, lay: DocLayout,
-                       notes_h: float = 0.0) -> dict:
+                       notes_h: float = 0.0,
+                       output_profile: str = "standard") -> dict:
     """Plan the gap reductions that keep a small spill on its own page.
 
     Returns `{id(element): new_space_before}`, empty when the page is to be
@@ -1421,7 +1448,7 @@ def _absorb_page_spill(pg, content_w: float, lay: DocLayout,
     paragraph gaps cannot cover the overflow in full is left alone: a partial
     payment spends the spacing and still loses the page.
     """
-    got = _page_spill(pg, content_w, lay, notes_h)
+    got = _page_spill(pg, content_w, lay, notes_h, output_profile)
     if got is None:
         return {}
     overflow, stranded = got
@@ -2232,7 +2259,7 @@ def _size_mark_to_content(par, p):
 
 
 def write_figure(container, fig: FigureEl, ctx=None, dpi: int = None,
-                 page_break_before: bool = False):
+                 page_break_before: bool = False, page=None):
     """Rasterise a figure region through the conversion's backend.
 
     `ctx.render_clip` replaces an open MuPDF document that used to be threaded
@@ -2265,19 +2292,11 @@ def write_figure(container, fig: FigureEl, ctx=None, dpi: int = None,
         pf.page_break_before = True
     pf.space_before = Pt(round(max(0.0, fig.space_before), 1))
     pf.space_after = Pt(0)
-    if ctx.output_profile != "gdocs":
-        # Word/LibreOffice need this guard for a paragraph containing only an
-        # inline drawing.  Google Docs reserves the inline drawing itself and
-        # treats the duplicate atLeast height as extra page-flow pressure.
-        pf.line_spacing_rule = WD_LINE_SPACING.AT_LEAST
-        pf.line_spacing = Pt(round(fig.height, 1))
     par.alignment = ALIGN.get(fig.align, WD_ALIGN_PARAGRAPH.CENTER)
     if fig.align == "left" and fig.left_indent > 0.5:
         pf.left_indent = Pt(round(fig.left_indent, 1))
-    r = par.add_run()
-    r.add_picture(io.BytesIO(data), width=Emu(int(fig.width * 12700)),
-                  height=Emu(int(fig.height * 12700)))
-    return par
+    return _picture_paragraph(par, data, fig.width, fig.height,
+                              ctx.output_profile, page)
 
 
 def _docx_accepts(data: bytes) -> bool:
@@ -2357,13 +2376,86 @@ def _embeddable(data: bytes, report):
     return out
 
 
+# A picture this close to the paper in both dimensions IS the page (a designed
+# cover, a scanned page kept as its image). Written inline it sits inside the
+# margins: y28's 612x792 cover landed at (73.5, 39.6) in Google Docs, ran off
+# the right and bottom edges, and its overflow pushed a blank page in front of
+# the memo (LibreOffice did the same, at (81.1, 38.8)). Anchored behind text at
+# the page origin it lands at (0, 0, 612, 792) in both, and the memo is back on
+# page 2 (live, 2026-10-04; docs/evidence/gdocs-2026-10-04-cover-picture.json).
+_FULL_PAGE_FRAC = 0.97
+
+
+def _fills_page(w: float, h: float, page) -> bool:
+    return page is not None and w >= _FULL_PAGE_FRAC * page[0] and \
+        h >= _FULL_PAGE_FRAC * page[1]
+
+
+def _anchor_behind_text(run, page, w: float, h: float):
+    """Turn the run's inline picture into one anchored behind text, centred on
+    the paper (a picture as large as the page sits at its origin)."""
+    inline = run._r.find(".//" + qn("wp:inline"))
+    if inline is None:
+        return
+    anchor = OxmlElement("wp:anchor")
+    for k, v in (("distT", "0"), ("distB", "0"), ("distL", "0"), ("distR", "0"),
+                 ("simplePos", "0"), ("relativeHeight", "0"), ("behindDoc", "1"),
+                 ("locked", "0"), ("layoutInCell", "1"), ("allowOverlap", "1")):
+        anchor.set(k, v)
+    sp = OxmlElement("wp:simplePos")
+    sp.set("x", "0")
+    sp.set("y", "0")
+    anchor.append(sp)
+    for tag, off in (("wp:positionH", (page[0] - w) / 2.0),
+                     ("wp:positionV", (page[1] - h) / 2.0)):
+        pos = OxmlElement(tag)
+        pos.set("relativeFrom", "page")
+        po = OxmlElement("wp:posOffset")
+        po.text = str(int(round(off * 12700)))
+        pos.append(po)
+        anchor.append(pos)
+    # schema order after the position: extent, effectExtent?, wrap*, docPr,
+    # cNvGraphicFramePr?, graphic
+    children = list(inline)
+    for ch in children:
+        if ch.tag == qn("wp:extent"):
+            anchor.append(ch)
+    anchor.append(OxmlElement("wp:wrapNone"))
+    for ch in children:
+        if ch.tag != qn("wp:extent"):
+            anchor.append(ch)
+    inline.getparent().replace(inline, anchor)
+
+
+def _picture_paragraph(par, data: bytes, w: float, h: float, profile: str,
+                       page=None):
+    """Add the picture to `par`, inline -- or, when it fills the page, anchored
+    behind text in a paragraph that takes no room of its own."""
+    pf = par.paragraph_format
+    r = par.add_run()
+    r.add_picture(io.BytesIO(data), width=Emu(int(w * 12700)),
+                  height=Emu(int(h * 12700)))
+    if _fills_page(w, h, page):
+        pf.line_spacing_rule = WD_LINE_SPACING.EXACTLY
+        pf.line_spacing = Pt(1)
+        _anchor_behind_text(r, page, w, h)
+    elif profile != "gdocs":
+        # Word/LibreOffice need this guard for a paragraph containing only an
+        # inline drawing.  Google Docs reserves the inline drawing itself and
+        # treats the duplicate atLeast height as extra page-flow pressure.
+        pf.line_spacing_rule = WD_LINE_SPACING.AT_LEAST
+        pf.line_spacing = Pt(round(h, 1))
+    return par
+
+
 def write_image(container, im: ImageEl, ctx=None,
-                page_break_before: bool = False):
+                page_break_before: bool = False, page=None):
     """Place an extracted raster. Returns None when the image had to be dropped.
 
     Returning None so the caller omits the element is `write_figure`'s contract
     for a visual it cannot produce, and this follows it: an honest empty space,
-    tallied in `ctx.image_report`, rather than a crash.
+    tallied in `ctx.image_report`, rather than a crash. `page` is the paper
+    (w, h) in pt, so a picture that fills it can be placed on it.
     """
     ctx = ctx or _DEFAULT_CTX
     data = _embeddable(im.data, ctx.image_report)
@@ -2375,16 +2467,11 @@ def write_image(container, im: ImageEl, ctx=None,
         pf.page_break_before = True
     pf.space_before = Pt(round(max(0.0, im.space_before), 1))
     pf.space_after = Pt(0)
-    if ctx.output_profile != "gdocs":
-        pf.line_spacing_rule = WD_LINE_SPACING.AT_LEAST
-        pf.line_spacing = Pt(round(im.height, 1))
     par.alignment = ALIGN.get(im.align, WD_ALIGN_PARAGRAPH.CENTER)
     if im.align == "left" and im.left_indent > 0.5:
         pf.left_indent = Pt(round(im.left_indent, 1))
-    r = par.add_run()
-    r.add_picture(io.BytesIO(data), width=Emu(int(im.width * 12700)),
-                  height=Emu(int(im.height * 12700)))
-    return par
+    return _picture_paragraph(par, data, im.width, im.height,
+                              ctx.output_profile, page)
 
 
 def write_rule(container, rule: RuleEl, content_w: float,
@@ -2411,6 +2498,17 @@ def write_rule(container, rule: RuleEl, content_w: float,
 
 
 # ------------------------------------------------------------------ sections
+def _part_distance(lay: DocLayout, side: str) -> float:
+    """The w:pgMar header/footer distance: the document's default part's, else
+    the first part of that side any section states (a manual whose only head
+    is its chapter title has no default part), else Word's 0.5in."""
+    parts = [getattr(lay, side + "_default"), getattr(lay, side + "_even")]
+    for s in lay.hf_sections:
+        if s.parts:
+            parts += [s.parts.get(side), s.parts.get(side + "_even")]
+    return next((p.distance for p in parts if p is not None), 36.0)
+
+
 def _config_section(sec, lay: DocLayout, margin_t=None, cols: int = 1,
                     col_gap: float = 24.0, margin_lr=None):
     sec.page_width = Emu(int(lay.page_w * 12700))
@@ -2426,8 +2524,8 @@ def _config_section(sec, lay: DocLayout, margin_t=None, cols: int = 1,
     sec.right_margin = Emu(int(mr * 12700))
     sec.top_margin = Emu(int((lay.margin_t if margin_t is None else margin_t) * 12700))
     sec.bottom_margin = Emu(int(lay.margin_b * 12700))
-    hd = lay.header_default.distance if lay.header_default else 36.0
-    fd = lay.footer_default.distance if lay.footer_default else 36.0
+    hd = _part_distance(lay, "header")
+    fd = _part_distance(lay, "footer")
     sec.header_distance = Emu(int(max(0.0, hd) * 12700))
     sec.footer_distance = Emu(int(max(0.0, fd) * 12700))
     sectPr = sec._sectPr
@@ -2444,6 +2542,126 @@ def _config_section(sec, lay: DocLayout, margin_t=None, cols: int = 1,
         for a in ("w:space", "w:equalWidth"):
             if cols_el.get(qn(a)):
                 cols_el.attrib.pop(qn(a))
+
+
+# w:sectPr children that must FOLLOW w:pgNumType (ECMA-376 CT_SectPr order).
+_AFTER_PGNUM = ("w:cols", "w:formProt", "w:vAlign", "w:noEndnote", "w:titlePg",
+                "w:textDirection", "w:bidi", "w:rtlGutter", "w:docGrid",
+                "w:printerSettings", "w:sectPrChange")
+
+
+def _set_page_numbering(sec, start: Optional[int], fmt: Optional[str]):
+    """State a section's page numbering: `w:pgNumType w:start w:fmt`.
+
+    `start` None continues the count from the previous section. The format is
+    always written explicitly once numbering is managed, because python-docx's
+    `add_section` clones the previous section's sectPr into the new one, and a
+    roman front-matter format would otherwise silently carry into the body.
+    """
+    sp = sec._sectPr
+    el = sp.find(qn("w:pgNumType"))
+    if el is None:
+        el = OxmlElement("w:pgNumType")
+        nxt = next((c for c in sp if c.tag in {qn(t) for t in _AFTER_PGNUM}), None)
+        if nxt is not None:
+            nxt.addprevious(el)
+        else:
+            sp.append(el)
+    el.set(qn("w:fmt"), fmt or "decimal")
+    if start is None:
+        el.attrib.pop(qn("w:start"), None)
+    else:
+        el.set(qn("w:start"), str(int(start)))
+
+
+def _continue_numbering(sec):
+    """A section opened for any other reason (a column change) continues the
+    count: drop the restart python-docx's sectPr clone copied from the last one."""
+    el = sec._sectPr.find(qn("w:pgNumType"))
+    if el is not None:
+        el.attrib.pop(qn("w:start"), None)
+
+
+def _fill_default_parts(sec, lay: DocLayout, ctx, blank: bool = False,
+                        always: bool = False):
+    """Write a section's own default (and, under evenAndOddHeaders, even)
+    header and footer, for the sides the document has. `blank` writes them
+    empty; `always` also writes an empty part for a side the document lacks
+    (the cover path's historical form, kept byte-identical)."""
+    for part, obj in ((lay.header_default, sec.header),
+                      (lay.footer_default, sec.footer)):
+        if part is None and not always:
+            continue
+        _fill_hf(obj, None if blank else part, lay, ctx=ctx)
+    _fill_even_parts(sec, lay, ctx, blank)
+
+
+def _fill_even_parts(sec, lay: DocLayout, ctx, blank: bool = False):
+    """Even-page parts under w:evenAndOddHeaders, for the sides that have
+    furniture at all: an empty even part beside an absent default one is the
+    same LibreOffice page-style mismatch `_fill_first_page_parts` avoids."""
+    if not lay.even_odd:
+        return
+    for even, default, obj in ((lay.header_even, lay.header_default,
+                                sec.even_page_header),
+                               (lay.footer_even, lay.footer_default,
+                                sec.even_page_footer)):
+        if even is None and default is None:
+            continue
+        _fill_hf(obj, None if blank else (even or default), lay, ctx=ctx)
+
+
+def _fill_first_page_parts(sec, lay: DocLayout, ctx):
+    """The first-page header and footer under w:titlePg, written so that
+    LibreOffice's page styles stay consistent with the default ones.
+
+    Measured in the canonical LibreOffice (probe: 140 exact-12pt lines, a 36pt
+    header/footer distance): a first-page footer with NO default footer beside
+    it costs every later page two lines -- the body bottom rises from 753.6 to
+    729.6 -- and a first-page header with no default header pushes every
+    page's body top from 58 to 72pt. A side with neither part therefore gets no
+    reference at all (that measured exactly like no footer), and a side whose
+    first page states something the other pages do not gets an empty default
+    part beside it (one line, not two). Page 1 states its own footer,
+    including none: inference no longer substitutes the default footer for a
+    folio-less cover page.
+    """
+    for first, default, first_obj, default_obj in (
+            (lay.header_first, lay.header_default,
+             sec.first_page_header, sec.header),
+            (lay.footer_first, lay.footer_default,
+             sec.first_page_footer, sec.footer)):
+        if first is None and default is None:
+            continue
+        _fill_hf(first_obj, first, lay, ctx=ctx)
+        if first is not None and default is None:
+            _fill_hf(default_obj, None, lay, ctx=ctx)
+
+
+def _fill_section_parts(sec, lay: DocLayout, ctx, spec):
+    """A running-head section's own parts (`HFSection.parts`), written for the
+    sides the document has; under w:titlePg its chapter-opener page gets the
+    first-page parts. Same page-style rules as section 1: no side the document
+    lacks is given a reference, and every first or even part has its default
+    beside it."""
+    parts = spec.parts or {}
+    sides = (("header", sec.header, sec.even_page_header, sec.first_page_header,
+              lay.header_default),
+             ("footer", sec.footer, sec.even_page_footer, sec.first_page_footer,
+              lay.footer_default))
+    for name, obj, even_obj, first_obj, doc_default in sides:
+        mine = [parts.get(name), parts.get(name + "_even"),
+                parts.get(name + "_first")]
+        if doc_default is None and all(p is None for p in mine):
+            continue
+        _fill_hf(obj, parts.get(name), lay, ctx=ctx)
+        if lay.even_odd:
+            _fill_hf(even_obj, parts.get(name + "_even") or parts.get(name),
+                     lay, ctx=ctx)
+        if spec.title_pg:
+            _fill_hf(first_obj, parts.get(name + "_first"), lay, ctx=ctx)
+    if spec.title_pg:
+        sec.different_first_page_header_footer = True
 
 
 def _page_geometry(lay: DocLayout, pg: PageLayout) -> DocLayout:
@@ -2951,7 +3169,7 @@ def _merge_grid_page_runs(pages):
             merged = PageLayout(number=pg.number,
                                 chunks=[c for rp in run for c in rp.chunks],
                                 page_w=pg.page_w, page_h=pg.page_h,
-                                margins=pg.margins, body_top=pg.body_top)
+                                margins=pg.margins)
             out.append(merged)
             i = j
             continue
@@ -2988,7 +3206,7 @@ def _merge_grid_page_runs(pages):
         new_chunks = list(first_chunks) + [merged_grid]
         out.append(PageLayout(number=run[0].number, chunks=new_chunks,
                               page_w=pg.page_w, page_h=pg.page_h,
-                              margins=pg.margins, body_top=pg.body_top))
+                              margins=pg.margins))
         i = j
     return out
 
@@ -3032,28 +3250,6 @@ def _script_base_sizes(lay: DocLayout) -> int:
     return n
 
 
-def _seat_footer(lay: DocLayout) -> None:
-    """Lower a footer that reaches above the bottom margin until it does not.
-
-    The bottom margin is inferred from the lowest BODY content, and the footer
-    distance from the footer's own baseline; nothing made the footer fit in
-    the margin. Word and LibreOffice then end the body above the footer, not
-    at the margin, and the page's last lines go to a page of their own:
-    y43 (NeurIPS) carries a 40pt footer distance and an 11.6pt page-number
-    line under a 34.2pt bottom margin, so every page lost 17pt at its foot and
-    page 1's last line rendered alone on page 2. Censused over both corpora,
-    eleven documents' footers intrude (2.5-49pt) and no gated one does. The
-    footer moves toward the paper edge by exactly the intrusion -- a page
-    number a few points lower -- rather than the body losing lines.
-    """
-    fh = max(hf_part_height(lay.footer_default), hf_part_height(lay.footer_first))
-    if lay.footer_default is None or fh <= 0:
-        return
-    room = lay.margin_b - fh
-    if lay.footer_default.distance > room:
-        lay.footer_default.distance = round(max(0.0, room), 1)
-
-
 def _paper(pg: PageLayout):
     """A page's own geometry, as inference recorded it (None: the document's)."""
     return (pg.page_w, pg.page_h, pg.margins)
@@ -3081,13 +3277,13 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
         # gdocs profile -- Google Docs' own superscript ratio is unmeasured,
         # and that profile changes only on live evidence.
         _script_base_sizes(lay)
-        _seat_footer(lay)
     # Real lists and real notes, where the profile writes them (options.py).
     # Planned before anything is written: a list or a note that cannot be
     # written whole is written typed, never half-converted.
     from .structures import footnote_plan, numbering_plan
     if ctx.numbering and lay.lists:
-        ctx = dataclasses.replace(ctx, list_defs=numbering_plan(lay))
+        ctx = dataclasses.replace(ctx, list_defs=numbering_plan(
+            lay, tab_only=ctx.output_profile == "gdocs"))
     note_ids = footnote_plan(lay) if ctx.footnotes and not ctx.notes_vetoed \
         else {}
     if note_ids:
@@ -3163,6 +3359,17 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
     else:
         _config_section(sec, lay, cols=1)
 
+    # A booklet is one flow with no page seams (see below), so it can carry no
+    # page-numbering sections either; decided up front because section 1's
+    # parts depend on it.
+    booklet = _is_booklet(lay.pages)
+    num_secs = [] if booklet else list(lay.hf_sections)
+    sec1_blank = bool(num_secs) and num_secs[0].blank
+    if lay.even_odd:
+        doc.settings.odd_and_even_pages_header_footer = True
+    if num_secs and num_secs[0].num_fmt:
+        _set_page_numbering(sec, num_secs[0].num_start, num_secs[0].num_fmt)
+
     # headers/footers for section 1 (never create empty parts: an empty header
     # still reserves a line and pushes the body down)
     if has_cover:
@@ -3176,26 +3383,19 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                      _shifted_part(lay.footer_first or lay.footer_default, dl, dr),
                      lay, ctx=ctx)
     else:
-        if lay.header_default is not None:
-            _fill_hf(sec.header, lay.header_default, lay, ctx=ctx)
-        if lay.footer_default is not None:
-            _fill_hf(sec.footer, lay.footer_default, lay, ctx=ctx)
+        if sec1_blank:
+            _fill_default_parts(sec, lay, ctx, blank=True)
+        elif num_secs and num_secs[0].parts is not None:
+            _fill_section_parts(sec, lay, ctx, num_secs[0])
+        else:
+            if lay.header_default is not None:
+                _fill_hf(sec.header, lay.header_default, lay, ctx=ctx)
+            if lay.footer_default is not None:
+                _fill_hf(sec.footer, lay.footer_default, lay, ctx=ctx)
+            _fill_even_parts(sec, lay, ctx)
         if lay.different_first:
             sec.different_first_page_header_footer = True
-            # An empty first-page header blanks a default header on page 1;
-            # with no header anywhere there is nothing to blank, and the empty
-            # part is not free. LibreOffice 24.2 turns the header on for the
-            # section's page styles and starts every page's body below the
-            # header distance: y43 (NeurIPS, 19.9pt top margin, a first-page
-            # footer only) rendered every page's text 20.3pt low, each page
-            # spilled a line onto a page of its own, 15 pages became 29.
-            # Removing the part alone: first baselines exact, 22 pages.
-            # Standard profile: Google Docs' handling of the part is unmeasured.
-            if lay.header_first is not None or lay.header_default is not None \
-                    or ctx.output_profile == "gdocs":
-                _fill_hf(sec.first_page_header, lay.header_first, lay, ctx=ctx)
-            _fill_hf(sec.first_page_footer,
-                     lay.footer_first or lay.footer_default, lay, ctx=ctx)
+            _fill_first_page_parts(sec, lay, ctx)
 
     cur_cols = 1
     # config of the currently-open section; re-applied after each break because
@@ -3223,6 +3423,14 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
         sec = doc.sections[-1]
         _config_section(sec, geo, margin_t=margin_t, cols=cols, col_gap=gap,
                         margin_lr=margin_lr)
+        # `add_section` hands the new section a clone of the last sectPr. A
+        # distinct first page belongs to the document's first page only, and a
+        # numbering restart to the section that states it: neither may ride
+        # along into every later section (a restart copied into a column
+        # section would number that page 1 again).
+        if sec._sectPr.find(qn("w:titlePg")) is not None:
+            sec.different_first_page_header_footer = False
+        _continue_numbering(sec)
         cur_cfg = {"margin_t": margin_t, "cols": cols, "gap": gap,
                    "margin_lr": margin_lr, "hdr0": False, "geo": geo}
         cur_cols = cols
@@ -3280,7 +3488,12 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
     # mixed-column text), and same-shape pages simply continue. The
     # non-booklet path -- every gated document -- keeps its page seams:
     # they ARE the page-exact reconstruction the gate certifies.
-    booklet = _is_booklet(lay.pages)
+    #
+    # Page-numbering sections still to open, in page order. A start page whose
+    # seam is not written (a coalesced table continuation) opens its section
+    # at the next seam that is.
+    pending_secs = num_secs[1:]
+    prev_blank = sec1_blank
     for pi, pg in enumerate(lay.pages):
         # This page's paper and margins: `lay` itself unless the page is of
         # another size than page 1 (design audit B9), and then a page break
@@ -3294,19 +3507,40 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
             # page boundary
             after_cover = has_cover and pi == 1
             next_cols = pg.chunks[0].n_cols if pg.chunks else 1
-            # A column section pinned to the page top starts where the page's
-            # body starts, which is below the margin when a running head ends
-            # lower (PageLayout.body_top): its pre_gap is measured from there.
-            body_top = getattr(pg, "body_top", None) or glay.margin_t
-            if after_cover or geo_change:
+            num = None
+            while pending_secs and pending_secs[0].start_page <= pg.number:
+                num = pending_secs.pop(0)
+            if after_cover or geo_change or num is not None:
+                # The end of a cover, a change of paper (design audit B9), or a
+                # numbering restart / change of format / change of running head
+                # at this seam: a NEW_PAGE section replaces the page break,
+                # carrying the column shape the page needs exactly as a column
+                # change does.
                 gap = pg.chunks[0].col_gap if pg.chunks else 24.0
                 pre = pg.chunks[0].pre_gap if pg.chunks else 0.0
-                mt = (body_top + pre) if (next_cols > 1 and pre > 0.5) else None
+                mt = (glay.margin_t + pre) if (next_cols > 1 and pre > 0.5) else None
                 s = new_section(WD_SECTION.NEW_PAGE, next_cols, gap, margin_t=mt,
                                 geo=glay)
                 if after_cover:
-                    _fill_hf(s.header, lay.header_default, lay, ctx=ctx)
-                    _fill_hf(s.footer, lay.footer_default, lay, ctx=ctx)
+                    spec = num if (num is not None and num.parts is not None) \
+                        else (num_secs[0] if num_secs and
+                              num_secs[0].parts is not None else None)
+                    if spec is not None:
+                        # the cover took section 1; its running heads start here
+                        _fill_section_parts(s, lay, ctx, spec)
+                    else:
+                        _fill_default_parts(s, lay, ctx, always=True)
+                    prev_blank = False
+                elif num is not None and num.parts is not None:
+                    _fill_section_parts(s, lay, ctx, num)
+                    prev_blank = False
+                elif num is not None and prev_blank:
+                    # the lead-in section wrote empty parts; restate the
+                    # document's own from here on
+                    _fill_default_parts(s, lay, ctx)
+                    prev_blank = False
+                if num is not None and num.num_fmt is not None:
+                    _set_page_numbering(s, num.num_start, num.num_fmt)
             elif booklet:
                 # the flow continues; a shape difference is handled by the
                 # chunk loop as a CONTINUOUS break. The first chunk's
@@ -3317,7 +3551,7 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
             elif cur_cols != next_cols:
                 gap = pg.chunks[0].col_gap if pg.chunks else 24.0
                 pre = pg.chunks[0].pre_gap if pg.chunks else 0.0
-                mt = (body_top + pre) if (next_cols > 1 and pre > 0.5) else None
+                mt = (glay.margin_t + pre) if (next_cols > 1 and pre > 0.5) else None
                 new_section(WD_SECTION.NEW_PAGE, next_cols, gap, margin_t=mt,
                             geo=glay)
             else:
@@ -3343,13 +3577,15 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
         # and is never asked. See `_absorb_page_spill`.
         spill_plan = {} if (has_cover and pi == 0) \
             else _absorb_page_spill(pg, cw_ctx, glay,
-                                    notes_h.get(pg.number, 0.0))
+                                    notes_h.get(pg.number, 0.0),
+                                    ctx.output_profile)
         for ci, ch in enumerate(pg.chunks):
             if ch.n_cols != cur_cols:
                 if ch.pre_gap > 0.5:
                     _spacer(doc, ch.pre_gap - _sect_break_comp(ctx))
                 new_section(WD_SECTION.CONTINUOUS, ch.n_cols, ch.col_gap)
-            drop_col_break = _column_one_overflows(ch, cw_ctx, glay)
+            drop_col_break = _column_one_overflows(ch, cw_ctx, glay,
+                                                   ctx.output_profile)
             for el in ch.elements:
                 if ctx.note_ids and getattr(el, "role", "") == "footnote":
                     continue        # carried by footnotes.xml instead
@@ -3437,14 +3673,16 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                     write_table(doc, el, tw, ctx=ctx, page_break_before=carry)
                 elif isinstance(el, FigureEl):
                     if write_figure(doc, el, ctx=ctx,
-                                    page_break_before=carry) is None:
+                                    page_break_before=carry,
+                                    page=(glay.page_w, glay.page_h)) is None:
                         # Nothing was written (no renderer, or the clip
                         # rendered empty): the break waits for the next
                         # element rather than vanishing with this one.
                         pending_break[0] = carry
                 elif isinstance(el, ImageEl):
                     if write_image(doc, el, ctx=ctx,
-                                   page_break_before=carry) is None:
+                                   page_break_before=carry,
+                                   page=(glay.page_w, glay.page_h)) is None:
                         pending_break[0] = carry
                 elif isinstance(el, RuleEl):
                     write_rule(doc, el, cw_ctx, page_break_before=carry)

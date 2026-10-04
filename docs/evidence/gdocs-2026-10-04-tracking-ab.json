@@ -1,0 +1,254 @@
+{
+ "schema": 1,
+ "date": "2026-10-04",
+ "kind": "gdocs-live-ab",
+ "question": "does Google Docs honour run tracking (w:spacing), and what does the ladder gain by not relying on it under the gdocs profile?",
+ "probe": {
+  "document": "x10_chrome_tables_plain (13 runs with w:spacing 5-7)",
+  "variants": [
+   "as written",
+   "w:spacing removed",
+   "w:spacing x10"
+  ],
+  "result": "all three exports identical (1239 text rects, same positions): Docs discards w:spacing, as live pass 2 had recorded (fonts.GDOCS_HONOURS_RUN_TRACKING = False)"
+ },
+ "ab": {
+  "method": "same tree, same documents, flown twice: A with fonts.GDOCS_HONOURS_RUN_TRACKING forced True (the ladder shapes with tracking and fits locked lines by compressing them, as before), B as committed",
+  "documents": {
+   "x10_chrome_tables_plain.pdf": {
+    "A": {
+     "src_pages": 2,
+     "out_pages": 2,
+     "word_recall": 0.944,
+     "char_recall": 1.0,
+     "dy_p50": 13.1,
+     "within2pt": 0.0237,
+     "mean_ssim": 0.8118
+    },
+    "B": {
+     "src_pages": 2,
+     "out_pages": 2,
+     "word_recall": 0.944,
+     "char_recall": 1.0,
+     "dy_p50": 13.1,
+     "within2pt": 0.0237,
+     "mean_ssim": 0.8118
+    }
+   },
+   "y03_nist_fips197.pdf": {
+    "A": {
+     "src_pages": 46,
+     "out_pages": 69,
+     "word_recall": 0.4076,
+     "char_recall": 0.5356,
+     "dy_p50": 10.6,
+     "within2pt": 0.0772,
+     "mean_ssim": 0.4884
+    },
+    "B": {
+     "src_pages": 46,
+     "out_pages": 67,
+     "word_recall": 0.3895,
+     "char_recall": 0.5288,
+     "dy_p50": 7.58,
+     "within2pt": 0.0808,
+     "mean_ssim": 0.4993
+    }
+   },
+   "y12_irs_pub15.pdf": {
+    "A": {
+     "src_pages": 59,
+     "out_pages": 86,
+     "word_recall": 0.2801,
+     "char_recall": 0.6355,
+     "dy_p50": 51.01,
+     "within2pt": 0.001,
+     "mean_ssim": 0.2492
+    },
+    "B": {
+     "src_pages": 59,
+     "out_pages": 86,
+     "word_recall": 0.2822,
+     "char_recall": 0.6349,
+     "dy_p50": 47.5,
+     "within2pt": 0.0011,
+     "mean_ssim": 0.2502
+    }
+   },
+   "y13_irs_pub501.pdf": {
+    "A": {
+     "src_pages": 31,
+     "out_pages": 69,
+     "word_recall": 0.202,
+     "char_recall": 0.421,
+     "dy_p50": 35.88,
+     "within2pt": 0.0012,
+     "mean_ssim": 0.1954
+    },
+    "B": {
+     "src_pages": 31,
+     "out_pages": 69,
+     "word_recall": 0.2012,
+     "char_recall": 0.4187,
+     "dy_p50": 36.09,
+     "within2pt": 0.0011,
+     "mean_ssim": 0.1959
+    }
+   },
+   "y18_eurlex_ai_act.pdf": {
+    "A": {
+     "src_pages": 144,
+     "out_pages": 262,
+     "word_recall": 0.2373,
+     "char_recall": 0.5152,
+     "dy_p50": 40.38,
+     "within2pt": 0.0009,
+     "mean_ssim": 0.3124
+    },
+    "B": {
+     "src_pages": 144,
+     "out_pages": 260,
+     "word_recall": 0.2389,
+     "char_recall": 0.5187,
+     "dy_p50": 38.68,
+     "within2pt": 0.0011,
+     "mean_ssim": 0.3161
+    }
+   },
+   "y24_pandoc_manual.pdf": {
+    "A": {
+     "src_pages": 180,
+     "out_pages": 169,
+     "word_recall": 0.3949,
+     "char_recall": 0.7381,
+     "dy_p50": 16.0,
+     "within2pt": 0.0292,
+     "mean_ssim": 0.6923
+    },
+    "B": {
+     "src_pages": 180,
+     "out_pages": 168,
+     "word_recall": 0.6039,
+     "char_recall": 0.805,
+     "dy_p50": 7.3,
+     "within2pt": 0.0412,
+     "mean_ssim": 0.7023
+    }
+   },
+   "y26_bash_reference.pdf": {
+    "A": {
+     "src_pages": 214,
+     "out_pages": 219,
+     "word_recall": 0.5683,
+     "char_recall": 0.8409,
+     "dy_p50": 21.5,
+     "within2pt": 0.0328,
+     "mean_ssim": 0.6061
+    },
+    "B": {
+     "src_pages": 214,
+     "out_pages": 219,
+     "word_recall": 0.5684,
+     "char_recall": 0.8411,
+     "dy_p50": 22.08,
+     "within2pt": 0.0331,
+     "mean_ssim": 0.6059
+    }
+   },
+   "y37_plos_one_dvipdfmx.pdf": {
+    "A": {
+     "src_pages": 22,
+     "out_pages": 37,
+     "word_recall": 0.2279,
+     "char_recall": 0.4554,
+     "dy_p50": 48.06,
+     "within2pt": 0.001,
+     "mean_ssim": 0.3973
+    },
+    "B": {
+     "src_pages": 22,
+     "out_pages": 37,
+     "word_recall": 0.2266,
+     "char_recall": 0.4513,
+     "dy_p50": 47.58,
+     "within2pt": 0.001,
+     "mean_ssim": 0.3969
+    }
+   },
+   "y39_copernicus_npg_2col.pdf": {
+    "A": {
+     "src_pages": 11,
+     "out_pages": 26,
+     "word_recall": 0.2119,
+     "char_recall": 0.3889,
+     "dy_p50": 45.0,
+     "within2pt": 0.0238,
+     "mean_ssim": 0.197
+    },
+    "B": {
+     "src_pages": 11,
+     "out_pages": 26,
+     "word_recall": 0.2119,
+     "char_recall": 0.3889,
+     "dy_p50": 45.07,
+     "within2pt": 0.0238,
+     "mean_ssim": 0.197
+    }
+   },
+   "y43_arxiv_neurips.pdf": {
+    "A": {
+     "src_pages": 15,
+     "out_pages": 27,
+     "word_recall": 0.1846,
+     "char_recall": 0.4398,
+     "dy_p50": 74.94,
+     "within2pt": 0.0008,
+     "mean_ssim": 0.3642
+    },
+    "B": {
+     "src_pages": 15,
+     "out_pages": 26,
+     "word_recall": 0.2401,
+     "char_recall": 0.4596,
+     "dy_p50": 42.9,
+     "within2pt": 0.0412,
+     "mean_ssim": 0.3761
+    }
+   },
+   "y60_cdc_mmwr_indd19.pdf": {
+    "A": {
+     "src_pages": 24,
+     "out_pages": 40,
+     "word_recall": 0.2287,
+     "char_recall": 0.5278,
+     "dy_p50": 68.31,
+     "within2pt": 0.0201,
+     "mean_ssim": 0.2839
+    },
+    "B": {
+     "src_pages": 24,
+     "out_pages": 40,
+     "word_recall": 0.2321,
+     "char_recall": 0.5282,
+     "dy_p50": 70.21,
+     "within2pt": 0.0195,
+     "mean_ssim": 0.2849
+    }
+   }
+  },
+  "totals": {
+   "sum_abs_page_error": [
+    280,
+    276
+   ],
+   "sum_word_recall": [
+    3.8873,
+    4.1388
+   ],
+   "sum_dy_p50": [
+    424.78,
+    378.09
+   ]
+  }
+ }
+}
