@@ -1,4 +1,4 @@
-# WP13 resume notes (paused: usage limit, 2026-10-04 late)
+# WP13 resume notes (paused again: usage limit; state = a517dc5 + this note)
 
 Branch: worktree-agent-ad472d44b82c61bec. Integration 0b0f787 is MERGED (commit 06cd7d4), then a WIP commit.
 Scratch: `SCR\wp13\` -- laysig.py/sigdiff.py (layout signatures), sbs.py (LO side-by-sides), ablate.py
@@ -30,6 +30,10 @@ Container `exs-wp13-base2-raw` (full raw sweep of 0b0f787) was running at pause;
 -- RE-RUN it: `bash SCR/sweep.sh wp13-base2-raw SCR/wp13/base2_src --corpus both --jobs 6 --profile raw`.
 
 ## Next (exact)
+0. FIRST: `git merge claude/exactdoc-pdf-docx-tool-d4bf20` (now 50f7436: README rework, THEORY/STATUS moved
+   to docs/deep-dive/ -- put any CHANGELOG/doc references there). Nothing was started after a517dc5.
+   The base2 raw sweep of 0b0f787 DID finish: `SCR\runs\wp13-base2-raw.sweep.json` -- but re-run the base on
+   50f7436 if converter code changed (e6086c7 touches gdocs line heights only; check `git diff 0b0f787 50f7436 -- exactdoc`).
 1. Re-run base2 raw sweep (above) and a full raw sweep of this tree (`wp13-raw-2`), compare with
    `SCR\wp13\cmp.py`. Chase any doc worse than base2 (y59, y60, y03, y38, y39 suspects).
 2. y59: if still worse than base2, require 'panel' evidence bands to have no FigureEl wider than
