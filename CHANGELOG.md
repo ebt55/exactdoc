@@ -20,6 +20,37 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **right-to-left and complex scripts (WP14).** Hebrew, Arabic and Persian
+  documents converted to about twice their pages with their text in the wrong
+  order. *Parser*: lines are reordered by an inverse of the Unicode bidi
+  algorithm at each line's base direction (`Line.rtl`), not by reversing RTL
+  letters only, so punctuation, numbers (`114، 2026`), Latin islands and
+  brackets land where they belong; Word's RTL word spaces (font-less, 1pt,
+  not flagged generated: 1,708 in the five RTL documents, none elsewhere) are
+  spaces; a space inside a joined Arabic word is dropped (`وتكي يف`); marks
+  snap to their letter; Indic spaces PDFium inserts inside a cluster are
+  dropped (`डेट ा`). *Inference*: no undecoded-glyph bullets on RTL lines
+  (y49: 121, each splitting off a paragraph's last line); RTL paragraphs are
+  measured in mirror image, so alignment and indents come out start/end; RTL
+  list markers, notes and line joins work from the right edge. *Writer*
+  (standard profile, new `bidi` capability): `w:bidi` with start/end
+  `jc`/`ind` (probed in the pinned LibreOffice), `w:rtl`,
+  `szCs`/`bCs`/`iCs`, `lang/@bidi` and the source's complex-script face in
+  `w:cs`; gdocs keeps a visually equivalent left-to-right paragraph until
+  `testkit/gdocs_probe_rtl.py` is flown live. Raw lane, all 90 documents
+  against a4fca48: only the 7 targets move — pages y47 100 → 89, y48 11 → 10,
+  y49 56 → 54, y50 25 → 19, y54 5 → 4; word recall y54 0.06 → 0.66 and y55
+  (Thai) 0.06 → 0.84; page-exact 39 → 40, mean |page ratio−1| 0.2867 →
+  0.2749. Product lane against 50f7436: y49 49 → 29 pages (char recall
+  0.52 → 0.92), y47 73 → 66, y48 9 → 9, y50 15 → 15 (the base's own run
+  times out in LibreOffice in refine round 2, twice); CJK y51–y53 identical.
+  Gated c4_i18n within-2pt 0.621 → 0.872 in both lanes (better than its
+  record; not re-recorded), live text 0.909 → 0.901 (inside tolerance:
+  PyMuPDF reads c4's Arabic words in visual order). Worse: y54 product
+  within-2pt 0.219 → 0.159, over six times as many matched words. Still
+  open: the pinned renderer sets Arabic 27–45% wider than Arial or Noto
+  Naskh, raw y49 spills a few lines per page (David → FreeSerif, +2.6%), no
+  `w:bidiVisual` tables. 41 new tests.
 - **gdocs: Calibri-family line heights measured in Google Docs; Word documents
   stop growing there (live, 2026-10-04).** The gdocs profile writes line
   height as a multiple of each family's natural line in Docs

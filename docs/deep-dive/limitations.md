@@ -42,8 +42,16 @@ the numbers below describe.
   reconstructed as editable math.
 - *Highly designed pages* (magazine spreads, posters): not representable as
   flowing Word constructs; expect rasterised regions at best.
-- *RTL scripts* (Arabic, Hebrew): waiting on a logical-Unicode-ordering
-  contract; not converted correctly today.
+- *RTL scripts* (Arabic, Hebrew, Persian): partly supported since WP14. The
+  parser hands over logical order (an inverse of the Unicode bidi algorithm at
+  each line's base direction), and the standard profile writes right-to-left
+  paragraphs (`w:bidi`, start/end alignment, `w:rtl` runs with complex-script
+  size and font). The Google Docs profile still writes a visually equivalent
+  left-to-right paragraph until `testkit/gdocs_probe_rtl.py` is graded live.
+  Page fidelity depends on the reader having a face as narrow as the source's:
+  the pinned renderer's Arabic faces (FreeSerif, DejaVu Sans) set Arabic
+  27-45% wider than Arial or Noto Naskh, which is most of what still inflates
+  y47 and y48. RTL tables keep visual column order (no `w:bidiVisual`).
 - *Scanned / image-only PDFs*: rejected with an explicit OCR-required error.
   No OCR engine is bundled — by design, a wrong-but-confident transcription is
   worse than an honest refusal. A scan that already carries an OCR text layer
