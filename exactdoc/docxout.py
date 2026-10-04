@@ -1510,11 +1510,11 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
         if h and not row_has_text:
             trPr = row._tr.get_or_add_trPr()
             th = OxmlElement("w:trHeight")
-            # the renderer adds the row's borders to the pinned height (see
-            # _row_border_allowance); the source pitch already holds them
-            pin = h if ctx.output_profile == "gdocs" \
-                else max(1.0, h - _row_border_allowance(rowspec))
-            th.set(qn("w:val"), str(int(round(pin * 20))))
+            # A pinned height is the row's total, borders included (measured
+            # on the canonical LibreOffice 24.2: a 40pt pin with 0.5pt rules
+            # renders 40.0), unlike a content-driven row; see
+            # _row_border_allowance.
+            th.set(qn("w:val"), str(int(round(h * 20))))
             th.set(qn("w:hRule"), "atLeast")
             trPr.append(th)
         # The Google Docs importer pads every table row by about 1.9pt on
