@@ -74,7 +74,8 @@ Word yourself, not from text boxes pinned to the page:
 - **Tables** are real tables, including merged cells and tables that run over
   several pages.
 - **Headers and footers** repeat on every page, with live page numbers.
-- **Footnotes** are real footnotes. **Links** still work.
+- **Footnotes** are real Word footnotes. (In the Google Docs output they stay
+  ordinary text, because Docs moves real ones.) **Links** still work.
 - Charts, logos and artwork stay **pictures**, placed where the PDF has them.
 
 ## What works, and what does not yet
