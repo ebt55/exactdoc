@@ -1,0 +1,61 @@
+{
+ "what": "WP21's two gdocs-profile changes (Latin font slots of y51, y52) flown live through Google Docs before merge",
+ "date": "2026-10-05",
+ "profile": "gdocs candidate (options.PDFIUM_GDOCS_CANDIDATE)",
+ "base": "integration 9c31154",
+ "candidate": "WP21 42ff637 (merged as 93531fa)",
+ "rows": [
+  {
+   "doc": "y51_ja_justpdf",
+   "v": "base",
+   "src_pages": 12,
+   "out_pages": 22,
+   "word_recall": 0.4073,
+   "within2pt": 0.0053,
+   "dy_p50": 36.92,
+   "mean_ssim": 0.34,
+   "live_text_cov": 1.0,
+   "char_recall": 0.4118
+  },
+  {
+   "doc": "y51_ja_justpdf",
+   "v": "wp21",
+   "src_pages": 12,
+   "out_pages": 12,
+   "word_recall": 0.9823,
+   "within2pt": 0.018,
+   "dy_p50": 2.53,
+   "mean_ssim": 0.6384,
+   "live_text_cov": 1.0,
+   "char_recall": 1.0
+  },
+  {
+   "doc": "y52_zh_tw_word365",
+   "v": "base",
+   "src_pages": 51,
+   "out_pages": 58,
+   "word_recall": 0.4645,
+   "within2pt": 0.0046,
+   "dy_p50": 47.22,
+   "mean_ssim": 0.5777,
+   "live_text_cov": 0.9926,
+   "char_recall": 0.4873
+  },
+  {
+   "doc": "y52_zh_tw_word365",
+   "v": "wp21",
+   "src_pages": 51,
+   "out_pages": 56,
+   "word_recall": 0.4902,
+   "within2pt": 0.005,
+   "dy_p50": 48.55,
+   "mean_ssim": 0.598,
+   "live_text_cov": 0.9926,
+   "char_recall": 0.5108
+  }
+ ],
+ "notes": [
+  "y51: Shift-JIS BaseFont now decoded as MS Gothic; Latin slots Courier New/TNR -> Arial; 22->12 pages (src 12), char recall 0.41->1.00",
+  "y52: DFKaiShu-SB now a known serif face; Latin slots -> Times New Roman; 58->56 pages (src 51), char recall 0.49->0.51"
+ ]
+}
