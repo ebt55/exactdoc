@@ -55,9 +55,10 @@ MANIFEST_PATH = os.path.join(HERE, "corpus_manifest.json")
 #
 # `tol` is the regression slack, sized from measurement: three environments
 # (CI Linux, a local ubuntu:24.04 container, Windows) agree on every structural
-# number and differ in the third decimal of within2pt (STATUS.md §1). The
-# tolerances are an order of magnitude above that noise and an order of
-# magnitude below any regression this project has actually shipped.
+# number and differ in the third decimal of within2pt
+# (docs/deep-dive/status.md §1). The tolerances are an order of magnitude
+# above that noise and an order of magnitude below any regression this project
+# has actually shipped.
 #
 # `rel` adds a proportional term, and `dy_p50` needs one. It is the only gated
 # metric that is not a fraction in [0, 1]: it runs from 0.04pt on
@@ -410,7 +411,8 @@ def check(lane, results, manifest=None, baseline=None, absolute=False):
                 elif doc_id not in defects:
                     v.fail("undocumented", doc_id,
                            "recorded below the %s threshold with no defect ID; "
-                           "add one to shortfall_defects and to STATUS.md" % name)
+                           "add one to shortfall_defects and to "
+                           "docs/deep-dive/status.md" % name)
             elif known_shortfall:
                 v.fail("stale", doc_id,
                        "%s %.4g now clears %s but is recorded as %.4g -- a stale "

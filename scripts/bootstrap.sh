@@ -6,7 +6,8 @@
 # families are all required, none of them was declared anywhere, and the corpus
 # generator crashed rather than said so. An executor who cannot run the gate is
 # flying blind, and a gate that cannot run looks exactly like a gate that
-# passes -- this repository has already paid for that lesson once (STATUS.md §5).
+# passes -- this repository has already paid for that lesson once
+# (docs/deep-dive/status.md §5).
 #
 #   bash scripts/bootstrap.sh              provision, then report
 #   bash scripts/bootstrap.sh --report     report only, change nothing
