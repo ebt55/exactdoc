@@ -69,9 +69,13 @@ class AlignmentTests(unittest.TestCase):
         norm = lambda pages: [[(R._norm(t), 0.0, 0.0) for t in pg]
                               for pg in pages]
         anchors = R._align(norm(src), norm(out))
-        self.assertNotIn(R._norm(HEAD),
-                         [norm(src)[a[0]][a[1]][0] for a in anchors])
-        self.assertEqual(R._map_pages(norm(src), norm(out)), [0, 1, 3])
+        mapping = R._map_pages(norm(src), norm(out))
+        self.assertEqual(mapping, [0, 1, 3])
+        # A running head is never an anchor of its own; it is paired only
+        # inside the window unique lines fix, and so only with its own page.
+        for sp, sl, op, _ in anchors:
+            if norm(src)[sp][sl][0] == R._norm(HEAD):
+                self.assertEqual(op, mapping[sp])
 
     def test_out_of_order_coincidences_are_dropped_by_the_chain(self):
         # A line unique on both sides but rendered far out of sequence (a
@@ -95,6 +99,50 @@ class AlignmentTests(unittest.TestCase):
         texts = [norm(src)[a[0]][a[1]][0] for a in anchors]
         self.assertNotIn("41", texts)
         self.assertEqual(R._map_pages(norm(src), norm(out)), [0, 1])
+
+
+BLANK = "This page intentionally left blank"
+
+
+class FillTests(unittest.TestCase):
+    def test_a_page_of_repeated_lines_is_anchored_inside_its_window(self):
+        # y02's shape: a cover that spills, then a blank verso whose only
+        # line recurs on every other blank verso. Unique lines alone cannot
+        # place the verso, so the cover's spill was invisible.
+        src = [_lines(*_content(0)), _lines(BLANK), _lines(*_content(2)),
+               _lines(BLANK), _lines(*_content(4))]
+        out = [_lines(*_content(0)[:4]), _lines(*_content(0)[4:]),
+               _lines(BLANK), _lines(*_content(2)), _lines(BLANK),
+               _lines(*_content(4))]
+        bk = _FakeBackend({"s": src, "r": out})
+        norm = lambda pages: [[(R._norm(t), 0.0, 0.0) for t, *_ in pg]
+                              for pg in pages]
+        self.assertEqual(R._map_pages(norm(src), norm(out)), [0, 2, 3, 4, 5])
+        m = R._measure("s", "r", bk)
+        self.assertEqual(m["spill"], [1, 0, 0, 0, 0])
+
+    def test_an_unanchorable_run_charges_only_its_surplus(self):
+        # Nothing on source page 1 can be matched. Rendered pages 1..2 are
+        # shared with it: one is its own, the other is surplus, and the page
+        # before the run carries that -- without a measured overflow, since
+        # its own anchors never reached the extra page.
+        src = [_lines(*_content(0)), [], _lines(*_content(2))]
+        out = [_lines(*_content(0)), [], [], _lines(*_content(2))]
+        m = R._measure("s", "r", _FakeBackend({"s": src, "r": out}),
+                       geom=(792.0, 72.0, 720.0))
+        self.assertEqual(m["spill"], [1, 0, 0])
+        self.assertIsNone(m["need"][0])
+
+    def test_an_unanchorable_run_with_no_surplus_charges_nothing(self):
+        # RFC 9110's table of contents: nine pages that match nothing, each
+        # rendered on one page. No surplus, no spill -- the old mapper sent
+        # the loop to crush page 1 for it.
+        src = [_lines(*_content(0)), _lines("toc entry one . . . 3"),
+               _lines("toc entry two . . . 9"), _lines(*_content(3))]
+        out = [_lines(*_content(0)), _lines("toc entry one 3"),
+               _lines("toc entry two 9"), _lines(*_content(3))]
+        m = R._measure("s", "r", _FakeBackend({"s": src, "r": out}))
+        self.assertEqual(m["spill"], [0, 0, 0, 0])
 
 
 class MeasureTests(unittest.TestCase):

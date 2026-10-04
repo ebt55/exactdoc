@@ -24,7 +24,9 @@ Three properties the loop must have, each of which it once lacked:
     five distinctive lines, and repeated furniture fooled it: RFC 9110 reported
     `spill=312..329` for 194 source pages and the loop corrected the wrong pages
     -- 228 rendered pages became 340. Pages are now mapped by a monotone
-    alignment over every line that is unique in both documents (`_align`).
+    alignment anchored on every line that is unique in both documents, and
+    a page with no unique line is placed by an ordinary diff inside the
+    window those anchors fix (`_align`).
     And an overflowing page on which the gaps are already spent now has two
     more levers, cheapest-invisible first: <=3% line pitch, then table cell
     padding (`_apply`). What each lever spent is recorded.
@@ -91,6 +93,12 @@ FIT_SAFETY_PT = 2.0
 # unique by accident -- a source "41" and the render's "41" can be different
 # pages' numbers -- while the alignment has thousands of real lines to use.
 ANCHOR_MIN_CHARS = 8
+# Bound on the gap-filling diff between two unique anchors (source lines x
+# rendered lines in the window). The largest window measured on the raw
+# renders of y01, y02, y17, y21 and y26 is 354 x 174 lines (RFC 9110's table
+# of contents); 4M cells is some 65 times that and keeps a pathological
+# window from costing more than the render did.
+FILL_MAX_CELLS = 4_000_000
 
 
 def _norm(t: str) -> str:
@@ -196,6 +204,38 @@ def _align(src_pages, out_pages):
         chain.append(pairs[n])
         n = prev[n]
     chain.reverse()
+    # Then fill between consecutive anchors with an ordinary sequence diff,
+    # which may use repeated lines because it only ever pairs them inside the
+    # window the unique anchors already fixed. A page whose every line repeats
+    # elsewhere -- "This page intentionally left blank", a running-head-only
+    # page -- otherwise has no anchor at all, and the pages around it cannot be
+    # told apart: y02's cover spilled onto a second page and the loop never
+    # saw it (its blank verso was unanchored), so it left every later page one
+    # index late; y26 rendered 215 pages for 214 while measuring no spill.
+    import difflib
+    bounds = [(-1, -1)] + chain + [(len(s_seq), len(o_seq))]
+    fill = []
+    for (s0, o0), (s1, o1) in zip(bounds, bounds[1:]):
+        ns, no = s1 - s0 - 1, o1 - o0 - 1
+        if ns <= 0 or no <= 0 or ns * no > FILL_MAX_CELLS:
+            continue
+        a = [s_seq[k][0] for k in range(s0 + 1, s1)]
+        b = [o_seq[k][0] for k in range(o0 + 1, o1)]
+        sm = difflib.SequenceMatcher(None, a, b, autojunk=False)
+        for blk in sm.get_matching_blocks():
+            for d in range(blk.size):
+                if len(a[blk.a + d]) >= ANCHOR_MIN_CHARS:
+                    fill.append((s0 + 1 + blk.a + d, o0 + 1 + blk.b + d))
+    # ...but only for pages with no unique anchor of their own. Inside a
+    # window a repeated line can still pair with the wrong copy -- a page's
+    # running head with the one on the previous page's spill page -- and a
+    # page that already has unique anchors would then appear to start a page
+    # early: allowed everywhere, the fill took y18 from 147 rendered pages to
+    # 163 and multiplied y17's measured offsets fourfold.
+    anchored = {s_seq[sk][1] for sk, _ in chain}
+    fill = [(sk, ok) for sk, ok in fill if s_seq[sk][1] not in anchored]
+    if fill:
+        chain = sorted(chain + fill)
     return [(s_seq[sk][1], s_seq[sk][2], o_seq[ok][1], o_seq[ok][2])
             for sk, ok in chain]
 
@@ -205,8 +245,9 @@ def _map_pages(src_pages, out_pages, anchors=None):
 
     Returns [rendered_index or None] per source page: the rendered page of the
     page's first alignment anchor (`_align`), so the answer is monotone by
-    construction. None means the page had nothing unique to anchor on -- a
-    figure-only page, say -- and is neither corrected nor blamed.
+    construction. None means nothing on the page could be anchored -- a
+    figure-only page, say -- and the page itself is neither corrected nor
+    blamed (`_measure` charges any surplus to the page before it).
     """
     if anchors is None:
         anchors = _align(src_pages, out_pages)
@@ -275,15 +316,23 @@ def _measure(src_pdf, rendered_pdf, backend, src_cache=None, geom=None):
             # Every source page ends in a hard break, so the next page's start
             # bounds this one exactly.
             sp = max(0, (end - ri) - 1)
+            own = True
         else:
-            # Unanchored source pages follow (a table of contents whose every
-            # entry recurs as a heading, a figure page): the rendered pages up
-            # to the next anchor are shared with them, and charging all of
-            # them to this page is how RFC 9110's page 1 came to "spill" over
-            # its own nine-page TOC. Claim only what this page's own anchors
-            # show, and never more pages than the run has to spare.
+            # Unanchored source pages follow -- nothing on them matched, even
+            # inside the window the anchors fix (a figure-only page, a
+            # two-column index whose entries interleave differently). The
+            # rendered pages up to the next anchor are shared with them, and
+            # charging all of them to this page is how RFC 9110's page 1 came
+            # to "spill" over its own nine-page TOC under the old mapper. Only
+            # the SURPLUS -- rendered pages beyond one per source page in the
+            # run -- is a spill, and this page is the one the loop can act on,
+            # so it carries it; without that, y26 rendered 215 pages for 214
+            # while measuring none. Whether the surplus is this page's own
+            # overflow is known only if its own anchors reach the spill page,
+            # and the overflow is measured (`need`) only then.
             spare = (end - ri) - (nxt_i - i)
-            sp = max(0, min(spare, last_anchor.get(i, ri) - ri))
+            sp = max(0, spare)
+            own = last_anchor.get(i, ri) - ri >= sp
         spill.append(sp)
         # Offsets use only lines whose text is UNIQUE on both sides of the
         # comparison. A duplicated string ("1. Motivation" in a TOC and again
@@ -301,13 +350,13 @@ def _measure(src_pdf, rendered_pdf, backend, src_cache=None, geom=None):
         if geom is not None and ri + sp < len(out):
             _, top, bottom = geom
             first = _body_bottom(out[ri], top, bottom)
-            if sp > 0:
+            if sp > 0 and own:
                 tail = _body_bottom(out[ri + sp], top, bottom)
                 if tail is not None:
                     left_behind = (bottom - first) if first is not None else 0.0
                     over = (sp - 1) * (bottom - top) + (tail - top)
                     nd = max(0.0, over - max(0.0, left_behind)) + FIT_SAFETY_PT
-            elif first is not None:
+            elif sp == 0 and first is not None:
                 rm = max(0.0, bottom - first)
         need.append(nd)
         room.append(rm)
