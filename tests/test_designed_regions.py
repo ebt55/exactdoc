@@ -550,5 +550,104 @@ class LayoutTableWriter(unittest.TestCase):
                                  "EXPERIENCE", "Staff Engineer"])
 
 
+class LayoutRowPin(unittest.TestCase):
+    """A layout row cannot split: its pin keeps two line pitches and
+    LAYOUT_ROW_RESERVE_PT clear of the page foot (live Docs, 2026-10-04: a
+    778pt row against a 786pt body turned one page into three)."""
+
+    def _table(self):
+        lay = LayoutTableWriter()._lay()
+        return lay, _elements(lay)[0]
+
+    def test_a_row_well_short_of_the_foot_keeps_its_region_height(self):
+        lay, t = self._table()                     # body foot 802, top 40
+        self.assertEqual(I._layout_row_pin(t, 40.0, lay), 300.0)
+
+    def test_a_row_near_the_foot_is_capped_two_lines_and_reserve_clear(self):
+        lay, t = self._table()
+        t.row_heights = [780.0]                    # 40 + 780 runs past 802
+        pin = I._layout_row_pin(t, 40.0, lay)
+        # foot 802 - 2 x 11pt leading - reserve, measured from the row's top
+        self.assertAlmostEqual(pin, 802.0 - 22.0 - I.LAYOUT_ROW_RESERVE_PT - 40.0)
+        self.assertLessEqual(40.0 + pin + 2 * 11.0 + I.LAYOUT_ROW_RESERVE_PT,
+                             lay.page_h - lay.margin_b)
+
+    def test_a_row_with_no_room_left_is_not_pinned(self):
+        lay, t = self._table()
+        self.assertIsNone(I._layout_row_pin(t, 790.0, lay))
+
+    def test_a_nested_box_drawn_to_the_foot_gives_up_its_bottom_pad(self):
+        lay, t = self._table()
+        box = t.rows[0][0].blocks[1]
+        box.bbox = (30.0, 80.0, 190.0, 790.0)      # 14pt past the capped foot
+        box.rows[0][0].pad = (6.0, 10.0, 30.0, 4.0)
+        I._layout_row_pin(t, 40.0, lay)
+        self.assertEqual(box.rows[0][0].pad[2], 16.0)
+
+    def test_the_shaded_sidebar_row_stays_clear_of_the_page_foot(self):
+        with tempfile.TemporaryDirectory() as d:
+            lay = _infer(_sidebar(os.path.join(d, "shaded.pdf"), shaded=True))
+        t = next(e for e in _elements(lay)
+                 if isinstance(e, TableEl) and e.role == "layout")
+        lead = max(p.leading for c in t.rows[0] for p in I._cell_all_paras(c)
+                   if p.leading)
+        self.assertIsNotNone(t.row_heights[0])
+        self.assertLessEqual(t.bbox[1] + t.row_heights[0] + 2 * lead,
+                             lay.page_h - lay.margin_b - I.LAYOUT_ROW_RESERVE_PT + 0.1)
+
+
+class GdocsShadedBox(unittest.TestCase):
+    """Under gdocs a box is bordered paragraphs; a filled box keeps its fill."""
+
+    def _write(self, shading, borders):
+        from docx import Document
+        from docx.oxml.ns import qn
+        from exactdoc.docxout import WriteCtx, _write_box_paragraphs
+        mk = lambda t, top: Para(runs=[Run(text=t, font="Helvetica", size=9.0,  # noqa: E731
+                                           color="#000000")], leading=11.0,
+                                 bbox=(40.0, top, 180.0, top + 9.0))
+        cell = Cell(paras=[mk("CONTACT", 90.0), mk("jordan@example.com", 102.0)],
+                    shading=shading, borders=borders, pad=(6.0, 10.0, 6.0, 4.0))
+        t = TableEl(rows=[[cell]], col_widths=[160.0], role="box",
+                    bbox=(30.0, 80.0, 190.0, 120.0))
+        doc = Document()
+        _write_box_paragraphs(doc, t, 482.0, WriteCtx(output_profile="gdocs"))
+        out = []
+        for p in doc.paragraphs:
+            ppr = p._p.find(qn("w:pPr"))
+            if ppr is None or ppr.find(qn("w:pBdr")) is None:
+                continue
+            bd = ppr.find(qn("w:pBdr"))
+            shd = ppr.find(qn("w:shd"))
+            out.append(({c.tag.split("}")[1]: c.get(qn("w:color")) for c in bd},
+                        None if shd is None else (shd.get(qn("w:val")), shd.get(qn("w:fill"))),
+                        bd.getnext() is shd))
+        return out
+
+    def test_a_filled_unstroked_box_is_shaded_with_rails_in_its_fill(self):
+        paras = self._write("#ebf0f7", {})
+        self.assertEqual(len(paras), 2)
+        for colours, shd, after_bdr in paras:
+            self.assertEqual(shd, ("clear", "EBF0F7"))
+            self.assertTrue(after_bdr)             # schema order: pBdr, shd
+            self.assertEqual(set(colours.values()), {"EBF0F7"})
+        self.assertEqual(set(paras[0][0]), {"top", "left", "right"})
+        self.assertEqual(set(paras[1][0]), {"left", "bottom", "right"})
+
+    def test_a_stroked_filled_box_keeps_its_stroke(self):
+        edge = (0.75, "#1f2937")
+        paras = self._write("#fef3c7", {"left": edge, "right": edge,
+                                        "top": edge, "bottom": edge})
+        for colours, shd, _ in paras:
+            self.assertEqual(shd, ("clear", "FEF3C7"))
+            self.assertEqual(set(colours.values()), {"1F2937"})
+
+    def test_an_unfilled_box_has_no_shading_and_dark_rails(self):
+        paras = self._write(None, {})
+        for colours, shd, _ in paras:
+            self.assertIsNone(shd)
+            self.assertEqual(set(colours.values()), {"333333"})
+
+
 if __name__ == "__main__":
     unittest.main()

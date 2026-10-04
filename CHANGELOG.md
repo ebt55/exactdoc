@@ -53,8 +53,20 @@ one verified fix at a time, each gated against the frozen 16.
   within-2pt 0.869 -> 0.873); y59 and y60 unchanged at 18 and 37, WP12's
   y39/y41/y43 unchanged, the owner's resume, y45, x17 and x18 unchanged in
   inferred layout. The mean edit score dips 0.003: panels are one-cell
-  tables. Under the gdocs profile a panel keeps the existing box form --
-  bordered paragraphs without its fill -- and is not yet flown live.
+  tables. Flown live in Google Docs (2026-10-04), the first probe found two
+  defects, both fixed: a layout row pinned to its region (778pt against a
+  786pt body on the shaded-sidebar page) cannot split, and Docs' row padding
+  plus its closing paragraph turned one page into three -- a layout row's
+  pin now keeps two of its own line pitches and 4pt clear of the page foot
+  (`_layout_row_pin`; a nested box drawn to the foot gives up the same
+  bottom pad; also capped in y11, y34 and y47, whose raw sweep is
+  unchanged); and the gdocs box form (bordered paragraphs) dropped a
+  panel's fill -- a filled box now carries `w:shd` on its paragraphs, and a
+  filled box the source drew without a stroke has its rails in its own fill
+  colour instead of #333333. Standard and raw output of the 16 gated
+  documents is unchanged; the gdocs candidate output of 01, 03, c1 and c5
+  gains the shading (c1's two callouts and c5's band also lose the dark
+  rails).
 - **gdocs: right-to-left paragraphs are real RTL paragraphs in Google Docs
   (live, 2026-10-04).** WP14's probe set flown live
   ([evidence](docs/evidence/gdocs-2026-10-04-rtl-probe.json)): with `bidi`,

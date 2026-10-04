@@ -2286,7 +2286,17 @@ def _write_box_paragraphs(container, t: TableEl, content_w: float, ctx=None,
     """
     cell = t.rows[0][0]
     b = cell.borders or {}
-    left = b.get("left") or (0.75, "#333333")
+    # A FILLED box keeps its fill as paragraph shading, which Google Docs
+    # imports (Borders and shading > Background colour): the live WP13 probe
+    # found every shaded panel, y46's summary band and the shaded sidebar
+    # arriving outlined and unfilled. A box the source drew with no stroke
+    # gets its rails in its own fill colour -- a filled, unstroked panel must
+    # not grow a dark outline -- so the rails only carry the shading out to
+    # the box's edges. A stroked box keeps its stroke; an unfilled, unstroked
+    # one keeps the long-standing #333333 rails.
+    fill = cell.shading
+    default = (0.75, fill) if (fill and not b) else (0.75, "#333333")
+    left = b.get("left") or default
     right = b.get("right") or left
     top = b.get("top") or left
     bot = b.get("bottom") or left
@@ -2340,6 +2350,16 @@ def _write_box_paragraphs(container, t: TableEl, content_w: float, ctx=None,
         if pi == n - 1:
             _side("bottom", bot, space_bot)
         _side("right", right, pad_right)
+        if fill:
+            # schema order: w:shd follows w:pBdr directly
+            old = ppr.find(qn("w:shd"))
+            if old is not None:
+                ppr.remove(old)
+            shd = OxmlElement("w:shd")
+            shd.set(qn("w:val"), "clear")
+            shd.set(qn("w:color"), "auto")
+            shd.set(qn("w:fill"), _hex(fill))
+            bd.addnext(shd)
         out.append(par)
     return out[0] if out else None
 

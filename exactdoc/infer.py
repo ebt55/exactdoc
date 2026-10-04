@@ -7669,11 +7669,63 @@ def _side_by_side_chunks(items, lay: DocLayout, page: PageIR, content_l: float,
         else:
             lt = _layout_table([_by_pos(s) for s in sides], y0, y1,
                                content_l, content_r, lay_rows)
+            lt.row_heights = [_layout_row_pin(lt, y0, lay)]
             lt._sbs = why
             ch = Chunk(n_cols=1)
             ch.elements = [lt]
         chunks.append(ch)
     return chunks
+
+
+# A layout row is pinned (atLeast) to the region it reproduces, so the page
+# below it starts where the source's did and a panel cell's shading reaches
+# the panel's foot. A row cannot split, so a pin near the page body is fatal
+# wherever a renderer adds anything to it: live in Google Docs (2026-10-04),
+# the shaded-sidebar page's 778pt row against a 786pt body -- Docs pads every
+# row ~1.9pt and appends its own paragraph after a closing table -- left page 1
+# blank, the table on page 2 and a blank page 3. The pin keeps two of the
+# row's own line pitches clear of the page foot (the closing paragraph, and
+# one line of the next page's carrier), plus this much for the row padding.
+LAYOUT_ROW_RESERVE_PT = 4.0
+
+
+def _layout_row_pin(t: TableEl, top: float, lay: DocLayout) -> Optional[float]:
+    """The row height a layout table is pinned to: its region's, capped to
+    leave LAYOUT_ROW_RESERVE_PT and two line pitches above the page foot, or
+    None when nothing is left to pin."""
+    leads = [p.leading for row in t.rows for c in row if c is not None
+             for p in _cell_all_paras(c) if p.leading]
+    lead = max(leads) if leads else 12.0
+    foot = (lay.page_h - lay.margin_b) - 2.0 * lead - LAYOUT_ROW_RESERVE_PT
+    # A box nested in a column is a row that cannot split either: one drawn
+    # to the page foot (the shaded sidebar, 740pt) ends at the same clearance.
+    for row in t.rows:
+        for c in row:
+            for b in (c.blocks if c is not None else []):
+                if isinstance(b, TableEl) and b.bbox and b.rows and b.rows[-1] and \
+                        b.rows[-1][0] is not None and len(b.rows[-1][0].pad) >= 4:
+                    over = b.bbox[3] - foot
+                    if over > 0:
+                        bc = b.rows[-1][0]
+                        bc.pad = (bc.pad[0], bc.pad[1],
+                                  max(0.0, round(bc.pad[2] - over, 1)), bc.pad[3])
+    room = foot - top
+    h = t.row_heights[0] if t.row_heights else None
+    if h is None or room <= 0:
+        return None
+    return h if h <= room else round(room, 1)
+
+
+def _cell_all_paras(cell):
+    """A cell's paragraphs, its nested boxes' included."""
+    out = list(cell.paras)
+    for b in cell.blocks:
+        if isinstance(b, TableEl):
+            for row in b.rows:
+                for c in row:
+                    if c is not None:
+                        out.extend(c.paras)
+    return out
 
 
 # The block-cluster split and the gutter agree to the point on a page both
