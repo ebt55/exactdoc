@@ -44,22 +44,27 @@ def _old_absorb_script_rows(vis_rows):
             if j == i or j in absorbed or host_ri == frag_ri:
                 continue
             hsz = max(c.size for c in host)
-            if fsz >= P.SCRIPT_SIZE_FRAC * hsz:
-                continue
             dy = fb - host[0].oy
             if abs(dy) > P.SCRIPT_BASE_EM * hsz:
                 continue
             hx0, hx1 = P._row_span(host)
             if fx0 <= hx0 or fx0 > hx1 + P.SCRIPT_REACH_EM * hsz:
                 continue
+            # WP10's rules, unoptimised: a script is smaller than the glyph it
+            # attaches to; a full-size glyph or two set into the word joins it.
+            inset = fsz >= P.SCRIPT_SIZE_FRAC * P._attach_size(host, fx0, hsz)
+            if inset and not P._set_into(frag, host, hsz):
+                continue
+            if inset and abs(dy) > P.INSET_DY_EM * hsz:
+                continue
             score = (max(0.0, fx0 - hx1), abs(dy))
             if best is None or score < best[0]:
-                best = (score, j, hsz)
+                best = (score, j, hsz, inset)
         if best is None:
             continue
-        _, j, hsz = best
+        _, j, hsz, inset = best
         host = rows[j][1]
-        if fb < host[0].oy - P.SCRIPT_RAISE_EM * hsz:
+        if not inset and fb < host[0].oy - P.SCRIPT_RAISE_EM * hsz:
             for c in frag:
                 c.sup = True
         host.extend(frag)

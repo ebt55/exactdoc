@@ -14,9 +14,11 @@ from typing import Any, Callable, Dict, Optional, List
 
 from docx import Document
 from docx.shared import Pt, Emu, RGBColor, Twips
-from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING, WD_TAB_ALIGNMENT, WD_BREAK
+from docx.enum.text import (WD_ALIGN_PARAGRAPH, WD_LINE_SPACING, WD_TAB_ALIGNMENT,
+                            WD_TAB_LEADER, WD_BREAK)
 from docx.enum.section import WD_ORIENT, WD_SECTION
 from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.table import _Cell
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
@@ -25,6 +27,9 @@ from .layout import (DocLayout, Para, Run, Cell, TableEl, FigureEl, ImageEl,
                      RuleEl, ColBreak, HFPart, Chunk, PageLayout)
 from .fonts import east_asian_family, font_table_desc, map_font
 from .metrics import source_line_width
+from .structures import (add_footnote_ref_mark, add_footnote_reference,
+                         apply_numpr, level_carries_indent, num_tab_override,
+                         strip_marker)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -63,6 +68,31 @@ class WriteCtx:
     #: degradation.  Defaults to None -- the writer keeps no global ledger, so
     #: two concurrent conversions cannot accumulate into each other's counts.
     image_report: Optional[dict] = None
+    # Real-structure plumbing, filled in by _write_docx: {list_id: ListDef}
+    # for the lists written as w:numPr, and {fid: (w:id, custom_mark)} for
+    # the footnotes written as notes. Empty means "write the typed form".
+    list_defs: Dict[int, Any] = dataclasses.field(default_factory=dict)
+    num_base: int = 1                # w:numId of list_id 0 (structures.numbering_base)
+    note_ids: Dict[int, Any] = dataclasses.field(default_factory=dict)
+    # Set while a footnote's own paragraphs are written: False for a note the
+    # renderer numbers (its mark run becomes w:footnoteRef), True for a note
+    # that keeps the source's custom mark. None in the body.
+    note_mark_custom: Optional[bool] = None
+    # Set when a write found a reference missing and fell back to typed notes
+    # (see the check before write_footnotes in _write_docx).
+    notes_vetoed: bool = False
+
+    @property
+    def numbering(self) -> bool:
+        """Does this profile write lists as real numbering? (options.py)"""
+        from .options import capabilities
+        return "numbering" in capabilities(self.output_profile)
+
+    @property
+    def footnotes(self) -> bool:
+        """Does this profile write footnotes as real notes? (options.py)"""
+        from .options import capabilities
+        return "footnotes" in capabilities(self.output_profile)
 
 
 _DEFAULT_CTX = WriteCtx()
@@ -73,6 +103,15 @@ ALIGN = {
 }
 TABAL = {"left": WD_TAB_ALIGNMENT.LEFT, "center": WD_TAB_ALIGNMENT.CENTER,
          "right": WD_TAB_ALIGNMENT.RIGHT}
+# A tab stop is (position, alignment) or (position, alignment, leader); the
+# leader is how a contents line's dots are drawn by the word processor itself.
+TABLEADER = {"dot": WD_TAB_LEADER.DOTS, "hyphen": WD_TAB_LEADER.DASHES,
+             "underscore": WD_TAB_LEADER.LINES}
+
+
+def _shift_tabs(stops, dl: float):
+    """Tab stops moved by `dl`, keeping any leader."""
+    return [(round(ts[0] + dl, 1),) + tuple(ts[1:]) for ts in stops]
 
 
 def _hex(c: str) -> str:
@@ -123,10 +162,11 @@ def _style_run(r, run: Run, profile: str = "standard"):
         va = OxmlElement("w:vertAlign")
         va.set(qn("w:val"), "superscript")
         rpr.append(va)
-    if abs(getattr(run, "char_spacing", 0.0)) > 0.004:
+    spacing = getattr(run, "char_spacing", 0.0) + getattr(run, "tracking", 0.0)
+    if abs(spacing) > 0.004:
         # w:spacing on rPr is character tracking, in twentieths of a point
         sp = OxmlElement("w:spacing")
-        sp.set(qn("w:val"), str(int(round(run.char_spacing * 20))))
+        sp.set(qn("w:val"), str(int(round(spacing * 20))))
         rpr.append(sp)
     ws = getattr(run, "width_scale", 0.0) or 0.0
     if ws > 0 and abs(ws - 1.0) > 0.004 and profile == "standard":
@@ -576,6 +616,15 @@ def _page_break_carrier(doc):
     return par
 
 
+# CT_PPrBase's sequence after w:suppressAutoHyphens (ECMA-376 Part 1, 17.3.1.26).
+_PPR_AFTER_SUPPRESS_HYPHENS = (
+    "kinsoku", "wordWrap", "overflowPunct", "topLinePunct", "autoSpaceDE",
+    "autoSpaceDN", "bidi", "adjustRightInd", "snapToGrid", "spacing", "ind",
+    "contextualSpacing", "mirrorIndents", "suppressOverlap", "jc",
+    "textDirection", "textAlignment", "textboxTightWrap", "outlineLvl",
+    "divId", "cnfStyle", "rPr", "sectPr", "pPrChange")
+
+
 def write_para(container, p: Para, content_w: float, par=None, ctx=None,
                space_before: Optional[float] = None,
                page_break_before: bool = False):
@@ -594,6 +643,17 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None,
     # layout more than once, and mutating it here would compound the
     # correction on every pass.
     gdocs_rows = p.gdocs_rows if ctx.output_profile == "gdocs" else []
+    # A real list item: the level draws the marker, so the typed marker and
+    # its separator leave the runs (structures.py). `ctx.list_defs` holds only
+    # the lists whose every item strips cleanly (structures.numbering_plan).
+    num, num_runs, lvl = None, None, None
+    if p.numbering is not None and p.numbering.list_id in ctx.list_defs \
+            and not gdocs_rows:
+        num_runs = strip_marker(p.runs, p.numbering)
+        if num_runs is not None:
+            num = p.numbering
+            lvl = ctx.list_defs[num.list_id].levels.get(num.level)
+    ind_from_level = lvl is not None and level_carries_indent(p, lvl)
     right_indent = 0.0 if gdocs_rows else p.right_indent + _wrap_correction(p, content_w)
     pf = par.paragraph_format
     par.alignment = ALIGN.get("left" if gdocs_rows else p.align, WD_ALIGN_PARAGRAPH.LEFT)
@@ -626,14 +686,41 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None,
                 and not p.line_breaks and lead > 0:
             lead = max(dom * 1.0 if dom else 4.0, lead - 0.38)
         _apply_leading(pf, lead, dom, mode=ctx.line_mode, family=fam)
-    if p.left_indent > 0.05:
+    if num is not None and not ind_from_level:
+        # A numbered paragraph inherits its level's indents unless it says
+        # otherwise, so a paragraph that differs must say so -- zeros included.
         pf.left_indent = Pt(round(p.left_indent, 1))
-    if abs(p.first_indent) > 0.05:
         pf.first_line_indent = Pt(round(p.first_indent, 1))
+    elif num is None:
+        if p.left_indent > 0.05:
+            pf.left_indent = Pt(round(p.left_indent, 1))
+        if abs(p.first_indent) > 0.05:
+            pf.first_line_indent = Pt(round(p.first_indent, 1))
     if right_indent > 0.05:
         pf.right_indent = Pt(round(right_indent, 1))
-    for pos, al in p.tab_stops:
-        pf.tab_stops.add_tab_stop(Pt(round(pos, 1)), TABAL.get(al, WD_TAB_ALIGNMENT.LEFT))
+    for ts in p.tab_stops:
+        pos, al = ts[0], ts[1]
+        if lvl is not None and lvl.sep == "tab" and al == "left" and                 abs(pos - p.left_indent) < 0.05:
+            continue                # the item's own text stop: see below
+        leader = TABLEADER.get(ts[2]) if len(ts) > 2 else None
+        if leader is None:
+            pf.tab_stops.add_tab_stop(Pt(round(pos, 1)),
+                                      TABAL.get(al, WD_TAB_ALIGNMENT.LEFT))
+        else:
+            pf.tab_stops.add_tab_stop(Pt(round(pos, 1)),
+                                      TABAL.get(al, WD_TAB_ALIGNMENT.LEFT), leader)
+    if num is not None:
+        apply_numpr(par, num, ctx.num_base)
+        if not ind_from_level and lvl is not None and lvl.sep == "tab":
+            # The level's num tab is a tab stop the paragraph inherits, and the
+            # marker's tab goes to the first stop past it, so an item whose
+            # text sits off its level's stop must move the stop with its
+            # indent -- the way Word itself writes a re-indented list item.
+            # LibreOffice ignores the override and always uses the level's
+            # stop (y28 p36: text at 38.7pt landed at 36.0), which is why
+            # `lists._accepts` keeps such an item out of the level; this
+            # covers the sub-0.5pt remainder for Word.
+            num_tab_override(par, lvl.left, p.left_indent)
     # keep heading with following content
     if p.heading:
         pf.keep_with_next = True
@@ -664,6 +751,14 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None,
         if bb:
             bd["bottom"] = bb
         _set_borders(ppr, bd, "w:pBdr")
+    if getattr(p, "no_hyphenation", False):
+        # Set only in a document that auto-hyphenates; see
+        # hyphen.mark_unhyphenated for which paragraphs opt out and why.
+        ppr = par._p.get_or_add_pPr()
+        if ppr.find(qn("w:suppressAutoHyphens")) is None:
+            ppr.insert_element_before(
+                OxmlElement("w:suppressAutoHyphens"),
+                *("w:" + t for t in _PPR_AFTER_SUPPRESS_HYPHENS))
 
     i = 0
     if gdocs_rows:
@@ -677,19 +772,38 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None,
                                 color=style.color, bold=style.bold, italic=style.italic,
                                 mono=style.mono, serif=style.serif))
     else:
-        runs = p.runs
+        runs = num_runs if num is not None else p.runs
     while i < len(runs):
         run = runs[i]
+        if run.footnote is not None and run.footnote in ctx.note_ids:
+            wid, custom = ctx.note_ids[run.footnote]
+            add_footnote_reference(
+                par, run, wid, custom,
+                lambda r, src: _style_run(r, src, ctx.output_profile))
+            i += 1
+            continue
+        if run.footnote_mark and ctx.note_mark_custom is not None:
+            add_footnote_ref_mark(
+                par, run, ctx.note_mark_custom,
+                lambda r, src: _style_run(r, src, ctx.output_profile))
+            i += 1
+            continue
+        # A link group ends at a footnote reference: EUR-Lex links "(¹)" to
+        # its note, and a reference swallowed into the hyperlink was written
+        # as plain text -- 30 of its 58 notes lost their anchors.
+        def _grouped(k, key):
+            return k < len(runs) and key(runs[k]) and not (
+                runs[k].footnote is not None and runs[k].footnote in ctx.note_ids)
         if run.link:
             grp = []
-            while i < len(runs) and runs[i].link == run.link:
+            while _grouped(i, lambda r: r.link == run.link):
                 grp.append((runs[i].text, runs[i]))
                 i += 1
             _add_hyperlink(par, run.link, grp, ctx.output_profile)
             continue
         if run.dest is not None:
             grp = []
-            while i < len(runs) and runs[i].dest == run.dest:
+            while _grouped(i, lambda r: r.dest == run.dest):
                 grp.append((runs[i].text, runs[i]))
                 i += 1
             anchor = ctx.dest_anchors.get(run.dest)
@@ -786,13 +900,14 @@ def _col_floors(t: TableEl) -> List[float]:
     floor = [0.0] * len(t.col_widths)
     drawn = getattr(t, "col_edges_drawn", False)
     for row in t.rows:
-        ci = 0
-        for cell in row:
-            if cell is None:
-                ci += 1
+        # Rows are full-width (None where a merged cell covers a position).
+        # A cell spanning columns floors their SUM, which a per-column floor
+        # cannot say -- and on the drawn-edge tables that carry spans the
+        # columns are the author's anyway -- so it sets none.
+        for ci, cell in enumerate(row):
+            if cell is None or max(1, getattr(cell, "col_span", 1)) > 1:
                 continue
-            span = max(1, getattr(cell, "col_span", 1))
-            if cell and ci < len(floor):
+            if ci < len(floor):
                 pads = cell.pad[1] + cell.pad[3] \
                     if len(cell.pad) >= 4 else 8.0
                 widest = 0.0
@@ -806,7 +921,6 @@ def _col_floors(t: TableEl) -> List[float]:
                     # construction held everything the author drew in it.
                     widest = min(widest, t.col_widths[ci]) if drawn else widest
                     floor[ci] = max(floor[ci], widest + pads)
-            ci += span
     return floor
 
 
@@ -833,10 +947,8 @@ def _fit_col_widths(t: TableEl, content_w: float = 0.0) -> List[float]:
     # its first run.
     need = [0.0] * n
     for row in t.rows:
-        ci = 0
-        for cell in row:
+        for ci, cell in enumerate(row):     # full-width rows; see _col_floors
             if cell is None:
-                ci += 1
                 continue
             span = max(1, getattr(cell, "col_span", 1))
             w = _cell_text_width(cell)
@@ -853,7 +965,6 @@ def _fit_col_widths(t: TableEl, content_w: float = 0.0) -> List[float]:
                 # estimate that was wrong.
                 if getattr(t, "col_edges_drawn", False) \
                         and w > widths[ci] + 1.0:
-                    ci += span
                     continue
                 pads = cell.pad[1] + cell.pad[3] if len(cell.pad) >= 4 else 8.0
                 # A line the author's own grid HELD needs no widening: on
@@ -865,7 +976,6 @@ def _fit_col_widths(t: TableEl, content_w: float = 0.0) -> List[float]:
                 if getattr(t, "col_edges_drawn", False):
                     ask = min(ask, widths[ci])
                 need[ci] = max(need[ci], ask)
-            ci += span
     deficit = [max(0.0, need[i] - widths[i]) for i in range(n)]
     # The surplus a column may give up is bounded below by its FLOOR --
     # the widest line its cells actually drew. The old `width - 12` default
@@ -1154,6 +1264,13 @@ def _hf_height(part) -> float:
     return h
 
 
+def _body_foot(lay: DocLayout) -> float:
+    """The y where the body box ends: the footnote area's foot. Same model of
+    the bottom margin and footer as `_body_capacity`."""
+    fd = lay.footer_default.distance if lay.footer_default else 0.0
+    return lay.page_h - max(lay.margin_b, fd + _hf_height(lay.footer_default))
+
+
 def _body_capacity(lay: DocLayout) -> float:
     """The flow height a page really offers, footer and header included.
 
@@ -1225,8 +1342,13 @@ def _stack_fits(pg, lay: DocLayout) -> bool:
     return used <= _body_capacity(lay)
 
 
-def _page_spill(pg, content_w: float, lay: DocLayout):
+def _page_spill(pg, content_w: float, lay: DocLayout, notes_h: float = 0.0):
     """-> (overflow_pt, stranded_lines) for one source page, or None.
+
+    `notes_h` is the footnote area this page carries when its notes are
+    written as real notes (`notes.footnote_areas`): the renderer stacks it
+    at the bottom of the body, so the body has that much less room, and the
+    page's `role="footnote"` paragraphs are not in the body at all.
 
     `overflow_pt` is how far the whole flow runs past the page box -- what the
     page's gaps would have to give up for nothing to be stranded.
@@ -1248,12 +1370,14 @@ def _page_spill(pg, content_w: float, lay: DocLayout):
     metrics = _text_metrics()
     if metrics is None:
         return None
-    capacity = _body_capacity(lay)
+    capacity = _body_capacity(lay) - notes_h
     bottom = capacity + SPILL_EDGE_SLACK_PT
     used, stranded = 0.0, 0
     for ch in pg.chunks:
         used += max(0.0, ch.pre_gap)
         for el in ch.elements:
+            if notes_h > 0 and getattr(el, "role", "") == "footnote":
+                continue
             if isinstance(el, ColBreak):
                 return None       # a column break on a one-column page: unmodelled
             if not isinstance(el, Para):
@@ -1280,7 +1404,8 @@ def _page_spill(pg, content_w: float, lay: DocLayout):
     return used - capacity, stranded
 
 
-def _absorb_page_spill(pg, content_w: float, lay: DocLayout) -> dict:
+def _absorb_page_spill(pg, content_w: float, lay: DocLayout,
+                       notes_h: float = 0.0) -> dict:
     """Plan the gap reductions that keep a small spill on its own page.
 
     Returns `{id(element): new_space_before}`, empty when the page is to be
@@ -1295,14 +1420,15 @@ def _absorb_page_spill(pg, content_w: float, lay: DocLayout) -> dict:
     paragraph gaps cannot cover the overflow in full is left alone: a partial
     payment spends the spacing and still loses the page.
     """
-    got = _page_spill(pg, content_w, lay)
+    got = _page_spill(pg, content_w, lay, notes_h)
     if got is None:
         return {}
     overflow, stranded = got
     if stranded <= 0 or stranded > SPILL_MAX_LINES or overflow <= 0.0:
         return {}
     paras = [el for ch in pg.chunks for el in ch.elements
-             if isinstance(el, Para)]
+             if isinstance(el, Para)
+             and not (notes_h > 0 and el.role == "footnote")]
     if not paras:
         return {}
     want = overflow + SPILL_SAFETY_PT
@@ -1474,7 +1600,8 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
     # campaign verified (Docs draws it 2.0pt wide, quantised, colour
     # exact).  The standard profile keeps its measured table form.
     if _gdocs_paragraph_form(t, ctx) and t.role == "quote":
-        return _write_quote_paragraphs(container, t, content_w, ctx)
+        return _write_quote_paragraphs(container, t, content_w, ctx,
+                                       page_break_before=page_break_before)
     # A callout box likewise: one cell whose four borders belong on the
     # paragraphs it contains -- the table form's cell line inflation is the
     # same measured +1-2pt/line that took the quote blocks out of tables.
@@ -1483,7 +1610,8 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
     # the live-verified hand-campaign round-6 form (sz=6 #333333, the
     # source's own 0.75pt stroke).
     if _gdocs_paragraph_form(t, ctx) and t.role == "box":
-        return _write_box_paragraphs(container, t, content_w, ctx)
+        return _write_box_paragraphs(container, t, content_w, ctx,
+                                     page_break_before=page_break_before)
     n_rows = len(t.rows)
     n_cols = len(t.col_widths)
     if n_rows == 0 or n_cols == 0:
@@ -1540,6 +1668,16 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
         gc.set(qn("w:w"), str(int(round(wpt * 20))))
 
     first_cover_text = True
+    # Merged cells (infer.build_grid_table): every grid position a span
+    # covers, other than the span's own, maps to (cell, r0, c0, cols, rows).
+    cover = _span_cover(t, n_rows, n_cols)
+    # What each row's cells are WRITTEN with: one top and one bottom pad per
+    # row (see _uniform_row_pads). The row-height arithmetic below keeps
+    # reading the cells as inferred. Not under the gdocs profile, whose
+    # row model was calibrated live on per-cell pads (the round-4 levers
+    # below) and has no measurement of Docs' rule yet.
+    emit_rows = t.rows if ctx.output_profile == "gdocs" \
+        else _uniform_row_pads(t.rows, n_cols)
     for ri, rowspec in enumerate(t.rows):
         row = tbl.rows[ri]
         if ri < t.repeat_header_rows:
@@ -1550,14 +1688,27 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
             hdr.set(qn("w:val"), "true")
             trPr.append(hdr)
         h = t.row_heights[ri] if ri < len(t.row_heights) else None
+        # A row's height belongs to the cells that live in it alone. A cell
+        # merged down over several rows is laid out across all of them
+        # (Word, LibreOffice and Docs all grow the LAST row of a merge if
+        # its content needs more), so counting its whole text against its
+        # first row would compress -- or grow -- that row for content that
+        # is not in it.
+        own = [c for c in rowspec[:n_cols]
+               if c and max(1, getattr(c, "row_span", 1)) == 1]
         # Only pin height on rows with no text: text rows are content-driven
         # (cell pads + exact-leading paragraphs sum to the source height,
         # which renders identically in Word, Google Docs and LibreOffice).
-        row_has_text = any(c and any(p.text.strip() for p in c.paras)
-                           for c in rowspec)
+        # A row whose only text is a merged cell's is, for its own height,
+        # a row with no text.
+        row_has_text = any(any(p.text.strip() for p in c.paras) for c in own)
         if h and not row_has_text:
             trPr = row._tr.get_or_add_trPr()
             th = OxmlElement("w:trHeight")
+            # A pinned height is the row's total, borders included (measured
+            # on the canonical LibreOffice 24.2: a 40pt pin with 0.5pt rules
+            # renders 40.0), unlike a content-driven row; see
+            # _row_border_allowance.
             th.set(qn("w:val"), str(int(round(h * 20))))
             th.set(qn("w:hRule"), "atLeast")
             trPr.append(th)
@@ -1571,7 +1722,16 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
         # the shrink below target h - overhead so content + overhead lands
         # on the pin instead of past it. Rows land 0 to ~0.1pt under
         # source, which cannot spill.
-        gdocs_rowpin = ctx.output_profile == "gdocs"
+        #
+        # DATA tables only (role "table"), which is what the levers were
+        # measured on. Applied to every text row they also pinned cover
+        # bands and stat-card rows, whose content-driven pads already sum
+        # to the source height: live pass 8 (2026-10-04) put 04_exec_brief
+        # at dy_p50 13.24pt against pass 7's 2.43 and c1_whitepaper at
+        # 11.56 against 5.56. Bisected to the commit that introduced the
+        # pin (d26d7ff); the same DOCX with the band/card pins removed
+        # measured 1.95 / 3.82 live.
+        gdocs_rowpin = ctx.output_profile == "gdocs" and t.role == "table"
         if gdocs_rowpin and h and row_has_text:
             trPr = row._tr.get_or_add_trPr()
             th = OxmlElement("w:trHeight")
@@ -1589,9 +1749,7 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
         row_shrink = 1.0
         if h and row_has_text:
             need = 0.0
-            for c in rowspec:
-                if not c:
-                    continue
+            for c in own:
                 cell_h = (c.pad[0] + c.pad[2]) if len(c.pad) >= 4 else 0.0
                 for p in c.paras:
                     lead = p.leading or (p.runs[0].size * 1.2 if p.runs else 11.0)
@@ -1612,34 +1770,75 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
         if gdocs_rowpin and h and row_has_text:
             target = math.floor(h) - GDOCS_ROW_SAFETY_PT
             if need > target + 0.5:
-                avail = max((c.pad[2] if c and len(c.pad) >= 4 else 0.0)
-                            for c in rowspec)
+                avail = max([(c.pad[2] if len(c.pad) >= 4 else 0.0)
+                             for c in own] or [0.0])
                 pad_cut = min(need - target, max(0.0, avail))
                 need -= pad_cut
                 if need > target + 0.5:
                     row_shrink = max(MIN_ROW_SHRINK, target / need)
                 else:
                     row_shrink = 1.0
+        tcs = list(row._tr.tc_lst)
+        emitspec = emit_rows[ri]
         for ci in range(n_cols):
-            spec = rowspec[ci] if ci < len(rowspec) else None
-            cell = tbl.cell(ri, ci)
-            tcPr = cell._tc.get_or_add_tcPr()
+            spec = emitspec[ci] if ci < len(emitspec) else None
+            covered = cover.get((ri, ci)) if spec is None else None
+            if covered is not None and (covered[1] == ri or covered[2] != ci):
+                # inside a gridSpan: the spanning w:tc owns this grid column
+                row._tr.remove(tcs[ci])
+                continue
+            tc = tcs[ci]
+            cell = _Cell(tc, tbl)
+            tcPr = tc.get_or_add_tcPr()
             for old in tcPr.findall(qn("w:tcW")):
                 tcPr.remove(old)
+            cs = 1 if spec is None else \
+                max(1, min(getattr(spec, "col_span", 1), n_cols - ci))
+            rs = 1 if spec is None else \
+                max(1, min(getattr(spec, "row_span", 1), n_rows - ri))
+            if covered is not None:
+                spec, r0, _c0, cs, rs = covered
+            cw = sum(t.col_widths[ci:ci + cs])
             tcw = OxmlElement("w:tcW")
-            tcw.set(qn("w:w"), str(int(round(t.col_widths[ci] * 20))))
+            tcw.set(qn("w:w"), str(int(round(cw * 20))))
             tcw.set(qn("w:type"), "dxa")
             tcPr.append(tcw)
+            # schema order: tcW, gridSpan, vMerge, tcBorders, shd, ...
+            if cs > 1:
+                gs = OxmlElement("w:gridSpan")
+                gs.set(qn("w:val"), str(cs))
+                tcPr.append(gs)
+            if rs > 1:
+                vm = OxmlElement("w:vMerge")
+                if covered is None:
+                    vm.set(qn("w:val"), "restart")
+                tcPr.append(vm)
+            if covered is not None:
+                # A continuation row of a merged cell: an empty w:tc carrying
+                # the merge's shading and its own row's share of the borders
+                # (sides, and the bottom only on the merge's last row).
+                last = ri == r0 + rs - 1
+                if spec.shading:
+                    shd = OxmlElement("w:shd")
+                    shd.set(qn("w:val"), "clear")
+                    shd.set(qn("w:fill"), _hex(spec.shading))
+                    tcPr.append(shd)
+                _set_borders(tcPr, _merge_part_borders(spec.borders, False, last),
+                             "w:tcBorders")
+                _blank_cell(cell)
+                continue
             if spec is None:
                 _blank_cell(cell)
                 _set_borders(tcPr, {}, "w:tcBorders")
                 continue
+            spanning = rs > 1
             if spec.shading:
                 shd = OxmlElement("w:shd")
                 shd.set(qn("w:val"), "clear")
                 shd.set(qn("w:fill"), _hex(spec.shading))
                 tcPr.append(shd)
-            _set_borders(tcPr, spec.borders, "w:tcBorders")
+            _set_borders(tcPr, _merge_part_borders(spec.borders, True, not spanning)
+                         if spanning else spec.borders, "w:tcBorders")
             tmar = OxmlElement("w:tcMar")
             pads = spec.pad  # (top, left, bottom, right)
             # Google ignores tcMar/left: first measured on the bleed cover
@@ -1661,7 +1860,9 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
             # 20tw on top of the 0.75pt loss; 1.75pt total). It is
             # monotone-safe: widening the wrap width can only REMOVE a wrap,
             # never add one.
-            emitted_pads = (pads[0], 0.0, max(0.0, pads[2] - pad_cut),
+            # (a merged cell's rows were sized without it: no cut, no shrink)
+            cell_cut = 0.0 if spanning else pad_cut
+            emitted_pads = (pads[0], 0.0, max(0.0, pads[2] - cell_cut),
                             max(0.0, pads[3] - 1.75)) \
                 if gdocs_cellpad else pads
             for side, val in zip(("top", "left", "bottom", "right"),
@@ -1683,7 +1884,7 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
                 # 35.8pt column left 14.6pt for '24.6' (17.5pt), so the number
                 # wrapped char-by-char and the row doubled. Word indents are
                 # measured from the tcMar edge; make the paragraphs agree.
-                def _depadded(p, _s=row_shrink):
+                def _depadded(p, _s=1.0 if spanning else row_shrink):
                     q = copy.copy(p)
                     if gdocs_cellpad:
                         # Standard rendering lands at max(source indent,
@@ -1717,8 +1918,7 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
                         if pos > 0.0 and ci < len(t.col_widths):
                             w = source_line_width(p)
                             if w is not None:
-                                inner = max(0.0, t.col_widths[ci]
-                                            - emitted_pads[3] - 2.0)
+                                inner = max(0.0, cw - emitted_pads[3] - 2.0)
                                 pos = min(pos, max(
                                     0.0, inner - w * 1.15 - 1.0))
                         q.left_indent = pos
@@ -1740,7 +1940,7 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
                                      _GDOCS_COVER_BEFORE_COMP_TWIPS)
                         q.space_before = before / 20.0
                         first_cover_text = False
-                    cpar = write_para(cell, q, t.col_widths[ci],
+                    cpar = write_para(cell, q, cw,
                                       par=first if pi == 0 else None, ctx=ctx)
                     _size_mark_to_content(cpar, q)
             else:
@@ -1748,7 +1948,14 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
     return tbl
 
 
-def _write_quote_paragraphs(container, t: TableEl, content_w: float, ctx=None):
+def _block_right_gap(t: TableEl, content_w: float) -> float:
+    """Distance from a one-cell block's right edge to the column's right edge."""
+    width = sum(t.col_widths) if t.col_widths else content_w - t.left_indent
+    return max(0.0, content_w - t.left_indent - width)
+
+
+def _write_quote_paragraphs(container, t: TableEl, content_w: float, ctx=None,
+                            page_break_before: bool = False):
     """A quote bar as body paragraphs with a left border (gdocs profile).
 
     See `write_table` for why the table form is replaced here.  Geometry:
@@ -1766,13 +1973,27 @@ def _write_quote_paragraphs(container, t: TableEl, content_w: float, ctx=None):
     # bar-to-text distance: the cell's left pad carries it (text x = bar x
     # + pad), and a paragraph may sit further in still
     pad_left = cell.pad[1] if len(cell.pad) >= 4 else 0.0
+    pads = cell.pad if len(cell.pad) >= 4 else (0.0, 0.0, 0.0, 0.0)
+    # The table form's cell bounded the wrap on the right; body paragraphs
+    # run to the column edge unless the cell's right edge and pad are
+    # written onto them as a right indent. Without it 04_exec_brief's quote
+    # (a block narrower than its column) ran one line past the source's
+    # wrap edge, live pass 8 (2026-10-04) measuring dy_p90 38pt where pass
+    # 7's table form measured 6.2. The block's VERTICAL position needs no
+    # transfer: adding the table gap and cell pads to the first and last
+    # paragraph broke B13's CLEAN 1:1 live (a spill at source page 3), whose
+    # quote gaps the paragraphs already carry.
+    right_gap = _block_right_gap(t, content_w)
     out = []
-    for p in cell.paras:
+    n = len(cell.paras)
+    for pi, p in enumerate(cell.paras):
         q = copy.copy(p)
         space = max(0.0, min(31.0, pad_left + q.left_indent))
         q.left_indent = max(0.0, t.left_indent + pad_left + q.left_indent)
+        q.right_indent = max(0.0, right_gap + pads[3] + (q.right_indent or 0.0))
         q.first_indent = 0.0
-        par = write_para(container, q, content_w, ctx=ctx)
+        par = write_para(container, q, content_w, ctx=ctx,
+                         page_break_before=page_break_before and pi == 0)
         if par is None:
             continue
         ppr = par._p.get_or_add_pPr()
@@ -1790,7 +2011,8 @@ def _write_quote_paragraphs(container, t: TableEl, content_w: float, ctx=None):
     return out[0] if out else None
 
 
-def _write_box_paragraphs(container, t: TableEl, content_w: float, ctx=None):
+def _write_box_paragraphs(container, t: TableEl, content_w: float, ctx=None,
+                          page_break_before: bool = False):
     """A callout box as body paragraphs carrying a four-side border (gdocs).
 
     See `write_table` for why the table form is replaced. Geometry follows
@@ -1824,9 +2046,12 @@ def _write_box_paragraphs(container, t: TableEl, content_w: float, ctx=None):
         q = copy.copy(p)
         space_l = max(0.0, min(31.0, pads[1] + q.left_indent))
         q.left_indent = max(0.0, t.left_indent + pads[1] + q.left_indent)
+        # measured from the BOX's right edge, not the column's: a box
+        # narrower than its column otherwise wraps its text at the column
         q.right_indent = max(0.0, pad_right)
         q.first_indent = 0.0
-        par = write_para(container, q, content_w, ctx=ctx)
+        par = write_para(container, q, content_w, ctx=ctx,
+                         page_break_before=page_break_before and pi == 0)
         if par is None:
             continue
         ppr = par._p.get_or_add_pPr()
@@ -1852,6 +2077,107 @@ def _write_box_paragraphs(container, t: TableEl, content_w: float, ctx=None):
         _side("right", right, pad_right)
         out.append(par)
     return out[0] if out else None
+
+
+def _span_cover(t: TableEl, n_rows: int, n_cols: int) -> dict:
+    """{(row, col): (cell, r0, c0, col_span, row_span)} for every grid
+    position a merged cell covers other than its own top-left one."""
+    cover = {}
+    for r0, rowspec in enumerate(t.rows[:n_rows]):
+        for c0, spec in enumerate(rowspec[:n_cols]):
+            if spec is None:
+                continue
+            cs = max(1, min(getattr(spec, "col_span", 1), n_cols - c0))
+            rs = max(1, min(getattr(spec, "row_span", 1), n_rows - r0))
+            if cs == 1 and rs == 1:
+                continue
+            for r in range(r0, r0 + rs):
+                for c in range(c0, c0 + cs):
+                    if (r, c) != (r0, c0):
+                        cover[(r, c)] = (spec, r0, c0, cs, rs)
+    return cover
+
+
+def _row_border_allowance(row) -> float:
+    """Height a row's own horizontal borders add to it in the renderer.
+
+    Pads are derived from the source's line CENTRES, so the source row
+    pitch already contains its rules. LibreOffice lays the border out on
+    top of pads + content: measured (exp/border) a 14.0pt row of pads and
+    one line renders at a 14.0 + w pitch for borders of width w on every
+    cell, w from 0.25 to 4.0 exactly. Half the top and half the bottom
+    border, the widest in the row.
+    """
+    allow = 0.0
+    for c in row:
+        if c is None:
+            continue
+        b = c.borders or {}
+        w = sum((b.get(k) or (0.0,))[0] for k in ("top", "bottom")) / 2.0
+        allow = max(allow, w)
+    return allow
+
+
+def _uniform_row_pads(rows, n_cols: int):
+    """Each row's cells with ONE top and ONE bottom margin; the difference
+    moved into the first paragraph's space-before. Returns new rows.
+
+    The content-driven row model (THEORY 3.2) derives every cell's pads from
+    its own geometry, so that pads + exact-leading lines sum to the source
+    row in each cell. Word sizes a row per cell. LibreOffice does not: it
+    measured max(top pads) + max(content) + max(bottom pads) across the row
+    (exp/pad3: a two-line cell with pads 0.7/2.0 beside a one-line cell with
+    1.3/12.8 renders 36.6pt, not 24.7; a 0/2 cell beside a 12/2 one renders
+    36.5, not 25.0). A one-line cell next to a wrapped one always carries a
+    large bottom pad -- that is what makes the row's height add up -- so
+    every such row grew by about that pad: on NIST SP 800-171's mapping
+    tables, +12pt on most rows.
+
+    With every cell sharing the row's smallest top and bottom gaps, and each
+    cell's remaining top offset expressed as space-before, both renderers
+    compute the same height: the tallest cell's content plus the shared
+    pads, which is the source row. Cells merged down from a row (row_span >
+    1) give up their bottom pad entirely -- their rows are sized by the
+    cells that live in them -- and blank cells take the shared pads so they
+    cannot raise the row's maxima.
+    """
+    out = []
+    for rowspec in rows:
+        row = list(rowspec)
+        live = [c for c in row[:n_cols] if c is not None]
+        texted = [c for c in live if max(1, getattr(c, "row_span", 1)) == 1
+                  and len(c.pad) >= 4 and any(p.text.strip() for p in c.paras)]
+        top = min((c.pad[0] for c in texted), default=0.0)
+        bot = max(0.0, min((c.pad[2] for c in texted), default=0.0)
+                  - _row_border_allowance(row))
+        for ci, c in enumerate(row[:n_cols]):
+            if c is None or len(c.pad) < 4:
+                continue
+            q = copy.copy(c)
+            spanning = max(1, getattr(c, "row_span", 1)) > 1
+            if c.paras and any(p.text.strip() for p in c.paras):
+                lift = max(0.0, c.pad[0] - top)
+                if lift > 0.05:
+                    first = copy.copy(c.paras[0])
+                    first.space_before = round((first.space_before or 0.0) + lift, 2)
+                    q.paras = [first] + list(c.paras[1:])
+            q.pad = (min(top, c.pad[0]), c.pad[1],
+                     0.0 if spanning else min(bot, c.pad[2]), c.pad[3])
+            row[ci] = q
+        out.append(row)
+    return out
+
+
+def _merge_part_borders(borders: dict, first: bool, last: bool) -> dict:
+    """One row's w:tc of a vertically merged cell: its sides, the merge's top
+    edge on the first row only, its bottom edge on the last only -- so no
+    renderer draws a rule across the inside of the merge."""
+    b = dict(borders or {})
+    if not first:
+        b.pop("top", None)
+    if not last:
+        b.pop("bottom", None)
+    return b
 
 
 def _blank_cell(cell):
@@ -2280,7 +2606,7 @@ def _shifted_part(part: Optional[HFPart], dl: float, dr: float) -> Optional[HFPa
         if isinstance(el, Para):
             el.left_indent = round(el.left_indent + dl, 1)
             el.right_indent = round((el.right_indent or 0.0) + dr, 1)
-            el.tab_stops = [(round(p + dl, 1), a) for p, a in el.tab_stops]
+            el.tab_stops = _shift_tabs(el.tab_stops, dl)
         elif isinstance(el, TableEl):
             el.left_indent = round(el.left_indent + dl, 1)
     return np
@@ -2797,12 +3123,52 @@ def _merge_grid_page_runs(pages):
     return out
 
 
+def _script_base_sizes(lay: DocLayout) -> int:
+    """Give each superscript run the size of the text it is raised against.
+
+    `vertAlign=superscript` means "shrink and raise": Word and LibreOffice
+    render the run at roughly 0.6x its own `w:sz` (LibreOffice 58%). Every
+    script run carried the size it was DRAWN at, which is already the shrunk
+    size, so the renderer shrank it a second time: EUR-Lex footnote markers
+    drawn at 4.93pt (0.58 of the body) wrote `sz=10` and rendered near 3pt, a
+    dot in brackets; 13 of 32 real documents carried such runs (FIPS 180 939,
+    1040 instructions 347, Pub 501 166, lshort 158). This is how Word itself
+    writes a superscript: the line's size, with vertAlign doing the shrink.
+    Censused, the drawn script/host ratios are 0.58-0.73, so the renderer's
+    own ratio lands within a few tenths of a point of the source.
+
+    The host is the nearest non-script run with text, before the script, else
+    after it. A script with no host in its paragraph, or one already drawn at
+    its host's size, has nothing to be shrunk against: it keeps the size it was
+    drawn at and loses only the raise, rather than shrinking to illegibility.
+    """
+    from .layout import iter_paras
+
+    def inked(r):
+        return not r.superscript and not r.is_tab and bool(r.text.strip())
+    n = 0
+    for p in iter_paras(lay):
+        runs = p.runs
+        for i, r in enumerate(runs):
+            if not r.superscript or not r.text.strip():
+                continue
+            host = next((h for h in reversed(runs[:i]) if inked(h)), None) or \
+                next((h for h in runs[i + 1:] if inked(h)), None)
+            if host is not None and host.size > 1.05 * r.size:
+                r.size = host.size
+            else:
+                r.superscript = False
+            n += 1
+    return n
+
+
 def _paper(pg: PageLayout):
     """A page's own geometry, as inference recorded it (None: the document's)."""
     return (pg.page_w, pg.page_h, pg.margins)
 
 
 def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
+    src_lay = lay
     lay = copy.deepcopy(lay)
     lay.pages = _merge_grid_page_runs(lay.pages)
     # After the deepcopy: the plan marks the elements this function will write.
@@ -2818,7 +3184,41 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
         # the bookmark plan above stays valid.
         from .gdocs_metrics import apply_metric_fit
         apply_metric_fit(lay)
+    else:
+        # Same safety argument: run properties on the copy only. Not under the
+        # gdocs profile -- Google Docs' own superscript ratio is unmeasured,
+        # and that profile changes only on live evidence.
+        _script_base_sizes(lay)
+    # Real lists and real notes, where the profile writes them (options.py).
+    # Planned before anything is written: a list or a note that cannot be
+    # written whole is written typed, never half-converted.
+    from .structures import footnote_plan, numbering_plan
+    if ctx.numbering and lay.lists:
+        ctx = dataclasses.replace(ctx, list_defs=numbering_plan(lay))
+    note_ids = footnote_plan(lay) if ctx.footnotes and not ctx.notes_vetoed \
+        else {}
+    if note_ids:
+        ctx = dataclasses.replace(ctx, note_ids=note_ids)
+        # A link whose destination was the note text at the page foot (EUR-Lex
+        # links every "(¹)" to its note) would point at a bookmark on a
+        # paragraph no longer in the body; its text is written plain, beside
+        # the footnote reference that now does that job.
+        gone = {getattr(el, "_bookmark", None) for pg in lay.pages
+                for ch in pg.chunks for el in ch.elements
+                if getattr(el, "role", "") == "footnote"} - {None}
+        if gone:
+            ctx = dataclasses.replace(ctx, dest_anchors={
+                d: n for d, n in ctx.dest_anchors.items() if n not in gone})
+    # {source page: height of the footnote area its notes occupy}
+    notes_h = {}
+    if note_ids:
+        from .notes import footnote_areas
+        notes_h = footnote_areas(
+            lay, lambda pl: _body_foot(_page_geometry(lay, pl)))
     doc = Document()
+    if ctx.list_defs:
+        from .structures import numbering_base
+        ctx = dataclasses.replace(ctx, num_base=numbering_base(doc))
     dpi = ctx.dpi
     content_w = lay.content_w
 
@@ -2834,12 +3234,25 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
     _restyle_outline_styles(doc)
     if lay.hyphenated:
         # source justifies with hyphenation: let Word/Docs hyphenate too so
-        # line packing (and therefore paragraph heights) stay comparable
+        # line packing (and therefore paragraph heights) stay comparable.
+        # Placed where CT_Settings puts it -- straight after defaultTabStop;
+        # appended at the end it sat after listSeparator, where a strict reader
+        # ignores it. doNotHyphenateCaps follows it in the same sequence: no
+        # producer in the corpus hyphenates an all-caps word, and LibreOffice
+        # did (`AP-PEALS` on the Supreme Court caption).
         st = doc.settings.element
         if st.find(qn("w:autoHyphenation")) is None:
             ah = OxmlElement("w:autoHyphenation")
             ah.set(qn("w:val"), "1")
-            st.append(ah)
+            caps = OxmlElement("w:doNotHyphenateCaps")
+            caps.set(qn("w:val"), "1")
+            dts = st.find(qn("w:defaultTabStop"))
+            if dts is not None:
+                dts.addnext(ah)
+                ah.addnext(caps)
+            else:
+                st.append(ah)
+                st.append(caps)
 
     sec = doc.sections[0]
     has_cover = lay.cover_band is not None
@@ -2963,7 +3376,7 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                 if isinstance(el, Para):
                     el.left_indent = round(el.left_indent + delta_l, 1)
                     el.right_indent = round((el.right_indent or 0.0) + delta_r, 1)
-                    el.tab_stops = [(round(p + delta_l, 1), a) for p, a in el.tab_stops]
+                    el.tab_stops = _shift_tabs(el.tab_stops, delta_l)
                 elif isinstance(el, TableEl):
                     el.left_indent = round(el.left_indent + delta_l, 1)
                 elif isinstance(el, (FigureEl, ImageEl)):
@@ -3074,7 +3487,8 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
         # compound on every pass. The cover page keeps its own bleed geometry
         # and is never asked. See `_absorb_page_spill`.
         spill_plan = {} if (has_cover and pi == 0) \
-            else _absorb_page_spill(pg, cw_ctx, glay)
+            else _absorb_page_spill(pg, cw_ctx, glay,
+                                    notes_h.get(pg.number, 0.0))
         for ci, ch in enumerate(pg.chunks):
             if ch.n_cols != cur_cols:
                 if ch.pre_gap > 0.5:
@@ -3082,6 +3496,8 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                 new_section(WD_SECTION.CONTINUOUS, ch.n_cols, ch.col_gap)
             drop_col_break = _column_one_overflows(ch, cw_ctx, glay)
             for el in ch.elements:
+                if ctx.note_ids and getattr(el, "role", "") == "footnote":
+                    continue        # carried by footnotes.xml instead
                 if isinstance(el, ColBreak):
                     if drop_col_break:
                         # Column one is predicted to overflow. Forcing the
@@ -3191,6 +3607,76 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
         if not has_content and not has_sectpr and len(list(body)) > 2:
             body.remove(p0)
 
+    if ctx.list_defs:
+        from .structures import write_numbering
+        write_numbering(doc, ctx.list_defs, ctx.output_profile, ctx.num_base)
+    if ctx.note_ids:
+        # Every note's reference must have reached the body: its text has
+        # already been left out of it, and a note with no reference is text
+        # no reader will ever see. If one is missing the document is written
+        # again with its notes typed -- never with a note dropped.
+        written = {int(r.get(qn("w:id")))
+                   for r in body.iter(qn("w:footnoteReference"))}
+        if written != {wid for wid, _custom in ctx.note_ids.values()}:
+            if ctx.image_report is not None:
+                ctx.image_report.clear()     # the rewrite counts afresh
+            return _write_docx(src_lay, out_path, dataclasses.replace(
+                ctx, note_ids={}, notes_vetoed=True))
+        from .structures import write_footnotes
+        write_footnotes(doc, lay, ctx, write_para)
+    _release_keeps_before_seams(body)
     _declare_fonts(doc)
     doc.save(out_path)
     return out_path
+
+
+def _starts_with_page_break(block) -> bool:
+    """Does this body block open with pageBreakBefore (a paragraph's own, or a
+    table's first paragraph's)?"""
+    p = block
+    if block.tag == qn("w:tbl"):
+        p = next(block.iter(qn("w:p")), None)
+    if p is None or p.tag != qn("w:p"):
+        return False
+    ppr = p.find(qn("w:pPr"))
+    if ppr is None:
+        return False
+    pbb = ppr.find(qn("w:pageBreakBefore"))
+    return pbb is not None and pbb.get(qn("w:val")) not in ("0", "false", "off")
+
+
+def _release_keeps_before_seams(body) -> None:
+    """A paragraph right before a pageBreakBefore seam must not keep-with-next.
+
+    The source put a heading at the very bottom of its page and the body it
+    heads at the top of the next (c6_long's "12. Section heading number 12").
+    Headings carry keepNext -- directly and through the Heading styles -- and
+    the next paragraph opens the next source page with pageBreakBefore, so
+    the keep cannot be satisfied on the page the heading is on: the renderer
+    moves the heading forward, the forced break then fires after it, and the
+    heading sits alone on a page of its own. Measured live in Google Docs
+    (pass 8, 2026-10-04): c6_long 7 -> 8 pages, word recall 1.000 -> 0.820,
+    bisected to the commit that replaced carrier paragraphs with
+    pageBreakBefore seams (07a9a83) -- a carrier paragraph absorbed the keep
+    on the heading's own page. The keep is released explicitly (w:val=0, so
+    the Heading style's keepNext is overridden too), and only on the one
+    paragraph in front of a hard seam, where it never had a satisfiable
+    meaning.
+    """
+    blocks = [b for b in body if b.tag in (qn("w:p"), qn("w:tbl"))]
+    for prev, cur in zip(blocks, blocks[1:]):
+        if prev.tag != qn("w:p") or not _starts_with_page_break(cur):
+            continue
+        ppr = prev.find(qn("w:pPr"))
+        if ppr is None:
+            ppr = OxmlElement("w:pPr")
+            prev.insert(0, ppr)
+        if ppr.find(qn("w:sectPr")) is not None:
+            continue
+        for old in ppr.findall(qn("w:keepNext")):
+            ppr.remove(old)
+        off = OxmlElement("w:keepNext")
+        off.set(qn("w:val"), "0")
+        # CT_PPr sequence: pStyle, keepNext, ... -- after pStyle if present
+        st = ppr.find(qn("w:pStyle"))
+        ppr.insert(list(ppr).index(st) + 1 if st is not None else 0, off)

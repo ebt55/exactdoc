@@ -24,7 +24,8 @@ CI, and is deliberately not consulted for decisions.
 """
 from typing import List, Optional
 
-from .model import DocIR, PageIR, TextBlock, Line, Span, DrawCmd, bbox_overlap
+from .model import (DocIR, PageIR, TextBlock, Line, Span, DrawCmd, bbox_overlap,
+                    ink_extent)
 
 # --- tunables, all in PDF points ------------------------------------------
 BULLET_MAX = 9.0          # a list marker glyph is never larger than this
@@ -152,10 +153,29 @@ def _is_backdrop(d: DrawCmd, pw: float, ph: float) -> bool:
     return _luma_ok(d.fill)
 
 
+def _is_hollow_marker(d: DrawCmd) -> bool:
+    """A stroked, unfilled small CURVE: the `circle` list-style marker.
+
+    Chromium draws a second-level bullet (`list-style: circle`) as an outlined
+    bezier circle -- fill None, a 0.75pt stroke, 4.9pt across on x09 -- so the
+    solid-only test below never saw it, the drawing fell through as a stray
+    ornament, and every second-level item of x09's nested list lost its marker.
+    Restricted to curves on purpose: a stroked small RECTANGLE before a label is
+    a form's checkbox, and calling that a bullet would be a lie about content.
+    """
+    if d.fill or not d.stroke or d.shape not in ("curve", "complex"):
+        return False
+    x0, y0, x1, y1 = d.bbox
+    w, h = x1 - x0, y1 - y0
+    if not (1.5 < w <= BULLET_MAX and 1.5 < h <= BULLET_MAX):
+        return False
+    return abs(w - h) <= 0.25 * max(w, h)
+
+
 def _is_marker_glyph(d: DrawCmd) -> bool:
     """Small, solid, roughly square: the shape of a drawn bullet."""
     if not d.fill:
-        return False
+        return _is_hollow_marker(d)
     x0, y0, x1, y1 = d.bbox
     w, h = x1 - x0, y1 - y0
     if not (0.4 < w <= BULLET_MAX and 0.4 < h <= BULLET_MAX):
@@ -186,10 +206,10 @@ def _labelled_line(bbox, lines: List[Line]) -> Optional[Line]:
 
 
 def _bullet_block(x0: float, baseline: float, size: float,
-                  color: Optional[str]) -> TextBlock:
+                  color: Optional[str], char: str = "•") -> TextBlock:
     """The canonical form both marker recoveries produce: a one-span block."""
     bb = (x0, baseline - size * 0.94, x0 + size * 0.5, baseline)
-    sp = Span(text="•", font="Arial", size=size,
+    sp = Span(text=char, font="Arial", size=size,
               color=color or "#000000", bold=False, italic=False,
               mono=False, serif=False, superscript=False,
               bbox=bb, origin=(x0, baseline))
@@ -198,6 +218,28 @@ def _bullet_block(x0: float, baseline: float, size: float,
 
 def _drop_backdrops(page: PageIR) -> int:
     keep = [d for d in page.drawings if not _is_backdrop(d, page.width, page.height)]
+    n = len(page.drawings) - len(keep)
+    page.drawings = keep
+    return n
+
+
+# A drawing must reach at least this far onto the paper to be ink.
+OFFPAGE_TOL = 0.5
+
+
+def _drop_offpage(page: PageIR) -> int:
+    """Drop drawings that lie wholly outside the page box.
+
+    They are invisible by construction, and Chromium emits them: it paints a
+    layer once and clips it per page, so the contents dot leaders of
+    x11_chrome_toc_headings page 1 are ALSO in page 2's content stream, at
+    y = -453 .. -335. Kept, they became seven "figures" with negative heights
+    at the top of page 2, and they set its top margin to 10pt.
+    """
+    w, h = page.width, page.height
+    keep = [d for d in page.drawings
+            if d.bbox[2] > OFFPAGE_TOL and d.bbox[3] > OFFPAGE_TOL
+            and d.bbox[0] < w - OFFPAGE_TOL and d.bbox[1] < h - OFFPAGE_TOL]
     n = len(page.drawings) - len(keep)
     page.drawings = keep
     return n
@@ -371,7 +413,204 @@ def _marker_at_text_scale(d: DrawCmd, line: Line) -> bool:
     return max(x1 - x0, y1 - y0) >= max(MARKER_MIN_PT, MARKER_MIN_EM * em)
 
 
-def _markers_to_text(page: PageIR) -> int:
+# --- drawn dot leaders --------------------------------------------------------
+# A contents line in HTML is "title <span class=dots> page", and the dots are a
+# CSS `border-bottom: dotted` -- which Chromium paints as hundreds of tiny
+# filled squares. On x11_chrome_toc_headings: 0.75pt squares at a 1.5pt pitch,
+# 271-292 of them per entry. Left as drawings they were rasterised as seven
+# 5pt-tall pictures, the 29 squares nearest each page number were promoted to
+# BULLETS by `_markers_to_text` (each sits within 46pt left of the number), and
+# those bullet blocks then read as a right-hand column, which split the page
+# into two columns and reordered the whole report.
+#
+# A leader is unmistakable geometry: many identical marks on one line at one
+# pitch, BETWEEN two pieces of text on that line's baseline. It is rewritten
+# into the canonical form every other producer already uses -- a run of "."
+# characters on the label's baseline -- so `infer` has one leader idiom to
+# recognise, not two.
+MARKER_ALIGN_TOL = 1.0     # pt; markers of one list share their left edge
+LEADER_MARK_MAX = 2.5      # pt; a leader dot, not a bullet (x09's are 3-5pt)
+LEADER_MIN_MARKS = 8       # a short dotted rule is decoration, not a leader
+LEADER_MIN_SPAN = 24.0     # pt
+LEADER_PITCH_MAX = 6.0     # pt between dot origins; dotted leaders are dense
+LEADER_PITCH_TOL = 0.35    # fraction of the pitch the spacing may wander
+LEADER_Y_TOL = 0.4         # pt; the marks of one leader share a centre line
+
+
+def _leader_runs(page: PageIR):
+    """[(marks, (x0, y0, x1, y1))] for regular horizontal runs of tiny marks."""
+    marks = [d for d in page.drawings
+             if (d.fill or d.stroke)
+             and 0.2 < d.bbox[2] - d.bbox[0] <= LEADER_MARK_MAX
+             and 0.2 < d.bbox[3] - d.bbox[1] <= LEADER_MARK_MAX]
+    if len(marks) < LEADER_MIN_MARKS:
+        return []
+    marks.sort(key=lambda d: (round((d.bbox[1] + d.bbox[3]) / 2, 1), d.bbox[0]))
+    rows, cur = [], [marks[0]]
+    for d in marks[1:]:
+        cy = (d.bbox[1] + d.bbox[3]) / 2
+        py = (cur[-1].bbox[1] + cur[-1].bbox[3]) / 2
+        if abs(cy - py) <= LEADER_Y_TOL:
+            cur.append(d)
+        else:
+            rows.append(cur)
+            cur = [d]
+    rows.append(cur)
+    out = []
+    for row in rows:
+        row.sort(key=lambda d: d.bbox[0])
+        # split the row into runs of steady pitch
+        run = [row[0]]
+        for d in row[1:] + [None]:
+            if d is not None:
+                step = d.bbox[0] - run[-1].bbox[0]
+                pitch = (run[-1].bbox[0] - run[0].bbox[0]) / (len(run) - 1) \
+                    if len(run) >= 2 else step
+                if 0 < step <= LEADER_PITCH_MAX and \
+                        abs(step - pitch) <= LEADER_PITCH_TOL * max(pitch, 0.5):
+                    run.append(d)
+                    continue
+            if len(run) >= LEADER_MIN_MARKS and \
+                    run[-1].bbox[2] - run[0].bbox[0] >= LEADER_MIN_SPAN:
+                out.append((run, (run[0].bbox[0],
+                                  min(m.bbox[1] for m in run),
+                                  run[-1].bbox[2],
+                                  max(m.bbox[3] for m in run))))
+            if d is not None:
+                run = [d]
+    return out
+
+
+def _drawn_leaders_to_text(page: PageIR) -> int:
+    """Rewrite drawn dot leaders between a label and its page number as text."""
+    lines = [l for b in page.blocks for l in b.lines if l.horizontal and l.spans]
+    if not lines:
+        return 0
+    done = 0
+    drop = set()
+    for marks, (x0, y0, x1, y1) in _leader_runs(page):
+        cy = (y0 + y1) / 2
+        left = right = None
+        for ln in lines:
+            size = max(s.size for s in ln.spans)
+            # the run sits on the line: between its x-height and just under
+            # its baseline (x11's border is lifted 2pt above the baseline)
+            if not (ln.baseline - 0.6 * size <= cy <= ln.baseline + 1.0):
+                continue
+            if ln.bbox[2] <= x0 + 1.0 and x0 - ln.bbox[2] <= 3.0 * size:
+                if left is None or ln.bbox[2] > left.bbox[2]:
+                    left = ln
+            elif ln.bbox[0] >= x1 - 1.0 and ln.bbox[0] - x1 <= 3.0 * size:
+                if right is None or ln.bbox[0] < right.bbox[0]:
+                    right = ln
+        if left is None or right is None:
+            continue                     # dots with nothing to lead: decoration
+        ref = left.spans[-1]
+        dot_w = 0.25 * ref.size          # a "." in Times; only a fallback width
+        n = max(LEADER_MIN_MARKS // 2, int((x1 - x0) / dot_w))
+        base = left.baseline
+        bb = (x0, base - 0.94 * ref.size, x1, base + 0.21 * ref.size)
+        sp = Span(text="." * n, font=ref.font, size=ref.size,
+                  color=marks[0].fill or marks[0].stroke or ref.color,
+                  bold=False, italic=False, mono=False, serif=ref.serif,
+                  superscript=False, bbox=bb, origin=(x0, base))
+        page.blocks.append(TextBlock(lines=[Line(spans=[sp], bbox=bb)], bbox=bb))
+        drop.update(id(m) for m in marks)
+        done += 1
+    if done:
+        page.drawings = [d for d in page.drawings if id(d) not in drop]
+        page.blocks.sort(key=lambda b: (round(b.bbox[1], 1), b.bbox[0]))
+    return done
+
+
+def _marker_hits(page: PageIR, lines=None) -> List[DrawCmd]:
+    """Drawn marker glyphs on this page that sit in front of a text line."""
+    if lines is None:
+        lines = [l for b in page.blocks for l in b.lines if l.horizontal]
+    if not lines:
+        return []
+    # Shape and position are not enough: Word's table-border joints are filled
+    # squares just left of cell text too, and y02 came out with 1,286 "•" for
+    # its 24 real bullets, most of them inside table cells. A marker must also
+    # be ink at its text's scale and must not be part of a rule.
+    hits, hollow = [], []
+    for d in page.drawings:
+        if not _is_marker_glyph(d):
+            continue
+        near = _labelled_line(d.bbox, lines)
+        if near is None or not _marker_at_text_scale(d, near):
+            continue
+        if _abuts_rule(d, page.drawings):
+            continue
+        if _flush_with_column_end(d, lines):
+            continue
+        if d.fill:
+            hits.append(d)
+        else:
+            hollow.append((d, near))
+    # An outlined circle is also a chart's scatter marker: y38 (eLife) has
+    # 120 of them on one figure page, each "labelling" a tick label within
+    # 46pt. A list's circle sits just ahead of its item (x09: 7pt, 1.4 marker
+    # widths) and is the ONLY mark in front of that item; a scatter point is
+    # neither.
+    owners = {}
+    for d, near in hollow:
+        owners[id(near)] = owners.get(id(near), 0) + 1
+    for d, near in hollow:
+        w = d.bbox[2] - d.bbox[0]
+        if owners[id(near)] == 1 and near.bbox[0] - d.bbox[2] <= 2.5 * w \
+                and len(near.text.strip()) >= 4:     # an item, not a tick label
+            hits.append(d)
+    return hits
+
+
+# IEEEtran's end-of-proof square is set flush with its column's right edge,
+# and the other column's text starts 7pt past it -- "in front of a line" as
+# far as position goes. y41's squares end where 19-28 lines of their page end;
+# the bullets of x09, x07-x10 and y02 where at most one does.
+END_MARK_FLUSH_LINES = 3
+
+
+def _flush_with_column_end(d: DrawCmd, lines) -> bool:
+    """Does the mark end where a text column's lines end (a tombstone)?"""
+    return sum(1 for l in lines
+               if abs(l.bbox[2] - d.bbox[2]) <= MARKER_ALIGN_TOL)         >= END_MARK_FLUSH_LINES
+
+
+def _aligned(hits: List[DrawCmd]) -> List[DrawCmd]:
+    """Marks that share their left edge with another: a list's marker column."""
+    return [d for d in hits
+            if any(e is not d and abs(e.bbox[0] - d.bbox[0]) <= MARKER_ALIGN_TOL
+                   for e in hits)]
+
+
+def _marker_sig(d: DrawCmd):
+    """What makes two drawn marks the same marker: shape, size, ink.
+
+    Sizes in half-point buckets: x09's circles measure 4.9 x 4.9 on page 1
+    and 4.9 x 4.8 on page 2 -- the same glyph, rounded differently.
+    """
+    return (d.shape, round((d.bbox[2] - d.bbox[0]) * 2) / 2,
+            round((d.bbox[3] - d.bbox[1]) * 2) / 2, d.fill, d.stroke)
+
+
+def _corroborated_markers(ir: DocIR) -> set:
+    """Marker signatures that some page shows as a LIST.
+
+    Two hits are not enough on their own: IEEEtran's end-of-proof square
+    (y41) lands just left of the other column's text twice on some pages, and
+    corroborating it from there turned every lone proof square into a
+    bullet. A list's markers share a left edge; proof squares never do.
+    """
+    sigs = set()
+    for p in ir.pages:
+        aligned = _aligned(_marker_hits(p))
+        if len(aligned) >= 2:
+            sigs.update(_marker_sig(d) for d in aligned)
+    return sigs
+
+
+def _markers_to_text(page: PageIR, corroborated=frozenset()) -> int:
     """Rewrite drawn bullet glyphs as one-span text blocks.
 
     This is deliberately a *translation*, not a special case: it converts the
@@ -381,25 +620,25 @@ def _markers_to_text(page: PageIR) -> int:
     lines = [l for b in page.blocks for l in b.lines if l.horizontal]
     if not lines:
         return 0
-    cand = [d for d in page.drawings if _is_marker_glyph(d)]
-    if not cand:
-        return 0
-    # Shape and position are not enough: Word's table-border joints are filled
-    # squares just left of cell text too, and y02 came out with 1,286 "•" for
-    # its 24 real bullets, most of them inside table cells. A marker must also
-    # be ink at its text's scale and must not be part of a rule.
-    hits = []
-    for d in cand:
-        near = _labelled_line(d.bbox, lines)
-        if near is None or not _marker_at_text_scale(d, near):
-            continue
-        if _abuts_rule(d, page.drawings):
-            continue
-        hits.append(d)
+    hits = _marker_hits(page, lines)
+    # Outlined circles must form a marker column on the page, or be
+    # corroborated by one elsewhere (see `_marker_hits` for why circles are
+    # held to more than solid marks).
+    hollow = [d for d in hits if not d.fill]
+    if hollow:
+        column = _aligned(hollow)
+        keep = {id(d) for d in column} | {
+            id(d) for d in hollow if _marker_sig(d) in corroborated}
+        hits = [d for d in hits if d.fill or id(d) in keep]
     # A real list has repetition. A single small square is more likely to be a
-    # decorative dot, so require corroboration before rewriting anything.
+    # decorative dot, so require corroboration before rewriting anything --
+    # from this page, or from the same mark labelling lines elsewhere in the
+    # document: a list that breaks across pages can leave one item behind
+    # (x09 page 2 holds the last sub-item of a list begun on page 1).
     if len(hits) < 2:
-        return 0
+        hits = [d for d in hits if _marker_sig(d) in corroborated]
+        if not hits:
+            return 0
     hitset = {id(d) for d in hits}
     page.drawings = [d for d in page.drawings if id(d) not in hitset]
     for d in hits:
@@ -414,7 +653,10 @@ def _markers_to_text(page: PageIR) -> int:
                     near = ln
         if near is not None and near.spans:
             size = near.spans[0].size
-        page.blocks.append(_bullet_block(x0, cy + size * 0.22, size, d.fill))
+        hollow = not d.fill
+        page.blocks.append(_bullet_block(x0, cy + size * 0.22, size,
+                                         d.stroke if hollow else d.fill,
+                                         char="◦" if hollow else "•"))
     page.blocks.sort(key=lambda b: (round(b.bbox[1], 1), b.bbox[0]))
     return len(hits)
 
@@ -501,8 +743,12 @@ def _undecoded_markers_to_text(page: PageIR) -> int:
                if abs(o.origin[1] - y) <= BULLET_VTOL) > 1:
             continue
         # Text to the left on this baseline: the mark is inside a line, not in
-        # front of one.
-        if any(ln.bbox[2] <= x + 0.5 and
+        # front of one. "To the left" includes a line that SPANS the mark: an
+        # undecoded glyph between "2." and "Method" is the space inside one
+        # line, and it is no less inside it for that line ending further
+        # right. (x11's contents entries promoted exactly that space to a
+        # bullet once their leaders became text 43pt away.)
+        if any(ln.bbox[0] <= x + 0.5 and
                ln.bbox[1] - BULLET_VTOL <= y <= ln.bbox[3] + BULLET_VTOL
                for ln in lines):
             continue
@@ -627,6 +873,43 @@ def _line_size(ln: Line) -> float:
     return max((s.size for s in ln.spans), default=10.0)
 
 
+def _covers(frag: Line, host: Line, sized: bool = False) -> bool:
+    """Does a script candidate lie ON the host's text instead of beside it?
+
+    A script is a glyph or three set after the text it modifies; a host span's
+    box may contain one (the span runs on past it), so only a fragment wider
+    than 1.5em of its own size is tested. Measured on Pub 501's index page: an
+    8pt entry 9.5pt above a row that holds a large index letter fell inside that
+    row's em box, so `age 18 3, 4` was absorbed as a "superscript" of
+    `Kidnapped 13, 18` -- the two entries cover each other's x-range, which no
+    script does. Same rule as infer._overprinted, at this stage's granularity.
+
+    `sized` asks the row-join question instead: two lines of DIFFERENT type
+    size (>15%) on one baseline that cover each other are an overprint (x07's
+    heading over its running footer), whatever their widths; same-size covers
+    are a producer drawing one line twice and stay joinable.
+    """
+    if sized:
+        sa, sb = _line_size(frag), _line_size(host)
+        if abs(sa - sb) <= 0.15 * max(sa, sb):
+            return False
+    elif frag.bbox[2] - frag.bbox[0] <= 1.5 * _line_size(frag):
+        return False
+    for s in frag.spans:
+        if not s.text.strip():
+            continue
+        s0, s1 = ink_extent(s)
+        for t in host.spans:
+            if not t.text.strip():
+                continue
+            t0, t1 = ink_extent(t)
+            ov = min(s1, t1) - max(s0, t0)
+            w = min(s1 - s0, t1 - t0)
+            if w > 0.5 and ov > 0.5 * w:
+                return True
+    return False
+
+
 def _coalesce_row_fragments(page: PageIR) -> int:
     """Rejoin one visual line that a producer split across several blocks.
 
@@ -682,6 +965,8 @@ def _coalesce_row_fragments(page: PageIR) -> int:
             if any(l.bbox[0] < hx0 - 2.0 or l.bbox[0] > hx1 + 0.6 * hsz
                    for _, l in grp):
                 continue                       # not adjacent horizontally
+            if any(_covers(l, h) for _, l in grp for _, h in host):
+                continue                       # a line over the host's text
             for _, l in grp:
                 if l.baseline < base - 0.12 * hsz:
                     for s in l.spans:
@@ -698,7 +983,8 @@ def _coalesce_row_fragments(page: PageIR) -> int:
         groups, cur = [], [items[0]]
         for prev, nxt in zip(items, items[1:]):
             gap = nxt[1].bbox[0] - prev[1].bbox[2]
-            if gap > MAX_FRAGMENT_GAP * _line_size(prev[1]):
+            if gap > MAX_FRAGMENT_GAP * _line_size(prev[1]) or \
+                    any(_covers(nxt[1], ln, sized=True) for _, ln in cur):
                 groups.append(cur)
                 cur = [nxt]
             else:
@@ -867,12 +1153,142 @@ def fingerprint(ir: DocIR) -> dict:
     return fp
 
 
+# Symbol fonts without a /ToUnicode reach both parsers through their symbolic
+# (3,0) cmap, which puts every glyph at U+F000 + its character code. That is a
+# Private Use value, so the DOCX carried PUA text in a substitute face and every
+# glyph rendered as junk: FIPS 180's equations are 369 Symbol characters
+# (`=` 77, `−` 66, `+` 63, `≤` 53, `⊕` 39, `∧` 21) and 81 MT Extra ones, the
+# operator table read as arrows and scissors. Unlike TeX's PUA above, these
+# faces have PUBLISHED encodings, keyed on the code alone, so the family name is
+# the whole of the evidence needed:
+#
+#   Symbol        Adobe's Symbol encoding (the Unicode consortium's
+#                 VENDORS/ADOBE/symbol.txt). Pieces of tall brackets become
+#                 their base character, as for TeX above.
+#   Wingdings     the glyphs Word's bullet and checkbox pickers use, each
+#                 checked by rendering the font's own glyph beside its Unicode
+#                 counterpart (wingding.ttf against Segoe UI Symbol); codes
+#                 whose glyph has no faithful counterpart are left alone.
+#   ZapfDingbats  Adobe's zdingbat.txt, the bullets and check marks only.
+#   MT Extra      MathType's companion face: only the two codes FIPS 180's
+#                 own render pins down (`ℓ` the message length, `…` in
+#                 `K0, …, K63`); its brace pieces have no text reading.
+#
+# Wingdings 2/3 and Webdings are different encodings that happen to share a
+# prefix, so a family is matched by its whole name, digits included.
+_SYMBOL_PUA = {
+    0x20: " ", 0x21: "!", 0x22: "∀", 0x23: "#", 0x24: "∃",
+    0x25: "%", 0x26: "&", 0x27: "∋", 0x28: "(", 0x29: ")",
+    0x2A: "∗", 0x2B: "+", 0x2C: ",", 0x2D: "−", 0x2E: ".",
+    0x2F: "/", 0x30: "0", 0x31: "1", 0x32: "2", 0x33: "3", 0x34: "4",
+    0x35: "5", 0x36: "6", 0x37: "7", 0x38: "8", 0x39: "9", 0x3A: ":",
+    0x3B: ";", 0x3C: "<", 0x3D: "=", 0x3E: ">", 0x3F: "?",
+    0x40: "≅", 0x41: "Α", 0x42: "Β", 0x43: "Χ",
+    0x44: "Δ", 0x45: "Ε", 0x46: "Φ", 0x47: "Γ",
+    0x48: "Η", 0x49: "Ι", 0x4A: "ϑ", 0x4B: "Κ",
+    0x4C: "Λ", 0x4D: "Μ", 0x4E: "Ν", 0x4F: "Ο",
+    0x50: "Π", 0x51: "Θ", 0x52: "Ρ", 0x53: "Σ",
+    0x54: "Τ", 0x55: "Υ", 0x56: "ς", 0x57: "Ω",
+    0x58: "Ξ", 0x59: "Ψ", 0x5A: "Ζ", 0x5B: "[",
+    0x5C: "∴", 0x5D: "]", 0x5E: "⊥", 0x5F: "_",
+    0x61: "α", 0x62: "β", 0x63: "χ", 0x64: "δ",
+    0x65: "ε", 0x66: "φ", 0x67: "γ", 0x68: "η",
+    0x69: "ι", 0x6A: "ϕ", 0x6B: "κ", 0x6C: "λ",
+    0x6D: "μ", 0x6E: "ν", 0x6F: "ο", 0x70: "π",
+    0x71: "θ", 0x72: "ρ", 0x73: "σ", 0x74: "τ",
+    0x75: "υ", 0x76: "ϖ", 0x77: "ω", 0x78: "ξ",
+    0x79: "ψ", 0x7A: "ζ", 0x7B: "{", 0x7C: "|", 0x7D: "}",
+    0x7E: "∼",
+    0xA0: "€", 0xA1: "ϒ", 0xA2: "′", 0xA3: "≤",
+    0xA4: "⁄", 0xA5: "∞", 0xA6: "ƒ", 0xA7: "♣",
+    0xA8: "♦", 0xA9: "♥", 0xAA: "♠", 0xAB: "↔",
+    0xAC: "←", 0xAD: "↑", 0xAE: "→", 0xAF: "↓",
+    0xB0: "°", 0xB1: "±", 0xB2: "″", 0xB3: "≥",
+    0xB4: "×", 0xB5: "∝", 0xB6: "∂", 0xB7: "•",
+    0xB8: "÷", 0xB9: "≠", 0xBA: "≡", 0xBB: "≈",
+    0xBC: "…", 0xBD: "|", 0xBF: "↵",
+    0xC0: "ℵ", 0xC1: "ℑ", 0xC2: "ℜ", 0xC3: "℘",
+    0xC4: "⊗", 0xC5: "⊕", 0xC6: "∅", 0xC7: "∩",
+    0xC8: "∪", 0xC9: "⊃", 0xCA: "⊇", 0xCB: "⊄",
+    0xCC: "⊂", 0xCD: "⊆", 0xCE: "∈", 0xCF: "∉",
+    0xD0: "∠", 0xD1: "∇", 0xD2: "®", 0xD3: "©",
+    0xD4: "™", 0xD5: "∏", 0xD6: "√", 0xD7: "⋅",
+    0xD8: "¬", 0xD9: "∧", 0xDA: "∨", 0xDB: "⇔",
+    0xDC: "⇐", 0xDD: "⇑", 0xDE: "⇒", 0xDF: "⇓",
+    0xE0: "◊", 0xE1: "〈", 0xE2: "®", 0xE3: "©",
+    0xE4: "™", 0xE5: "∑",
+    0xE6: "(", 0xE7: "(", 0xE8: "(", 0xE9: "[", 0xEA: "[", 0xEB: "[",
+    0xEC: "{", 0xED: "{", 0xEE: "{", 0xEF: "|",
+    0xF1: "〉", 0xF2: "∫", 0xF3: "∫", 0xF4: "∫",
+    0xF5: "∫", 0xF6: ")", 0xF7: ")", 0xF8: ")", 0xF9: "]", 0xFA: "]",
+    0xFB: "]", 0xFC: "}", 0xFD: "}", 0xFE: "}",
+}
+_WINGDINGS_PUA = {
+    0x6C: "●", 0x6D: "❍", 0x6E: "■", 0x6F: "□",
+    0x71: "❑", 0x72: "❒", 0x73: "⬧", 0x74: "⧫",
+    0x75: "◆", 0x76: "❖", 0x77: "⬥", 0x78: "⌧",
+    0x9E: "·", 0x9F: "•", 0xA1: "○", 0xA4: "◉",
+    0xA5: "◎", 0xA7: "▪", 0xA8: "◻", 0xD8: "➢",
+    0xDF: "←", 0xE0: "→", 0xE8: "➔", 0xF0: "⇨",
+    0xFB: "✘", 0xFC: "✔", 0xFD: "☒", 0xFE: "☑",
+}
+_ZAPF_PUA = {
+    0x33: "✓", 0x34: "✔", 0x35: "✕", 0x36: "✖",
+    0x37: "✗", 0x38: "✘", 0x48: "★", 0x6C: "●",
+    0x6E: "■", 0x6F: "❏", 0x70: "❐", 0x71: "❑",
+    0x72: "❒", 0x73: "▲", 0x74: "▼", 0x75: "◆",
+    0x76: "❖",
+}
+_MTEXTRA_PUA = {0x6C: "ℓ", 0x4B: "…"}
+
+
+def _symbol_table(font: str):
+    """The published encoding for a symbol family, by its whole name."""
+    import re
+    key = re.sub(r"[^a-z0-9]", "", (font or "").lower())
+    for suffix in ("regular", "mt", "std", "itc", "medium"):
+        if key.endswith(suffix) and len(key) > len(suffix):
+            key = key[:-len(suffix)]
+    if key in ("symbol", "symbolneu", "standardsymbolsps", "standardsyml"):
+        return _SYMBOL_PUA
+    if key == "wingdings":
+        return _WINGDINGS_PUA
+    if key in ("zapfdingbats", "dingbats", "zapfdingbatsitc"):
+        return _ZAPF_PUA
+    if key == "mtextra":
+        return _MTEXTRA_PUA
+    return None
+
+
+def _symbol_pua_to_text(page: PageIR) -> int:
+    """Rewrite symbol-font PUA characters to the Unicode they stand for."""
+    n = 0
+    for b in page.blocks:
+        for ln in b.lines:
+            for s in ln.spans:
+                if not any(0xF020 <= ord(c) <= 0xF0FF for c in s.text):
+                    continue
+                table = _symbol_table(s.font)
+                if table is None:
+                    continue
+                out = []
+                for c in s.text:
+                    o = ord(c)
+                    out.append(table.get(o - 0xF000, c) if 0xF020 <= o <= 0xF0FF else c)
+                text = "".join(out)
+                if text != s.text:
+                    s.text = text
+                    n += 1
+    return n
+
+
 def normalize(ir: DocIR) -> DocIR:
     """Rewrite producer idioms into canonical form. Mutates and returns `ir`."""
     stats = {"backdrops": 0, "vector_markers": 0, "symbol_markers": 0,
              "undecoded_markers": 0, "rotated": 0, "row_joins": 0,
              "ruled_rows": 0, "tex_pua": 0, "transparent": 0,
-             "invisible_fills": 0}
+             "invisible_fills": 0, "offpage": 0, "leaders": 0,
+             "symbol_pua": 0}
     for p in ir.pages:
         if not hasattr(p, "rotated"):
             p.rotated = []
@@ -881,10 +1297,21 @@ def normalize(ir: DocIR) -> DocIR:
         stats["transparent"] += _drop_transparent(p)
         stats["invisible_fills"] += _drop_invisible_fills(p)
         stats["backdrops"] += _drop_backdrops(p)
+        stats["offpage"] += _drop_offpage(p)
         stats["rotated"] += _split_rotated(p)
-        stats["vector_markers"] += _markers_to_text(p)
+        # Before the marker pass: leader dots are small and square, and the
+        # ones nearest the page number sit exactly where a bullet would.
+        stats["leaders"] += _drawn_leaders_to_text(p)
+    # The marker pass needs the whole document in view: a page with ONE item
+    # of a list is corroborated by the pages that show the list.
+    corroborated = _corroborated_markers(ir)
+    for p in ir.pages:
+        stats["vector_markers"] += _markers_to_text(p, corroborated)
         stats["undecoded_markers"] += _undecoded_markers_to_text(p)
         stats["symbol_markers"] += _normalize_symbol_list_markers(p)
+        # After the list-marker pass, which keys on the raw PUA bullet and
+        # must keep seeing what it always saw.
+        stats["symbol_pua"] += _symbol_pua_to_text(p)
         stats["row_joins"] += _coalesce_row_fragments(p)
         stats["ruled_rows"] += _join_ruled_rows(p)
     ir.meta = dict(ir.meta or {})

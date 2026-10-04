@@ -52,8 +52,11 @@ def _frozen_c3_is_one_editable_table_and_continuations_are_suppressed():
     assert [_text(row[0]) for row in table.rows] == ["#"] + [str(i) for i in range(1, 46)]
     assert table.repeat_header_rows == 0
     assert all(row[0].shading is not None for row in table.rows[1::2])
-    assert all(cell.borders.get("top") and cell.borders.get("bottom")
-               for row in table.rows for cell in row)
+    # Borders are the rules the source drew (audit B24): every body row is
+    # ruled below in c3's own #d8dee5, and the dark header carries no rule.
+    assert all(cell.borders.get("bottom") and cell.borders["bottom"][1] == "#d8dee5"
+               for row in table.rows[1:] for cell in row)
+    assert not any(cell.borders for cell in table.rows[0])
     assert lay.pages[1].continuation_only and lay.pages[2].continuation_only
     # The regional/nested content that precedes the long table remains distinct.
     first_page_tables = [el for ch in lay.pages[0].chunks for el in ch.elements

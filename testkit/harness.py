@@ -101,28 +101,134 @@ def docx_to_pdf(docx_path, out_dir):
 
 
 # ------------------------------------------------------------------ text side
+def _ordinal(n, fmt):
+    """`n` the way an OOXML number format prints it (the formats a reader
+    must know to read a list label; anything else prints as decimal)."""
+    if fmt in ("lowerLetter", "upperLetter"):
+        s = chr(ord("a") + (n - 1) % 26) * ((n - 1) // 26 + 1) if n > 0 else ""
+        return s.upper() if fmt == "upperLetter" else s
+    if fmt in ("lowerRoman", "upperRoman"):
+        out, v = "", n
+        for val, sym in ((1000, "m"), (900, "cm"), (500, "d"), (400, "cd"),
+                         (100, "c"), (90, "xc"), (50, "l"), (40, "xl"),
+                         (10, "x"), (9, "ix"), (5, "v"), (4, "iv"), (1, "i")):
+            while v >= val:
+                out, v = out + sym, v - val
+        return out.upper() if fmt == "upperRoman" else out
+    return str(n)
+
+
+def _numbering_levels(z, W):
+    """{numId: {ilvl: (start, numFmt, lvlText)}} from word/numbering.xml."""
+    from lxml import etree
+    try:
+        root = etree.fromstring(z.read("word/numbering.xml"))
+    except KeyError:
+        return {}
+    absn = {}
+    for an in root.iter(W + "abstractNum"):
+        lv = {}
+        for l in an.iter(W + "lvl"):
+            def val(tag, default):
+                e = l.find(W + tag)
+                return e.get(W + "val") if e is not None else default
+            lv[int(l.get(W + "ilvl", "0"))] = (
+                int(val("start", "1")), val("numFmt", "decimal"), val("lvlText", ""))
+        absn[an.get(W + "abstractNumId")] = lv
+    out = {}
+    for num in root.iter(W + "num"):
+        ref = num.find(W + "abstractNumId")
+        if ref is not None:
+            out[num.get(W + "numId")] = absn.get(ref.get(W + "val"), {})
+    return out
+
+
 def docx_live_text(docx_path):
     """All *live* text in a docx: paragraphs, tables (recursive), headers/footers.
 
     Reads the XML directly so nothing is missed and no library semantics are
     assumed.
+
+    Live text includes what a reader's renderer GENERATES from the document's
+    own structures: a list item's label (w:numPr over numbering.xml) and a
+    footnote's number (w:footnoteReference / w:footnoteRef). Neither is a w:t,
+    and neither is raster -- the label of item 3 is the text "3." on every
+    reader's screen -- so a metric whose complement is `raster_frac` must
+    count them. Counted with the renderer's own rules, implemented here and not
+    imported: a level counts up from its start, an item restarts every deeper
+    level, and footnotes number in document order (custom marks carry their
+    mark as text already, and do not count).
     """
     import zipfile
     from lxml import etree
     NS = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+    W = "{%s}" % NS["w"]
     parts, imgs = [], []
     with zipfile.ZipFile(docx_path) as z:
         names = z.namelist()
         for n in names:
             if n.startswith("word/media/"):
                 imgs.append((n, z.getinfo(n).file_size))
+        levels = _numbering_levels(z, W)
+        counters = {}
+        note_no = {}
+        start = 1
+        try:
+            st = etree.fromstring(z.read("word/settings.xml"))
+            ns_el = st.find(".//" + W + "footnotePr/" + W + "numStart")
+            if ns_el is not None:
+                start = int(ns_el.get(W + "val", "1"))
+        except (KeyError, ValueError):
+            pass
+        # footnote numbers follow the references' order in the body
+        if "word/footnotes.xml" in names:
+            body = etree.fromstring(z.read("word/document.xml"))
+            for ref in body.iter(W + "footnoteReference"):
+                if ref.get(W + "customMarkFollows") not in ("1", "true", "on"):
+                    note_no.setdefault(ref.get(W + "id"), start + len(note_no))
+        cur_note = None
         for n in names:
             if not (n == "word/document.xml" or
                     re.match(r"word/(header|footer|footnotes|endnotes)\d*\.xml$", n)):
                 continue
             root = etree.fromstring(z.read(n))
-            for t in root.iter("{%s}t" % NS["w"]):
-                parts.append(t.text or "")
+            for el in root.iter(W + "p", W + "t", W + "footnoteReference",
+                                W + "footnoteRef", W + "footnote"):
+                tag = el.tag[len(W):]
+                if tag == "t":
+                    parts.append(el.text or "")
+                elif tag == "p":
+                    np_ = el.find(W + "pPr/" + W + "numPr")
+                    if np_ is None:
+                        continue
+                    nid = np_.find(W + "numId")
+                    il = np_.find(W + "ilvl")
+                    nid = nid.get(W + "val") if nid is not None else None
+                    il = int(il.get(W + "val")) if il is not None else 0
+                    lv = levels.get(nid)
+                    if not lv or il not in lv:
+                        continue
+                    cnt = counters.setdefault(nid, {})
+                    cnt[il] = cnt[il] + 1 if il in cnt else lv[il][0]
+                    for deeper in [k for k in cnt if k > il]:
+                        del cnt[deeper]
+                    label = lv[il][2]
+                    for k in range(il + 1):
+                        if k in lv:
+                            label = label.replace(
+                                "%%%d" % (k + 1),
+                                _ordinal(cnt.get(k, lv[k][0]), lv[k][1]))
+                    parts.append(label)
+                elif tag == "footnoteReference":
+                    num = note_no.get(el.get(W + "id"))
+                    if num is not None:
+                        parts.append(str(num))
+                elif tag == "footnote":
+                    cur_note = el.get(W + "id")
+                elif tag == "footnoteRef":
+                    num = note_no.get(cur_note)
+                    if num is not None:
+                        parts.append(str(num))
     return "".join(parts), imgs
 
 

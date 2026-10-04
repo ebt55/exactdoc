@@ -168,6 +168,20 @@ top, bottom pad = cell bottom − last para bottom) so pads + exact-leading
 paragraphs *sum to the source height* — identical arithmetic in every
 renderer. `trHeight` is only used for text-empty rows.
 
+*Addendum, 2026-10-04 (WP16).* "Identical arithmetic in every renderer" held
+per cell and failed per row. LibreOffice 24.2 (the canonical oracle) sizes a
+row with the LARGEST bottom pad among its cells applied to all of them, and
+adds the row's border width on top: a two-line cell (pads 0.7/2.0) beside a
+one-line cell whose 1.3/12.8 pads make the source row add up renders 35.5pt,
+not 24.7 — every row of NIST SP 800-171's mapping tables paid ~12pt this way.
+The writer now emits one top and one bottom pad per row (the smallest), moves
+each cell's remaining offset into space-before, and takes the border width
+off the bottom pad; Word computes the same height from either form. The
+trHeight claim above did NOT reproduce on 24.2 (a pinned 40pt row with 8pt
+margins and 0.5pt rules renders 40.0: a pin is the total), and pinning `trHeight
+atLeast` on text rows measured neutral on twelve table documents — page
+counts and mean within-2pt identical — so text rows stay content-driven.
+
 ### 3.3 Page-break discipline
 
 Every source page ends with an explicit break, so pagination can never drift
@@ -437,6 +451,14 @@ verification loop measures the wrong renderer.
 3. **Real Word footnotes** — superscript markers currently stay inline text;
    mapping detected footnote regions to `w:footnote` parts would survive
    editing better.
+   > **Built (2026-10-04),** with real list numbering beside it: `notes.py`,
+   > `lists.py`, `structures.py`, behind `options.PROFILE_CAPABILITIES`. The
+   > law it rests on is the one this document keeps relearning: a note is
+   > bound only when its mark has exactly one reference on the page, and a
+   > list only where the renderer's own counter prints the source's number.
+   > Two LibreOffice facts shape it: the tab after a list label goes to the
+   > level's stop whatever the paragraph says, and one footnote anywhere
+   > stops LibreOffice balancing every column section of the document.
 4. Nested tables, rotated text, gradients→DrawingML, TOC field
    reconstruction, RTL/CJK shaping, OCR pass for scanned PDFs, forms.
 5. **More dialects** — LaTeX (pdfTeX ligatures/kerning quirks), Chromium
