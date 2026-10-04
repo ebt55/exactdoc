@@ -100,9 +100,11 @@ def _layout(runs):
 
 class ApplyTracking(unittest.TestCase):
     def test_every_style_of_the_face_gets_its_own_width_back(self):
-        runs = [Run(text="Plain words here", font="LiberationSerif", size=11.0,
+        # fragments too short for the parser's per-span measurement (six
+        # glyph gaps): a link, an italic abbreviation
+        runs = [Run(text="Atlas", font="LiberationSerif", size=11.0,
                     color="#000000", serif=True),
-                Run(text="and italic ones", font="LiberationSerif-Italic",
+                Run(text="et al.", font="LiberationSerif-Italic",
                     size=11.0, color="#000000", italic=True, serif=True),
                 Run(text="\t", font="LiberationSerif", size=11.0,
                     color="#000000", is_tab=True)]
@@ -130,6 +132,16 @@ class ApplyTracking(unittest.TestCase):
         self.assertEqual(runs[0].tracking, 0.29)
         self.assertGreater(runs[1].tracking, 0.2)
 
+    def test_a_run_the_parser_measured_as_untracked_stays_so(self):
+        # long enough for the parser's measurement, which found none (x17's
+        # bold role lines): its answer stands
+        runs = [Run(text="Senior Backend Engineer", font="LiberationSerif-Bold",
+                    size=11.0, color="#000000", bold=True, serif=True)]
+        lay, _ = _layout(runs)
+        self.assertEqual(tracking.apply_advance_tracking(
+            lay, {("liberationserif", 11.0): 1.064}, M), 0)
+        self.assertEqual(runs[0].tracking, 0.0)
+
     def test_other_sizes_are_untouched(self):
         runs = [Run(text="A heading", font="LiberationSerif", size=13.5,
                     color="#000000", serif=True)]
@@ -151,9 +163,7 @@ class LadderSeesTracking(unittest.TestCase):
         p, run, nat = self._para()
         avail = nat * 1.03          # one source line's worth at natural width
         before = predict_lines(p, avail, M)
-        lay, _ = _layout([run])
-        tracking.apply_advance_tracking(lay, {("liberationserif", 11.0): 1.064}, M)
-        self.assertGreater(run.tracking, 0.0)
+        run.tracking = 0.064 * nat / len(WORDS)     # the source's, as measured
         after = predict_lines(p, avail, M)
         self.assertGreater(after, before)
 

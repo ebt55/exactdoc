@@ -24,10 +24,12 @@ text stays live and editable; it is simply set at the width the source set it.
 The parser measures letter-spacing too, per span, from the gaps between its
 glyphs (`parse_pdfium._span_tracking`), and on these documents it finds the
 same thing -- 0.291pt against this module's 0.286pt on x07's body. It needs six
-gaps in one span, so a short run (a link, a word in another style, a cell) of
-the same face goes without. This module works per face and size over the whole
-document, and fills exactly those runs: a run that already carries the
-source's measured letter-spacing is left as the parser measured it.
+gaps in one span, so a fragment too short for that (x07's one- and two-letter
+pieces of a word split by a style change, x11's page numbers) goes without.
+This module works per face and size over the whole document and fills exactly
+those runs. A run the parser COULD measure keeps the parser's answer, zero
+included: x17's bold role lines and its first bullet item measure untracked
+there, and this module is not the better judge of a run the parser saw.
 
 What this deliberately does NOT do:
 
@@ -62,6 +64,7 @@ from typing import Dict, Tuple
 from .fonts import family_keys, map_font
 from .layout import DocLayout, Para, TableEl
 from .model import DocIR
+from .parse_pdfium import TRACK_EMIT_MIN_GAPS
 
 # Source faces whose advances are, by design, the emitted family's.
 _CLONES = {
@@ -193,6 +196,11 @@ def _el_runs(el):
                         yield from _el_runs(p)
 
 
+def _glyph_gaps(text: str) -> int:
+    """Gaps between adjacent glyphs of one word, summed over the words."""
+    return sum(max(0, len(w) - 1) for w in text.split())
+
+
 def apply_advance_tracking(lay: DocLayout, scales: Dict[Key, float],
                            metrics) -> int:
     """Give every run of a widened face the tracking that restores its width.
@@ -210,8 +218,8 @@ def apply_advance_tracking(lay: DocLayout, scales: Dict[Key, float],
     this tracking adds the source's own extra advance on top. The ladder sees
     both (`metrics.shaped_size` plus `Run.tracking`).
 
-    A run whose `tracking` the parser already measured is skipped: the same
-    extra advance, restored twice, would set it 6% too WIDE.
+    A run the parser could measure is skipped (see the module docstring):
+    the same extra advance, restored twice, would set it 6% too wide.
     """
     if not scales:
         return 0
@@ -221,6 +229,8 @@ def apply_advance_tracking(lay: DocLayout, scales: Dict[Key, float],
         if id(r) in seen or r.is_tab or r.field or not r.text or r.tracking:
             continue
         seen.add(id(r))
+        if _glyph_gaps(r.text) >= TRACK_EMIT_MIN_GAPS:
+            continue                    # the parser measured it: its answer
         sc = scales.get(_key(r.font, r.size))
         if sc is None:
             continue
