@@ -283,8 +283,43 @@ def _two_column_right_edge(body_lines, margin_l: float,
     return float(edge)
 
 
+def _field_row_ends(pages_lines, margin_l: float, page_w: float) -> List[float]:
+    """Right ends of label/field rows: two fragments on one baseline, the
+    label starting at the left margin, the field short and set in a different
+    style after a real gap -- a résumé's role and date. Used only as evidence
+    that text reaches a rule edge (`_rule_right_edge`); the right content
+    edge is not known yet, so the field's width is judged against the
+    mirrored-margin estimate of the content width."""
+    width = page_w - 2 * margin_l
+    if width <= 0:
+        return []
+    out = []
+    for lines in pages_lines:
+        ls = sorted((l for l in lines if l.horizontal and l.spans),
+                    key=lambda l: (round(l.baseline, 1), l.bbox[0]))
+        rows = []
+        for ln in ls:
+            if rows and abs(ln.baseline - rows[-1][0].baseline) <= _ROW_BASELINE_TOL:
+                rows[-1].append(ln)
+            else:
+                rows.append([ln])
+        for row in rows:
+            if len(row) != 2:
+                continue
+            left, right = row
+            if left.bbox[0] > margin_l + _ROW_LEFT_TOL \
+                    or right.bbox[0] - left.bbox[2] < _ROW_MIN_GAP \
+                    or right.bbox[2] - right.bbox[0] > _ROW_MAX_RIGHT * width \
+                    or left.bbox[2] - left.bbox[0] < _ROW_MIN_LEFT * width \
+                    or not _row_contrast(left, right):
+                continue
+            out.append(right.bbox[2])
+    return out
+
+
 def _rule_right_edge(ir: DocIR, hf: dict, page_w: float,
-                     wide_x1: List[float]) -> Optional[float]:
+                     wide_x1: List[float],
+                     row_x1: Optional[List[float]] = None) -> Optional[float]:
     """Right content edge from the document's own full-width rules.
 
     The wide-line right-margin estimate reads where wide TEXT lines end. A
@@ -334,7 +369,15 @@ def _rule_right_edge(ir: DocIR, hf: dict, page_w: float,
     if wide_x1:
         ordered = sorted(wide_x1)
         p90 = ordered[int(0.9 * (len(ordered) - 1))]
-        if edge > p90 + 5.0:
+        # Text also reaches an edge through right-aligned FIELDS: a résumé's
+        # dates end at its rules (x17: rules at 552.75, four dates at 552.3)
+        # while its ragged prose stops ~23pt short (p90 529.9), so the prose
+        # test alone kept a 486pt column for 509pt of text -- every date's
+        # tab stop and every centred line was measured against the wrong
+        # edge. Two label/field rows ending at the rule edge are the text
+        # existing there. 01_whitepaper's overshooting rules have none.
+        fields = sum(1 for x in (row_x1 or ()) if abs(x - edge) <= 1.5)
+        if edge > p90 + 5.0 and fields < 2:
             return None
     return float(edge)
 
@@ -518,6 +561,123 @@ def _line_starts_with_marker(ln: Line) -> bool:
     return _marker_split_idx(ln.spans) is not None
 
 
+# ------------------------------------------------------------ typed list markers
+# A marker TYPED as text -- "• Rebuilt the ingestion path…", "1. Install…" --
+# arrives in the same span as its item text, so `_marker_split_idx`, which only
+# looks for a marker at a span boundary, never sees it. Measured: x17/x18's
+# résumé bullets (CSS `text-indent:-11.5pt` with a literal "• ") fused three
+# items into one paragraph ("…partition loss. • Introduced…" on one rendered
+# line), and y17_rfc9110 p40's four "• control data…" items -- one block each,
+# glued back together by `_merge_flow_paras` -- became one justified paragraph.
+#
+# A token at the start of a line is weak evidence on its own: a wrapped line can
+# begin "– as expected –", "10. In this", "* note". So a typed marker opens an
+# item only with LIST evidence from the same flow (`_inline_list_starts`):
+#   glyph bullets   a second line opening with the same glyph at the same x, or
+#                   a hanging indent under this one (its continuation indented
+#                   by the marker's width);
+#   dashes, "*"     a second line with the same marker at the same x;
+#   1. a) (iv)      a neighbour in sequence -- n-1 or n+1, same punctuation,
+#                   same x. "5. Section heading" alone is not a list; a
+#                   numbered heading run "4." "5." is a sequence, and splitting
+#                   there changes nothing because a heading already ends a
+#                   paragraph.
+# Monospaced lines never qualify: "- key: value" and " * comment" in a code
+# block are code, and splitting would break the verbatim block apart.
+_INLINE_GLYPHS = frozenset("•◦▪‣●○■□➤►♦❖➢✓✔∙⁃")
+_INLINE_DASHES = frozenset("-–—*·")
+_INLINE_ORD_RE = re.compile(r"(\(?)(\d{1,3}|[ivx]{1,5}|[a-zA-Z])([.)])(?=\s+\S)")
+_INLINE_X_TOL = 2.0     # same list column: markers of one list share their x
+_INLINE_HANG_MAX = 40.0  # a hang wider than this is a new column, not a marker's width
+
+
+def _roman_value(tok: str) -> int:
+    vals = [{"i": 1, "v": 5, "x": 10}[c] for c in tok]
+    return sum(-v if i + 1 < len(vals) and vals[i + 1] > v else v
+               for i, v in enumerate(vals))
+
+
+def _inline_marker(text: str):
+    """(style, values) when `text` opens with a typed list marker and item text.
+
+    `style` groups markers that belong to one list; `values` is the set of
+    ordinals a numbered marker may stand for ("i" is both the ninth letter and
+    roman one), None for bullets.
+    """
+    t = text.lstrip()
+    if len(t) < 3:
+        return None
+    c = t[0]
+    if c in _INLINE_GLYPHS or c in _INLINE_DASHES:
+        if t[1] in (" ", "\t", "\u00a0") and t[2:].strip():
+            return (("glyph" if c in _INLINE_GLYPHS else "dash", c), None)
+        return None
+    m = _INLINE_ORD_RE.match(t)
+    if not m:
+        return None
+    op, tok, cl = m.groups()
+    if op and cl != ")":
+        return None                     # "(1." is not a marker
+    if tok.isdigit():
+        return (("num", op, cl), {int(tok)})
+    if tok.isupper():
+        # "A." opens initials ("J. Smith") and outline headings; only the
+        # parenthesised forms are unambiguous enough to take.
+        if cl != ")":
+            return None
+        return (("ALPHA", op, cl), {ord(tok) - 64})
+    vals = set()
+    if len(tok) == 1:
+        vals.add(ord(tok) - 96)
+    if set(tok) <= set("ivx"):
+        vals.add(_roman_value(tok))
+    return (("alpha", op, cl), vals)
+
+
+def _line_key(ln: Line):
+    return (round(ln.bbox[0], 1), round(ln.baseline, 1))
+
+
+def _inline_list_starts(blocks) -> set:
+    """Keys (`_line_key`) of lines that open a list item with a typed marker.
+
+    `blocks` is a sequence of line lists in reading order; the hang test looks
+    at the line that follows a candidate inside its own block.
+    """
+    cands = []
+    for lines in blocks:
+        rows = sorted((l for l in lines if l.spans and l.horizontal),
+                      key=lambda l: (l.bbox[1], l.bbox[0]))
+        for i, ln in enumerate(rows):
+            if all(s.mono for s in ln.spans if s.text.strip()):
+                continue
+            m = _inline_marker(ln.text)
+            if m is None:
+                continue
+            hang = False
+            if i + 1 < len(rows):
+                nx = rows[i + 1]
+                sz = _line_size(ln)
+                if 1.5 < nx.bbox[0] - ln.bbox[0] <= _INLINE_HANG_MAX \
+                        and 0 < nx.baseline - ln.baseline <= 2.2 * sz \
+                        and _inline_marker(nx.text) is None:
+                    hang = True
+            cands.append((ln, m[0], m[1], hang))
+    out = set()
+    for ln, style, vals, hang in cands:
+        peers = [c for c in cands if c[1] == style and c[0] is not ln
+                 and abs(c[0].bbox[0] - ln.bbox[0]) <= _INLINE_X_TOL]
+        if style[0] == "glyph":
+            ok = bool(peers) or hang
+        elif style[0] == "dash":
+            ok = bool(peers)
+        else:
+            ok = any(abs(v - w) == 1 for c in peers for v in vals for w in c[2])
+        if ok:
+            out.add(_line_key(ln))
+    return out
+
+
 def _line_tracked(ln: Line) -> Optional[bool]:
     """Is this whole line letter-spaced? None when it is neither cleanly.
 
@@ -537,10 +697,15 @@ def _line_tracked(ln: Line) -> Optional[bool]:
     return None
 
 
-def _split_lines_to_paras(lines: List[Line]) -> List[List[Line]]:
+def _split_lines_to_paras(lines: List[Line],
+                          list_starts: Optional[set] = None) -> List[List[Line]]:
     """Group a flat list of lines into paragraphs on large baseline gaps,
-    dominant-size jumps, letter-spacing changes, or list-marker starts."""
+    dominant-size jumps, letter-spacing changes, or list-marker starts.
+
+    `list_starts` holds the `_line_key`s of lines that open a list item with a
+    typed marker, decided over the whole flow by `_inline_list_starts`."""
     lines = _merge_row_lines(lines)
+    list_starts = list_starts or set()
     if len(lines) <= 1:
         return [lines] if lines else []
     deltas = [b.bbox[1] - a.bbox[1] for a, b in zip(lines, lines[1:])]
@@ -590,7 +755,7 @@ def _split_lines_to_paras(lines: List[Line]) -> List[List[Line]]:
         track_jump = (track_prev is not None and track_new is not None
                       and track_prev != track_new)
         if deltas[i] > max(lead * 1.55, lead + 4.0) or size_jump or track_jump \
-                or _line_starts_with_marker(ln):
+                or _line_starts_with_marker(ln) or _line_key(ln) in list_starts:
             groups.append(cur)
             cur = [ln]
         else:
@@ -599,13 +764,23 @@ def _split_lines_to_paras(lines: List[Line]) -> List[List[Line]]:
     return groups
 
 
-def para_from_lines(lines: List[Line], col_l: float, col_r: float) -> Para:
+def para_from_lines(lines: List[Line], col_l: float, col_r: float,
+                    list_start: bool = False) -> Para:
+    """`list_start`: the first line opens a list item with a TYPED marker
+    (see `_inline_list_starts`). The marker stays text, as the source typed
+    it; what the item needs is its hanging indent, read off its own
+    continuation lines."""
     lines = _merge_row_lines(lines)
     bbox = None
     for ln in lines:
         bbox = bbox_union(bbox, ln.bbox)
     p = Para(bbox=bbox)
     p._vis_lines = len(lines)
+    p._list_item = bool(list_start)
+    if list_start:
+        m = _inline_marker(lines[0].text)
+        p._list_style = m[0] if m else None
+    p._tracked = all(_line_tracked(ln) is True for ln in lines)
     first_sz = lines[0].spans[0].size if lines[0].spans else 10.0
     p._b1 = lines[0].baseline
     p._size1 = first_sz
@@ -618,6 +793,18 @@ def para_from_lines(lines: List[Line], col_l: float, col_r: float) -> Para:
         p.leading = round(max(first_sz * 1.16, 4.0), 2)
     xs0 = [ln.bbox[0] for ln in lines]
     xs1 = [ln.bbox[2] for ln in lines]
+    # A typed-marker item hangs: "• Rebuilt…" starts at the marker and its
+    # continuation lines start under the item text (x17: 44.5 then 56.0, a
+    # CSS text-indent of -11.5pt). Measured as the continuation lines' common
+    # x; the alignment tests below then judge the item by where its TEXT
+    # lines start, so a justified item is still justified.
+    hang_x = None
+    if list_start and len(lines) >= 2:
+        cont = min(xs0[1:])
+        if 1.5 < cont - xs0[0] <= _INLINE_HANG_MAX and \
+                all(abs(x - cont) < 1.5 for x in xs0[1:]):
+            hang_x = cont
+            xs0 = [cont] + xs0[1:]
     ccx = (col_l + col_r) / 2
     if len(lines) >= 2:
         left_flush = all(abs(x - xs0[0]) < 1.5 for x in xs0)
@@ -653,6 +840,9 @@ def para_from_lines(lines: List[Line], col_l: float, col_r: float) -> Para:
             p.first_indent = fi
     if p.align == "center":
         p.left_indent = 0.0
+    if hang_x is not None and p.align != "center":
+        p.left_indent = max(0.0, round(hang_x - col_l, 1))
+        p.first_indent = round(lines[0].bbox[0] - hang_x, 1)
     p.runs = []
     p.src_lines = len(lines)
     p.src_widths = [round(ln.bbox[2] - ln.bbox[0], 1) for ln in lines]
@@ -738,10 +928,12 @@ def para_from_lines(lines: List[Line], col_l: float, col_r: float) -> Para:
     return p
 
 
-def paras_from_line_list(lines: List[Line], col_l: float, col_r: float) -> List[Para]:
+def paras_from_line_list(lines: List[Line], col_l: float, col_r: float,
+                         list_starts: Optional[set] = None) -> List[Para]:
     out = []
     ccx = (col_l + col_r) / 2
-    for grp in _split_lines_to_paras(lines):
+    list_starts = list_starts or set()
+    for grp in _split_lines_to_paras(lines, list_starts):
         if not grp:
             continue
         # centered short lines with strongly varying widths are separate
@@ -753,9 +945,11 @@ def paras_from_line_list(lines: List[Line], col_l: float, col_r: float) -> List[
                 ws = [l.bbox[2] - l.bbox[0] for l in grp[:-1]]
                 if ws and (max(ws) - min(ws)) > 0.3 * max(ws):
                     for l in grp:
-                        out.append(para_from_lines([l], col_l, col_r))
+                        out.append(para_from_lines(
+                            [l], col_l, col_r, list_start=_line_key(l) in list_starts))
                     continue
-        out.append(para_from_lines(grp, col_l, col_r))
+        out.append(para_from_lines(grp, col_l, col_r,
+                                   list_start=_line_key(grp[0]) in list_starts))
     return out
 
 
@@ -2167,11 +2361,23 @@ def infer(ir: DocIR) -> DocLayout:
     # mirror-the-left-margin fallback when there is none -- and only ever
     # widens content, the same one-way door as `_two_column_right_edge`.
     base_edge = mr if mr is not None else lay.page_w - lay.margin_l
-    rule_edge = _rule_right_edge(ir, hf, lay.page_w, wide_x1)
+    pages_lines = []
+    for p in ir.pages:
+        ct = hf["consumed_text"][p.number]
+        pages_lines.append([l for bi, b in enumerate(p.blocks) for l in b.lines
+                            if (bi, id(l)) not in ct])
+    rule_edge = _rule_right_edge(ir, hf, lay.page_w, wide_x1,
+                                 row_x1=_field_row_ends(pages_lines, lay.margin_l,
+                                                        lay.page_w))
     if rule_edge is not None and rule_edge > base_edge + 2.5:
         mr = rule_edge
     lay.margin_r = round(lay.page_w - mr, 1) if mr is not None else lay.margin_l
     lay.margin_r = max(14.0, lay.margin_r)
+    # Every row candidate in the document, for `_row_pairs`' cross-page
+    # column evidence. Measured against the content edges, as the single-
+    # column flow sees them.
+    lay._row_evidence = _doc_row_evidence(pages_lines, lay.margin_l,
+                                          lay.page_w - lay.margin_r)
 
     band1_h = max((d.bbox[3] for _, d in hf["band_first"]), default=0) \
         if hf["band_first"] else 0
@@ -2508,6 +2714,8 @@ def infer(ir: DocIR) -> DocLayout:
         lay.pages.append(pl)
 
     _coalesce_striped_table_segments(lay)
+    _propagate_list_hangs([el for pg in lay.pages for ch in pg.chunks
+                           for el in ch.elements if isinstance(el, Para)])
     _mark_headings(lay, body_size)
     if _can_relax_bottom_margin(lay):
         # DOCX flow has no equivalent of PDF's last-baseline fit.  With a hard
@@ -2670,32 +2878,30 @@ _ROW_MIN_LEFT = 0.20      # left half narrower than this is a stub or a marker
 _ROW_EDGE_BUCKET = 2.0    # how near two rows must end to be the same column
 
 
-def _row_pairs(items, col_l, col_r):
-    """-> ([(left_line, right_line)], {id(line) consumed}).
+def _row_style(ln: Line):
+    """The typographic signature of a row half: dominant span's face and size."""
+    s = max(ln.spans, key=lambda s: len(s.text.strip()))
+    return (s.font, round(s.size * 2) / 2, s.bold, s.italic)
 
-    The discriminator is the RIGHT half's right edge, and it is deliberately
-    about the MARGIN rather than about the pair: two lines sharing a baseline in
-    the middle of a column are two columns of something, and only a half flush
-    to the edge is the right-aligned field this is meant to catch. The test is
-    "not short of the content edge" rather than "within a few points either
-    side", because the inferred edge can sit well INSIDE the true text edge --
-    on the resume fixture the right-edge clustering puts col_r at 495.1 while
-    the dates end at 552.7, and a symmetric test would reject every real row.
 
-    Refuses wholesale when more than a third of the page's baselines pair up.
-    That is the signature of a two-column page whose columns were not split:
-    every body baseline pairs there, and turning each into a tabbed row would
-    weld the columns together. Genuine row lists are a handful among many -- the
-    resume fixture pairs 2 baselines of 14 on page 1 and 2 of 16 on page 2.
-    """
+def _row_contrast(left: Line, right: Line) -> bool:
+    """Do the two halves of a row differ in style, as a label and a field do?
+
+    A role and its date are set apart (u1: Georgia-Bold 10 against
+    Georgia-Italic 8.6; x17: bold against regular). A sentence broken across
+    an unsplit two-column body is one style on both sides of the gap."""
+    a, b = _row_style(left), _row_style(right)
+    return a[0] != b[0] or a[2] != b[2] or a[3] != b[3] or abs(a[1] - b[1]) >= 0.5
+
+
+def _row_candidates(lines, col_l, col_r):
+    """-> ([(left, right)], n_rows): the geometric half of `_row_pairs`,
+    before any column evidence is asked for."""
     if col_r - col_l <= 0:
-        return [], set()
-    lines = []
-    for kind, _bb, o in items:
-        if kind == "blk":
-            lines.extend(ln for ln in o.lines if ln.horizontal and ln.spans)
+        return [], 0
+    lines = [ln for ln in lines if ln.horizontal and ln.spans]
     if len(lines) < 2:
-        return [], set()
+        return [], 0
     lines.sort(key=lambda l: (round(l.baseline, 1), l.bbox[0]))
     rows = []
     for ln in lines:
@@ -2726,6 +2932,47 @@ def _row_pairs(items, col_l, col_r):
         if _line_starts_with_marker(left) or _is_marker_text(left.text):
             continue
         pairs.append((left, right))
+    return pairs, len(rows)
+
+
+def _doc_row_evidence(pages_lines, col_l, col_r):
+    """[(right_x1, right_style, left_style)] of every geometric row candidate in
+    the document, for `_row_pairs`' cross-page column evidence."""
+    out = []
+    for lines in pages_lines:
+        pairs, _n = _row_candidates(lines, col_l, col_r)
+        out.extend((r.bbox[2], _row_style(r), _row_style(l)) for l, r in pairs)
+    return out
+
+
+def _row_pairs(items, col_l, col_r, doc_rows=None):
+    """-> ([(left_line, right_line)], {id(line) consumed}).
+
+    The discriminator is the RIGHT half's right edge, and it is deliberately
+    about the MARGIN rather than about the pair: two lines sharing a baseline in
+    the middle of a column are two columns of something, and only a half flush
+    to the edge is the right-aligned field this is meant to catch. The test is
+    "not short of the content edge" rather than "within a few points either
+    side", because the inferred edge can sit well INSIDE the true text edge --
+    on the resume fixture the right-edge clustering puts col_r at 495.1 while
+    the dates end at 552.7, and a symmetric test would reject every real row.
+
+    Refuses wholesale when more than a third of the page's baselines pair up.
+    That is the signature of a two-column page whose columns were not split:
+    every body baseline pairs there, and turning each into a tabbed row would
+    weld the columns together. Genuine row lists are a handful among many -- the
+    resume fixture pairs 2 baselines of 14 on page 1 and 2 of 16 on page 2.
+
+    `doc_rows` is `_doc_row_evidence` for the whole document; see below for
+    the one case it decides.
+    """
+    lines = []
+    for kind, _bb, o in items:
+        if kind == "blk":
+            lines.extend(o.lines)
+    pairs, n_rows = _row_candidates(lines, col_l, col_r)
+    if not pairs:
+        return [], set()
     # A tab STOP is a column, so require the evidence of one: at least two rows
     # ending at the same x. A designer sets a right-aligned stop and then uses
     # it repeatedly -- that is what makes a resume's dates or a worksheet's
@@ -2752,8 +2999,30 @@ def _row_pairs(items, col_l, col_r):
         cur = [pr]
     if len(cur) >= 2:
         kept.extend(cur)
+    # The column a stop belongs to is the DOCUMENT's, not the page's. A résumé
+    # whose second page holds one role/date row has that row's tab stop on
+    # every other page: measured on the owner's résumé, page 1's two rows end
+    # at 553.5 and page 2's single row ends at 553.6, and judged alone the
+    # single row was refused -- its date then fell into the description
+    # paragraph below it as a 406pt first-line indent (defect catalogue #22).
+    # So a pair alone on its page is kept when the document holds another
+    # candidate at the same edge in the SAME pair of styles, and the pair's
+    # halves differ in style the way a label and a field do. Both conditions
+    # are what the prose false positives above lack: a sentence broken across
+    # a two-column body is one style on both sides of its gap.
+    if doc_rows:
+        kept_ids = {id(pr[1]) for pr in kept}
+        for left, right in pairs:
+            if id(right) in kept_ids or not _row_contrast(left, right):
+                continue
+            rs, ls = _row_style(right), _row_style(left)
+            same = sum(1 for x1, rsig, lsig in doc_rows
+                       if abs(x1 - right.bbox[2]) <= _ROW_EDGE_BUCKET
+                       and rsig == rs and lsig == ls)
+            if same >= 2:
+                kept.append((left, right))
     pairs = kept
-    if not pairs or len(pairs) > _ROW_MAX_SHARE * len(rows):
+    if not pairs or len(pairs) > _ROW_MAX_SHARE * n_rows:
         return [], set()
     consumed = set()
     for left, right in pairs:
@@ -2765,8 +3034,14 @@ def _row_pairs(items, col_l, col_r):
 def _row_para(left: Line, right: Line, col_l: float, col_r: float) -> Para:
     """One paragraph: left runs, a tab, right runs, one right stop at the edge."""
     p = para_from_lines([left], col_l, col_r)
-    for r in p.runs:
-        r.text = r.text.rstrip(" ")
+    # Only the LAST run's trailing space is the gap before the tab. Stripping
+    # every run deleted the word space at each run boundary inside the label:
+    # y06_irs_1040's "Earned Income Credit (EIC) Table - Continued" is two
+    # runs split after "- ", and came out "Table -Continued".
+    while p.runs and not p.runs[-1].text.strip():
+        p.runs.pop()
+    if p.runs:
+        p.runs[-1].text = p.runs[-1].text.rstrip(" ")
     p.runs = [r for r in p.runs if r.text]
     ref = p.runs[-1] if p.runs else None
     p.runs.append(Run(text="\t",
@@ -2804,8 +3079,111 @@ def _drop_row_lines(items, consumed):
     return out
 
 
-def _to_flow(items, col_l, col_r):
-    pairs, consumed = _row_pairs(items, col_l, col_r)
+_GAP_TOL = 0.5   # pt of overlap forgiven between an element and a line box (rounding)
+
+
+def _split_blocks_at_elements(items):
+    """Cut text blocks wherever a rule, image or figure lies between two of
+    their lines.
+
+    The flow is ordered at BLOCK granularity: a block sorts by its top, is
+    expanded into paragraphs afterwards, and every element sorts by its own
+    top. A rule that sits between two lines of one block therefore sorts after
+    the whole block. Measured on the owner's résumé, where PDFium returns each
+    section heading and the paragraph under it as ONE block: the rule under
+    "SUMMARY" (y=124.5) was emitted after the summary text (131.4-182.1), so
+    the heading lost its rule, the text gained one, and a ~20pt hole opened
+    before the next heading -- 2 of the page's 6 rules (defect catalogue #8;
+    1 of 19 on y13_irs_pub501). A drawn separator between two lines is
+    evidence that they are not one block, so the block is cut there.
+
+    Only elements in a genuine GAP qualify: no line box of the block may
+    share any of the element's vertical extent. The whole box, descender zone
+    included, is the test, because a rule inside it belongs to that line --
+    an underline, or a table border the text sits on: y06_irs_1040's
+    unrecognised flowchart table draws its row borders 0.5pt below a
+    baseline, and a test that trimmed the descender zone cut its cells
+    apart mid-sentence. Likewise an element beside the text, which shares
+    the lines' vertical extent, never cuts. Tables are not considered: they
+    consume the lines they hold, and the flow blocks are already cut around
+    consumed lines.
+    """
+    els = [bb for kind, bb, o in items
+           if kind == "el" and bb is not None
+           and isinstance(o, (RuleEl, ImageEl, FigureEl))]
+    if not els:
+        return items
+    out = []
+    for kind, bb, o in items:
+        if kind != "blk":
+            out.append((kind, bb, o))
+            continue
+        lines = list(o) if isinstance(o, list) else list(o.lines)
+        if len(lines) < 2:
+            out.append((kind, bb, o))
+            continue
+        cuts = []
+        for e in els:
+            if e[2] <= bb[0] or e[0] >= bb[2] or e[1] <= bb[1] or e[3] >= bb[3]:
+                continue
+            crossed = False
+            for ln in lines:
+                if ln.bbox[1] + _GAP_TOL < e[3] and e[1] < ln.bbox[3] - _GAP_TOL:
+                    crossed = True
+                    break
+            if not crossed:
+                cuts.append((e[1] + e[3]) / 2.0)
+        if not cuts:
+            out.append((kind, bb, o))
+            continue
+        groups = defaultdict(list)
+        for ln in lines:
+            cy = (ln.bbox[1] + ln.bbox[3]) / 2.0
+            groups[sum(1 for c in cuts if cy > c)].append(ln)
+        for k in sorted(groups):
+            blk = _mk_block(groups[k])
+            out.append(("blk", blk.bbox, blk))
+    return out
+
+
+def _propagate_list_hangs(paras):
+    """Give single-line typed-marker items the hang their siblings measured.
+
+    A one-line item carries no continuation line to measure its hang from, so
+    it would wrap flush under its marker the moment a reader's metrics push a
+    word over -- unlike every sibling in the same list. Siblings share the
+    marker column (within `_INLINE_X_TOL`) and the hang is a property of the
+    list, so the commonest hang measured at that column is adopted, across
+    the document: x17 sets the same list style on both pages and only page 1
+    has a wrapped item to measure. The hang is carried as a WIDTH, so an item
+    in a column with a different left edge still gets its own indents right.
+    """
+    hangs = []
+    for p in paras:
+        if getattr(p, "_list_item", False) and p.first_indent < -1.0 and p.bbox:
+            hangs.append((p.bbox[0], getattr(p, "_list_style", None),
+                          round(-p.first_indent, 1)))
+    if not hangs:
+        return
+    for p in paras:
+        if not (getattr(p, "_list_item", False) and p.bbox
+                and abs(p.first_indent) <= 1.0 and p.align in ("left", "justify")):
+            continue
+        style = getattr(p, "_list_style", None)
+        near = Counter(h for x0, st, h in hangs
+                       if st == style and abs(p.bbox[0] - x0) <= _INLINE_X_TOL)
+        if near:
+            h = near.most_common(1)[0][0]
+            p.left_indent = round(p.left_indent + p.first_indent + h, 1)
+            p.first_indent = -h
+
+
+def _to_flow(items, col_l, col_r, doc_rows=None):
+    items = _split_blocks_at_elements(items)
+    list_starts = _inline_list_starts(
+        [list(o) if isinstance(o, list) else list(o.lines)
+         for kind, _bb, o in items if kind == "blk"])
+    pairs, consumed = _row_pairs(items, col_l, col_r, doc_rows)
     if consumed:
         items = _drop_row_lines(items, consumed) + \
             [("row", bbox_union(l.bbox, r.bbox), (l, r)) for l, r in pairs]
@@ -2815,7 +3193,8 @@ def _to_flow(items, col_l, col_r):
             out.append(_row_para(o[0], o[1], col_l, col_r))
         elif kind == "blk":
             out.extend(paras_from_line_list(
-                list(o) if isinstance(o, list) else list(o.lines), col_l, col_r))
+                list(o) if isinstance(o, list) else list(o.lines), col_l, col_r,
+                list_starts))
         else:
             el = o
             if isinstance(el, TableEl):
@@ -2848,10 +3227,22 @@ def _mergeable(a: Para, b: Para) -> bool:
         return False
     if not a.bbox or not b.bbox:
         return False
+    # A paragraph opening with a typed list marker is a new item, however
+    # tight the list's leading: y17_rfc9110 p40 sets its four "• …" items
+    # 2.7pt apart, inside the 3.2pt join window, and they fused into one
+    # paragraph (design audit B16).
+    if getattr(b, "_list_item", False):
+        return False
     gap = b.bbox[1] - a.bbox[3]
     if not (-2.0 <= gap <= 3.2):
         return False
-    if abs(b.bbox[0] - a.bbox[0]) > 2.5:
+    # An item that hangs continues at its TEXT column, not at its marker: a
+    # paragraph starting under the marker is the next paragraph after the
+    # list, and one starting at the hang is the item's own continuation.
+    ax = a.bbox[0]
+    if getattr(a, "_list_item", False) and a.first_indent < -1.0:
+        ax = a.bbox[0] - a.first_indent
+    if abs(b.bbox[0] - ax) > 2.5:
         return False
     sa = max((r.size for r in a.runs if r.text.strip()), default=0)
     sb = max((r.size for r in b.runs if r.text.strip()), default=0)
@@ -3098,6 +3489,7 @@ def _column_of(bb, bands) -> Optional[int]:
 def _grid_chunks(elements, flow_blocks, bands, lay: DocLayout,
                  content_l: float, content_r: float) -> List[Chunk]:
     """Lay a >=3 column page out as lead / columns / tail."""
+    lay_rows = getattr(lay, "_row_evidence", None)
     banded, spanning = [], []
     for b in flow_blocks:
         groups = defaultdict(list)
@@ -3121,8 +3513,8 @@ def _grid_chunks(elements, flow_blocks, bands, lay: DocLayout,
     if lead:
         lead.sort(key=lambda t: (t[1][1], t[1][0]))
         ch = Chunk(n_cols=1)
-        ch.elements = _merge_flow_paras(_to_flow(lead, content_l, content_r),
-                                        content_r)
+        ch.elements = _merge_flow_paras(
+            _to_flow(lead, content_l, content_r, doc_rows=lay_rows), content_r)
         chunks.append(ch)
     gaps = [bands[i + 1][0] - bands[i][1] for i in range(len(bands) - 1)]
     ch = Chunk(n_cols=len(bands), col_gap=max(10.0, round(sum(gaps) / len(gaps), 1)))
@@ -3130,7 +3522,8 @@ def _grid_chunks(elements, flow_blocks, bands, lay: DocLayout,
     for i, (a, b) in enumerate(bands):
         items = sorted((t for bi, t in banded if bi == i),
                        key=lambda t: (t[1][1], t[1][0]))
-        flows.append(_merge_flow_paras(_to_flow(items, a, b), b))
+        flows.append(_merge_flow_paras(
+            _to_flow(items, a, b, doc_rows=lay_rows), b))
     ch.elements = flows[0]
     for f in flows[1:]:
         ch.elements = ch.elements + [ColBreak()] + f
@@ -3138,8 +3531,8 @@ def _grid_chunks(elements, flow_blocks, bands, lay: DocLayout,
     if tail:
         tail.sort(key=lambda t: (t[1][1], t[1][0]))
         ch2 = Chunk(n_cols=1)
-        ch2.elements = _merge_flow_paras(_to_flow(tail, content_l, content_r),
-                                         content_r)
+        ch2.elements = _merge_flow_paras(
+            _to_flow(tail, content_l, content_r, doc_rows=lay_rows), content_r)
         chunks.append(ch2)
     return chunks
 
@@ -3147,6 +3540,7 @@ def _grid_chunks(elements, flow_blocks, bands, lay: DocLayout,
 def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
                      page_top: Optional[float] = None) -> List[Chunk]:
     content_l, content_r = lay.margin_l, lay.page_w - lay.margin_r
+    lay_rows = getattr(lay, "_row_evidence", None)
     content_w = content_r - content_l
     body_h = lay.page_h - lay.margin_t - lay.margin_b
     flow_blocks = _merge_list_markers(flow_blocks)
@@ -3208,7 +3602,8 @@ def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
     chunks: List[Chunk] = []
     if not twocol:
         ch = Chunk(n_cols=1)
-        ch.elements = _merge_flow_paras(_to_flow(items, content_l, content_r), content_r)
+        ch.elements = _merge_flow_paras(
+            _to_flow(items, content_l, content_r, doc_rows=lay_rows), content_r)
         chunks.append(ch)
     else:
         # gutter between the columns (approximate)
@@ -3243,7 +3638,8 @@ def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
         colitems = [t for t in rest if t not in wide_tail]
         if lead:
             ch = Chunk(n_cols=1)
-            ch.elements = _merge_flow_paras(_to_flow(lead, content_l, content_r), content_r)
+            ch.elements = _merge_flow_paras(
+                _to_flow(lead, content_l, content_r, doc_rows=lay_rows), content_r)
             chunks.append(ch)
         colL = [t for t in colitems if t[1][0] < col_split - 20]
         colR = [t for t in colitems if t[1][0] >= col_split - 20]
@@ -3251,14 +3647,17 @@ def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
         gap = max(10.0, round(gap, 1))
         ch = Chunk(n_cols=2, col_gap=gap)
         colr_edge = col_split - gap
-        left_flow = _merge_flow_paras(_to_flow(colL, content_l, colr_edge), colr_edge)
-        right_flow = _merge_flow_paras(_to_flow(colR, col_split, content_r), content_r)
+        left_flow = _merge_flow_paras(
+            _to_flow(colL, content_l, colr_edge, doc_rows=lay_rows), colr_edge)
+        right_flow = _merge_flow_paras(
+            _to_flow(colR, col_split, content_r, doc_rows=lay_rows), content_r)
         ch.elements = left_flow + [ColBreak()] + right_flow
         chunks.append(ch)
         if wide_tail:
             ch2 = Chunk(n_cols=1)
-            ch2.elements = _merge_flow_paras(_to_flow(wide_tail, content_l, content_r),
-                                             content_r)
+            ch2.elements = _merge_flow_paras(
+                _to_flow(wide_tail, content_l, content_r, doc_rows=lay_rows),
+                content_r)
             chunks.append(ch2)
 
     return _position_chunks(chunks, lay, page_top)
@@ -3369,3 +3768,75 @@ def _mark_headings(lay: DocLayout, body_size: float):
         key = round(mx * 2) / 2
         if key in ranked and boldn >= 0.6 * totn and _n_lines(el) <= 3 and len(el.text) < 200:
             el.heading = min(6, ranked.index(key) + 1)
+    _mark_caps_headings(lay, body_size, ranked)
+
+
+# A résumé's section headings are set AT BODY SIZE -- "SUMMARY", "EXPERIENCE",
+# "TECHNICAL SKILLS" are Georgia-Bold 9.49pt over a 9.7pt body on the owner's
+# résumé, Liberation Sans Bold 9.49 over Liberation Serif 9.7 on x17 -- so the
+# size ladder above never sees them, and Google Docs' outline of a converted
+# résumé was empty. What marks them is everything except size: bold capitals,
+# a short line of their own, letter-spacing, and a full-width rule hard
+# against them. Capitals and bold alone are not enough: bold caps labels
+# ("NOTE:", table captions, "WARNING") are everywhere in government documents.
+# So a body-size heading needs, beyond bold caps on one short line, at least
+# one of the two typographic devices that announce a SECTION: tracking (the
+# parser's own measurement, `Span.tracked`) or a rule directly above or below.
+_CAPS_HEADING_MAX_CHARS = 60     # a section title, not a sentence in capitals
+_CAPS_HEADING_RULE_GAP = 12.0    # pt between heading and rule; résumés measure 3.3-6
+_CAPS_HEADING_MIN_SIZE = 0.9     # x body size: smaller caps are labels and captions
+_CAPS_HEADING_EDGE_TOL = 2.0     # pt; résumé headings measure 0.0 (u1, x17)
+
+
+def _caps_heading_text(t: str) -> bool:
+    # A colon with text after it is a label and its value ("CATEGORY: COMPUTER
+    # SECURITY" on y10_nist_fips180's cover), not a section title.
+    if re.search(r":\s*\S", t):
+        return False
+    letters = [c for c in t if c.isalpha()]
+    return len(letters) >= 3 and all(c.isupper() for c in letters)
+
+
+def _mark_caps_headings(lay: DocLayout, body_size: float, ranked):
+    for pg in lay.pages:
+        for ch in pg.chunks:
+            els = [e for e in ch.elements if not isinstance(e, ColBreak)]
+            for i, el in enumerate(els):
+                # Right-aligned caps over a rule is a running head left in the
+                # flow (y22_lshort's "CONTENTS" over its headrule), not a
+                # section opening.
+                if not isinstance(el, Para) or el.heading or not el.runs \
+                        or el.align == "right":
+                    continue
+                # A section opens at its column's edge (or centred over it).
+                # An indented bold-caps word over a rule is a label inside a
+                # figure or form: y06_irs_1040's flowchart "AND" at 115.9pt,
+                # y10_nist_fips180's cover metadata at 18pt.
+                if el.align != "center" and el.left_indent > _CAPS_HEADING_EDGE_TOL:
+                    continue
+                text = el.text.strip()
+                if not text or len(text) > _CAPS_HEADING_MAX_CHARS \
+                        or _n_lines(el) != 1 or (el.src_lines or 1) != 1 \
+                        or any(r.is_tab for r in el.runs) \
+                        or not _caps_heading_text(text):
+                    continue
+                runs = [r for r in el.runs if r.text.strip()]
+                totn = sum(len(r.text) for r in runs)
+                if sum(len(r.text) for r in runs if r.bold) < 0.6 * totn:
+                    continue
+                mx = max(r.size for r in runs)
+                if mx < _CAPS_HEADING_MIN_SIZE * body_size or mx >= 1.12 * body_size:
+                    continue
+                ruled = False
+                bb = el.bbox
+                for j in (i - 1, i + 1):
+                    if 0 <= j < len(els) and isinstance(els[j], RuleEl) and bb:
+                        rb = getattr(els[j], "_bbox", None)
+                        if rb and (0 <= rb[1] - bb[3] <= _CAPS_HEADING_RULE_GAP
+                                   or 0 <= bb[1] - rb[3] <= _CAPS_HEADING_RULE_GAP):
+                            ruled = True
+                if not (ruled or getattr(el, "_tracked", False)):
+                    continue
+                # Below every size-ranked heading: these are the sections
+                # those headings (a title, if any) contain.
+                el.heading = min(6, len(ranked) + 1)
