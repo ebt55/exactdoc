@@ -1,0 +1,200 @@
+{
+ "schema": 1,
+ "date": "2026-10-04",
+ "kind": "gdocs-live-capability-probe",
+ "question": "may the gdocs profile write w:bidi right-to-left paragraphs?",
+ "generator": "testkit/gdocs_probe_rtl.py (tree 130f24e)",
+ "results": {
+  "probe_he_justified": {
+   "gdocs-visual": {
+    "page_match": true,
+    "src_pages": 1,
+    "out_pages": 1,
+    "word_recall": 0.9444,
+    "dx_p50": 26.1,
+    "dx_p90": 70.22,
+    "dy_p50": 1.05,
+    "within2pt": 0.3529,
+    "mean_ssim": 0.9545,
+    "char_recall": 1.0
+   },
+   "gdocs-bidi": {
+    "page_match": true,
+    "src_pages": 1,
+    "out_pages": 1,
+    "word_recall": 0.9444,
+    "dx_p50": 0.24,
+    "dx_p90": 1.47,
+    "dy_p50": 1.05,
+    "within2pt": 0.9412,
+    "mean_ssim": 0.9608,
+    "char_recall": 1.0
+   },
+   "standard": {
+    "page_match": true,
+    "src_pages": 1,
+    "out_pages": 1,
+    "word_recall": 0.9444,
+    "dx_p50": 0.24,
+    "dx_p90": 1.47,
+    "dy_p50": 2.23,
+    "within2pt": 0.4706,
+    "mean_ssim": 0.9529,
+    "char_recall": 1.0
+   }
+  },
+  "probe_he_list": {
+   "gdocs-visual": {
+    "page_match": true,
+    "src_pages": 1,
+    "out_pages": 1,
+    "word_recall": 0.9231,
+    "dx_p50": 1.55,
+    "dx_p90": 148.42,
+    "dy_p50": 0.36,
+    "within2pt": 0.5,
+    "mean_ssim": 0.9882,
+    "char_recall": 1.0
+   },
+   "gdocs-bidi": {
+    "page_match": true,
+    "src_pages": 1,
+    "out_pages": 1,
+    "word_recall": 0.9231,
+    "dx_p50": 3.0,
+    "dx_p90": 3.04,
+    "dy_p50": 0.36,
+    "within2pt": 0.1667,
+    "mean_ssim": 0.9877,
+    "char_recall": 1.0
+   },
+   "standard": {
+    "page_match": true,
+    "src_pages": 1,
+    "out_pages": 1,
+    "word_recall": 0.9231,
+    "dx_p50": 3.0,
+    "dx_p90": 3.04,
+    "dy_p50": 1.93,
+    "within2pt": 0.0,
+    "mean_ssim": 0.9858,
+    "char_recall": 1.0
+   }
+  },
+  "c4_i18n": {
+   "gdocs-visual": {
+    "page_match": true,
+    "src_pages": 1,
+    "out_pages": 1,
+    "word_recall": 1.0,
+    "dx_p50": 4.67,
+    "dx_p90": 30.69,
+    "dy_p50": 2.3,
+    "within2pt": 0.1303,
+    "mean_ssim": 0.8723,
+    "char_recall": 1.0
+   },
+   "gdocs-bidi": {
+    "page_match": true,
+    "src_pages": 1,
+    "out_pages": 1,
+    "word_recall": 1.0,
+    "dx_p50": 4.87,
+    "dx_p90": 31.74,
+    "dy_p50": 2.3,
+    "within2pt": 0.1303,
+    "mean_ssim": 0.8725,
+    "char_recall": 1.0
+   },
+   "standard": {
+    "page_match": true,
+    "src_pages": 1,
+    "out_pages": 1,
+    "word_recall": 1.0,
+    "dx_p50": 5.63,
+    "dx_p90": 34.36,
+    "dy_p50": 40.29,
+    "within2pt": 0.0126,
+    "mean_ssim": 0.8124,
+    "char_recall": 1.0
+   }
+  },
+  "y48_ar_weasyprint": {
+   "gdocs-visual": {
+    "page_match": false,
+    "src_pages": 7,
+    "out_pages": 10,
+    "word_recall": 0.15,
+    "dx_p50": 83.49,
+    "dx_p90": 264.98,
+    "dy_p50": 41.4,
+    "within2pt": 0.0,
+    "mean_ssim": 0.5091,
+    "char_recall": 0.5221
+   },
+   "gdocs-bidi": {
+    "page_match": false,
+    "src_pages": 7,
+    "out_pages": 10,
+    "word_recall": 0.1495,
+    "dx_p50": 78.09,
+    "dx_p90": 261.51,
+    "dy_p50": 42.25,
+    "within2pt": 0.0,
+    "mean_ssim": 0.5093,
+    "char_recall": 0.5221
+   },
+   "standard": {
+    "page_match": false,
+    "src_pages": 7,
+    "out_pages": 10,
+    "word_recall": 0.1514,
+    "dx_p50": 82.33,
+    "dx_p90": 262.27,
+    "dy_p50": 55.59,
+    "within2pt": 0.0,
+    "mean_ssim": 0.5111,
+    "char_recall": 0.5226
+   }
+  },
+  "y49_he_word2016": {
+   "gdocs-visual": {
+    "page_match": false,
+    "src_pages": 28,
+    "out_pages": 55,
+    "word_recall": 0.1439,
+    "dx_p50": 61.19,
+    "dx_p90": 236.09,
+    "dy_p50": 39.92,
+    "within2pt": 0.0117,
+    "mean_ssim": 0.3071,
+    "char_recall": 0.4482
+   },
+   "gdocs-bidi": {
+    "page_match": false,
+    "src_pages": 28,
+    "out_pages": 55,
+    "word_recall": 0.1448,
+    "dx_p50": 56.64,
+    "dx_p90": 226.55,
+    "dy_p50": 36.32,
+    "within2pt": 0.0121,
+    "mean_ssim": 0.3072,
+    "char_recall": 0.4482
+   },
+   "standard": {
+    "page_match": false,
+    "src_pages": 28,
+    "out_pages": 55,
+    "word_recall": 0.1534,
+    "dx_p50": 54.71,
+    "dx_p90": 213.84,
+    "dy_p50": 48.16,
+    "within2pt": 0.0118,
+    "mean_ssim": 0.3166,
+    "char_recall": 0.4673
+   }
+  }
+ },
+ "decision": "granted: justified Hebrew within2pt 0.35 -> 0.94, dx_p50 26.1 -> 0.24pt; list dx_p90 148 -> 3pt (uniform 3pt offset, within2pt 0.50 -> 0.17); c4/y48/y49 unchanged"
+}

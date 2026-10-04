@@ -20,6 +20,14 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **gdocs: right-to-left paragraphs are real RTL paragraphs in Google Docs
+  (live, 2026-10-04).** WP14's probe set flown live
+  ([evidence](docs/evidence/gdocs-2026-10-04-rtl-probe.json)): with `bidi`,
+  justified Hebrew lands within 2pt for 94% of words (35% as the visual
+  left-to-right equivalent; dx_p50 26.1 -> 0.24pt), and a Hebrew list's
+  worst words move 3pt instead of 148pt. Its uniform 3pt offset leaves its
+  within-2pt 0.50 -> 0.17. c4, y48 and y49 are unchanged.
+  `PROFILE_CAPABILITIES["gdocs"]` gains `bidi`.
 - **tables: an indented table no longer grows into the margin; a label too
   wide for its column spans the blank cells beside it.** x14's totals block
   (an indented table, 322pt in) put its amounts 48-52pt into the right

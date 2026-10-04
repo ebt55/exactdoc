@@ -101,11 +101,16 @@ OUTPUT_PROFILES = ("standard", "gdocs")
 #               renumbers custom marks: a "*" note and a numbering restart at
 #               1 print as continuing automatic numbers ("3" where the source
 #               says "1"), which is wrong text, not wrong placement.
-#   bidi        withheld until its probe set (testkit/gdocs_probe_rtl.py) is
-#               flown live.
+#   bidi        granted. Its probe set (testkit/gdocs_probe_rtl.py) was flown
+#               live on 2026-10-04 (docs/evidence/gdocs-2026-10-04-rtl-probe
+#               .json): justified Hebrew within-2pt 0.35 -> 0.94 (dx_p50 26.1
+#               -> 0.24pt) against the visual left-to-right equivalent; a
+#               Hebrew list's dx_p90 148.4 -> 3.0pt (a uniform 3pt offset
+#               leaves its within-2pt 0.50 -> 0.17); c4, y48 and y49
+#               unchanged.
 PROFILE_CAPABILITIES = {
     "standard": frozenset({"numbering", "footnotes", "bidi"}),
-    "gdocs": frozenset({"numbering"}),
+    "gdocs": frozenset({"numbering", "bidi"}),
 }
 
 

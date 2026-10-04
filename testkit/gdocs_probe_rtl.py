@@ -2,15 +2,15 @@
 
     python testkit/gdocs_probe_rtl.py --out DIR
 
-The standard profile declares right-to-left paragraphs (w:bidi, start/end
-w:jc and w:ind, w:rtl runs with complex-script size and language). The gdocs
-profile does not (`exactdoc.options.PROFILE_CAPABILITIES`): it writes the
-visual equivalent -- a left-to-right paragraph with the sides swapped -- because
-no live pass has yet shown how the Docs importer reads w:bidi, and LibreOffice
-does not predict Docs. This script makes the evidence a flip needs: each
-source converted by the gdocs profile as it ships ("gdocs-visual"), with the
-capability forced on ("gdocs-bidi"), which is exactly what flipping the switch
-would produce, and by the standard profile for reference. Nothing here uploads
+Both profiles declare right-to-left paragraphs (w:bidi, start/end w:jc and
+w:ind, w:rtl runs with complex-script size and language); a profile without the
+`bidi` capability (`exactdoc.options.PROFILE_CAPABILITIES`) writes the visual
+equivalent -- a left-to-right paragraph with the sides swapped. LibreOffice does
+not predict Docs, so gdocs got the capability only on live evidence: this
+script's set, flown 2026-10-04 (docs/evidence/gdocs-2026-10-04-rtl-probe.json).
+Each source is converted by the gdocs profile without the capability
+("gdocs-visual") and with it ("gdocs-bidi"), and by the standard profile for
+reference. Nothing here uploads
 anything; the live pass is a separate, consented step.
 
 What to read off a live render of each pair (word boxes from Docs' exported
@@ -145,7 +145,7 @@ def main(argv=None):
         for name, pdf in sources:
             files = {"source": os.path.basename(pdf)}
             for tag, opts, caps in (
-                    ("gdocs-visual", O.PDFIUM_GDOCS_CANDIDATE, gd_caps),
+                    ("gdocs-visual", O.PDFIUM_GDOCS_CANDIDATE, gd_caps - {"bidi"}),
                     ("gdocs-bidi", O.PDFIUM_GDOCS_CANDIDATE, gd_caps | {"bidi"}),
                     ("standard", O.RAW, None)):
                 if caps is not None:

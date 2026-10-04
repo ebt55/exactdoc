@@ -425,12 +425,23 @@ class BidiMarkup(unittest.TestCase):
         self.assertIsNone(latin.find(W + "rPr").find(W + "rtl"))
         self.assertIsNotNone(tail.find(W + "rPr").find(W + "rtl"))
 
-    def test_google_docs_profile_writes_the_visual_equivalent(self):
+    def test_google_docs_profile_writes_real_bidi(self):
+        # granted live 2026-10-04 (options.PROFILE_CAPABILITIES)
+        root = self._write([self._para("שלום עולם.")], profile="gdocs")
+        self.assertIsNotNone(root.find(".//" + W + "bidi"))
+
+    def test_a_profile_without_bidi_writes_the_visual_equivalent(self):
         # no `bidi` capability: a left-to-right paragraph, sides swapped,
         # and no complex-script run properties at all
+        from exactdoc import options as O
         p = self._para("שלום עולם.")
         p.left_indent = 36.0
-        root = self._write([p], profile="gdocs")
+        caps = O.PROFILE_CAPABILITIES["gdocs"]
+        O.PROFILE_CAPABILITIES["gdocs"] = caps - {"bidi"}
+        try:
+            root = self._write([p], profile="gdocs")
+        finally:
+            O.PROFILE_CAPABILITIES["gdocs"] = caps
         for tag in ("bidi", "rtl", "szCs", "lang"):
             self.assertIsNone(root.find(".//" + W + tag), tag)
         wp = next(e for e in root.iter(W + "p")
