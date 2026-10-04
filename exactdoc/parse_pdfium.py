@@ -2162,8 +2162,8 @@ def _build_blocks(lines: List[Line], page_w: float = 612.0) -> List[TextBlock]:
             for b in bands:
                 out += _build_blocks_one(b, cols)
             out.sort(key=lambda b: (round(b.bbox[1], 1), b.bbox[0]))
-            return _group_table_rows(out)
-    return _group_table_rows(_build_blocks_one(lines, cols))
+            return _group_table_rows(out, cols)
+    return _group_table_rows(_build_blocks_one(lines, cols), cols)
 
 
 def _band_of(centre: float, cols: List[float]) -> int:
@@ -2175,7 +2175,42 @@ def _band_of(centre: float, cols: List[float]) -> int:
     return i
 
 
-def _group_table_rows(blocks: List[TextBlock]) -> List[TextBlock]:
+# Pieces of one visual line that the line builder kept apart -- a change into a
+# maths font, an inline formula, a script -- abut: measured on
+# y39_copernicus_npg_2col p3, "time tka + µ˜ t, k" ends 0.8pt before
+# ". It is convenient...", and the widest such seam on that page is a word
+# space (~2.5pt at 10pt). A gutter is 20pt there and never under 6pt anywhere
+# (`_column_split`'s own floor), so one em sits safely between the two.
+PIECE_JOIN_EM = 1.0
+
+
+def _visual_pieces(items) -> List[tuple]:
+    """[(x0, x1)] of a baseline's lines after rejoining abutting fragments.
+
+    `items` is [(block index, Line)] on one baseline."""
+    spans = sorted((l.bbox[0], l.bbox[2], _line_size(l)) for _, l in items)
+    out = []
+    for x0, x1, sz in spans:
+        if out and x0 - out[-1][1] <= PIECE_JOIN_EM * max(sz, 1.0):
+            out[-1][1] = max(out[-1][1], x1)
+        else:
+            out.append([x0, x1])
+    return [tuple(p) for p in out]
+
+
+def _one_piece_per_column(items, gutters) -> bool:
+    """Does this baseline hold at most one piece per column band, none of them
+    crossing a gutter -- the shape every baseline of a two-column body has?"""
+    pieces = _visual_pieces(items)
+    if len(pieces) < 2:
+        return False
+    if any(x0 < c < x1 for x0, x1 in pieces for c in gutters):
+        return False
+    bands = [_band_of((x0 + x1) / 2, gutters) for x0, x1 in pieces]
+    return len(set(bands)) == len(bands)
+
+
+def _group_table_rows(blocks: List[TextBlock], gutters=None) -> List[TextBlock]:
     """Put the cells of a table row back in ONE block, from column repetition.
 
     BLOCK_SAME_ROW_EM cannot do this and the comment on it says why: measured
@@ -2247,12 +2282,32 @@ def _group_table_rows(blocks: List[TextBlock]) -> List[TextBlock]:
             grouped as though it were a table row -- which cost that document a
             page and took its candidate word_recall from 0.9586 to 0.8029, the
             very failure this rule exists to remove.
-            """
-            return len(items) == 2 and all(
-                (l.bbox[2] - l.bbox[0]) > 0.25 * width for _, l in items)
 
+            "Two" is counted after rejoining the abutting pieces of one visual
+            line (`_visual_pieces`): a TeX line with inline maths reaches here
+            as three or four Lines, and counted raw, every such baseline of a
+            two-column body read as a table row.
+            """
+            parts = _visual_pieces(items)
+            return len(parts) == 2 and all(
+                (x1 - x0) > 0.25 * width for x0, x1 in parts)
+
+        n_split = sum(1 for r in grp if _page_split(r[1]))
         grp = [r for r in grp if not _page_split(r[1])]
         if len(grp) < TABLE_MIN_ROWS:
+            continue
+        # On a page whose gutters are known, the baselines a two-column body
+        # leaves behind once its wide-wide rows are gone are its SHORT lines --
+        # a paragraph's last line beside a full line, a heading beside prose.
+        # They still put one piece in each column at the two column starts,
+        # which is exactly the repetition the test below reads as a table, and
+        # y39_copernicus_npg_2col p3's two biggest blocks each came out holding
+        # both columns' text. When page splits are the majority of the band
+        # and every leftover row is one piece per column, the band is the body,
+        # not a table. A table inside one column (02_research_paper's) has
+        # several pieces in ONE band and is untouched.
+        if gutters and n_split >= len(grp) and \
+                all(_one_piece_per_column(r[1], gutters) for r in grp):
             continue
         xs = sorted(l.bbox[0] for _, items in grp for _, l in items)
         cols, need = [], max(TABLE_MIN_ROWS, 0.6 * len(grp))

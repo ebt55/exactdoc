@@ -2950,7 +2950,7 @@ def _merge_grid_page_runs(pages):
             merged = PageLayout(number=pg.number,
                                 chunks=[c for rp in run for c in rp.chunks],
                                 page_w=pg.page_w, page_h=pg.page_h,
-                                margins=pg.margins)
+                                margins=pg.margins, body_top=pg.body_top)
             out.append(merged)
             i = j
             continue
@@ -2987,7 +2987,7 @@ def _merge_grid_page_runs(pages):
         new_chunks = list(first_chunks) + [merged_grid]
         out.append(PageLayout(number=run[0].number, chunks=new_chunks,
                               page_w=pg.page_w, page_h=pg.page_h,
-                              margins=pg.margins))
+                              margins=pg.margins, body_top=pg.body_top))
         i = j
     return out
 
@@ -3158,7 +3158,18 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
             _fill_hf(sec.footer, lay.footer_default, lay, ctx=ctx)
         if lay.different_first:
             sec.different_first_page_header_footer = True
-            _fill_hf(sec.first_page_header, lay.header_first, lay, ctx=ctx)
+            # An empty first-page header blanks a default header on page 1;
+            # with no header anywhere there is nothing to blank, and the empty
+            # part is not free. LibreOffice 24.2 turns the header on for the
+            # section's page styles and starts every page's body below the
+            # header distance: y43 (NeurIPS, 19.9pt top margin, a first-page
+            # footer only) rendered every page's text 20.3pt low, each page
+            # spilled a line onto a page of its own, 15 pages became 29.
+            # Removing the part alone: first baselines exact, 22 pages.
+            # Standard profile: Google Docs' handling of the part is unmeasured.
+            if lay.header_first is not None or lay.header_default is not None \
+                    or ctx.output_profile == "gdocs":
+                _fill_hf(sec.first_page_header, lay.header_first, lay, ctx=ctx)
             _fill_hf(sec.first_page_footer,
                      lay.footer_first or lay.footer_default, lay, ctx=ctx)
 
@@ -3259,10 +3270,14 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
             # page boundary
             after_cover = has_cover and pi == 1
             next_cols = pg.chunks[0].n_cols if pg.chunks else 1
+            # A column section pinned to the page top starts where the page's
+            # body starts, which is below the margin when a running head ends
+            # lower (PageLayout.body_top): its pre_gap is measured from there.
+            body_top = getattr(pg, "body_top", None) or glay.margin_t
             if after_cover or geo_change:
                 gap = pg.chunks[0].col_gap if pg.chunks else 24.0
                 pre = pg.chunks[0].pre_gap if pg.chunks else 0.0
-                mt = (glay.margin_t + pre) if (next_cols > 1 and pre > 0.5) else None
+                mt = (body_top + pre) if (next_cols > 1 and pre > 0.5) else None
                 s = new_section(WD_SECTION.NEW_PAGE, next_cols, gap, margin_t=mt,
                                 geo=glay)
                 if after_cover:
@@ -3278,7 +3293,7 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
             elif cur_cols != next_cols:
                 gap = pg.chunks[0].col_gap if pg.chunks else 24.0
                 pre = pg.chunks[0].pre_gap if pg.chunks else 0.0
-                mt = (glay.margin_t + pre) if (next_cols > 1 and pre > 0.5) else None
+                mt = (body_top + pre) if (next_cols > 1 and pre > 0.5) else None
                 new_section(WD_SECTION.NEW_PAGE, next_cols, gap, margin_t=mt,
                             geo=glay)
             else:

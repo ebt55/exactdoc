@@ -282,6 +282,11 @@ class PageLayout:
     # it moves any gap, so the form cannot flip under its own corrections.
     # None (every open-loop write) keeps the 1pt carrier.
     top_gap_fits: Optional[bool] = None
+    # Where this page's body starts when its running head ends below the top
+    # margin (infer._header_body_top); None means the margin. Its chunks'
+    # space_before and pre_gap are measured from here, so a writer that pins a
+    # column section's start as a page margin must start from here too.
+    body_top: Optional[float] = None
 
 
 @dataclass

@@ -106,6 +106,112 @@ def _prose_between(wide_items, col_items) -> bool:
     return any(kind == "blk" and lo < (bb[1] + bb[3]) / 2 < hi
                for kind, bb, _o in wide_items)
 
+
+# --- two-column pages, read from the gutter ---------------------------------
+# The block-cluster test above finds a two-column page from where its BLOCKS
+# start, and takes the split from the most populous right-hand cluster. On a
+# page of display maths neither survives: equation numbers flush at a single
+# column's right margin are a right-hand "cluster" of many blocks (y43 p3, a
+# one-column NeurIPS page, was laid out as a 14pt-wide second column holding
+# "(7)".."(14)" with every prose line in a tail below), and on a genuine
+# two-column page the fragments of a display can outnumber the right column's
+# own blocks (y41 p2's split landed 52pt inside the LEFT column, every line of
+# both columns then sat in the wrong flow with page-absolute indents, and the
+# page rendered one character per line). The gutter is the evidence that does
+# not move: a vertical band of white that the column-sized lines never cross,
+# the same reading `column_grid` makes for three columns and more.
+#
+# A two-column page leaves both columns at roughly half the content width;
+# measured over the corpus, the narrowest genuine column is 0.46 of it (the
+# journal and arXiv classes sit at 0.47-0.49). A sidebar beside one wide column
+# (PLOS, Frontiers title pages: 0.24-0.32) is not this shape, and neither is a
+# right-margin column of equation numbers (0.04).
+TWO_COL_MIN_BAND_FRAC = 0.38
+# Each column must actually be set in lines that fill it. The crossing test
+# below does the real work against a one-column page; this keeps a white band
+# under a scatter of short fragments from passing for a gutter.
+TWO_COL_FULL_LINE_FRAC = 0.75
+TWO_COL_MIN_FULL_LINES = 6
+# Of the lines lying within the columns' vertical extent, the share allowed to
+# cross the gutter. On a two-column page those are the spanning floats and
+# their captions; on a one-column page they are its prose. Measured: the
+# journal pages cross at 0.00-0.08, y43's one-column maths pages at 0.55-0.80.
+TWO_COL_MAX_CROSS_FRAC = 0.25
+# A white band beside a few lines of text is an inset, not a gutter: the
+# shorter column must run at least this share of the body's height, unless the
+# block-cluster detector reads two columns too (it accepts a short right
+# column of several blocks -- an article's last page). y39 p1's right column,
+# one 250pt block under the abstract, is 0.33; tests/test_column_grid's 88pt
+# inset is 0.11.
+TWO_COL_MIN_EXTENT_FRAC = 0.2
+
+
+def _two_column_gutter(lines, content_l: float, content_r: float):
+    """(left x, right x, shorter column's height) of a two-column page's
+    gutter, or None.
+
+    `lines` are the page's flow lines. The occupancy scan reads only lines
+    that fit a column (wider than COL_SCAN_W_FRAC is page-spanning by
+    construction) and tolerates GUTTER_CROSS_FRAC of them through the band,
+    exactly as `column_grid` does. A band qualifies when it leaves two columns
+    of TWO_COL_MIN_BAND_FRAC or more, each holding TWO_COL_MIN_FULL_LINES lines
+    that fill it, and when no more than TWO_COL_MAX_CROSS_FRAC of all the lines
+    in the columns' vertical extent run across it.
+    """
+    w = content_r - content_l
+    n = int(round(w))
+    if n < 120:
+        return None
+    boxes = [l.bbox for l in lines if l.horizontal and l.text.strip()]
+    scan = [b for b in boxes if (b[2] - b[0]) <= COL_SCAN_W_FRAC * w]
+    if len(scan) < 2 * TWO_COL_MIN_FULL_LINES:
+        return None
+    occ = [0] * n
+    for b in scan:
+        a0 = max(0, int(b[0] - content_l))
+        a1 = min(n, int(math.ceil(b[2] - content_l)))
+        for i in range(a0, a1):
+            occ[i] += 1
+    tol = max(1, int(GUTTER_CROSS_FRAC * len(scan)))
+    best = None
+    i = 0
+    while i < n:
+        if occ[i] > tol:
+            i += 1
+            continue
+        j = i
+        while j < n and occ[j] <= tol:
+            j += 1
+        gl, gr = content_l + i, content_l + j
+        if i > 0 and j < n and (j - i) >= MIN_GUTTER_W and \
+                gl - content_l >= TWO_COL_MIN_BAND_FRAC * w and \
+                content_r - gr >= TWO_COL_MIN_BAND_FRAC * w:
+            # the widest qualifying band is the gutter; a second one would be
+            # a three-column grid, which column_grid owns
+            if best is None or (j - i) > (best[1] - best[0]):
+                best = (gl, gr)
+        i = j
+    if best is None:
+        return None
+    gl, gr = best
+    lw, rw = gl - content_l, content_r - gr
+    left = [b for b in boxes if b[2] <= gl + 2.0]
+    right = [b for b in boxes if b[0] >= gr - 2.0]
+    if sum(1 for b in left if b[2] - b[0] >= TWO_COL_FULL_LINE_FRAC * lw) < \
+            TWO_COL_MIN_FULL_LINES or \
+            sum(1 for b in right if b[2] - b[0] >= TWO_COL_FULL_LINE_FRAC * rw) < \
+            TWO_COL_MIN_FULL_LINES:
+        return None
+    y0 = min(b[1] for b in left + right)
+    y1 = max(b[3] for b in left + right)
+    inside = [b for b in boxes if y0 <= (b[1] + b[3]) / 2.0 <= y1]
+    crossing = [b for b in inside if b[0] < gl and b[2] > gr]
+    if len(crossing) > TWO_COL_MAX_CROSS_FRAC * max(1, len(inside)):
+        return None
+    short = min(max(b[3] for b in left) - min(b[1] for b in left),
+                max(b[3] for b in right) - min(b[1] for b in right))
+    return gl, gr, short
+
 # --- side-margin page furniture -------------------------------------------
 # Clearance a shape must keep from the body column before it is called margin
 # furniture. Margins are inferred, so a shape that merely grazes the column
@@ -3668,6 +3774,45 @@ def _measure_margins(lay: DocLayout, ir: DocIR, hf: dict,
     lay.margin_b = round(max(14.0, min(72.0, lay.page_h - max_bot - 16.0)), 1)
 
 
+def _header_body_top(lay: DocLayout, page_no: int) -> float:
+    """Where a renderer starts the body on this page because of its header.
+
+    The top margin is the topmost body content on ANY page, and a journal's
+    page 1 -- no running head, the title block set high -- puts it above where
+    the running head on every other page ends. Word and LibreOffice then start
+    those pages' body below the header, not at the margin: measured on y37
+    (PLOS ONE: margin 33.2pt, running head 39.3pt down with its rule 6.9pt
+    under it), LibreOffice 24.2 began every later page's body at 58.4 and the
+    whole page sat 25pt low. Spacing measured from the margin is then wrong by
+    exactly that much, page after page.
+
+    The header's bottom as the writer lays it: the section's header distance,
+    then each element's space before, exact line height and paragraph-border
+    space and width. 0.0 when the page has no header.
+    """
+    if page_no == 1 and lay.different_first:
+        part = lay.header_first
+    else:
+        part = lay.header_default
+    if part is None or not part.elements:
+        return 0.0
+    y = lay.header_default.distance if lay.header_default else 36.0
+    for el in part.elements:
+        if isinstance(el, Para):
+            y += max(0.0, el.space_before or 0.0)
+            y += (el.leading or 0.0) * max(1, getattr(el, "_vis_lines", 1) or 1)
+            for side in ("border_top", "border_bottom"):
+                b = getattr(el, side, None)
+                if b:
+                    y += b[2] + b[0]
+        elif isinstance(el, TableEl):
+            bb = el.bbox
+            y += (bb[3] - bb[1]) if bb else sum(h or 0.0 for h in el.row_heights)
+        elif isinstance(el, RuleEl):
+            y += (el.space_before or 0.0) + max(2.0, el.thickness)
+    return y
+
+
 def _geometry(lay: DocLayout, own: Optional[DocLayout]) -> DocLayout:
     """`lay` with a page's own size and margins, or `lay` itself."""
     if own is None:
@@ -4041,6 +4186,10 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
         page_top = lay.margin_t
         if p.number == 1 and lay.cover_band is not None and lay.cover_band.bbox:
             page_top = lay.cover_band.bbox[3]
+        else:
+            hb = _header_body_top(doc_lay, p.number)
+            if hb > page_top:
+                page_top = pl.body_top = round(hb, 1)
         # Footnotes are read off the page's own lines before the flow is built
         # (a mark fragment and its line are still separate there) and bound to
         # the flow after it (the references live in its runs). See notes.py.
@@ -4771,6 +4920,215 @@ def _grid_para(frags, col_l: float, col_r: float) -> Para:
     return p
 
 
+# --- display maths ----------------------------------------------------------
+# A displayed equation reaches inference as fragments: the expression, its
+# number flush at the margin, a fraction's numerator above and denominator
+# below, a sum's limits, each a block of its own (pdfTeX and the journal
+# pipelines alike). Built as ordinary flow, every fragment became a paragraph
+# one full line tall, stacked: y43 p2's equation (2) is 24pt in the source --
+# rows at baselines 513.9 / 520.7 / 527.5 -- and was laid out as six lines,
+# 70pt; every numbered equation paid a whole extra line for its number. On the
+# maths-heavy papers that was most of the page inflation left once the columns
+# were right (y43: 15 source pages -> 29).
+#
+# A display is written as what it is on the page: one paragraph per BASELINE
+# ROW, the row's pieces at their own x by tab stops (the number on a right stop
+# at the margin), and each row's exact line height the distance to the next
+# row, so the rows overlap exactly as the source's do and the display occupies
+# the source's height. LibreOffice 24.2 draws glyphs in an exact line box
+# smaller than the font without clipping (measured: a 10pt row in a 6.8pt box
+# renders whole, 6.8pt below the row above it).
+#
+# Rows chain into one display when their baselines are closer than a line of
+# text could be: DISPLAY_PITCH_EM of the larger size. Prose never sets lines
+# that close (the corpus' tightest body leading is 1.0em); a fraction's rows
+# sit 0.68em apart (y43), a script 0.3-0.4em off its row.
+DISPLAY_PITCH_EM = 0.9
+# White between two pieces of one row that makes them separate pieces (an
+# equation and its number, "Φ = diag(S)   or   Φ = block-diag(S)"), rather than
+# words of one expression: GRID_CELL_GAP_MIN, the same "real gap" the rule-less
+# table rows use.
+DISPLAY_PIECE_GAP = 12.0
+# A display fragment is a block of one or two baselines; a bigger block is
+# prose, except that its first or last line can be a fragment the parser
+# glued on (y43 p2's denominator "2" opens the next paragraph's block) when it
+# is no wider than this share of the column.
+DISPLAY_EDGE_FRAG_FRAC = 0.35
+# An equation number at a column edge: "(1)", "(12a)", "(A.3)", "(S2)".
+_EQNO_RE = re.compile(r"^\(\s*[A-Z]?\d{1,3}(\.\d{1,3})*[a-z]?\s*\)$")
+# Faces that set mathematics, by `_font_key` prefix. A display must show
+# maths -- one of these, or a mathematical operator in its text -- before its
+# rows are touched: rows of short text that merely sit close are left alone.
+_MATH_FONTS = ("cmmi", "cmsy", "cmex", "cmbsy", "cmmib", "msam", "msbm",
+               "eufm", "eufb", "eurm", "eusm", "rsfs", "mtmi", "mtsy", "mtex",
+               "rmtmi", "txmi", "txsy", "txex", "pxmi", "pxsy", "pxex",
+               "ntxmi", "ntxsy", "ntxex", "newtxmi", "mnsymbol", "stixmath",
+               "stixtwomath", "latinmodernmath", "lmmath", "cambriamath",
+               "xitsmath", "libertinemath", "esint", "stmary", "wasy",
+               "symbol", "mtextra")
+_MATH_CHARS = frozenset("=+−×÷±∓∑∏∫∮∂∇√∞≤≥≠≈≡∼∝∈∉⊂⊃⊆⊇∪∩∧∨→←↔⇒⇐⇔∀∃"
+                        "αβγδεζηθικλμνξπρστυφχψωΓΔΘΛΞΠΣΦΨΩ")
+# Accents TeX draws as glyphs of their own above a letter (y40's "Û" is a
+# "ˆ" 1.6pt above the U's baseline). A row of nothing else is an overlay on
+# the row beneath it, not a row of the display: it rides along when its
+# neighbour is in one and never makes a display out of a line of prose.
+_ACCENTS = frozenset("ˆ˜¯˙¨´`ˇ˘˚^~·→⃗") | frozenset(chr(c) for c in range(0x300, 0x370))
+
+
+def _accent_row(row: List[Line]) -> bool:
+    chars = [ch for l in row for ch in l.text if not ch.isspace()]
+    return bool(chars) and all(ch in _ACCENTS for ch in chars)
+
+
+def _font_key(name: str) -> str:
+    return re.sub(r"[^a-z]", "", (name or "").lower())
+
+
+def _mathy(lines) -> bool:
+    for ln in lines:
+        for s in ln.spans:
+            if _font_key(s.font).startswith(_MATH_FONTS):
+                return True
+            if any(ch in _MATH_CHARS for ch in s.text):
+                return True
+    return False
+
+
+def _row_pieces(row: List[Line]) -> List[List[Line]]:
+    """A baseline row's lines, grouped left to right into pieces at
+    DISPLAY_PIECE_GAP."""
+    row = sorted(row, key=lambda l: ink_extent(l.spans[0])[0] if l.spans
+                 else l.bbox[0])
+    pieces = [[row[0]]]
+    for ln in row[1:]:
+        x1 = max(l.bbox[2] for l in pieces[-1])
+        if ln.bbox[0] - x1 >= DISPLAY_PIECE_GAP:
+            pieces.append([ln])
+        else:
+            pieces[-1].append(ln)
+    return pieces
+
+
+def _display_rows(items, col_l: float, col_r: float):
+    """-> ([rows per display], {id(line)}) for displayed equations.
+
+    Each display is a list of rows top to bottom, each row a list of Lines on
+    one baseline. See DISPLAY_PITCH_EM for what chains rows."""
+    width = max(1.0, col_r - col_l)
+    cands = []
+    for kind, _bb, o in items:
+        if kind != "blk":
+            continue
+        lines = [ln for ln in _blk_lines(o) if ln.horizontal and ln.spans
+                 and ln.text.strip()]
+        if not lines:
+            continue
+        bases = sorted({round(ln.baseline, 0) for ln in lines})
+        if len(bases) <= 2:
+            cands.extend(lines)
+            continue
+        lines.sort(key=lambda l: (l.baseline, l.bbox[0]))
+        for edge in (lines[0], lines[-1]):
+            if edge.bbox[2] - edge.bbox[0] <= DISPLAY_EDGE_FRAG_FRAC * width:
+                cands.append(edge)
+    if len(cands) < 2:
+        return [], set()
+    cands.sort(key=lambda l: (l.baseline, l.bbox[0]))
+    rows = []
+    for ln in cands:
+        if rows and abs(ln.baseline - rows[-1][0].baseline) <= \
+                max(1.2, 0.18 * _line_size(rows[-1][0])):
+            rows[-1].append(ln)
+        else:
+            rows.append([ln])
+    groups, cur = [], [rows[0]]
+    for prev, row in zip(rows, rows[1:]):
+        em = max(max(_line_size(l) for l in prev), max(_line_size(l) for l in row))
+        if row[0].baseline - prev[0].baseline < DISPLAY_PITCH_EM * em:
+            cur.append(row)
+        else:
+            groups.append(cur)
+            cur = [row]
+    groups.append(cur)
+    out, consumed = [], set()
+    for g in groups:
+        lines = [l for r in g for l in r]
+        if not _mathy(lines):
+            continue
+        real = [r for r in g if not _accent_row(r)]
+        if not real:
+            continue
+        if len(real) < 2:
+            pieces = _row_pieces(real[0])
+            if len(pieces) < 2:
+                continue
+            # one row: an equation and its number, or an expression broken
+            # at a wide space -- both need a number at the edge to be told
+            # from a row of a table or a label beside its value
+            if not any(_EQNO_RE.match(" ".join(l.text for l in p).strip())
+                       for p in (pieces[0], pieces[-1])):
+                continue
+        out.append(g)
+        consumed.update(id(l) for l in lines)
+    return out, consumed
+
+
+def _display_paras(rows, col_l: float, col_r: float) -> List[Para]:
+    """One paragraph per row of a display; see the block comment above."""
+    bases = [r[0].baseline for r in rows]
+    pitches = [b - a for a, b in zip(bases, bases[1:])]
+    out = []
+    for i, row in enumerate(rows):
+        pieces = _row_pieces(row)
+        size = max(_line_size(l) for l in row)
+        runs, stops = [], []
+        for k, piece in enumerate(pieces):
+            spans = sorted((s for l in piece for s in l.spans if s.text),
+                           key=lambda s: s.bbox[0])
+            rr = runs_from_spans(_frag_spans(spans))
+            if rr:
+                rr[0].text = rr[0].text.lstrip(" ")
+                rr[-1].text = rr[-1].text.rstrip(" ")
+            rr = [r for r in rr if r.text]
+            if not rr:
+                continue
+            if runs:
+                ref = runs[-1]
+                runs.append(Run(text="\t", font=ref.font, size=ref.size,
+                                color=ref.color, is_tab=True))
+                x0 = min(l.bbox[0] for l in piece)
+                x1 = max(l.bbox[2] for l in piece)
+                text = " ".join(l.text for l in piece).strip()
+                if k == len(pieces) - 1 and x1 >= col_r - 3.0 and \
+                        _EQNO_RE.match(text):
+                    stops.append((round(col_r - col_l, 1), "right"))
+                else:
+                    stops.append((round(x0 - col_l, 1), "left"))
+            runs.extend(rr)
+        if not runs:
+            continue
+        x0 = min(l.bbox[0] for l in row)
+        p = Para(runs=runs, align="left", tab_stops=stops)
+        p.left_indent = max(0.0, round(x0 - col_l, 1))
+        p.bbox = None
+        for l in row:
+            p.bbox = bbox_union(p.bbox, l.bbox)
+        natural = round(max(size * 1.16, 4.0), 2)
+        if pitches:
+            pitch = pitches[i] if i < len(pitches) else pitches[-1]
+            p.leading = round(min(natural, pitch), 2)
+        else:
+            p.leading = natural
+        p._b1 = row[0].baseline
+        p._size1 = size
+        p._vis_lines = 1
+        p._display = True
+        p.src_lines = 1
+        p.src_widths = [round(max(l.bbox[2] for l in row) - x0, 1)]
+        out.append(p)
+    return out
+
+
 _GAP_TOL = 0.5   # pt of overlap forgiven between an element and a line box (rounding)
 
 
@@ -4876,6 +5234,16 @@ def _to_flow(items, col_l, col_r, doc_rows=None):
     if lconsumed:
         items = _drop_row_lines(items, lconsumed) + \
             [("leader", ln.bbox, (ln, edge)) for ln, edge in leaders]
+    displays, dconsumed = _display_rows(items, col_l, col_r)
+    if dconsumed:
+        def _dbb(rows):
+            b = None
+            for r in rows:
+                for l in r:
+                    b = bbox_union(b, l.bbox)
+            return b
+        items = _drop_row_lines(items, dconsumed) + \
+            [("display", _dbb(d), d) for d in displays]
     grid, gconsumed = _grid_rows(items, col_l, col_r)
     if gconsumed:
         def _fbb(frags):
@@ -4897,6 +5265,8 @@ def _to_flow(items, col_l, col_r, doc_rows=None):
     for kind, bb, o in sorted(items, key=lambda t: (t[1][1], t[1][0])):
         if kind == "leader":
             out.append(_leader_para(o[0], o[1], col_l, col_r))
+        elif kind == "display":
+            out.extend(_display_paras(o, col_l, col_r))
         elif kind == "grid":
             out.append(_grid_para(o, col_l, col_r))
         elif kind == "row":
@@ -4932,6 +5302,9 @@ def _mergeable(a: Para, b: Para) -> bool:
     if getattr(a, "line_breaks", False) or getattr(b, "line_breaks", False):
         return False
     if any(r.is_tab for r in a.runs) or any(r.is_tab for r in b.runs):
+        return False
+    # A display's rows are rows of one equation, set at their own pitch.
+    if getattr(a, "_display", False) or getattr(b, "_display", False):
         return False
     if a.align in ("center", "right") or b.align in ("center", "right"):
         return False
@@ -5282,6 +5655,190 @@ def _grid_chunks(elements, flow_blocks, bands, lay: DocLayout,
     return chunks
 
 
+# The block-cluster split and the gutter agree to the point on a page both
+# read correctly (c2_paper2col, 02_research_paper: 0.0-0.6pt); a wrong cluster
+# misses by a column's worth (y41 p2: 52pt).
+TWO_COL_SPLIT_AGREE = 6.0
+# A line belongs to the side of the gutter its centre is on unless it runs
+# across the gutter's middle by more than this on BOTH sides -- an overfull
+# TeX line pokes a few points into the gutter, a page-wide one crosses it.
+GUTTER_SIDE_TOL = 2.0
+# How near a joined line's piece must stop to the gutter's edge to be column
+# text: the band is measured between the column lines' ink, and a piece stops
+# short of it by a glyph's side bearing or a ragged last word.
+GUTTER_SPLIT_SLACK = 8.0
+
+
+def _split_crossed(lines, col_split: float, content_l: float,
+                   content_r: float) -> bool:
+    """Is a block-cluster split refuted by the lines that run across it?
+
+    The block-cluster test never asks whether the white left of its right
+    cluster is a gutter. On a one-column page of display maths it is not: the
+    equation numbers at the margin make the cluster and the page's prose runs
+    straight through the "gutter" (y43 p3: 33 of 52 lines). Counted over the
+    lines below the topmost right-cluster line, like `_two_column_gutter`'s
+    own crossing test.
+    """
+    probe = col_split - 4.0
+    right = [l.bbox for l in lines if l.bbox[0] >= col_split - 2.0]
+    if not right:
+        return True
+    y0 = min(b[1] for b in right)
+    inside = [l.bbox for l in lines if l.horizontal and l.text.strip()
+              and (l.bbox[1] + l.bbox[3]) / 2.0 >= y0]
+    crossing = [b for b in inside if b[0] < probe - GUTTER_SIDE_TOL
+                and b[2] > col_split + GUTTER_SIDE_TOL]
+    return len(crossing) > TWO_COL_MAX_CROSS_FRAC * max(1, len(inside))
+
+
+def _split_at_gutter(ln: Line, gutter) -> List[Line]:
+    """A line the parser joined across the gutter, as its two column halves.
+
+    An equation number at the foot of the left column's measure and the right
+    column's line beside it are 15pt apart on y41 p2 -- inside the parser's
+    line-join reach -- and arrived as one Line, "(3) ditioning matrix Φ ≈ S
+    is often...", which spans the page and cut the columns into three chunks.
+    Spans keep their own boxes; a span boundary whose white covers the
+    gutter's middle is where the line divides, when one of the two pieces
+    stops at that gutter's own edge -- the left piece at the left column's
+    measure, or the right piece at the right column's start. The parser also
+    keeps a "(14)" with the text after it as a list marker, however far away:
+    y41 p3's right-column equation sat 100pt beyond its neighbour's number.
+    Nothing else is cut: a span running across the gutter is page-spanning
+    text, and a running head's halves (y42: "SIGIR '24, ..." at the left
+    margin, the authors 110pt away at the right) touch neither column edge
+    and stay one page-wide line.
+    """
+    if len(ln.spans) < 2:
+        return [ln]
+    mid = (gutter[0] + gutter[1]) / 2.0
+    gw = gutter[1] - gutter[0]
+    spans = sorted(ln.spans, key=lambda s: s.bbox[0])
+    for k in range(len(spans) - 1):
+        a, b = ink_extent(spans[k])[1], ink_extent(spans[k + 1])[0]
+        at_edge = abs(a - gutter[0]) <= GUTTER_SPLIT_SLACK or \
+            abs(b - gutter[1]) <= GUTTER_SPLIT_SLACK
+        if a <= mid <= b and b - a >= 0.5 * gw and at_edge and \
+                all(ink_extent(s)[1] <= mid for s in spans[:k + 1]) and \
+                all(ink_extent(s)[0] >= mid for s in spans[k + 1:]):
+            parts = (spans[:k + 1], spans[k + 1:])
+            return [Line(spans=list(p), dir=ln.dir,
+                         bbox=(min(s.bbox[0] for s in p),
+                               min(s.bbox[1] for s in p),
+                               max(s.bbox[2] for s in p),
+                               max(s.bbox[3] for s in p)))
+                    for p in parts]
+    return [ln]
+
+
+def _gutter_chunks(elements, flow_blocks, lay: DocLayout, gutter,
+                   col_split: float, page_top: Optional[float]) -> List[Chunk]:
+    """Lay a two-column page out in reading order, cut at what spans it.
+
+    Every LINE, not every block, is placed: left of the gutter, right of it,
+    or across it. Blocks are the parser's grouping and are not trustworthy
+    across a gutter -- y39 p3's two biggest blocks each held lines of both
+    columns -- whereas a line is never wider than the column it is set in
+    unless it really spans the page.
+
+    What spans the page then cuts the page into horizontal bands, in the order
+    the source stacks them: a title and abstract above the columns, a
+    full-width figure between two runs of columns, a table at the foot. Each
+    run of columns between two spanning bands is one two-column chunk, so a
+    float in the middle of the page stays in the middle of the page. The
+    block-cluster path sends every spanning item below the columns' top to a
+    single tail AFTER the columns, which moves a mid-page float -- and the
+    column text beneath it -- to the wrong place.
+    """
+    content_l, content_r = lay.margin_l, lay.page_w - lay.margin_r
+    lay_rows = getattr(lay, "_row_evidence", None)
+    mid = (gutter[0] + gutter[1]) / 2.0
+
+    def side(bb):
+        if bb[0] < mid - GUTTER_SIDE_TOL and bb[2] > mid + GUTTER_SIDE_TOL:
+            return 2
+        return 0 if (bb[0] + bb[2]) / 2.0 < mid else 1
+
+    placed = []                     # (side, item)
+    for b in flow_blocks:
+        groups = defaultdict(list)
+        for ln in b.lines:
+            for l in _split_at_gutter(ln, gutter):
+                groups[side(l.bbox)].append(l)
+        if len(groups) == 1:
+            placed.append((next(iter(groups)), ("blk", b.bbox, b)))
+            continue
+        for k, ls in groups.items():
+            blk = _mk_block(ls)
+            placed.append((k, ("blk", blk.bbox, blk)))
+    for e in elements:
+        bb = _el_bbox(e) or (content_l, 0.0, content_r, 0.0)
+        placed.append((side(bb), ("el", bb, e)))
+
+    def cy(t):
+        return (t[1][1] + t[1][3]) / 2.0
+
+    spans = sorted((t for k, t in placed if k == 2),
+                   key=lambda t: (t[1][1], t[1][0]))
+    cols = [(k, t) for k, t in placed if k != 2]
+    groups = []
+    for t in spans:
+        if groups:
+            bottom = max(u[1][3] for u in groups[-1])
+            if not any(bottom < cy(c) < t[1][1] for _k, c in cols):
+                groups[-1].append(t)
+                continue
+        groups.append([t])
+    # A column item goes after every spanning band that starts above it. One
+    # that starts inside a band's extent sits beside it or inside it -- a
+    # table's rules inside a full-width figure region that swallowed the
+    # table's art (y42 p3) -- and the source shows it no higher than the band.
+    cuts = [min(u[1][1] for u in g) for g in groups]
+    segs = [[] for _ in range(len(groups) + 1)]
+    for k, t in cols:
+        segs[sum(1 for c in cuts if t[1][1] > c)].append((k, t))
+
+    left_edges = [t[1][2] for k, t in cols if k == 0]
+    gap = col_split - max(left_edges, default=col_split - 24)
+    gap = max(10.0, round(gap, 1))
+    colr_edge = col_split - gap
+
+    plan = []                       # [n_cols, items]
+    for i, seg in enumerate(segs):
+        if seg:
+            if plan and plan[-1][0] == 2:
+                plan[-1][1].extend(seg)
+            else:
+                plan.append([2, list(seg)])
+        if i < len(groups):
+            if plan and plan[-1][0] == 1:
+                plan[-1][1].extend(groups[i])
+            else:
+                plan.append([1, list(groups[i])])
+
+    chunks: List[Chunk] = []
+    for n, its in plan:
+        if n == 1:
+            ch = Chunk(n_cols=1)
+            ch.elements = _merge_flow_paras(
+                _to_flow(its, content_l, content_r, doc_rows=lay_rows),
+                content_r)
+        else:
+            colL = [t for k, t in its if k == 0]
+            colR = [t for k, t in its if k == 1]
+            ch = Chunk(n_cols=2, col_gap=gap)
+            left_flow = _merge_flow_paras(
+                _to_flow(colL, content_l, colr_edge, doc_rows=lay_rows),
+                colr_edge)
+            right_flow = _merge_flow_paras(
+                _to_flow(colR, col_split, content_r, doc_rows=lay_rows),
+                content_r)
+            ch.elements = left_flow + [ColBreak()] + right_flow
+        chunks.append(ch)
+    return _position_chunks(chunks, lay, page_top)
+
+
 def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
                      page_top: Optional[float] = None) -> List[Chunk]:
     content_l, content_r = lay.margin_l, lay.page_w - lay.margin_r
@@ -5337,6 +5894,23 @@ def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
                 if cands:
                     twocol = True
                     col_y0 = min(cands) - 4
+
+    flow_lines = [l for b in flow_blocks for l in b.lines]
+    gutter = _two_column_gutter(flow_lines, content_l, content_r)
+    if gutter is not None and not twocol and \
+            gutter[2] < TWO_COL_MIN_EXTENT_FRAC * max(1.0, body_h):
+        gutter = None                    # an inset beside the text, not a column
+    if gutter is not None:
+        gutter = gutter[:2]
+        # The block clusters agree with the white band on every page they
+        # already read correctly; their split is kept there, so those pages
+        # are assembled from the same numbers as before.
+        if not (twocol and abs(col_split - gutter[1]) <= TWO_COL_SPLIT_AGREE):
+            col_split = float(round(gutter[1]))
+        return _gutter_chunks(elements, flow_blocks, lay, gutter, col_split,
+                              page_top)
+    if twocol and _split_crossed(flow_lines, col_split, content_l, content_r):
+        twocol = False
 
     items = [("blk", b.bbox, b) for b in flow_blocks]
     for e in elements:
