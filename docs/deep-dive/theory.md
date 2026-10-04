@@ -5,7 +5,7 @@ original — what worked, what didn't, and where the ceiling is.
 
 > **Scope.** This is the *design* document: the model, the reasoning, the dead
 > ends. For where the converter currently stands — measured fidelity, the
-> defect register, what is pending — see **[STATUS.md](STATUS.md)**, which is
+> defect register, what is pending — see **[status.md](status.md)**, which is
 > the authority on numbers. Several claims below were later falsified by
 > measurement; each is marked inline rather than deleted, because the wrong
 > turn is part of the record.
@@ -61,7 +61,7 @@ running position and is therefore calibrated on the old origin. The lesson is
 not "baselines were the wrong idea"; it is that **the vertical model is a chain,
 and half-converting a chain desynchronises it.** Doing it properly means moving
 the origin, `_para_box` and the spacing chain in one change — recorded in
-[ROADMAP.md](ROADMAP.md) as the open item it is.
+[roadmap.md](roadmap.md) as the open item it is.
 
 ---
 
@@ -286,7 +286,7 @@ decide what counted as text, then excluded from the *source* side anything the
 converter had chosen to rasterise. A fully-rasterised page therefore scored
 `text_coverage 0.0 / 0.0` — the document deleted itself from its own
 denominator, and the tool reported success. Everything in `testkit/` shares no
-code with the converter for this reason. See STATUS.md §4.5.
+code with the converter for this reason. See status.md §4.5.
 
 ## 5. What worked (ranked by measured impact)
 
@@ -466,7 +466,7 @@ verification loop measures the wrong renderer.
    redesign: the architecture (IR → semantic inference → safe vocabulary +
    verification loop) has absorbed two dialects without structural change.
 
-**Honest scorecard** — *superseded; see [STATUS.md](STATUS.md) §1 for the
+**Honest scorecard** — *superseded; see [status.md](status.md) §1 for the
 current figures.* What this section used to claim, and why it was wrong, is
 worth keeping:
 
@@ -521,7 +521,7 @@ No — and it's worth being precise about why:
   > parity harness reported zero regressions, so the default was flipped,
   > `parse.py` deleted and the project relicensed to Apache-2.0 — before anyone
   > noticed the harness did not measure fine placement. It had cost within-2pt
-  > 0.510 → 0.291. All of it was reverted. See §10 and STATUS.md D2.
+  > 0.510 → 0.291. All of it was reverted. See §10 and status.md D2.
 
 ## 10. Should this be published?
 

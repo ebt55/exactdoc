@@ -566,7 +566,8 @@ gates (a)–(d), exercised across commits `900f0ab` (dependency flip), `f457567`
    deliberate change rather than a mechanical one. Carried to §10 item 4.
 7. ✅ **`docker/gate.Dockerfile`** — the
    `org.opencontainers.image.licenses` label.
-8. ✅ **Prose** — `README.md`, `ROADMAP.md`, `STATUS.md`, and the
+8. ✅ **Prose** — `README.md`, `ROADMAP.md` and `STATUS.md` (both since moved
+   to `docs/deep-dive/`), and the
    `testkit/backend_probe.py` / `testkit/exp_regroup.py` docstrings.
 9. ✅ **`tests/test_no_pymupdf.py`** — the "PyMuPDF is still core" check is now
    its inverse, plus the typed-error assertions, and the file points at the real

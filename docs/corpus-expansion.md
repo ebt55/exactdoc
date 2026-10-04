@@ -2,7 +2,7 @@
 
 The metric corpus is 16 PDFs frozen in `testkit/fixtures/`, pinned by SHA-256 in
 `testkit/corpus_manifest.json`. They are **regression evidence, not market
-coverage** (ROADMAP.md). Every number this repository reports describes those 16
+coverage** ([roadmap.md](deep-dive/roadmap.md)). Every number this repository reports describes those 16
 files and nothing else, which is exactly the property that makes them useful and
 exactly the property that makes them narrow.
 
@@ -644,7 +644,7 @@ None of this gates anything. No baseline describes these documents and
 
 Thirteen candidates attempted, **eight fetched and all eight sealed** — the first
 round with no discards. The corpus is now **16 gated + 29 expansion = 45
-documents**, inside the 40–60 target ROADMAP.md set, and **acquisition is
+documents**, inside the 40–60 target [roadmap.md](deep-dive/roadmap.md) set, and **acquisition is
 closed**. `testkit/expansion_download_plan.json` now carries an empty
 `candidates` array, so `fetch_expansion.py` refuses it even when handed
 `--allow-download`; the five that never arrived are kept as an annex in the same
@@ -782,7 +782,7 @@ code already answers the question.
 
 ## 11. Final census — acquisition closed
 
-**45 documents: 16 gated, 29 expansion.** Inside the 40–60 target ROADMAP.md
+**45 documents: 16 gated, 29 expansion.** Inside the 40–60 target [roadmap.md](deep-dive/roadmap.md)
 set. The gated 16 are byte-identical to what they were before any of this
 started; every number this repository has ever published still describes exactly
 the same inputs.
@@ -905,7 +905,7 @@ documents, curating it"). The plan is `testkit/expansion_download_plan_tranche4.
 the tranche-2 and tranche-3 plans stay closed and untouched.
 
 **38 documents sealed as `y28`–`y65`, 21.9 MB.** The corpus is now **16 gated +
-79 expansion = 95 documents**. That is past the 40–60 range ROADMAP.md set
+79 expansion = 95 documents**. That is past the 40–60 range [roadmap.md](deep-dive/roadmap.md) set
 for the corpus as a whole, and the overshoot is deliberate rather than drift.
 The range was sized for what could plausibly be promoted into the gate. The
 expansion corpus is non-gating and is measured on demand, so its size is a
