@@ -24,7 +24,8 @@ CI, and is deliberately not consulted for decisions.
 """
 from typing import List, Optional
 
-from .model import DocIR, PageIR, TextBlock, Line, Span, DrawCmd, bbox_overlap
+from .model import (DocIR, PageIR, TextBlock, Line, Span, DrawCmd, bbox_overlap,
+                    ink_extent)
 
 # --- tunables, all in PDF points ------------------------------------------
 BULLET_MAX = 9.0          # a list marker glyph is never larger than this
@@ -627,6 +628,43 @@ def _line_size(ln: Line) -> float:
     return max((s.size for s in ln.spans), default=10.0)
 
 
+def _covers(frag: Line, host: Line, sized: bool = False) -> bool:
+    """Does a script candidate lie ON the host's text instead of beside it?
+
+    A script is a glyph or three set after the text it modifies; a host span's
+    box may contain one (the span runs on past it), so only a fragment wider
+    than 1.5em of its own size is tested. Measured on Pub 501's index page: an
+    8pt entry 9.5pt above a row that holds a large index letter fell inside that
+    row's em box, so `age 18 3, 4` was absorbed as a "superscript" of
+    `Kidnapped 13, 18` -- the two entries cover each other's x-range, which no
+    script does. Same rule as infer._overprinted, at this stage's granularity.
+
+    `sized` asks the row-join question instead: two lines of DIFFERENT type
+    size (>15%) on one baseline that cover each other are an overprint (x07's
+    heading over its running footer), whatever their widths; same-size covers
+    are a producer drawing one line twice and stay joinable.
+    """
+    if sized:
+        sa, sb = _line_size(frag), _line_size(host)
+        if abs(sa - sb) <= 0.15 * max(sa, sb):
+            return False
+    elif frag.bbox[2] - frag.bbox[0] <= 1.5 * _line_size(frag):
+        return False
+    for s in frag.spans:
+        if not s.text.strip():
+            continue
+        s0, s1 = ink_extent(s)
+        for t in host.spans:
+            if not t.text.strip():
+                continue
+            t0, t1 = ink_extent(t)
+            ov = min(s1, t1) - max(s0, t0)
+            w = min(s1 - s0, t1 - t0)
+            if w > 0.5 and ov > 0.5 * w:
+                return True
+    return False
+
+
 def _coalesce_row_fragments(page: PageIR) -> int:
     """Rejoin one visual line that a producer split across several blocks.
 
@@ -682,6 +720,8 @@ def _coalesce_row_fragments(page: PageIR) -> int:
             if any(l.bbox[0] < hx0 - 2.0 or l.bbox[0] > hx1 + 0.6 * hsz
                    for _, l in grp):
                 continue                       # not adjacent horizontally
+            if any(_covers(l, h) for _, l in grp for _, h in host):
+                continue                       # a line over the host's text
             for _, l in grp:
                 if l.baseline < base - 0.12 * hsz:
                     for s in l.spans:
@@ -698,7 +738,8 @@ def _coalesce_row_fragments(page: PageIR) -> int:
         groups, cur = [], [items[0]]
         for prev, nxt in zip(items, items[1:]):
             gap = nxt[1].bbox[0] - prev[1].bbox[2]
-            if gap > MAX_FRAGMENT_GAP * _line_size(prev[1]):
+            if gap > MAX_FRAGMENT_GAP * _line_size(prev[1]) or \
+                    any(_covers(nxt[1], ln, sized=True) for _, ln in cur):
                 groups.append(cur)
                 cur = [nxt]
             else:
@@ -867,12 +908,141 @@ def fingerprint(ir: DocIR) -> dict:
     return fp
 
 
+# Symbol fonts without a /ToUnicode reach both parsers through their symbolic
+# (3,0) cmap, which puts every glyph at U+F000 + its character code. That is a
+# Private Use value, so the DOCX carried PUA text in a substitute face and every
+# glyph rendered as junk: FIPS 180's equations are 369 Symbol characters
+# (`=` 77, `−` 66, `+` 63, `≤` 53, `⊕` 39, `∧` 21) and 81 MT Extra ones, the
+# operator table read as arrows and scissors. Unlike TeX's PUA above, these
+# faces have PUBLISHED encodings, keyed on the code alone, so the family name is
+# the whole of the evidence needed:
+#
+#   Symbol        Adobe's Symbol encoding (the Unicode consortium's
+#                 VENDORS/ADOBE/symbol.txt). Pieces of tall brackets become
+#                 their base character, as for TeX above.
+#   Wingdings     the glyphs Word's bullet and checkbox pickers use, each
+#                 checked by rendering the font's own glyph beside its Unicode
+#                 counterpart (wingding.ttf against Segoe UI Symbol); codes
+#                 whose glyph has no faithful counterpart are left alone.
+#   ZapfDingbats  Adobe's zdingbat.txt, the bullets and check marks only.
+#   MT Extra      MathType's companion face: only the two codes FIPS 180's
+#                 own render pins down (`ℓ` the message length, `…` in
+#                 `K0, …, K63`); its brace pieces have no text reading.
+#
+# Wingdings 2/3 and Webdings are different encodings that happen to share a
+# prefix, so a family is matched by its whole name, digits included.
+_SYMBOL_PUA = {
+    0x20: " ", 0x21: "!", 0x22: "∀", 0x23: "#", 0x24: "∃",
+    0x25: "%", 0x26: "&", 0x27: "∋", 0x28: "(", 0x29: ")",
+    0x2A: "∗", 0x2B: "+", 0x2C: ",", 0x2D: "−", 0x2E: ".",
+    0x2F: "/", 0x30: "0", 0x31: "1", 0x32: "2", 0x33: "3", 0x34: "4",
+    0x35: "5", 0x36: "6", 0x37: "7", 0x38: "8", 0x39: "9", 0x3A: ":",
+    0x3B: ";", 0x3C: "<", 0x3D: "=", 0x3E: ">", 0x3F: "?",
+    0x40: "≅", 0x41: "Α", 0x42: "Β", 0x43: "Χ",
+    0x44: "Δ", 0x45: "Ε", 0x46: "Φ", 0x47: "Γ",
+    0x48: "Η", 0x49: "Ι", 0x4A: "ϑ", 0x4B: "Κ",
+    0x4C: "Λ", 0x4D: "Μ", 0x4E: "Ν", 0x4F: "Ο",
+    0x50: "Π", 0x51: "Θ", 0x52: "Ρ", 0x53: "Σ",
+    0x54: "Τ", 0x55: "Υ", 0x56: "ς", 0x57: "Ω",
+    0x58: "Ξ", 0x59: "Ψ", 0x5A: "Ζ", 0x5B: "[",
+    0x5C: "∴", 0x5D: "]", 0x5E: "⊥", 0x5F: "_",
+    0x61: "α", 0x62: "β", 0x63: "χ", 0x64: "δ",
+    0x65: "ε", 0x66: "φ", 0x67: "γ", 0x68: "η",
+    0x69: "ι", 0x6A: "ϕ", 0x6B: "κ", 0x6C: "λ",
+    0x6D: "μ", 0x6E: "ν", 0x6F: "ο", 0x70: "π",
+    0x71: "θ", 0x72: "ρ", 0x73: "σ", 0x74: "τ",
+    0x75: "υ", 0x76: "ϖ", 0x77: "ω", 0x78: "ξ",
+    0x79: "ψ", 0x7A: "ζ", 0x7B: "{", 0x7C: "|", 0x7D: "}",
+    0x7E: "∼",
+    0xA0: "€", 0xA1: "ϒ", 0xA2: "′", 0xA3: "≤",
+    0xA4: "⁄", 0xA5: "∞", 0xA6: "ƒ", 0xA7: "♣",
+    0xA8: "♦", 0xA9: "♥", 0xAA: "♠", 0xAB: "↔",
+    0xAC: "←", 0xAD: "↑", 0xAE: "→", 0xAF: "↓",
+    0xB0: "°", 0xB1: "±", 0xB2: "″", 0xB3: "≥",
+    0xB4: "×", 0xB5: "∝", 0xB6: "∂", 0xB7: "•",
+    0xB8: "÷", 0xB9: "≠", 0xBA: "≡", 0xBB: "≈",
+    0xBC: "…", 0xBD: "|", 0xBF: "↵",
+    0xC0: "ℵ", 0xC1: "ℑ", 0xC2: "ℜ", 0xC3: "℘",
+    0xC4: "⊗", 0xC5: "⊕", 0xC6: "∅", 0xC7: "∩",
+    0xC8: "∪", 0xC9: "⊃", 0xCA: "⊇", 0xCB: "⊄",
+    0xCC: "⊂", 0xCD: "⊆", 0xCE: "∈", 0xCF: "∉",
+    0xD0: "∠", 0xD1: "∇", 0xD2: "®", 0xD3: "©",
+    0xD4: "™", 0xD5: "∏", 0xD6: "√", 0xD7: "⋅",
+    0xD8: "¬", 0xD9: "∧", 0xDA: "∨", 0xDB: "⇔",
+    0xDC: "⇐", 0xDD: "⇑", 0xDE: "⇒", 0xDF: "⇓",
+    0xE0: "◊", 0xE1: "〈", 0xE2: "®", 0xE3: "©",
+    0xE4: "™", 0xE5: "∑",
+    0xE6: "(", 0xE7: "(", 0xE8: "(", 0xE9: "[", 0xEA: "[", 0xEB: "[",
+    0xEC: "{", 0xED: "{", 0xEE: "{", 0xEF: "|",
+    0xF1: "〉", 0xF2: "∫", 0xF3: "∫", 0xF4: "∫",
+    0xF5: "∫", 0xF6: ")", 0xF7: ")", 0xF8: ")", 0xF9: "]", 0xFA: "]",
+    0xFB: "]", 0xFC: "}", 0xFD: "}", 0xFE: "}",
+}
+_WINGDINGS_PUA = {
+    0x6C: "●", 0x6D: "❍", 0x6E: "■", 0x6F: "□",
+    0x71: "❑", 0x72: "❒", 0x73: "⬧", 0x74: "⧫",
+    0x75: "◆", 0x76: "❖", 0x77: "⬥", 0x78: "⌧",
+    0x9E: "·", 0x9F: "•", 0xA1: "○", 0xA4: "◉",
+    0xA5: "◎", 0xA7: "▪", 0xA8: "◻", 0xD8: "➢",
+    0xDF: "←", 0xE0: "→", 0xE8: "➔", 0xF0: "⇨",
+    0xFB: "✘", 0xFC: "✔", 0xFD: "☒", 0xFE: "☑",
+}
+_ZAPF_PUA = {
+    0x33: "✓", 0x34: "✔", 0x35: "✕", 0x36: "✖",
+    0x37: "✗", 0x38: "✘", 0x48: "★", 0x6C: "●",
+    0x6E: "■", 0x6F: "❏", 0x70: "❐", 0x71: "❑",
+    0x72: "❒", 0x73: "▲", 0x74: "▼", 0x75: "◆",
+    0x76: "❖",
+}
+_MTEXTRA_PUA = {0x6C: "ℓ", 0x4B: "…"}
+
+
+def _symbol_table(font: str):
+    """The published encoding for a symbol family, by its whole name."""
+    import re
+    key = re.sub(r"[^a-z0-9]", "", (font or "").lower())
+    for suffix in ("regular", "mt", "std", "itc", "medium"):
+        if key.endswith(suffix) and len(key) > len(suffix):
+            key = key[:-len(suffix)]
+    if key in ("symbol", "symbolneu", "standardsymbolsps", "standardsyml"):
+        return _SYMBOL_PUA
+    if key == "wingdings":
+        return _WINGDINGS_PUA
+    if key in ("zapfdingbats", "dingbats", "zapfdingbatsitc"):
+        return _ZAPF_PUA
+    if key == "mtextra":
+        return _MTEXTRA_PUA
+    return None
+
+
+def _symbol_pua_to_text(page: PageIR) -> int:
+    """Rewrite symbol-font PUA characters to the Unicode they stand for."""
+    n = 0
+    for b in page.blocks:
+        for ln in b.lines:
+            for s in ln.spans:
+                if not any(0xF020 <= ord(c) <= 0xF0FF for c in s.text):
+                    continue
+                table = _symbol_table(s.font)
+                if table is None:
+                    continue
+                out = []
+                for c in s.text:
+                    o = ord(c)
+                    out.append(table.get(o - 0xF000, c) if 0xF020 <= o <= 0xF0FF else c)
+                text = "".join(out)
+                if text != s.text:
+                    s.text = text
+                    n += 1
+    return n
+
+
 def normalize(ir: DocIR) -> DocIR:
     """Rewrite producer idioms into canonical form. Mutates and returns `ir`."""
     stats = {"backdrops": 0, "vector_markers": 0, "symbol_markers": 0,
              "undecoded_markers": 0, "rotated": 0, "row_joins": 0,
              "ruled_rows": 0, "tex_pua": 0, "transparent": 0,
-             "invisible_fills": 0}
+             "invisible_fills": 0, "symbol_pua": 0}
     for p in ir.pages:
         if not hasattr(p, "rotated"):
             p.rotated = []
@@ -885,6 +1055,9 @@ def normalize(ir: DocIR) -> DocIR:
         stats["vector_markers"] += _markers_to_text(p)
         stats["undecoded_markers"] += _undecoded_markers_to_text(p)
         stats["symbol_markers"] += _normalize_symbol_list_markers(p)
+        # After the list-marker pass, which keys on the raw PUA bullet and
+        # must keep seeing what it always saw.
+        stats["symbol_pua"] += _symbol_pua_to_text(p)
         stats["row_joins"] += _coalesce_row_fragments(p)
         stats["ruled_rows"] += _join_ruled_rows(p)
     ir.meta = dict(ir.meta or {})
