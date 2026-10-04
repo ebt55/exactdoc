@@ -392,6 +392,8 @@ def _lock(p: Para, avail: float, metrics) -> bool:
     new_runs = []
     for i, (seg, track) in enumerate(segments):
         for r in seg:
+            # The compression only: the source's own letter-spacing is
+            # `Run.tracking`, which the writer adds (and `_seg_width` counted).
             r.char_spacing = round(track, 3)
         if i < len(segments) - 1 and seg:
             seg[-1].text += "\n"

@@ -47,7 +47,9 @@ class Para:
     right_indent: float = 0.0
     first_indent: float = 0.0    # relative to left_indent (can be negative = hanging)
     heading: int = 0             # 0 = body, 1..6 outline level
-    tab_stops: List[Tuple[float, str]] = field(default_factory=list)  # (pos_pt, align)
+    # (pos_pt, align) or (pos_pt, align, leader); leader is "dot" for a
+    # contents line's dot leader. Positions are from the container's left edge.
+    tab_stops: List[Tuple] = field(default_factory=list)
     line_breaks: bool = False    # True: runs contain '\n' to keep as soft breaks
     bbox: Optional[BBox] = None  # source position (debug/audit)
     # How many visual lines this paragraph occupied in the source, and how wide

@@ -76,6 +76,33 @@ COL_SCAN_W_FRAC = 0.62
 MIN_GRID_BAND_PT = 80.0    # a document's text column is never narrower
 COL_SPAN_FRAC = 1.5         # wider than 1.5 columns is genuinely page-spanning
 COL_SINGLE_BLOCK_FRAC = 0.5  # one block this tall is a column on its own
+# The two-column test asks for a left cluster, a right cluster and enough text
+# in each; it never asked that the white between them be a GUTTER. A page of
+# short left-hand labels and right-hand fields -- headings and contents titles
+# on the left, page numbers against the margin -- passes every one of those
+# tests, and x11_chrome_toc_headings did: a single-column report was split at
+# x=502 with a 238pt "gutter", its headings poured into column one, its body
+# paragraphs into a tail below, and the page rendered as two. Measured over
+# both corpora, every genuine two-column chunk has a gutter of at most 0.234 of
+# the content width (y22_lshort's two-column index; papers and booklets sit at
+# 0.03-0.10); x11's was 0.485. 0.30 sits between them.
+MAX_GUTTER_FRAC = 0.30
+# ...and only when the page's PROSE says so: text that crosses the split lying
+# between the "columns'" own items, as x11's body paragraphs lay between its
+# headings. A wide white gap flanked by a table's stub and last columns, with
+# the table itself across it, is a mis-read table (y37 p15-17, y35 p14), and
+# laying those pages out as one column stacked every label above its figure:
+# +4 pages on y37.
+
+
+def _prose_between(wide_items, col_items) -> bool:
+    """Does split-crossing TEXT lie inside the vertical span of the columns?"""
+    if not col_items:
+        return False
+    lo = min(t[1][1] for t in col_items)
+    hi = max(t[1][3] for t in col_items)
+    return any(kind == "blk" and lo < (bb[1] + bb[3]) / 2 < hi
+               for kind, bb, _o in wide_items)
 
 # --- side-margin page furniture -------------------------------------------
 # Clearance a shape must keep from the body column before it is called margin
@@ -318,6 +345,93 @@ def _two_column_right_edge(body_lines, margin_l: float,
     return float(edge)
 
 
+RULE_EDGE_TEXT_TOL = 2.0   # pt; a line ending this close to a rule edge reaches it
+
+# --- the wrap edge ------------------------------------------------------------
+# A line that WRAPPED -- followed in its paragraph by a continuation line at the
+# same left edge -- ends where its last word fitted, so the column it was set in
+# is at least that wide. That is a hard lower bound on the content edge, and
+# the cluster estimate can sit well inside it: `_margin_cluster` takes the
+# rightmost cluster holding 8% of the wide lines, and a ragged-right document
+# does not put 8% of its lines at any one x. Measured: x05_lo_quotes_notes
+# estimated its edge at 529.0 while one of its wrapped lines ends at 547.2 (the
+# LibreOffice text area ends at 546.9); x02_lo_report_toc at 535.1 with wrapped
+# lines ending at 541.1. Every one of those paragraphs re-wrapped a line longer
+# in the render, and each lost line moved the rest of its page by ~14.5pt.
+#
+# Any edge between the widest wrapped line and the true one reproduces every
+# source wrap (each line still fits, and each next word still did not fit in
+# the true column, so it cannot fit in a narrower one). So the widener takes
+# the widest wrapped line (its 98th percentile -- see `_wrapped_right_edge`),
+# prefers the mirrored left margin when that lies just beyond it (word
+# processors set symmetric margins), and acts only when it disagrees with the
+# estimate by more than the protrusion a justified TeX or Typst line shows (y13
+# and y20 reach 2.2pt past their estimates by hanging punctuation). Gated
+# fixtures: the widest wrapped line sits 0.0-0.8pt from the estimate on all
+# sixteen, so none moves. Expansion movers, all toward the measured text: x02,
+# x05, the NIST pair y01/y09, whose ragged Word bodies estimated 519pt against
+# wrapped lines at 540 (the 1in mirror), and y21 (502.8 -> 509.7, where its
+# wrapped lines' 95th percentile already sits at 508.5).
+WRAP_EDGE_MIN_GAIN = 2.5   # pt
+WRAP_EDGE_MIRROR_PT = 8.0  # how far past the widest line a mirrored edge may sit
+WRAP_EDGE_MIN_LINES = 3    # wrapped lines needed before the bound is used
+WRAP_EDGE_QUANTILE = 0.98  # see _wrapped_right_edge
+
+
+def _wrapped_right_edge(ir: DocIR, hf: dict, page_w: float) -> Optional[float]:
+    """The right end of the widest line that wrapped onto a continuation."""
+    ends = []
+    for p in ir.pages:
+        ct = hf["consumed_text"][p.number]
+        # Only a page set in ONE wide column says anything about its width.
+        # On a multi-column page the few wide "lines" are the parser's
+        # cross-column merges ("safety. EPA determines whether acute In
+        # making its tolerance", y61's three-column Federal Register), they
+        # end at the outer column's edge, and widening to them reflowed that
+        # document from 8 pages to 10. A page whose lines are mostly narrow
+        # is such a page.
+        widths = sorted(l.bbox[2] - l.bbox[0]
+                        for bi, b in enumerate(p.blocks) for l in b.lines
+                        if (bi, id(l)) not in ct and l.horizontal and l.spans
+                        and l.text.strip().count(" ") >= 3)
+        if not widths or widths[len(widths) // 2] < 0.45 * page_w:
+            continue
+        for bi, b in enumerate(p.blocks):
+            ls = [l for l in b.lines
+                  if (bi, id(l)) not in ct and l.horizontal and l.spans]
+            for l1, l2 in zip(ls, ls[1:]):
+                if (l1.bbox[2] - l1.bbox[0]) < 0.45 * page_w:
+                    continue
+                if l1.bbox[2] > page_w - 14.0:
+                    continue                     # into the paper edge
+                s1, s2 = _line_size(l1), _line_size(l2)
+                step = l2.baseline - l1.baseline
+                if abs(s1 - s2) > 0.5 or not (0.5 * s1 < step <= 2.5 * s1):
+                    continue                     # not the same paragraph
+                # a continuation starts where l1 did (or left of an indented
+                # first line), never further right: that is a nested item
+                if l2.bbox[0] > l1.bbox[0] + 1.0 or l2.bbox[0] < l1.bbox[0] - 40:
+                    continue
+                # a single unbreakable token may overflow its column
+                if l1.text.strip().count(" ") < 3:
+                    continue
+                # verbatim lines do not wrap; consecutive code lines only
+                # look like a paragraph (RFC listings, y23's mono tables)
+                if sum(len(s.text) for s in l1.spans if s.mono) > \
+                        0.5 * len(l1.text):
+                    continue
+                ends.append(l1.bbox[2])
+    if len(ends) < WRAP_EDGE_MIN_LINES:
+        return None
+    # The widest line, short of the rare one that is not a wrap at all: TeX
+    # sets an overfull line PAST its column when no break fits (y25 has one
+    # 74pt out; y22 one 7pt out), and a cover page may set its own measure
+    # (y02's withdrawal notice). The 98th percentile ignores those, and on a
+    # short document -- under 50 wrapped lines -- it is the widest line.
+    ends.sort()
+    return ends[max(0, int(math.ceil(WRAP_EDGE_QUANTILE * len(ends))) - 1)]
+
+
 def _field_row_ends(pages_lines, margin_l: float, page_w: float) -> List[float]:
     """Right ends of label/field rows: two fragments on one baseline, the
     label starting at the left margin, the field short and set in a different
@@ -354,7 +468,8 @@ def _field_row_ends(pages_lines, margin_l: float, page_w: float) -> List[float]:
 
 def _rule_right_edge(ir: DocIR, hf: dict, page_w: float,
                      wide_x1: List[float],
-                     row_x1: Optional[List[float]] = None) -> Optional[float]:
+                     row_x1: Optional[List[float]] = None,
+                     body_boxes=()) -> Optional[float]:
     """Right content edge from the document's own full-width rules.
 
     The wide-line right-margin estimate reads where wide TEXT lines end. A
@@ -386,6 +501,10 @@ def _rule_right_edge(ir: DocIR, hf: dict, page_w: float,
     and six of its rules run to 558.0, a 6pt overshoot that moved a gated
     margin when this guard did not exist. The caller only ever widens
     content with the answer, never narrows it.
+
+    `body_boxes` -- (page, bbox) of every body line -- lets text other than
+    wide lines vouch for the edge: right-aligned fields that reach it, inside
+    the prose band of their page, on more than one page (see below).
     """
     x1s: List[float] = []
     for p in ir.pages:
@@ -411,9 +530,28 @@ def _rule_right_edge(ir: DocIR, hf: dict, page_w: float,
         # tab stop and every centred line was measured against the wrong
         # edge. Two label/field rows ending at the rule edge are the text
         # existing there. 01_whitepaper's overshooting rules have none.
+        #
+        # Failing label/field rows, body lines of ANY width reaching the
+        # edge are the same evidence -- provided they recur through the
+        # document as body text. Not furniture: an RFC's "Page N" footer
+        # ends at its header rule's edge on every page, 10pt past the prose,
+        # so a hit must sit within the vertical band its page's prose
+        # occupies. Not one page's oddity: three cover-page lines of
+        # EUR-Lex's Official Journal masthead end at its rule edge and
+        # nothing else does.
         fields = sum(1 for x in (row_x1 or ()) if abs(x - edge) <= 1.5)
         if edge > p90 + 5.0 and fields < 2:
-            return None
+            band = {}
+            for pg, bb in body_boxes:
+                if (bb[2] - bb[0]) >= 0.45 * page_w:
+                    lo, hi = band.get(pg, (bb[1], bb[3]))
+                    band[pg] = (min(lo, bb[1]), max(hi, bb[3]))
+            hits = [pg for pg, bb in body_boxes
+                    if edge - RULE_EDGE_TEXT_TOL <= bb[2] <= edge + 1.0
+                    and pg in band
+                    and band[pg][0] <= (bb[1] + bb[3]) / 2 <= band[pg][1]]
+            if len(hits) < 2 or len(set(hits)) < min(2, len(ir.pages)):
+                return None
     return float(edge)
 
 
@@ -820,6 +958,16 @@ def _line_tracked(ln: Line) -> Optional[bool]:
     return None
 
 
+_RTL_TEXT = re.compile("[֐-ࣿיִ-﷿ﹰ-﻿]")
+
+
+def _opens_note(ln: Line) -> bool:
+    """Does the line open with a glued footnote number (`_merge_list_markers`)?"""
+    first = min((s for s in ln.spans if s.text.strip()),
+                key=lambda s: s.bbox[0], default=None)
+    return first is not None and getattr(first, "_note_mark", False)
+
+
 def _split_lines_to_paras(lines: List[Line],
                           list_starts: Optional[set] = None) -> List[List[Line]]:
     """Group a flat list of lines into paragraphs on large baseline gaps,
@@ -878,7 +1026,8 @@ def _split_lines_to_paras(lines: List[Line],
         track_jump = (track_prev is not None and track_new is not None
                       and track_prev != track_new)
         if deltas[i] > max(lead * 1.55, lead + 4.0) or size_jump or track_jump \
-                or _line_starts_with_marker(ln) or _line_key(ln) in list_starts:
+                or _line_starts_with_marker(ln) or _line_key(ln) in list_starts \
+                or _opens_note(ln):
             groups.append(cur)
             cur = [ln]
         else:
@@ -904,7 +1053,11 @@ def para_from_lines(lines: List[Line], col_l: float, col_r: float,
         m = _inline_marker(lines[0].text)
         p._list_style = m[0] if m else None
     p._tracked = all(_line_tracked(ln) is True for ln in lines)
-    first_sz = lines[0].spans[0].size if lines[0].spans else 10.0
+    # The line's size, not a glued note number's (`_merge_list_markers`): a
+    # 6pt number opening y50's 9pt notes made them 7.5pt-exact paragraphs.
+    first_sz = next((s.size for s in lines[0].spans
+                     if getattr(s, "_note_mark", None) is None),
+                    lines[0].spans[0].size if lines[0].spans else 10.0)
     p._b1 = lines[0].baseline
     p._size1 = first_sz
     if len(lines) >= 2:
@@ -1120,8 +1273,10 @@ def paras_from_line_list(lines: List[Line], col_l: float, col_r: float,
                         out.append(para_from_lines(
                             [l], col_l, col_r, list_start=_line_key(l) in list_starts))
                     continue
-        out.append(para_from_lines(grp, col_l, col_r,
-                                   list_start=_line_key(grp[0]) in list_starts))
+        p = para_from_lines(grp, col_l, col_r,
+                            list_start=_line_key(grp[0]) in list_starts)
+        p._note = _opens_note(grp[0])
+        out.append(p)
     return out
 
 
@@ -3470,9 +3625,18 @@ def _measure_margins(lay: DocLayout, ir: DocIR, hf: dict,
                             if (bi, id(l)) not in ct])
     rule_edge = _rule_right_edge(sub_ir, hf, lay.page_w, wide_x1,
                                  row_x1=_field_row_ends(pages_lines, lay.margin_l,
-                                                        lay.page_w))
+                                                        lay.page_w),
+                                 body_boxes=[(pg, l.bbox) for pg, l in body_lines])
     if rule_edge is not None and rule_edge > base_edge + 2.5:
         mr = rule_edge
+    # The same one-way door once more, from the lines that wrapped: the
+    # column is at least as wide as the widest of them (WRAP_EDGE_* above).
+    base_edge = mr if mr is not None else lay.page_w - lay.margin_l
+    wrap_edge = _wrapped_right_edge(sub_ir, hf, lay.page_w)
+    if wrap_edge is not None and wrap_edge > base_edge + WRAP_EDGE_MIN_GAIN:
+        mirror = lay.page_w - lay.margin_l
+        mr = mirror if wrap_edge <= mirror <= wrap_edge + WRAP_EDGE_MIRROR_PT \
+            else wrap_edge + 0.5
     lay.margin_r = round(lay.page_w - mr, 1) if mr is not None else lay.margin_l
     lay.margin_r = max(14.0, lay.margin_r)
     # Every row candidate in the document, for `_row_pairs`' cross-page
@@ -3783,6 +3947,16 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
                     cell.borders = {"left": (max(1.5, d.bbox[2] - d.bbox[0]),
                                              d.fill or d.stroke or "#000000")}
                     cell.pad = (0.5, round(minx - d.bbox[2], 1), 0.5, 2.0)
+                    if cell.paras:
+                        # The cell's text starts 0.5pt below the table top,
+                        # so the table must start where the first line's
+                        # box does, not where the bar does. A bar drawn
+                        # beside the text's x-height (x11: from 243.8, its
+                        # first line box from 241.5) put every quote line
+                        # 2.8pt low and everything after it with them.
+                        t0 = _para_box(cell.paras[0])[0]
+                        if t0 - 0.5 < bb[1]:
+                            bb = (bb[0], round(t0 - 0.5, 1), bb[2], bb[3])
                     qt = TableEl(rows=[[cell]], col_widths=[bb[2] - d.bbox[0]],
                                  row_heights=[None], role="quote", bbox=bb)
                     # Column-relative bar x, so a writer that renders quotes
@@ -4133,7 +4307,7 @@ def _row_pairs(items, col_l, col_r, doc_rows=None):
     lines = []
     for kind, _bb, o in items:
         if kind == "blk":
-            lines.extend(o.lines)
+            lines.extend(_blk_lines(o))
     pairs, n_rows = _row_candidates(lines, col_l, col_r)
     if not pairs:
         return [], set()
@@ -4226,21 +4400,358 @@ def _row_para(left: Line, right: Line, col_l: float, col_r: float) -> Para:
     return p
 
 
+def _blk_lines(o):
+    """A flow item's lines: a TextBlock, or the line list a drop left behind."""
+    return o if isinstance(o, list) else o.lines
+
+
 def _drop_row_lines(items, consumed):
-    """items with the paired lines removed, and emptied blocks dropped."""
+    """items with the paired lines removed, and emptied blocks dropped.
+
+    A block is cut where a removed line stood. The flow is ordered at block
+    granularity (see `_split_blocks_at_elements`), so lines kept on BOTH
+    sides of a removed one, left in one block, all sorted at the block's top
+    -- ahead of the rows taken out from between them. y64's household tables
+    are one block per table: the section headings ("WHITE", "Men, 20 years
+    and over") stayed in it, came out first, and every row of the table
+    followed them, 1-3 pages of spill per table.
+    """
     out = []
     for kind, bb, o in items:
         if kind != "blk":
             out.append((kind, bb, o))
             continue
-        keep = [ln for ln in o.lines if id(ln) not in consumed]
-        if not keep:
-            continue
-        nb = None
-        for ln in keep:
-            nb = bbox_union(nb, ln.bbox)
-        out.append((kind, nb or bb, keep))
+        groups, cur = [], []
+        for ln in _blk_lines(o):
+            if id(ln) in consumed:
+                if cur:
+                    groups.append(cur)
+                    cur = []
+            else:
+                cur.append(ln)
+        if cur:
+            groups.append(cur)
+        for keep in groups:
+            nb = None
+            for ln in keep:
+                nb = bbox_union(nb, ln.bbox)
+            out.append((kind, nb or bb, keep))
     return out
+
+
+# A contents line: a title, a run of leader dots, and a page reference. Every
+# producer in the corpus draws the dots as text by the time `infer` sees them --
+# LibreOffice and Word as "." glyphs filling a dot-leader tab, Chromium's dotted
+# border rewritten into the same form by `dialect._drawn_leaders_to_text`.
+#
+# Left as text, the dots are a fixed-length string that a renderer re-wraps by
+# its own metrics, and the line is welded to its neighbours: on
+# x02_lo_report_toc the nine entries, all ending at the tab stop, read as one
+# 9-line JUSTIFIED paragraph whose 24.5pt pitch could not fit above its first
+# line, and the whole contents block landed 7.8pt low. The word processor's own
+# idiom is the faithful one: title, TAB, page number, against a right-aligned
+# tab stop with a dot leader at the measured edge -- one paragraph per entry.
+#
+# Only a DENSE run of dots is a word processor's leader, and only that is
+# converted. TeX, Typst and Texinfo set spaced leaders (". . . ."), which a
+# Word dot leader would redraw dense -- a different look, for no positional
+# gain -- and every one of those dots is a word to anything that reads the
+# text back: y26's 637-line index lost 21% of its word tokens to them when they
+# were converted. Spaced leaders keep their text.
+_LEADER_RE = re.compile(
+    r"^(?P<label>.*?\S)[ \t]*(?P<dots>[.·…]{4,})[ \t]*"
+    r"(?P<num>[0-9]{1,5}|[ivxlcdmIVXLCDM]{1,7}|[A-Z][-–.]?[0-9]{1,4})[ \t]*$")
+# Two entries must END at the same x for the edge to be a tab stop rather than
+# where one line happened to finish -- the same column evidence `_row_pairs`
+# asks of a right-aligned field. A ReportLab contents page with a FIXED run of
+# 60 dots after each title (x15_rl_handbook_toc) puts its numbers at 278.6,
+# 300.1, 293.1... -- literal text, not a tab -- and is left exactly as it is.
+_LEADER_EDGE_TOL = 2.0
+_LEADER_EDGE_SHARE = 0.6   # of the page's leader lines that must share the edge
+
+
+def _leader_lines(items, col_l, col_r):
+    """-> ([(line, edge_x)], {id(line)}) for contents lines with dot leaders."""
+    cands = []
+    for kind, _bb, o in items:
+        if kind != "blk":
+            continue
+        for ln in _blk_lines(o):
+            if not ln.horizontal or not ln.spans:
+                continue
+            if _LEADER_RE.match(ln.text):
+                cands.append(ln)
+    if len(cands) < 2:
+        return [], set()
+    cands.sort(key=lambda l: l.bbox[2])
+    kept, cur = [], [cands[0]]
+    for ln in cands[1:]:
+        if ln.bbox[2] - cur[0].bbox[2] <= _LEADER_EDGE_TOL:
+            cur.append(ln)
+            continue
+        if len(cur) >= 2:
+            kept.append(cur)
+        cur = [ln]
+    if len(cur) >= 2:
+        kept.append(cur)
+    out = []
+    for grp in kept:
+        # A tab stop holds EVERY entry to its edge; a fixed run of dots lands
+        # its numbers wherever the title ended, and a few of them can agree by
+        # chance (x15 puts three of eight within 0.6pt of 300.4).
+        if len(grp) < _LEADER_EDGE_SHARE * len(cands):
+            continue
+        edge = max(l.bbox[2] for l in grp)
+        out.extend((l, edge) for l in grp)
+    return out, {id(l) for l, _ in out}
+
+
+def _slice_runs_at(runs: List[Run], a: int, b: int) -> List[Run]:
+    """Copies of `runs` covering joined-text offsets [a, b)."""
+    out, pos = [], 0
+    for r in runs:
+        n = len(r.text)
+        s, e = max(a, pos), min(b, pos + n)
+        if s < e:
+            out.append(replace(r, text=r.text[s - pos:e - pos]))
+        pos += n
+    return out
+
+
+_LEADER_DOTS = re.compile(r"(?:[.·…][ \t]?){4,}")
+# Text that ENDS in a dot leader, dense or spaced: a table stub the grid rule
+# leaves alone (see `_grid_rows`).
+_TRAILING_LEADER_RE = re.compile(
+    r"^(?P<label>.*?[^.·…\s])[ \t]*(?P<dots>(?:[.·…][ \t]?){4,})[ \t]*$")
+
+
+def _label_before_leader(runs: List[Run], end: int) -> List[Run]:
+    """The label's runs, text [0, end), without the letter-spacing the
+    parser measured over a span that also held the leader.
+
+    `parse_pdfium._span_tracking` reads letter-spacing from the mean gap
+    between a span's glyphs, and a dot leader is mostly gap: on y64, spans of
+    words and leader ("Civilian labor force......") measured 0.47-0.62pt
+    against ~0 for the words alone. With the dots drawn by a tab, that
+    tracking would only letter-space the title.
+    """
+    out, pos = [], 0
+    for r in runs:
+        n = len(r.text)
+        if pos < end and r.text:
+            c = replace(r, text=r.text[:max(0, min(n, end - pos))])
+            if _LEADER_DOTS.search(r.text):
+                c.tracking = 0.0
+            if c.text:
+                out.append(c)
+        pos += n
+    return out
+
+
+def _leader_para(ln: Line, edge: float, col_l: float, col_r: float) -> Para:
+    """Title, TAB, number -- against a right stop with a dot leader."""
+    p = para_from_lines([ln], col_l, col_r)
+    runs = runs_from_spans(ln.spans)
+    text = "".join(r.text for r in runs)
+    m = _LEADER_RE.match(text)
+    if m is None:                       # spans re-joined differently: keep it
+        return p
+    label = _label_before_leader(runs, m.end("label"))
+    num = _slice_runs_at(runs, m.start("num"), m.end("num"))
+    dots = _slice_runs_at(runs, m.start("dots"), m.end("dots"))
+    ref = (label or runs)[-1]
+    tab = Run(text="\t", font=ref.font, size=ref.size,
+              color=(dots[0].color if dots else ref.color), is_tab=True)
+    p.runs = [r for r in label if r.text] + [tab] + [r for r in num if r.text]
+    p.align = "left"
+    p.right_indent = 0.0
+    p.first_indent = 0.0
+    p.tab_stops = [(round(edge - col_l, 1), "right", "dot")]
+    return p
+
+
+# --- rows of cells with no rules ---------------------------------------------
+# A table drawn without rules is, to a parser, text fragments on shared
+# baselines with wide white between them. `_merge_row_lines` joins such
+# fragments with ONE space, so "Relief running   142,000   96,400   45,600"
+# arrived as a single run of prose: the numbers lost their columns entirely
+# (x10_chrome_tables_plain's borderless table, x13_rl_report_running's), and
+# x13's rows -- then centred as a whole, because the joined line happened to
+# straddle the page centre -- were displaced 117-124pt. When the fragments
+# arrived as separate blocks instead (x10's third table, below a shaded header
+# row), each cell became its OWN paragraph and the row stacked vertically: a
+# four-cell row consumed four lines, +11.6pt per cell, 39pt by the second row.
+#
+# A row of cells is written the way a word processor writes one: the fragments
+# separated by tabs, against tab stops at the source's own x -- a RIGHT stop at
+# the cell's right edge for a number (a column of figures is right-aligned;
+# editing one keeps it so), a left stop at its start otherwise.
+#
+# It must be a grid, not a coincidence: three or more fragments on the row, a
+# second such row directly above or below it, and the two rows sharing column
+# edges. Fragments must read as cells -- numbers or a few words -- because the
+# one thing that also produces aligned multi-fragment rows is an unsplit
+# multi-column BODY, whose fragments are lines of prose.
+GRID_CELL_GAP_EM = 2.0     # white between cells, in em; word spaces are ~0.25
+GRID_CELL_GAP_MIN = 12.0   # pt; and never less than _ROW_MIN_GAP's real gap
+GRID_ROW_PITCH_EM = 3.2    # consecutive rows are at most this far apart
+GRID_EDGE_TOL = 2.0        # pt; a shared column edge
+GRID_CELL_MAX_WORDS = 4    # a cell is a few words; a prose line is not
+_NUMERIC_CELL = re.compile(r"[(+\-–−$€£¥]?\s?[0-9][0-9.,\s]*%?\)?")
+
+
+def _row_fragments(row: List[Line]):
+    """A baseline row's spans, grouped into cell fragments at wide gaps."""
+    spans = sorted((s for ln in row for s in ln.spans if s.text.strip()),
+                   key=lambda s: s.bbox[0])
+    if not spans:
+        return []
+    frags, cur = [], [spans[0]]
+    for s in spans[1:]:
+        gap = s.bbox[0] - cur[-1].bbox[2]
+        if gap >= max(GRID_CELL_GAP_MIN, GRID_CELL_GAP_EM * cur[-1].size):
+            frags.append(cur)
+            cur = [s]
+        else:
+            cur.append(s)
+    frags.append(cur)
+    return frags
+
+
+def _frag_spans(frag) -> List[Span]:
+    """A fragment's spans with the word space restored where they part.
+
+    The same rule `_merge_row_lines` joins row pieces by: spans of one cell
+    that the parser kept apart are still separate words. Without it a dense
+    numeric table (y06's EIC tables, cells under 2em apart) welded its figures
+    into tokens like "5032,2362,6302,959" -- 6% of that document's words.
+    """
+    out = []
+    for s in frag:
+        if out:
+            prev = out[-1]
+            gap = s.bbox[0] - prev.bbox[2]
+            if gap > 0.25 * (prev.size or 10.0) and \
+                    not prev.text.endswith(" ") and not s.text.startswith(" "):
+                out[-1] = replace(prev, text=prev.text + " ")
+        out.append(s)
+    return out
+
+
+def _frag_text(frag) -> str:
+    return re.sub(r"\s+", " ", "".join(s.text for s in _frag_spans(frag))).strip()
+
+
+def _cellish(frag) -> bool:
+    t = _frag_text(frag)
+    return bool(_NUMERIC_CELL.fullmatch(t)) or \
+        len(t.split(" ")) <= GRID_CELL_MAX_WORDS
+
+
+def _shared_edges(fa, fb) -> int:
+    """Column edges two rows share, the first cell's left edge excluded."""
+    ea = [s[0].bbox[0] for s in fa[1:]] + [s[-1].bbox[2] for s in fa]
+    eb = [s[0].bbox[0] for s in fb[1:]] + [s[-1].bbox[2] for s in fb]
+    return sum(1 for x in ea if any(abs(x - y) <= GRID_EDGE_TOL for y in eb))
+
+
+def _grid_rows(items, col_l, col_r):
+    """-> ([fragments-per-row], {id(line)}) for rows of a rule-less table."""
+    lines = []
+    for kind, _bb, o in items:
+        if kind == "blk":
+            lines.extend(ln for ln in _blk_lines(o) if ln.horizontal and ln.spans)
+    if not lines:
+        return [], set()
+    lines.sort(key=lambda l: (round(l.baseline, 1), l.bbox[0]))
+    rows = []
+    for ln in lines:
+        if rows and abs(ln.baseline - rows[-1][0].baseline) <= _ROW_BASELINE_TOL:
+            rows[-1].append(ln)
+        else:
+            rows.append([ln])
+    info = []
+    for row in rows:
+        frags = _row_fragments(row)
+        verbatim = all(s.mono for ln in row for s in ln.spans if s.text.strip())
+        # A stub that ends in a dot leader is left as the line it was. Drawn
+        # as label + dot-leader tab (y64's 540 BLS rows, dense and spaced),
+        # every row fitted and the document lost its spills, but the
+        # leader's dots are words to the recall metrics -- y64's doc recall
+        # 0.965 -> 0.568 -- and as text, the row overran its first stop in
+        # the renderer's wider spaces (+3 pages). Neither is a measured
+        # improvement; such tables are a follow-up, not a guess.
+        dotted = bool(frags) and \
+            bool(_TRAILING_LEADER_RE.match(_frag_text(frags[0])))
+        ok = len(frags) >= 3 and not verbatim and not dotted and \
+            all(_cellish(f) for f in frags[1:])
+        info.append((row, frags, ok))
+    keep = set()
+    for i in range(len(info) - 1):
+        ra, fa, oka = info[i]
+        rb, fb, okb = info[i + 1]
+        if not (oka and okb):
+            continue
+        size = max(_line_size(l) for l in ra)
+        if rb[0].baseline - ra[0].baseline > GRID_ROW_PITCH_EM * size:
+            continue
+        if _shared_edges(fa, fb) >= 2:
+            keep.update((i, i + 1))
+    # A table that breaks across pages can leave ONE row on a page, with its
+    # partners on the previous one (x10's "March" row). Alone it cannot show a
+    # shared column edge, so it must show cells instead: two or more figures.
+    # Figures at the row's own size: under 0.8 of it (the footnote-number
+    # bound, `_merge_list_markers`) a digit is a script -- y43's display
+    # maths, "X+∞ X∞" with two exponent 2s, became a tabbed row.
+    for i, (row, frags, ok) in enumerate(info):
+        if not ok or i in keep:
+            continue
+        size = max(_line_size(l) for l in row)
+        if sum(1 for f in frags[1:]
+               if _NUMERIC_CELL.fullmatch(_frag_text(f))
+               and max(s.size for s in f) >= 0.8 * size) >= 2:
+            keep.add(i)
+    out, consumed = [], set()
+    for i in sorted(keep):
+        row, frags, _ = info[i]
+        out.append(frags)
+        consumed.update(id(l) for l in row)
+    return out, consumed
+
+
+def _grid_para(frags, col_l: float, col_r: float) -> Para:
+    """One row of cells: fragments joined by tabs at their source x."""
+    spans = [s for f in frags for s in f]
+    bb = None
+    for s in spans:
+        bb = bbox_union(bb, s.bbox)
+    line = Line(spans=spans, bbox=bb)
+    p = para_from_lines([line], col_l, col_r)
+    runs, stops = [], []
+    for i, f in enumerate(frags):
+        rr = runs_from_spans(_frag_spans(f))
+        if rr:
+            rr[0].text = rr[0].text.lstrip(" ")
+            rr[-1].text = rr[-1].text.rstrip(" ")
+        rr = [r for r in rr if r.text]
+        if i:
+            ref = runs[-1] if runs else (rr[0] if rr else None)
+            runs.append(Run(text="\t", font=ref.font if ref else f[0].font,
+                            size=ref.size if ref else f[0].size,
+                            color=ref.color if ref else f[0].color,
+                            is_tab=True))
+            if _NUMERIC_CELL.fullmatch(_frag_text(f)):
+                stops.append((round(f[-1].bbox[2] - col_l, 1), "right"))
+            else:
+                stops.append((round(f[0].bbox[0] - col_l, 1), "left"))
+        runs.extend(rr)
+    p.runs = runs
+    p.align = "left"
+    p.left_indent = max(0.0, round(frags[0][0].bbox[0] - col_l, 1))
+    p.first_indent = 0.0
+    p.right_indent = 0.0
+    p.tab_stops = stops
+    return p
 
 
 _GAP_TOL = 0.5   # pt of overlap forgiven between an element and a line box (rounding)
@@ -4344,6 +4855,20 @@ def _propagate_list_hangs(paras):
 
 def _to_flow(items, col_l, col_r, doc_rows=None):
     items = _split_blocks_at_elements(items)
+    leaders, lconsumed = _leader_lines(items, col_l, col_r)
+    if lconsumed:
+        items = _drop_row_lines(items, lconsumed) + \
+            [("leader", ln.bbox, (ln, edge)) for ln, edge in leaders]
+    grid, gconsumed = _grid_rows(items, col_l, col_r)
+    if gconsumed:
+        def _fbb(frags):
+            b = None
+            for f in frags:
+                for s in f:
+                    b = bbox_union(b, s.bbox)
+            return b
+        items = _drop_row_lines(items, gconsumed) + \
+            [("grid", _fbb(f), f) for f in grid]
     list_starts = _inline_list_starts(
         [list(o) if isinstance(o, list) else list(o.lines)
          for kind, _bb, o in items if kind == "blk"])
@@ -4353,7 +4878,11 @@ def _to_flow(items, col_l, col_r, doc_rows=None):
             [("row", bbox_union(l.bbox, r.bbox), (l, r)) for l, r in pairs]
     out = []
     for kind, bb, o in sorted(items, key=lambda t: (t[1][1], t[1][0])):
-        if kind == "row":
+        if kind == "leader":
+            out.append(_leader_para(o[0], o[1], col_l, col_r))
+        elif kind == "grid":
+            out.append(_grid_para(o, col_l, col_r))
+        elif kind == "row":
             out.append(_row_para(o[0], o[1], col_l, col_r))
         elif kind == "blk":
             out.extend(paras_from_line_list(
@@ -4396,6 +4925,9 @@ def _mergeable(a: Para, b: Para) -> bool:
     # 2.7pt apart, inside the 3.2pt join window, and they fused into one
     # paragraph (design audit B16).
     if getattr(b, "_list_item", False):
+        return False
+    # Likewise a footnote that opens with its own number (`_opens_note`).
+    if getattr(b, "_note", False):
         return False
     gap = b.bbox[1] - a.bbox[3]
     if not (-2.0 <= gap <= 3.2):
@@ -4473,6 +5005,8 @@ def _merge_list_markers(flow_blocks):
     consumed = set()
     for ln, b in marker_lines:
         best = None  # (gap, line, block)
+        raised = False
+        msz = _line_size(ln)
         for c in flow_blocks:
             for fl in c.lines:
                 if id(fl) in marker_ids or id(fl) in consumed or not fl.spans:
@@ -4481,8 +5015,38 @@ def _merge_list_markers(flow_blocks):
                 if abs(fl.baseline - ln.baseline) < 2.5 and -1.0 < gap < 60:
                     if best is None or gap < best[0]:
                         best = (gap, fl, c)
+                        raised = False
+                    continue
+                # A footnote's own number: a SMALL digit set raised against
+                # the note's first line and abutting it. x05_lo_quotes_notes'
+                # are 4.6pt on 8.5pt notes, 3.1pt up -- outside the 2.5pt
+                # baseline test above, so each number became a 5pt paragraph
+                # of its own AFTER its note (it sits 0.4pt lower on the page).
+                fsz = _line_size(fl)
+                rise = fl.baseline - ln.baseline
+                if msz <= 0.8 * fsz and 0.0 < rise <= 0.6 * fsz and \
+                        -1.0 < gap < 0.5 * fsz:
+                    if best is None or gap < best[0]:
+                        best = (gap, fl, c)
+                        raised = True
         if best is not None:
             _, fl, c = best
+            if raised:
+                # The note's line keeps ITS baseline: `Line.baseline` reads
+                # the first span, and the paragraph is anchored on it.
+                host_base = fl.baseline
+                # A number opening a left-to-right line opens a NOTE, and
+                # each note is its own paragraph: y50's one-line notes,
+                # 11.5pt apart, had been kept apart only by the stray number
+                # paragraphs between them, and once glued they merged into
+                # one paragraph that re-wrapped as prose. At the LEFT end of
+                # a right-to-left line the same mark is an in-text reference
+                # closing that line (y50's body), not a note.
+                opens = not _RTL_TEXT.search(fl.text)
+                for s in ln.spans:
+                    s.superscript = True
+                    s.origin = (s.origin[0], host_base)
+                    s._note_mark = opens
             fl.spans[0:0] = list(ln.spans)
             fl.bbox = bbox_union(fl.bbox, ln.bbox)
             c.bbox = bbox_union(c.bbox, ln.bbox)
@@ -4809,6 +5373,17 @@ def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
         colR = [t for t in colitems if t[1][0] >= col_split - 20]
         gap = col_split - max((t[1][2] for t in colL), default=col_split - 24)
         gap = max(10.0, round(gap, 1))
+        if gap > MAX_GUTTER_FRAC * content_w and \
+                _prose_between(wide_tail, colitems):
+            # Not a gutter: the white between a column of short labels and a
+            # column of right-hand fields, with the page's own prose running
+            # across it between them. Lay the page out as the single column
+            # it is (see MAX_GUTTER_FRAC).
+            ch = Chunk(n_cols=1)
+            ch.elements = _merge_flow_paras(
+                _to_flow(items, content_l, content_r, doc_rows=lay_rows),
+                content_r)
+            return _position_chunks([ch], lay, page_top)
         ch = Chunk(n_cols=2, col_gap=gap)
         colr_edge = col_split - gap
         left_flow = _merge_flow_paras(
