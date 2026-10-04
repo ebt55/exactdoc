@@ -266,7 +266,8 @@ class WordOracleSurface(unittest.TestCase):
         self.assertIn("Figtree", wo.stock_view(src, out))
         with zipfile.ZipFile(out) as z:
             body = z.read("word/document.xml").decode("utf-8")
-        self.assertIn('w:ascii="Figtree (absent)"', body)
+        self.assertIn('w:ascii="%s"' % wo.absent_name("Figtree"), body)
+        self.assertNotIn("Figtree", body)
         self.assertIn('w:ascii="Arial"', body)
         # the copy is what Word would be handed; the original is untouched
         self.assertIn("Figtree", wo.declared_fonts(src))

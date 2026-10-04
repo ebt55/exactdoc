@@ -455,44 +455,18 @@ def _drive(q, st, results, chunk, doc_timeout, start_timeout, hooks, log, rearm=
 
 
 # ------------------------------------------------------- fonts a tester has
-# What a stock Windows 11 + Office 2024 machine can render. The machine this
-# runs on is not stock -- it holds 310 families, Carlito, Caladea, Liberation,
+# What a stock Windows + Office machine can render: the ratified beta bar's
+# own list (testkit/beta_readiness.py, criterion 10), so the Word lane and the
+# bar cannot disagree about which family a tester lacks. The machine this runs
+# on is not stock -- it holds 310 families, Carlito, Caladea, Liberation,
 # DejaVu and Noto among them (LibreOffice installs them) -- so a Word render
-# here can be kinder than a tester's. Windows 11's default families (the
-# Windows font list, Microsoft Learn "Windows 11 font list"), plus what Office's
-# Click-to-Run install adds (read off this machine's
-# `Office\root\vfs\Fonts`: Arial Narrow, Book Antiqua, Bookman Old Style,
-# Calibri Light, Century, Century Gothic, Garamond, Wingdings 2/3 ...), plus
-# Aptos, Office's default face since 2024, which Office fetches on demand.
-STOCK_FONTS = frozenset(s.lower() for s in (
-    # Windows 11
-    "Arial", "Arial Black", "Bahnschrift", "Calibri", "Cambria", "Cambria Math",
-    "Candara", "Cascadia Code", "Cascadia Mono", "Comic Sans MS", "Consolas",
-    "Constantia", "Corbel", "Courier New", "Ebrima", "Franklin Gothic Medium",
-    "Gabriola", "Gadugi", "Georgia", "Impact", "Ink Free", "Javanese Text",
-    "Leelawadee UI", "Lucida Console", "Lucida Sans Unicode", "Malgun Gothic",
-    "Marlett", "Microsoft Himalaya", "Microsoft JhengHei", "Microsoft New Tai Lue",
-    "Microsoft PhagsPa", "Microsoft Sans Serif", "Microsoft Tai Le",
-    "Microsoft YaHei", "Microsoft Yi Baiti", "MingLiU-ExtB", "Mongolian Baiti",
-    "MS Gothic", "MS PGothic", "MS UI Gothic", "MV Boli", "Myanmar Text",
-    "Nirmala UI", "Palatino Linotype", "Segoe Fluent Icons", "Segoe MDL2 Assets",
-    "Segoe Print", "Segoe Script", "Segoe UI", "Segoe UI Black", "Segoe UI Emoji",
-    "Segoe UI Historic", "Segoe UI Light", "Segoe UI Semibold", "Segoe UI Semilight",
-    "Segoe UI Symbol", "SimSun", "NSimSun", "SimSun-ExtB", "Sitka Text", "Sylfaen",
-    "Symbol", "Tahoma", "Times New Roman", "Trebuchet MS", "Verdana", "Webdings",
-    "Wingdings", "Yu Gothic", "Yu Gothic UI", "MS Mincho", "MS PMincho",
-    "Batang", "Gulim", "Dotum", "PMingLiU", "MingLiU", "SimHei", "KaiTi",
-    "FangSong", "DengXian", "Meiryo", "Yu Mincho", "Arial Unicode MS",
-    # Office 2024 (Click-to-Run)
-    "Aptos", "Aptos Display", "Aptos Narrow", "Aptos Mono", "Arial Narrow",
-    "Book Antiqua", "Bookman Old Style", "Bookshelf Symbol 7", "Calibri Light",
-    "Century", "Century Gothic", "Dubai", "Garamond", "Leelawadee",
-    "Microsoft Uighur", "MS Reference Sans Serif", "MS Reference Specialty",
-    "MT Extra", "Wingdings 2", "Wingdings 3",
-    # python-docx's template names MS Gothic and MS Mincho by their Japanese
-    # names, and Courier, which Word resolves to Courier New
-    "ＭＳ ゴシック", "ＭＳ 明朝", "Courier",
-))
+# here can be kinder than a tester's; `stock_view` takes that kindness away.
+def _stock_fonts():
+    import beta_readiness
+    return frozenset(s.lower() for s in beta_readiness.STOCK_FONTS)
+
+
+STOCK_FONTS = _stock_fonts()
 _FONT_PARTS = ("word/document.xml", "word/styles.xml", "word/numbering.xml",
                "word/footnotes.xml", "word/endnotes.xml")
 _FONT_ATTRS = ("ascii", "hAnsi", "cs", "eastAsia")
@@ -557,18 +531,26 @@ def absent_fonts(fonts):
     return sorted(f for f in fonts if f and f.lower() not in STOCK_FONTS)
 
 
-ABSENT_SUFFIX = " (absent)"
+def absent_name(family):
+    """The name a stock view gives `family`: one no installed font can match.
+
+    Word's font lookup is looser than an exact name. "Noto Serif (absent)"
+    and "David (absent)" were both drawn in the installed Noto Serif and
+    David (Word 16.0.20430, 2026-10-05), so the suffix simulated nothing; the
+    name must share no prefix with any real family."""
+    import zlib
+    return "XQZ%08X" % (zlib.crc32(family.encode("utf-8")) & 0xFFFFFFFF)
 
 
 def stock_view(docx_in, docx_out):
     """A copy of the DOCX as a stock machine resolves it.
 
-    Every family outside STOCK_FONTS is renamed "<family> (absent)" in the
-    runs, styles, numbering, notes, headers, footers and font table. The font
-    table keeps its panose / family / pitch / charset hints, which are what
-    Word's substitution reads when a face is missing -- so Word here picks the
-    same substitute a tester's Word would, whatever this machine has
-    installed. Returns the renamed families."""
+    Every family outside STOCK_FONTS is renamed (`absent_name`) in the runs,
+    styles, numbering, notes, headers, footers and font table. The font
+    table keeps its family / pitch / charset hints, which are what Word's
+    substitution reads when a face is missing -- so Word here picks the
+    substitute a tester's Word would, whatever this machine has installed.
+    Returns the renamed families."""
     import zipfile
     from lxml import etree
     W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
@@ -584,10 +566,12 @@ def stock_view(docx_in, docx_out):
                     for a in _FONT_ATTRS:
                         v = rf.get(W + a)
                         if v in absent:
-                            rf.set(W + a, v + ABSENT_SUFFIX)
+                            rf.set(W + a, absent_name(v))
                 for f in root.iter(W + "font"):
                     if f.get(W + "name") in absent:
-                        f.set(W + "name", f.get(W + "name") + ABSENT_SUFFIX)
+                        for alt in f.findall(W + "altName"):
+                            f.remove(alt)        # an alias would find it again
+                        f.set(W + "name", absent_name(f.get(W + "name")))
                 data = etree.tostring(root, xml_declaration=True, encoding="UTF-8",
                                       standalone=True)
             zo.writestr(item, data)

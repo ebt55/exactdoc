@@ -225,6 +225,33 @@ class LocalisedFontNames(unittest.TestCase):
         self.assertEqual(fonts.lookup_family(spans[0].font).ea[0], "MS Gothic")
 
 
+class StockContentFonts(unittest.TestCase):
+    def test_non_stock_native_families_are_written_as_core_faces(self):
+        for src, std in (("NotoSerif-Regular", "Cambria"),
+                         ("Roboto-Medium", "Calibri"), ("Figtree-Bold", "Calibri"),
+                         ("RobotoMono-Regular", "Courier New"),
+                         ("SourceCodePro-Regular", "Courier New"),
+                         ("Vollkorn-Regular", "Cambria")):
+            self.assertEqual(fonts.writer_family(src), std, src)
+            # the gdocs profile keeps the family Google Docs renders natively
+            self.assertEqual(fonts.writer_family(src, profile="gdocs"),
+                             fonts.map_font(src, profile="gdocs"), src)
+            # line decisions keep reading map_font
+            self.assertNotEqual(fonts.map_font(src), std, src)
+
+    def test_stock_native_families_keep_their_names(self):
+        for src in ("Georgia", "Verdana", "Consolas", "Tahoma", "Calibri"):
+            self.assertEqual(fonts.writer_family(src), fonts.map_font(src), src)
+
+    def test_the_run_names_the_core_face(self):
+        d = docx.Document()
+        r = d.add_paragraph().add_run("Hypertext Transfer Protocol")
+        docxout._style_run(r, Run(text="x", font="NotoSerif-Regular", size=10,
+                                  color="#000000", serif=True), "standard")
+        rf = r._r.rPr.find(qn("w:rFonts"))
+        self.assertEqual(rf.get(qn("w:ascii")), "Cambria")
+
+
 class StockTemplateFonts(unittest.TestCase):
     def _convert(self, profile):
         from reportlab.pdfgen import canvas

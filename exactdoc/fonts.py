@@ -809,6 +809,48 @@ def map_font(pdf_font: str, mono: bool = False, serif: bool = False,
     return "Arial"
 
 
+# The Google Docs native families a stock Windows + Office machine also has
+# (the Windows 11 font list; Consolas ships with Office): the standard profile
+# writes these by name, like every Office family.
+_NATIVE_STOCK = {"arial", "times new roman", "courier new", "georgia", "verdana",
+                 "tahoma", "trebuchet ms", "impact", "comic sans ms", "consolas"}
+_NATIVE_NAMES = set(GDOCS_NATIVE) | {n.lower() for n in _NATIVE_EXTRA.values()}
+
+
+def writer_family(pdf_font: str, mono: bool = False, serif: bool = False,
+                  profile: str = "standard") -> str:
+    """The family the writer names in a run: `map_font`, except that the
+    standard profile writes a Google Docs native family a stock Windows +
+    Office machine lacks as a stock face of its class.
+
+    Those families pass through by name because Google Docs renders them, and
+    the gdocs profile keeps doing so. A Word reader lacks them. Measured in
+    Word 16.0.20430 with the families hidden (testkit/word_oracle.py
+    --stock-fonts, 2026-10-05), Word itself drew Noto Serif and Vollkorn in
+    Cambria and Noto Sans and Ubuntu in Calibri -- but Roboto and Figtree in
+    Times New Roman and Roboto Mono in Cambria, code in a proportional serif.
+    So the writer names Word's own good choices outright and corrects the
+    bad ones: serif Cambria, sans Calibri, mono Courier New. Mapping the
+    proportional ones to the core faces instead measured worse in stock Word
+    (y20's Vollkorn as Times New Roman: within-2pt 0.356 -> 0.038; Times is
+    11% narrower than Cambria's measure of a wide serif). Noto Serif, Noto
+    Sans, Roboto, Roboto Mono, Open Sans, Figtree, Ubuntu, Vollkorn and
+    Source Code Pro were named on 8 of 93 corpus DOCX. The canonical
+    LibreOffice has neither these nor Cambria and Calibri and draws all of
+    them as FreeSerif, so its proportional text does not move; Roboto Mono
+    and Source Code Pro advance 0.600em (median glyph pitch in y27's and
+    y45's own spans), Courier New's exact width, now monospaced there too.
+
+    Applied at write time only: the ladder and the width scale keep reading
+    `map_font`, so line decisions -- and the gdocs profile -- are unchanged.
+    """
+    fam = map_font(pdf_font, mono=mono, serif=serif, profile=profile)
+    low = fam.lower()
+    if profile == "standard" and low in _NATIVE_NAMES and low not in _NATIVE_STOCK:
+        return {"serif": "Cambria", "mono": COURIER}.get(_native_class(low), "Calibri")
+    return fam
+
+
 def _is_east_asian(ch: str) -> bool:
     o = ord(ch)
     return (0x2E80 <= o <= 0x303F or 0x3040 <= o <= 0x33FF or

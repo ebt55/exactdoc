@@ -26,7 +26,7 @@ from docx.opc.constants import RELATIONSHIP_TYPE as RT
 from .layout import (DocLayout, Para, Run, Cell, TableEl, FigureEl, ImageEl,
                      RuleEl, ColBreak, HFPart, Chunk, PageLayout)
 from .fonts import (complex_script, complex_script_family, east_asian_family,
-                    font_table_desc, map_font)
+                    font_table_desc, map_font, writer_family)
 from .metrics import source_line_width
 from .structures import (add_footnote_ref_mark, add_footnote_reference,
                          apply_numpr, level_carries_indent, num_tab_override,
@@ -146,7 +146,7 @@ def _set_borders(el_pr, borders: dict, tag: str):
 
 def _style_run(r, run: Run, profile: str = "standard"):
     f = r.font
-    fam = map_font(run.font, mono=run.mono, serif=run.serif, profile=profile)
+    fam = writer_family(run.font, mono=run.mono, serif=run.serif, profile=profile)
     f.name = fam
     rpr = r._element.get_or_add_rPr()
     rf = rpr.find(qn("w:rFonts"))
