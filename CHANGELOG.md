@@ -20,6 +20,17 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **gdocs: contents-page dot leaders are typed, because Google Docs draws no
+  tab leaders (live, 2026-10-04).** The live sweep of the expansion corpus
+  found x02's contents page back from Docs with all 1,277 leader dots gone,
+  only the page numbers left at the right edge: the right tab stop imported,
+  its `w:leader="dot"` did not. Typed dots render, so under the gdocs profile a
+  contents line now carries the source's own leader, two dots short, before a
+  plain right tab that absorbs the rest (`Para.leader_text`, set where
+  `infer._leader_para` makes the stop; `docxout._gdocs_typed_leader`, applied
+  to a copy). Standard keeps the real leader tab. Flown on all twelve
+  expansion documents with leaders, about 516 entries: no page number wrapped,
+  and x02's char recall in Docs went 0.766 -> 0.997.
 - **Google Docs round trips survive large documents.** y06 (IRS 1040
   instructions, a 9.9 MB DOCX of page images) could not be measured live at
   all: Drive's simple upload carries at most 5 MB, the create call then
