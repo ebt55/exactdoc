@@ -24,7 +24,8 @@ CI, and is deliberately not consulted for decisions.
 """
 from typing import List, Optional
 
-from .model import DocIR, PageIR, TextBlock, Line, Span, DrawCmd, bbox_overlap
+from .model import (DocIR, PageIR, TextBlock, Line, Span, DrawCmd, bbox_overlap,
+                    ink_extent)
 
 # --- tunables, all in PDF points ------------------------------------------
 BULLET_MAX = 9.0          # a list marker glyph is never larger than this
@@ -652,11 +653,13 @@ def _covers(frag: Line, host: Line, sized: bool = False) -> bool:
     for s in frag.spans:
         if not s.text.strip():
             continue
+        s0, s1 = ink_extent(s)
         for t in host.spans:
             if not t.text.strip():
                 continue
-            ov = min(s.bbox[2], t.bbox[2]) - max(s.bbox[0], t.bbox[0])
-            w = min(s.bbox[2] - s.bbox[0], t.bbox[2] - t.bbox[0])
+            t0, t1 = ink_extent(t)
+            ov = min(s1, t1) - max(s0, t0)
+            w = min(s1 - s0, t1 - t0)
             if w > 0.5 and ov > 0.5 * w:
                 return True
     return False

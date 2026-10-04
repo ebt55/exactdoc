@@ -69,6 +69,27 @@ def xml_safe_uri(uri: Optional[str]) -> Optional[str]:
     return safe or None
 
 
+def ink_extent(span) -> Tuple[float, float]:
+    """A span's horizontal extent without its leading and trailing spaces.
+
+    A span's box covers its spaces too, and an OCR layer pads each line with
+    leading spaces back to the text block's edge (y56: every line's box starts
+    at x 23 whatever its first word), so two words on one baseline looked as
+    if they overprinted each other. Apportioned by character count -- the box
+    holds no per-glyph positions -- which is enough to tell a word from the
+    run of blanks before it.
+    """
+    x0, x1 = span.bbox[0], span.bbox[2]
+    t = span.text or ""
+    n = len(t)
+    if n == 0 or not t.strip():
+        return x0, x1
+    lead = n - len(t.lstrip())
+    trail = n - len(t.rstrip())
+    per = (x1 - x0) / n
+    return x0 + lead * per, x1 - trail * per
+
+
 def bbox_union(a: Optional[BBox], b: Optional[BBox]) -> Optional[BBox]:
     if a is None:
         return b

@@ -7,7 +7,8 @@ from statistics import median
 from typing import List, Optional, Tuple, Dict, Any
 
 from .model import (DocIR, PageIR, TextBlock, Line, Span, DrawCmd, ImageObj,
-                    BBox, bbox_union, bbox_overlap, bbox_area, contains)
+                    BBox, bbox_union, bbox_overlap, bbox_area, contains,
+                    ink_extent)
 from .layout import (Run, Para, Cell, TableEl, FigureEl, ImageEl, RuleEl,
                      ColBreak, Chunk, PageLayout, HFPart, DocLayout)
 from . import hyphen
@@ -509,11 +510,13 @@ def _overprinted(a: Line, b: Line, sized: bool = False) -> bool:
     for s in a.spans:
         if not s.text.strip():
             continue
+        s0, s1 = ink_extent(s)
         for t in b.spans:
             if not t.text.strip():
                 continue
-            ov = min(s.bbox[2], t.bbox[2]) - max(s.bbox[0], t.bbox[0])
-            w = min(s.bbox[2] - s.bbox[0], t.bbox[2] - t.bbox[0])
+            t0, t1 = ink_extent(t)
+            ov = min(s1, t1) - max(s0, t0)
+            w = min(s1 - s0, t1 - t0)
             if w > 0.5 and ov > OVERPRINT_FRAC * w:
                 return True
     return False

@@ -129,6 +129,17 @@ class LineLevelGuards(unittest.TestCase):
         texts = sorted(ln.text for b in ir.pages[0].blocks for ln in b.lines)
         self.assertEqual(texts, ["4. Circulation", "Transit Authority Operations"])
 
+    def test_blank_padding_is_not_ink(self):
+        # An OCR layer pads a line with spaces back to the block edge, so two
+        # words of different OCR sizes on one baseline both have boxes from
+        # x 23; only their ink decides whether they overprint.
+        from exactdoc.dialect import _covers
+        a = Line(spans=[_span("trict", 24.7, 43.9, 137.0, 6.4)],
+                 bbox=(24.7, 130.6, 43.9, 137.0))
+        b = Line(spans=[_span("     schools and the element", 23.2, 340.9,
+                              137.0, 9.1)], bbox=(23.2, 127.9, 340.9, 137.0))
+        self.assertFalse(_covers(a, b, sized=True))
+
     def test_infer_rows_keep_an_overprint_apart(self):
         from exactdoc.infer import _merge_row_lines
         head = Line(spans=[_span("4. Circulation", 57.8, 143.2, 695.25, 13.5)],
@@ -160,6 +171,16 @@ class StarvedParagraphs(unittest.TestCase):
                  for i in range(4)]
         p = para_from_lines(lines, 67.5, 502.8)
         self.assertEqual(p.left_indent, 229.5)
+
+    def test_a_long_single_line_a_few_points_over_is_left_alone(self):
+        # Federal Register: a 330pt cross-column line 9pt past the edge. Only
+        # SHORT one-line paragraphs (labels, dates, page numbers) are pulled in.
+        from exactdoc.infer import para_from_lines
+        ln = Line(spans=[_span("Dated: August 12, 2024. NW, Washington", 240.0,
+                               570.4, 300.0)],
+                  bbox=(240.0, 290.0, 570.4, 300.0))
+        p = para_from_lines([ln], 55.0, 561.3)
+        self.assertEqual(p.left_indent, 185.0)
 
     def test_ordinary_indent_is_untouched(self):
         from exactdoc.infer import para_from_lines
