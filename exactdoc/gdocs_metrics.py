@@ -52,10 +52,17 @@ def iter_runs(lay: DocLayout):
                 _runs_in_element(el, out)
     if lay.cover_band is not None:
         _runs_in_table(lay.cover_band, out)
-    for part in (lay.header_default, lay.header_first,
-                 lay.footer_default, lay.footer_first):
-        if part is None:
+    parts = [lay.header_default, lay.header_first, lay.header_even,
+             lay.footer_default, lay.footer_first, lay.footer_even]
+    for sec in getattr(lay, "hf_sections", None) or ():
+        if sec.parts:                  # running-head sections' own parts
+            parts += list(sec.parts.values())
+    seen = set()
+    for part in parts:
+        # a section may reuse the document's part object: visit it once
+        if part is None or id(part) in seen:
             continue
+        seen.add(id(part))
         for el in part.elements:
             _runs_in_element(el, out)
     return out

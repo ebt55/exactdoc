@@ -230,5 +230,71 @@ class PackagedGdocsTests(unittest.TestCase):
                              ("service", source, os.path.join(work, "gd.pdf")))
 
 
+
+class LargeUploadIsResumable(unittest.TestCase):
+    def test_a_docx_over_the_simple_upload_limit_goes_up_resumably(self):
+        from exactdoc import gdocs as G
+        seen = []
+
+        def media(path, **kwargs):
+            seen.append((os.path.basename(path), kwargs["resumable"]))
+            raise RuntimeError("stop after the media is built")
+
+        with tempfile.TemporaryDirectory() as work:
+            for name, size in (("small.docx", 1024),
+                               ("large.docx", G.SIMPLE_UPLOAD_MAX + 1)):
+                path = os.path.join(work, name)
+                with open(path, "wb") as fh:
+                    fh.truncate(size)
+                with self.assertRaises(G.OracleUploadError):
+                    G.roundtrip(object(), path, os.path.join(work, "o.pdf"),
+                                media_factory=media)
+        self.assertEqual(seen, [("small.docx", False), ("large.docx", True)])
+
+class ExportLinkFallback(unittest.TestCase):
+    """files.export caps at 10 MB; past it Google answers 403 and the Doc's own
+    export link carries the PDF (y06, 2026-10-04). Nothing else falls back."""
+
+    def _svc(self, error):
+        calls = []
+
+        class Http:
+            def request(self, url):
+                calls.append(("link", url))
+                return type("R", (), {"status": 200})(), b"%PDF-big"
+
+        class Req:
+            def __init__(self, value=None, err=None):
+                self.value, self.err = value, err
+
+            def execute(self):
+                if self.err:
+                    raise self.err
+                return self.value
+
+        class Files:
+            def export(self, **_k):
+                calls.append(("export",))
+                return Req(None, error)
+
+            def get(self, **_k):
+                calls.append(("get",))
+                return Req({"exportLinks": {"application/pdf": "https://x/pdf"}})
+
+        svc = type("Svc", (), {"files": lambda self: Files(), "_http": Http()})()
+        return svc, calls
+
+    def test_a_too_large_export_is_fetched_through_the_export_link(self):
+        svc, calls = self._svc(RuntimeError("403: This file is too large to be exported."))
+        self.assertEqual(gdocs._export_pdf(svc, "fid"), b"%PDF-big")
+        self.assertEqual(calls, [("export",), ("get",), ("link", "https://x/pdf")])
+
+    def test_any_other_export_error_is_raised(self):
+        svc, calls = self._svc(RuntimeError("500 backend error"))
+        with self.assertRaises(RuntimeError):
+            gdocs._export_pdf(svc, "fid")
+        self.assertEqual(calls, [("export",)])
+
+
 if __name__ == "__main__":
     unittest.main()

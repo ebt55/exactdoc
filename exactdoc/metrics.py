@@ -213,6 +213,40 @@ def get_metrics(name: Optional[str] = None) -> TextMetrics:
                      "'mupdf')" % name)
 
 
+class RendererMetrics:
+    """A shaper, plus whether the target renderer honours run tracking.
+
+    Google Docs discards w:spacing: live pass 2 measured it, and on 2026-10-04
+    x10's DOCX exported identical PDFs with its tracking as written, removed,
+    and multiplied by ten. Text predicted for Docs must therefore be shaped at
+    its natural advances and cannot be fitted by compressing it -- the ladder
+    reads `honours_tracking` for both (see `for_profile`).
+    """
+
+    def __init__(self, base, honours_tracking: bool):
+        self._base = base
+        self.honours_tracking = honours_tracking
+
+    def text_width(self, *args, **kwargs):
+        return self._base.text_width(*args, **kwargs)
+
+    def __getattr__(self, name):
+        return getattr(self._base, name)
+
+
+def for_profile(metrics, output_profile: str):
+    """`metrics` as the output profile's renderer will set the text."""
+    from .fonts import GDOCS_HONOURS_RUN_TRACKING
+    if metrics is not None and output_profile == "gdocs" and \
+            not GDOCS_HONOURS_RUN_TRACKING:
+        return RendererMetrics(metrics, honours_tracking=False)
+    return metrics
+
+
+def honours_tracking(metrics) -> bool:
+    return getattr(metrics, "honours_tracking", True)
+
+
 # ------------------------------------------------- matching the source's widths
 # OOXML can only state a font size in half-points and the substitute family is
 # rarely the source's own, so a run written as-is draws at a different width

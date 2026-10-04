@@ -1,0 +1,1734 @@
+{
+ "schema": 1,
+ "date": "2026-10-04",
+ "kind": "gdocs-live-sweep",
+ "tree": "4de1865 (gdocs real lists), candidate profile pdfium/gdocs/none/refine0@240dpi",
+ "method": "every expansion document converted with the gdocs candidate, uploaded to Google Docs, exported by Google as PDF, scored against the source with testkit/harness.evaluate and quality_sweep.char_recall; the same profile's DOCX rendered by the canonical LibreOffice (quality_sweep --profile gdocs) for comparison",
+ "summary": {
+  "documents_compared": 73,
+  "page_exact": {
+   "gdocs": 26,
+   "libreoffice": 25
+  },
+  "mean_word_recall": {
+   "gdocs": 0.5013,
+   "libreoffice": 0.5019
+  }
+ },
+ "findings": [
+  "Docs and LibreOffice agree on average over the real-world corpus: real-world failures are mostly the converter's, not Docs'",
+  "Docs-only defects found: tab leaders not drawn (x02 contents dots), w:spacing discarded (x10; ladder compression lost on y12/y13/y18/y26), large-DOCX upload/export limits (y06)",
+  "y06 errored here on the 5 MB simple-upload limit; fixed in a4fca48 and since round-tripped (189 pages)"
+ ],
+ "documents": {
+  "y28_doe_oig_word365.pdf": {
+   "gdocs": {
+    "src_pages": 21,
+    "out_pages": 28,
+    "page_match": false,
+    "word_recall": 0.2553,
+    "char_recall": 0.6068,
+    "dy_p50": 72.21,
+    "within2pt": 0.0096,
+    "mean_ssim": 0.414,
+    "live_text_cov": 0.972
+   },
+   "libreoffice_canonical": {
+    "src_pages": 21,
+    "out_pages": 40,
+    "word_recall": 0.1656,
+    "char_recall": 0.3692,
+    "dy_p50": 59.78,
+    "within2pt": 0.0158,
+    "mean_ssim": 0.3107,
+    "live_text_cov": 0.972
+   }
+  },
+  "x01_lo_memo_pageno.pdf": {
+   "gdocs": {
+    "src_pages": 3,
+    "out_pages": 3,
+    "page_match": true,
+    "word_recall": 0.9969,
+    "char_recall": 1.0,
+    "dy_p50": 1.62,
+    "within2pt": 0.3129,
+    "mean_ssim": 0.8542,
+    "live_text_cov": 0.9673
+   },
+   "libreoffice_canonical": {
+    "src_pages": 3,
+    "out_pages": 3,
+    "word_recall": 0.9969,
+    "char_recall": 1.0,
+    "dy_p50": 1.75,
+    "within2pt": 0.296,
+    "mean_ssim": 0.8396,
+    "live_text_cov": 0.9673
+   }
+  },
+  "x02_lo_report_toc.pdf": {
+   "gdocs": {
+    "src_pages": 4,
+    "out_pages": 4,
+    "page_match": true,
+    "word_recall": 0.9778,
+    "char_recall": 0.7659,
+    "dy_p50": 1.1,
+    "within2pt": 0.7747,
+    "mean_ssim": 0.892,
+    "live_text_cov": 0.7409
+   },
+   "libreoffice_canonical": {
+    "src_pages": 4,
+    "out_pages": 4,
+    "word_recall": 1.0,
+    "char_recall": 1.0,
+    "dy_p50": 2.45,
+    "within2pt": 0.2816,
+    "mean_ssim": 0.862,
+    "live_text_cov": 0.7409
+   }
+  },
+  "x03_lo_lists_nested.pdf": {
+   "gdocs": {
+    "src_pages": 2,
+    "out_pages": 2,
+    "page_match": true,
+    "word_recall": 0.9062,
+    "char_recall": 0.9905,
+    "dy_p50": 2.12,
+    "within2pt": 0.2974,
+    "mean_ssim": 0.9187,
+    "live_text_cov": 0.9523
+   },
+   "libreoffice_canonical": {
+    "src_pages": 2,
+    "out_pages": 2,
+    "word_recall": 0.9492,
+    "char_recall": 0.9905,
+    "dy_p50": 2.3,
+    "within2pt": 0.1564,
+    "mean_ssim": 0.9058,
+    "live_text_cov": 0.9523
+   }
+  },
+  "x04_lo_tables_plain.pdf": {
+   "gdocs": {
+    "src_pages": 1,
+    "out_pages": 1,
+    "page_match": true,
+    "word_recall": 0.941,
+    "char_recall": 1.0,
+    "dy_p50": 1.99,
+    "within2pt": 0.2863,
+    "mean_ssim": 0.7328,
+    "live_text_cov": 1.0
+   },
+   "libreoffice_canonical": {
+    "src_pages": 1,
+    "out_pages": 1,
+    "word_recall": 1.0,
+    "char_recall": 1.0,
+    "dy_p50": 1.5,
+    "within2pt": 0.4613,
+    "mean_ssim": 0.8043,
+    "live_text_cov": 1.0
+   }
+  },
+  "x05_lo_quotes_notes.pdf": {
+   "gdocs": {
+    "src_pages": 1,
+    "out_pages": 1,
+    "page_match": true,
+    "word_recall": 0.9928,
+    "char_recall": 1.0,
+    "dy_p50": 1.6,
+    "within2pt": 0.7847,
+    "mean_ssim": 0.8354,
+    "live_text_cov": 1.0
+   },
+   "libreoffice_canonical": {
+    "src_pages": 1,
+    "out_pages": 1,
+    "word_recall": 1.0,
+    "char_recall": 1.0,
+    "dy_p50": 2.6,
+    "within2pt": 0.0652,
+    "mean_ssim": 0.8055,
+    "live_text_cov": 1.0
+   }
+  },
+  "x06_lo_euro_scripts.pdf": {
+   "gdocs": {
+    "src_pages": 1,
+    "out_pages": 1,
+    "page_match": true,
+    "word_recall": 1.0,
+    "char_recall": 1.0,
+    "dy_p50": 2.13,
+    "within2pt": 0.3398,
+    "mean_ssim": 0.854,
+    "live_text_cov": 1.0
+   },
+   "libreoffice_canonical": {
+    "src_pages": 1,
+    "out_pages": 1,
+    "word_recall": 1.0,
+    "char_recall": 1.0,
+    "dy_p50": 3.45,
+    "within2pt": 0.1262,
+    "mean_ssim": 0.831,
+    "live_text_cov": 1.0
+   }
+  },
+  "x07_chrome_memo_running.pdf": {
+   "gdocs": {
+    "src_pages": 3,
+    "out_pages": 3,
+    "page_match": true,
+    "word_recall": 0.9917,
+    "char_recall": 1.0,
+    "dy_p50": 16.23,
+    "within2pt": 0.0144,
+    "mean_ssim": 0.7279,
+    "live_text_cov": 0.9898
+   },
+   "libreoffice_canonical": {
+    "src_pages": 3,
+    "out_pages": 3,
+    "word_recall": 0.9917,
+    "char_recall": 1.0,
+    "dy_p50": 3.73,
+    "within2pt": 0.0899,
+    "mean_ssim": 0.7533,
+    "live_text_cov": 0.9898
+   }
+  },
+  "x08_chrome_print_default.pdf": {
+   "gdocs": {
+    "src_pages": 2,
+    "out_pages": 2,
+    "page_match": true,
+    "word_recall": 0.9945,
+    "char_recall": 1.0,
+    "dy_p50": 30.12,
+    "within2pt": 0.0083,
+    "mean_ssim": 0.6374,
+    "live_text_cov": 0.9767
+   },
+   "libreoffice_canonical": {
+    "src_pages": 2,
+    "out_pages": 2,
+    "word_recall": 1.0,
+    "char_recall": 1.0,
+    "dy_p50": 1.2,
+    "within2pt": 0.36,
+    "mean_ssim": 0.7671,
+    "live_text_cov": 0.9767
+   }
+  },
+  "x09_chrome_lists_nested.pdf": {
+   "gdocs": {
+    "src_pages": 2,
+    "out_pages": 2,
+    "page_match": true,
+    "word_recall": 1.0,
+    "char_recall": 1.0,
+    "dy_p50": 17.31,
+    "within2pt": 0.0293,
+    "mean_ssim": 0.8816,
+    "live_text_cov": 0.9789
+   },
+   "libreoffice_canonical": {
+    "src_pages": 2,
+    "out_pages": 2,
+    "word_recall": 0.9707,
+    "char_recall": 1.0,
+    "dy_p50": 3.5,
+    "within2pt": 0.069,
+    "mean_ssim": 0.8834,
+    "live_text_cov": 0.9789
+   }
+  },
+  "x10_chrome_tables_plain.pdf": {
+   "gdocs": {
+    "src_pages": 2,
+    "out_pages": 2,
+    "page_match": true,
+    "word_recall": 0.944,
+    "char_recall": 1.0,
+    "dy_p50": 13.1,
+    "within2pt": 0.0237,
+    "mean_ssim": 0.8118,
+    "live_text_cov": 1.0
+   },
+   "libreoffice_canonical": {
+    "src_pages": 2,
+    "out_pages": 2,
+    "word_recall": 1.0,
+    "char_recall": 1.0,
+    "dy_p50": 1.85,
+    "within2pt": 0.4776,
+    "mean_ssim": 0.8781,
+    "live_text_cov": 1.0
+   }
+  },
+  "x11_chrome_toc_headings.pdf": {
+   "gdocs": {
+    "src_pages": 2,
+    "out_pages": 2,
+    "page_match": true,
+    "word_recall": 0.9874,
+    "char_recall": 1.0,
+    "dy_p50": 21.26,
+    "within2pt": 0.0145,
+    "mean_ssim": 0.7036,
+    "live_text_cov": 1.0
+   },
+   "libreoffice_canonical": {
+    "src_pages": 2,
+    "out_pages": 2,
+    "word_recall": 0.9713,
+    "char_recall": 1.0,
+    "dy_p50": 6.75,
+    "within2pt": 0.0573,
+    "mean_ssim": 0.7257,
+    "live_text_cov": 1.0
+   }
+  },
+  "x12_chrome_euro_scripts.pdf": {
+   "gdocs": {
+    "src_pages": 1,
+    "out_pages": 1,
+    "page_match": true,
+    "word_recall": 1.0,
+    "char_recall": 1.0,
+    "dy_p50": 2.67,
+    "within2pt": 0.0936,
+    "mean_ssim": 0.8212,
+    "live_text_cov": 1.0
+   },
+   "libreoffice_canonical": {
+    "src_pages": 1,
+    "out_pages": 1,
+    "word_recall": 1.0,
+    "char_recall": 1.0,
+    "dy_p50": 3.15,
+    "within2pt": 0.1675,
+    "mean_ssim": 0.8142,
+    "live_text_cov": 1.0
+   }
+  },
+  "x13_rl_report_running.pdf": {
+   "gdocs": {
+    "src_pages": 2,
+    "out_pages": 2,
+    "page_match": true,
+    "word_recall": 0.9801,
+    "char_recall": 1.0,
+    "dy_p50": 0.65,
+    "within2pt": 0.4981,
+    "mean_ssim": 0.6865,
+    "live_text_cov": 0.9794
+   },
+   "libreoffice_canonical": {
+    "src_pages": 2,
+    "out_pages": 2,
+    "word_recall": 0.9963,
+    "char_recall": 1.0,
+    "dy_p50": 0.7,
+    "within2pt": 0.5823,
+    "mean_ssim": 0.7343,
+    "live_text_cov": 0.9794
+   }
+  },
+  "x14_rl_statement_lines.pdf": {
+   "gdocs": {
+    "src_pages": 1,
+    "out_pages": 1,
+    "page_match": true,
+    "word_recall": 0.7368,
+    "char_recall": 1.0,
+    "dy_p50": 1.91,
+    "within2pt": 0.4603,
+    "mean_ssim": 0.8991,
+    "live_text_cov": 1.0
+   },
+   "libreoffice_canonical": {
+    "src_pages": 1,
+    "out_pages": 1,
+    "word_recall": 0.9942,
+    "char_recall": 1.0,
+    "dy_p50": 1.13,
+    "within2pt": 0.5882,
+    "mean_ssim": 0.8888,
+    "live_text_cov": 1.0
+   }
+  },
+  "x15_rl_handbook_toc.pdf": {
+   "gdocs": {
+    "src_pages": 3,
+    "out_pages": 3,
+    "page_match": true,
+    "word_recall": 1.0,
+    "char_recall": 1.0,
+    "dy_p50": 0.41,
+    "within2pt": 0.8558,
+    "mean_ssim": 0.8798,
+    "live_text_cov": 1.0
+   },
+   "libreoffice_canonical": {
+    "src_pages": 3,
+    "out_pages": 3,
+    "word_recall": 0.9982,
+    "char_recall": 1.0,
+    "dy_p50": 1.15,
+    "within2pt": 0.8282,
+    "mean_ssim": 0.8648,
+    "live_text_cov": 1.0
+   }
+  },
+  "x16_fpdf_bulletin.pdf": {
+   "gdocs": {
+    "src_pages": 1,
+    "out_pages": 1,
+    "page_match": true,
+    "word_recall": 1.0,
+    "char_recall": 1.0,
+    "dy_p50": 2.62,
+    "within2pt": 0.013,
+    "mean_ssim": 0.71,
+    "live_text_cov": 1.0
+   },
+   "libreoffice_canonical": {
+    "src_pages": 1,
+    "out_pages": 1,
+    "word_recall": 1.0,
+    "char_recall": 1.0,
+    "dy_p50": 0.65,
+    "within2pt": 0.9067,
+    "mean_ssim": 0.8089,
+    "live_text_cov": 1.0
+   }
+  },
+  "x17_resume_twocol.pdf": {
+   "gdocs": {
+    "src_pages": 2,
+    "out_pages": 2,
+    "page_match": true,
+    "word_recall": 0.8774,
+    "char_recall": 1.0,
+    "dy_p50": 11.78,
+    "within2pt": 0.0825,
+    "mean_ssim": 0.8646,
+    "live_text_cov": 1.0
+   },
+   "libreoffice_canonical": {
+    "src_pages": 2,
+    "out_pages": 2,
+    "word_recall": 0.9526,
+    "char_recall": 1.0,
+    "dy_p50": 1.47,
+    "within2pt": 0.4269,
+    "mean_ssim": 0.89,
+    "live_text_cov": 1.0
+   }
+  },
+  "x18_resume_twocol_tnr.pdf": {
+   "gdocs": {
+    "src_pages": 2,
+    "out_pages": 2,
+    "page_match": true,
+    "word_recall": 0.8728,
+    "char_recall": 1.0,
+    "dy_p50": 11.78,
+    "within2pt": 0.0861,
+    "mean_ssim": 0.8677,
+    "live_text_cov": 1.0
+   },
+   "libreoffice_canonical": {
+    "src_pages": 2,
+    "out_pages": 2,
+    "word_recall": 0.9509,
+    "char_recall": 1.0,
+    "dy_p50": 1.47,
+    "within2pt": 0.4468,
+    "mean_ssim": 0.8934,
+    "live_text_cov": 1.0
+   }
+  },
+  "y01_nist_sp80063b.pdf": {
+   "gdocs": {
+    "src_pages": 80,
+    "out_pages": 92,
+    "page_match": false,
+    "word_recall": 0.2134,
+    "char_recall": 0.583,
+    "dy_p50": 48.48,
+    "within2pt": 0.0017,
+    "mean_ssim": 0.5017,
+    "live_text_cov": 0.8822
+   },
+   "libreoffice_canonical": {
+    "src_pages": 80,
+    "out_pages": 99,
+    "word_recall": 0.21,
+    "char_recall": 0.5675,
+    "dy_p50": 53.08,
+    "within2pt": 0.0009,
+    "mean_ssim": 0.4747,
+    "live_text_cov": 0.8822
+   }
+  },
+  "y02_nist_sp800171r2.pdf": {
+   "gdocs": {
+    "src_pages": 114,
+    "out_pages": 125,
+    "page_match": false,
+    "word_recall": 0.2334,
+    "char_recall": 0.6542,
+    "dy_p50": 50.65,
+    "within2pt": 0.0017,
+    "mean_ssim": 0.5724,
+    "live_text_cov": 0.8683
+   },
+   "libreoffice_canonical": {
+    "src_pages": 114,
+    "out_pages": 134,
+    "word_recall": 0.2164,
+    "char_recall": 0.6223,
+    "dy_p50": 50.74,
+    "within2pt": 0.002,
+    "mean_ssim": 0.5444,
+    "live_text_cov": 0.8683
+   }
+  },
+  "y03_nist_fips197.pdf": {
+   "gdocs": {
+    "src_pages": 46,
+    "out_pages": 67,
+    "page_match": false,
+    "word_recall": 0.239,
+    "char_recall": 0.4661,
+    "dy_p50": 31.19,
+    "within2pt": 0.0283,
+    "mean_ssim": 0.4969,
+    "live_text_cov": 0.9207
+   },
+   "libreoffice_canonical": {
+    "src_pages": 46,
+    "out_pages": 63,
+    "word_recall": 0.3891,
+    "char_recall": 0.5568,
+    "dy_p50": 12.16,
+    "within2pt": 0.0604,
+    "mean_ssim": 0.5253,
+    "live_text_cov": 0.9207
+   }
+  },
+  "y06_irs_1040_instructions.pdf": {
+   "gdocs": {
+    "error": "RoundtripError"
+   }
+  },
+  "y07_irs_f1040_form.pdf": {
+   "gdocs": {
+    "error": "InteractiveFormError"
+   }
+  },
+  "y08_nist_sp80088r1.pdf": {
+   "gdocs": {
+    "src_pages": 65,
+    "out_pages": 69,
+    "page_match": false,
+    "word_recall": 0.3099,
+    "char_recall": 0.7057,
+    "dy_p50": 53.68,
+    "within2pt": 0.0015,
+    "mean_ssim": 0.5523,
+    "live_text_cov": 0.9407
+   },
+   "libreoffice_canonical": {
+    "src_pages": 65,
+    "out_pages": 83,
+    "word_recall": 0.2452,
+    "char_recall": 0.6203,
+    "dy_p50": 51.76,
+    "within2pt": 0.0014,
+    "mean_ssim": 0.4745,
+    "live_text_cov": 0.9407
+   }
+  },
+  "y09_nist_sp800207.pdf": {
+   "gdocs": {
+    "src_pages": 59,
+    "out_pages": 60,
+    "page_match": false,
+    "word_recall": 0.3242,
+    "char_recall": 0.7324,
+    "dy_p50": 59.94,
+    "within2pt": 0.0003,
+    "mean_ssim": 0.5438,
+    "live_text_cov": 0.9131
+   },
+   "libreoffice_canonical": {
+    "src_pages": 59,
+    "out_pages": 61,
+    "word_recall": 0.3154,
+    "char_recall": 0.7341,
+    "dy_p50": 58.18,
+    "within2pt": 0.001,
+    "mean_ssim": 0.542,
+    "live_text_cov": 0.9131
+   }
+  },
+  "y10_nist_fips180.pdf": {
+   "gdocs": {
+    "src_pages": 36,
+    "out_pages": 43,
+    "page_match": false,
+    "word_recall": 0.4241,
+    "char_recall": 0.5834,
+    "dy_p50": 14.49,
+    "within2pt": 0.129,
+    "mean_ssim": 0.6595,
+    "live_text_cov": 0.7868
+   },
+   "libreoffice_canonical": {
+    "src_pages": 36,
+    "out_pages": 43,
+    "word_recall": 0.429,
+    "char_recall": 0.7463,
+    "dy_p50": 6.35,
+    "within2pt": 0.2083,
+    "mean_ssim": 0.6685,
+    "live_text_cov": 0.7862
+   }
+  },
+  "y11_nist_sp80053r5_overcap.pdf": {
+   "gdocs": {
+    "error": "PageLimitError"
+   }
+  },
+  "y12_irs_pub15.pdf": {
+   "gdocs": {
+    "src_pages": 59,
+    "out_pages": 87,
+    "page_match": false,
+    "word_recall": 0.2766,
+    "char_recall": 0.6379,
+    "dy_p50": 48.9,
+    "within2pt": 0.0006,
+    "mean_ssim": 0.252,
+    "live_text_cov": 0.979
+   },
+   "libreoffice_canonical": {
+    "src_pages": 59,
+    "out_pages": 84,
+    "word_recall": 0.3096,
+    "char_recall": 0.7021,
+    "dy_p50": 47.05,
+    "within2pt": 0.0008,
+    "mean_ssim": 0.2487,
+    "live_text_cov": 0.979
+   }
+  },
+  "y13_irs_pub501.pdf": {
+   "gdocs": {
+    "src_pages": 31,
+    "out_pages": 70,
+    "page_match": false,
+    "word_recall": 0.1934,
+    "char_recall": 0.4065,
+    "dy_p50": 36.26,
+    "within2pt": 0.001,
+    "mean_ssim": 0.1926,
+    "live_text_cov": 0.9706
+   },
+   "libreoffice_canonical": {
+    "src_pages": 31,
+    "out_pages": 61,
+    "word_recall": 0.1989,
+    "char_recall": 0.4235,
+    "dy_p50": 36.98,
+    "within2pt": 0.0014,
+    "mean_ssim": 0.2222,
+    "live_text_cov": 0.9706
+   }
+  },
+  "y14_irs_fw9_form.pdf": {
+   "gdocs": {
+    "error": "InteractiveFormError"
+   }
+  },
+  "y17_rfc9110.pdf": {
+   "gdocs": {
+    "src_pages": 194,
+    "out_pages": 212,
+    "page_match": false,
+    "word_recall": 0.5478,
+    "char_recall": 0.8325,
+    "dy_p50": 15.69,
+    "within2pt": 0.0103,
+    "mean_ssim": 0.5657,
+    "live_text_cov": 0.9643
+   },
+   "libreoffice_canonical": {
+    "src_pages": 194,
+    "out_pages": 204,
+    "word_recall": 0.8874,
+    "char_recall": 0.9425,
+    "dy_p50": 31.85,
+    "within2pt": 0.0014,
+    "mean_ssim": 0.6114,
+    "live_text_cov": 0.9643
+   }
+  },
+  "y18_eurlex_ai_act.pdf": {
+   "gdocs": {
+    "src_pages": 144,
+    "out_pages": 268,
+    "page_match": false,
+    "word_recall": 0.2338,
+    "char_recall": 0.4939,
+    "dy_p50": 39.73,
+    "within2pt": 0.0015,
+    "mean_ssim": 0.3058,
+    "live_text_cov": 0.9653
+   },
+   "libreoffice_canonical": {
+    "src_pages": 144,
+    "out_pages": 262,
+    "word_recall": 0.2363,
+    "char_recall": 0.5034,
+    "dy_p50": 37.55,
+    "within2pt": 0.0017,
+    "mean_ssim": 0.3131,
+    "live_text_cov": 0.9653
+   }
+  },
+  "y19_scotus_loper.pdf": {
+   "gdocs": {
+    "src_pages": 114,
+    "out_pages": 114,
+    "page_match": true,
+    "word_recall": 0.9514,
+    "char_recall": 0.9954,
+    "dy_p50": 14.2,
+    "within2pt": 0.0209,
+    "mean_ssim": 0.7565,
+    "live_text_cov": 0.9842
+   },
+   "libreoffice_canonical": {
+    "src_pages": 114,
+    "out_pages": 114,
+    "word_recall": 0.9508,
+    "char_recall": 0.9954,
+    "dy_p50": 14.01,
+    "within2pt": 0.0247,
+    "mean_ssim": 0.749,
+    "live_text_cov": 0.9842
+   }
+  },
+  "y20_typst_report.pdf": {
+   "gdocs": {
+    "src_pages": 5,
+    "out_pages": 5,
+    "page_match": true,
+    "word_recall": 0.9983,
+    "char_recall": 1.0,
+    "dy_p50": 11.72,
+    "within2pt": 0.0084,
+    "mean_ssim": 0.7876,
+    "live_text_cov": 1.0
+   },
+   "libreoffice_canonical": {
+    "src_pages": 5,
+    "out_pages": 5,
+    "word_recall": 1.0,
+    "char_recall": 1.0,
+    "dy_p50": 27.18,
+    "within2pt": 0.0176,
+    "mean_ssim": 0.7928,
+    "live_text_cov": 1.0
+   }
+  },
+  "y21_worldbank_wdr24.pdf": {
+   "gdocs": {
+    "src_pages": 48,
+    "out_pages": 69,
+    "page_match": false,
+    "word_recall": 0.1524,
+    "char_recall": 0.474,
+    "dy_p50": 74.67,
+    "within2pt": 0.0007,
+    "mean_ssim": 0.4196,
+    "live_text_cov": 0.9116
+   },
+   "libreoffice_canonical": {
+    "src_pages": 48,
+    "out_pages": 68,
+    "word_recall": 0.1572,
+    "char_recall": 0.5112,
+    "dy_p50": 64.31,
+    "within2pt": 0.0003,
+    "mean_ssim": 0.4238,
+    "live_text_cov": 0.9116
+   }
+  },
+  "y22_lshort.pdf": {
+   "gdocs": {
+    "src_pages": 153,
+    "out_pages": 182,
+    "page_match": false,
+    "word_recall": 0.3201,
+    "char_recall": 0.6343,
+    "dy_p50": 34.0,
+    "within2pt": 0.0056,
+    "mean_ssim": 0.6239,
+    "live_text_cov": 0.9759
+   },
+   "libreoffice_canonical": {
+    "src_pages": 153,
+    "out_pages": 232,
+    "word_recall": 0.2041,
+    "char_recall": 0.4758,
+    "dy_p50": 40.58,
+    "within2pt": 0.0282,
+    "mean_ssim": 0.5053,
+    "live_text_cov": 0.9759
+   }
+  },
+  "y23_luatex.pdf": {
+   "gdocs": {
+    "error": "PageLimitError"
+   }
+  },
+  "y24_pandoc_manual.pdf": {
+   "gdocs": {
+    "src_pages": 180,
+    "out_pages": 168,
+    "page_match": false,
+    "word_recall": 0.6029,
+    "char_recall": 0.8,
+    "dy_p50": 6.99,
+    "within2pt": 0.0418,
+    "mean_ssim": 0.7033,
+    "live_text_cov": 0.9867
+   },
+   "libreoffice_canonical": {
+    "src_pages": 180,
+    "out_pages": 169,
+    "word_recall": 0.3884,
+    "char_recall": 0.7421,
+    "dy_p50": 19.33,
+    "within2pt": 0.0275,
+    "mean_ssim": 0.6889,
+    "live_text_cov": 0.9867
+   }
+  },
+  "y25_texbytopic.pdf": {
+   "gdocs": {
+    "error": "PageLimitError"
+   }
+  },
+  "y26_bash_reference.pdf": {
+   "gdocs": {
+    "src_pages": 214,
+    "out_pages": 219,
+    "page_match": false,
+    "word_recall": 0.5589,
+    "char_recall": 0.8319,
+    "dy_p50": 22.72,
+    "within2pt": 0.0244,
+    "mean_ssim": 0.6058,
+    "live_text_cov": 0.9838
+   },
+   "libreoffice_canonical": {
+    "src_pages": 214,
+    "out_pages": 224,
+    "word_recall": 0.3203,
+    "char_recall": 0.7492,
+    "dy_p50": 23.18,
+    "within2pt": 0.0358,
+    "mean_ssim": 0.5987,
+    "live_text_cov": 0.9838
+   }
+  },
+  "y27_rfc9000.pdf": {
+   "gdocs": {
+    "src_pages": 151,
+    "out_pages": 158,
+    "page_match": false,
+    "word_recall": 0.366,
+    "char_recall": 0.7816,
+    "dy_p50": 41.11,
+    "within2pt": 0.0154,
+    "mean_ssim": 0.5636,
+    "live_text_cov": 0.9542
+   },
+   "libreoffice_canonical": {
+    "src_pages": 151,
+    "out_pages": 156,
+    "word_recall": 0.3827,
+    "char_recall": 0.7935,
+    "dy_p50": 51.61,
+    "within2pt": 0.0007,
+    "mean_ssim": 0.6016,
+    "live_text_cov": 0.9542
+   }
+  },
+  "y29_uk_letter_word365.pdf": {
+   "gdocs": {
+    "src_pages": 4,
+    "out_pages": 4,
+    "page_match": true,
+    "word_recall": 0.9984,
+    "char_recall": 1.0,
+    "dy_p50": 14.82,
+    "within2pt": 0.1003,
+    "mean_ssim": 0.6718,
+    "live_text_cov": 0.9994
+   },
+   "libreoffice_canonical": {
+    "src_pages": 4,
+    "out_pages": 4,
+    "word_recall": 1.0,
+    "char_recall": 1.0,
+    "dy_p50": 16.49,
+    "within2pt": 0.108,
+    "mean_ssim": 0.6775,
+    "live_text_cov": 0.9994
+   }
+  },
+  "y30_nz_guideline_word365.pdf": {
+   "gdocs": {
+    "src_pages": 33,
+    "out_pages": 35,
+    "page_match": false,
+    "word_recall": 0.3895,
+    "char_recall": 0.6743,
+    "dy_p50": 34.02,
+    "within2pt": 0.04,
+    "mean_ssim": 0.6288,
+    "live_text_cov": 0.8735
+   },
+   "libreoffice_canonical": {
+    "src_pages": 33,
+    "out_pages": 35,
+    "word_recall": 0.4294,
+    "char_recall": 0.7429,
+    "dy_p50": 19.37,
+    "within2pt": 0.0212,
+    "mean_ssim": 0.6268,
+    "live_text_cov": 0.8735
+   }
+  },
+  "y31_uk_policy_printtopdf.pdf": {
+   "gdocs": {
+    "src_pages": 18,
+    "out_pages": 19,
+    "page_match": false,
+    "word_recall": 0.2971,
+    "char_recall": 0.6198,
+    "dy_p50": 73.45,
+    "within2pt": 0.001,
+    "mean_ssim": 0.7341,
+    "live_text_cov": 0.9967
+   },
+   "libreoffice_canonical": {
+    "src_pages": 18,
+    "out_pages": 19,
+    "word_recall": 0.2971,
+    "char_recall": 0.6198,
+    "dy_p50": 72.98,
+    "within2pt": 0.001,
+    "mean_ssim": 0.7341,
+    "live_text_cov": 0.9967
+   }
+  },
+  "y32_uk_response_gdocs.pdf": {
+   "gdocs": {
+    "src_pages": 37,
+    "out_pages": 35,
+    "page_match": false,
+    "word_recall": 0.2573,
+    "char_recall": 0.6247,
+    "dy_p50": 118.78,
+    "within2pt": 0.0,
+    "mean_ssim": 0.7137,
+    "live_text_cov": 0.9915
+   },
+   "libreoffice_canonical": {
+    "src_pages": 37,
+    "out_pages": 35,
+    "word_recall": 0.2569,
+    "char_recall": 0.6244,
+    "dy_p50": 117.31,
+    "within2pt": 0.003,
+    "mean_ssim": 0.7134,
+    "live_text_cov": 0.9915
+   }
+  },
+  "y33_nz_paper_powerpdf.pdf": {
+   "gdocs": {
+    "src_pages": 60,
+    "out_pages": 116,
+    "page_match": false,
+    "word_recall": 0.1323,
+    "char_recall": 0.375,
+    "dy_p50": 58.7,
+    "within2pt": 0.0012,
+    "mean_ssim": 0.3665,
+    "live_text_cov": 0.8242
+   },
+   "libreoffice_canonical": {
+    "src_pages": 60,
+    "out_pages": 74,
+    "word_recall": 0.2102,
+    "char_recall": 0.5689,
+    "dy_p50": 59.25,
+    "within2pt": 0.0003,
+    "mean_ssim": 0.541,
+    "live_text_cov": 0.8242
+   }
+  },
+  "y34_census_slides_pptx365.pdf": {
+   "gdocs": {
+    "src_pages": 40,
+    "out_pages": 95,
+    "page_match": false,
+    "word_recall": 0.1323,
+    "char_recall": 0.3784,
+    "dy_p50": 3.15,
+    "within2pt": 0.1849,
+    "mean_ssim": 0.3134,
+    "live_text_cov": 0.8862
+   },
+   "libreoffice_canonical": {
+    "src_pages": 40,
+    "out_pages": 97,
+    "word_recall": 0.1518,
+    "char_recall": 0.4329,
+    "dy_p50": 4.27,
+    "within2pt": 0.0789,
+    "mean_ssim": 0.3114,
+    "live_text_cov": 0.8862
+   }
+  },
+  "y35_uk_rates_excel365.pdf": {
+   "gdocs": {
+    "src_pages": 14,
+    "out_pages": 25,
+    "page_match": false,
+    "word_recall": 0.1479,
+    "char_recall": 0.4707,
+    "dy_p50": 58.48,
+    "within2pt": 0.0596,
+    "mean_ssim": 0.4793,
+    "live_text_cov": 0.9729
+   },
+   "libreoffice_canonical": {
+    "src_pages": 14,
+    "out_pages": 15,
+    "word_recall": 0.3621,
+    "char_recall": 0.7411,
+    "dy_p50": 29.84,
+    "within2pt": 0.0518,
+    "mean_ssim": 0.782,
+    "live_text_cov": 0.9729
+   }
+  },
+  "y36_lo_writer_guide.pdf": {
+   "gdocs": {
+    "src_pages": 25,
+    "out_pages": 44,
+    "page_match": false,
+    "word_recall": 0.1893,
+    "char_recall": 0.3993,
+    "dy_p50": 50.24,
+    "within2pt": 0.0178,
+    "mean_ssim": 0.374,
+    "live_text_cov": 0.7947
+   },
+   "libreoffice_canonical": {
+    "src_pages": 25,
+    "out_pages": 43,
+    "word_recall": 0.1695,
+    "char_recall": 0.3772,
+    "dy_p50": 57.74,
+    "within2pt": 0.0482,
+    "mean_ssim": 0.3751,
+    "live_text_cov": 0.7947
+   }
+  },
+  "y37_plos_one_dvipdfmx.pdf": {
+   "gdocs": {
+    "src_pages": 22,
+    "out_pages": 37,
+    "page_match": false,
+    "word_recall": 0.2242,
+    "char_recall": 0.4515,
+    "dy_p50": 48.42,
+    "within2pt": 0.0015,
+    "mean_ssim": 0.3999,
+    "live_text_cov": 0.8742
+   },
+   "libreoffice_canonical": {
+    "src_pages": 22,
+    "out_pages": 38,
+    "word_recall": 0.2181,
+    "char_recall": 0.4183,
+    "dy_p50": 36.61,
+    "within2pt": 0.0114,
+    "mean_ssim": 0.3959,
+    "live_text_cov": 0.8742
+   }
+  },
+  "y38_elife_arbortext_gs.pdf": {
+   "gdocs": {
+    "src_pages": 33,
+    "out_pages": 57,
+    "page_match": false,
+    "word_recall": 0.1838,
+    "char_recall": 0.4056,
+    "dy_p50": 51.19,
+    "within2pt": 0.0092,
+    "mean_ssim": 0.3391,
+    "live_text_cov": 0.9545
+   },
+   "libreoffice_canonical": {
+    "src_pages": 33,
+    "out_pages": 57,
+    "word_recall": 0.1876,
+    "char_recall": 0.4029,
+    "dy_p50": 49.91,
+    "within2pt": 0.0181,
+    "mean_ssim": 0.3443,
+    "live_text_cov": 0.9545
+   }
+  },
+  "y39_copernicus_npg_2col.pdf": {
+   "gdocs": {
+    "src_pages": 11,
+    "out_pages": 25,
+    "page_match": false,
+    "word_recall": 0.1948,
+    "char_recall": 0.3625,
+    "dy_p50": 44.94,
+    "within2pt": 0.0011,
+    "mean_ssim": 0.2105,
+    "live_text_cov": 0.93
+   },
+   "libreoffice_canonical": {
+    "src_pages": 11,
+    "out_pages": 28,
+    "word_recall": 0.1777,
+    "char_recall": 0.3564,
+    "dy_p50": 37.53,
+    "within2pt": 0.0012,
+    "mean_ssim": 0.1881,
+    "live_text_cov": 0.93
+   }
+  },
+  "y40_frontiers_dvips_gs.pdf": {
+   "gdocs": {
+    "src_pages": 10,
+    "out_pages": 26,
+    "page_match": false,
+    "word_recall": 0.1456,
+    "char_recall": 0.308,
+    "dy_p50": 55.92,
+    "within2pt": 0.0741,
+    "mean_ssim": 0.2643,
+    "live_text_cov": 0.887
+   },
+   "libreoffice_canonical": {
+    "src_pages": 10,
+    "out_pages": 15,
+    "word_recall": 0.2455,
+    "char_recall": 0.5041,
+    "dy_p50": 116.89,
+    "within2pt": 0.0667,
+    "mean_ssim": 0.4334,
+    "live_text_cov": 0.887
+   }
+  },
+  "y41_arxiv_ieeetran.pdf": {
+   "gdocs": {
+    "src_pages": 8,
+    "out_pages": 19,
+    "page_match": false,
+    "word_recall": 0.1591,
+    "char_recall": 0.2747,
+    "dy_p50": 20.81,
+    "within2pt": 0.0544,
+    "mean_ssim": 0.2438,
+    "live_text_cov": 0.9257
+   },
+   "libreoffice_canonical": {
+    "src_pages": 8,
+    "out_pages": 20,
+    "word_recall": 0.1587,
+    "char_recall": 0.2558,
+    "dy_p50": 15.9,
+    "within2pt": 0.024,
+    "mean_ssim": 0.235,
+    "live_text_cov": 0.9257
+   }
+  },
+  "y42_arxiv_acmart.pdf": {
+   "gdocs": {
+    "src_pages": 5,
+    "out_pages": 7,
+    "page_match": false,
+    "word_recall": 0.3195,
+    "char_recall": 0.6569,
+    "dy_p50": 58.87,
+    "within2pt": 0.0,
+    "mean_ssim": 0.3346,
+    "live_text_cov": 0.9164
+   },
+   "libreoffice_canonical": {
+    "src_pages": 5,
+    "out_pages": 7,
+    "word_recall": 0.3258,
+    "char_recall": 0.6628,
+    "dy_p50": 61.77,
+    "within2pt": 0.0,
+    "mean_ssim": 0.3243,
+    "live_text_cov": 0.9164
+   }
+  },
+  "y43_arxiv_neurips.pdf": {
+   "gdocs": {
+    "src_pages": 15,
+    "out_pages": 29,
+    "page_match": false,
+    "word_recall": 0.1851,
+    "char_recall": 0.44,
+    "dy_p50": 75.69,
+    "within2pt": 0.0008,
+    "mean_ssim": 0.3396,
+    "live_text_cov": 0.9788
+   },
+   "libreoffice_canonical": {
+    "src_pages": 15,
+    "out_pages": 31,
+    "word_recall": 0.1954,
+    "char_recall": 0.452,
+    "dy_p50": 28.61,
+    "within2pt": 0.0136,
+    "mean_ssim": 0.3234,
+    "live_text_cov": 0.9788
+   }
+  },
+  "y44_cv_rendercv_typst.pdf": {
+   "gdocs": {
+    "src_pages": 3,
+    "out_pages": 4,
+    "page_match": false,
+    "word_recall": 0.5029,
+    "char_recall": 0.5898,
+    "dy_p50": 35.89,
+    "within2pt": 0.0087,
+    "mean_ssim": 0.5454,
+    "live_text_cov": 0.9918
+   },
+   "libreoffice_canonical": {
+    "src_pages": 3,
+    "out_pages": 4,
+    "word_recall": 0.5044,
+    "char_recall": 0.59,
+    "dy_p50": 34.56,
+    "within2pt": 0.0145,
+    "mean_ssim": 0.5456,
+    "live_text_cov": 0.9918
+   }
+  },
+  "y45_cv_academic_pdftex.pdf": {
+   "gdocs": {
+    "src_pages": 3,
+    "out_pages": 3,
+    "page_match": true,
+    "word_recall": 0.9033,
+    "char_recall": 1.0,
+    "dy_p50": 4.18,
+    "within2pt": 0.0949,
+    "mean_ssim": 0.8006,
+    "live_text_cov": 0.9645
+   },
+   "libreoffice_canonical": {
+    "src_pages": 3,
+    "out_pages": 3,
+    "word_recall": 0.9964,
+    "char_recall": 1.0,
+    "dy_p50": 4.18,
+    "within2pt": 0.1136,
+    "mean_ssim": 0.799,
+    "live_text_cov": 0.9645
+   }
+  },
+  "y46_cv_twocol_xdvipdfmx.pdf": {
+   "gdocs": {
+    "src_pages": 1,
+    "out_pages": 2,
+    "page_match": false,
+    "word_recall": 0.6273,
+    "char_recall": 0.6296,
+    "dy_p50": 155.79,
+    "within2pt": 0.0097,
+    "mean_ssim": 0.3002,
+    "live_text_cov": 0.8821
+   },
+   "libreoffice_canonical": {
+    "src_pages": 1,
+    "out_pages": 2,
+    "word_recall": 0.7212,
+    "char_recall": 0.7012,
+    "dy_p50": 129.23,
+    "within2pt": 0.0,
+    "mean_ssim": 0.2874,
+    "live_text_cov": 0.8821
+   }
+  },
+  "y47_ar_ilo_word365.pdf": {
+   "gdocs": {
+    "src_pages": 57,
+    "out_pages": 89,
+    "page_match": false,
+    "word_recall": 0.1501,
+    "char_recall": 0.4642,
+    "dy_p50": 71.57,
+    "within2pt": 0.001,
+    "mean_ssim": 0.348,
+    "live_text_cov": 0.8167
+   },
+   "libreoffice_canonical": {
+    "src_pages": 57,
+    "out_pages": 90,
+    "word_recall": 0.1374,
+    "char_recall": 0.4668,
+    "dy_p50": 60.09,
+    "within2pt": 0.0019,
+    "mean_ssim": 0.3505,
+    "live_text_cov": 0.8167
+   }
+  },
+  "y48_ar_weasyprint.pdf": {
+   "gdocs": {
+    "src_pages": 7,
+    "out_pages": 11,
+    "page_match": false,
+    "word_recall": 0.1196,
+    "char_recall": 0.3894,
+    "dy_p50": 26.59,
+    "within2pt": 0.0,
+    "mean_ssim": 0.4715,
+    "live_text_cov": 0.7589
+   },
+   "libreoffice_canonical": {
+    "src_pages": 7,
+    "out_pages": 10,
+    "word_recall": 0.1509,
+    "char_recall": 0.5223,
+    "dy_p50": 29.83,
+    "within2pt": 0.0031,
+    "mean_ssim": 0.513,
+    "live_text_cov": 0.7589
+   }
+  },
+  "y49_he_word2016.pdf": {
+   "gdocs": {
+    "src_pages": 28,
+    "out_pages": 56,
+    "page_match": false,
+    "word_recall": 0.1391,
+    "char_recall": 0.4624,
+    "dy_p50": 55.04,
+    "within2pt": 0.0035,
+    "mean_ssim": 0.3123,
+    "live_text_cov": 0.9164
+   },
+   "libreoffice_canonical": {
+    "src_pages": 28,
+    "out_pages": 55,
+    "word_recall": 0.1426,
+    "char_recall": 0.4691,
+    "dy_p50": 49.58,
+    "within2pt": 0.0013,
+    "mean_ssim": 0.3088,
+    "live_text_cov": 0.9164
+   }
+  },
+  "y50_fa_word2016.pdf": {
+   "gdocs": {
+    "src_pages": 15,
+    "out_pages": 28,
+    "page_match": false,
+    "word_recall": 0.1753,
+    "char_recall": 0.4192,
+    "dy_p50": 60.97,
+    "within2pt": 0.0131,
+    "mean_ssim": 0.3664,
+    "live_text_cov": 0.8575
+   },
+   "libreoffice_canonical": {
+    "src_pages": 15,
+    "out_pages": 23,
+    "word_recall": 0.2085,
+    "char_recall": 0.4949,
+    "dy_p50": 67.73,
+    "within2pt": 0.011,
+    "mean_ssim": 0.448,
+    "live_text_cov": 0.8573
+   }
+  },
+  "y51_ja_justpdf.pdf": {
+   "gdocs": {
+    "src_pages": 12,
+    "out_pages": 23,
+    "page_match": false,
+    "word_recall": 0.4099,
+    "char_recall": 0.4143,
+    "dy_p50": 37.83,
+    "within2pt": 0.0053,
+    "mean_ssim": 0.327,
+    "live_text_cov": 1.0
+   },
+   "libreoffice_canonical": {
+    "src_pages": 12,
+    "out_pages": 14,
+    "word_recall": 0.7376,
+    "char_recall": 0.7368,
+    "dy_p50": 10.9,
+    "within2pt": 0.0049,
+    "mean_ssim": 0.4973,
+    "live_text_cov": 1.0
+   }
+  },
+  "y52_zh_tw_word365.pdf": {
+   "gdocs": {
+    "src_pages": 51,
+    "out_pages": 51,
+    "page_match": true,
+    "word_recall": 0.5796,
+    "char_recall": 0.6057,
+    "dy_p50": 25.56,
+    "within2pt": 0.0085,
+    "mean_ssim": 0.64,
+    "live_text_cov": 0.9879
+   },
+   "libreoffice_canonical": {
+    "src_pages": 51,
+    "out_pages": 54,
+    "word_recall": 0.4524,
+    "char_recall": 0.4623,
+    "dy_p50": 50.41,
+    "within2pt": 0.009,
+    "mean_ssim": 0.6025,
+    "live_text_cov": 0.9879
+   }
+  },
+  "y53_ko_word2016.pdf": {
+   "gdocs": {
+    "src_pages": 28,
+    "out_pages": 33,
+    "page_match": false,
+    "word_recall": 0.646,
+    "char_recall": 0.6488,
+    "dy_p50": 24.55,
+    "within2pt": 0.0271,
+    "mean_ssim": 0.6014,
+    "live_text_cov": 0.9371
+   },
+   "libreoffice_canonical": {
+    "src_pages": 28,
+    "out_pages": 33,
+    "word_recall": 0.6456,
+    "char_recall": 0.6487,
+    "dy_p50": 25.76,
+    "within2pt": 0.0062,
+    "mean_ssim": 0.6012,
+    "live_text_cov": 0.9371
+   }
+  },
+  "y54_hi_gdocs.pdf": {
+   "gdocs": {
+    "src_pages": 4,
+    "out_pages": 4,
+    "page_match": true,
+    "word_recall": 0.5781,
+    "char_recall": 0.891,
+    "dy_p50": 6.33,
+    "within2pt": 0.0233,
+    "mean_ssim": 0.7496,
+    "live_text_cov": 0.7166
+   },
+   "libreoffice_canonical": {
+    "src_pages": 4,
+    "out_pages": 4,
+    "word_recall": 0.0951,
+    "char_recall": 0.8769,
+    "dy_p50": 12.24,
+    "within2pt": 0.0435,
+    "mean_ssim": 0.737,
+    "live_text_cov": 0.7166
+   }
+  },
+  "y55_th_pages_quartz.pdf": {
+   "gdocs": {
+    "src_pages": 3,
+    "out_pages": 3,
+    "page_match": true,
+    "word_recall": 0.9187,
+    "char_recall": 1.0,
+    "dy_p50": 4.53,
+    "within2pt": 0.1239,
+    "mean_ssim": 0.7039,
+    "live_text_cov": 1.0
+   },
+   "libreoffice_canonical": {
+    "src_pages": 3,
+    "out_pages": 3,
+    "word_recall": 0.061,
+    "char_recall": 1.0,
+    "dy_p50": 18.46,
+    "within2pt": 0.1333,
+    "mean_ssim": 0.6628,
+    "live_text_cov": 1.0
+   }
+  },
+  "y56_scan_usda1921_lura.pdf": {
+   "gdocs": {
+    "src_pages": 10,
+    "out_pages": 19,
+    "page_match": false,
+    "word_recall": 0.1019,
+    "char_recall": 0.3188,
+    "dy_p50": 24.22,
+    "within2pt": 0.0,
+    "mean_ssim": 0.3625,
+    "live_text_cov": 0.9675
+   },
+   "libreoffice_canonical": {
+    "src_pages": 10,
+    "out_pages": 19,
+    "word_recall": 0.1019,
+    "char_recall": 0.3175,
+    "dy_p50": 19.47,
+    "within2pt": 0.0054,
+    "mean_ssim": 0.3581,
+    "live_text_cov": 0.9675
+   }
+  },
+  "y57_scan_usda1950_ia.pdf": {
+   "gdocs": {
+    "src_pages": 16,
+    "out_pages": 20,
+    "page_match": false,
+    "word_recall": 0.0768,
+    "char_recall": 0.3216,
+    "dy_p50": 36.64,
+    "within2pt": 0.007,
+    "mean_ssim": 0.6651,
+    "live_text_cov": 0.8488
+   },
+   "libreoffice_canonical": {
+    "src_pages": 16,
+    "out_pages": 32,
+    "word_recall": 0.0692,
+    "char_recall": 0.3228,
+    "dy_p50": 34.62,
+    "within2pt": 0.0078,
+    "mean_ssim": 0.341,
+    "live_text_cov": 0.8488
+   }
+  },
+  "y58_ssa_statement_indd20.pdf": {
+   "gdocs": {
+    "src_pages": 2,
+    "out_pages": 4,
+    "page_match": false,
+    "word_recall": 0.0381,
+    "char_recall": 0.0568,
+    "dy_p50": 94.18,
+    "within2pt": 0.0,
+    "mean_ssim": 0.2505,
+    "live_text_cov": 0.1195
+   },
+   "libreoffice_canonical": {
+    "src_pages": 2,
+    "out_pages": 4,
+    "word_recall": 0.0381,
+    "char_recall": 0.0568,
+    "dy_p50": 92.09,
+    "within2pt": 0.0,
+    "mean_ssim": 0.2488,
+    "live_text_cov": 0.1195
+   }
+  },
+  "y59_cms_notice_inddcs4.pdf": {
+   "gdocs": {
+    "src_pages": 6,
+    "out_pages": 17,
+    "page_match": false,
+    "word_recall": 0.091,
+    "char_recall": 0.2108,
+    "dy_p50": 36.83,
+    "within2pt": 0.0613,
+    "mean_ssim": 0.2401,
+    "live_text_cov": 0.791
+   },
+   "libreoffice_canonical": {
+    "src_pages": 6,
+    "out_pages": 18,
+    "word_recall": 0.0773,
+    "char_recall": 0.1975,
+    "dy_p50": 24.71,
+    "within2pt": 0.0611,
+    "mean_ssim": 0.2353,
+    "live_text_cov": 0.791
+   }
+  },
+  "y60_cdc_mmwr_indd19.pdf": {
+   "gdocs": {
+    "src_pages": 24,
+    "out_pages": 41,
+    "page_match": false,
+    "word_recall": 0.1992,
+    "char_recall": 0.51,
+    "dy_p50": 106.7,
+    "within2pt": 0.0234,
+    "mean_ssim": 0.2823,
+    "live_text_cov": 0.9403
+   },
+   "libreoffice_canonical": {
+    "src_pages": 24,
+    "out_pages": 37,
+    "word_recall": 0.2216,
+    "char_recall": 0.5724,
+    "dy_p50": 61.12,
+    "within2pt": 0.0273,
+    "mean_ssim": 0.3219,
+    "live_text_cov": 0.9403
+   }
+  },
+  "y61_fedreg_gpo_3col.pdf": {
+   "gdocs": {
+    "src_pages": 4,
+    "out_pages": 10,
+    "page_match": false,
+    "word_recall": 0.3222,
+    "char_recall": 0.414,
+    "dy_p50": 50.33,
+    "within2pt": 0.0067,
+    "mean_ssim": 0.1475,
+    "live_text_cov": 0.9427
+   },
+   "libreoffice_canonical": {
+    "src_pages": 4,
+    "out_pages": 7,
+    "word_recall": 0.3884,
+    "char_recall": 0.5584,
+    "dy_p50": 52.94,
+    "within2pt": 0.0062,
+    "mean_ssim": 0.1984,
+    "live_text_cov": 0.9427
+   }
+  },
+  "y62_bill_gpo_linenum.pdf": {
+   "gdocs": {
+    "src_pages": 20,
+    "out_pages": 27,
+    "page_match": false,
+    "word_recall": 0.3086,
+    "char_recall": 0.5412,
+    "dy_p50": 48.3,
+    "within2pt": 0.0684,
+    "mean_ssim": 0.6024,
+    "live_text_cov": 0.8056
+   },
+   "libreoffice_canonical": {
+    "src_pages": 20,
+    "out_pages": 27,
+    "word_recall": 0.3094,
+    "char_recall": 0.5412,
+    "dy_p50": 48.57,
+    "within2pt": 0.0691,
+    "mean_ssim": 0.6024,
+    "live_text_cov": 0.8056
+   }
+  },
+  "y63_court_pleading_word365.pdf": {
+   "gdocs": {
+    "src_pages": 5,
+    "out_pages": 9,
+    "page_match": false,
+    "word_recall": 0.2859,
+    "char_recall": 0.5973,
+    "dy_p50": 43.38,
+    "within2pt": 0.0116,
+    "mean_ssim": 0.3344,
+    "live_text_cov": 0.9108
+   },
+   "libreoffice_canonical": {
+    "src_pages": 5,
+    "out_pages": 9,
+    "word_recall": 0.2859,
+    "char_recall": 0.5973,
+    "dy_p50": 42.07,
+    "within2pt": 0.0116,
+    "mean_ssim": 0.3499,
+    "live_text_cov": 0.9106
+   }
+  },
+  "y64_bls_release_xpp.pdf": {
+   "gdocs": {
+    "src_pages": 39,
+    "out_pages": 46,
+    "page_match": false,
+    "word_recall": 0.0638,
+    "char_recall": 0.5035,
+    "dy_p50": 44.29,
+    "within2pt": 0.0016,
+    "mean_ssim": 0.4938,
+    "live_text_cov": 0.9659
+   },
+   "libreoffice_canonical": {
+    "src_pages": 39,
+    "out_pages": 47,
+    "word_recall": 0.1296,
+    "char_recall": 0.5498,
+    "dy_p50": 13.63,
+    "within2pt": 0.0113,
+    "mean_ssim": 0.4816,
+    "live_text_cov": 0.9659
+   }
+  },
+  "y65_nrc_jasperreports.pdf": {
+   "gdocs": {
+    "src_pages": 3,
+    "out_pages": 3,
+    "page_match": true,
+    "word_recall": 1.0,
+    "char_recall": 1.0,
+    "dy_p50": 7.83,
+    "within2pt": 0.1245,
+    "mean_ssim": 0.8446,
+    "live_text_cov": 0.9913
+   },
+   "libreoffice_canonical": {
+    "src_pages": 3,
+    "out_pages": 3,
+    "word_recall": 1.0,
+    "char_recall": 1.0,
+    "dy_p50": 7.42,
+    "within2pt": 0.1452,
+    "mean_ssim": 0.8498,
+    "live_text_cov": 0.9913
+   }
+  }
+ }
+}

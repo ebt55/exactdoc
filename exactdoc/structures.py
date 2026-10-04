@@ -76,14 +76,22 @@ def strip_marker(runs: List[Run], item: ListItem) -> Optional[List[Run]]:
     return out[i:]
 
 
-def numbering_plan(lay: DocLayout) -> Dict[int, ListDef]:
+def numbering_plan(lay: DocLayout, tab_only: bool = False) -> Dict[int, ListDef]:
     """{list_id: ListDef} for the lists every item of which can be written.
 
     A list is all or nothing: if one item's runs no longer open with its
     marker, the renderer's counter would skip that item and misnumber every
     item after it, so the whole list keeps its typed form.
+
+    `tab_only` keeps typed every list with a level whose separator is not a
+    tab. Google Docs does not honour `w:suff space`/`nothing`: it draws a tab
+    where the space was, setting the text about half an inch past the label's
+    indent, so a run-in "1. text" item lands 9-26pt right of the source (live, 2026-10-04: c1_whitepaper's
+    recommendations 79.6 -> 106.0pt, the nested probe's justified items 97.7
+    -> 106.9pt), while tab-separated levels render where the typed form did.
     """
-    ok = {ld.list_id: ld for ld in lay.lists}
+    ok = {ld.list_id: ld for ld in lay.lists
+          if not tab_only or all(lvl.sep == "tab" for lvl in ld.levels.values())}
     for pg in lay.pages:
         for els in page_sequences(pg):
             for el in els:

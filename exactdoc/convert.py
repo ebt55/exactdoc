@@ -193,7 +193,9 @@ def convert_result(pdf_path: str, out_path: Optional[str] = None,
         # the AGPL extra was installed -- so the shipped default and the
         # measured configuration were different products. It now takes the
         # default shaper, which every install has and which needs no extra.
-        rep = apply_ladder(lay, metrics=get_metrics())
+        from .metrics import for_profile
+        rep = apply_ladder(lay, metrics=for_profile(get_metrics(),
+                                                    opts.output_profile))
         lay.ladder_report = rep
         if opts.verbose:
             print("  ladder: " + summarise(rep))
