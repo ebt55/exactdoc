@@ -659,7 +659,7 @@ def _score(m):
 def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
            rounds: int = 2, verbose: bool = False, render=None,
            output_profile: str = "standard", backend=None,
-           image_report=None, report=None) -> str:
+           image_report=None, report=None, progress=None) -> str:
     """Write `lay`, then correct it against real renders. Returns out_path.
 
     `render(docx_path, tmp_dir) -> pdf_path | None` selects the oracle. It
@@ -679,6 +679,10 @@ def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
     `report`, when given, is cleared and filled with what the loop did: each
     round's measurement and timings, which round was published, why the loop
     stopped, the levers it spent, and any oracle failure. Content-free.
+
+    `progress`, when given, is called as `progress("refine", {"round": r,
+    "rounds": n})` as each render round begins (`n` is the most the loop will
+    run; it often stops sooner). Observes only -- see `convert_result`.
 
     **Cost.** Measured on y01 (80 pages) in the canonical container, the loop
     was 87s against ~10s open-loop: 58s reading text back out of PDFs (the
@@ -762,6 +766,8 @@ def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
         td = workspace.path
         try:
             for rnd in range(rounds + 1):
+                if progress is not None:
+                    progress("refine", {"round": rnd, "rounds": rounds + 1})
                 row = {"round": rnd}
                 # what this round's candidate carries, for the report
                 spent = ledger_summary(state)

@@ -108,15 +108,10 @@ class CalloutBox(unittest.TestCase):
 
     def test_lone_stroke_rect_builds_a_box(self):
         import exactdoc.infer as I
-        from exactdoc.backend import get_backend
-        from exactdoc.input import parse as parse_input
-        ir = parse_input(get_backend("pdfium"),
-                         r'..\..\..\..\..\claude-ground\pdf2gdocs-handoff\B13_report\sources\B13_report.pdf') \
-            if False else None
         # unit-level: build_box on the rect alone
         rect = self._rect()
         from exactdoc.model import Span, Line, TextBlock
-        span = Span(text="Division of labour.", font="Georgia", size=10.5,
+        span = Span(text="A boxed paragraph.", font="Georgia", size=10.5,
                     color="#000000", bold=True, italic=False, mono=False,
                     serif=True, superscript=False,
                     bbox=(67.7, 186.0, 200.0, 196.5), origin=(67.7, 196.5))

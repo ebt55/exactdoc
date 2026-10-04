@@ -111,7 +111,13 @@ class LadderAndWriter(unittest.TestCase):
         self.assertEqual(len(got["standard"]), 1)
         kids = [el.tag for el in got["standard"][0]]
         wel = got["standard"][0][kids.index(W + "w")]
-        self.assertEqual(wel.get(W + "val"), "88")
+        # 0.525 / 0.600 is exactly 87.5%, a rounding tie, and the two widths
+        # are float sums. Python 3.12 made sum() of floats compensated
+        # (Neumaier), so 3.9-3.11 land a hair under the tie and write 87 where
+        # 3.12+ writes 88 -- measured on python:3.9-slim, 2026-10-05. 3.12 is
+        # the canonical interpreter, so the exact value is pinned there.
+        expected = {"88"} if sys.version_info >= (3, 12) else {"87", "88"}
+        self.assertIn(wel.get(W + "val"), expected)
         self.assertLess(kids.index(W + "w"), kids.index(W + "sz"))
         self.assertEqual(got["gdocs"], [])
 

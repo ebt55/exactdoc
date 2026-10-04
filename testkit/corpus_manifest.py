@@ -341,6 +341,21 @@ def verify_expansion(manifest=None, path=EXPANSION_PATH, gate_manifest=None):
             problems.append(("tier", doc_id,
                              "tier is %r, not one of %s"
                              % (spec.get("tier"), ", ".join(TIERS))))
+        # `promised` is metadata the beta-readiness reading uses (rule in
+        # docs/corpus-expansion.md s14): does README.md promise this kind of
+        # document? Optional, so a tranche can be sealed before it is
+        # classified, but never half-written -- a document README disclaims
+        # must say which row disclaims it.
+        if "promised" in spec:
+            if not isinstance(spec["promised"], bool):
+                problems.append(("promised", doc_id,
+                                 "promised is %r, not true or false"
+                                 % (spec["promised"],)))
+            elif not spec["promised"] and not str(
+                    spec.get("promised_reason") or "").strip():
+                problems.append(("promised", doc_id,
+                                 "promised is false with no promised_reason "
+                                 "naming the README row that disclaims it"))
         for reason in _provenance_problems(spec):
             problems.append(("provenance", doc_id, reason))
 
@@ -397,6 +412,12 @@ def expansion_seal(source_dir, path=EXPANSION_PATH):
         if os.path.abspath(src) != os.path.abspath(dst):
             shutil.copyfile(src, dst)
         entry = dict(claims[doc_id])
+        # A re-sealed document keeps its README classification unless the
+        # generator's claims make a new one.
+        previous = manifest["documents"].get(doc_id) or {}
+        for key in ("promised", "promised_reason"):
+            if key not in entry and key in previous:
+                entry[key] = previous[key]
         entry["sha256"] = sha256(dst)
         entry["bytes"] = os.path.getsize(dst)
         entry["src_pages"] = _page_count(dst)

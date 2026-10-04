@@ -11,6 +11,7 @@ paragraphs stay in the layout, marked, so the typed form is one switch away.
 
     python -m unittest tests.test_real_footnotes
 """
+import importlib.util
 import os
 import re
 import sys
@@ -226,6 +227,10 @@ class FootnoteSerialisation(unittest.TestCase):
             self.assertIn('w:type="%s"' % kind, notes)
         self.assertIn('w:styleId="FootnoteReference"', self._part("s.docx", "word/styles.xml"))
 
+    # The harness is the measurement toolkit and imports PyMuPDF (the AGPL
+    # `mupdf` extra) at module scope; the install-check CI job has neither.
+    @unittest.skipUnless(importlib.util.find_spec("fitz"),
+                         "testkit/harness.py needs PyMuPDF (the mupdf extra)")
     def test_the_harness_reads_footnote_numbers_as_live_text(self):
         sys.path.insert(0, os.path.join(ROOT, "testkit"))
         import harness

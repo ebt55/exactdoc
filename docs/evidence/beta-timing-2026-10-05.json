@@ -1,0 +1,128 @@
+{
+ "container_sweeps_for_context": {
+  "wp18-m2-raw (raw, 6 jobs, canonical image)": {
+   "median_s_per_page": 0.195,
+   "y06_irs_1040_instructions.pdf": 122.1
+  },
+  "wp21-base-prod (product, canonical image, documents in parallel)": {
+   "documents_over_the_ratified_product_limit": 10,
+   "y06_irs_1040_instructions.pdf": 680.0
+  }
+ },
+ "documents": {
+  "y06_irs_1040_instructions.pdf": {
+   "commands": [
+    "exactdoc y06_irs_1040_instructions.pdf -o y06p.docx -v",
+    "exactdoc y06_irs_1040_instructions.pdf -o y06raw.docx --refine 0",
+    "python -m cProfile -m exactdoc.cli ... --refine 0"
+   ],
+   "product_rounds": [
+    {
+     "measure_s": 46.8,
+     "out_pages": 165,
+     "render_s": 24.1,
+     "round": 0,
+     "write_s": 43.4
+    },
+    {
+     "measure_s": 23.5,
+     "out_pages": 154,
+     "render_s": 25.0,
+     "round": 1,
+     "write_s": 46.8
+    },
+    {
+     "measure_s": 16.1,
+     "out_pages": 150,
+     "render_s": 21.7,
+     "round": 2,
+     "write_s": 48.9
+    },
+    {
+     "measure_s": 17.6,
+     "out_pages": 148,
+     "render_s": 20.0,
+     "round": 3,
+     "write_s": 36.8
+    }
+   ],
+   "product_s": 409.6,
+   "product_split_s": {
+    "libreoffice_renders": 91,
+    "measurements": 104,
+    "open_loop_parse_and_layout": 39,
+    "writes": 176
+   },
+   "promised": false,
+   "raw_profile_cprofile_s": {
+    "infer": 32.2,
+    "parse_pdf": 52.2,
+    "python_docx_next_id_picture_ids": 12.7,
+    "python_docx_xpath": 15.1,
+    "total_under_profiler": 167.4,
+    "write_docx": 70.9
+   },
+   "raw_s": 123.0,
+   "src_pages": 126,
+   "tier": "designed_stress"
+  },
+  "y13_irs_pub501.pdf": {
+   "commands": [
+    "exactdoc y13_irs_pub501.pdf -o y13.docx -v",
+    "exactdoc y13_irs_pub501.pdf -o y13raw.docx --refine 0"
+   ],
+   "product_rounds": [
+    {
+     "measure_s": 13.9,
+     "out_pages": 58,
+     "render_s": 11.4,
+     "round": 0,
+     "write_s": 4.3
+    },
+    {
+     "measure_s": 5.9,
+     "out_pages": 53,
+     "render_s": 5.7,
+     "round": 1,
+     "write_s": 4.8
+    },
+    {
+     "measure_s": 6.2,
+     "out_pages": 52,
+     "render_s": 5.0,
+     "round": 2,
+     "write_s": 4.2
+    },
+    {
+     "measure_s": 6.5,
+     "out_pages": 50,
+     "render_s": 5.1,
+     "round": 3,
+     "write_s": 5.0
+    }
+   ],
+   "product_s": 87.9,
+   "promised": false,
+   "raw_s": 19.4,
+   "src_pages": 31,
+   "tier": "designed_stress"
+  }
+ },
+ "finding": "The slowest corpus document, y06 (126 pages), is linear, not hung: ~1 s/page open-loop, 5x the corpus median, from 85 tables, 213 pictures and 27k paragraphs. In the default refine loop the time goes to re-writing the DOCX each round (43%), measuring the render (25%) and LibreOffice (22%); the loop's early exit did not trigger because every round still removed pages. No timeout was added.",
+ "machine": {
+  "cpu": "AMD Ryzen 9 5900X 12-Core",
+  "libreoffice": "25.2.5.2",
+  "lxml": "6.1.1",
+  "numpy": "2.5.1",
+  "os": "Windows 11 Pro 10.0.26200",
+  "pypdfium2": "5.12.1",
+  "python": "3.12.13 (uv-managed CPython)",
+  "python_docx": "1.2.0",
+  "ram_gb": 32
+ },
+ "note_on_load": "The machine was shared with other measurement jobs (CPU load near 96% during part of the session), so these are upper bounds.",
+ "purpose": "Wall-clock cost of a first-time user's commands, for the README Install and Known limits sections and WP20's slowest-document finding. Not canonical-environment numbers: a desktop PC, real Windows fonts, LibreOffice 25.2, one conversion at a time.",
+ "recorded": "2026-10-05",
+ "schema": "exactdoc.evidence.beta-timing.v1",
+ "tree": "integration 92c542c plus WP20's CLI changes (conversion output unchanged; word/*.xml byte-identical, see beta-install-2026-10-05.json)"
+}
