@@ -1514,11 +1514,60 @@ def _wide_gap_starts_visual_line(prev: _Char, current: _Char,
     fragment_has_text = any(not char.u.isspace() for char in fragment)
     if not (explicit_interword_space and fragment_has_text):
         return True
+    if _same_mono_face(prev, current):
+        # Preformatted text: see _same_mono_face. Its gaps recur at one x
+        # because the text is set on a character grid, not because a gutter
+        # runs there.
+        return False
     # The exemption, bounded: it does not extend to a gap sitting on one of this
     # page's repeated gap positions. See _gutter_xs -- a stretched word space
     # lands wherever the line breaks, a gutter is the same x on every line.
     mid = (prev.x1 + current.x0) / 2
     return any(abs(mid - g) <= GUTTER_X_TOL for g in gutters)
+
+
+def _same_mono_face(prev: _Char, current: _Char) -> bool:
+    """Are both glyphs of one monospace face at one size, the gap between
+    them a whole number of the face's cells -- preformatted text?
+
+    The gutter bound on the justification exemption (`_gutter_xs`) reads a gap
+    position that recurs down the page as a column gutter. In preformatted
+    text every gap recurs: an ASCII-art figure draws its box sides at the same
+    character cell on line after line, and the producer moves over the run of
+    spaces between them after drawing the first. RFC 9000's state diagrams
+    (xml2rfc, WeasyPrint) were cut at their own box sides -- `|` alone at
+    x 116 on one line, `|` alone at x 276 on the next -- and every cut row
+    stood a line taller: page 16 ran 127pt over and took the rest of the
+    document a page late (word recall 0.07). Nobody justifies monospace text,
+    so a gap after an explicit space in it is spaces, and the gap test has
+    already counted them in the face's own cell (_gap_spaces).
+
+    The grid is the evidence, not the face: an OCR text layer is often set in
+    a monospace face with each word placed where the scan has it (y57's
+    Internet Archive layer), so its gaps fall anywhere and its columns are
+    real columns."""
+    if not (prev.mono_hint and current.mono_hint and
+            prev.font == current.font and abs(prev.size - current.size) < 0.01):
+        return False
+    return _on_mono_grid(current.x0 - prev.x1, prev)
+
+
+# A gap is on the monospace grid when it is within this share of a cell of a
+# whole number of cells. Producers place preformatted glyphs at exact
+# multiples (RFC 9000's art: 0.00-0.02 of a cell off); an OCR layer's gaps are
+# spread uniformly over the cell.
+MONO_GRID_TOL = 0.15
+
+
+def _on_mono_grid(gap: float, glyph: _Char) -> bool:
+    """Is `gap` a whole number of `glyph`'s monospace cells (MONO_GRID_TOL)?
+    The cell is the glyph's own advance where it draws one, else the face's
+    nominal MONO_ADV_EM."""
+    cell = glyph.x1 - glyph.x0
+    if cell <= 0.1 * max(glyph.size, 1.0):
+        cell = MONO_ADV_EM * max(glyph.size, 1.0)
+    k = gap / cell
+    return abs(k - round(k)) <= MONO_GRID_TOL
 
 
 def _marker_starts_visual_line(fragment: List[_Char], current: _Char) -> bool:
@@ -1979,7 +2028,16 @@ def _gap_spaces(prev: _Char, c: _Char, boundary: bool = False,
         # collapsing it once cost 19 unmatched words and 40pt of horizontal
         # drift on a listing.
         n_sp = n_sp if prev.mono_hint else 0
-    return min(max(n_sp, 0), 24)
+    # Preformatted text keeps every cell of its gap: an ASCII-art box side
+    # 27 cells right of the one before it (RFC 9000's state diagrams) came
+    # back 24 cells right under the old cap, and the figure's verticals no
+    # longer met. A line printer's 132 columns bound it. On the grid only
+    # (_on_mono_grid): an OCR layer's monospace gaps are positions, not cells.
+    grid = prev.mono_hint and _on_mono_grid(gap, prev)
+    return min(max(n_sp, 0), MONO_MAX_SPACES if grid else 24)
+
+
+MONO_MAX_SPACES = 132
 
 
 # Two characters of one line never sit on top of each other: kerning moves a
@@ -2324,6 +2382,7 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
                 if record is not None and \
                         c.x0 - prev.x1 > LINE_SPLIT_EM * max(
                             prev.size, c.size, 1.0) and \
+                        not _same_mono_face(prev, c) and \
                         not _wide_gap_starts_visual_line(prev, c, part):
                     record.append((prev.x1 + c.x0) / 2)
                 if _wide_gap_starts_visual_line(prev, c, part, gutters) or \

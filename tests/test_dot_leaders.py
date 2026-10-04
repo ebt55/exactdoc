@@ -105,7 +105,10 @@ class LeaderParagraphs(unittest.TestCase):
         toc = [p for p in paras if p.tab_stops and len(p.tab_stops[0]) == 3]
         self.assertEqual(len(toc), len(ENTRIES))
         for p, (label, _x1, num) in zip(toc, ENTRIES):
-            self.assertEqual(p.text, label + "\t" + num)
+            # Chrome sets white between the title, its drawn dots and the
+            # number, and the tab's leader keeps it (WP23: a leader drawn
+            # against the title made "Introduction......1" one word).
+            self.assertEqual(p.text, label + " \t " + num)
             pos, align, leader = p.tab_stops[0]
             self.assertEqual((align, leader), ("right", "dot"))
             self.assertAlmostEqual(pos + lay.margin_l, 554.5, delta=1.0)
