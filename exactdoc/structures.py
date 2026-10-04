@@ -395,6 +395,14 @@ def footnote_plan(lay: DocLayout) -> Dict[int, tuple]:
     """
     if not lay.footnotes:
         return {}
+    # LibreOffice stops balancing EVERY column section of a document that
+    # holds a footnote, wherever the footnote is: one note on y22's page 15
+    # left the two-column contents on page 7 filling its first column to the
+    # foot, and the page spilled (bisected: no reference -> balanced, one
+    # reference -> unbalanced). A document laid out in column sections keeps
+    # its notes typed until that is understood.
+    if any(ch.n_cols > 1 for pg in lay.pages for ch in pg.chunks):
+        return {}
     refs = {}
     for pg in lay.pages:
         for ch in pg.chunks:

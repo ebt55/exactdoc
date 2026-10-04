@@ -239,6 +239,15 @@ class FootnoteSerialisation(unittest.TestCase):
             self.assertNotIn("word/footnotes.xml", z.namelist())
         self.assertEqual(doc.count("explains the reference"), 2)   # nothing lost
 
+    def test_a_document_with_column_sections_keeps_its_notes_typed(self):
+        # LibreOffice unbalances every column section once a footnote exists
+        from exactdoc.layout import Chunk
+        from exactdoc.structures import footnote_plan
+        lay = _layout(self.pdf)
+        self.assertEqual(len(footnote_plan(lay)), 2)
+        lay.pages[0].chunks.append(Chunk(n_cols=2))
+        self.assertEqual(footnote_plan(lay), {})
+
     def _part(self, name, part):
         with zipfile.ZipFile(os.path.join(self._dir.name, name)) as z:
             return z.read(part).decode("utf-8")
