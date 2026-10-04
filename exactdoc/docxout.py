@@ -25,7 +25,8 @@ from docx.opc.constants import RELATIONSHIP_TYPE as RT
 
 from .layout import (DocLayout, Para, Run, Cell, TableEl, FigureEl, ImageEl,
                      RuleEl, ColBreak, HFPart, Chunk, PageLayout)
-from .fonts import east_asian_family, font_table_desc, map_font
+from .fonts import (complex_script, complex_script_family, east_asian_family,
+                    font_table_desc, map_font)
 from .metrics import source_line_width
 from .structures import (add_footnote_ref_mark, add_footnote_reference,
                          apply_numpr, level_carries_indent, num_tab_override,
@@ -93,6 +94,12 @@ class WriteCtx:
         """Does this profile write footnotes as real notes? (options.py)"""
         from .options import capabilities
         return "footnotes" in capabilities(self.output_profile)
+
+    @property
+    def bidi(self) -> bool:
+        """Does this profile declare right-to-left paragraphs? (options.py)"""
+        from .options import capabilities
+        return "bidi" in capabilities(self.output_profile)
 
 
 _DEFAULT_CTX = WriteCtx()
@@ -183,6 +190,96 @@ def _style_run(r, run: Run, profile: str = "standard"):
         f.color.rgb = RGBColor.from_string(_hex(run.color))
     except Exception:
         pass
+    _complex_script_rpr(r, run, profile)
+
+
+# CT_RPr's child sequence (ECMA-376 Part 1, 17.3.2.28): Word refuses a run
+# whose properties are out of order, so every element added below goes in
+# before the first existing sibling that must follow it.
+_RPR_SEQ = ("rStyle", "rFonts", "b", "bCs", "i", "iCs", "caps", "smallCaps",
+            "strike", "dstrike", "outline", "shadow", "emboss", "imprint",
+            "noProof", "snapToGrid", "vanish", "webHidden", "color", "spacing",
+            "w", "kern", "position", "sz", "szCs", "highlight", "u", "effect",
+            "bdr", "shd", "fitText", "vertAlign", "rtl", "cs", "em", "lang",
+            "eastAsianLayout", "specVanish", "oMath")
+
+
+def _rpr_put(rpr, tag: str, **attrs):
+    """Set child `w:<tag>` of rPr (created in schema order) with `attrs`."""
+    el = rpr.find(qn("w:" + tag))
+    if el is None:
+        el = OxmlElement("w:" + tag)
+        later = _RPR_SEQ[_RPR_SEQ.index(tag) + 1:]
+        for child in rpr:
+            name = child.tag.rsplit("}", 1)[-1]
+            if name in later:
+                child.addprevious(el)
+                break
+        else:
+            rpr.append(el)
+    for k, v in attrs.items():
+        el.set(qn("w:" + k), v)
+    return el
+
+
+def _in_bidi_para(r_el) -> bool:
+    """Is this run element inside a w:bidi paragraph (write_para sets it first)?"""
+    p = r_el.getparent()
+    while p is not None and p.tag != qn("w:p"):
+        p = p.getparent()
+    if p is None:
+        return False
+    ppr = p.find(qn("w:pPr"))
+    return ppr is not None and ppr.find(qn("w:bidi")) is not None
+
+
+_STRONG_LTR = re.compile(r"[A-Za-zÀ-ɏͰ-ϿЀ-ӿ]")
+
+
+def _complex_script_rpr(r, run: Run, profile: str = "standard") -> None:
+    """The complex-script half of a run's properties, where it has one.
+
+    Word sets Hebrew, Arabic, Indic and Thai text from the run's
+    complex-script properties and LibreOffice from its CTL ones; the Latin
+    w:sz/w:b/w:i do not reach them. So a run carrying such text, or sitting in
+    a right-to-left paragraph, gets w:szCs (= its size), w:bCs/w:iCs (= its
+    weight and slant) and lang/@bidi; a run that reads right to left gets
+    w:rtl. "Reads right to left" is an RTL letter, or -- in a w:bidi
+    paragraph -- no left-to-right letter at all: Word resolves the digits and
+    punctuation of a run without w:rtl as left-to-right text, which would move
+    the full stop of `...בפסק דין.` back to the wrong end.
+
+    A run with no complex script outside an RTL paragraph is left exactly as
+    it was. The Google Docs profile writes none of this: its paragraphs are
+    declared right-to-left only when the `bidi` capability is on
+    (options.PROFILE_CAPABILITIES), and then its runs get the direction alone
+    (testkit/gdocs_probe_rtl.py makes that variant for a live pass).
+    """
+    text = run.text or ""
+    lang, has_rtl = complex_script(text)
+    in_bidi = _in_bidi_para(r._element)
+    if lang is None and not in_bidi:
+        return
+    if profile != "standard" and not in_bidi:
+        return
+    rpr = r._element.get_or_add_rPr()
+    rtl = has_rtl or (in_bidi and not _STRONG_LTR.search(text))
+    if profile == "standard":
+        cs = complex_script_family(run.font) if lang is not None else None
+        rf = rpr.find(qn("w:rFonts"))
+        if cs and rf is not None:
+            rf.set(qn("w:cs"), cs)
+        if run.bold:
+            _rpr_put(rpr, "bCs")
+        if run.italic:
+            _rpr_put(rpr, "iCs")
+        sz = rpr.find(qn("w:sz"))
+        if sz is not None:
+            _rpr_put(rpr, "szCs", val=sz.get(qn("w:val")))
+    if rtl:
+        _rpr_put(rpr, "rtl")
+    if profile == "standard" and lang is not None:
+        _rpr_put(rpr, "lang", bidi=lang)
 
 
 def _add_field(par, instr: str, sample: str, style_from: Run,
@@ -694,8 +791,12 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None,
     # its separator leave the runs (structures.py). `ctx.list_defs` holds only
     # the lists whose every item strips cleanly (structures.numbering_plan).
     num, num_runs, lvl = None, None, None
+    # A right-to-left item in a profile that does not declare direction stays
+    # typed: in a left-to-right paragraph the list level would draw its
+    # number at the left of right-aligned Hebrew.
+    rtl_undeclared = getattr(p, "rtl", False) and not ctx.bidi
     if p.numbering is not None and p.numbering.list_id in ctx.list_defs \
-            and not gdocs_rows:
+            and not gdocs_rows and not rtl_undeclared:
         num_runs = strip_marker(p.runs, p.numbering)
         if num_runs is not None:
             num = p.numbering
@@ -703,7 +804,28 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None,
     ind_from_level = lvl is not None and level_carries_indent(p, lvl)
     right_indent = 0.0 if gdocs_rows else p.right_indent + _wrap_correction(p, content_w)
     pf = par.paragraph_format
-    par.alignment = ALIGN.get("left" if gdocs_rows else p.align, WD_ALIGN_PARAGRAPH.LEFT)
+    # A right-to-left paragraph's alignment and indents are in start/end terms
+    # (infer._rtl_lines), which is how w:jc and w:ind read under w:bidi, so a
+    # profile that declares the direction writes them unchanged. One that does
+    # not (options.PROFILE_CAPABILITIES) gets the visual equivalent in a
+    # left-to-right paragraph: start is the right edge, so the sides swap; a
+    # first-line indent on the right has no left-to-right form and is dropped.
+    align, left_ind, first_ind, tab_stops = (p.align, p.left_indent,
+                                             p.first_indent, p.tab_stops)
+    if getattr(p, "rtl", False):
+        if ctx.bidi:
+            # Written first: _complex_script_rpr asks the paragraph for it.
+            ppr = par._p.get_or_add_pPr()
+            if ppr.find(qn("w:bidi")) is None:
+                after = _PPR_AFTER_SUPPRESS_HYPHENS[
+                    _PPR_AFTER_SUPPRESS_HYPHENS.index("bidi") + 1:]
+                ppr.insert_element_before(OxmlElement("w:bidi"),
+                                          *("w:" + t for t in after))
+        elif not gdocs_rows:
+            align = {"left": "right", "right": "left"}.get(align, align)
+            left_ind, right_indent = right_indent, left_ind
+            first_ind, tab_stops = 0.0, []
+    par.alignment = ALIGN.get("left" if gdocs_rows else align, WD_ALIGN_PARAGRAPH.LEFT)
     gap = p.space_before if space_before is None else space_before
     if gap > 0.05:
         pf.space_before = Pt(round(gap, 1))
@@ -736,16 +858,16 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None,
     if num is not None and not ind_from_level:
         # A numbered paragraph inherits its level's indents unless it says
         # otherwise, so a paragraph that differs must say so -- zeros included.
-        pf.left_indent = Pt(round(p.left_indent, 1))
-        pf.first_line_indent = Pt(round(p.first_indent, 1))
+        pf.left_indent = Pt(round(left_ind, 1))
+        pf.first_line_indent = Pt(round(first_ind, 1))
     elif num is None:
-        if p.left_indent > 0.05:
-            pf.left_indent = Pt(round(p.left_indent, 1))
-        if abs(p.first_indent) > 0.05:
-            pf.first_line_indent = Pt(round(p.first_indent, 1))
+        if left_ind > 0.05:
+            pf.left_indent = Pt(round(left_ind, 1))
+        if abs(first_ind) > 0.05:
+            pf.first_line_indent = Pt(round(first_ind, 1))
     if right_indent > 0.05:
         pf.right_indent = Pt(round(right_indent, 1))
-    for ts in p.tab_stops:
+    for ts in tab_stops:
         pos, al = ts[0], ts[1]
         if lvl is not None and lvl.sep == "tab" and al == "left" and                 abs(pos - p.left_indent) < 0.05:
             continue                # the item's own text stop: see below
@@ -2933,6 +3055,11 @@ _FONT_DESC = {
     "Symbol": ("decorative", "variable"),
 }
 
+# w:charset for a complex-script face, by the language its runs declare
+# (ECMA-376 Part 1 17.8.3.2; the Windows charset values): Hebrew, Arabic,
+# Thai. Other scripts have no charset of their own and stay "00".
+_CS_CHARSET = {"he": "B1", "ar": "B2", "fa": "B2", "ur": "B2", "th": "DE"}
+
 
 def _restyle_outline_styles(doc):
     """Strip the stock Heading styles down to pure outline metadata.
@@ -3012,6 +3139,7 @@ def _declare_fonts(doc):
     body = doc.element.body
     used = {}
     east = set()
+    complex_ = {}
     for rf in body.iter(qn("w:rFonts")):
         name = rf.get(qn("w:ascii")) or rf.get(qn("w:hAnsi"))
         if name:
@@ -3019,6 +3147,14 @@ def _declare_fonts(doc):
         ea = rf.get(qn("w:eastAsia"))
         if ea and ea != name:
             east.add(ea)
+        cs = rf.get(qn("w:cs"))
+        if cs and cs != name:
+            # A complex-script face of its own (_complex_script_rpr): declared
+            # with its script's charset, which is what Word's substitution
+            # reads when the reader lacks the face.
+            lang = rf.getparent().find(qn("w:lang"))
+            tag = (lang.get(qn("w:bidi")) or "") if lang is not None else ""
+            complex_.setdefault(cs, _CS_CHARSET.get(tag[:2], "00"))
     if not used:
         return
     dominant = max(sorted(used), key=lambda k: used[k])
@@ -3037,6 +3173,12 @@ def _declare_fonts(doc):
         try:
             root = etree.fromstring(ft.blob)
             have = {f.get(qn("w:name")) for f in root.findall(qn("w:font"))}
+            for name in sorted(set(complex_) - set(used) - east - have):
+                el = etree.SubElement(root, qn("w:font"))
+                el.set(qn("w:name"), name)
+                for tag, val in (("w:charset", complex_[name]),
+                                 ("w:family", "auto"), ("w:pitch", "variable")):
+                    etree.SubElement(el, qn(tag)).set(qn("w:val"), val)
             for name in sorted((set(used) | east) - {None} - have):
                 # The explicit table first (its entries predate the family
                 # table and are byte-stable); otherwise the family's class --

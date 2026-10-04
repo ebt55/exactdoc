@@ -719,11 +719,10 @@ def east_asian_family(pdf_font: str, text: str,
     CJK family the table knows: the face itself is then the exact answer,
     and Word substitutes its own East Asian default where it is missing.
 
-    `w:cs` is deliberately left alone. Arial and Times New Roman carry Arabic
-    and Hebrew in Word on every platform, and the same probe naming the
-    source face (DejaVu Sans) in c4's Arabic runs moved their wrap: dy_p90
-    2.2 -> 13.6pt. Standard profile only; what Google Docs does with a
-    declared East Asian face has not been graded live.
+    `w:cs` is not this function's: see complex_script_family, which names a
+    complex-script run's face once the run is in logical order (WP14).
+    Standard profile only; what Google Docs does with a declared East Asian
+    face has not been graded live.
     """
     if profile != "standard" or not text:
         return None
@@ -733,6 +732,113 @@ def east_asian_family(pdf_font: str, text: str,
     if not any(_is_east_asian(ch) for ch in text):
         return None
     return fam.ea[0]
+
+
+# Complex scripts: the characters Word sets from a run's complex-script slot
+# (rFonts/@cs, szCs, bCs, iCs, lang/@bidi) and LibreOffice from its CTL
+# attributes, rather than from the Latin ones. A run that carries such text and
+# only the Latin size is set at the renderer's DEFAULT complex-script size: on
+# c4_i18n the Arabic and Hebrew lines came out of LibreOffice visibly smaller
+# than the 11pt they were asked for, and the Hebrew re-wrapped onto two lines.
+# (lo, hi, language tag for lang/@bidi, right-to-left)
+_COMPLEX_SCRIPTS = (
+    (0x0590, 0x05FF, "he-IL", True), (0xFB1D, 0xFB4F, "he-IL", True),
+    (0x0600, 0x06FF, "ar-SA", True), (0x0750, 0x077F, "ar-SA", True),
+    (0x08A0, 0x08FF, "ar-SA", True), (0xFB50, 0xFDFF, "ar-SA", True),
+    (0xFE70, 0xFEFF, "ar-SA", True), (0x0700, 0x074F, "syr-SY", True),
+    (0x0780, 0x07BF, "dv-MV", True),
+    (0x0900, 0x097F, "hi-IN", False), (0x0980, 0x09FF, "bn-IN", False),
+    (0x0A00, 0x0A7F, "pa-IN", False), (0x0A80, 0x0AFF, "gu-IN", False),
+    (0x0B00, 0x0B7F, "or-IN", False), (0x0B80, 0x0BFF, "ta-IN", False),
+    (0x0C00, 0x0C7F, "te-IN", False), (0x0C80, 0x0CFF, "kn-IN", False),
+    (0x0D00, 0x0D7F, "ml-IN", False), (0x0D80, 0x0DFF, "si-LK", False),
+    (0x0E00, 0x0E7F, "th-TH", False), (0x0E80, 0x0EFF, "lo-LA", False),
+    (0x0F00, 0x0FFF, "bo-CN", False), (0x1000, 0x109F, "my-MM", False),
+    (0x1780, 0x17FF, "km-KH", False),
+)
+# Letters only Persian writes in the Arabic block (peh, tcheh, jeh, gaf,
+# keheh, Farsi yeh): their presence makes a run Persian, not Arabic.
+_PERSIAN = frozenset("پچژگکی")
+
+
+def complex_script(text: str):
+    """(language tag or None, has RTL letters) for a run's text.
+
+    The tag is the first complex script the text contains, which is what
+    lang/@bidi declares for the run; None when it holds no complex script.
+    """
+    lang, rtl = None, False
+    for ch in text or "":
+        o = ord(ch)
+        if o < 0x0590:
+            continue
+        for lo, hi, tag, is_rtl in _COMPLEX_SCRIPTS:
+            if lo <= o <= hi:
+                if lang is None:
+                    lang = tag
+                rtl = rtl or is_rtl
+                break
+    if lang == "ar-SA" and any(ch in _PERSIAN for ch in text):
+        lang = "fa-IR"
+    return lang, rtl
+
+
+_CS_STYLE_TAIL = re.compile(
+    r"(?:[,\-](?:bold|italic|oblique|regular|roman|medium|semibold|light|"
+    r"bolditalic|boldoblique|book|mt|psmt))+$|(?<=[a-z])(?:bold|italic)$",
+    re.I)
+
+
+def complex_script_family(pdf_font: str, profile: str = "standard") -> Optional[str]:
+    """The run's w:cs family, or None to keep the Latin mapping there.
+
+    A complex-script face the family table does not know -- Word's own David
+    and Mangal, Persian B Nazanin, WeasyPrint's Noto Naskh -- used to be
+    replaced in the complex-script slot by the Latin heuristic, Arial. For
+    Hebrew that is a different design 12.5% wider: measured over y49's first
+    six pages, Arial's Hebrew (Liberation Sans in the canonical renderer)
+    against David's own advances in the PDF, 10,105 characters; every line
+    re-wrapped longer and the document doubled. Naming the source face is the
+    exact answer where it is installed (David, Mangal and Simplified Arabic
+    ship with Windows), and where it is not, the renderer falls back to a face
+    covering the script -- the pinned LibreOffice resolves an unknown name to
+    FreeSerif for Hebrew, Arabic, Devanagari and Thai alike (probed: 9 names),
+    2.6% wider than David.
+
+    A family the table knows keeps its mapping (Arial, Times New Roman,
+    Tahoma all carry Hebrew and Arabic in Word) -- except the open faces in
+    _CS_FAMILY_NAMES, whose PostScript names do not spell their family. WP3
+    measured naming c4_i18n's DejaVu Sans here as a regression (dy_p90 2.2 ->
+    13.6pt), but on runs in visual order in left-to-right paragraphs; with the
+    runs in logical order under w:bidi the same naming renders the source's
+    own face and wraps where it wrapped: c4 within2pt 0.621 -> 0.872, dy_p90
+    2.2 -> 0.8pt, both lanes' gate numbers otherwise inside tolerance.
+    Standard profile only.
+    """
+    if profile != "standard" or not pdf_font:
+        return None
+    name = _CS_STYLE_TAIL.sub("", pdf_font.strip())
+    known = _CS_FAMILY_NAMES.get(re.sub(r"[\s_-]", "", name).lower())
+    if known:
+        return known
+    if lookup_family(pdf_font) is not None:
+        return None
+    name = name.replace("-", " ").strip()
+    return name or None
+
+
+# Open faces with complex-script coverage whose PostScript names do not spell
+# their family names: what the complex-script slot must say for the renderer
+# that has them (the canonical one has DejaVu and FreeFont) to find them.
+_CS_FAMILY_NAMES = {
+    "dejavusans": "DejaVu Sans", "dejavuserif": "DejaVu Serif",
+    "dejavusanscondensed": "DejaVu Sans Condensed",
+    "freeserif": "FreeSerif", "freesans": "FreeSans",
+    "notonaskharabic": "Noto Naskh Arabic", "notonaskh": "Noto Naskh Arabic",
+    "notosansarabic": "Noto Sans Arabic", "notosanshebrew": "Noto Sans Hebrew",
+    "notoserifhebrew": "Noto Serif Hebrew",
+    "notosansdevanagari": "Noto Sans Devanagari", "notosansthai": "Noto Sans Thai",
+}
 
 
 # fontTable descriptors by class: what Word itself writes for these families,

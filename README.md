@@ -140,7 +140,7 @@ Slide layouts fall apart, and the 40-slide deck became 72 pages.</sub>
 | Long documents in Google Docs | ⚠️ Long documents can gain many pages. In a live Google Docs sweep, a 144-page EU regulation came back as 268 pages and a 40-slide deck as 95 ([sweep](docs/evidence/gdocs-live-sweep-2026-10-04.json)) |
 | Dense journal papers, equations | ⚠️ Not yet. Equations are not rebuilt as editable math |
 | Slide decks, brochures, posters | ⚠️ Not yet. Layouts break or become pictures |
-| Arabic and Hebrew (right-to-left) | ⚠️ Not converted correctly yet |
+| Arabic, Hebrew and Persian (right-to-left) | ⚠️ Partly. Text arrives in reading order as right-to-left Word paragraphs; pages can grow where the reader lacks the source's fonts (an Arabic report 57 → 66 pages, a Hebrew paper 28 → 29). The Google Docs output is not yet right-to-left |
 | Scanned pages with no text layer | ⛔ Refused (exit code 17). No OCR is built in. Scans that already have an OCR text layer do convert |
 | Fillable forms | ⛔ Refused (exit code 19), because the result would look like the form without being one |
 | Over 250 pages | ⛔ Refused (exit code 20) unless you raise the limit with `--max-pages N` (`0` removes it) |
