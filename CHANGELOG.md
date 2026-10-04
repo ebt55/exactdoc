@@ -12,6 +12,46 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **running headers, footers and page numbers (audit finding 3: B1, B2, B3,
+  B26).** Parts were built from page 2 alone, so NIST SP 800-171 — whose page
+  2 is its title page — had its running head and folios consumed from 111
+  pages and written nowhere. They now come from the page carrying the *modal*
+  furniture, with `w:titlePg` when page 1 differs (and states its own footer,
+  including none) and `w:evenAndOddHeaders` when each parity has its own
+  (a slip opinion's verso/recto heads, lshort's folio side). Furniture is
+  searched past the fixed 62/64pt bands to 0.2 H where a row carries the
+  page's own number in an unbroken chain from the paper edge: RFC footers 105pt
+  up, the Supreme Court's head 114pt down. A printed number is a live PAGE
+  field when it tracks the physical index at a constant offset (arabic or
+  roman; ≥3 pages, 2 with agreeing `/PageLabels`), and a restart or format
+  change opens a section stating `w:pgNumType w:start/w:fmt` (y02: blank
+  lead-in, roman i…x, arabic from 1). Heads whose text changes by chapter
+  (bash, pandoc, lshort, "CHAPTER ONE") are stated per section instead of
+  dropped. `margin_t`/`margin_b` never sit inside a part's extent (y17 was
+  written with `pgMar top=200tw` under a 35pt header). Measured in the
+  canonical LibreOffice on the way: a first-page part with no default part
+  beside it shrinks every later page's body, so neither is written alone; the
+  bottom reserve now relaxes to the footer's top instead of being refused.
+  Gate PASS both lanes at the merged tree's numbers (product 16/16, <2pt
+  0.5739; raw 15/16, 0.4031), gated outputs byte-identical except 02/03's
+  `pgMar` bottom. Raw sweep (90 measured) against the same tree without WP2:
+  word recall 0.5620 → 0.5640, doc recall 0.9106 → 0.9142, character doc
+  recall 0.9644 → 0.9689, within-2pt 0.1413 → 0.1447; y17 223 → 213 pages
+  (recall 0.299 → 0.397), y22 229 → 192, y28 40 → 37, y34 100 → 95. The
+  cost, open-loop: a footer at its source distance bounds the body where the
+  source did, and documents whose re-wrapped text overruns that box spill —
+  y01 103 → 116, y09 67 → 78, y03 65 → 74, y52 54 → 62 (mean |ratio−1|
+  0.3328 → 0.3353). The refine loop therefore spends the footer's distance
+  (down to 18pt, only when that frees a line) when its render spills.
+  Product profile on the 18 documents WP2 moves most, same comparison: word
+  recall 0.4603 → 0.4631, doc recall 0.9413 → 0.9544, within-2pt 0.0537 →
+  0.0576, mean |ratio−1| 0.0819 → 0.0811; y17 206 → 204 (recall 0.569 →
+  0.877), y30 recall 0.440 → 0.689, y01 90 → 88. Not recovered: y02 122 →
+  126, y10 36 → 37 and y18 145 → 146, whose page-aligned recall collapses
+  with the one-page shift (0.764 → 0.470, 0.844 → 0.433; y18's raw lane
+  improves 268 → 263, and disabling even/odd parts, the footer relaxation or
+  the lever leaves its 146 unchanged), and y52 recall 0.533 → 0.430.
+
 - **fonts: a family table replaces the descriptor-flag heuristic (audit B12–B15,
   B30, defect catalogue #3/#19).** pdfTeX's Type 1 fonts carry no Serif or
   FixedPitch bit, so `NimbusRomNo9L` (Times' metric clone) became Arial,
