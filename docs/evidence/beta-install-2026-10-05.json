@@ -97,6 +97,8 @@
  "schema": "exactdoc.evidence.beta-install.v1",
  "unit_suite_in_clean_venv": {
   "after WP20": "the two harness tests skip without PyMuPDF; test_width_scale accepts 87 on Python < 3.12",
+  "final_tree": "1296 tests OK on python:3.12-slim (53 skipped) and python:3.9-slim (54 skipped): wheel + test extra, no LibreOffice, no fonts, no PyMuPDF",
+  "pypdfium2_5_14_note": "pypdfium2 5.13+ logs a WARNING on every explicit bitmap close; the CLI now silences the pypdfium2 logger unless -v (a scanned page printed two such lines above its one-line error)",
   "python:3.12-slim": "1252 tests, 2 errors before WP20 (harness needs PyMuPDF), 51 skipped",
   "python:3.9-slim": "1252 tests, the same 2 errors plus test_width_scale (w:w 87 vs 88: Python 3.12 made sum() of floats compensated)"
  }
