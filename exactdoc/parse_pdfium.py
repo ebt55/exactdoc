@@ -3756,8 +3756,8 @@ def _text_visibility(textpage, objs: List[_PObj], frame,
             if any(p[0] <= cx <= p[2] and p[1] <= cy <= p[3] for p in paint):
                 continue
             if darker is None:
-                darker = _dark_glyph_boxes(tp, n, status, info, frame)
-            if any(p[0] <= cx <= p[2] and p[1] <= cy <= p[3] for p in darker):
+                darker = _BoxIndex(_dark_glyph_boxes(tp, n, status, info, frame))
+            if darker.holds(cx, cy):
                 continue
             status[i] = "background"
             # a synthesised space after it follows it out
@@ -3815,6 +3815,57 @@ def _dark_glyph_boxes(tp, n, status, info, frame):
                                    ctypes.byref(b), ctypes.byref(t)):
             out.append(frame.rect(l.value, b.value, r_.value, t.value))
     return out
+
+
+class _BoxIndex:
+    """Answers `any(b[0] <= x <= b[2] and b[1] <= y <= b[3] for b in boxes)`
+    without testing every box: each box is filed under the grid cells it
+    spans, and a point is tested only against its own cell's boxes.
+
+    The same answer by construction -- a box holding the point spans the
+    point's cell, because the cell of a coordinate is monotone in it -- and a
+    degenerate box (inverted or NaN) holds no point either way. Written for
+    `_text_visibility`'s white-glyph test, which tried every white glyph
+    against every dark glyph on the page: 4.1M box tests and 1.05s of y61's
+    4-page parse (GPO's three-column Federal Register, profiled 2026-10-05).
+    """
+
+    CELL = 24.0      # pt; about two lines of body text, a glyph box or two wide
+
+    # A box spanning more cells than this (a garbage glyph box, or an infinite
+    # one) is kept aside and tested against every point, as before.
+    MAX_CELLS = 4096
+
+    def __init__(self, boxes):
+        self.cells = {}
+        self.big = []
+        cell = self.CELL
+        for bb in boxes:
+            x0, y0, x1, y1 = bb
+            if not (x0 <= x1 and y0 <= y1):
+                continue
+            if not all(math.isfinite(v) for v in bb):
+                self.big.append(bb)
+                continue
+            gx0, gx1 = int(math.floor(x0 / cell)), int(math.floor(x1 / cell))
+            gy0, gy1 = int(math.floor(y0 / cell)), int(math.floor(y1 / cell))
+            if (gx1 - gx0 + 1) * (gy1 - gy0 + 1) > self.MAX_CELLS:
+                self.big.append(bb)
+                continue
+            for gx in range(gx0, gx1 + 1):
+                for gy in range(gy0, gy1 + 1):
+                    self.cells.setdefault((gx, gy), []).append(bb)
+
+    def holds(self, x, y) -> bool:
+        if any(p[0] <= x <= p[2] and p[1] <= y <= p[3] for p in self.big):
+            return True
+        if not (math.isfinite(x) and math.isfinite(y)):
+            return False                      # only an infinite box holds it
+        cand = self.cells.get((int(math.floor(x / self.CELL)),
+                               int(math.floor(y / self.CELL))))
+        if not cand:
+            return False
+        return any(p[0] <= x <= p[2] and p[1] <= y <= p[3] for p in cand)
 
 
 def _box_area(bb) -> float:

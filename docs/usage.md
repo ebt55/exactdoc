@@ -7,6 +7,15 @@ or misbehaves. The [README](../README.md) has the short version, and
 
 ## Install
 
+From PyPI, once the first beta (0.3.0b1) is published:
+
+```bash
+pip install exactdoc            # core (PDFium backend) — no AGPL code
+pip install "exactdoc[gdocs]"   # + the exactdoc-gdocs CLI (Google auth + qualification)
+```
+
+From a clone (the only way before the beta, and the way to develop):
+
 ```bash
 git clone https://github.com/ebt55/exactdoc && cd exactdoc
 pip install -e .            # core (PDFium backend) — no AGPL code
@@ -18,7 +27,14 @@ pip install -e ".[test]"    # test/measurement toolkit
 
 The shipping profile's refinement loop renders through LibreOffice headless
 (`soffice`); see *When LibreOffice is missing or fails* below for what happens
-without it. Conversion is local; nothing is uploaded.
+without it. Conversion is local; nothing is uploaded. `exactdoc --version`
+prints the installed version.
+
+Python 3.9 or newer is required; the `install` workflow proves 3.9 and 3.12 on
+Linux, Windows and macOS on every push. One known difference: on a width
+that lands exactly on a rounding tie, Python 3.9–3.11 and 3.12+ can write a
+run's horizontal scale one percent apart, because 3.12 changed how `sum()`
+adds floats. Published numbers are measured on 3.12.
 
 ## Usage
 
@@ -72,30 +88,80 @@ code (`exactdoc/cli.py`, `EXIT_CODES`):
 | Code | Meaning |
 |---:|---|
 | 0 | Converted (a degraded LibreOffice run still exits 0, with a warning; see below) |
-| 2 | The command line itself is wrong (an unknown flag, or a missing input) |
-| 3 | Invalid configuration |
+| 1 | An internal error: a bug. The traceback is printed, followed by where to report it |
+| 2 | The command line itself is wrong (an unknown flag, or no PDF given) |
+| 3 | Invalid configuration, or an output that would replace something it should not: the default `<name>.docx` already exists (pass `-o` or `--overwrite`), or `-o` names the input PDF |
 | 4 | A cloud oracle was asked for without `--allow-cloud-upload` |
 | 5 | Unsupported input, such as an encrypted PDF |
-| 6 | The PDF could not be parsed (malformed or truncated) |
+| 6 | Not a readable PDF: empty, not a PDF at all (no `%PDF-` header), or malformed or truncated |
 | 7 | The requested parser backend is not installed |
-| 8 | The output could not be written |
+| 8 | The output could not be written: its path is a folder, or its folder cannot be written. Checked before converting, so it fails in a second |
 | 9 | A resource limit was exceeded |
 | 10–16 | The render oracle failed: 11 means LibreOffice is not installed; 12–16 are Google Docs oracle stages (auth, upload, import, export, cleanup) |
 | 17 | The PDF is an image-only scan and needs OCR first |
 | 18 | Batch mode: some documents failed or need OCR |
 | 19 | The PDF is a fillable form, which is refused |
 | 20 | Over the page cap (250 by default); `--max-pages N` raises it, `--max-pages 0` removes it |
+| 21 | The input file does not exist, or is a folder (use `--input-dir` for a folder). Every input is checked before the first is converted |
+
+The error is one line. For the failures you can fix yourself (a password, a
+scan, a damaged file, LibreOffice asked for but missing) a `hint:` line follows
+it.
+
+### What the command prints
+
+On success, one line per document on stdout:
+
+```text
+wrote report.docx  (31 pages, 19.4s)
+```
+
+While a long document converts, a status line on the terminal (stderr) shows
+the stage and the time so far -- reading, layout, writing, or which pass of the
+LibreOffice check. It is drawn only on an interactive terminal, never into a
+pipe or a log, and only once a stage has taken more than a second.
+
+Without `-o`, the DOCX is written next to the PDF with the same name and a
+`.docx` extension, but never over an existing file: `exactdoc report.pdf`
+stops with exit 3 if `report.docx` exists, because that is very often the Word
+document the PDF was exported from. Pass `-o` to choose a name, or
+`--overwrite` to replace it. An explicit `-o` always replaces.
+
+### Reporting a bad conversion
+
+```bash
+exactdoc --diagnose report.pdf
+```
+
+prints what the converter's decisions depend on -- the program that made the
+PDF, its page sizes and fonts, how it was classified (digital, scan, form) and
+the layout exactdoc found (columns, tables, lists, headings) -- with none of
+the document's text, title, author or file name. It converts and writes
+nothing. Paste it into a
+[bad-conversion report](https://github.com/ebt55/exactdoc/issues/new?template=bad-conversion.yml)
+instead of attaching a private PDF; read it first, since producer and font
+names can identify an organisation.
 
 ### When LibreOffice is missing or fails
 
 Two different situations, deliberately handled differently:
 
-- **Not installed.** Asking for refinement (the default) with no `soffice` on
-  the machine is an error before anything is written: `OracleUnavailableError`,
-  **exit code 11**. Install LibreOffice, or pass `--refine 0` to convert
-  open-loop on purpose. Converting open-loop silently would make the default
-  profile mean the raw one on that machine, for every document, with nothing to
-  say so.
+- **Not installed.** The command line and the Python API differ here, on
+  purpose:
+  - **`exactdoc file.pdf` with no refinement options** converts in one pass
+    (exactly `--refine 0`), exits **0**, and prints a note to stderr saying
+    LibreOffice was not found, what that skips, and where to get it. A
+    first-time user without an office suite is the commonest case, not a
+    misconfiguration. The note is printed every time, so the fallback is never
+    silent; `--refine 0` hides it.
+  - **Refinement asked for by name** -- `--refine N` with N > 0, or
+    `--oracle libreoffice` -- is an error before anything is written:
+    `OracleUnavailableError`, **exit code 11**, with a hint to install
+    LibreOffice or pass `--refine 0`. So is `convert()` from Python with the
+    default profile: converting open-loop silently there would make the
+    default profile mean the raw one on that machine, for every document, with
+    nothing to say so. A script that wants the open-loop conversion asks for
+    it (`refine_rounds=0, oracle="none"`).
 - **Installed, but it crashes, hangs or writes nothing mid-run.** The
   conversion has already produced a valid DOCX by then, so it is not thrown
   away: the best candidate so far is published — the best measured refine

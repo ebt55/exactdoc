@@ -379,8 +379,14 @@ def main(argv=None):
     print(json.dumps(summ, indent=1))
     if prev:
         print("previous: " + json.dumps(summarise(prev)))
+    # `jobs` is recorded because convert_s depends on it: documents converted
+    # side by side with LibreOffice evaluations took 1.4-2.3x their one-at-a-
+    # time wall time (y13 product 147s in a sweep, 76s alone; WP20b,
+    # docs/evidence/refine-speed-2026-10-05.json), and the beta bar's speed
+    # criterion reads this field to say so.
     payload = {"schema": SCHEMA, "gating": False, "adjudicated": False,
                "profile": prof.profile_id(), "corpus": a.corpus,
+               "jobs": a.jobs,
                "elapsed_s": round(time.time() - t0, 1),
                "summary": summ, "documents": rows}
     if a.json:

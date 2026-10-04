@@ -84,6 +84,69 @@ def _fsync(fh):
         pass
 
 
+def _set_mode(tmp, dest):
+    """Give the published file the permissions an ordinary save would.
+
+    `mkstemp` creates its file 0600 so the candidate is private while it is
+    written, and `os.replace` carries that mode onto the destination: every
+    DOCX published on Linux and macOS came out readable by its owner alone
+    (measured in the WP20 clean-install check, python:3.12-slim). A file that
+    replaces another keeps the old file's mode; a new one gets 0666 less the
+    process umask, as `open(path, "w")` would. Best effort: a filesystem that
+    refuses chmod is not a reason to fail a conversion.
+    """
+    import stat
+    try:
+        if os.path.exists(dest):
+            mode = stat.S_IMODE(os.stat(dest).st_mode)
+        else:
+            umask = os.umask(0)
+            os.umask(umask)
+            mode = 0o666 & ~umask
+        os.chmod(tmp, mode)
+    except OSError:
+        pass
+
+
+def check_writable(dest):
+    """Raise OutputWriteError now if `publish(..., dest)` is bound to fail.
+
+    A destination that cannot be written used to be discovered at the very
+    end, after the parse, the layout and every refine round had been paid for
+    -- two minutes on a long report, then "could not replace". The check is
+    the same operation `publish` performs (a private temp file in the
+    destination folder), done first and removed at once. Creates nothing: a
+    missing folder is fine when its nearest existing ancestor is writable,
+    because `publish` makes it.
+    """
+    dest = os.path.abspath(dest)
+    name = os.path.basename(dest)
+    if os.path.isdir(dest):
+        raise OutputWriteError(
+            "the output path is a folder, not a file name; add a name ending "
+            "in .docx")
+    probe = os.path.dirname(dest) or "."
+    while not os.path.exists(probe):
+        parent = os.path.dirname(probe)
+        if parent == probe:
+            break
+        probe = parent
+    if not os.path.isdir(probe):
+        raise OutputWriteError(
+            "cannot write %s: part of its folder path is a file" % name)
+    try:
+        fd, tmp = tempfile.mkstemp(dir=probe, prefix=".exactdoc-", suffix=".probe")
+    except OSError as e:
+        raise OutputWriteError(
+            "cannot write %s: its folder is not writable" % name,
+            detail=e.strerror)
+    os.close(fd)
+    try:
+        os.remove(tmp)
+    except OSError:
+        pass
+
+
 def publish(save, dest, validate=True):
     """Run `save(tmp_path)`, validate, then atomically replace `dest`.
 
@@ -104,7 +167,14 @@ def publish(save, dest, validate=True):
 
     # Unique, and in the destination directory: same filesystem, and no
     # predictable name for a concurrent conversion to collide with.
-    fd, tmp = tempfile.mkstemp(dir=d, prefix=".exactdoc-", suffix=".docx")
+    try:
+        fd, tmp = tempfile.mkstemp(dir=d, prefix=".exactdoc-", suffix=".docx")
+    except OSError as e:
+        # A read-only folder used to escape here as a bare PermissionError
+        # with a traceback, after the whole conversion had been spent.
+        raise OutputWriteError(
+            "cannot write in the output folder; %s is unchanged"
+            % os.path.basename(dest), detail=e.strerror)
     os.close(fd)
     try:
         try:
@@ -130,6 +200,7 @@ def publish(save, dest, validate=True):
                 _fsync(fh)
         except OSError:
             pass
+        _set_mode(tmp, dest)
 
         try:
             os.replace(tmp, dest)

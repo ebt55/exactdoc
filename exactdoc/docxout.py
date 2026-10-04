@@ -23,6 +23,7 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 
+from ._docx_speed import enable_monotonic_ids    # also installs the fast paths
 from .layout import (DocLayout, Para, Run, Cell, TableEl, FigureEl, ImageEl,
                      RuleEl, ColBreak, HFPart, Chunk, PageLayout)
 from .fonts import (complex_script, complex_script_family, east_asian_family,
@@ -3977,9 +3978,25 @@ def _paper(pg: PageLayout):
     return (pg.page_w, pg.page_h, pg.margins)
 
 
+def _copy_layout(lay: DocLayout) -> DocLayout:
+    """An independent deep copy of `lay`, for the writer to mutate.
+
+    `copy.deepcopy` cost 2.69s per write on y06 (217k objects), and the refine
+    loop writes once per round; a pickle round trip makes the same copy --
+    the same 216,937 distinct objects in the same sharing pattern, measured
+    2026-10-05 -- in 0.77s. Anything a layout ever holds that pickle cannot
+    carry falls back to deepcopy, so the result never depends on which ran.
+    """
+    import pickle
+    try:
+        return pickle.loads(pickle.dumps(lay, pickle.HIGHEST_PROTOCOL))
+    except (pickle.PicklingError, TypeError, AttributeError):
+        return copy.deepcopy(lay)
+
+
 def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
     src_lay = lay
-    lay = copy.deepcopy(lay)
+    lay = _copy_layout(lay)
     lay.pages = _merge_grid_page_runs(lay.pages)
     # After the deepcopy: the plan marks the elements this function will write.
     dest_anchors, anchor_ids = _plan_bookmarks(lay)
@@ -4028,7 +4045,10 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
             lay, lambda pl: _body_foot(_page_geometry(lay, pl)))
     # the clearance a page-closing element keeps (_guard_page_tail)
     body_line = _body_line_pt(lay)
-    doc = Document()
+    # Picture ids without a whole-part rescan per picture: this writer never
+    # removes an element that carries one (see _docx_speed for the argument
+    # and the measurement).
+    doc = enable_monotonic_ids(Document())
     if ctx.list_defs:
         from .structures import numbering_base
         ctx = dataclasses.replace(ctx, num_base=numbering_base(doc))

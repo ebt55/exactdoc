@@ -20,6 +20,73 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **Faster, byte for byte (WP20b).** The writer spent most of its time inside
+  python-docx, and the product profile writes once per refine round.
+  `exactdoc/_docx_speed.py` replaces three python-docx internals with
+  functions that return what they return -- the per-picture id rescan (an
+  XPath over the whole part, quadratic), the successor lookup behind every
+  property set, and the XPath in every `run.text =` -- and the writer copies
+  its layout with a pickle round trip instead of `deepcopy`; the parser's
+  white-glyph visibility test uses a grid index instead of every dark glyph.
+  `write_docx` on y06 is 39-47% faster; y61's visibility pass 2.4s -> 0.5s.
+  Output: `word/*.xml` byte-identical for all 95 documents in the raw and
+  gdocs profiles (190 of 190), and the product output of all 8 A/B documents
+  identical. Raw sweep (canonical, 6 at a time, under lighter load than its base): total
+  869s -> 548s, and no
+  document over the beta bar's 1 s/page (was y06, y40, y56, y61), every
+  metric unchanged. Product, one conversion at a time, base vs new
+  interleaved: y06 388s -> 256s, y13 76 -> 66s, y64 60 -> 53s, y38 49 -> 43s;
+  measurement-dominated documents barely move (y12 97s both). Criterion 2
+  still fails for the product profile: the refine loop's remaining cost is
+  LibreOffice and re-reading the render, which nothing provably equivalent
+  shortens. Capping rounds was measured, not shipped: `--refine 1` saves
+  21-40% but publishes y12 (promised) at 62 pages for 59 instead of 60, and
+  `--refine 2` costs 1-2 pages on five of the seven long ones
+  (`docs/evidence/refine-speed-2026-10-05.json`). quality_sweep now records
+  `jobs`, because a 6-job sweep's convert_s is 1.4-2.3x a lone conversion's.
+
+- **A first public beta is mechanically ready, nothing published (WP20).**
+  *Install*: the wheel installs into a clean virtualenv and converts two gated
+  fixtures with no LibreOffice on python:3.9-slim, python:3.12-slim and
+  Windows' system Python 3.13 (`word/document.xml` identical across all
+  three); the sdist shrank from 149 files to 47 by pruning `tests/`, which
+  cannot run without testkit, and `scripts/check_dist.py` now enforces its
+  allow-list. Published DOCX files were mode 0600 on Linux and macOS
+  (`mkstemp`'s private mode survived `os.replace`); they now get the umask's
+  ordinary mode. *CLI*: `--version`; `--diagnose` (producer, page sizes,
+  fonts, class and detected layout, no text); one-line errors with a `hint:`
+  for a missing file or a folder (new exit 21, was a traceback), a non-PDF or
+  empty file (exit 6, says which), an unwritable output (exit 8, checked
+  before converting, was a traceback for a read-only folder), and the default
+  name landing on an existing DOCX -- usually the Word file the PDF came from
+  -- which used to be overwritten silently (exit 3; `--overwrite` now works
+  for one file); a progress line on a terminal; `wrote x.docx (31 pages,
+  19.4s)`; an internal error asks for a report. *No LibreOffice*: a bare
+  `exactdoc file.pdf` now converts in one pass with a note instead of exit 11;
+  `--refine N` or `--oracle libreoffice` by name, and `convert()`, keep the
+  strict behaviour. *Slowest document*: y06 (126 pages) is linear, not hung --
+  122s raw in the container sweep, 2m03s raw and 6m49s through the default
+  refine loop on a desktop, where each of four writes costs ~44s in
+  python-docx; no timeout was added. *CI*: `install.yml` builds, `twine check
+  --strict`s and installs the wheel on ubuntu/windows/macos x Python 3.9/3.12
+  and runs a smoke conversion and the unit suite; `release.yml` publishes via
+  Trusted Publishing on a `v*` tag, TestPyPI first and verified byte-for-byte
+  (inert until the setup in `docs/releasing.md`); an issue form for bad
+  conversions. *Beta bar*: the 13-criterion bar the owner ratified on
+  2026-10-05 is `docs/beta-bar.md`, and `testkit/beta_readiness.py` reads the
+  latest sweeps and lanes against it (PASS / FAIL by N / REPORTED /
+  UNMEASURED); every expansion document now says whether README.md promises
+  it (`promised`, 49 of 79; rule in corpus-expansion.md §14; the expansion
+  policy re-pinned for that metadata alone). Its first reading: NOT READY,
+  with 1, 8 and 11 passing and 2, 4, 5, 6, 10 and 12 failing. Two harness
+  tests now skip without PyMuPDF and one width test allows 87 on Python <
+  3.12, where `sum()` is not compensated. Conversion output is unchanged:
+  `word/*.xml` byte-identical for all 16 in both gate lanes (canonical) and in
+  the gdocs and raw profiles (32 of 32); gate PASS in both lanes at the
+  recorded numbers (product 0.6427 within-2pt, raw 0.4853), 1435 unit tests
+  OK, measured on the tree merged with 9cfcbcc
+  (`docs/evidence/beta-install-2026-10-05.json`).
+
 - **One overflow no longer costs a whole page (WP18).** Every source page
   ends in a hard break, so whatever closes a page goes over alone when the
   renderer sets the page a point long, and the break then spends a page on
