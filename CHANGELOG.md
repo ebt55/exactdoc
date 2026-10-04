@@ -430,6 +430,49 @@ Non-gating; the expansion parity policy re-pins its corpus hash only.
   score up), x10 within-2pt 0.019 → 0.015 (edit 0.685 → 0.677), y42 word
   recall 0.317 → 0.311. 28 new tests (`tests/test_table_merges.py`, one in
   `tests/test_bottom_margin_relief.py`).
+- **lists are numbering and footnotes are notes (design audit finding 9,
+  §15 items 2–3; benchmark gaps 2 and 8).** Every output of every tool in
+  the benchmark had 0 `w:numPr` and 0 footnotes. *Lists* (`lists.py`): the
+  typed-marker items inference already recognised are read as lists — a
+  level is a marker column, format and start come from the marker, and the
+  sequence is checked against the renderers' own counters, so a list splits
+  wherever they would print a number other than the source's; an ordinal
+  needs a sibling at n±1 ("v.⇥Hillery" on SCOTUS is a citation), a dash a
+  sibling, and numbered headings stay headings (c6). *Footnotes*
+  (`notes.py`): the small type at the page foot, under a rule or a typed
+  dash line and in one compact block, opens a note at each mark
+  (superscript, a lone raised fragment, or a plain digit where every note
+  uses it) and binds only when the page holds exactly one superscript
+  reference with that mark; numbers follow the renderer's counter where it
+  reproduces the source and are custom marks elsewhere (symbols, SCOTUS's
+  dissent restarting at 1). *Writing* (`structures.py`) is a profile
+  capability (`options.PROFILE_CAPABILITIES`): standard writes
+  numbering.xml and footnotes.xml, gdocs keeps both typed (text-identical on
+  all 13 documents with notes) until a live pass grades the probe set
+  `testkit/gdocs_probe_lists_notes.py` writes. Typed vs numbered renders in
+  the canonical LibreOffice: 0 words moved > 0.5pt on x03, x09, x17, x18,
+  c1, c6, 01, 04, 05, l1, c8, r1, y17, y28, y30 (y24: 4 of 44,352, ≤ 0.66pt)
+  — after designing around three LibreOffice rules: the tab after a label
+  goes to the LEVEL's stop, a `w:suff` space does not stretch in a justified
+  line, and `w:lvlRestart 0` / lists opening below level 0 misnumber. Its
+  footnote area costs 6.2pt beyond the notes (charged to the page model),
+  and one footnote anywhere stops it balancing every column section, so a
+  document with column sections keeps typed notes (y22: one note on p15
+  spilled the two-column contents on p7). The harness counts generated
+  labels and note numbers as live text. Raw lane, all 90 swept documents
+  against the integration head a6dea69: 4,422 paragraphs in 58 documents
+  are real list items (typed markers 3,940 → 983), 162 notes in 10
+  documents are real footnotes, edit score 0.5856 → 0.6272; within-2pt
+  0.1853 → 0.1854, word recall 0.5721 → 0.5722, page-exact 39 = 39, mean
+  |page ratio−1| 0.3238 → 0.3223 (y18 268 → 264, y02 127 → 125, y28 39 →
+  37). Worse: live text x05 0.996 → 0.977 and y18/y19/y50 −0.0005 (typed
+  separator lines and EUR-Lex's "(¹)" parentheses become the renderer's rule
+  and label), word recall y19 −0.005 and x05 −0.004, y28 dy50 +13.7pt with
+  two pages fewer. Product lane, the 11 list and note documents: pages
+  unchanged, edit score 0.551 → 0.625, word recall −0.001 to −0.005 and SSIM
+  ≤ −0.007 on the documents with notes (y18 dy50 −2.5pt). Gate: both lanes
+  identical to the integration head
+  (only WP16's c3 *stale* findings). 37 new tests.
 
 ## 1.0.1 — 2026-08-07
 
