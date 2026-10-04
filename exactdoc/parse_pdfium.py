@@ -4144,6 +4144,13 @@ def _visible_image_box(ob: "_PObj", bbox, frame):
     """
     if frame.render_rotation:
         return None
+    # An image placed past the paper is a composition set in a bleed, not a
+    # picture in a frame (y06's cover art, 43-953pt on a 612pt page): the
+    # figure built round it is the page's, and cutting the image to its clip
+    # unmade that figure and spilled the cover's text over it.
+    if bbox[0] < -1.0 or bbox[1] < -1.0 or bbox[2] > frame.w + 1.0 or \
+            bbox[3] > frame.h + 1.0:
+        return None
     clip = _meet(ob.clip, _clip_box(ob.raw, ob.ctm, frame))
     if clip is None:
         return None

@@ -3276,8 +3276,14 @@ ICON_FILL_FRAC = 0.1
 def _icon_on_fill(d: DrawCmd, ds) -> bool:
     """...and so is the artwork inside it taken TOGETHER: a drawing set in a
     framed box is many small pieces (lshort's arrows, y22 p106: each vector a
-    sliver of its frame, all of them the whole frame) and stays a figure."""
-    for f in ds:
+    sliver of its frame, all of them the whole frame) and stays a figure.
+    Only on a band that is the cluster's one fill: among several (y59's
+    mock-up notice page, tiles standing for a page's panels) the curves are
+    the picture's, and read as ornaments they left tables of empty cells."""
+    fills = [f for f in ds if f.fill and f.shape == "rect" and not _is_glyphlike(f)]
+    if len(fills) != 1:
+        return False
+    for f in fills:
         if f is d or not f.fill or f.shape != "rect" or not contains(f.bbox, d.bbox, 0.5):
             continue
         art = None
@@ -4133,6 +4139,12 @@ def _tile_frame(cl, has_text=None):
     return (x0, y0, x1, y1, inner)
 
 
+def _mostly_texted(t: TableEl) -> bool:
+    """Do at least half of a table's cells hold text?"""
+    cells = [c for row in t.rows for c in row if c is not None]
+    return bool(cells) and 2 * sum(1 for c in cells if c.paras) >= len(cells)
+
+
 def _tile_bands(clusters, blocks, consumed):
     """Clusters that are row bands of ONE fill-tiled table.
 
@@ -4167,9 +4179,26 @@ def _tile_bands(clusters, blocks, consumed):
     frames.sort(key=lambda fc: fc[0][1])
 
     def tile_rows(cl):
+        """Rows of a cluster whose tiles form a FULL lattice -- every row a
+        tile in every column -- else 0. y06's worksheet frames are tiles of
+        many sizes (a sidebar of 'Part 1' labels beside one wide panel), and
+        read as one table they wrapped its worksheets into a nine-row grid
+        (164 -> 169 pages)."""
         fills = [d for _, d in cl if d.fill and d.shape == "rect"
                  and not _is_glyphlike(d)]
-        return len(_cluster([t.bbox[1] for t in _cell_tiles(fills)], 2.0))
+        tiles = _cell_tiles(fills)
+        rows = _cluster([t.bbox[1] for t in tiles], 2.0)
+        cols = _cluster([t.bbox[0] for t in tiles], 2.0)
+        if len(rows) < 2 or len(cols) < 2 or len(tiles) != len(rows) * len(cols):
+            return 0
+        seen = set()
+        for t in tiles:
+            key = (min(range(len(rows)), key=lambda i: abs(rows[i] - t.bbox[1])),
+                   min(range(len(cols)), key=lambda i: abs(cols[i] - t.bbox[0])))
+            if key in seen:
+                return 0
+            seen.add(key)
+        return len(rows)
 
     def close(cur, bands):
         # trailing rule-only frames belong to whatever follows, not here
@@ -5989,8 +6018,16 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
         # Fill-tiled tables first: their row bands are separate clusters,
         # and each alone reads as cards, bars or a figure.
         for band in _tile_bands(clusters, blocks, consumed):
+            before = set(consumed)
             el = build_grid_table([it for c in band for it in c], blocks,
                                   consumed, tiled=True)
+            if el is not None and len(band) == 1 and not _mostly_texted(el):
+                # One cluster of tiles is a table only if its cells hold the
+                # text: y59's mock-up notice page (tiles standing for a
+                # page's panels) built two tables of empty cells
+                consumed.clear()
+                consumed.update(before)
+                el = None
             if el is not None:
                 elements.append(el)
                 done = {id(c) for c in band}
@@ -7446,9 +7483,17 @@ def _row_pitch(lines) -> Optional[float]:
     """The baseline pitch of rows set one under another, or None: the median
     step between consecutive baselines no wider than 1.6 of the type size
     (a wider step is a gap between groups, not the pitch)."""
-    bases = sorted(ln.baseline for ln in lines)
     size = max((s.size for ln in lines for s in ln.spans if s.text.strip()), default=10.0)
-    steps = [b - a for a, b in zip(bases, bases[1:]) if 0.5 < b - a <= 1.6 * size]
+    steps = []
+    # each row's step to the next row of its OWN column: a contents page set
+    # in two columns interleaves their baselines (y06 p2: 98.9 / 98.9, 117.9
+    # / 117.9, 130.9 / 136.9 ...), and read together they gave a 9.5pt pitch
+    for ln in lines:
+        below = [m.baseline - ln.baseline for m in lines
+                 if m is not ln and m.baseline - ln.baseline > 0.5 and
+                 m.bbox[0] < ln.bbox[2] and m.bbox[2] > ln.bbox[0]]
+        if below and min(below) <= 1.6 * size:
+            steps.append(min(below))
     return median(steps) if steps else None
 
 
