@@ -1471,7 +1471,8 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
     # campaign verified (Docs draws it 2.0pt wide, quantised, colour
     # exact).  The standard profile keeps its measured table form.
     if _gdocs_paragraph_form(t, ctx) and t.role == "quote":
-        return _write_quote_paragraphs(container, t, content_w, ctx)
+        return _write_quote_paragraphs(container, t, content_w, ctx,
+                                       page_break_before=page_break_before)
     # A callout box likewise: one cell whose four borders belong on the
     # paragraphs it contains -- the table form's cell line inflation is the
     # same measured +1-2pt/line that took the quote blocks out of tables.
@@ -1480,7 +1481,8 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
     # the live-verified hand-campaign round-6 form (sz=6 #333333, the
     # source's own 0.75pt stroke).
     if _gdocs_paragraph_form(t, ctx) and t.role == "box":
-        return _write_box_paragraphs(container, t, content_w, ctx)
+        return _write_box_paragraphs(container, t, content_w, ctx,
+                                     page_break_before=page_break_before)
     n_rows = len(t.rows)
     n_cols = len(t.col_widths)
     if n_rows == 0 or n_cols == 0:
@@ -1591,7 +1593,16 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
         # the shrink below target h - overhead so content + overhead lands
         # on the pin instead of past it. Rows land 0 to ~0.1pt under
         # source, which cannot spill.
-        gdocs_rowpin = ctx.output_profile == "gdocs"
+        #
+        # DATA tables only (role "table"), which is what the levers were
+        # measured on. Applied to every text row they also pinned cover
+        # bands and stat-card rows, whose content-driven pads already sum
+        # to the source height: live pass 8 (2026-10-04) put 04_exec_brief
+        # at dy_p50 13.24pt against pass 7's 2.43 and c1_whitepaper at
+        # 11.56 against 5.56. Bisected to the commit that introduced the
+        # pin (d26d7ff); the same DOCX with the band/card pins removed
+        # measured 1.95 / 3.82 live.
+        gdocs_rowpin = ctx.output_profile == "gdocs" and t.role == "table"
         if gdocs_rowpin and h and row_has_text:
             trPr = row._tr.get_or_add_trPr()
             th = OxmlElement("w:trHeight")
@@ -1808,7 +1819,14 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
     return tbl
 
 
-def _write_quote_paragraphs(container, t: TableEl, content_w: float, ctx=None):
+def _block_right_gap(t: TableEl, content_w: float) -> float:
+    """Distance from a one-cell block's right edge to the column's right edge."""
+    width = sum(t.col_widths) if t.col_widths else content_w - t.left_indent
+    return max(0.0, content_w - t.left_indent - width)
+
+
+def _write_quote_paragraphs(container, t: TableEl, content_w: float, ctx=None,
+                            page_break_before: bool = False):
     """A quote bar as body paragraphs with a left border (gdocs profile).
 
     See `write_table` for why the table form is replaced here.  Geometry:
@@ -1826,13 +1844,27 @@ def _write_quote_paragraphs(container, t: TableEl, content_w: float, ctx=None):
     # bar-to-text distance: the cell's left pad carries it (text x = bar x
     # + pad), and a paragraph may sit further in still
     pad_left = cell.pad[1] if len(cell.pad) >= 4 else 0.0
+    pads = cell.pad if len(cell.pad) >= 4 else (0.0, 0.0, 0.0, 0.0)
+    # The table form's cell bounded the wrap on the right; body paragraphs
+    # run to the column edge unless the cell's right edge and pad are
+    # written onto them as a right indent. Without it 04_exec_brief's quote
+    # (a block narrower than its column) ran one line past the source's
+    # wrap edge, live pass 8 (2026-10-04) measuring dy_p90 38pt where pass
+    # 7's table form measured 6.2. The block's VERTICAL position needs no
+    # transfer: adding the table gap and cell pads to the first and last
+    # paragraph broke B13's CLEAN 1:1 live (a spill at source page 3), whose
+    # quote gaps the paragraphs already carry.
+    right_gap = _block_right_gap(t, content_w)
     out = []
-    for p in cell.paras:
+    n = len(cell.paras)
+    for pi, p in enumerate(cell.paras):
         q = copy.copy(p)
         space = max(0.0, min(31.0, pad_left + q.left_indent))
         q.left_indent = max(0.0, t.left_indent + pad_left + q.left_indent)
+        q.right_indent = max(0.0, right_gap + pads[3] + (q.right_indent or 0.0))
         q.first_indent = 0.0
-        par = write_para(container, q, content_w, ctx=ctx)
+        par = write_para(container, q, content_w, ctx=ctx,
+                         page_break_before=page_break_before and pi == 0)
         if par is None:
             continue
         ppr = par._p.get_or_add_pPr()
@@ -1850,7 +1882,8 @@ def _write_quote_paragraphs(container, t: TableEl, content_w: float, ctx=None):
     return out[0] if out else None
 
 
-def _write_box_paragraphs(container, t: TableEl, content_w: float, ctx=None):
+def _write_box_paragraphs(container, t: TableEl, content_w: float, ctx=None,
+                          page_break_before: bool = False):
     """A callout box as body paragraphs carrying a four-side border (gdocs).
 
     See `write_table` for why the table form is replaced. Geometry follows
@@ -1884,9 +1917,12 @@ def _write_box_paragraphs(container, t: TableEl, content_w: float, ctx=None):
         q = copy.copy(p)
         space_l = max(0.0, min(31.0, pads[1] + q.left_indent))
         q.left_indent = max(0.0, t.left_indent + pads[1] + q.left_indent)
+        # measured from the BOX's right edge, not the column's: a box
+        # narrower than its column otherwise wraps its text at the column
         q.right_indent = max(0.0, pad_right)
         q.first_indent = 0.0
-        par = write_para(container, q, content_w, ctx=ctx)
+        par = write_para(container, q, content_w, ctx=ctx,
+                         page_break_before=page_break_before and pi == 0)
         if par is None:
             continue
         ppr = par._p.get_or_add_pPr()
@@ -3168,6 +3204,59 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
         if not has_content and not has_sectpr and len(list(body)) > 2:
             body.remove(p0)
 
+    _release_keeps_before_seams(body)
     _declare_fonts(doc)
     doc.save(out_path)
     return out_path
+
+
+def _starts_with_page_break(block) -> bool:
+    """Does this body block open with pageBreakBefore (a paragraph's own, or a
+    table's first paragraph's)?"""
+    p = block
+    if block.tag == qn("w:tbl"):
+        p = next(block.iter(qn("w:p")), None)
+    if p is None or p.tag != qn("w:p"):
+        return False
+    ppr = p.find(qn("w:pPr"))
+    if ppr is None:
+        return False
+    pbb = ppr.find(qn("w:pageBreakBefore"))
+    return pbb is not None and pbb.get(qn("w:val")) not in ("0", "false", "off")
+
+
+def _release_keeps_before_seams(body) -> None:
+    """A paragraph right before a pageBreakBefore seam must not keep-with-next.
+
+    The source put a heading at the very bottom of its page and the body it
+    heads at the top of the next (c6_long's "12. Section heading number 12").
+    Headings carry keepNext -- directly and through the Heading styles -- and
+    the next paragraph opens the next source page with pageBreakBefore, so
+    the keep cannot be satisfied on the page the heading is on: the renderer
+    moves the heading forward, the forced break then fires after it, and the
+    heading sits alone on a page of its own. Measured live in Google Docs
+    (pass 8, 2026-10-04): c6_long 7 -> 8 pages, word recall 1.000 -> 0.820,
+    bisected to the commit that replaced carrier paragraphs with
+    pageBreakBefore seams (07a9a83) -- a carrier paragraph absorbed the keep
+    on the heading's own page. The keep is released explicitly (w:val=0, so
+    the Heading style's keepNext is overridden too), and only on the one
+    paragraph in front of a hard seam, where it never had a satisfiable
+    meaning.
+    """
+    blocks = [b for b in body if b.tag in (qn("w:p"), qn("w:tbl"))]
+    for prev, cur in zip(blocks, blocks[1:]):
+        if prev.tag != qn("w:p") or not _starts_with_page_break(cur):
+            continue
+        ppr = prev.find(qn("w:pPr"))
+        if ppr is None:
+            ppr = OxmlElement("w:pPr")
+            prev.insert(0, ppr)
+        if ppr.find(qn("w:sectPr")) is not None:
+            continue
+        for old in ppr.findall(qn("w:keepNext")):
+            ppr.remove(old)
+        off = OxmlElement("w:keepNext")
+        off.set(qn("w:val"), "0")
+        # CT_PPr sequence: pStyle, keepNext, ... -- after pStyle if present
+        st = ppr.find(qn("w:pStyle"))
+        ppr.insert(list(ppr).index(st) + 1 if st is not None else 0, off)
