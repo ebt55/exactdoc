@@ -58,6 +58,48 @@ one verified fix at a time, each gated against the frozen 16.
   ([qualification](docs/evidence/gdocs-2026-10-04-pass9b-qualification.json)):
   overall pass, zero blocking findings, every fidelity metric identical to pass
   8b on all 16 documents; the private report stays CLEAN 32/32.
+- **running headers, footers and page numbers (audit finding 3: B1, B2, B3,
+  B26).** Parts were built from page 2 alone, so NIST SP 800-171 — whose page
+  2 is its title page — had its running head and folios consumed from 111
+  pages and written nowhere. They now come from the page carrying the *modal*
+  furniture, with `w:titlePg` when page 1 differs (and states its own footer,
+  including none) and `w:evenAndOddHeaders` when each parity has its own
+  (a slip opinion's verso/recto heads, lshort's folio side). Furniture is
+  searched past the fixed 62/64pt bands to 0.2 H where a row carries the
+  page's own number in an unbroken chain from the paper edge: RFC footers 105pt
+  up, the Supreme Court's head 114pt down. A printed number is a live PAGE
+  field when it tracks the physical index at a constant offset (arabic or
+  roman; ≥3 pages, 2 with agreeing `/PageLabels`), and a restart or format
+  change opens a section stating `w:pgNumType w:start/w:fmt` (y02: blank
+  lead-in, roman i…x, arabic from 1). Heads whose text changes by chapter
+  (bash, pandoc, lshort, "CHAPTER ONE") are stated per section instead of
+  dropped. `margin_t`/`margin_b` never sit inside a part's extent (y17 was
+  written with `pgMar top=200tw` under a 35pt header). Measured in the
+  canonical LibreOffice on the way: a first-page part with no default part
+  beside it shrinks every later page's body, so neither is written alone; the
+  bottom reserve now relaxes to the footer's top instead of being refused.
+  A footer keeps its parts but never shrinks the one body box below what
+  the source body uses on any page (it moves down just enough, floor 18pt,
+  only when that frees a 12pt line), and a footer line set beside another
+  row joins it instead of stacking (y30's footer was 31.5pt against 18).
+  The refine loop spends the footer's distance down to the same floor when
+  its render still spills. Measured on the integration tree (64d3e2a/79d2100
+  plus WP2), canonical container: gate PASS both lanes at the re-recorded
+  floors (product 16/16, <2pt 0.6019; raw 15/16, 0.4568; per-document lines
+  identical to the integration tree), gated outputs byte-identical except
+  02/03's `pgMar` bottom. Raw sweep, 90 measured, against 64d3e2a: rendered
+  pages 3330 → 3236, mean |ratio−1| 0.3095 → 0.2926, word recall 0.5796 →
+  0.5872, doc recall 0.9157 → 0.9192; y17 210 → 204 (recall 0.341 → 0.889),
+  y22 223 → 182, y18 264 → 242, y28 37 → 28, y06 178 → 168, y33 82 → 74.
+  Open-loop cost that remains: y52 54 → 61, y10 38 → 40, y30 33 → 35, y01
+  89 → 92, y02 125 → 127 — documents whose re-wrapped text used the 14pt
+  reserve the body had when their folio was not a footer; giving it back
+  would move the footer away from where the source prints it. Product
+  profile on the 14 most-affected documents: word recall 0.589 → 0.629, doc
+  recall 0.934 → 0.949, within-2pt 0.121 → 0.133, pages 979 → 980; y18
+  145 → 144 (recall 0.843 → 0.986), y30 recall 0.724 → 0.982, y02 0.918 →
+  0.958; y03 53 → 54 and y33 69 → 70 the only page losses.
+
 - **fonts: a family table replaces the descriptor-flag heuristic (audit B12–B15,
   B30, defect catalogue #3/#19).** pdfTeX's Type 1 fonts carry no Serif or
   FixedPitch bit, so `NimbusRomNo9L` (Times' metric clone) became Arial,

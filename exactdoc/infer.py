@@ -11,7 +11,9 @@ from .model import (DocIR, PageIR, TextBlock, Line, Span, DrawCmd, ImageObj,
                     BBox, bbox_union, bbox_overlap, bbox_area, contains,
                     ink_extent)
 from .layout import (Run, Para, Cell, TableEl, FigureEl, ImageEl, RuleEl,
-                     ColBreak, Chunk, PageLayout, HFPart, DocLayout)
+                     ColBreak, Chunk, PageLayout, HFPart, HFSection, DocLayout)
+from .furniture import (DECIMAL, num_tokens, page_number_model, is_page_number,
+                        furniture_text, printed_parity, numbering_sections)
 from . import hyphen
 from .lists import assign_lists
 from .notes import bind_page_notes, find_page_notes, number_footnotes
@@ -112,6 +114,25 @@ def _prose_between(wide_items, col_items) -> bool:
 # edge may be ordinary content sitting against a slightly mis-inferred margin;
 # the constructs this rule exists for clear the column by tens of points.
 MARGIN_BAND_CLEARANCE = 2.0
+
+# --- running headers and footers --------------------------------------------
+# The historical furniture bands, in points from the paper edge. A line inside
+# them is furniture on text repetition alone (>= 60% of pages), as it always
+# was; every gated document's furniture sits inside them.
+TOPZ, BOTZ = 62.0, 64.0
+# How far from the edge furniture is SEARCHED for beyond those bands, as a
+# fraction of the page height. Measured: the RFC footer row sits 0.137 H above
+# the bottom of A4 (y17, y27), a LaTeX book's running head 0.126 H below the
+# top (y22), the Supreme Court slip opinion's 0.157 H (y19) -- the deepest
+# found. Lines out here qualify only with page-number evidence in their row
+# and only in an unbroken chain of furniture rows from the edge.
+FURN_EXT_FRAC = 0.2
+# Verso/recto running heads are recognised per parity only on documents long
+# enough that 60% of one parity's pages is still evidence: 10 pages give 4-5
+# pages per class, and the per-class bar is never below 3 pages.
+PARITY_MIN_PAGES = 10
+# A drawing covering this much of the sheet is a background, not a margin.
+PAGE_COVER_FRAC = 0.9
 
 # --- quote bars -------------------------------------------------------------
 # A quote bar sits against the text it marks and is as tall as that text. Both
@@ -1295,6 +1316,10 @@ def detect_hf(ir: DocIR):
         "consumed_text": defaultdict(set), "consumed_draw": defaultdict(set),
         "band_first": None, "band_def": None, "rep_lines": defaultdict(list),
         "rep_draws": defaultdict(list), "line_roles": {},
+        "page_numbers": {}, "num_sections": [], "parity": {},
+        # varying furniture: consumed from the body, not part of the modal
+        # signature; `infer` states it per running-head section
+        "var_lines": defaultdict(list),
     }
     if n == 0:
         return res
@@ -1346,52 +1371,106 @@ def detect_hf(ir: DocIR):
         for _, d in res["band_first"]:
             band1_bb = bbox_union(band1_bb, d.bbox)
 
-    TOPZ, BOTZ = 62.0, 64.0
-    sigs = defaultdict(list)
+    # -- candidates. The legacy bands (TOPZ/BOTZ) qualify on repetition alone,
+    # exactly as before. The extended band (FURN_EXT_FRAC of the page) is
+    # searched only on documents of 3+ pages, and what is found there must
+    # earn it: see the extended pass below.
+    cands = []          # (page, block index, line, side, in_legacy_band)
     for p in ir.pages:
         band_h = b1_h if (p.number == 1 and res["band_first"]) else \
             (strip_h if have_strip else 0)
+        ext = FURN_EXT_FRAC * p.height
         for bi, blk in enumerate(p.blocks):
             for ln in blk.lines:
                 y0, y1 = ln.bbox[1], ln.bbox[3]
-                zone = None
+                zone, legacy = None, True
                 if y1 <= max(TOPZ, band_h + 2) and p.number != 1:
                     zone = "top"
                 elif p.number == 1 and y1 <= TOPZ and not res["band_first"]:
                     zone = "top"
                 elif y0 >= p.height - BOTZ:
                     zone = "bot"
+                elif n >= 3 and y1 <= ext and not (
+                        p.number == 1 and res["band_first"]):
+                    zone, legacy = "top", False
+                elif n >= 3 and y0 >= p.height - ext:
+                    zone, legacy = "bot", False
                 if zone:
-                    sig = (zone, round(ln.bbox[1] / 3), _norm_text(ln.text)[:40])
-                    sigs[sig].append((p.number, bi, ln))
+                    cands.append((p.number, bi, ln, zone, legacy))
+
+    # -- printed page numbers, judged across pages before anything is consumed:
+    # the roman-numeral half of the signature normalisation needs to know which
+    # "vii" is a page number and which "I" is a pronoun.
+    labels = (ir.meta or {}).get("page_labels") if hasattr(ir, "meta") else None
+    pn0 = page_number_model(
+        ((pg, fmt, v, legacy) for pg, bi, ln, zone, legacy in cands
+         for _, _, fmt, v in num_tokens(ln.text)), labels)
+    parity0 = printed_parity(pn0, n)
+
+    # rows of candidate lines per (page, side), ordered from the paper edge in
+    rows = {}
+    by_side = defaultdict(list)
+    for pg, bi, ln, zone, legacy in cands:
+        by_side[(pg, zone)].append((bi, ln, legacy))
+    for key, items in by_side.items():
+        items.sort(key=lambda t: (t[1].bbox[1], t[1].bbox[0]))
+        grp: List[list] = []
+        for it in items:
+            if grp and abs(it[1].bbox[1] - grp[-1][0][1].bbox[1]) < 3.5:
+                grp[-1].append(it)
+            else:
+                grp.append([it])
+        if key[1] == "bot":
+            grp.reverse()
+        rows[key] = grp
+
+    def row_has_page_number(pg, zone, ln):
+        for row in rows.get((pg, zone), ()):
+            if any(x[1] is ln for x in row):
+                return any(is_page_number(pn0, pg, fmt, v)
+                           for x in row for _, _, fmt, v in num_tokens(x[1].text))
+        return False
+
+    sigs = defaultdict(list)
+    for pg, bi, ln, zone, legacy in cands:
+        sig = (zone, round(ln.bbox[1] / 3),
+               furniture_text(ln.text, pn0, pg)[:40])
+        sigs[sig].append((pg, bi, ln, legacy))
     need = max(2, int(round(0.6 * n)))
+    later_pages = list(range(2, n + 1))
+    sig_lines = []            # (sig, page, line) consumed by text signature
+    ext_ok = {}               # (page, id(line)) -> sig: extended-band lines that qualify
     for sig, occ in sigs.items():
         pages = {o[0] for o in occ}
         strip_case = sig[0] == "top" and (res["band_first"] is not None or have_strip)
         need_here = max(2, int(round(0.6 * (n - 1)))) if strip_case else need
-        if len(pages) >= need_here:
-            # digit roles across pages
-            per_page = {}
-            for pg, bi, ln in occ:
-                per_page.setdefault(pg, re.findall(r"\d+", ln.text))
-            lens = {len(v) for v in per_page.values()}
-            roles = None
-            if len(lens) == 1 and lens != {0}:
-                k = lens.pop()
-                roles = []
-                for idx in range(k):
-                    vals = {pg: int(v[idx]) for pg, v in per_page.items()}
-                    if len(vals) >= 2 and all(v == pg for pg, v in vals.items()):
-                        roles.append("PAGE")
-                    elif len(set(vals.values())) == 1 and list(vals.values())[0] == n:
-                        roles.append("NUMPAGES?")  # context-checked later
-                    else:
-                        roles.append("LIT")
-            for pg, bi, ln in occ:
+        ok_pages = pages if len(pages) >= need_here else None
+        if ok_pages is None and n >= PARITY_MIN_PAGES:
+            # verso/recto running heads: each text holds on its own parity
+            # only, so neither reaches 60% of ALL pages (audit finding 3d).
+            for par in (0, 1):
+                cls = [pg for pg in later_pages if parity0[pg] == par]
+                on = {pg for pg in pages if parity0[pg] == par}
+                if len(on) >= max(3, int(round(0.6 * len(cls)))) and \
+                        len(on) >= 0.9 * len(pages):
+                    ok_pages = on
+        if not ok_pages:
+            continue
+        ext_occ = [o for o in occ if not o[3] and o[0] in ok_pages]
+        if ext_occ:
+            # Beyond the legacy band repetition alone is not furniture -- a
+            # table header repeated at the top of every page repeats too.
+            # What body text does not do is carry the page's own number.
+            with_pn = sum(1 for pg, bi, ln, _ in ext_occ
+                          if row_has_page_number(pg, sig[0], ln))
+            if with_pn >= max(2, 0.6 * len(ok_pages)):
+                for pg, bi, ln, _ in ext_occ:
+                    ext_ok[(pg, id(ln))] = sig
+        for pg, bi, ln, legacy in occ:
+            if legacy and pg in ok_pages:
                 res["rep_lines"][pg].append((sig[0], bi, ln))
                 res["consumed_text"][pg].add((bi, id(ln)))
-                if roles:
-                    res["line_roles"][id(ln)] = roles
+                sig_lines.append((sig, pg, ln))
 
     # VARYING running furniture. The text-signature pass above consumes a
     # line only when its full signature -- position AND text -- repeats on
@@ -1404,9 +1483,9 @@ def detect_hf(ir: DocIR):
     # furniture zone -- is the GEOMETRY: exactly one line at the same
     # position and size on >= 60% of pages. Those lines are consumed
     # WITHOUT emission: the representative-page machinery above cannot
-    # express varying text, and a source page number is wrong in the DOCX
-    # anyway once pagination differs, so furniture that cannot be stated
-    # correctly is dropped rather than stated wrongly.
+    # express varying text, so furniture that cannot be stated correctly is
+    # dropped rather than stated wrongly. (Their folios still vote in the
+    # page-number model at the end of this function.)
     if n >= 3:
         geo = defaultdict(list)
         for p in ir.pages:
@@ -1439,6 +1518,41 @@ def detect_hf(ir: DocIR):
             for pg in single:
                 bi, ln = per_page[pg][0]
                 res["consumed_text"][pg].add((bi, id(ln)))
+                res["var_lines"][pg].append((sig[0], bi, ln))
+
+    # EXTENDED-band furniture (audit B2). The fixed 62/64pt bands left the RFC
+    # footer "Fielding, et al.  Standards Track  [Page 40]" -- 105pt above the
+    # bottom of A4 -- in the body on all 194 pages of RFC 9110, as a tabbed
+    # paragraph that wrapped to three lines, and the Supreme Court's running
+    # head (114pt down) in the body of all 114 pages of the slip opinion. Their
+    # zone is derived from the evidence instead: a row qualifies when its text
+    # repeats like furniture AND the row carries the page's own number, and
+    # only as part of an unbroken chain of furniture rows from the paper edge,
+    # so the first row of body text below a header stops the walk. A row that
+    # qualifies is consumed whole: the rest of it (a chapter title beside the
+    # page number, as LaTeX books set it) is varying furniture, dropped for the
+    # same reason the geometry pass above drops it.
+    if ext_ok:
+        for (pg, zone) in sorted(rows):
+            ct = res["consumed_text"][pg]
+            for row in rows[(pg, zone)]:
+                if all(x[2] for x in row):
+                    if all((x[0], id(x[1])) in ct for x in row):
+                        continue        # a legacy furniture row: walk on
+                    break
+                hits = [x for x in row if (pg, id(x[1])) in ext_ok]
+                if not hits:
+                    break
+                for bi, ln, _ in row:
+                    if (bi, id(ln)) in ct:
+                        continue
+                    ct.add((bi, id(ln)))
+                    sig = ext_ok.get((pg, id(ln)))
+                    if sig is not None:
+                        res["rep_lines"][pg].append((zone, bi, ln))
+                        sig_lines.append((sig, pg, ln))
+                    else:
+                        res["var_lines"][pg].append((zone, bi, ln))
 
     # page-1 band text
     if band1_bb is not None:
@@ -1490,6 +1604,51 @@ def detect_hf(ir: DocIR):
     # stray rule-paragraphs at each seam are also a faithful rendering of
     # the source's own per-page furniture rules. Reverted; the +2% class
     # is bounded and recorded as such.
+
+    # -- page numbers as the FURNITURE states them. Only tokens on lines that
+    # were consumed as furniture vote here (including varying furniture that
+    # is not emitted -- NIST SP 800-88 prints its roman folios 25pt higher than
+    # its arabic ones), so a coincidence elsewhere in a candidate band can
+    # neither open a numbering section nor become a field.
+    pn = page_number_model(
+        ((pg, fmt, v, legacy) for pg, bi, ln, zone, legacy in cands
+         if (bi, id(ln)) in res["consumed_text"][pg]
+         for _, _, fmt, v in num_tokens(ln.text)), labels)
+    by_sig = defaultdict(list)
+    for sig, pg, ln in sig_lines:
+        by_sig[sig].append((pg, ln))
+    for sig, occ in by_sig.items():
+        per_page = {}
+        for pg, ln in occ:
+            per_page.setdefault(pg, num_tokens(ln.text))
+        lens = {len(v) for v in per_page.values()}
+        uniform = len(lens) == 1 and lens != {0}
+        numpages = set()
+        if uniform:
+            for idx in range(next(iter(lens))):
+                vals = {per_page[pg][idx][2:] for pg in per_page}
+                if vals == {(DECIMAL, n)}:
+                    numpages.add(idx)   # context-checked later
+        for pg, ln in occ:
+            roles = []
+            for idx, (_, _, fmt, v) in enumerate(num_tokens(ln.text)):
+                if uniform and idx in numpages:
+                    roles.append("NUMPAGES?")
+                elif is_page_number(pn, pg, fmt, v):
+                    roles.append("PAGE")
+                else:
+                    roles.append("LIT")
+            if uniform or "PAGE" in roles:
+                res["line_roles"][id(ln)] = roles
+    for pg, items in res["var_lines"].items():
+        for _, _, ln in items:
+            roles = ["PAGE" if is_page_number(pn, pg, fmt, v) else "LIT"
+                     for _, _, fmt, v in num_tokens(ln.text)]
+            if "PAGE" in roles:
+                res["line_roles"][id(ln)] = roles
+    res["page_numbers"] = pn
+    res["num_sections"] = numbering_sections(pn, n)
+    res["parity"] = printed_parity(pn, n)
     return res
 
 
@@ -1510,14 +1669,24 @@ def _pagefields(runs: List[Run], roles_for_line: Optional[List[str]],
             out.append(r)
             context.append(r.text)
             continue
-        parts = re.split(r"(\d+)", r.text)
-        for part in parts:
+        # Split at exactly the tokens `detect_hf` assigned roles to -- digit
+        # groups and roman-numeral words, in order -- so the role list stays
+        # index-aligned. For purely arabic text this is the old \d+ split.
+        parts, pos = [], 0
+        for s, e, _, _ in num_tokens(r.text):
+            parts += [(r.text[pos:s], False), (r.text[s:e], True)]
+            pos = e
+        parts.append((r.text[pos:], False))
+        for part, is_num in parts:
             if part == "":
                 continue
-            nr = Run(text=part, font=r.font, size=r.size, color=r.color,
-                     bold=r.bold, italic=r.italic, mono=r.mono, link=r.link,
-                     dest=r.dest, underline=r.underline, tracking=r.tracking)
-            if part.isdigit():
+            # Every property survives the split (tracking included). This used
+            # to rebuild the run from a hand-picked subset that left out
+            # `serif`, so a split Century Schoolbook head lost its serif
+            # mapping and came out in the sans fallback (the Supreme Court's
+            # running head, y19).
+            nr = replace(r, text=part)
+            if is_num:
                 role = next_role()
                 if role == "PAGE":
                     nr.field, nr.text = "PAGE", ""
@@ -1540,6 +1709,47 @@ def _group_lines_by_row(lines: List[Line]) -> List[List[Line]]:
     for r in rows:
         r.sort(key=lambda l: l.bbox[0])
     return rows
+
+
+# A furniture line joins a neighbouring row, rather than stacking as a row of
+# its own, when it shares at least this fraction of the shorter line's height
+# with that row and sits beside it rather than under it. Measured on the NZ
+# medicinal-cannabis guideline (y30): its folio (805.0-816.0) is centred
+# between two left-hand footer lines (801.3-809.4, 811.2-819.2), overlapping
+# each by 54% and 60%; stacked as three paragraphs the footer was 31.5pt tall
+# against the source's 18pt, and every page lost the 13pt difference.
+HF_ROW_OVERLAP = 0.5
+
+
+def _group_hf_rows(lines: List[Line]) -> List[List[Line]]:
+    """`_group_lines_by_row`, plus: a line that sits BESIDE a row (sharing
+    HF_ROW_OVERLAP of its height, and no x-range with the row's lines) is
+    part of that row -- one paragraph with a tab, as the source sets it --
+    not a paragraph stacked under it."""
+    rows = _group_lines_by_row(lines)
+    if len(rows) < 2:
+        return rows
+
+    def vov(a, b):
+        ov = min(a.bbox[3], b.bbox[3]) - max(a.bbox[1], b.bbox[1])
+        return ov / max(1e-6, min(a.bbox[3] - a.bbox[1], b.bbox[3] - b.bbox[1]))
+
+    def beside(ln, row):
+        return all(ln.bbox[2] <= o.bbox[0] or ln.bbox[0] >= o.bbox[2]
+                   for o in row)
+
+    out: List[List[Line]] = []
+    for row in rows:
+        if len(row) == 1 and out:
+            ln = row[0]
+            host = next((r for r in out if beside(ln, r) and
+                         max(vov(ln, o) for o in r) >= HF_ROW_OVERLAP), None)
+            if host is not None:
+                host.append(ln)
+                host.sort(key=lambda l: l.bbox[0])
+                continue
+        out.append(list(row))
+    return out
 
 
 def _hf_row_para(row: List[Line], margin_l: float, content_w: float,
@@ -1631,6 +1841,238 @@ def build_band_table(band, band_lines: List[Line], margin_l, content_w,
                    row_heights=[band_bb[3] - band_bb[1]], role="band", bbox=band_bb)
 
 
+def _role_text(ln: Line, roles: Optional[List[str]]) -> str:
+    """A furniture line's text as its part will state it: a page-number field
+    is '{P}', any other digit group '#', every other word literal."""
+    out, pos = [], 0
+    text = ln.text.strip()
+    for i, (s, e, fmt, _) in enumerate(num_tokens(text)):
+        role = roles[i] if roles and i < len(roles) else "LIT"
+        if role == "PAGE":
+            rep = "{P}"
+        elif fmt == DECIMAL:
+            rep = "#"
+        else:
+            continue
+        out += [text[pos:s], rep]
+        pos = e
+    out.append(text[pos:])
+    return "".join(out)
+
+
+def _hf_anchor(bb: BBox, page_w: float) -> str:
+    """Where a furniture line hangs: left, centre, right, or full width. Part of
+    the part signature because verso/recto heads often differ ONLY in which side
+    the folio sits on."""
+    cx = (bb[0] + bb[2]) / 2
+    if bb[2] - bb[0] > 0.6 * page_w:
+        return "W"
+    if abs(cx - page_w / 2) < 15:
+        return "C"
+    return "L" if cx < page_w / 2 else "R"
+
+
+def _part_has_page_field(part: Optional[HFPart]) -> bool:
+    if part is None:
+        return False
+    paras = []
+    for el in part.elements:
+        if isinstance(el, Para):
+            paras.append(el)
+        elif isinstance(el, TableEl):
+            paras += [p for row in el.rows for c in row if c for p in c.paras]
+    return any(r.field == "PAGE" for p in paras for r in p.runs)
+
+
+def _hf_extent(part: Optional[HFPart]) -> float:
+    """How far a header or footer part reaches from its anchor, in points."""
+    if part is None:
+        return 0.0
+    h = 0.0
+    for el in part.elements:
+        if isinstance(el, Para):
+            lead = el.leading if (el.leading and el.leading > 1) else \
+                max((r.size for r in el.runs if r.text), default=10.0) * 1.15
+            h += (el.space_before or 0.0) + max(1, el.src_lines or 1) * lead \
+                + (el.space_after or 0.0)
+            for b in (getattr(el, "border_top", None),
+                      getattr(el, "border_bottom", None)):
+                if b:
+                    h += b[0] + b[2]
+            continue
+        bb = getattr(el, "bbox", None) or getattr(el, "_bbox", None)
+        if bb:
+            h += (bb[3] - bb[1]) + (getattr(el, "space_before", 0.0) or 0.0)
+    return h
+
+
+# The lowest a footer is placed: a quarter inch, the common minimum printable
+# margin (also the refine loop's floor, refine.FOOTER_FLOOR_PT).
+FOOTER_FLOOR_PT = 18.0
+# A footer is moved only when that frees at least a line of body: 12pt, the
+# common body leading of the documents measured. A smaller move buys nothing
+# and only perturbs the page (EUR-Lex: 1.2pt cost the refine loop its 144/144).
+FOOTER_MIN_GAIN_PT = 12.0
+# The reserve below the lowest body line that `_measure_margins` keeps.
+BODY_FOOT_RESERVE_PT = 16.0
+
+
+def _fit_footers_below_body(ir: DocIR, hf, lay: DocLayout, rh) -> None:
+    """Keep the footers, but never let one shrink the body box below what the
+    source body uses.
+
+    A DOCX section has ONE body box for all its pages, and a footer bounds it
+    from below. The margin model already measures that box from the lowest
+    body line on any page (`_measure_margins`); a footer placed at its source
+    distance can sit higher than that, and then every page loses the
+    difference. Before running footers were written the body had that room,
+    and the documents whose re-wrapped text needs it -- the Word-export class
+    -- spilled once the footer took it: on the merged tree y01 89 -> 96 pages,
+    y03 63 -> 71, y08 67 -> 72, y36 42 -> 47. Measured with each footer moved
+    down just far enough to sit below the box (never under FOOTER_FLOOR_PT,
+    never by less than FOOTER_MIN_GAIN_PT), over 19 documents: 1528 -> 1493
+    pages and word recall 0.3025 -> 0.3221 -- y01 92, y03 66 (recall 0.262 ->
+    0.404), y08 68, y36 42, y28 33 -> 28 -- and no document worse. A footer
+    whose source position already clears the box (every gated document, the
+    RFCs at 105pt) is not touched.
+    """
+    feet = [lay.footer_default, lay.footer_even]
+    for _, parts, _ in rh:
+        feet += [parts.get("footer"), parts.get("footer_even")]
+    feet = list({id(p): p for p in feet if p is not None}.values())
+    if not feet:
+        return
+    room = None
+    for p in ir.pages:
+        ct = hf["consumed_text"][p.number]
+        bots = [l.bbox[3] for bi, b in enumerate(p.blocks) for l in b.lines
+                if (bi, id(l)) not in ct]
+        if bots:
+            r = p.height - max(bots) - BODY_FOOT_RESERVE_PT
+            room = r if room is None else min(room, r)
+    if room is None:
+        return
+    for part in feet:
+        target = room - _hf_extent(part)
+        if part.distance - target >= FOOTER_MIN_GAIN_PT:
+            part.distance = max(FOOTER_FLOOR_PT, round(target, 1))
+
+
+def _running_head_sections(ir: DocIR, hf, lay: DocLayout, zs, roles):
+    """[(start_page, parts, title_pg)] -- one entry per change of running head.
+
+    Varying furniture (a chapter title in the head, a section title in the
+    recto head) is consumed from the body by `detect_hf` because no single
+    header part can state it: the bash manual's "Chapter 3: Basic Shell
+    Features" vanished from 212 pages, the pandoc manual's chapter names from
+    138. A Word author states such heads the only way DOCX can -- a section
+    per chapter, each with its own header -- and that is what this plans: the
+    pages are walked in order, and wherever the varying text on a side (per
+    parity, under evenAndOddHeaders) changes, a section starts. It starts on
+    the first page after the last one that carried varying furniture, so a
+    chapter opener that prints no running head belongs to its own chapter and
+    gets a first-page part of its own (w:titlePg).
+
+    Each section's parts are built from its own representative pages, fixed
+    and varying furniture together. Returns [] when there is nothing to vary,
+    or when the "head" changes so often (more than one section per two pages)
+    that it is not a running head at all.
+    """
+    vl = hf.get("var_lines") or {}
+    n = len(ir.pages)
+    if not any(vl.get(pg) for pg in range(2, n + 1)):
+        return []
+    parity = hf.get("parity") or {}
+    zones = ("top", "bot")
+
+    def cls_of(pg):
+        return parity.get(pg, pg % 2) if lay.even_odd else 1
+
+    def var_sig(pg, zone):
+        items = sorted((l for z, _, l in vl.get(pg, ()) if z == zone),
+                       key=lambda l: (round(l.bbox[1] / 3), l.bbox[0]))
+        return tuple((_role_text(l, roles.get(id(l))),
+                      _hf_anchor(l.bbox, lay.page_w)) for l in items)
+
+    def says_something(sig):
+        # a varying line that is only a folio (a chapter opener printing its
+        # number where the head would be) states no running head: it opens
+        # the chapter rather than starting a section of its own
+        return any(re.sub(r"\{P\}|#", "", t).strip() for t, _ in sig)
+
+    sigs = {pg: {z: (s if says_something(s) else ())
+                 for z in zones for s in (var_sig(pg, z),)}
+            for pg in range(2, n + 1)}
+    # Boundaries: a page whose varying text differs from the running state,
+    # and the first page that states a running head at all when pages before
+    # it print none (front matter ahead of chapter 1). A section begins on the
+    # first silent page after the last page that stated a head -- the chapter
+    # opener -- but never before the numbering section the head belongs to:
+    # the bash manual's chapter 1 opens on the page its arabic count starts.
+    num_starts = [s for s, _, _ in hf.get("num_sections") or []]
+    state, bounds, prev_furn, seen = {}, [], 1, False
+    for pg in range(2, n + 1):
+        changed = False
+        for z in zones:
+            s = sigs[pg][z]
+            if not s:
+                continue
+            key = (z, cls_of(pg))
+            if state.get(key) is not None and state[key] != s:
+                changed = True
+            state[key] = s
+        stated = any(sigs[pg].values())
+        first = stated and not seen and pg > 2
+        if changed or first:
+            floor = max([s for s in num_starts if s <= pg], default=1) \
+                if first else 0
+            start = max(prev_furn + 1, floor,
+                        (bounds[-1] + 1) if bounds else 2)
+            if 2 < start <= pg:     # page 2 belongs to section 1 anyway
+                bounds.append(start)
+        if stated:
+            prev_furn, seen = pg, True
+    if not bounds or len(bounds) + 1 > max(2, n // 2):
+        return []
+
+    def full_part(pg, zone):
+        a, b = zs(pg, zone)
+        a = a + [(z, bi, l) for (z, bi, l) in vl.get(pg, ()) if z == zone]
+        return build_hf_part(a, b, ir.pages[pg - 1], lay.margin_l, lay.margin_r,
+                             roles, band=hf["band_def"] if zone == "top" else None)
+
+    defaults = {("top", 1): lay.header_default, ("bot", 1): lay.footer_default,
+                ("top", 0): lay.header_even or lay.header_default,
+                ("bot", 0): lay.footer_even or lay.footer_default}
+    out, rep = [], {}
+    edges = [2] + bounds + [n + 1]
+    for i in range(len(edges) - 1):
+        s, e = edges[i], edges[i + 1]
+        for pg in range(s, e):
+            for z in zones:
+                if sigs[pg][z]:
+                    rep.setdefault((z, cls_of(pg), i), pg)
+        parts = {}
+        for z, name in (("top", "header"), ("bot", "footer")):
+            for c, suffix in ((1, ""), (0, "_even")):
+                if suffix and not lay.even_odd:
+                    continue
+                # this section's own page, else the last one before it
+                pg = rep.get((z, c, i))
+                if pg is None:
+                    pg = next((rep[(z, c, j)] for j in range(i - 1, -1, -1)
+                               if (z, c, j) in rep), None)
+                part = full_part(pg, z) if pg is not None else defaults[(z, c)]
+                parts[name + suffix] = part
+        first_furn = next((pg for pg in range(s, e) if any(sigs[pg].values())), s)
+        title_pg = i > 0 and first_furn > s
+        if title_pg:
+            parts["header_first"] = full_part(s, "top")
+            parts["footer_first"] = full_part(s, "bot")
+        out.append((1 if i == 0 else s, parts, title_pg))
+    return out
+
+
 def build_hf_part(zone_items, zone_draws, page: PageIR, margin_l, margin_r,
                   line_roles, band=None) -> Optional[HFPart]:
     if not zone_items and not zone_draws and not band:
@@ -1655,7 +2097,7 @@ def build_hf_part(zone_items, zone_draws, page: PageIR, margin_l, margin_r,
 
     rules = [d for (_, _, d) in zone_draws if d.shape in ("hline", "line")]
     text_paras = []
-    for rowlines in _group_lines_by_row([ln for (_, _, ln) in rest]):
+    for rowlines in _group_hf_rows([ln for (_, _, ln) in rest]):
         pp = _hf_row_para(rowlines, margin_l, content_w, line_roles)
         y0 = min(l.bbox[1] for l in rowlines)
         y1 = max(l.bbox[3] for l in rowlines)
@@ -3657,8 +4099,15 @@ def _measure_margins(lay: DocLayout, ir: DocIR, hf: dict,
               if (bi, id(l)) not in ct]
         ye = [l.bbox[3] for bi, b in enumerate(p.blocks) for l in b.lines
               if (bi, id(l)) not in ct]
-        ys += [d.bbox[1] for di, d in enumerate(p.drawings) if di not in cd]
-        ye += [d.bbox[3] for di, d in enumerate(p.drawings) if di not in cd]
+        # A drawing that covers the whole sheet says nothing about where the
+        # body starts. RFC 9110 paints a page-sized #e9e9e9 rect (a clipped
+        # code-block background) on some pages, and the single most extreme
+        # page set margin_t to its 10pt floor -- `pgMar top=200tw` under a
+        # header at 35pt (audit B26).
+        draws = [d for di, d in enumerate(p.drawings) if di not in cd and
+                 bbox_area(d.bbox) < PAGE_COVER_FRAC * p.width * p.height]
+        ys += [d.bbox[1] for d in draws]
+        ye += [d.bbox[3] for d in draws]
         if ys and not (p.number == 1 and band1_h > 45):
             tops.append(min(ys))
         if ye:
@@ -3702,15 +4151,70 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
         b = [(z, d_i, d) for (z, d_i, d) in rd.get(pg, []) if z == zone]
         return a, b
 
-    repr_pg = 2 if n_pages >= 2 else 1
+    def page_sig(pg, zone):
+        """What a part built from page `pg` would say, numbers normalised."""
+        a, b = zs(pg, zone)
+        s = [(_role_text(ln, roles.get(id(ln))), _hf_anchor(ln.bbox, lay.page_w))
+             for _, _, ln in sorted(a, key=lambda t: (round(t[2].bbox[1] / 3),
+                                                      t[2].bbox[0]))]
+        s += [(d.shape, round(d.bbox[1] / 3)) for _, _, d in
+              sorted(b, key=lambda t: (t[2].bbox[1], t[2].bbox[0]))]
+        return tuple(s)
+
+    def modal_page(zone, pages):
+        """(signature, first page carrying it, how many pages carry it)."""
+        sigs = [(pg, page_sig(pg, zone)) for pg in pages]
+        cnt = Counter(s for _, s in sigs if s)
+        if not cnt:
+            return None, None, 0
+        modal, c = cnt.most_common(1)[0]     # ties: the earliest page's
+        return modal, next(pg for pg, s in sigs if s == modal), c
+
+    # The default parts are built from the page carrying the MODAL furniture
+    # signature, not from page 2 (audit B1). NIST SP 800-171's page 2 is its
+    # title page: `detect_hf` found the running head on 111 pages, consumed it
+    # from the body, and then no header or footer part was written at all --
+    # the running head and the page numbers vanished from every page. On every
+    # document whose page 2 carries the common furniture (all 16 gated ones)
+    # the modal page IS page 2 and nothing changes.
     if n_pages >= 2:
-        tl, td = zs(repr_pg, "top")
-        lay.header_default = build_hf_part(tl, td, ir.pages[repr_pg - 1],
-                                           lay.margin_l, lay.margin_r, roles,
-                                           band=hf["band_def"])
-        bl, bd = zs(repr_pg, "bot")
-        lay.footer_default = build_hf_part(bl, bd, ir.pages[repr_pg - 1],
-                                           lay.margin_l, lay.margin_r, roles)
+        later_pages = list(range(2, n_pages + 1))
+        parity = hf.get("parity") or {}
+        for zone in ("top", "bot"):
+            modal, rep, _ = modal_page(zone, later_pages)
+            if rep is None and zone == "top" and hf["band_def"]:
+                rep = 2                     # a strip band with no text in it
+            even_rep = None
+            if n_pages >= PARITY_MIN_PAGES:
+                # Verso/recto furniture: each parity has its own dominant
+                # signature, and they differ (the page number swaps sides, or
+                # the text alternates). DOCX states that directly with
+                # w:evenAndOddHeaders; the default part is the odd one.
+                cls = {par: [pg for pg in later_pages
+                             if parity.get(pg, pg % 2) == par] for par in (0, 1)}
+                m_o, r_o, c_o = modal_page(zone, cls[1])
+                m_e, r_e, c_e = modal_page(zone, cls[0])
+                if m_o and m_e and m_o != m_e and \
+                        c_o >= max(3, 0.6 * len(cls[1])) and \
+                        c_e >= max(3, 0.6 * len(cls[0])):
+                    rep, even_rep = r_o, r_e
+            if rep is None:
+                continue
+            a, b = zs(rep, zone)
+            part = build_hf_part(a, b, ir.pages[rep - 1], lay.margin_l,
+                                 lay.margin_r, roles,
+                                 band=hf["band_def"] if zone == "top" else None)
+            even = None
+            if even_rep is not None:
+                a, b = zs(even_rep, zone)
+                even = build_hf_part(a, b, ir.pages[even_rep - 1], lay.margin_l,
+                                     lay.margin_r, roles,
+                                     band=hf["band_def"] if zone == "top" else None)
+                lay.even_odd = True
+            if zone == "top":
+                lay.header_default, lay.header_even = part, even
+            else:
+                lay.footer_default, lay.footer_even = part, even
     tl1, td1 = zs(1, "top")
     bl1, bd1 = zs(1, "bot")
     # cover band becomes BODY content in its own section (deterministic in
@@ -3743,10 +4247,78 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
         if sig(hdr1) != sig(lay.header_default) or sig(ftr1) != sig(lay.footer_default):
             lay.different_first = True
             lay.header_first = hdr1
-            lay.footer_first = ftr1 if ftr1 is not None else lay.footer_default
+            # Page 1 states its own footer, including stating none: a cover
+            # page that prints no folio must not be given "PAGE 1" (y02). This
+            # used to fall back to the default footer.
+            lay.footer_first = ftr1
     else:
         lay.header_default = hdr1
         lay.footer_default = ftr1
+
+    # Running-head sections: varying furniture stated per section.
+    rh = _running_head_sections(ir, hf, lay, zs, roles) if n_pages >= 3 else []
+    vl = hf.get("var_lines") or {}
+
+    # Page-numbering sections (audit B3): printed numbers that differ from the
+    # physical index -- roman front matter, a restart at 1, a slip opinion's
+    # per-opinion numbering -- are live PAGE fields whose section states where
+    # the count starts and in which format.
+    # A section costs a section-break paragraph at a seam, so none is opened
+    # unless an emitted part actually shows the number.
+    all_parts = [lay.header_default, lay.header_even, lay.header_first,
+                 lay.footer_default, lay.footer_even, lay.footer_first]
+    all_parts += [p for _, parts, _ in rh for p in parts.values()]
+    shows_number = any(_part_has_page_field(p) for p in all_parts)
+    num_secs = [HFSection(start_page=s, num_start=v, num_fmt=f)
+                for s, f, v in hf.get("num_sections") or []] \
+        if shows_number else []
+    if len(num_secs) > 1 and num_secs[0].num_fmt is None:
+        # An unnumbered lead-in (cover, title page, notices) before numbered
+        # front matter. When none of its pages after the first carries any
+        # furniture it is written as a section with empty parts, so the
+        # running head does not appear on the title page; page 1 keeps its
+        # own first-page parts either way.
+        end = num_secs[1].start_page
+        if end > 2 and not any(rl.get(pg) or rd.get(pg) or vl.get(pg)
+                               for pg in range(2, end)):
+            num_secs[0].blank = True
+    # Merge the two kinds of section start: one DOCX section per start page.
+    by_start = {s.start_page: s for s in num_secs}
+    for start, parts, title_pg in rh:
+        s = by_start.setdefault(start, HFSection(start_page=start))
+        s.parts, s.title_pg = parts, title_pg
+    if by_start and 1 not in by_start:
+        by_start[1] = HFSection(start_page=1)
+    lay.hf_sections = [by_start[k] for k in sorted(by_start)]
+    if len(lay.hf_sections) == 1 and lay.hf_sections[0].parts is None and \
+            lay.hf_sections[0].num_fmt is None:
+        lay.hf_sections = []
+
+    # The body starts where the source body starts in every renderer (audit
+    # B26). Measured in the canonical LibreOffice: the body begins at
+    # max(top margin, header distance + header height) -- 47pt for a 12pt
+    # header at 35pt under a 10pt margin -- and ends at
+    # page height - max(bottom margin, footer distance + footer height). Every
+    # body position is computed from margin_t, so a margin inside the header
+    # displaced every page's content by the difference: y17 was written with
+    # `pgMar top=200tw` under a header at 35pt, 37pt of drift on 193 pages.
+    _fit_footers_below_body(ir, hf, lay, rh)
+    heads = [lay.header_default, lay.header_even]
+    feet = [lay.footer_default, lay.footer_even]
+    for _, parts, _ in rh:
+        heads += [parts.get("header"), parts.get("header_even")]
+        feet += [parts.get("footer"), parts.get("footer_even")]
+    top_need = max((p.distance + _hf_extent(p) for p in heads
+                    if p is not None), default=0.0)
+    bot_need = max((p.distance + _hf_extent(p) for p in feet
+                    if p is not None), default=0.0)
+    # every page geometry carries the same parts (pages of another size get
+    # their own measured margins, and the same floor)
+    for g in [lay] + list({id(g): g for g in own_geometry.values()}.values()):
+        if top_need > g.margin_t:
+            g.margin_t = math.ceil(top_need * 10) / 10
+        if bot_need > g.margin_b:
+            g.margin_b = math.ceil(bot_need * 10) / 10
 
     # ---------- per-page content
     body_size = _body_font_size(ir, hf)
@@ -4067,14 +4639,21 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
         # DOCX flow has no equivalent of PDF's last-baseline fit.  With a hard
         # source-page break, LibreOffice moving even one final line below the
         # inferred bottom reserve produces a mostly empty extra page. Give plain
-        # flow documents the conventional 0.2in minimum reserve instead. This
-        # is deliberately withheld when a header/footer, cover section, or a
-        # figure-flow overlay could occupy the same physical bottom area.
-        lay.margin_b = min(lay.margin_b, 14.0)
+        # flow documents the conventional 0.2in minimum reserve instead, or the
+        # footer's top when there is a footer. This is deliberately withheld
+        # when a cover section or a figure-flow overlay could occupy the same
+        # physical bottom area.
+        feet = [lay.footer_default, lay.footer_even]
+        feet += [s.parts.get(k) for s in lay.hf_sections if s.parts
+                 for k in ("footer", "footer_even")]
+        floor = max([14.0] + [p.distance + _hf_extent(p) for p in feet
+                              if p is not None])
+        floor = math.ceil(floor * 10) / 10
+        lay.margin_b = min(lay.margin_b, floor)
         for pl in lay.pages:
             if pl.margins is not None:
                 ml, mr, mt, mb = pl.margins
-                pl.margins = (ml, mr, mt, min(mb, 14.0))
+                pl.margins = (ml, mr, mt, min(mb, floor))
 
 
 def _mk_block(lines):
@@ -4085,18 +4664,29 @@ def _mk_block(lines):
 
 
 def _can_relax_bottom_margin(lay: DocLayout) -> bool:
-    """Whether a document can safely use the ordinary 14pt bottom reserve.
+    """Whether a document can safely use the ordinary bottom reserve: 14pt,
+    or the top of its footer when it has one.
 
-    A footer or cover has its own vertical coordinate system, and graphic text
-    that overlaps a figure cannot be represented as overlapping DOCX flow. Both
-    make a global bottom-margin change an unsafe way to recover ordinary text
+    A cover has its own vertical coordinate system, and graphic text that
+    overlaps a figure cannot be represented as overlapping DOCX flow. Both make
+    a global bottom-margin change an unsafe way to recover ordinary text
     overflow. The check is geometric and deliberately says nothing about fixture
     names or parser backends.
+
+    A header or footer no longer refuses. Both used to: before running heads
+    were stated as parts, a document had one only when its page 2 did, and the
+    refusal took the reserve away from exactly the documents whose furniture
+    is now emitted -- the pandoc manual's bottom margin went from 14pt to the
+    67pt its lowest source line implies, every page losing the room its
+    re-wrapped text had been using. A header never touches the bottom; a
+    footer bounds the body by itself in every renderer (measured in the
+    canonical LibreOffice: the body ends at page height - max(bottom margin,
+    footer distance + footer height)), so the reserve simply stops at the
+    footer's top. On the gated documents that carry a footer this changes the
+    written bottom margin and nothing that renders (measured: identical raw
+    numbers on all 16).
     """
     if lay.cover_band is not None:
-        return False
-    if any((lay.header_default, lay.footer_default, lay.header_first,
-            lay.footer_first)):
         return False
     # A table carried across pages (continuation_only) breaks where the
     # bottom margin says, not at a source page seam: with the 14pt reserve
