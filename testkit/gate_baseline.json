@@ -4,8 +4,8 @@
   "product": {
    "aggregate": {
     "gate_pass_count": 13,
-    "mean_live_text": 0.9635,
-    "mean_within2pt": 0.6019,
+    "mean_live_text": 0.9784,
+    "mean_within2pt": 0.6427,
     "median_dy_p50": 0.525,
     "n": 16,
     "page_match_count": 16
@@ -17,7 +17,7 @@
      "live_text_cov": 0.9595,
      "page_err": 0,
      "raster_frac": 0.0405,
-     "within2pt": 0.6458,
+     "within2pt": 0.6944,
      "word_recall": 0.9677
     },
     "02_research_paper.pdf": {
@@ -35,7 +35,7 @@
      "live_text_cov": 0.9827,
      "page_err": 0,
      "raster_frac": 0.0173,
-     "within2pt": 0.2803,
+     "within2pt": 0.3426,
      "word_recall": 1.0
     },
     "04_exec_brief.pdf": {
@@ -57,13 +57,13 @@
      "word_recall": 1.0
     },
     "c1_whitepaper.pdf": {
-     "doc_recall": 0.9697,
-     "dy_p50": 0.29,
-     "live_text_cov": 0.9654,
+     "doc_recall": 1.0,
+     "dy_p50": 0.44,
+     "live_text_cov": 0.9942,
      "page_err": 0,
-     "raster_frac": 0.0346,
-     "within2pt": 0.8688,
-     "word_recall": 0.9697
+     "raster_frac": 0.0058,
+     "within2pt": 0.8727,
+     "word_recall": 1.0
     },
     "c2_paper2col.pdf": {
      "doc_recall": 1.0,
@@ -84,22 +84,22 @@
      "word_recall": 1.0
     },
     "c4_i18n.pdf": {
-     "doc_recall": 0.9748,
+     "doc_recall": 0.9874,
      "dy_p50": 0.15,
-     "live_text_cov": 0.9091,
+     "live_text_cov": 0.9008,
      "page_err": 0,
-     "raster_frac": 0.0909,
-     "within2pt": 0.6207,
-     "word_recall": 0.9748
+     "raster_frac": 0.0992,
+     "within2pt": 0.8723,
+     "word_recall": 0.9874
     },
     "c5_graphics.pdf": {
-     "doc_recall": 0.6778,
-     "dy_p50": 0.45,
-     "live_text_cov": 0.7067,
+     "doc_recall": 0.8778,
+     "dy_p50": 0.15,
+     "live_text_cov": 0.9244,
      "page_err": 0,
-     "raster_frac": 0.2933,
-     "within2pt": 0.6885,
-     "word_recall": 0.6778
+     "raster_frac": 0.0756,
+     "within2pt": 0.9747,
+     "word_recall": 0.8778
     },
     "c6_long.pdf": {
      "doc_recall": 1.0,
@@ -377,11 +377,11 @@
   "raw": {
    "aggregate": {
     "gate_pass_count": 13,
-    "mean_live_text": 0.9635,
-    "mean_within2pt": 0.4568,
+    "mean_live_text": 0.9784,
+    "mean_within2pt": 0.4853,
     "median_dy_p50": 1.245,
     "n": 16,
-    "page_match_count": 15
+    "page_match_count": 16
    },
    "documents": {
     "01_whitepaper_market.pdf": {
@@ -390,7 +390,7 @@
      "live_text_cov": 0.9595,
      "page_err": 0,
      "raster_frac": 0.0405,
-     "within2pt": 0.3139,
+     "within2pt": 0.3389,
      "word_recall": 0.9677
     },
     "02_research_paper.pdf": {
@@ -430,13 +430,13 @@
      "word_recall": 1.0
     },
     "c1_whitepaper.pdf": {
-     "doc_recall": 0.9697,
-     "dy_p50": 0.89,
-     "live_text_cov": 0.9654,
+     "doc_recall": 1.0,
+     "dy_p50": 0.44,
+     "live_text_cov": 0.9942,
      "page_err": 0,
-     "raster_frac": 0.0346,
-     "within2pt": 0.8688,
-     "word_recall": 0.9697
+     "raster_frac": 0.0058,
+     "within2pt": 0.8727,
+     "word_recall": 1.0
     },
     "c2_paper2col.pdf": {
      "doc_recall": 1.0,
@@ -457,22 +457,22 @@
      "word_recall": 1.0
     },
     "c4_i18n.pdf": {
-     "doc_recall": 0.9748,
+     "doc_recall": 0.9874,
      "dy_p50": 0.15,
-     "live_text_cov": 0.9091,
+     "live_text_cov": 0.9008,
      "page_err": 0,
-     "raster_frac": 0.0909,
-     "within2pt": 0.6207,
-     "word_recall": 0.9748
+     "raster_frac": 0.0992,
+     "within2pt": 0.8723,
+     "word_recall": 0.9874
     },
     "c5_graphics.pdf": {
-     "doc_recall": 0.6778,
-     "dy_p50": 0.35,
-     "live_text_cov": 0.7067,
-     "page_err": 1,
-     "raster_frac": 0.2933,
-     "within2pt": 0.8,
-     "word_recall": 0.1667
+     "doc_recall": 0.8778,
+     "dy_p50": 0.15,
+     "live_text_cov": 0.9244,
+     "page_err": 0,
+     "raster_frac": 0.0756,
+     "within2pt": 0.9747,
+     "word_recall": 0.8778
     },
     "c6_long.pdf": {
      "doc_recall": 1.0,
