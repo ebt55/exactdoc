@@ -110,12 +110,21 @@ def service(interactive=False, credentials_path=None, token_path=None):
         except Exception as exc:
             raise OracleAuthenticationError("the Google Docs token is unreadable or invalid") from exc
     if not creds or not creds.valid:
+        refreshed = False
         if creds and getattr(creds, "expired", False) and getattr(creds, "refresh_token", None):
             try:
                 creds.refresh(Request())
+                refreshed = True
             except Exception as exc:
-                raise OracleAuthenticationError("the Google Docs token could not be refreshed") from exc
-        else:
+                # A refresh token from an OAuth app in testing status expires
+                # after about seven days (invalid_grant). Non-interactively that
+                # is an error; interactively it is the case a fresh consent
+                # repairs, so fall through to the browser instead of failing.
+                if not interactive:
+                    raise OracleAuthenticationError(
+                        "the Google Docs token could not be refreshed; "
+                        "run exactdoc-gdocs auth") from exc
+        if not refreshed:
             if not interactive:
                 raise OracleAuthenticationError(
                     "Google Docs authentication is required; run exactdoc-gdocs auth")

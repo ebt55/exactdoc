@@ -22,6 +22,7 @@ from typing import List, Optional
 import pypdfium2 as pdfium
 import pypdfium2.raw as raw
 
+from .fonts import font_traits
 from .model import (DocIR, PageIR, TextBlock, Line, Span, DrawCmd, ImageObj,
                     LinkDest, UndecodedGlyph, xml_safe_text, xml_safe_uri)
 
@@ -65,6 +66,22 @@ PITCH_DEFAULT_EM = 1.15
 # distributions (median 4.7em each).
 BLOCK_SAME_ROW_EM = 1.2
 MONO_ADV_EM = 0.6         # advance of a monospaced glyph, as a fraction of size
+# ...for Courier and its clones. TeX's typewriter faces (CMTT, CMU Typewriter,
+# LM Mono) draw at 0.525em, and counting their indentation in 0.6em cells
+# drops one space in eight. A face whose own measured pitch is further than
+# this from MONO_ADV_EM is counted in its own cells; within it, the constant
+# stands, so every Courier-pitch document keeps the counts it always had.
+MONO_PITCH_TOL = 0.02
+
+
+def _mono_pitch_em(width: float, n: int, size: float) -> float:
+    """The monospace cell, in em: measured when it is unmistakably not 0.6."""
+    if n < 1 or size <= 0 or width <= 0:
+        return MONO_ADV_EM
+    em = width / n / size
+    if abs(em / MONO_ADV_EM - 1.0) > MONO_PITCH_TOL and 0.3 < em < 0.9:
+        return em
+    return MONO_ADV_EM
 SPACE_ADV_EM = 0.28       # advance of a space in a proportional face
 # Super/subscript reattachment. These are infer._merge_row_lines' numbers, not
 # new ones: that pass already absorbs raised fragments into their host row, and
@@ -325,8 +342,13 @@ class _Char:
 
     @property
     def mono_hint(self) -> bool:
+        # The same class evidence `_style` uses: a TeX typewriter face
+        # (CMTT10, NimbusMonL, CMUTypewriter) carries no FixedPitch bit, and
+        # its synthesised spaces must be a character cell wide, or indented
+        # code loses its indentation.
         fl = (self.font or "").lower()
-        return bool(self.flags & _FLAG_FIXED) or "courier" in fl or "mono" in fl
+        return bool(self.flags & _FLAG_FIXED) or "courier" in fl or "mono" in fl \
+            or font_traits(self.font or "").cls == "mono"
 
 
 def _page_chars(textpage, frame, vis=None) -> List[_Char]:
@@ -728,26 +750,48 @@ def _is_cjk(ch: str) -> bool:
 # Serif families whose FontDescriptor is routinely absent. The standard 14
 # fonts may legally omit the descriptor entirely, and non-embedded system
 # fonts often do too, so `flags` arrives as 0 and the Serif bit is unreadable.
-_SERIF_NAMES = ("times", "georgia", "garamond", "cambria", "palatino", "book",
-                "minion", "caslon", "baskerville", "didot", "bodoni", "utopia",
-                "charter", "constantia", "sabon", "century", "roman", "serif",
-                "mincho", "songti", "sungti", "batang", "yugothic")
+#
+# Consulted only for a name the family table (`fonts.font_traits`) does not
+# know. "roman" and "book" are NOT here: both are weight/style words as often
+# as family words -- HelveticaNeueLTStd-Roman is the upright Helvetica Neue,
+# URWGothicL-Book the regular Avant Garde -- and "roman" alone sent 58-92% of
+# the IRS forms' characters (y06/y07/y14, all Helvetica Neue Roman) to Times
+# New Roman. "yugothic" was here by mistake: Gothic is the Japanese sans; the
+# serif is Yu Mincho.
+_SERIF_NAMES = ("times", "georgia", "garamond", "cambria", "palatino",
+                "bookman", "antiqua", "minion", "caslon", "baskerville", "didot",
+                "bodoni", "utopia", "charter", "constantia", "sabon", "century",
+                "serif", "mincho", "songti", "sungti", "batang")
 
 
 def _style(c: _Char):
     fl = c.font.lower()
-    bold = bool(c.flags & _FLAG_BOLD) or "bold" in fl or "black" in fl or "heavy" in fl
-    italic = bool(c.flags & _FLAG_ITALIC) or "italic" in fl or "oblique" in fl
-    mono = bool(c.flags & _FLAG_FIXED) or "courier" in fl or "mono" in fl
+    # What the NAME says first (family table, then weight/slant words such as
+    # Bd, Blk, Demi, Ital, Obli, and Computer Modern's shape codes); the
+    # descriptor bits are ORed in for weight and slant and are the fallback for
+    # class. See fonts.font_traits for the measurements behind each.
+    tr = font_traits(c.font)
+    bold = bool(c.flags & _FLAG_BOLD) or "bold" in fl or "black" in fl or \
+        "heavy" in fl or tr.bold
+    italic = bool(c.flags & _FLAG_ITALIC) or "italic" in fl or "oblique" in fl or \
+        tr.italic
+    mono = bool(c.flags & _FLAG_FIXED) or "courier" in fl or "mono" in fl or \
+        tr.cls == "mono"
     # The descriptor is authoritative when present, but "present" is not
     # detectable from a single bit -- a font with no descriptor and a font with
     # a descriptor that clears every flag both arrive as 0. Measured against
     # PyMuPDF, this backend called Times-Roman, Times-Bold and Times-Italic
     # sans on every core-14 document. Fall back to the name, as bold/italic/
     # mono already do above, and never let "sans-serif" match "serif".
-    serif = bool(c.flags & _FLAG_SERIF)
-    if not serif and "sans" not in fl:
-        serif = any(k in fl for k in _SERIF_NAMES)
+    #
+    # A family the table knows is answered by the table: the bit is set WRONG
+    # as often as it is missing (CMUSansSerif arrives with Serif on).
+    if tr.cls is not None:
+        serif = tr.cls == "serif"
+    else:
+        serif = bool(c.flags & _FLAG_SERIF)
+        if not serif and "sans" not in fl:
+            serif = any(k in fl for k in _SERIF_NAMES)
     # A script is its own span even when it is set at the host's size: the
     # writer has to raise it, and a run cannot be half superscript.
     #
@@ -1089,6 +1133,15 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
     """
     if not chars:
         return []
+    # Each monospace face's own cell, for _reconstruct_indents: the median
+    # advance of its drawn glyphs (see MONO_PITCH_TOL).
+    cells = {}
+    for c in chars:
+        if not c.gen and not c.u.isspace() and c.size >= 1.0 and c.mono_hint:
+            cells.setdefault((c.font, round(c.size, 2)), []).append(
+                (c.x1 - c.x0) / c.size)
+    mono_cells = {k: _mono_pitch_em(sorted(v)[len(v) // 2], 1, 1.0)
+                  for k, v in cells.items()}
     rows = []
     for c in sorted(chars, key=lambda c: (round(c.oy, 1), c.ox)):
         placed = False
@@ -1185,7 +1238,14 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
                 # drift on a listing. Monospace advances are ~0.6em, so the
                 # count is recoverable from the gap; proportional text is
                 # ~0.28em and rarely runs more than one.
-                adv = (MONO_ADV_EM if cur[-1].mono_hint else SPACE_ADV_EM) * max(c.size, 1.0)
+                if cur[-1].mono_hint:
+                    g = next((x for x in reversed(cur)
+                              if not x.gen and not x.u.isspace()), None)
+                    cell = _mono_pitch_em(g.x1 - g.x0, 1, g.size) if g is not None \
+                        else MONO_ADV_EM
+                    adv = cell * max(c.size, 1.0)
+                else:
+                    adv = SPACE_ADV_EM * max(c.size, 1.0)
                 n_sp = int(round(gap / adv)) if adv > 0 else 1
                 if cur[-1].u.isspace() or c.u.isspace():
                     # A space is already there, and in proportional text that is
@@ -1235,11 +1295,11 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
               max(s.bbox[2] for s in sp_objs), max(s.bbox[3] for s in sp_objs))
         lines.append(Line(spans=sp_objs, bbox=lb))
     lines.sort(key=lambda l: (round(l.bbox[1], 1), l.bbox[0]))
-    _reconstruct_indents(lines)
+    _reconstruct_indents(lines, mono_cells)
     return lines
 
 
-def _reconstruct_indents(lines: List[Line]) -> None:
+def _reconstruct_indents(lines: List[Line], mono_cells=None) -> None:
     """Put back the leading indentation PDFium does not report.
 
     PDFium synthesises the spaces a producer drew by positioning -- but only
@@ -1292,7 +1352,10 @@ def _reconstruct_indents(lines: List[Line]) -> None:
         left = min(l.bbox[0] for l in run)
         for ln in run:
             size = max((s.size for s in ln.spans), default=10.0)
-            adv = MONO_ADV_EM * max(size, 1.0)
+            first = ln.spans[0]
+            cell = (mono_cells or {}).get((first.font, round(first.size, 2)),
+                                     MONO_ADV_EM)
+            adv = cell * max(size, 1.0)
             n = int(round((ln.bbox[0] - left) / adv)) if adv > 0 else 0
             if n < 1:
                 continue
@@ -2720,8 +2783,11 @@ def _jpeg_passthrough(img, rendered) -> Optional[bytes]:
     return data if diff <= PASSTHROUGH_TOL else None
 
 
-def _image_payload(img):
+def _image_payload(img, turn=0):
     """(bytes, ext) for one placed image. Raises when PDFium cannot decode it.
+
+    `turn` is the frame's render_rotation: on a page _Frame.of turned to read,
+    the pixels are turned with it (and a JPEG cannot pass through unchanged).
 
     Three outcomes, in order:
       * any transparency -> the RENDERED pixels as an RGBA PNG. The base image
@@ -2733,21 +2799,25 @@ def _image_payload(img):
       * otherwise -> the base image as PNG, exactly as before.
     """
     import io
+
+    def png(pil):
+        if turn:
+            pil = pil.rotate(-turn, expand=True)     # PIL turns counter-clockwise
+        buf = io.BytesIO()
+        pil.save(buf, format="PNG")
+        return buf.getvalue(), "png"
+
     rendered = _rendered_rgba(img)
     if rendered is not None:
         lo, _ = rendered.getchannel("A").getextrema()
         if lo < 255:
-            buf = io.BytesIO()
-            rendered.save(buf, format="PNG")
-            return buf.getvalue(), "png"
-        jpg = _jpeg_passthrough(img, rendered)
+            return png(rendered)
+        jpg = None if turn else _jpeg_passthrough(img, rendered)
         if jpg is not None:
             return jpg, "jpeg"
     bm = img.get_bitmap(render=False)
     try:
-        buf = io.BytesIO()
-        bm.to_pil().save(buf, format="PNG")
-        return buf.getvalue(), "png"
+        return png(bm.to_pil())
     finally:
         bm.close()
 
@@ -2778,7 +2848,7 @@ def _page_images(objs: List[_PObj], frame, keep_data, doc=None, page=None,
         if keep_data:
             try:
                 img = pdfium.PdfObject(ob.raw, page=page, pdf=doc)
-                data, ext = _image_payload(img)
+                data, ext = _image_payload(img, frame.render_rotation)
             except Exception:
                 data = None
                 dropped += 1
@@ -2991,6 +3061,7 @@ def parse_pdf(path: str, keep_image_data: bool = True,
             pass
         ir = DocIR(path=path, meta=meta)
         frames = {}
+        advances = {}
         for pno in range(len(doc)):
             page = doc[pno]
             try:
@@ -3005,6 +3076,7 @@ def parse_pdf(path: str, keep_image_data: bool = True,
                     pir.hidden_chars = dict(vis.counts)
                     pir.ocr_chars = vis.ocr_chars
                     chars = _page_chars(tp, frame, vis)
+                    _collect_advances(chars, advances)
                     # Before spans exist: a link is a property of characters, and
                     # settling it here lets _style end a span at the anchor's
                     # edge. See _tag_char_links for what the old span-level test
@@ -3026,6 +3098,47 @@ def parse_pdf(path: str, keep_image_data: bool = True,
                 page.close()
             ir.pages.append(pir)
         _resolve_dests(ir, frames)
+        ir.font_advances = _median_advances(advances)
         return ir
     finally:
         doc.close()
+
+
+def _collect_advances(chars: List[_Char], acc: dict) -> None:
+    """Tally each font's glyph advances, in em, from the loose character boxes.
+
+    The LOOSE box's width is the glyph's advance (FPDFText_GetLooseCharBox:
+    the PDF's /Widths entry times the size, under the text matrix), not its
+    ink. Probed before being relied on: NimbusRomNo9L-Regu on FIPS 197 reads
+    e .444, a .444, n .501, o .500, r .335 against Times-Roman's AFM .444 .444
+    .500 .500 .333; Liberation Serif on c6_long .443/.277/.500 against Times
+    New Roman's .444/.278/.500; CMTT10 .525 for every glyph; Calibri 'e'
+    .498 = 1019/2048. Synthesised spaces and whitespace carry no advance of
+    their own and are skipped.
+    """
+    for c in chars:
+        if c.gen or c.size < 1.0 or c.u.isspace() or len(c.u) != 1:
+            continue
+        w = c.x1 - c.x0
+        if w <= 0:
+            continue
+        per = acc.setdefault(c.font, {}).setdefault(c.u, {})
+        k = round(w / c.size, 3)
+        per[k] = per.get(k, 0) + 1
+
+
+def _median_advances(acc: dict) -> dict:
+    """{font: {char: median advance in em}} from `_collect_advances`' tallies."""
+    out = {}
+    for font, chars in acc.items():
+        row = {}
+        for ch, hist in chars.items():
+            n = sum(hist.values())
+            run = 0
+            for k in sorted(hist):
+                run += hist[k]
+                if run * 2 >= n:
+                    row[ch] = k
+                    break
+        out[font] = row
+    return out

@@ -12,6 +12,36 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **fonts: a family table replaces the descriptor-flag heuristic (audit B12–B15,
+  B30, defect catalogue #3/#19).** pdfTeX's Type 1 fonts carry no Serif or
+  FixedPitch bit, so `NimbusRomNo9L` (Times' metric clone) became Arial,
+  `CMTT10`/`NimbusMonL` code became proportional, `CMBX12` headings lost their
+  bold, EUR-Lex's `EUAlbertina` became Arial and `HelveticaNeueLTStd-Roman`
+  became Times New Roman ("roman" counted as serif evidence). `fonts.py` now
+  names the URW 35, CM/CMU/LM/EC, Helvetica Neue, the Office set and CJK faces
+  with class, weight/slant codes (Bd, Blk, Demi, Medi, Ital, CMBX, CMSL…) and a
+  target per profile; the parser takes class from it before the flags. The
+  standard profile writes Calibri/Cambria by name (gdocs keeps Carlito/Georgia
+  until a live pass grades them). Calibri is shaped from Carlito's own widths
+  (OFL; was Helvetica's, 8.6% wide), CJK runs name their face in `w:eastAsia`,
+  and a run whose emitted width cannot match the source — a half-point size
+  (c1's 9.33pt written 9.5) or Courier New for a 0.525em typewriter — carries a
+  `w:w` scale from the PDF's own glyph advances, which the ladder shapes with.
+  Measured in the canonical container against HEAD. Product lane: y03 62→57
+  pages, y18 147→145 (word recall 0.435→0.756), y22 167→166 (recall
+  0.261→0.423); c1 within-2pt 0.334→0.678 and c4 0.440→0.621 in both gated
+  lanes (gate PASS; product mean within-2pt 0.5274→0.5689); x17/x18 up. Raw
+  lane: y03 71→65, y25 361→338, y18 279→265; over all 52 swept documents mean
+  within-2pt 0.2107→0.2216, mean |page ratio−1| 0.1517→0.1483, mean word
+  recall 0.7445→0.7401 (y24, y22). TeX code blocks now keep their
+  line breaks (catalogue #2), which costs raw-lane pages where an unrelated
+  overflow had been absorbed by code collapsed into prose — y22 222→229, y24
+  168→169 (recall 0.645→0.388 in both lanes, a page-alignment shift), the
+  attribution checked by disabling only the name-based monospace class; y06
+  202→204 because its cover title is now bold, as drawn. Proportional width
+  matching was measured and NOT taken: per-run ratios carry clone-rounding
+  noise that moved 02, x05, x06 and x15.
+
 Ported so far, all first verified live on Google's own render:
 
 - **#6 the cells the parser joins.** Adjacent table cells whose gap is under
@@ -92,6 +122,27 @@ never held — Typst, XeLaTeX, LuaTeX+ConTeXt, pandoc, Arbortext+PDFlib,
 Word→PostScript→Distiller — and closing LaTeX-light 1→6, other real-world
 1→6. Non-gating, as §7 requires.
 
+Corpus tranche 4 (see `docs/corpus-expansion.md` §13): "what people actually
+convert" — 38 licence-verified documents sealed as y28–y65 (16 gated + 79
+expansion = 95, 21.9 MB added).
+
+- **Producer chains new to the corpus:** Word, PowerPoint and Excel for
+  Microsoft 365 direct exports, Google Docs, Apple Pages, real-world
+  LibreOffice, Power PDF, Print To PDF, WeasyPrint, JUST PDF, XPP,
+  JasperReports, GPO, three journal pipelines and three arXiv classes.
+- **Coverage:** CVs, eight non-Latin scripts and two OCR'd scans.
+- **First sweep** (product profile at ec22cbf,
+  `docs/evidence/quality-sweep-tranche4-2026-10-04.json`): 38/38 convert, but
+  only 10/38 are page-exact. Median ratio 1.38×.
+- **Two-column papers** inflate 2.4–2.6× (y41, y39, y42).
+- **Panel-backed InDesign text is rasterised wholesale:** y58 keeps 12% live
+  text.
+- **Scans** go 2.8–2.9× in pages and 53–58× in DOCX size.
+- **The word-recall metric cannot grade Thai or Devanagari** (y55 keeps every
+  Thai character and scores 0.061).
+
+Non-gating; the expansion parity policy re-pins its corpus hash only.
+
 - **the booklet class, fixed at the root (detection, then flow).** Three
   coordinated changes: the gutter scan reads only narrow lines (≤0.62 of the
   content width) so a spanning caution line can no longer veto a genuine
@@ -156,6 +207,61 @@ Word→PostScript→Distiller — and closing LaTeX-light 1→6, other real-worl
   53, y12 83, y02 128, y21 60, everything else unchanged — the matrix
   and README carry these numbers, and the booklet class stands at
   1.41–1.71×.
+- **drawings count as structure only when a reader can see them.** Three
+  false-structure defects from weak drawing evidence, fixed in `dialect`
+  (visibility) and at two `infer` decision sites:
+  Word's per-line `#ffffff` paragraph shading no longer becomes one box
+  table per line — a page-coloured, unstroked area fill is dropped unless it
+  is visible by contrast with something it touches (a knockout, a zebra row,
+  a panel under artwork, part of an image); y01 p21's 7-line paragraph is one
+  paragraph again and y01's 111 white boxes are gone. Word's table-border
+  joint squares (0.48/1.5pt, flush with the rules they join) are no longer
+  promoted to "•": a drawn marker must be ≥ max(2pt, 0.25em) of its line and
+  must not touch a rule end — y02 1,286 → 24 bullets (its 24 real ones),
+  y11 3,612 → 36, x11's dotted TOC leaders no longer bullet the page numbers;
+  Chromium discs (3pt, 0.27–0.29em) are untouched. Paths with zero alpha or
+  no paint are dropped before inference reads them. And a vertical rule is a
+  quote bar only within 2em of its text, without overhanging it by more than
+  1.5em, and not as one side of a drawn frame: y09's page-height margin rule
+  had wrapped 56 of 59 pages in a quote table. Raw lane, canonical sweep:
+  y09 72 → 67 pages, y01 107 → 103 (word recall 0.184 → 0.199), y02 142 →
+  140 (doc recall 0.903 → 0.922), y03 71 → 70, x11 4 → 3; y10 within-2pt
+  0.273 → 0.272, everything else identical. Product lane: y09 72 → 65,
+  y03 62 → 60, y02 128 → 126, y01 96 → 95. One honest loss: y08's product
+  within-2pt 0.336 → 0.321, all of it on p6 (269 words within 2pt → 0).
+  The phantom "•" had been that page's first paragraph and so carried its
+  `pageBreakBefore`; without it the page opens with the heading box's
+  rule after a `w:br` carrier, LibreOffice drops the space before it
+  (audit B23) and the page sits 17.5pt high. Disabling only the marker
+  rule restores 0.336 exactly. Gated 16: raw DOCX byte-identical to
+  before, gate PASS both lanes at the recorded numbers. 30 new tests.
+- **résumés: the structure the release bar names.** Five defects on the
+  owner's résumé and x17/x18 (defect catalogue #7, #8, #22; design audit
+  B16), each a general rule. *Typed list markers* ("• text" in one span,
+  "1." "(a)") now open a list item when the flow shows list evidence — a
+  second marker at the same x, a hanging indent, or a numbering sequence
+  ("5. Section heading" alone stays a heading) — and the item keeps its
+  measured hang; x17's fused bullets and RFC 9110's four glued items split.
+  *A rule between two lines of one block* cuts the block, so the rule under
+  "SUMMARY" is drawn under SUMMARY, not under the summary text. *A lone
+  role/date row* takes its tab stop from the document's column of rows
+  (same edge, same styles, a label/field style contrast), not the page's.
+  *The content edge* may reach the document's rules when two label/field
+  rows end there (x17: 486pt column → 509pt). *Body-size section headings*
+  — bold caps, one line, at the column edge, tracked or ruled — carry
+  Heading styles, so Docs' outline of a résumé exists. x17's 8.92pt dy_p90
+  was one paragraph re-wrapping (Chrome's advances run ~4% wide); with the
+  column right and a typed item's hang counted as first-line room, the
+  ladder locks it. Measured in the canonical container: gate PASS both
+  lanes at the recorded numbers, no gated layout changes; x17/x18 product
+  dy_p90 8.92 → **2.41/2.42pt**, within2pt 0.102/0.140 → 0.160/0.167;
+  expansion+gated product sweep mean within2pt 0.2892 → 0.2935, SSIM
+  0.7488 → 0.7503, y17 228 → 224 pages, no product document worse than
+  −0.001 within2pt. Worse, honestly: the open-loop raw lane's x17/x18
+  within2pt 0.08 → 0.05 (dy_p90 8.92 → 5.9, under that lane's constant
+  ~4pt offset), y18 raw 279 → 280 pages, and two lexical hyphens now
+  dehyphenated in justified list items (y24, y26) beside nine
+  discretionary ones correctly removed.
 
 ## 1.0.1 — 2026-08-07
 

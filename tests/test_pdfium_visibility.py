@@ -206,6 +206,49 @@ class OcrLayer(unittest.TestCase):
 
 
 @unittest.skipIf(_canvas is None, "reportlab and Pillow are required")
+class SidewaysScan(unittest.TestCase):
+    """A scanned page whose OCR text runs sideways (a landscape table scanned
+    on a portrait sheet -- measured on y57 pages 12 and 14) is read turned, in
+    both modes, and the scan's pixels turn with the page."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls._dir = tempfile.TemporaryDirectory()
+        cls.pdf = os.path.join(cls._dir.name, "sideways.pdf")
+        c = _canvas.Canvas(cls.pdf, pagesize=(612, 792))
+        c.drawImage(_scan_png(), 0, 0, 612, 792)
+        c.saveState()
+        c.translate(612, 0)
+        c.rotate(90)
+        to = c.beginText(72, 540)
+        to.setTextRenderMode(3)
+        to.setFont("Helvetica", 12)
+        to.textLine("sideways OCR table heading reads when the page turns")
+        to.textLine("second sideways row with enough words to be counted")
+        c.drawText(to)
+        c.restoreState()
+        c.save()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._dir.cleanup()
+
+    def test_text_mode_reads_the_turned_page(self):
+        ir = parse_pdf(self.pdf, keep_image_data=False)
+        page = ir.pages[0]
+        self.assertEqual((round(page.width), round(page.height)), (792, 612))
+        self.assertIn("sideways OCR table heading reads when the page turns", _texts(ir))
+        self.assertEqual(page.images, [])
+
+    def test_image_mode_turns_the_pixels_with_the_page(self):
+        ir = parse_pdf(self.pdf, ocr_layer="image")
+        (im,) = ir.pages[0].images
+        self.assertEqual(tuple(round(v) for v in im.bbox), (0, 0, 792, 612))
+        pil = Image.open(io.BytesIO(im.data))
+        self.assertGreater(pil.width, pil.height, "landscape pixels on a landscape page")
+
+
+@unittest.skipIf(_canvas is None, "reportlab and Pillow are required")
 class IconLettering(unittest.TestCase):
     """An icon's label is part of the icon, not of the line beside it.
 

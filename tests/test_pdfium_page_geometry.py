@@ -223,7 +223,7 @@ class Rotation(unittest.TestCase):
             with self.subTest(path=os.path.basename(path)):
                 # a horizontal line of text: wider than tall, and inked
                 self.assertGreater(im.width, 3 * im.height)
-                self.assertLess(min(im.getdata()), 100)
+                self.assertLess(im.getextrema()[0], 100)
             session = bk.clip_renderer(path)
             try:
                 self.assertEqual(session.render_clip(1, line.bbox, dpi=144), png)
