@@ -68,6 +68,33 @@ BACKENDS = ("pdfium", "pymupdf")
 # having to retract.
 OUTPUT_PROFILES = ("standard", "gdocs")
 
+# Structures a profile serialises as REAL Word structures rather than as the
+# typed text that looks the same. Inference reads them for every profile
+# (`Para.numbering`, `DocLayout.footnotes`); this table is the one switch that
+# decides whether the OOXML says them.
+#
+#   numbering   lists as w:numPr over numbering.xml, instead of a typed "1."
+#               or bullet plus a tab. LibreOffice was measured placing item
+#               text and marker where the typed form put them.
+#   footnotes   source footnotes as word/footnotes.xml notes referenced from
+#               the text, instead of body paragraphs at the page bottom.
+#
+# Google Docs keeps the typed forms until a live pass shows its importer
+# places them correctly. That is not caution for its own sake: a list-indent
+# normalisation proven in LibreOffice regressed live Docs dx to 63.65pt
+# (2026-08-04), and LibreOffice does not predict Docs (see the probe set the
+# capability ships with, testkit/gdocs_probe_lists_notes.py). Flipping either
+# entry below is the whole change once that evidence exists.
+PROFILE_CAPABILITIES = {
+    "standard": frozenset({"numbering", "footnotes"}),
+    "gdocs": frozenset(),
+}
+
+
+def capabilities(output_profile: str) -> frozenset:
+    """The real-structure capabilities `output_profile` writes."""
+    return PROFILE_CAPABILITIES.get(output_profile, frozenset())
+
 # What renders the DOCX during refinement. `none` means no feedback loop and no
 # external process at all -- the fastest, most deterministic, most private
 # option, used by RAW and the explicit PDFium candidate.

@@ -311,11 +311,15 @@ def _slice_runs(runs: List[Run], a: int, b: int) -> List[Run]:
         n = len(r.text)
         s, e = max(a, pos), min(b, pos + n)
         if s < e:
+            # `footnote` must survive the lock: a reference run that lost it
+            # would leave its note with no anchor (structures.footnote_plan
+            # then writes the whole document's notes typed).
             c = Run(text=r.text[s - pos:e - pos], font=r.font, size=r.size,
                     color=r.color, bold=r.bold, italic=r.italic, mono=r.mono,
                     serif=r.serif, link=r.link, underline=r.underline,
                     superscript=r.superscript, field=r.field,
-                    width_scale=r.width_scale)
+                    width_scale=r.width_scale, footnote=r.footnote,
+                    footnote_mark=r.footnote_mark)
             out.append(c)
         pos += n
     return out

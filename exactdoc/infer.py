@@ -10,6 +10,8 @@ from .model import (DocIR, PageIR, TextBlock, Line, Span, DrawCmd, ImageObj,
                     BBox, bbox_union, bbox_overlap, bbox_area, contains)
 from .layout import (Run, Para, Cell, TableEl, FigureEl, ImageEl, RuleEl,
                      ColBreak, Chunk, PageLayout, HFPart, DocLayout)
+from .lists import assign_lists
+from .notes import bind_page_notes, find_page_notes, number_footnotes
 
 BULLET_CHARS = set("•◦▪‣·-–—*➤►○●♦")
 NUM_RE = re.compile(r"^\(?(\d{1,3}|[a-zA-Z]|[ivxlIVXL]{1,5})[\.\)\:]$")
@@ -2531,6 +2533,7 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
     # ---------- per-page content
     body_size = _body_font_size(ir, hf)
     doc_lay = lay
+    prev_notes = False
     for p in ir.pages:
         own = own_geometry.get(p.number)
         lay = _geometry(doc_lay, own)
@@ -2778,14 +2781,28 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
         page_top = lay.margin_t
         if p.number == 1 and lay.cover_band is not None and lay.cover_band.bbox:
             page_top = lay.cover_band.bbox[3]
+        # Footnotes are read off the page's own lines before the flow is built
+        # (a mark fragment and its line are still separate there) and bound to
+        # the flow after it (the references live in its runs). See notes.py.
+        col_l, col_r = lay.margin_l, lay.page_w - lay.margin_r
+        pn = find_page_notes([l for b in flow_blocks for l in b.lines],
+                             [d for i, d in enumerate(p.drawings) if i not in cd],
+                             body_size, col_l, col_r,
+                             can_continue=prev_notes)
         pl.chunks = _assemble_chunks(elements, flow_blocks, lay, p, page_top)
+        prev_notes = bool(pn is not None and
+                          bind_page_notes(doc_lay, pl, pn, col_l, col_r))
         doc_lay.pages.append(pl)
 
     lay = doc_lay
+    number_footnotes(lay)
     _coalesce_striped_table_segments(lay)
     _propagate_list_hangs([el for pg in lay.pages for ch in pg.chunks
                            for el in ch.elements if isinstance(el, Para)])
     _mark_headings(lay, body_size)
+    # After the hangs (a level's indents are read from them) and the headings
+    # (a numbered heading is a heading, not a list item).
+    assign_lists(lay, body_size)
     if _can_relax_bottom_margin(lay):
         # DOCX flow has no equivalent of PDF's last-baseline fit.  With a hard
         # source-page break, LibreOffice moving even one final line below the
@@ -2793,6 +2810,10 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
         # flow documents the conventional 0.2in minimum reserve instead. This
         # is deliberately withheld when a header/footer, cover section, or a
         # figure-flow overlay could occupy the same physical bottom area.
+        # A footnote area is such an occupant too -- but only where the notes
+        # are written as notes, which is the writer's call (options.py), so
+        # the measured reserve is kept for it (see docxout._write_docx).
+        lay.margin_b_measured = lay.margin_b
         lay.margin_b = min(lay.margin_b, 14.0)
         for pl in lay.pages:
             if pl.margins is not None:
