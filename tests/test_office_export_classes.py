@@ -250,10 +250,13 @@ class RunningRules(unittest.TestCase):
     """Finding 5, on y36's shape: feet 70pt up, mirrored, varying by section,
     each set under a rule."""
 
+    N = 12      # the parity pass reads documents of PARITY_MIN_PAGES and more
+
     def _pages(self):
+        self.assertGreaterEqual(self.N, I.PARITY_MIN_PAGES)
         pages = []
-        sections = ["Parts of the main window"] * 4 + ["Creating a document"] * 4
-        for n in range(1, 9):
+        sections = ["Parts of the main window"] * 6 + ["Creating a document"] * 6
+        for n in range(1, self.N + 1):
             text = ("%d | Chapter 1 Introducing Writer" % n) if n % 2 == 0 \
                 else ("%s | %d" % (sections[n - 1], n))
             pages.append(_folio_page(n, text))
@@ -264,7 +267,7 @@ class RunningRules(unittest.TestCase):
         # band, by parity, from page 2); the rule each is set against is
         # this pass's, and goes to the part as the foot's border.
         res = I.detect_hf(DocIR(path="x.pdf", pages=self._pages()))
-        for pn in range(2, 9):
+        for pn in range(2, self.N + 1):
             self.assertEqual(len(res["consumed_text"][pn]), 1, pn)
             self.assertEqual(res["consumed_draw"][pn], {0}, pn)
             self.assertIn(0, [di for z, di, _d in res["rep_draws"][pn] if z == "bot"])
@@ -516,22 +519,38 @@ class Backgrounds(unittest.TestCase):
         panel = ImageEl(data=_PNG, ext="png", width=594.0, height=654.0)
         panel._bbox = (0.0, 100.0, 594.0, 754.0)
         text = _block([_line("Submissions process", 71.0, 136.0, 236.0)])
-        keep, floats = I._float_backgrounds([panel], [text], self._lay(), 842.0)
+        keep, floats = I._float_backgrounds([panel], [text], self._lay(), 595.0, 842.0)
         self.assertEqual(keep, [])
         self.assertTrue(floats[0].behind)
 
     def test_a_picture_bleeding_off_the_foot_floats_in_front(self):
         art = ImageEl(data=_PNG, ext="png", width=595.0, height=312.0)
         art._bbox = (0.0, 530.0, 595.0, 842.0)
-        keep, floats = I._float_backgrounds([art], [], self._lay(), 842.0)
+        keep, floats = I._float_backgrounds([art], [], self._lay(), 595.0, 842.0)
         self.assertEqual(len(floats), 1)
         self.assertFalse(floats[0].behind)
+
+    def test_a_full_page_picture_is_left_to_the_writers_rule(self):
+        # d630b33 anchors a picture that fills the page, in every profile;
+        # neither float pass may take it first
+        cover = ImageEl(data=_PNG, ext="png", width=595.0, height=842.0)
+        cover._bbox = (0.0, 0.0, 595.0, 842.0)
+        text = _block([_line("Discussion paper", 70.0, 300.0, 300.0)])
+        keep, floats = I._float_backgrounds([cover], [text], self._lay(),
+                                            595.0, 842.0)
+        self.assertEqual((keep, floats), ([cover], []))
+        keep, floats = I._float_graphics([cover], [text], 595.0, 842.0)
+        self.assertEqual((keep, floats), ([cover], []))
+
+    def test_the_full_page_share_is_the_writers(self):
+        from exactdoc import docxout
+        self.assertEqual(I.FULL_PAGE_FRAC, docxout._FULL_PAGE_FRAC)
 
     def test_an_ordinary_figure_stays_in_the_flow(self):
         fig = ImageEl(data=_PNG, ext="png", width=300.0, height=200.0)
         fig._bbox = (150.0, 300.0, 450.0, 500.0)
         text = _block([_line("Caption below the figure", 150.0, 510.0, 400.0)])
-        keep, floats = I._float_backgrounds([fig], [text], self._lay(), 842.0)
+        keep, floats = I._float_backgrounds([fig], [text], self._lay(), 595.0, 842.0)
         self.assertEqual((len(keep), len(floats)), (1, 0))
 
 
@@ -568,6 +587,57 @@ class Spreadsheets(unittest.TestCase):
 
     def test_figures_outnumbered_by_wide_prose_do_not_widen(self):
         self.assertIsNone(I._numeric_column_edge(self._body(), 500, 595.0))
+
+    @staticmethod
+    def _chunks(two_value_columns):
+        blocks = []
+        for k in range(12):
+            y = 80.0 + 30.0 * k
+            blocks.append(_block([_line("Rate label number %s" % "abcdefghijkl"[k],
+                                        56.0, y, 250.0, size=9.0)]))
+            if two_value_columns:
+                blocks.append(_block([_line("%d.50" % (k + 10), 370.0, y, 387.0,
+                                            size=9.0)]))
+            blocks.append(_block([_line("%d.75" % (k + 10), 448.0, y, 465.0,
+                                        size=9.0)]))
+        lay = DocLayout(page_w=595.0, page_h=842.0, margin_l=56.0, margin_r=130.0,
+                        margin_t=72.0, margin_b=72.0)
+        page = PageIR(number=1, width=595.0, height=842.0, blocks=blocks)
+        return I._assemble_chunks([], blocks, lay, page)
+
+    def test_two_columns_of_figures_are_a_table_not_two_text_columns(self):
+        self.assertTrue(all(ch.n_cols == 1 for ch in self._chunks(True)))
+
+    def test_figure_columns_do_not_outvote_a_text_column(self):
+        # y60 (MMWR): a table's figure columns outnumbered the page's real
+        # right-hand text column; the split must still fall at the text
+        blocks = []
+        for k in range(14):
+            y = 80.0 + 30.0 * k
+            blocks.append(_block([_line("Left column prose line number %d of it" % k,
+                                        36.0, y, 290.0, size=9.0)]))
+            blocks.append(_block([_line("Right column prose line %d of the page" % k,
+                                        319.0, y, 576.0, size=9.0)]))
+            for dy in (5.0, 15.0):          # more figure blocks than text ones
+                blocks.append(_block([_line("%d.5" % (k + 70), 400.0, y + dy, 420.0,
+                                            size=9.0)]))
+                blocks.append(_block([_line("%d.1" % (k + 80), 470.0, y + dy, 490.0,
+                                            size=9.0)]))
+        lay = DocLayout(page_w=612.0, page_h=792.0, margin_l=36.0, margin_r=36.0,
+                        margin_t=60.0, margin_b=60.0)
+        page = PageIR(number=1, width=612.0, height=792.0, blocks=blocks)
+        chunks = I._assemble_chunks([], blocks, lay, page)
+        two = [ch for ch in chunks if ch.n_cols == 2]
+        self.assertTrue(two)
+        right = two[0].elements[two[0].elements.index(
+            next(e for e in two[0].elements if type(e).__name__ == "ColBreak")) + 1:]
+        self.assertTrue(any(getattr(e, "text", "").startswith("Right column")
+                            for e in right))
+
+    def test_a_lone_column_of_figures_keeps_the_two_column_reading(self):
+        # a contents page's page numbers (y32): as rows its short titles fall
+        # under the row-pair label floor and each number stood alone
+        self.assertTrue(any(ch.n_cols == 2 for ch in self._chunks(False)))
 
 
 class HeaderGutter(unittest.TestCase):

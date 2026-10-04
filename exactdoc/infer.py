@@ -4338,7 +4338,16 @@ def _size_groups(pages: List[PageIR]) -> List[List[PageIR]]:
 _NUMERIC_CELL = re.compile(r"^[£$€¥(]?[-−]?[\d,]+(\.\d+)?%?\)?$")
 NUMERIC_EDGE_MIN = 20            # values in one right-aligned column
 FIGURE_COLUMN_SHARE = 0.8        # blocks of figures that make a "column" a value column
+FIGURE_COLUMN_MIN = 2           # figure columns that make a page's figures a table
 NUMERIC_EDGE_TOL = 1.5           # pt; right-aligned values share their edge
+
+
+def _figure_cluster(x0: float, blocks, is_figures) -> bool:
+    """Do the blocks starting at `x0` (the column detector's 12pt cluster)
+    hold figures, FIGURE_COLUMN_SHARE of them and at least FIGURE_COLUMN_MIN?"""
+    members = [b for b in blocks if abs(b.bbox[0] - x0) < 12]
+    figs = sum(1 for b in members if is_figures(b))
+    return figs >= FIGURE_COLUMN_MIN and figs >= FIGURE_COLUMN_SHARE * len(members)
 
 
 def _numeric_column_edge(body_lines, n_wide: int, page_w: float):
@@ -4986,11 +4995,12 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
 
         elements = _merge_figures(elements)
         if p.number in deck:
-            elements, pl.floats = _float_graphics(elements, blocks)
+            elements, pl.floats = _float_graphics(elements, blocks,
+                                                  p.width, p.height)
         else:
             if anchored:
                 elements, pl.floats = _float_backgrounds(elements, blocks,
-                                                         lay, p.height)
+                                                         lay, p.width, p.height)
             elements = _merge_graphic_rows(elements, blocks, p.number)
 
         # rebuild flow blocks from unconsumed lines (contiguous runs)
@@ -5200,10 +5210,26 @@ def _deck_pages(ir: DocIR, hf: dict) -> frozenset:
     return frozenset(p.number for p in land)
 
 
-def _float_graphics(elements, blocks):
+# A picture covering this share of the paper in both dimensions IS the page,
+# and the writer places it itself: docxout._FULL_PAGE_FRAC, anchored behind
+# text at the page origin in every profile (live-verified on y28's cover,
+# docs/evidence/gdocs-2026-10-04-cover-picture.json). The float passes below
+# leave such a picture in the flow for that rule, so one picture is never
+# handled twice and the gdocs profile, which floats nothing, places it the same
+# way as the standard one.
+FULL_PAGE_FRAC = 0.97
+
+
+def _fills_page(bb, page_w: float, page_h: float) -> bool:
+    return (bb[2] - bb[0]) >= FULL_PAGE_FRAC * page_w and \
+        (bb[3] - bb[1]) >= FULL_PAGE_FRAC * page_h
+
+
+def _float_graphics(elements, blocks, page_w: float, page_h: float):
     """(flow elements, [FloatEl]): a slide's pictures and drawn figures leave
     the flow for their own positions (see `_deck_pages`). A graphic under the
-    page's text goes behind it: slide text is set over its pictures."""
+    page's text goes behind it: slide text is set over its pictures. A
+    full-page picture stays for the writer's own rule (FULL_PAGE_FRAC)."""
     text = [l.bbox for l in _all_lines(blocks)]
     keep, floats = [], []
     for e in elements:
@@ -5214,7 +5240,8 @@ def _float_graphics(elements, blocks):
         else:
             keep.append(e)
             continue
-        if bb is None or bb[2] - bb[0] <= 0 or bb[3] - bb[1] <= 0:
+        if bb is None or bb[2] - bb[0] <= 0 or bb[3] - bb[1] <= 0 or \
+                _fills_page(bb, page_w, page_h):
             keep.append(e)
             continue
         behind = any(bbox_overlap(bb, t) > 0.0 for t in text)
@@ -5226,7 +5253,8 @@ def _float_graphics(elements, blocks):
 BACKGROUND_MIN_LINES = 1
 
 
-def _float_backgrounds(elements, blocks, lay: DocLayout, page_h: float):
+def _float_backgrounds(elements, blocks, lay: DocLayout, page_w: float,
+                       page_h: float):
     """(flow elements, [FloatEl]): a picture the page's text is set ON leaves
     the flow for its own position, behind the text.
 
@@ -5243,12 +5271,14 @@ def _float_backgrounds(elements, blocks, lay: DocLayout, page_h: float):
     way, in front: the flow cannot put it there at all. y33's cover bleeds
     its artwork off the paper's foot (y 530-842 of 842); in the flow it went
     over the page and took a page of its own.
+
+    A full-page picture is left to the writer's own rule (FULL_PAGE_FRAC).
     """
     lines = [l.bbox for l in _all_lines(blocks)]
     keep, floats = [], []
     for e in elements:
         bb = getattr(e, "_bbox", None) if isinstance(e, ImageEl) else None
-        if bb is None:
+        if bb is None or _fills_page(bb, page_w, page_h):
             keep.append(e)
             continue
         under = sum(1 for t in lines if contains(bb, t, pad=0.5)) >= \
@@ -5320,8 +5350,9 @@ def _lock_slide(pl: PageLayout, lay: DocLayout) -> None:
     pictures already anchored (`_float_graphics`); what stays in the flow --
     tables -- re-spaced against the flow that remains.
 
-    Why frames, on a slide and nowhere else (THEORY §6 rejects positioned
-    text as the default, and Google Docs breaks it). A slide is not a flow:
+    Why frames, on a slide and nowhere else (docs/deep-dive/theory.md §6
+    rejects positioned text as the default, and Google Docs breaks it). A
+    slide is not a flow:
     it is text boxes placed on a fixed canvas, side by side and over
     pictures, and a flow reproduces it only while every gap it stacks is
     exactly right. Measured on y34, with the pictures anchored and the text
@@ -6622,6 +6653,22 @@ def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
     if narrow:
         lefts = _cluster([b.bbox[0] for b in narrow], 12.0)
         right_cands = [c for c in lefts if c >= content_l + 0.35 * content_w]
+        # A cluster of figures is a table's value column, not a second
+        # column of text, when the page holds two or more of them: y35's
+        # 2025/26 and 2026/27 rates (x 370-387, 440-465) cleared every bar
+        # below and the page was set as two text columns, its labels in one
+        # and their values a column-break away; on y60 (MMWR) a table's
+        # figure column outvoted the page's real right-hand text column. A
+        # lone column of figures -- a contents page's page numbers (y32) --
+        # keeps the two-column reading it always had: as rows its short
+        # titles fall under _row_pairs' label floor and each number would
+        # stand on a line of its own.
+        def _figs(b):
+            return all(_NUMERIC_CELL.match(l.text.strip()) for l in b.lines)
+        fig_cols = [c for c in lefts if c > lefts[0] + 12 and
+                    _figure_cluster(c, narrow, _figs)]
+        if len(fig_cols) >= FIGURE_COLUMN_MIN:
+            right_cands = [c for c in right_cands if c not in fig_cols]
         if lefts and abs(lefts[0] - content_l) < 10 and right_cands:
             # dominant right-column cluster (by block count)
             def csize(c):
@@ -6644,15 +6691,7 @@ def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
             # ones, so it is accepted too, and a stray 100pt inset still is
             # not.
             tall_single = h2 >= COL_SINGLE_BLOCK_FRAC * max(1.0, body_h)
-            # A "column" of figures is a spreadsheet's value column, not a
-            # second column of text: y35's 2026/27 rates (x 440-465) cleared
-            # every bar here and the page was set as two text columns, its
-            # labels in one and their values a column-break away.
-            figures = sum(1 for b in c2 if all(
-                _NUMERIC_CELL.match(l.text.strip()) for l in b.lines))
-            if c2 and figures >= FIGURE_COLUMN_SHARE * len(c2):
-                c2 = []
-            if c2 and h1 > 60 and h2 > 60 and (len(c2) >= 2 or tall_single):
+            if h1 > 60 and h2 > 60 and (len(c2) >= 2 or tall_single):
                 col_split = float(_mode([b.bbox[0] for b in c2], 0))
                 ys1 = sorted(b.bbox[1] for b in c1)
                 ys2 = sorted(b.bbox[1] for b in c2)
