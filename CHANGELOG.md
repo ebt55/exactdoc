@@ -20,6 +20,27 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **One overflow no longer costs a whole page (WP18).** Every source page
+  ends in a hard break, so whatever closes a page goes over alone when the
+  renderer sets the page a point long, and the break then spends a page on
+  it. *Running rules*: a rule repeated at one place on 60% of pages, within
+  18pt of a running line and with no body text between them, is that line's
+  furniture whatever the gap (`infer._repeated_running_rules`). RFC 9110's
+  foot rule, 9.2pt over its foot, was a 2pt body paragraph behind a 66pt gap
+  closing all 194 pages, and Google Docs set 77 pages that carried nothing
+  but it (272 for 194). *The closing element*: a rule, an empty paragraph,
+  or a line placed by a gap of three body lines or more keeps one body line
+  of clearance from the bottom of the box, paid from its own gap
+  (`docxout._guard_page_tail`). That covers y31's cover date, which Docs
+  put on a page of its own on both covers, 20 pages for 18. The footer
+  model now counts a row's border. Gated: `word/*.xml` byte-identical for
+  all 16 under both profiles; gate PASS in both lanes. LibreOffice raw,
+  measured on the merged tree: y17 204 -> 202 pages (word recall 0.889 ->
+  0.916), y27 155 -> 152 (0.396 -> 0.460), y08 67 -> 66, y18 242 -> 240, no
+  document worse; product: y27 152 -> 151, page-exact (0.761 -> 0.968), y17
+  203 -> 202, y06 149 -> 148. Google Docs is to be flown live (probe set
+  prepared).
+
 - **designed pages stay editable: rounded panels, card rows, side-by-side
   regions, sidebars and CV date gutters (WP13).** A rounded panel is drawn
   with curves, so the parser called it artwork and inference rasterised the

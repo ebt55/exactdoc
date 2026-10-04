@@ -2195,6 +2195,90 @@ def _furniture_leftovers(ir: DocIR, res: dict, topz: float, botz: float) -> None
                     res["consumed_draw"][p.number].add(di)
                     res["rep_draws"][p.number].append((zone, di, d))
                     break
+    _repeated_running_rules(ir, res, topz, botz)
+
+
+def _repeated_running_rules(ir: DocIR, res: dict, topz: float,
+                            botz: float) -> None:
+    """A rule drawn at one place on most pages, with a running line beyond it
+    and nothing of the body between them, is that line's rule -- however far
+    from it the author set it.
+
+    RUNNING_RULE_GAP_PT reads a single page, so it has to be tight. Repetition
+    is the stronger evidence, and with it the gap can be whatever the part can
+    still draw (HF_RULE_REACH_PT). Measured on y17_rfc9110 (A4): the foot rule
+    at y 713.6-714.3, x 56.2-539.0, on all 194 pages, its foot 9.2pt below.
+    Left in the body it was a 2pt paragraph behind a 66pt gap closing every
+    page, and wherever Google Docs set a page a few points longer than the
+    source (p18's last line at 646 against 634.7), that paragraph went over
+    and took a page of its own: 272 pages for 194, 77 of them carrying nothing
+    but the rule. Its head rule, 9.0pt under the head, was always the part's
+    (it lies inside TOPZ); this states the foot the same way.
+
+    Inside the legacy zones nothing changes (the mirrored-rule NOTE at the
+    end of `detect_hf`).
+    """
+    n = len(ir.pages)
+    need = max(3, int(round(0.6 * n)))
+    sigs = defaultdict(list)
+    for p in ir.pages:
+        for di, d in enumerate(p.drawings):
+            if d.shape != "hline" or di in res["consumed_draw"][p.number]:
+                continue
+            if d.bbox[3] <= topz or d.bbox[1] >= p.height - botz:
+                continue
+            # the same geometry: the y and both ends, 3pt / 5pt buckets as the
+            # zone-drawing signature in `detect_hf` buckets them
+            sig = (round(d.bbox[1] / 3), round(d.bbox[0] / 5),
+                   round(d.bbox[2] / 5), d.fill, d.stroke)
+            sigs[sig].append((p, di, d))
+    for occ in sigs.values():
+        if len({p.number for p, _, _ in occ}) < need:
+            continue
+        for p, di, d in occ:
+            zone = _rule_beside_running_line(p, d, res["consumed_text"][p.number],
+                                             topz, botz)
+            if zone is not None:
+                res["consumed_draw"][p.number].add(di)
+                res["rep_draws"][p.number].append((zone, di, d))
+
+
+def _rule_beside_running_line(p: PageIR, d: DrawCmd, ct, topz: float,
+                              botz: float) -> Optional[str]:
+    """"top"/"bot" when a running line consumed outside the legacy zones lies
+    within HF_RULE_REACH_PT of the rule `d`, across its extent, with no body
+    line between them; else None.
+
+    Outside the legacy zones, as `_furniture_leftovers` reads them: a foot
+    inside BOTZ is set close under its rule and close over the body, and
+    there the rule is the body's room as much as the foot's. Measured on
+    y28_doe_oig_word365 (Letter): the foot at 731.4, its rule at 727.4 and
+    footnotes down to 720.1 on 16 pages; taken into the footer as a border,
+    the part grew 4pt into the body and LibreOffice set 23 pages for 21
+    (22 before). The EU Official Journal's head rule, 3.5pt under a head
+    inside TOPZ, is the case the NOTE at the end of `detect_hf` records.
+    """
+    lines = [(bi, ln) for bi, blk in enumerate(p.blocks) for ln in blk.lines
+             if ln.text.strip()]
+    x0, y0, x1, y1 = d.bbox
+    for bi, ln in lines:
+        if (bi, id(ln)) not in ct or not (x0 < ln.bbox[2] and x1 > ln.bbox[0]):
+            continue
+        if ln.bbox[3] <= topz or ln.bbox[1] >= p.height - botz:
+            continue
+        if ln.bbox[1] >= y1:
+            lo, hi = y1, ln.bbox[1]           # a foot below its rule
+        elif ln.bbox[3] <= y0:
+            lo, hi = ln.bbox[3], y0           # a head above its rule
+        else:
+            continue
+        if hi - lo > HF_RULE_REACH_PT:
+            continue
+        if any((bj, id(m)) not in ct and m.bbox[1] < hi and m.bbox[3] > lo
+               and m.bbox[0] < x1 and m.bbox[2] > x0 for bj, m in lines):
+            continue
+        return "top" if ln.bbox[1] < p.height / 2 else "bot"
+    return None
 
 
 _BARE_FOLIO = re.compile(r"^(\d{1,4}|[ivxlcdm]{1,7}|[IVXLCDM]{1,7})$")
@@ -2244,6 +2328,10 @@ def _front_matter_folios(ir: DocIR, res: dict) -> None:
 
 # A rule within this distance of a running line belongs to it (y36: 1.4pt).
 RUNNING_RULE_GAP_PT = 6.0
+# How far from a furniture row `build_hf_part` still sets a rule as that row's
+# border (w:pBdr/@w:space itself stops at 31pt). A furniture rule farther out
+# than this would be consumed and never drawn, so no pass takes one.
+HF_RULE_REACH_PT = 18.0
 
 
 # A line-number gutter (pleading paper, bills; parse_pdfium splits each number
@@ -2842,9 +2930,9 @@ def build_hf_part(zone_items, zone_draws, page: PageIR, margin_l, margin_r,
             ry = (rl.bbox[1] + rl.bbox[3]) / 2
             th = max(0.5, rl.width or (rl.bbox[3] - rl.bbox[1]))
             colr = rl.stroke or rl.fill or "#000000"
-            if 0 < y0 - ry < 18:
+            if 0 < y0 - ry < HF_RULE_REACH_PT:
                 pp.border_top = (th, colr, round(y0 - ry, 1))
-            elif 0 < ry - y1 < 18:
+            elif 0 < ry - y1 < HF_RULE_REACH_PT:
                 pp.border_bottom = (th, colr, round(ry - y1, 1))
         text_paras.append((y0, y1, pp))
     text_paras.sort(key=lambda t: t[0])

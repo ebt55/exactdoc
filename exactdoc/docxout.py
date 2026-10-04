@@ -1561,6 +1561,15 @@ def _hf_height(part) -> float:
             n = max(1, el.src_lines or 1)
             h += (el.space_before or 0.0) + n * _line_height(el) \
                 + (el.space_after or 0.0)
+            # A furniture rule is drawn as the row's border (infer.
+            # build_hf_part), and a border and its space are the part's
+            # height too: y17's foot rule, 9.2pt over the foot, is 10pt of the
+            # bottom margin the body box does not have. `infer._hf_extent`
+            # has always counted them.
+            for b in (getattr(el, "border_top", None),
+                      getattr(el, "border_bottom", None)):
+                if b:
+                    h += b[0] + b[2]
             continue
         bb = getattr(el, "bbox", None) or getattr(el, "clip", None) \
             or getattr(el, "_bbox", None)
@@ -1620,17 +1629,31 @@ def _stack_fits(pg, lay: DocLayout) -> bool:
     y03, keeping those gaps took its render from 71 pages to 74. A
     multi-column page is not additive and answers False.
     """
+    used = _stack_used(pg)
+    return used is not None and used <= _body_capacity(lay)
+
+
+def _stack_used(pg, notes_h: float = 0.0,
+                gaps: Optional[dict] = None) -> Optional[float]:
+    """The flow height of `pg` stacked by the source's own line budget (see
+    `_stack_fits`), or None where the page is not additive (columns, a column
+    break, an element with no box). `notes_h` > 0: the page's notes are real
+    notes and its `role="footnote"` paragraphs are not in the body. `gaps`
+    overrides elements' space_before, `{id(element): pt}` (a spill plan)."""
+    gaps = gaps or {}
     used = 0.0
     for ch in pg.chunks:
         if ch.n_cols > 1:
-            return False
+            return None
         used += max(0.0, ch.pre_gap)
         for el in ch.elements:
             if isinstance(el, ColBreak):
-                return False
+                return None
+            if notes_h > 0 and getattr(el, "role", "") == "footnote":
+                continue
+            before = gaps.get(id(el), el.space_before or 0.0)
             if isinstance(el, Para):
-                used += (el.space_before or 0.0) \
-                    + max(1, el.src_lines or 1) * _line_height(el) \
+                used += before + max(1, el.src_lines or 1) * _line_height(el) \
                     + (el.space_after or 0.0)
                 continue
             if isinstance(el, RuleEl):
@@ -1641,10 +1664,10 @@ def _stack_fits(pg, lay: DocLayout) -> bool:
                 if h is None and bb is not None:
                     h = bb[3] - bb[1]
                 if h is None:
-                    return False
-            used += (el.space_before or 0.0) + max(0.0, h) \
+                    return None
+            used += before + max(0.0, h) \
                 + (getattr(el, "space_after", 0.0) or 0.0)
-    return used <= _body_capacity(lay)
+    return used
 
 
 def _page_spill(pg, content_w: float, lay: DocLayout, notes_h: float = 0.0,
@@ -1759,6 +1782,116 @@ def _absorb_page_spill(pg, content_w: float, lay: DocLayout,
         plan[id(p)] = round(gap - paid, 1)
         want -= paid
     return plan
+
+
+# --- the element that closes a page ------------------------------------------
+# What closes a source page is often there only for WHERE it sits: a rule at the
+# page foot, a cover's date line, a back cover's ISBN, each set behind a gap of
+# tens or hundreds of points. Nothing follows it but the page break, so when the
+# renderer sets the page even a point longer than the layout says, it goes over
+# alone and the break then costs a whole page: y31's cover (Google Docs, live)
+# put "July 2025" on a page of its own twice over, 20 pages for 18; y17's foot
+# rule did it 77 times. `_absorb_page_spill` cannot see it coming -- its plan
+# lands the page 2pt inside the box (SPILL_SAFETY_PT), and on y17 it cannot
+# predict at all (the RFC's fonts have no metrics: `predict_lines` is None).
+#
+# So such an element keeps one body line of clearance from the bottom of the
+# box, paid out of its own gap and nobody else's. One body line, because that
+# is the renderer's commonest loss: a paragraph wrapped one line longer than
+# the source. Measured live on y17 p18, Google Docs wrapped "future
+# interactions." onto a line of its own and set the page's last line 12.7pt
+# later (a 13.6pt body line); on y31's cover it set the 3pt rule picture 6.8pt
+# tall, and the page ran 8.5pt past the layout. Moving the element up by at
+# most that line is invisible next to losing the page.
+#
+# A gap places the element after it when it spans this many body lines.
+# Measured over both corpora (54,497 gaps between paragraphs inside a page):
+# median 0.46 body lines, 95th percentile 2.0, 99th 4.9; three lines is wider
+# than 97.6% of them. The page-closing gaps it admits are the covers' and back
+# covers' (y31 "July 2025" 23.8 lines, y32's ISBN 30.5, x16 "Page 1 of 1"
+# 16.8) and running lines left in the flow (y21 "iv | Contents", y28's foot);
+# no gated document has one.
+TAIL_PLACEMENT_LINES = 3.0
+
+
+def _body_line_pt(lay: DocLayout) -> float:
+    """The document's body line: the line-weighted median line height of its
+    body text paragraphs (headings and note text left out). 0.0 when the
+    document has no body text."""
+    heights = []
+    for pg in lay.pages:
+        for ch in pg.chunks:
+            for el in ch.elements:
+                if isinstance(el, Para) and not el.heading and \
+                        el.role != "footnote" and el.text.strip():
+                    heights.append((_line_height(el), max(1, el.src_lines or 1)))
+    if not heights:
+        return 0.0
+    heights.sort()
+    half, seen = sum(n for _, n in heights) / 2.0, 0
+    for h, n in heights:
+        seen += n
+        if seen >= half:
+            return h
+    return heights[-1][0]
+
+
+def _guard_page_tail(pg, content_w: float, lay: DocLayout, notes_h: float,
+                     output_profile: str, plan: dict,
+                     body_line: float) -> dict:
+    """`plan` with the page-closing element's gap reduced so that it ends one
+    body line inside the box, when that element is decorative (a rule, an
+    empty paragraph) or placed by a gap of TAIL_PLACEMENT_LINES body lines.
+
+    The page's end is the larger of the two stacks the writer can compute: the
+    source's line budget (`_stack_used`) and, where the fonts allow it, the
+    re-wrap prediction (`_page_spill`), both after `plan`. Only the closing
+    element's own gap pays, down to the same floor `_absorb_page_spill` keeps,
+    and only on a page that fits its box by that account, give or take the
+    boundary bias (SPILL_EDGE_SLACK_PT): this is a margin against the
+    renderer, not a second spill planner. Nothing is mutated (see
+    `_absorb_page_spill`).
+    """
+    if body_line <= 0.0 or getattr(pg, "continuation_only", False):
+        return plan
+    els = [el for ch in pg.chunks for el in ch.elements
+           if not (notes_h > 0 and getattr(el, "role", "") == "footnote")]
+    if not els or not isinstance(els[-1], (Para, RuleEl, FigureEl, ImageEl)):
+        return plan
+    tail = els[-1]
+    if getattr(tail, "frame", None) is not None:
+        return plan
+    gap = plan.get(id(tail), tail.space_before or 0.0)
+    decorative = isinstance(tail, RuleEl) or (
+        isinstance(tail, Para) and not tail.text.strip())
+    if not decorative and gap < TAIL_PLACEMENT_LINES * body_line:
+        return plan
+    capacity = _body_capacity(lay) - notes_h
+    end = _stack_used(pg, notes_h, plan)
+    if end is None:
+        return plan
+    got = _page_spill(pg, content_w, lay, notes_h, output_profile)
+    if got is not None:
+        paid = 0.0
+        for el in els:
+            if id(el) in plan:
+                paid += (el.space_before or 0.0) - plan[id(el)]
+        end = max(end, capacity + got[0] - paid)
+    over = end - capacity
+    floor = max(SPILL_GAP_FLOOR_PT, gap * SPILL_MIN_GAP_SCALE)
+    if over > min(SPILL_EDGE_SLACK_PT, gap - floor):
+        # Past the box by its own account: a spill `_absorb_page_spill`
+        # could not plan, or a stack that is not the page (elements that
+        # overlap in the source -- y21's two-column contents page sums to 193pt
+        # more than its box). Where the renderer will set the element is then
+        # unknown, and the source's position is kept.
+        return plan
+    want = over + body_line
+    if want <= 0.05:
+        return plan
+    out = dict(plan)
+    out[id(tail)] = round(gap - min(want, gap - floor), 1)
+    return out
 
 
 def _band_accent_as_row(t: TableEl) -> TableEl:
@@ -3825,6 +3958,8 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
         from .notes import footnote_areas
         notes_h = footnote_areas(
             lay, lambda pl: _body_foot(_page_geometry(lay, pl)))
+    # the clearance a page-closing element keeps (_guard_page_tail)
+    body_line = _body_line_pt(lay)
     doc = Document()
     if ctx.list_defs:
         from .structures import numbering_base
@@ -4134,6 +4269,13 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
             else _absorb_page_spill(pg, cw_ctx, glay,
                                     notes_h.get(pg.number, 0.0),
                                     ctx.output_profile)
+        if not (has_cover and pi == 0):
+            # The element closing the page keeps a body line of clearance
+            # when it is only there for where it sits: `_guard_page_tail`.
+            spill_plan = _guard_page_tail(pg, cw_ctx, glay,
+                                          notes_h.get(pg.number, 0.0),
+                                          ctx.output_profile, spill_plan,
+                                          body_line)
         # A slide's graphics ride in the page's first paragraph, anchored to
         # the page (see anchor_floats); a page with no paragraph gets a host.
         page_floats = list(getattr(pg, "floats", None) or ())
@@ -4208,6 +4350,12 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                 if bookmark and bookmark in ctx.anchor_ids:
                     # Not a paragraph: mark the spot between block elements.
                     _add_block_bookmark(doc, bookmark, ctx.anchor_ids[bookmark])
+                if id(el) in spill_plan and not isinstance(el, TableEl):
+                    # a rule or picture closing the page (_guard_page_tail):
+                    # written from a copy, for the reason the plan is a plan
+                    before = spill_plan[id(el)]
+                    el = copy.copy(el)
+                    el.space_before = before
                 # Where a page seam goes in front of a non-paragraph element.
                 # A `w:br type=page` carrier before it makes LibreOffice drop
                 # the element's page-top space_before; pageBreakBefore on the
