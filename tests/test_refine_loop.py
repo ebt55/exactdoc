@@ -215,6 +215,24 @@ class LeverTests(unittest.TestCase):
         self.assertEqual([p.leading for p in els], [12.0] * len(els))
         self.assertAlmostEqual(R.ledger_summary(state)["gap_pt"], 50.0)
 
+    def test_no_page_is_pushed_down_while_another_spills(self):
+        # WP22, y18: pushes bounded by the measured room still made spills;
+        # while any page is over its foot, content sitting high stays put.
+        # Content sitting low is still pulled up, which cannot overflow.
+        over, _ = _dense_page(gap=10.0)
+        high, high_els = _dense_page(gap=10.0)
+        low, low_els = _dense_page(gap=10.0)
+        lay = DocLayout(pages=[over, high, low])
+        m = {"spill": [1, 0, 0], "offset": [0.0, -6.0, 5.0],
+             "need": [None, None, None], "room": [0.0, 40.0, 40.0]}
+        R._apply(lay, m)
+        self.assertEqual(high_els[0].space_before, 10.0)
+        self.assertAlmostEqual(low_els[0].space_before, 5.0)
+        # with no spill anywhere the push happens as before
+        R._apply(lay, {"spill": [0, 0, 0], "offset": [0.0, -6.0, 0.0],
+                       "need": [None] * 3, "room": [0.0, 40.0, 40.0]})
+        self.assertAlmostEqual(high_els[0].space_before, 16.0)
+
     def test_without_a_measured_need_only_the_gap_rule_runs(self):
         pg, els = _dense_page(gap=10.0)
         lay = DocLayout(pages=[pg])
