@@ -99,6 +99,24 @@ class SourceLinesFromTheParse(unittest.TestCase):
         self.assertEqual(m["out_pages"], 1)
 
 
+class ShortFragmentText(unittest.TestCase):
+    def test_same_as_joining_and_stripping(self):
+        import random
+        rng = random.Random(57)
+        pool = ["a", "1", ".", " ", " ", "", "  ", "ab ", " b", "\t", "•", "xyz"]
+        for _ in range(5000):
+            frag = []
+            for _k in range(rng.randint(0, 12)):
+                c = PP._Char()
+                c.u = rng.choice(pool)
+                frag.append(c)
+            for limit in (0, 3, 5):
+                text = "".join(c.u for c in frag).strip()
+                want = text if len(text) <= limit else None
+                self.assertEqual(PP._short_fragment_text(frag, limit), want,
+                                 ([c.u for c in frag], limit))
+
+
 class WorkerPool(unittest.TestCase):
     def test_slices_cover_every_page_once_in_order(self):
         for pages in (1, 7, 16, 57, 165):

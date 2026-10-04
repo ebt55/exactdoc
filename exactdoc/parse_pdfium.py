@@ -1597,6 +1597,46 @@ def _wide_gap_starts_visual_line(prev: _Char, current: _Char,
     return any(abs(mid - g) <= GUTTER_X_TOL for g in gutters)
 
 
+def _short_fragment_text(fragment: List[_Char], limit: int):
+    """`"".join(c.u for c in fragment).strip()` when that is at most `limit`
+    characters long, else None -- without joining a long fragment.
+
+    `_split_rows` asks `_marker_starts_visual_line` about the growing first
+    fragment of every row, once per character, so joining it each time was
+    quadratic in the row: 11.2M generator steps and 3.5s of y47's 35s parse
+    (57 pages, profiled 2026-10-05). The leading characters with no ink are
+    whitespace that `strip` would remove anyway, and so are the trailing
+    ones; between the first and last inked character, the text is summed only
+    until it passes `limit`. The same string, or the same None.
+    """
+    n = len(fragment)
+    i = 0
+    while i < n and not fragment[i].u.strip():
+        i += 1
+    if i == n:
+        return ""
+    j = n - 1
+    while not fragment[j].u.strip():
+        j -= 1
+    if i == j:
+        t = fragment[i].u.strip()
+        return t if len(t) <= limit else None
+    parts = [fragment[i].u.lstrip()]
+    total = len(parts[0])
+    for k in range(i + 1, j):
+        u = fragment[k].u
+        parts.append(u)
+        total += len(u)
+        if total > limit:
+            return None
+    last = fragment[j].u.rstrip()
+    parts.append(last)
+    total += len(last)
+    if total > limit:
+        return None
+    return "".join(parts)
+
+
 def _marker_starts_visual_line(fragment: List[_Char], current: _Char) -> bool:
     """Whether `fragment` is a list marker and `current` begins its item text.
 
@@ -1625,8 +1665,8 @@ def _marker_starts_visual_line(fragment: List[_Char], current: _Char) -> bool:
     """
     if not fragment:
         return False
-    text = "".join(c.u for c in fragment).strip()
-    if not text or len(text) > 5:
+    text = _short_fragment_text(fragment, 5)
+    if not text:
         return False
     if not (text in _MARKER_BULLETS or _MARKER_RE.match(text)):
         return False
