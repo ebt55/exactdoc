@@ -165,6 +165,13 @@ class PageLayout:
     page_w: Optional[float] = None
     page_h: Optional[float] = None
     margins: Optional[Tuple[float, float, float, float]] = None
+    # True: the seam in front of this page may carry its page break on the
+    # first element itself, which keeps a non-paragraph first element's
+    # page-top gap in LibreOffice (B23; see the seam in docxout._write_docx).
+    # Only the refine loop sets it -- from docxout._stack_fits, once, before
+    # it moves any gap, so the form cannot flip under its own corrections.
+    # None (every open-loop write) keeps the 1pt carrier.
+    top_gap_fits: Optional[bool] = None
 
 
 @dataclass

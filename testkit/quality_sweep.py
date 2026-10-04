@@ -35,6 +35,7 @@ import statistics
 import sys
 import tempfile
 import time
+import warnings
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import corpus_manifest
@@ -224,7 +225,7 @@ def _work(args):
     tempfile.tempdir = tmp
     import harness                           # after the temp dir is private
     from exactdoc import convert
-    from exactdoc.errors import ExactdocError
+    from exactdoc.errors import ExactdocError, OracleDegradedWarning
     stem = os.path.splitext(doc_id)[0]
     work = os.path.join(out_root, stem)
     os.makedirs(work, exist_ok=True)
@@ -232,7 +233,12 @@ def _work(args):
     row = {"document": doc_id, "tier": tier, "dialect": dialect}
     t0 = time.time()
     try:
-        convert(path, docx, options=_profile(profile_name), max_pages=0)
+        # Escalated: a conversion whose oracle failed mid-run is published
+        # open-loop with a warning, and measuring it would report the raw
+        # profile under the product's name. Recorded as an error instead.
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", OracleDegradedWarning)
+            convert(path, docx, options=_profile(profile_name), max_pages=0)
     except ExactdocError as e:
         row["refused"] = type(e).__name__
         row["detail"] = str(e)[:200]

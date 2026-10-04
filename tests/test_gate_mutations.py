@@ -1388,7 +1388,14 @@ def test_parity_lanes_cannot_be_redirected_by_environment():
     # Asking for the module explicitly says what this test means and survives
     # the fix.
     import exactdoc.convert as convert_mod
-    body = inspect.getsource(convert_mod.convert)
+    # `convert()` is now a thin wrapper over `convert_result()`, which does the
+    # work and returns the ConversionResult; the guard lives where the backend
+    # is resolved, and the wrapper must hand its arguments through unchanged.
+    wrapper = inspect.getsource(convert_mod.convert)
+    check("convert() delegates to convert_result() with the caller's backend",
+          "convert_result(" in wrapper and "backend=backend" in wrapper
+          and "options=options" in wrapper, wrapper[-400:])
+    body = inspect.getsource(convert_mod.convert_result)
     check("convert() consults the environment only when nothing was supplied",
           "if backend is None and options is None:" in body, body[:400])
 

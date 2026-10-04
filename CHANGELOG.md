@@ -262,6 +262,49 @@ Non-gating; the expansion parity policy re-pins its corpus hash only.
   ~4pt offset), y18 raw 279 → 280 pages, and two lexical hyphens now
   dehyphenated in justified list items (y24, y26) beside nine
   discretionary ones correctly removed.
+- **the refine loop: aligned, levered, cheaper, and it cannot lose the
+  DOCX.** *Mapping:* source pages map to rendered pages by a monotone
+  alignment of lines unique in both documents (LIS), with a diff inside
+  each anchored window placing pages that have no unique line; the old
+  five-line vote sent RFC 9110's TOC pages 20-170 pages ahead (spill=206 for
+  34 surplus pages; round 1 went 228 → 340). *Levers:* each spilled page's
+  overflow is read off the render and spent after the unchanged gap step on
+  ≤3% line pitch, then ≤50% of table cell top/bottom pads; push-down offsets
+  are capped at the room the render shows; the published round's spend is
+  reported. *Cost:* the source is read once, figure clips rasterised once,
+  one private LibreOffice profile per loop (fresh profiles cost 7-11s a
+  render on Windows against 3.5-4s kept; a persistent soffice measured no
+  better and is not used), and two quadratic scans in PDFium line grouping
+  are gone (page_lines + IR fingerprint-identical on all 94 fixtures;
+  page_lines 776 → 455s for the corpus). *Robustness:* a LibreOffice that
+  crashes, hangs or writes nothing no longer fails the conversion — the
+  best measured round (or the open-loop DOCX) is published and
+  `OracleDegradedWarning` raised before publication (escalate it for the old
+  all-or-nothing contract; the gate and sweep do); the CLI exits 0 with a
+  stderr warning, `convert_result()` returns the `ConversionResult`.
+  Absent LibreOffice is still exit 11. The profile lives under a short
+  root: ≥ ~160-char profile paths crash soffice on Windows, which failed
+  every product conversion under agent TEMP paths. *B23:* inside the loop a
+  non-paragraph page opener carries its own `pageBreakBefore`, so
+  LibreOffice keeps its page-top gap (probe 84.6 → 184.6pt); open-loop
+  writes keep the carrier (kept there, the gap measured as lost slack:
+  y17 +3 pages, y27 +2, y03 +3), so the raw lane is byte-identical.
+  Measured on the merged tree in the canonical container: gate PASS both
+  lanes, product within-2pt 0.5689 → 0.5739 (c6_long 0.90 → 0.98: the old
+  mapper had reported a phantom spill on a 7/7 render), raw unchanged
+  0.4031; 880 tests. Product sweep (90 documents) against the same tree
+  without WP6, run concurrently: conversion time 12,983 → 8,391s (1.55×;
+  y06 2,187 → 1,127s, y12 715 → 307s, y01 270 → 137s); 23 documents
+  shorter and none longer (y17 223 → 206 pages, y06 199 → 174, y34 86 →
+  73, y01 95 → 90, y12 83 → 78, y13 53 → 49, y02 126 → 122), page-exact
+  47 = 47; mean within-2pt 0.199 → 0.205, word recall 0.621 → 0.632, char
+  recall 0.772 → 0.783, SSIM 0.644 → 0.652; y08 within-2pt 0.321 → 0.349
+  (the B23 page WP1 recorded as its loss). Worse, and not yet attributed:
+  y22 word recall 0.423 → 0.341 and within-2pt 0.034 → 0.022 although it
+  is three pages shorter (the harness matches pages by index, so one spill
+  moved earlier shifts every page after it -- the shape y02 had before the
+  window fill), y59 recall 0.111 → 0.082, small recall dips on y03, y37,
+  y52.
 
 - **the parser reads the page a reader sees (design audit WP4: B6–B11,
   B28; defect catalogue #5, #9).** Every coordinate is in the visible
