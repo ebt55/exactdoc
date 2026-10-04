@@ -29,14 +29,15 @@ it from the integration head before re-using laydiff/docxdiff).
   every section's header parts.
 
 ## Exact next step
-0. Integration moved again to 50f7436 (e6086c7 gdocs Calibri line factors;
-   README/docs moved to docs/deep-dive/, THEORY.md and STATUS.md live there
-   now -- fix any path references). Merge it before the final gate. Check
-   that d630b33's full-page picture anchor (`docxout._picture_paragraph`,
-   every profile) and my `anchored` floats never handle the same picture:
-   my floats take ImageEls out of the flow before write_image sees them, so
-   decide whether a >=97%-of-page picture should be left to d630b33's path
-   (exclude it in `infer._float_backgrounds` / `_float_graphics`).
+0. DONE: 50f7436 merged cleanly (95d4a71). No code path references to
+   THEORY.md/STATUS.md in my additions (only "THEORY §6" in the
+   `_lock_slide` docstring; the file is now docs/deep-dive/theory.md --
+   optionally say so there).
+0b. Approved: leave pictures covering >= 97% of the page (both dimensions,
+   docxout._FULL_PAGE_FRAC) to d630b33's `_picture_paragraph` path --
+   exclude them in `infer._float_backgrounds` and `infer._float_graphics`
+   (they stay ImageEl/FigureEl in the flow; the writer anchors them).
+   Add a unit test for the exclusion.
 1. tests/test_office_export_classes.py: `RunningRules.
    test_a_running_foots_rule_goes_with_it` fails because the synthetic
    document has 8 pages and WP2's parity pass needs
