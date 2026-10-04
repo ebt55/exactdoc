@@ -136,7 +136,7 @@ Slide layouts fall apart, and the 40-slide deck became 72 pages.</sub>
 | Headers, footers, page numbers, footnotes, links | ✅ Works well |
 | Latin, Cyrillic and Greek text | ✅ Works well |
 | Chinese, Japanese and Korean text | ⚠️ Partly. The text survives, but some runs become pictures |
-| Long documents in Google Docs | ⚠️ Pages multiply. In live Google Docs runs, the 126-page IRS Form 1040 instructions came back as 189 pages ([CHANGELOG](CHANGELOG.md)) |
+| Long documents in Google Docs | ⚠️ Long documents can gain many pages. In a live Google Docs sweep, a 144-page EU regulation came back as 268 pages and a 40-slide deck as 95 ([sweep](docs/evidence/gdocs-live-sweep-2026-10-04.json)) |
 | Dense journal papers, equations | ⚠️ Not yet. Equations are not rebuilt as editable math |
 | Slide decks, brochures, posters | ⚠️ Not yet. Layouts break or become pictures |
 | Arabic and Hebrew (right-to-left) | ⚠️ Not converted correctly yet |
@@ -169,7 +169,9 @@ output is checked in Google Docs itself: the same 16 documents are uploaded, and
 Google's own export is compared with the PDF
 ([latest pass](docs/evidence/gdocs-2026-10-04-pass9b-qualification.json)).
 Another 79 PDFs, most of them real-world documents, are measured too but do not
-gate changes.
+gate changes. They show how much is left: in the first live Google Docs sweep of
+them, 26 of the 73 compared came back with exactly the right number of pages
+([sweep](docs/evidence/gdocs-live-sweep-2026-10-04.json)).
 
 Every number on this page traces to a committed file (the gate baseline, the
 CHANGELOG, or a measurement record in [docs/evidence/](docs/evidence/)), not to

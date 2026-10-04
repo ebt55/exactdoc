@@ -10,8 +10,9 @@
 > 0.525pt; raw lane 15/16, 0.4568, 0.9635, 1.245pt. The latest live Google Docs
 > qualification is
 > [pass 9b](../evidence/gdocs-2026-10-04-pass9b-qualification.json) (overall
-> pass, zero blocking findings). [CHANGELOG.md](../../CHANGELOG.md) records how
-> the numbers got there.
+> pass, zero blocking findings), and the first live Google Docs sweep of the
+> expansion corpus is [here](../evidence/gdocs-live-sweep-2026-10-04.json).
+> [CHANGELOG.md](../../CHANGELOG.md) records how the numbers got there.
 
 ## Where it works, and where it does not
 
