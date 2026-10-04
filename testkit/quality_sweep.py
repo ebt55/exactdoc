@@ -80,6 +80,142 @@ def select(corpus, only, include_unsupported):
     return out
 
 
+_W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
+_TYPED_MARKER = None
+
+
+def editability(docx_path, src_pages):
+    """How much of the document's editability the conversion spent.
+
+    Fidelity metrics cannot see this: a DOCX made of one absolutely positioned
+    text box per line scores perfectly on placement and is useless to edit. So
+    count the constructs that make editing fight the user -- exact line heights
+    (text added to a paragraph does not grow it), empty spacer paragraphs, soft
+    breaks pinned inside paragraphs (re-wrapping is impossible), one-cell layout
+    tables, text inside text boxes or frames, typed list markers instead of real
+    numbering -- and the ones that help: real lists (`numPr`), heading styles,
+    header/footer parts, footnotes.
+
+    `edit_score` folds the penalties into one number in [0, 1]. The weights are
+    a judgement, not a measurement, and the components are reported beside it so
+    nobody has to trust the fold.
+    """
+    import re
+    import zipfile
+    from lxml import etree
+    global _TYPED_MARKER
+    if _TYPED_MARKER is None:
+        _TYPED_MARKER = re.compile(
+            r"^\s*([•◦▪‣·\-–—*➤►○●♦]"
+            r"|\(?(\d{1,3}|[a-zA-Z]|[ivxlIVXL]{1,5})[.):])\s*$")
+    W = _W
+    with zipfile.ZipFile(docx_path) as z:
+        names = z.namelist()
+        root = etree.fromstring(z.read("word/document.xml"))
+    body = root.find(W + "body")
+    paras = list(body.iter(W + "p"))
+    text = lambda el: "".join(t.text or "" for t in el.iter(W + "t"))
+    n_text = exact = empty = soft = numpr = typed = headings = 0
+    hard = 0
+    for p in paras:
+        ppr = p.find(W + "pPr")
+        t = text(p)
+        for b in p.iter(W + "br"):
+            ty = b.get(W + "type") or "textWrapping"
+            if ty == "page":
+                hard += 1
+            elif ty == "textWrapping":
+                soft += 1
+        if ppr is not None and ppr.find(W + "pageBreakBefore") is not None:
+            hard += 1
+        if not t.strip():
+            if p.find(".//" + W + "drawing") is None:
+                empty += 1
+            continue
+        n_text += 1
+        if ppr is not None:
+            sp = ppr.find(W + "spacing")
+            if sp is not None and sp.get(W + "lineRule") == "exact":
+                exact += 1
+            if ppr.find(W + "numPr") is not None:
+                numpr += 1
+            st = ppr.find(W + "pStyle")
+            if st is not None and (st.get(W + "val") or "").lower().startswith("heading"):
+                headings += 1
+        runs = p.findall(W + "r")
+        if runs and _TYPED_MARKER.match(text(runs[0]) or "") and \
+                any(r.find(W + "tab") is not None for r in runs[:3]):
+            typed += 1
+    all_chars = sum(len(t.text or "") for t in body.iter(W + "t"))
+    box_chars = sum(len(t.text or "") for tb in body.iter(W + "txbxContent")
+                    for t in tb.iter(W + "t"))
+    box_chars += sum(len(text(p)) for p in paras
+                     if p.find(W + "pPr") is not None
+                     and p.find(W + "pPr").find(W + "framePr") is not None)
+    tbls = list(body.iter(W + "tbl"))
+    one_cell = 0
+    for tb in tbls:
+        rows = tb.findall(W + "tr")
+        if len(rows) == 1 and len(rows[0].findall(W + "tc")) == 1:
+            one_cell += 1
+    pages = max(1, src_pages or 1)
+    lists = numpr + typed
+    c = {
+        "exact_frac": round(exact / max(1, n_text), 3),
+        "empty_per_page": round(empty / pages, 2),
+        "hard_breaks_per_page": round(hard / pages, 2),
+        "soft_breaks_per_para": round(soft / max(1, n_text), 3),
+        "textbox_frac": round(box_chars / max(1, all_chars), 3),
+        "one_cell_tables_per_page": round(one_cell / pages, 2),
+        "list_paras": lists,
+        "numpr_frac": round(numpr / lists, 3) if lists else None,
+        "headings": headings,
+        "headers": sum(1 for n in names if re.match(r"word/header\d*\.xml$", n)),
+        "footers": sum(1 for n in names if re.match(r"word/footer\d*\.xml$", n)),
+        "footnotes": int("word/footnotes.xml" in names),
+    }
+    score = 1.0
+    score -= 0.30 * c["exact_frac"]
+    score -= 0.15 * min(1.0, c["empty_per_page"] / 10.0)
+    score -= 0.15 * min(1.0, c["soft_breaks_per_para"])
+    score -= 0.20 * c["textbox_frac"]
+    score -= 0.10 * min(1.0, c["one_cell_tables_per_page"] / 5.0)
+    if lists:
+        score -= 0.10 * (1.0 - c["numpr_frac"])
+    c["edit_score"] = round(max(0.0, score), 3)
+    return c
+
+
+def char_recall(src_pdf, out_pdf):
+    """(right-page, anywhere) recall of non-whitespace characters.
+
+    Word recall is meaningless for scripts written without spaces: tranche 4's
+    Thai document kept all 5,081 of its characters in the DOCX and scored 0.061
+    word recall, because a "word" there is a whole clause and one changed line
+    break unmatches it. Characters have no such dependence on segmentation.
+    Multiset overlap per page (did the text land on its own page?) and over the
+    whole document (did it survive at all?).
+    """
+    import fitz
+    from collections import Counter
+
+    def pages(path):
+        with fitz.open(path) as d:
+            return [Counter(ch for ch in p.get_text("text") if not ch.isspace())
+                    for p in d]
+    s, o = pages(src_pdf), pages(out_pdf)
+    total = sum(sum(c.values()) for c in s)
+    if not total:
+        return None, None
+    right = sum(sum((c & o[i]).values()) for i, c in enumerate(s) if i < len(o))
+    sa, oa = Counter(), Counter()
+    for c in s:
+        sa.update(c)
+    for c in o:
+        oa.update(c)
+    return round(right / total, 4), round(sum((sa & oa).values()) / total, 4)
+
+
 def _work(args):
     doc_id, path, tier, dialect, profile_name, out_root, save_images = args
     tmp = tempfile.mkdtemp(prefix="qs_%s_" % os.path.splitext(doc_id)[0],
@@ -118,6 +254,15 @@ def _work(args):
             row[k] = res[k]
     row["page_ratio"] = round(res["out_pages"] / max(1, res["src_pages"]), 3)
     row["docx_bytes"] = res.get("docx_bytes")
+    try:
+        row["char_recall"], row["char_doc_recall"] = char_recall(path, res["render_pdf"])
+    except Exception as e:
+        row["char_recall_error"] = "%s: %s" % (type(e).__name__, str(e)[:200])
+    try:
+        row["editability"] = editability(docx, res["src_pages"])
+        row["edit_score"] = row["editability"]["edit_score"]
+    except Exception as e:                   # a census failure is not a conversion failure
+        row["editability_error"] = "%s: %s" % (type(e).__name__, str(e)[:200])
     worst = sorted((res.get("page_dy_p90") or {}).items(),
                    key=lambda kv: -kv[1])[:5]
     row["worst_pages_dy90"] = worst
@@ -134,8 +279,8 @@ def summarise(rows):
         s["median_ratio"] = round(statistics.median(r["page_ratio"] for r in ok), 3)
         s["mean_abs_ratio_err"] = round(statistics.mean(
             abs(r["page_ratio"] - 1) for r in ok), 4)
-        for k in ("word_recall", "doc_recall", "within2pt", "live_text_cov",
-                  "mean_ssim"):
+        for k in ("word_recall", "doc_recall", "char_recall", "char_doc_recall",
+                  "within2pt", "live_text_cov", "mean_ssim", "edit_score"):
             vals = [r[k] for r in ok if k in r]
             if vals:
                 s["mean_" + k.replace("mean_", "")] = round(statistics.mean(vals), 4)
@@ -145,9 +290,9 @@ def summarise(rows):
 
 def table(rows, prev=None):
     prev = {r["document"]: r for r in (prev or [])}
-    lines = ["%-30s %5s %5s %6s %6s %6s %6s %6s %6s %6s %6s" % (
+    lines = ["%-30s %5s %5s %6s %6s %6s %6s %6s %6s %6s %6s %6s" % (
         "document", "src", "out", "ratio", "recall", "docrec", "<2pt",
-        "dy50", "dy90", "ssim", "sec")]
+        "dy50", "dy90", "ssim", "edit", "sec")]
     for r in rows:
         name = r["document"][:30]
         if "refused" in r:
@@ -156,18 +301,18 @@ def table(rows, prev=None):
         if "error" in r:
             lines.append("%-30s ERROR: %s" % (name, r["error"][:90]))
             continue
-        lines.append("%-30s %5d %5d %6.3f %6.3f %6.3f %6.3f %6.2f %6.1f %6.3f %6.1f" % (
+        lines.append("%-30s %5d %5d %6.3f %6.3f %6.3f %6.3f %6.2f %6.1f %6.3f %6.3f %6.1f" % (
             name, r["src_pages"], r["out_pages"], r["page_ratio"],
             r.get("word_recall", 0), r.get("doc_recall", 0),
             r.get("within2pt", 0), r.get("dy_p50", -1), r.get("dy_p90", -1),
-            r.get("mean_ssim", 0), r.get("convert_s", 0)))
+            r.get("mean_ssim", 0), r.get("edit_score", -1), r.get("convert_s", 0)))
         p = prev.get(r["document"])
         if p and "page_ratio" in p:
             d = lambda k: r.get(k, 0) - p.get(k, 0)
-            lines.append("%-30s %5s %+5d %+6.3f %+6.3f %+6.3f %+6.3f %+6.2f %+6.1f %+6.3f" % (
+            lines.append("%-30s %5s %+5d %+6.3f %+6.3f %+6.3f %+6.3f %+6.2f %+6.1f %+6.3f %+6.3f" % (
                 "  delta", "", r["out_pages"] - p["out_pages"], d("page_ratio"),
                 d("word_recall"), d("doc_recall"), d("within2pt"),
-                d("dy_p50"), d("dy_p90"), d("mean_ssim")))
+                d("dy_p50"), d("dy_p90"), d("mean_ssim"), d("edit_score")))
     return "\n".join(lines)
 
 

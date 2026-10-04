@@ -53,3 +53,7 @@ testkit/fixtures/*.pdf binary
 # a sibling directory, which is easy to miss precisely because the fixtures it
 # does cover keep working.
 testkit/fixtures_expansion/*.pdf binary
+
+# Batch files keep CRLF: cmd.exe mis-resolves `goto` labels in an LF-only file
+# once it is longer than its read buffer, and the failure is a silent jump.
+*.bat text eol=crlf

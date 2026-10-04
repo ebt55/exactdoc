@@ -76,6 +76,67 @@ class PackagedGdocsTests(unittest.TestCase):
                 gdocs.service(False, credentials_path="missing-credentials.json",
                               token_path="missing-token.json")
 
+    def _dead_token_deps(self, consented):
+        """Google stand-ins whose saved token is expired and cannot refresh."""
+        class _Creds:
+            valid, expired, refresh_token = False, True, "dead"
+
+            def refresh(self, _request):
+                raise RuntimeError("invalid_grant: Token has been expired or revoked.")
+
+            def to_json(self):
+                return '{"token": "fresh"}'
+
+        class _Credentials:
+            @staticmethod
+            def from_authorized_user_file(_path, _scopes):
+                return _Creds()
+
+        class _Flow:
+            @staticmethod
+            def from_client_secrets_file(_path, _scopes):
+                return _Flow()
+
+            def run_local_server(self, **_kwargs):
+                consented.append(True)
+                fresh = _Creds()
+                fresh.valid, fresh.expired = True, False
+                return fresh
+
+        build = lambda *_a, **_k: "drive-service"
+        return (_Credentials, _Flow, object, build)
+
+    def test_dead_refresh_token_falls_through_to_consent_when_interactive(self):
+        # A testing-status OAuth app's refresh token expires in ~7 days; `auth`
+        # used to crash on invalid_grant before the browser was ever reached.
+        consented = []
+        with tempfile.TemporaryDirectory() as td:
+            token = os.path.join(td, "token.json")
+            creds = os.path.join(td, "credentials.json")
+            for p in (token, creds):
+                with open(p, "w") as fh:
+                    fh.write("{}")
+            with mock.patch.object(gdocs, "_google_dependencies",
+                                   return_value=self._dead_token_deps(consented)):
+                self.assertEqual(gdocs.service(True, credentials_path=creds,
+                                               token_path=token), "drive-service")
+            self.assertEqual(consented, [True])
+            with open(token) as fh:
+                self.assertIn("fresh", fh.read())
+
+    def test_dead_refresh_token_is_typed_when_not_interactive(self):
+        consented = []
+        with tempfile.TemporaryDirectory() as td:
+            token = os.path.join(td, "token.json")
+            with open(token, "w") as fh:
+                fh.write("{}")
+            with mock.patch.object(gdocs, "_google_dependencies",
+                                   return_value=self._dead_token_deps(consented)):
+                with self.assertRaises(OracleAuthenticationError):
+                    gdocs.service(False, credentials_path=os.path.join(td, "c.json"),
+                                  token_path=token)
+            self.assertEqual(consented, [])
+
     def test_missing_optional_dependencies_are_typed(self):
         import builtins
         original_import = builtins.__import__
