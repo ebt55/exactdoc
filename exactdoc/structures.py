@@ -113,6 +113,20 @@ def _marker_rpr(run: Optional[Run], profile: str):
     col = OxmlElement("w:color")
     col.set(qn("w:val"), (run.color or "#000000").lstrip("#").upper())
     rpr.append(col)
+    # The typed marker carried its run's letter-spacing and width scale (WP10's
+    # source tracking, the ladder's compression, metrics.run_width_scale), so
+    # the label must too: without them x17's item text sat 0.58pt left and
+    # x09's 0.90pt. Same rules as the writer's own run styling.
+    spacing = (run.char_spacing or 0.0) + (getattr(run, "tracking", 0.0) or 0.0)
+    if abs(spacing) > 0.004:
+        sp = OxmlElement("w:spacing")
+        sp.set(qn("w:val"), str(int(round(spacing * 20))))
+        rpr.append(sp)
+    ws = run.width_scale or 0.0
+    if ws > 0 and abs(ws - 1.0) > 0.004 and profile == "standard":
+        w = OxmlElement("w:w")
+        w.set(qn("w:val"), str(int(round(ws * 100))))
+        rpr.append(w)
     hp = str(int(round(round(run.size * 2) / 2 * 2)))
     for tag in ("w:sz", "w:szCs"):
         el = OxmlElement(tag)
