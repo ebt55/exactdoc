@@ -29,12 +29,22 @@ it from the integration head before re-using laydiff/docxdiff).
   every section's header parts.
 
 ## Exact next step
+0. Integration moved again to 50f7436 (e6086c7 gdocs Calibri line factors;
+   README/docs moved to docs/deep-dive/, THEORY.md and STATUS.md live there
+   now -- fix any path references). Merge it before the final gate. Check
+   that d630b33's full-page picture anchor (`docxout._picture_paragraph`,
+   every profile) and my `anchored` floats never handle the same picture:
+   my floats take ImageEls out of the flow before write_image sees them, so
+   decide whether a >=97%-of-page picture should be left to d630b33's path
+   (exclude it in `infer._float_backgrounds` / `_float_graphics`).
 1. tests/test_office_export_classes.py: `RunningRules.
-   test_a_running_foots_rule_goes_with_it` fails -- WP2 does not consume the
-   synthetic feet (0 lines on page 2). Make the synthetic pages look like
-   y36 to WP2 (feet at y 772 of 842 carrying the page number the parity
-   model needs, >= PARITY_MIN_PAGES pages), or assert via a real fixture
-   (y36) instead. Then run the whole tests/ suite locally.
+   test_a_running_foots_rule_goes_with_it` fails because the synthetic
+   document has 8 pages and WP2's parity pass needs
+   `infer.PARITY_MIN_PAGES = 10` (debugged 2026-10-05: detect_hf consumed 0
+   lines, page_numbers {}). Fix: build >= 12 synthetic pages in
+   `RunningRules._pages` (keep the feet at y 772 of 842 carrying the page
+   number, the rule 1.4pt above). Keep the test's intent (the rule leaves
+   the flow and goes to rep_draws "bot"). Then run the whole tests/ suite.
 2. Local check on the merged tree: y36 (was 38 pages after merge before the
    rule fix), y30, y63, y34, y32, y35, y31, y33, y28 with
    `SCR\wp15\conv.py SCR\wp15\m2 <pdfs>`.
