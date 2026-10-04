@@ -41,17 +41,20 @@ one verified fix at a time, each gated against the frozen 16.
   left margin: each dated entry is `date TAB role` hanging at the main
   column (`_gutter_column`); separate items on one baseline at item spacing
   are one tabbed row; a chart's axis numbers ride with the chart, and an
-  ornament inside a box is left to the box. Measured raw against 536b232
-  over 90 documents: page-exact 40 -> 43, the sum of
-  |page ratio - 1| 24.71 -> 21.71 with no document gaining a page, mean char
-  recall 0.753 -> 0.774, live text 0.932 -> 0.944, within-2pt 0.218 -> 0.223.
-  y58 4 -> 3 pages (product 3 -> 2, page-exact; live text 0.119 -> 0.888),
-  y44 4 -> 3 (char recall 0.59 -> 1.00), y46 2 -> 1, c5 2 -> 1 (within-2pt
-  0.800 -> 0.975, past its recorded shortfall), c1's cards live (char recall
-  0.972 -> 1.000, within-2pt 0.869 -> 0.873); y59 and y60 unchanged at 18 and
-  37, the owner's resume, y45, x17 and x18 unchanged in inferred layout. The mean
-  edit score dips 0.003: panels are one-cell tables. Google Docs renders of
-  the panels and layout tables are not yet flown live.
+  ornament inside a box is left to the box. The regions read only where
+  neither two-column reading (WP12's gutter, the block clusters) claims the
+  page. Measured raw against cc1203a (WP12 merged) over 90 documents:
+  page-exact 40 -> 43, the sum of |page ratio - 1| 20.36 -> 17.12 with no
+  document gaining a page, mean char recall 0.768 -> 0.791, live text 0.932
+  -> 0.944, within-2pt 0.217 -> 0.222. y58 4 -> 3 pages (product 3 -> 2,
+  page-exact; live text 0.119 -> 0.888), y44 4 -> 3 (char recall 0.59 ->
+  1.00), y46 2 -> 1, y40 14 -> 12, c5 2 -> 1 (within-2pt 0.800 -> 0.975, past
+  its recorded shortfall), c1's cards live (char recall 0.972 -> 1.000,
+  within-2pt 0.869 -> 0.873); y59 and y60 unchanged at 18 and 37, WP12's
+  y39/y41/y43 unchanged, the owner's resume, y45, x17 and x18 unchanged in
+  inferred layout. The mean edit score dips 0.003: panels are one-cell
+  tables. Under the gdocs profile a panel keeps the existing box form --
+  bordered paragraphs without its fill -- and is not yet flown live.
 - **gdocs: right-to-left paragraphs are real RTL paragraphs in Google Docs
   (live, 2026-10-04).** WP14's probe set flown live
   ([evidence](docs/evidence/gdocs-2026-10-04-rtl-probe.json)): with `bidi`,
