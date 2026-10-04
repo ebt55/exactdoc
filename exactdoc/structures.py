@@ -26,7 +26,7 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn, nsdecls
 
 from .fonts import map_font
-from .layout import DocLayout, ListDef, ListItem, ListLevel, Para, Run
+from .layout import DocLayout, ListDef, ListItem, ListLevel, Para, Run, page_sequences
 
 _SPACES = "  "
 
@@ -93,8 +93,8 @@ def numbering_plan(lay: DocLayout, tab_only: bool = False) -> Dict[int, ListDef]
     ok = {ld.list_id: ld for ld in lay.lists
           if not tab_only or all(lvl.sep == "tab" for lvl in ld.levels.values())}
     for pg in lay.pages:
-        for ch in pg.chunks:
-            for el in ch.elements:
+        for els in page_sequences(pg):
+            for el in els:
                 if isinstance(el, Para) and el.numbering is not None and \
                         el.numbering.list_id in ok and \
                         strip_marker(el.runs, el.numbering) is None:

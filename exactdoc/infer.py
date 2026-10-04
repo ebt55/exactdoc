@@ -12,7 +12,7 @@ from .model import (DocIR, PageIR, TextBlock, Line, Span, DrawCmd, ImageObj,
                     ink_extent)
 from .layout import (Run, Para, Cell, TableEl, FigureEl, ImageEl, RuleEl,
                      ColBreak, Chunk, PageLayout, HFPart, HFSection, DocLayout,
-                     FloatEl)
+                     page_sequences, FloatEl)
 from .furniture import (DECIMAL, num_tokens, page_number_model, is_page_number,
                         furniture_text, printed_parity, numbering_sections)
 from . import hyphen
@@ -1210,6 +1210,101 @@ def _opens_note(ln: Line) -> bool:
     return first is not None and getattr(first, "_note_mark", False)
 
 
+def _first_word_w(ln: Line) -> float:
+    """Width of a line's first word, apportioned from its span by characters."""
+    s = next((s for s in ln.spans if s.text.strip()), None)
+    if s is None:
+        return 0.0
+    t = s.text.lstrip()
+    word = t.split()[0] if t.split() else t
+    return (s.bbox[2] - s.bbox[0]) * len(word) / max(1, len(s.text))
+
+
+# Lines of one text column start at its left edge or within a list hang of it
+# (_INLINE_HANG_MAX). A box whose lines start further apart holds columns of
+# its own -- y59's mock-up notice page, two columns inside one frame -- and
+# there the widest line says nothing about where any one line could have
+# continued: read against it, every left-column line "broke by hand" and the
+# mock-up became one paragraph per line, three pages longer.
+def _text_column_edge(lines) -> Optional[float]:
+    """The right edge forced breaks are read against, or None when lines
+    are not one text column (see above)."""
+    xs = [ln.bbox[0] for ln in lines if ln.text.strip()]
+    if not xs:
+        return None
+    if max(xs) - min(xs) > _INLINE_HANG_MAX:
+        fr = _flush_right_edge(lines)
+        if fr is not None:
+            return fr
+        # no line has room to spare against -inf, so only the heading rule
+        # of _forced_break can fire: y46's ragged-left column keeps its bold
+        # entry titles apart from the text under them
+        return float("-inf")
+    return max(ln.bbox[2] for ln in lines)
+
+
+# A flush-left column may set a line flush RIGHT: a court caption's
+# "Plaintiff," and "Defendant." against the caption's rule (y63, ending 0.1pt
+# apart at 315.6/315.7 while the parties' own lines start at 75.6). Such a
+# line is not a column of its own (y59's) and not a wrapped line either: it is
+# a paragraph of one line. Read as -inf the caption's six lines ran together
+# as one paragraph that re-wrapped across the column (y63 5 -> 6 pages,
+# character recall 1.000 -> 0.937 once WP15 had cleared its line numbers).
+FLUSH_RIGHT_TOL = 2.0
+
+
+def _flush_right_edge(lines) -> Optional[float]:
+    """For a flush-left column whose only lines off its left edge are set
+    flush right: the flush-left lines' own right edge, which the flush-right
+    lines reach past (`_forced_break` sets each on its own). Else None."""
+    lines = [ln for ln in lines if ln.text.strip()]
+    if len(lines) < 2:
+        return None
+    x0 = min(ln.bbox[0] for ln in lines)
+    flush = [ln for ln in lines if ln.bbox[0] - x0 <= _INLINE_HANG_MAX]
+    off = [ln for ln in lines if ln.bbox[0] - x0 > _INLINE_HANG_MAX]
+    if not off or len(flush) < SBS_FLUSH_SHARE * len(lines):
+        return None
+    right = max(ln.bbox[2] for ln in lines)
+    edge = max(ln.bbox[2] for ln in flush)
+    if right - edge <= FLUSH_RIGHT_TOL or             any(right - ln.bbox[2] > FLUSH_RIGHT_TOL for ln in off):
+        return None
+    return edge
+
+
+def _forced_break(prev: Line, ln: Line, col_r: float) -> bool:
+    """Did the source END `prev` rather than wrap it?
+
+    A wrapping line breaks only when the next word does not fit, so a line
+    that stops short of its column with room for the next line's first word
+    was broken by hand -- a heading over its text, the lines of an address or
+    a contact list. y58's 'Retirement Benefits' (12pt bold, 142pt of a 252pt
+    panel) and the paragraph under it read as one paragraph and wrapped as
+    one. Hyphenated ends are wraps whatever their room. Used only where a
+    panel or a layout column is read (`forced=True`), whose right edge is its
+    own measured text edge."""
+    if prev.text.rstrip().endswith(("-", "­")):
+        return False
+    # A line reaching past the column's own text edge is set flush right, a
+    # paragraph of its own (_flush_right_edge); elsewhere no line can.
+    if math.isfinite(col_r) and (prev.bbox[2] > col_r + 1.0 or
+                                 ln.bbox[2] > col_r + 1.0):
+        return True
+    # A wholly bold line over a line with no bold is a heading over its
+    # text: the sidebar fixture's 'CONTACT' over 'jordan@example.com', whose
+    # 83pt address would not have fitted the 63pt left on the heading's line.
+    # (Flow-wide, a bold delta splits labels and table cells -- see the
+    # tracking note in _split_lines_to_paras -- which is why this, too, is
+    # read only inside a panel or a layout column.)
+    pb = [s.bold for s in prev.spans if s.text.strip()]
+    nb = [s.bold for s in ln.spans if s.text.strip()]
+    if pb and nb and all(pb) and not any(nb):
+        return True
+    size = max((s.size for s in ln.spans if s.text.strip()), default=10.0)
+    room = col_r - prev.bbox[2]
+    return room > _first_word_w(ln) + FORCED_BREAK_SPACE_EM * size
+
+
 # A line pitch at least this many times the type size is double-ish spacing
 # (Word's "double" at 12pt is 27.6pt = 2.3em; y63 sets 14.04pt type at
 # 24.1pt = 1.72em). Single spacing runs 1.15-1.25em.
@@ -1301,14 +1396,17 @@ def _short_line_ends_para(prev: Line, ln: Line, nxt: Line,
 def _split_lines_to_paras(lines: List[Line],
                           list_starts: Optional[set] = None,
                           col_l: Optional[float] = None,
-                          col_r: Optional[float] = None) -> List[List[Line]]:
+                          col_r: Optional[float] = None,
+                          forced: Optional[float] = None) -> List[List[Line]]:
     """Group a flat list of lines into paragraphs on large baseline gaps,
     dominant-size jumps, letter-spacing changes, or list-marker starts.
 
     `list_starts` holds the `_line_key`s of lines that open a list item with a
     typed marker, decided over the whole flow by `_inline_list_starts`.
     With the column edges, a right-to-left group also ends at a short line
-    between full ones (_short_line_ends_para)."""
+    between full ones (_short_line_ends_para). `forced`, when given, also
+    splits where the source broke a line by hand short of that text edge
+    (`_forced_break`)."""
     lines = _merge_row_lines(lines)
     list_starts = list_starts or set()
     if len(lines) <= 1:
@@ -1371,6 +1469,7 @@ def _split_lines_to_paras(lines: List[Line],
         if deltas[i] > max(lead * 1.55, lead + 4.0) or size_jump or track_jump \
                 or _line_starts_with_marker(ln) or _line_key(ln) in list_starts \
                 or _opens_note(ln) or short_end or \
+                (forced is not None and _forced_break(cur[-1], ln, forced)) or \
                 _author_break(cur[-1], ln, right, pitch, len(lines)):
             groups.append(cur)
             cur = [ln]
@@ -1474,7 +1573,8 @@ def para_from_lines(lines: List[Line], col_l: float, col_r: float,
         x0, x1 = xs0[0], xs1[0]
         if abs((x0 + x1) / 2 - ccx) < 2.5 and x0 - col_l > 8 and col_r - x1 > 8:
             p.align = "center"
-        elif col_r - x1 < 2.5 and x0 - col_l > 10:
+        elif col_r - x1 < 2.5 and x0 - col_l > 10 and \
+                not getattr(lines[0], "_main_col", False):
             p.align = "right"
     minx = min(xs0)
     p.left_indent = max(0.0, round(minx - col_l, 1))
@@ -1569,6 +1669,8 @@ def para_from_lines(lines: List[Line], col_l: float, col_r: float,
                                         >= col_r - p.right_indent - 3.0))
                 runs.extend(runs_from_spans(lines[j].spans))
             p.runs = runs
+    if getattr(lines[0], "_gutter", None) is not None and p.align != "center":
+        _gutter_para(p, lines, col_l)
     _keep_room(p, col_l, col_r)
     return p
 
@@ -1588,6 +1690,15 @@ def para_from_lines(lines: List[Line], col_l: float, col_r: float,
 OVERHANG_TOL = 3.0
 STARVED_FRAC = 0.5
 SHORT_LINE_FRAC = 1.0 / 3.0
+# Room a short right-aligned line keeps beyond its own width, as a share of
+# it: the substitute faces the font table maps run up to ~10% wider than the
+# source's (Fontin's substitute on y44).
+RIGHT_LINE_SLACK = 0.10
+# A forced break leaves room for the next line's first word plus this much
+# (in em of that line): a word space (SPACE_EM) and the same again for
+# justification and the character-apportioned word width. The breaks it is
+# for leave far more -- y58's panel headings leave 100pt for a 20pt word.
+FORCED_BREAK_SPACE_EM = 1.0
 
 
 def _keep_room(p: Para, col_l: float, col_r: float) -> None:
@@ -1612,6 +1723,20 @@ def _keep_room(p: Para, col_l: float, col_r: float) -> None:
     if width > room:
         return              # wider than the column: no indent makes it fit
     start = p.left_indent + min(0.0, p.first_indent)
+    if p.align == "right" and (p.src_lines or 1) <= 1 and start > 0 and \
+            width <= SHORT_LINE_FRAC * room and \
+            p.bbox[2] <= col_r - p.right_indent + OVERHANG_TOL:
+        # A SHORT line set flush against the right edge -- a date, a page
+        # label -- is placed by its alignment; its indent only bounds the
+        # wrap, so it can be given room for a substitute face a little wider
+        # than the source's and nothing moves. y44's 'Last updated in Mar
+        # 2026' fitted its indent exactly and wrapped in Fontin's substitute.
+        # Short only: given to every flush-right line it moved y40's
+        # misread right-aligned body lines and cost that paper 3 pages.
+        fit = room - width * (1.0 + RIGHT_LINE_SLACK)
+        if fit < start:
+            p.left_indent = round(max(0.0, p.left_indent - (start - fit)), 1)
+        return
     over = start + width - room
     if start <= 0 or over <= OVERHANG_TOL:
         return
@@ -1622,11 +1747,14 @@ def _keep_room(p: Para, col_l: float, col_r: float) -> None:
 
 
 def paras_from_line_list(lines: List[Line], col_l: float, col_r: float,
-                         list_starts: Optional[set] = None) -> List[Para]:
+                         list_starts: Optional[set] = None,
+                         forced: Optional[float] = None) -> List[Para]:
     out = []
     ccx = (col_l + col_r) / 2
     list_starts = list_starts or set()
-    for grp in _split_lines_to_paras(lines, list_starts, col_l, col_r):
+    prev_last = None
+    for grp in _split_lines_to_paras(lines, list_starts, col_l, col_r,
+                                     forced=forced):
         if not grp:
             continue
         # centered short lines with strongly varying widths are separate
@@ -1640,10 +1768,16 @@ def paras_from_line_list(lines: List[Line], col_l: float, col_r: float,
                     for l in grp:
                         out.append(para_from_lines(
                             [l], col_l, col_r, list_start=_line_key(l) in list_starts))
+                    prev_last = grp[-1]
                     continue
         p = para_from_lines(grp, col_l, col_r,
                             list_start=_line_key(grp[0]) in list_starts)
         p._note = _opens_note(grp[0])
+        # a paragraph the source opened by hand stays one: the flow merge
+        # (_merge_flow_paras) must not weld it back to the one before it
+        p._forced = bool(forced is not None and prev_last is not None
+                         and _forced_break(prev_last, grp[0], forced))
+        prev_last = grp[-1]
         out.append(p)
     return out
 
@@ -4247,6 +4381,103 @@ def _split_at_span_gaps(ln: Line) -> List[Line]:
             for sp in out]
 
 
+def _box_candidate(d) -> bool:
+    """A drawn rectangle the leftover pass would build a box from."""
+    return d.shape == "rect" and bool(d.fill or d.stroke) and \
+        (d.bbox[2] - d.bbox[0]) > 30 and (d.bbox[3] - d.bbox[1]) > 10
+
+
+def _split_lines_at_box_edges(blocks, rects, consumed=frozenset()) -> list:
+    """Cut every line that runs across the side of a box, at the gap where
+    the side is. Returns the cuts, [(block, line, pieces)], for
+    _restore_uncut.
+
+    Two panels side by side set their text on shared baselines, and the
+    parser joins the two halves of a baseline into one line when the white
+    between them is a panel gutter rather than a column gutter: y58's
+    'You have earned enough credits to qualif' (45-292) and 'You have enough
+    credits to qualify for M' (319-562) are one Line across the 301.4/310.4
+    panel edges. Such a line belongs to neither panel -- each box claims only
+    lines lying mostly inside it -- so both panels lost their text to the
+    flow and the line read across them. A box edge in the white between two
+    spans is the author's own statement that they are not one line. Only a
+    gap wider than the line splitter's own (`_split_at_span_gaps`) is cut,
+    so a word that merely touches a box edge stays whole, and only where a
+    box takes a piece: two pieces that both stay in the flow are two lines on
+    one baseline, which the flow stacks -- _restore_uncut joins every cut
+    back that no region took a piece of (a page on y60 otherwise).
+
+    Run before any region is built, so that the piece left outside a panel
+    is where every builder looks for it: y58's 'Earnings Earnings Taxed'
+    belongs to the table beside the panel it was joined to."""
+    edges = []
+    for x0, y0, x1, y1 in rects:
+        edges.append((x0, y0, y1))
+        edges.append((x1, y0, y1))
+    if not edges:
+        return []
+
+    def boxed(sp):
+        # the fragment a box will claim (build_box's own 'overlap' test)
+        bb = (min(s.bbox[0] for s in sp), min(s.bbox[1] for s in sp),
+              max(s.bbox[2] for s in sp), max(s.bbox[3] for s in sp))
+        return any(bbox_overlap(bb, r) > 0.55 * max(1e-6, bbox_area(bb)) for r in rects)
+    cuts = []
+    for b in blocks:
+        out = []
+        for ln in b.lines:
+            if len(ln.spans) < 2 or id(ln) in consumed:
+                out.append(ln)
+                continue
+            cy = (ln.bbox[1] + ln.bbox[3]) / 2
+            xs = [x for x, y0, y1 in edges
+                  if y0 <= cy <= y1 and ln.bbox[0] < x < ln.bbox[2]]
+            if not xs:
+                out.append(ln)
+                continue
+            parts, cur = [], [ln.spans[0]]
+            for s in ln.spans[1:]:
+                p = cur[-1]
+                gap = s.bbox[0] - p.bbox[2]
+                if gap > RULES_CELL_GAP_EM * max(s.size, p.size, 1.0) and \
+                        any(p.bbox[2] - 0.5 <= x <= s.bbox[0] + 0.5 for x in xs):
+                    parts.append(cur)
+                    cur = []
+                cur.append(s)
+            parts.append(cur)
+            if len(parts) == 1 or not any(boxed(sp) for sp in parts):
+                out.append(ln)
+                continue
+            pieces = [Line(spans=sp, dir=ln.dir, rtl=getattr(ln, "rtl", False),
+                           bbox=(min(s.bbox[0] for s in sp), min(s.bbox[1] for s in sp),
+                                 max(s.bbox[2] for s in sp), max(s.bbox[3] for s in sp)))
+                      for sp in parts]
+            cuts.append((b, ln, pieces))
+            out.extend(pieces)
+        if len(out) != len(b.lines):
+            b.lines = out
+    return cuts
+
+
+def _restore_uncut(cuts, consumed) -> None:
+    """Put back each cut line unless regions took EVERY piece of it.
+
+    A cut stands when the line was two regions' text on one baseline -- y58's
+    two panels, a panel beside a table -- and every piece found its region.
+    A piece left in the flow beside a piece a box took is a column of body
+    text running past a box: cut, it re-paragraphs the column around the box,
+    and on y60 (an MMWR whose summary boxes sit in one column of two) that cost
+    a page in LibreOffice; uncut, the flow is exactly what it was."""
+    for b, ln, pieces in cuts:
+        if all(id(p) in consumed for p in pieces):
+            continue
+        ids = {id(p) for p in pieces}
+        k = next((i for i, l in enumerate(b.lines) if id(l) in ids), None)
+        if k is None:
+            continue
+        b.lines = b.lines[:k] + [ln] + [l for l in b.lines[k:] if id(l) not in ids]
+
+
 def _gutter_bounds(rows, x0: float, x1: float) -> Optional[List[float]]:
     """Column bounds from the gaps no body-row fragment crosses.
 
@@ -4458,7 +4689,14 @@ def build_box(cl, blocks, consumed) -> Optional[TableEl]:
         cell.pad = (pad_top, cell.pad[1],
                     max(0.0, round(rect[3] - (t0 + hh), 1)), cell.pad[3])
     else:
-        cell.paras = paras_from_line_list(lines, minx, rect[2] - 4)
+        # Through the flow's own reader, not bare paragraph grouping: a panel
+        # holds what a page holds -- typed lists, label/field rows, dot
+        # leaders -- and y58's "Important Things to Know" panel came out as
+        # ONE paragraph of eleven bullet items run together, 2x its height.
+        blk = _mk_block(lines)
+        cell.paras = [el for el in _to_flow([("blk", blk.bbox, blk)], minx, rect[2] - 4,
+                                            forced=_text_column_edge(lines))
+                      if isinstance(el, Para)]
         t0 = _para_box(cell.paras[0])[0] if cell.paras else rect[1]
         pad_top = max(0.0, round(t0 - rect[1], 1))
         end = _space_paras(cell.paras, rect[1] + pad_top)
@@ -4466,11 +4704,34 @@ def build_box(cl, blocks, consumed) -> Optional[TableEl]:
                     cell.pad[3])
         for p in cell.paras:
             if p.align in ("left", "justify"):
-                p.left_indent = max(0.0, round((p.bbox[0] if p.bbox else minx) - minx, 1))
+                # From the CELL edge, as the writer reads a cell's indents
+                # (it takes the left pad back off), and to the paragraph's
+                # TEXT column: a hanging list item's box starts at its
+                # marker, and measuring from there put y58's panel bullets
+                # 9pt outside their panel's text.
+                x = (p.bbox[0] if p.bbox else minx) - min(0.0, p.first_indent)
+                p.left_indent = max(0.0, round(x - rect[0], 1))
     role = "code" if is_code else ("box" if (fill_rect or stroke_rect)
                                    else "quote")
     return TableEl(rows=[[cell]], col_widths=[rect[2] - rect[0]],
                    row_heights=[rect[3] - rect[1]], role=role, bbox=rect)
+
+
+# An ornament on a box -- a numbered badge in a callout's corner (y59's 11pt
+# circles), an icon beside its heading -- cannot ride in the box: a one-cell
+# table holds paragraphs, and stacked after the box as a picture it spends
+# its own height again (seven 15pt lines a page on y59). Up to twice the
+# glyph bound, wholly inside a built box, it is left to the box's shading,
+# as a smaller ornament anywhere already is (_is_glyphlike).
+BOX_ORNAMENT_MAX = 2 * GLYPH_MAX
+
+
+def _ornament_on_box(d: DrawCmd, elements) -> bool:
+    x0, y0, x1, y1 = d.bbox
+    if (x1 - x0) > BOX_ORNAMENT_MAX or (y1 - y0) > BOX_ORNAMENT_MAX:
+        return False
+    return any(isinstance(e, TableEl) and e.role in ("box", "cards") and e.bbox
+               and contains(e.bbox, d.bbox, 0.5) for e in elements)
 
 
 def build_figure(cl_ds: List[DrawCmd], blocks, images, consumed, page: PageIR) -> FigureEl:
@@ -4513,10 +4774,36 @@ def build_figure(cl_ds: List[DrawCmd], blocks, images, consumed, page: PageIR) -
                 changed = True
         if not changed:
             break
+    # A chart's axis ticks belong to it even where they stand further off
+    # than the 14pt reach: c5_graphics' '100' / '50' / '0' end 15.4pt left of
+    # the y-axis, stayed flow, and -- a picture cannot share a line with text
+    # -- were stacked UNDER the chart as three paragraphs, 115pt that pushed
+    # the whole page down. Only bare numbers beside the figure's own height,
+    # measured from the figure as grown above: a tick does not reach further
+    # ticks (chained, y59's callout badge numbers carried a mock-up page's
+    # picture 160pt across the callouts beside it).
+    ref = bb
+    for ln in _all_lines(blocks):
+        if id(ln) in consumed or not _AXIS_TICK_RE.match(ln.text.strip()):
+            continue
+        lb = ln.bbox
+        cy = (lb[1] + lb[3]) / 2
+        if not (ref[1] - 2 <= cy <= ref[3] + 2):
+            continue
+        if lb[2] >= ref[0] - AXIS_TICK_REACH and lb[0] <= ref[2] + AXIS_TICK_REACH:
+            bb = bbox_union(bb, lb)
+            consumed.add(id(ln))
     bb = (max(0, bb[0] - 2), max(0, bb[1] - 2),
           min(page.width, bb[2] + 2), min(page.height, bb[3] + 2))
     return FigureEl(page_no=page.number, clip=bb,
                     width=bb[2] - bb[0], height=bb[3] - bb[1])
+
+
+# The tick labels build_figure takes from beside a chart: a bare number, a
+# percentage or a currency amount, and no further off than an axis title's
+# gutter (c5's stand 15.4pt off; 24pt leaves room for a wider face's ticks).
+_AXIS_TICK_RE = re.compile(r"^[-+−–]?[$€£¥]?\d{1,7}(?:[.,]\d{1,3})*\s?[%kKmM]?$")
+AXIS_TICK_REACH = 24.0
 
 
 def _figure_in_budget(cl_ds, blocks, images, consumed, page, text_area):
@@ -4770,6 +5057,15 @@ def _measure_margins(lay: DocLayout, ir: DocIR, hf: dict,
         # Prefer a measurement of this document over the 1in assumption.
         ml = _margin_by_mass(left_edges, left=True)
     lay.margin_l = float(ml) if ml else 72.0
+    gutter = _gutter_column(body_lines, lay.margin_l)
+    if gutter is not None:
+        # The column the text clusters on is the MAIN column; the page's
+        # content starts at the gutter's left. Drawings keep being judged
+        # against the main column (`_gutter_main`), exactly as before: the
+        # rules beside a gutter's headings were margin furniture then and
+        # are not flow now.
+        lay._gutter_main = lay.margin_l
+        lay.margin_l = gutter
     wide_x1 = [l.bbox[2] for _, l in body_lines
                if (l.bbox[2] - l.bbox[0]) >= 0.45 * lay.page_w and
                l.bbox[2] > 0.6 * lay.page_w]
@@ -4873,6 +5169,107 @@ def _measure_margins(lay: DocLayout, ir: DocIR, hf: dict,
     lay.margin_b = round(max(14.0, min(72.0, lay.page_h - max_bot - 16.0)), 1)
 
 
+# --- gutter columns -----------------------------------------------------------
+# A CV set by rendercv, moderncv or Typst puts each entry's dates in a narrow
+# left column beside the entry's first line: 'Sept 2018 – May 2023' right-
+# aligned to 167pt, 'Princeton University, PhD...' from 176.5. The margin
+# cluster sees only the main column (every line of it starts at 176.5) and
+# made THAT the page's left edge, so each date line became one paragraph
+# starting at the main column -- the date inlined into the role, the line
+# 100pt too long, wrapping: y44 went 3 -> 4 pages, and its name and contact
+# line were pushed 126pt right with it.
+#
+# The evidence is a line whose label ends in the white left of the main
+# column and whose text resumes AT the main column's edge, on at least two
+# lines whose labels share an edge (right-aligned dates end together, left-
+# aligned ones start together). A hanging list marker has the same shape and
+# is excluded by width: the gutter must be at least SBS_MIN_SIDE_PT wide,
+# where an outdented "1." or a section number takes 10-30pt.
+GUTTER_EDGE_TOL = 1.5      # pt: the text resumes AT the main column
+GUTTER_MIN_GAP = 3.0       # pt of white between a label and the main column
+GUTTER_LABEL_EDGE = 2.0    # pt: labels of one column share an edge
+GUTTER_MIN_ROWS = 2
+
+
+def _gutter_column(body_lines, margin_l: float) -> Optional[float]:
+    """The page group's true left edge when it has a gutter column, else None.
+
+    Marks each label line with `_gutter` = (index of the first main-column
+    span, label edge x, main column x, right-aligned?) for para_from_lines."""
+    hits = []
+    for _pg, ln in body_lines:
+        if not ln.horizontal or len(ln.spans) < 2 or getattr(ln, "rtl", False) or \
+                ln.bbox[0] > margin_l - SBS_MIN_SIDE_PT:
+            continue
+        k = next((i for i, s in enumerate(ln.spans)
+                  if abs(s.bbox[0] - margin_l) <= GUTTER_EDGE_TOL), None)
+        if not k:
+            continue
+        label = [s for s in ln.spans[:k] if s.text.strip()]
+        if not label:
+            continue
+        x1 = max(ink_extent(s)[1] for s in label)
+        if margin_l - x1 < GUTTER_MIN_GAP:
+            continue
+        hits.append((ln, k, min(ink_extent(s)[0] for s in label), x1,
+                     max(s.bbox[2] for s in ln.spans[:k])))
+    if len(hits) < GUTTER_MIN_ROWS:
+        return None
+    rights = sorted(h[4] for h in hits)
+    lefts = sorted(h[2] for h in hits)
+    if rights[-1] - rights[0] <= GUTTER_LABEL_EDGE:
+        right_al = True
+    elif lefts[-1] - lefts[0] <= GUTTER_LABEL_EDGE:
+        right_al = False
+    else:
+        return None
+    stop = sorted(h[3] for h in hits)[len(hits) // 2]
+    for ln, k, lx0, _x1, _r in hits:
+        ln._gutter = (k, stop if right_al else lx0, margin_l, right_al)
+    # A main-column line is LEFT-aligned at the main column, however far
+    # from the page's new left edge it starts: a one-line bullet reaching the
+    # right margin otherwise reads as right-aligned (y44's 'Created on-device
+    # ...' set flush right with a 126pt indent and wrapped).
+    for _pg, ln in body_lines:
+        if abs(ln.bbox[0] - margin_l) <= GUTTER_EDGE_TOL:
+            ln._main_col = True
+    left = [ln.bbox[0] for _pg, ln in body_lines if ln.bbox[0] < margin_l - 1.0]
+    return min(left) if left else None
+
+
+def _gutter_para(p: Para, lines: List[Line], col_l: float) -> None:
+    """Rewrite a paragraph opened by a gutter label as label TAB text, hanging
+    at the main column -- the word processor's own form of a dated entry."""
+    k, edge, main_x, right_al = lines[0]._gutter
+    spans0 = lines[0].spans
+    ref = spans0[k]
+
+    def tab():
+        return Run(text="\t", font=ref.font, size=ref.size, color=ref.color, is_tab=True)
+
+    label = [r for r in runs_from_spans(spans0[:k]) if r.text]
+    while label and not label[-1].text.strip():
+        label.pop()
+    if label:
+        label[-1].text = label[-1].text.rstrip(" ")
+    runs = ([tab()] if right_al else []) + label + [tab()] + \
+        runs_from_spans(spans0[k:])
+    for j in range(1, len(lines)):
+        _soft_join(runs, lines[j].text, dehyphenate=False)
+        runs.extend(runs_from_spans(lines[j].spans))
+    hang = round(main_x - col_l, 1)
+    p.runs = runs
+    p.align = "left"
+    p.left_indent = hang
+    p.right_indent = 0.0
+    if right_al:
+        p.first_indent = -hang
+        p.tab_stops = [(round(edge - col_l, 1), "right"), (hang, "left")]
+    else:
+        p.first_indent = round(edge - main_x, 1)
+        p.tab_stops = [(hang, "left")]
+
+
 def _geometry(lay: DocLayout, own: Optional[DocLayout]) -> DocLayout:
     """`lay` with a page's own size and margins, or `lay` itself."""
     if own is None:
@@ -4883,6 +5280,7 @@ def _geometry(lay: DocLayout, own: Optional[DocLayout]) -> DocLayout:
     # Row evidence is measured against a geometry's content edges, so a page
     # of another size reads its own group's (see _measure_margins).
     out._row_evidence = getattr(own, "_row_evidence", None)
+    out._gutter_main = getattr(own, "_gutter_main", None)
     return out
 
 
@@ -5089,6 +5487,9 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
         own = own_geometry.get(p.number)
         lay = _geometry(doc_lay, own)
         content_w = lay.content_w
+        # side-margin furniture is judged against the main column when the
+        # page group has a gutter column (_gutter_column), as it was before
+        furniture_l = getattr(lay, "_gutter_main", None) or lay.margin_l
         pl = PageLayout(number=p.number)
         if own is not None:
             pl.page_w, pl.page_h = own.page_w, own.page_h
@@ -5135,6 +5536,7 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
         elements: List[Any] = []
         draws = [(i, d) for i, d in enumerate(p.drawings)
                  if i not in cd and d.opacity > 0.05]
+        cuts = _split_lines_at_box_edges(blocks, [d.bbox for _, d in draws if _box_candidate(d)])
         # This runs before drawing clustering because a row-regular table is
         # otherwise split into alternating filled-card clusters and bare flow
         # paragraphs.  It has no side effects until the entire segment passes.
@@ -5329,6 +5731,8 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
                 continue
             if _is_glyphlike(d):
                 continue        # stray ornament: not worth rasterising a region for
+            if _ornament_on_box(d, elements):
+                continue
             if d.shape in ("curve", "complex", "line") or (
                     d.fill and bbox_area(d.bbox) > 400):
                 # A stray shape is promoted to a rasterised block here on area
@@ -5341,14 +5745,15 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
                 # column and marks text inside it, and removing it upstream
                 # destroys the callout (measured: it moved four gated
                 # fixtures).
-                if in_side_margin(d.bbox, lay.margin_l, lay.margin_r, p.width):
+                if in_side_margin(d.bbox, furniture_l, lay.margin_r, p.width):
                     continue
                 elements.append(build_figure([d], blocks, p.images, consumed, p))
 
         for im in p.images:
             if getattr(im, "_consumed", False) or im.data is None:
                 continue
-            if in_side_margin(im.bbox, lay.margin_l, lay.margin_r, p.width)                     and p.number not in deck:
+            if in_side_margin(im.bbox, furniture_l, lay.margin_r, p.width) \
+                    and p.number not in deck:
                 # Marginal logo/icon: furniture, not flow. A slide anchors
                 # it where it is instead, which costs the flow nothing.
                 continue
@@ -5357,7 +5762,8 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
             el._bbox = im.bbox
             elements.append(el)
 
-        elements = _merge_figures(elements)
+        elements = _merge_box_rows(_merge_figures(elements))
+        _restore_uncut(cuts, consumed)
         if p.number in deck:
             elements, pl.floats = _float_graphics(elements, blocks,
                                                   p.width, p.height)
@@ -5410,8 +5816,8 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
     lay = doc_lay
     number_footnotes(lay)
     _coalesce_striped_table_segments(lay)
-    _propagate_list_hangs([el for pg in lay.pages for ch in pg.chunks
-                           for el in ch.elements if isinstance(el, Para)])
+    _propagate_list_hangs([el for pg in lay.pages for els in page_sequences(pg)
+                           for el in els if isinstance(el, Para)])
     _mark_headings(lay, body_size)
     # After the hangs (a level's indents are read from them) and the headings
     # (a numbered heading is a heading, not a list item).
@@ -5849,6 +6255,84 @@ def _merge_figures(elements):
                 out.append(f)
         figs = out
     return other + figs
+
+
+# A row of boxes -- stat tiles, KPI cards -- is drawn as separate panels with a
+# gutter between them, so each is its own drawing cluster and becomes its own
+# one-cell box. The flow then stacks them: c1_whitepaper's three cards share
+# one 53pt band and came out 3 x 53pt tall, the same +106pt step that made
+# _merge_figures merge them as pictures. Boxes whose top AND bottom edges agree
+# within CARD_ROW_EDGE_TOL sit on one band; c1's measure 224.2/277.5 exactly.
+# The gutter between neighbours must be a gutter, not a gap in a page of
+# boxes: c1's is 9.3pt, and a half inch is the widest card gutter any of the
+# documents with card rows sets.
+CARD_ROW_EDGE_TOL = 3.0
+CARD_ROW_MAX_GAP = 36.0
+
+
+def _merge_box_rows(elements):
+    """Side-by-side one-cell boxes on one band -> one 'cards' table.
+
+    The gutters become empty, unshaded columns, so every card keeps its own
+    shading, borders and width and the row costs its height once."""
+    boxes = [e for e in elements if isinstance(e, TableEl) and e.role == "box"
+             and e.bbox and len(e.rows) == 1 and len(e.rows[0]) == 1
+             and e.rows[0][0] is not None]
+    if len(boxes) < 2:
+        return elements
+    boxes.sort(key=lambda e: (e.bbox[1], e.bbox[0]))
+    rows, used = [], set()
+    for b in boxes:
+        if id(b) in used:
+            continue
+        row = [b]
+        for c in boxes:
+            if id(c) in used or c is b:
+                continue
+            if abs(c.bbox[1] - b.bbox[1]) <= CARD_ROW_EDGE_TOL and \
+                    abs(c.bbox[3] - b.bbox[3]) <= CARD_ROW_EDGE_TOL:
+                row.append(c)
+        if len(row) < 2:
+            continue
+        row.sort(key=lambda e: e.bbox[0])
+        if any(not (0.0 <= r2.bbox[0] - r1.bbox[2] <= CARD_ROW_MAX_GAP)
+               for r1, r2 in zip(row, row[1:])):
+            continue
+        used.update(id(e) for e in row)
+        rows.append(row)
+    if not rows:
+        return elements
+    merged = {}
+    for row in rows:
+        cells, widths = [], []
+        for i, e in enumerate(row):
+            if i:
+                gap = row[i].bbox[0] - row[i - 1].bbox[2]
+                if gap > 0.05:
+                    cells.append(Cell(borders={}, pad=(0.0, 0.0, 0.0, 0.0)))
+                    widths.append(gap)
+            cells.append(e.rows[0][0])
+            widths.append(e.bbox[2] - e.bbox[0])
+        bb = None
+        for e in row:
+            bb = bbox_union(bb, e.bbox)
+        t = TableEl(rows=[cells], col_widths=widths, row_heights=[bb[3] - bb[1]],
+                    role="cards", bbox=bb)
+        # the cards' own drawn edges: the writer must neither widen a card
+        # nor span one into the gutter beside it (docxout._fit_col_widths,
+        # _span_into_blank_neighbours)
+        t.col_edges_drawn = True
+        merged[id(row[0])] = t
+        for e in row[1:]:
+            merged[id(e)] = None
+    out = []
+    for e in elements:
+        if id(e) in merged:
+            if merged[id(e)] is not None:
+                out.append(merged[id(e)])
+            continue
+        out.append(e)
+    return out
 
 
 def _el_bbox(e):
@@ -6296,6 +6780,8 @@ GRID_CELL_GAP_MIN = 12.0   # pt; and never less than _ROW_MIN_GAP's real gap
 GRID_ROW_PITCH_EM = 3.2    # consecutive rows are at most this far apart
 GRID_EDGE_TOL = 2.0        # pt; a shared column edge
 GRID_CELL_MAX_WORDS = 4    # a cell is a few words; a prose line is not
+ROW_ITEMS_MIN = 3          # separate lines on one baseline that are a row (_grid_rows)
+ROW_ITEMS_MAX_GAP_EM = 3.0  # ...set at item spacing, not across the page
 _NUMERIC_CELL = re.compile(r"[(+\-–−$€£¥]?\s?[0-9][0-9.,\s]*%?\)?")
 
 
@@ -6410,6 +6896,35 @@ def _grid_rows(items, col_l, col_r):
                if _NUMERIC_CELL.fullmatch(_frag_text(f))
                and max(s.size for s in f) >= 0.8 * size) >= 2:
             keep.add(i)
+    # A row of items the PARSER already set apart -- three or more lines on
+    # one baseline, each a few words, none overlapping -- is one row whatever
+    # its gaps: a CV's contact strip (y44: five 'icon + text' items 14pt
+    # apart, under the 2em cell gap above). Left as lines, each became a
+    # paragraph of its own and the strip stood as a five-line staircase.
+    # Lines sharing a baseline are never a stack, so they are written as the
+    # row they are, each at its own tab stop.
+    for i, (row, frags, ok) in enumerate(info):
+        if i in keep or len(row) < ROW_ITEMS_MIN:
+            continue
+        items = sorted(row, key=lambda l: l.bbox[0])
+        pieces = [[s for s in ln.spans if s.text.strip()] for ln in items]
+        sizes = [_line_size(ln) for ln in items]
+        # A strip, not a coincidence: one size (display maths puts its
+        # exponents on the baseline of their sums) and item spacing (a form's
+        # 'Name ... Date ... Signature' stands 130-235pt apart; y44's
+        # contact items 14pt, 1.4em).
+        if max(sizes) - min(sizes) > 0.6 or \
+                any(b.bbox[0] - a.bbox[2] > ROW_ITEMS_MAX_GAP_EM * max(sizes)
+                    for a, b in zip(items, items[1:])):
+            continue
+        if any(not p for p in pieces) or \
+                any(b.bbox[0] < a.bbox[2] for a, b in zip(items, items[1:])) or \
+                any(all(s.mono for s in p) for p in pieces) or \
+                not all(_cellish(p) for p in pieces) or \
+                bool(_TRAILING_LEADER_RE.match(_frag_text(pieces[0]))):
+            continue
+        info[i] = (row, pieces, True)
+        keep.add(i)
     out, consumed = [], set()
     for i in sorted(keep):
         row, frags, _ = info[i]
@@ -6926,7 +7441,10 @@ def _propagate_list_hangs(paras):
             p.first_indent = -h
 
 
-def _to_flow(items, col_l, col_r, doc_rows=None):
+def _to_flow(items, col_l, col_r, doc_rows=None, forced=None):
+    """`forced`: a text edge; also break paragraphs where the source broke a
+    line short of it by hand (`_forced_break`) -- inside panels and layout
+    columns only."""
     items = _split_blocks_at_elements(items)
     leaders, lconsumed = _leader_lines(items, col_l, col_r)
     if lconsumed:
@@ -6975,11 +7493,18 @@ def _to_flow(items, col_l, col_r, doc_rows=None):
         elif kind == "blk":
             out.extend(paras_from_line_list(
                 list(o) if isinstance(o, list) else list(o.lines), col_l, col_r,
-                list_starts))
+                list_starts, forced=forced))
         else:
             el = o
             if isinstance(el, TableEl):
                 el.left_indent = max(0.0, round((el.bbox[0] if el.bbox else col_l) - col_l, 1))
+                # A panel wider than its column bleeds where the source drew
+                # it: y46's full-bleed summary band (0-595 on a 28pt margin)
+                # started at the margin and ran 28pt off the paper.
+                if el.role in ("box", "cards") and el.bbox and \
+                        el.bbox[0] < col_l - 2.0 and \
+                        el.bbox[2] - el.bbox[0] > col_r - col_l + 2.0:
+                    el.left_indent = round(el.bbox[0] - col_l, 1)
             elif isinstance(el, (FigureEl, ImageEl)):
                 bbx = _el_bbox(el)
                 if bbx:
@@ -7024,8 +7549,9 @@ def _mergeable(a: Para, b: Para, col_l: Optional[float] = None,
     # paragraph (design audit B16).
     if getattr(b, "_list_item", False):
         return False
-    # Likewise a footnote that opens with its own number (`_opens_note`).
-    if getattr(b, "_note", False):
+    # Likewise a footnote that opens with its own number (`_opens_note`),
+    # and a paragraph the source opened by hand (`_forced_break`).
+    if getattr(b, "_note", False) or getattr(b, "_forced", False):
         return False
     # Paragraphs continue each other only in one direction, and a
     # right-to-left paragraph continues at its START, which is its right
@@ -7496,6 +8022,563 @@ def _grid_chunks(elements, flow_blocks, bands, lay: DocLayout,
     return chunks
 
 
+# --- side-by-side regions -----------------------------------------------------
+# Designed pages put things NEXT to each other that the flow can only stack:
+# shaded panels in two columns (y58_ssa_statement), a sidebar beside the main
+# column of a résumé, a ragged-left column against a dotted rule (y46). The
+# two-column detector above reads only text-block left edges, so it cannot see
+# a column made of panels, and it refuses a column narrower than 35% of the
+# page by construction (a sidebar résumé's 140pt sidebar is 27%). Either way
+# the page was linearised: panels stacked, sidebar lines interleaved with the
+# main column's by baseline.
+#
+# A side-by-side region is found the way column_grid finds gutters -- by what
+# is NOT there -- but over the page's ITEMS (blocks and built elements), not
+# its lines: a split x that no item crosses over a band of the page, with
+# items on both sides sharing that band. It is laid out only on evidence the
+# ordinary two-column path never had (`_side_evidence`).
+SBS_MIN_GUTTER = 6.0        # pt of white between the sides: y58's is 8.5
+SBS_MIN_BAND_PT = 72.0      # the sides share at least an inch of the page
+# A picture beside text is a masthead -- y58's 58pt seal beside its title,
+# y46's 65pt photo beside the name -- when it is a picture and not an icon:
+# both measure at least this, where y06's TIP/CAUTION icons are 35pt and a
+# section tag 21pt. The flow stacked such a picture above the text beside it
+# and paid its whole height again: +58pt on y58's first page.
+SBS_FIG_MIN_PT = 40.0
+# docxout._write_cell_blocks' 1pt carrier after a nested table, plus a point.
+NESTED_CARRIER_PT = 2.0
+SBS_MIN_SIDE_PT = 60.0      # a side narrower than this is a marker or a stub
+# How far a side may overhang the equal columns a section would give it and
+# still be set in one. A box's text, not its shading, has to fit -- y58's
+# panels bleed 9pt past the text margin on both sides -- and a line drawn
+# into the margin is pulled back by at most this much: y58's right-aligned
+# date ends 9.5pt past the measured right edge, against the panels' own.
+SBS_EQUAL_TOL = 12.0
+# A sidebar is the narrow side of an unequal split. 0.35 is the bar the
+# two-column detector applies to its right column; below it that detector
+# never fires, which is exactly the population this rule exists for.
+SBS_SIDEBAR_FRAC = 0.35
+# ...beside a MAIN column: the wide side carries at least half the width.
+SBS_MAIN_FRAC = 0.5
+# Each side is a column of text, not a few labels: five lines at least (the
+# sidebar fixture's narrower side has 12, its main column 9), and most of
+# them flush at one left edge (all of the fixture's but one wrapped bullet).
+SBS_SIDEBAR_MIN_LINES = 5
+SBS_FLUSH_SHARE = 0.6
+# Two sides whose lines share baselines row by row are one list of label/value
+# rows -- a form -- not two columns. Columns set independently coincide by
+# chance: the sidebar fixture shares 1 baseline in 9.
+SBS_ROW_SHARE_MAX = 0.5
+# A drawn separator in the gutter (a rule, or a dotted rule drawn as dots) must
+# run alongside at least this share of the band.
+SBS_RULE_COVER = 0.5
+
+
+def _fit_extent(item):
+    """(x0, x1) of what must fit in a column: a box's text, else its box."""
+    kind, bb, o = item
+    if isinstance(o, TableEl) and o.role in ("box", "cards"):
+        xs = [p.bbox for row in o.rows for c in row if c for p in c.paras if p.bbox]
+        if xs:
+            return min(b[0] for b in xs), max(b[2] for b in xs)
+    return bb[0], bb[2]
+
+
+def _side_splits(items, x_lo: float, x_hi: float):
+    """Every vertical split of `items`, best first: [(x, band, gl, gr)].
+
+    `band` is a list of (item index, side) -- side 0 left, 1 right -- for a
+    run of items, in reading order, that no item crossing x interrupts, with
+    both sides sharing at least half of the shorter side's height; gl/gr are
+    the gutter's edges. The candidates are the items' own left edges: a
+    column starts where its text does. Ranked by the items a band holds."""
+    idx = [i for i, it in enumerate(items) if it[1] is not None]
+    cand = sorted({round(items[i][1][0], 1) for i in idx
+                   if x_lo + SBS_MIN_SIDE_PT <= items[i][1][0] <= x_hi - SBS_MIN_SIDE_PT})
+    order = sorted(idx, key=lambda i: (items[i][1][1], items[i][1][0]))
+    found = []
+    for xs in cand:
+        bands, cur = [], []
+        for i in order:
+            bb = items[i][1]
+            if bb[2] <= xs - SBS_MIN_GUTTER:
+                cur.append((i, 0))
+            elif bb[0] >= xs - 0.5:
+                cur.append((i, 1))
+            elif cur:
+                bands.append(cur)
+                cur = []
+        if cur:
+            bands.append(cur)
+        for band in bands:
+            L = [items[i][1] for i, s in band if s == 0]
+            R = [items[i][1] for i, s in band if s == 1]
+            if not L or not R:
+                continue
+            ly0, ly1 = min(b[1] for b in L), max(b[3] for b in L)
+            ry0, ry1 = min(b[1] for b in R), max(b[3] for b in R)
+            if min(ly1, ry1) - max(ly0, ry0) < 0.5 * min(ly1 - ly0, ry1 - ry0):
+                continue
+            gl, gr = max(b[2] for b in L), min(b[0] for b in R)
+            if gr - gl < SBS_MIN_GUTTER:
+                continue
+            # The split must be clean over the band's whole HEIGHT, not just
+            # in reading order: an item outside the band that crosses x while
+            # standing beside it means the sides are arranged around that
+            # item. y59's callouts flank a mock-up whose leader lines make
+            # one picture spanning all three; split there, the picture was
+            # stacked above a table of callouts and the page ran to three.
+            y0, y1 = min(ly0, ry0), max(ly1, ry1)
+            members = {i for i, _s in band}
+            if any(i not in members and items[i][1][3] > y0 + 2.0 and
+                   items[i][1][1] < y1 - 2.0 and
+                   items[i][1][0] < xs - SBS_MIN_GUTTER and items[i][1][2] > xs - 0.5
+                   for i in idx):
+                continue
+            found.append(((len(band), y1 - y0), xs, band, gl, gr))
+    found.sort(key=lambda f: f[0], reverse=True)
+    return [f[1:] for f in found]
+
+
+def _split_side(items):
+    """A side of a side-by-side region, cut again where all of it splits
+    cleanly (y46's masthead: the name beside the contact list, beside the
+    photo). -> list of sides, left to right."""
+    if len(items) < 2:
+        return [items]
+    xs_lo = min(it[1][0] for it in items)
+    xs_hi = max(it[1][2] for it in items)
+    for xs, band, _gl, _gr in _side_splits(items, xs_lo - SBS_MIN_SIDE_PT,
+                                           xs_hi + SBS_MIN_SIDE_PT):
+        if len(band) == len(items):
+            left = [items[i] for i, s in band if s == 0]
+            right = [items[i] for i, s in band if s == 1]
+            if _rows_not_columns(_side_lines(left), _side_lines(right)):
+                continue        # a role and its date: one row, two fields
+            return _split_side(left) + _split_side(right)
+    return [items]
+
+
+def _rows_not_columns(ll, rl) -> bool:
+    """Do two sides' lines pair up baseline by baseline, as the fields of
+    rows do (a form's labels and values, a role and its date), rather than
+    run independently, as columns' do? See SBS_ROW_SHARE_MAX."""
+    if not ll or not rl:
+        return False
+    narrow, other = (ll, rl) if len(ll) <= len(rl) else (rl, ll)
+    shared = sum(1 for a in narrow
+                 if any(abs(a.baseline - b.baseline) <= _ROW_BASELINE_TOL for b in other))
+    return shared > SBS_ROW_SHARE_MAX * len(narrow)
+
+
+def _side_lines(items):
+    out = []
+    for kind, _bb, o in items:
+        if kind == "blk":
+            out.extend(_blk_lines(o))
+    return out
+
+
+def _side_evidence(left, right, gl: float, gr: float, page: PageIR,
+                   content_w: float) -> Optional[str]:
+    """Why these two sides are columns, or None.
+
+    'figure'    a picture stands beside text (a masthead's logo or photo)
+    'panel'     a shaded or bordered box stands on one side: designed regions
+    'rule'      a drawn separator runs down the gutter (y46's dotted rule)
+    'sidebar'   a narrow independent column the two-column path cannot see
+    """
+    for side, other in ((left, right), (right, left)):
+        if len(side) == 1 and isinstance(side[0][2], (FigureEl, ImageEl)) and \
+                _side_lines(other) and \
+                max(it[1][2] for it in other) - min(it[1][0] for it in other) \
+                >= SBS_MIN_SIDE_PT:
+            # (text beside it, not a gutter of line numbers: y63's pleading
+            # numbers stand beside its signature image)
+            fb = side[0][1]
+            oy0 = min(it[1][1] for it in other)
+            oy1 = max(it[1][3] for it in other)
+            # ...and the text is BESIDE the picture, not a column the picture
+            # merely shares a stretch of: half the text's own height lies
+            # alongside it. A paper's figure at the foot of one column beside
+            # the other column's last 300pt is a two-column page, not a
+            # masthead (y41 p5).
+            if min(fb[2] - fb[0], fb[3] - fb[1]) >= SBS_FIG_MIN_PT and \
+                    min(fb[3], oy1) - max(fb[1], oy0) >= 0.5 * (oy1 - oy0):
+                return "figure"
+    if max(it[1][3] for it in left + right) - min(it[1][1] for it in left + right) \
+            < SBS_MIN_BAND_PT:
+        return None
+    for kind, _bb, o in left + right:
+        if isinstance(o, TableEl) and o.role in ("box", "cards"):
+            return "panel"
+    ll, rl = _side_lines(left), _side_lines(right)
+    lw = max(it[1][2] for it in left) - min(it[1][0] for it in left)
+    rw = max(it[1][2] for it in right) - min(it[1][0] for it in right)
+    # Below this every other test is about two COLUMNS OF TEXT: a court
+    # pleading's 1-28 line numbers stand beside its text behind a drawn
+    # rule, and are a gutter of numbers, not a column.
+    if len(ll) < SBS_SIDEBAR_MIN_LINES or len(rl) < SBS_SIDEBAR_MIN_LINES or \
+            min(lw, rw) < SBS_MIN_SIDE_PT:
+        return None
+    y0 = min(it[1][1] for it in left + right)
+    y1 = max(it[1][3] for it in left + right)
+    # a rule inside a built element is that element's own (a table's column
+    # rule: RFC 9110's method table, PLOS One's results tables)
+    owned = [_expand(it[1], 2.0) for it in left + right if it[0] == "el"]
+    spans = []
+    for d in page.drawings:
+        x0, dy0, x1, dy1 = d.bbox
+        if gl <= (x0 + x1) / 2 <= gr and (x1 - x0) <= RULE_THICK + 1.0 \
+                and dy1 > y0 and dy0 < y1 and \
+                not any(contains(o, d.bbox, 0.0) for o in owned):
+            spans.append((max(y0, dy0), min(y1, dy1)))
+    if spans:
+        spans.sort()
+        cover, (a, b) = 0.0, spans[0]
+        for s0, s1 in spans[1:]:
+            # a dotted rule is dots a few points apart: bridge those gaps
+            if s0 <= b + 6.0:
+                b = max(b, s1)
+            else:
+                cover += b - a
+                a, b = s0, s1
+        cover += b - a
+        if cover >= SBS_RULE_COVER * (y1 - y0):
+            return "rule"
+    if min(lw, rw) >= SBS_SIDEBAR_FRAC * content_w or \
+            max(lw, rw) < SBS_MAIN_FRAC * content_w:
+        return None
+    # Both sides are text COLUMNS: most of each side's lines start at one x.
+    # Side-by-side matter that is not -- a display equation and its number,
+    # a table's stub beside its body, LaTeX source beside its typeset output
+    # (lshort, FIPS 197) -- starts its lines wherever its content puts them.
+    for lines in (ll, rl):
+        edge = _mode([ln.bbox[0] for ln in lines], 0)
+        if sum(1 for ln in lines if abs(ln.bbox[0] - edge) <= 2.0) \
+                < SBS_FLUSH_SHARE * len(lines):
+            return None
+    narrow = ll if lw <= rw else rl
+    other = rl if lw <= rw else ll
+    shared = sum(1 for a in narrow
+                 if any(abs(a.baseline - b.baseline) <= _ROW_BASELINE_TOL for b in other))
+    if shared > SBS_ROW_SHARE_MAX * len(narrow):
+        return None
+    return "sidebar"
+
+
+def _stack_in(els, top: float) -> float:
+    """Baseline-anchored space_before for a column's elements from `top`."""
+    cursor = top
+    for el in els:
+        bb = _el_bbox(el)
+        if bb is None:
+            continue
+        if isinstance(el, Para):
+            t, h = _para_box(el)
+            el.space_before = max(0.0, round(t - cursor, 1))
+            cursor = t + h
+        else:
+            el.space_before = max(0.0, round(bb[1] - cursor, 1))
+            cursor = bb[3]
+    return cursor
+
+
+def _text_edge(items) -> float:
+    """Right edge of a side's TEXT -- its own wrap and alignment edge, which a
+    tag or picture standing further out does not move (y46's left column is
+    right-aligned to 276.4 beside section tags reaching 287)."""
+    xs = [it[1][2] for it in items if it[0] == "blk"] + \
+        [_fit_extent(it)[1] for it in items
+         if isinstance(it[2], TableEl) and it[2].role in ("box", "cards")]
+    return max(xs) if xs else max(_fit_extent(it)[1] for it in items)
+
+
+def _lines_item(lines):
+    lines = sorted(lines, key=lambda l: (round(l.baseline, 1), l.bbox[0]))
+    blk = _mk_block(lines)
+    return ("blk", blk.bbox, blk)
+
+
+def _column_flow(items, col_l: float, box_r: float, lay_rows):
+    """A side's flow, read against its own text edge and placed in a column
+    whose right edge is `box_r`: every paragraph keeps the difference as a
+    right indent, so it wraps -- and right-aligns -- where the source did."""
+    col_r = min(box_r, _text_edge(items))
+    # One column is one text stream. Its lines arrive as many blocks -- the
+    # parser cut them wherever the OTHER column's lines interleaved, so the
+    # sidebar fixture's every line is a block of its own -- and paragraphs
+    # are only read inside a block. Rejoin each run of blocks no element
+    # interrupts, so the column's own breaks decide its paragraphs.
+    joined, run = [], []
+    for it in _by_pos(items):
+        if it[0] == "blk":
+            run.extend(_blk_lines(it[2]))
+            continue
+        if run:
+            joined.append(_lines_item(run))
+            run = []
+        joined.append(it)
+    if run:
+        joined.append(_lines_item(run))
+    edge = _text_column_edge(_side_lines(items))
+    if not (edge is None or edge < 0 or
+            _flush_right_edge(_side_lines(items)) is not None):
+        edge = col_r
+    flow = _merge_flow_paras(_to_flow(joined, col_l, col_r, doc_rows=lay_rows,
+                                      forced=edge), col_r)
+    extra = max(0.0, round(box_r - col_r, 1))
+    for el in flow:
+        # The right indent holds a WRAPPING paragraph to its source measure,
+        # and a right-aligned or centred one to its source edge. A one-line
+        # left-aligned paragraph has no measure to keep, and pinning its
+        # width to its own source line is what wraps it the moment the
+        # substitute face is a hair wider (the sidebar fixture's 20pt name).
+        if isinstance(el, Para) and extra > 0.0 and \
+                ((el.src_lines or 1) > 1 or el.align in ("right", "center")):
+            el.right_indent = round((el.right_indent or 0.0) + extra, 1)
+        if isinstance(el, Para) and el.align == "right" and el.bbox and \
+                (el.src_lines or 1) <= 1:
+            # A right-aligned column (y46's left side) sets every line by its
+            # right edge; the left indent only bounds the wrap, and at the
+            # source's own x it leaves no room for a substitute face a hair
+            # wider -- each title wrapped and the column overflowed into
+            # the next. See RIGHT_LINE_SLACK.
+            w = el.bbox[2] - el.bbox[0]
+            el.left_indent = round(max(0.0, el.left_indent - RIGHT_LINE_SLACK * w), 1)
+        if isinstance(el, RuleEl) and getattr(el, "_bbox", None):
+            # rules carry page-relative indents until a flow places them
+            el.left_indent = max(0.0, round(el._bbox[0] - col_l, 1))
+        # A panel keeps the x its shading was drawn at, into the margin if the
+        # source bled it there (y58's panels start 9pt left of their text).
+        if isinstance(el, TableEl) and el.role in ("box", "cards") and el.bbox:
+            el.left_indent = round(el.bbox[0] - col_l, 1)
+    return flow
+
+
+def _layout_table(sides, top: float, bottom: float, content_l: float,
+                  content_r: float, lay_rows) -> TableEl:
+    """A borderless one-row table, one cell per side: the unequal-column form.
+
+    Google Docs imports only equal-width column sections (testkit/
+    ooxml_audit.py's RISK note), and a sidebar is unequal by definition; a
+    layout table is what a word processor's own résumé templates use, and
+    every renderer honours its column widths. A side that is ONE panel becomes
+    the cell itself -- its shading, borders and pads -- so a shaded sidebar is
+    a shaded cell, not a box nested in one."""
+    panels = []
+    for its in sides:
+        p = None
+        if len(its) == 1 and isinstance(its[0][2], TableEl) and \
+                its[0][2].role == "box" and its[0][2].bbox:
+            p = its[0][2]
+        panels.append(p)
+    # cell edges: a panel's own box, else the gutter's far side
+    edges = []
+    for k, its in enumerate(sides):
+        if panels[k] is not None:
+            x0, x1 = panels[k].bbox[0], panels[k].bbox[2]
+        else:
+            x0 = min(it[1][0] for it in its)
+            x1 = max(_fit_extent(it)[1] for it in its)
+        edges.append([x0, x1])
+    edges[0][0] = min(edges[0][0], content_l)
+    edges[-1][1] = max(edges[-1][1], content_r)
+    cells, widths = [], []
+    left = edges[0][0]
+    for k, its in enumerate(sides):
+        x0, x1 = edges[k]
+        if k:
+            if panels[k] is not None and panels[k - 1] is not None:
+                # two shaded panels never touch: the white between them is
+                # a column of its own
+                cells.append(Cell(borders={}, pad=(0.0, 0.0, 0.0, 0.0)))
+                widths.append(max(0.0, x0 - left))
+                left = x0
+            elif panels[k] is None:
+                x0 = left               # a text side owns the gutter before it
+        right = x1 if (panels[k] is not None or k == len(sides) - 1) \
+            else (edges[k + 1][0] if panels[k + 1] is not None else
+                  min(it[1][0] for it in sides[k + 1]))
+        # No cell carries a bottom pad: the writer pins the row at least to
+        # the region's height instead (see write_table on role "layout").
+        if panels[k] is not None:
+            cell = copy.copy(panels[k].rows[0][0])
+            pt, pl, _pb, pr = cell.pad
+            cell.pad = (round(pt + max(0.0, panels[k].bbox[1] - top), 1), pl, 0.0, pr)
+            cell.blocks = []
+        else:
+            flow = _column_flow(its, x0, right, lay_rows)
+            _stack_in(flow, top)
+            for el in flow:
+                if isinstance(el, TableEl) and el.rows and el.rows[0] and \
+                        el.rows[-1][0] is not None and len(el.rows[-1][0].pad) >= 4:
+                    # A box nested in a column is followed by the 1pt
+                    # carrier paragraph a cell must end with: take it out of
+                    # the box's own bottom pad, with a point for rounding, so
+                    # a panel drawn to the foot of the page still ends on it.
+                    c = el.rows[-1][0]
+                    c.pad = (c.pad[0], c.pad[1],
+                             max(0.0, round(c.pad[2] - NESTED_CARRIER_PT, 1)), c.pad[3])
+            cell = Cell(borders={}, pad=(0.0, 0.0, 0.0, 0.0))
+            cell.blocks = flow
+            cell.paras = [el for el in flow if isinstance(el, Para)]
+        cells.append(cell)
+        widths.append(max(1.0, right - x0))
+        left = right
+    t = TableEl(rows=[cells], col_widths=widths, row_heights=[bottom - top],
+                role="layout", bbox=(edges[0][0], top, left, bottom))
+    # The columns are the page's own regions; a writer resize would move a
+    # whole column (see the cards table in _merge_box_rows).
+    t.col_edges_drawn = True
+    t.left_indent = round(edges[0][0] - content_l, 1)
+    return t
+
+
+def _sbs_regions(items, page: PageIR, content_l: float, content_r: float):
+    """The page's items cut into regions top to bottom: ("flow", items) or
+    ("band", sides, why, x, y0, y1), a side-by-side band with its evidence.
+    The best split that has evidence wins, and what lies above and below it
+    is searched again: a masthead's photo-beside-name band and the two
+    columns under it are two regions of one page (y46)."""
+    if not items:
+        return []
+    for xs, band, gl, gr in _side_splits(items, content_l, content_r):
+        left = [items[i] for i, s in band if s == 0]
+        right = [items[i] for i, s in band if s == 1]
+        why = _side_evidence(left, right, gl, gr, page, content_r - content_l)
+        if why is None:
+            continue
+        in_band = {i for i, _s in band}
+        y0 = min(it[1][1] for it in left + right)
+        y1 = max(it[1][3] for it in left + right)
+        rest = [it for i, it in enumerate(items) if i not in in_band]
+        lead = [it for it in rest if it[1] is None or it[1][1] < y0]
+        tail = [it for it in rest if it[1] is not None and it[1][1] >= y0]
+        sides = _split_side(left) + _split_side(right)
+        return (_sbs_regions(lead, page, content_l, content_r)
+                + [("band", sides, why, xs, y0, y1)]
+                + _sbs_regions(tail, page, content_l, content_r))
+    return [("flow", items)]
+
+
+def _by_pos(its):
+    return sorted(its, key=lambda t: (t[1][1], t[1][0]) if t[1] else (0.0, 0.0))
+
+
+def _side_by_side_chunks(items, lay: DocLayout, page: PageIR, content_l: float,
+                         content_r: float, lay_rows) -> Optional[List[Chunk]]:
+    """The page as flow / side-by-side regions, or None when it has none."""
+    regions = _sbs_regions(items, page, content_l, content_r)
+    if not any(r[0] == "band" for r in regions):
+        return None
+    chunks: List[Chunk] = []
+    for ri, reg in enumerate(regions):
+        if reg[0] == "flow":
+            ch = Chunk(n_cols=1)
+            ch.elements = _merge_flow_paras(
+                _to_flow(_by_pos(reg[1]), content_l, content_r, doc_rows=lay_rows),
+                content_r)
+            chunks.append(ch)
+            continue
+        _kind, sides, why, xs, y0, y1 = reg
+        # A band ruled off from a page that runs on under it in ONE column --
+        # a court caption, parties | case title, over the order's text -- is
+        # a box of two cells, not a section of two columns: the section
+        # breaks around it cost y63 its last footnote's room three pages on
+        # (LibreOffice: 5 -> 6 pages, character recall 1.000 -> 0.937; as a
+        # layout table 5 pages, recall 1.000, within-2pt 0.087 -> 0.116). A
+        # page that goes on in columns keeps its sections: y46's two ruled
+        # bands as tables lost within-2pt 0.159 -> 0.044.
+        after = regions[ri + 1:]
+        ruled_band = why == "rule" and any(r[1] for r in after) and \
+            all(r[0] == "flow" for r in after)
+        # Equal columns are a section, which every renderer -- Google Docs
+        # included -- lays out natively: the right side must start where
+        # equal columns put it and each side's text must fit its column.
+        equal = False
+        if len(sides) == 2 and not ruled_band:
+            col_w = content_r - xs
+            gap = 2 * xs - content_l - content_r
+            l_fit = [_fit_extent(it) for it in sides[0]]
+            r_fit = [_fit_extent(it) for it in sides[1]]
+            equal = (SBS_MIN_GUTTER <= gap <= MAX_GUTTER_FRAC * (content_r - content_l)
+                     and max(f[1] for f in l_fit) <= content_l + col_w + SBS_EQUAL_TOL
+                     and max(f[1] for f in r_fit) <= content_r + SBS_EQUAL_TOL)
+        if equal:
+            ch = Chunk(n_cols=2, col_gap=round(gap, 1))
+            lf = _column_flow(_by_pos(sides[0]), content_l, content_l + col_w, lay_rows)
+            rf = _column_flow(_by_pos(sides[1]), xs, content_r, lay_rows)
+            # the column each paragraph's indents are measured from, for a
+            # pass that takes it out of the column (_lock_slide)
+            for el in lf:
+                el._col = (content_l, content_l + col_w)
+            for el in rf:
+                el._col = (xs, content_r)
+            ch.elements = lf + [ColBreak()] + rf
+            ch._sbs = why
+        else:
+            lt = _layout_table([_by_pos(s) for s in sides], y0, y1,
+                               content_l, content_r, lay_rows)
+            lt.row_heights = [_layout_row_pin(lt, y0, lay)]
+            lt._sbs = why
+            ch = Chunk(n_cols=1)
+            ch.elements = [lt]
+        chunks.append(ch)
+    return chunks
+
+
+# A layout row is pinned (atLeast) to the region it reproduces, so the page
+# below it starts where the source's did and a panel cell's shading reaches
+# the panel's foot. A row cannot split, so a pin near the page body is fatal
+# wherever a renderer adds anything to it: live in Google Docs (2026-10-04),
+# the shaded-sidebar page's 778pt row against a 786pt body -- Docs pads every
+# row ~1.9pt and appends its own paragraph after a closing table -- left page 1
+# blank, the table on page 2 and a blank page 3. The pin keeps two of the
+# row's own line pitches clear of the page foot (the closing paragraph, and
+# one line of the next page's carrier), plus this much for the row padding.
+LAYOUT_ROW_RESERVE_PT = 4.0
+
+
+def _layout_row_pin(t: TableEl, top: float, lay: DocLayout) -> Optional[float]:
+    """The row height a layout table is pinned to: its region's, capped to
+    leave LAYOUT_ROW_RESERVE_PT and two line pitches above the page foot, or
+    None when nothing is left to pin."""
+    leads = [p.leading for row in t.rows for c in row if c is not None
+             for p in _cell_all_paras(c) if p.leading]
+    lead = max(leads) if leads else 12.0
+    foot = (lay.page_h - lay.margin_b) - 2.0 * lead - LAYOUT_ROW_RESERVE_PT
+    # A box nested in a column is a row that cannot split either: one drawn
+    # to the page foot (the shaded sidebar, 740pt) ends at the same clearance.
+    for row in t.rows:
+        for c in row:
+            for b in (c.blocks if c is not None else []):
+                if isinstance(b, TableEl) and b.bbox and b.rows and b.rows[-1] and \
+                        b.rows[-1][0] is not None and len(b.rows[-1][0].pad) >= 4:
+                    over = b.bbox[3] - foot
+                    if over > 0:
+                        bc = b.rows[-1][0]
+                        bc.pad = (bc.pad[0], bc.pad[1],
+                                  max(0.0, round(bc.pad[2] - over, 1)), bc.pad[3])
+    room = foot - top
+    h = t.row_heights[0] if t.row_heights else None
+    if h is None or room <= 0:
+        return None
+    return h if h <= room else round(room, 1)
+
+
+def _cell_all_paras(cell):
+    """A cell's paragraphs, its nested boxes' included."""
+    out = list(cell.paras)
+    for b in cell.blocks:
+        if isinstance(b, TableEl):
+            for row in b.rows:
+                for c in row:
+                    if c is not None:
+                        out.extend(c.paras)
+    return out
+
+
 # The block-cluster split and the gutter agree to the point on a page both
 # read correctly (c2_paper2col, 02_research_paper: 0.0-0.6pt); a wrong cluster
 # misses by a column's worth (y41 p2: 52pt).
@@ -7839,6 +8922,13 @@ def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
         items.append(("el", bb or (content_l, 0, content_r, 0), e))
     items.sort(key=lambda t: (t[1][1], t[1][0]))
 
+    if not twocol:
+        # Only where the two-column path above did not fire: every page it
+        # owns keeps exactly its layout.
+        sbs = _side_by_side_chunks(items, lay, page, content_l, content_r, lay_rows)
+        if sbs:
+            return _position_chunks(sbs, lay, page_top)
+
     chunks: List[Chunk] = []
     if not twocol:
         ch = Chunk(n_cols=1)
@@ -8009,8 +9099,8 @@ def _mark_headings(lay: DocLayout, body_size: float):
 
     def candidates():
         for pg in lay.pages:
-            for ch in pg.chunks:
-                for el in ch.elements:
+            for els in page_sequences(pg):
+                for el in els:
                     if isinstance(el, Para) and el.runs:
                         yield el
 
@@ -8060,8 +9150,7 @@ def _caps_heading_text(t: str) -> bool:
 
 def _mark_caps_headings(lay: DocLayout, body_size: float, ranked):
     for pg in lay.pages:
-        for ch in pg.chunks:
-            els = [e for e in ch.elements if not isinstance(e, ColBreak)]
+        for els in page_sequences(pg):
             for i, el in enumerate(els):
                 # Right-aligned caps over a rule is a running head left in the
                 # flow (y22_lshort's "CONTENTS" over its headrule), not a

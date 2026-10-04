@@ -39,7 +39,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
-from .layout import DocLayout, ListDef, ListItem, ListLevel, Para, Run
+from .layout import DocLayout, ListDef, ListItem, ListLevel, Para, Run, page_sequences
 
 # Glyphs that are bullets wherever they stand. The union of infer.BULLET_CHARS
 # and infer._INLINE_GLYPHS, minus the dashes, which need a sibling.
@@ -212,8 +212,8 @@ def _collect(lay: DocLayout, body_size: float):
     edge of every flow paragraph, indexed by `_Item.pi`."""
     items, lefts = [], []
     for pg in lay.pages:
-        for ch in pg.chunks:
-            for el in ch.elements:
+        for els in page_sequences(pg):
+            for el in els:
                 if not isinstance(el, Para) or el.role:
                     continue
                 pi = len(lefts)
