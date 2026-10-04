@@ -1,0 +1,152 @@
+# Can a tester install exactdoc and convert a PDF? Proved on every push.
+#
+# gate.yml answers "did the output get worse?" on one pinned Linux image with
+# LibreOffice and the canonical fonts. It cannot answer the question a beta
+# tester asks first, because it never installs the package: it runs from a
+# uv-synced checkout. This workflow builds the sdist and wheel the way
+# release.yml does, installs the WHEEL into a clean virtualenv on Linux,
+# Windows and macOS at both ends of `requires-python`, and runs what a
+# first-time user runs -- `--version`, `--help`, two conversions, a diagnose --
+# with no LibreOffice and no pinned fonts.
+#
+# The unit suite runs here too, from the checkout, with only the `test` extra.
+# Tests that need LibreOffice, PyMuPDF (the AGPL `mupdf` extra the measurement
+# harness imports) or the canonical fonts skip themselves; the gate runs them.
+# A test that fails here and passes there is a portability bug, not noise.
+#
+# Actions are pinned by tag, as in gate.yml; TODO(CI-01) pins every workflow by
+# commit SHA together.
+name: install
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build sdist + wheel
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # As release.yml does: the PyPI page cannot resolve README's relative
+      # links, so they are pointed at this commit before building.
+      - name: Build in an isolated environment
+        run: |
+          python -m pip install --upgrade pip build twine
+          python scripts/pypi_readme.py --ref "$GITHUB_SHA"
+          python -m build
+
+      - name: Metadata renders on PyPI (twine check)
+        run: python -m twine check --strict dist/*
+
+      # Allow-list of what ships, plus a scan for personal documents and home
+      # directories in every member. See scripts/check_dist.py.
+      - name: Contents are the package and nothing else
+        run: python scripts/check_dist.py dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  install:
+    name: install + smoke (${{ matrix.os }}, py${{ matrix.python }})
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ["3.9", "3.12"]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    defaults:
+      run:
+        shell: bash
+    steps:
+      # The checkout supplies the unit tests and two gated fixtures to convert.
+      # The package under test is the wheel, never this source tree.
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Install the wheel into a clean virtualenv (no extras)
+        run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          if [ -x "$RUNNER_TEMP/venv/bin/python" ]; then
+            BIN="$RUNNER_TEMP/venv/bin"
+          else
+            BIN="$RUNNER_TEMP/venv/Scripts"
+          fi
+          echo "BIN=$BIN" >> "$GITHUB_ENV"
+          "$BIN/python" -m pip install --upgrade pip
+          "$BIN/python" -m pip install dist/*.whl
+          "$BIN/python" -m pip list
+          # A default install must not pull in the AGPL extra.
+          "$BIN/python" -c "import importlib.util as u, sys; sys.exit(1 if u.find_spec('fitz') else 0)"
+
+      - name: First-run smoke test, from an empty folder
+        run: |
+          set -x
+          W="$RUNNER_TEMP/smoke"; mkdir -p "$W"; cd "$W"
+          cp "$GITHUB_WORKSPACE/testkit/fixtures/01_whitepaper_market.pdf" \
+             "$GITHUB_WORKSPACE/testkit/fixtures/c3_tables.pdf" .
+          X="$BIN/exactdoc"
+          "$X" --version
+          "$X" --help > help.txt
+          grep -q "exit codes:" help.txt
+
+          # The default command. Without LibreOffice it must still convert,
+          # and say what it skipped.
+          "$X" 01_whitepaper_market.pdf 2> note.txt
+          cat note.txt
+          test -s 01_whitepaper_market.docx
+          if ! command -v soffice >/dev/null 2>&1 && \
+             ! ls "/Applications/LibreOffice.app" >/dev/null 2>&1 && \
+             ! ls "/c/Program Files/LibreOffice" >/dev/null 2>&1; then
+            grep -q "LibreOffice was not found" note.txt
+          fi
+
+          # The Google Docs profile, offline.
+          "$X" c3_tables.pdf -o gd_c3.docx --output-profile gdocs --refine 0
+          test -s gd_c3.docx
+
+          # The output is a DOCX Word can open: the members every reader needs.
+          "$BIN/python" - <<'EOF'
+          import zipfile
+          for p in ("01_whitepaper_market.docx", "gd_c3.docx"):
+              names = set(zipfile.ZipFile(p).namelist())
+              need = {"[Content_Types].xml", "word/document.xml", "_rels/.rels"}
+              assert need <= names, (p, need - names)
+              print("ok", p, len(names), "members")
+          EOF
+
+          # Typed failures, not tracebacks.
+          set +e
+          "$X" no-such-file.pdf; rc=$?
+          set -e
+          test "$rc" -eq 21
+          "$X" --diagnose c3_tables.pdf
+
+      - name: Unit tests that need neither LibreOffice nor the canonical fonts
+        run: |
+          "$BIN/python" -m pip install "$(ls dist/*.whl)[test]"
+          cd "$GITHUB_WORKSPACE"
+          "$BIN/python" -m unittest discover -s tests

@@ -12,6 +12,7 @@ c6, 01, l1, r1, c8, x17, x18, y17, y28 and y30 (0 words moved > 0.5pt).
 
     python -m unittest tests.test_real_lists
 """
+import importlib.util
 import os
 import re
 import sys
@@ -343,6 +344,10 @@ class EndToEnd(unittest.TestCase):
         self.assertNotIn("<w:numPr>", doc)
         self.assertIn(">•<", doc)
 
+    # The harness is the measurement toolkit and imports PyMuPDF (the AGPL
+    # `mupdf` extra) at module scope; the install-check CI job has neither.
+    @unittest.skipUnless(importlib.util.find_spec("fitz"),
+                         "testkit/harness.py needs PyMuPDF (the mupdf extra)")
     def test_the_harness_reads_generated_labels_as_live_text(self):
         # A label is text every reader renders, not raster: the live-text
         # metric (1 - raster_frac) must see "3." whether typed or numbered.
