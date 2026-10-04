@@ -229,15 +229,18 @@ def predict_lines(p: Para, avail: float, metrics=None) -> Optional[int]:
         fn = _face(fam, r.bold, r.italic)
         if fn is None:
             return None
+        # The source's letter-spacing widens every character the renderer
+        # sets, the space included (see Run.tracking).
+        tr = getattr(r, "tracking", 0.0)
         for w in r.text.replace("\n", " ").split(" "):
             if w:
-                words.append((w, fam, shaped_size(r), r.bold, r.italic))
+                words.append((w, fam, shaped_size(r), r.bold, r.italic, tr))
     if not words:
         return 1
     cache = {}
     unmeasurable = []
 
-    def wid(t, fam, sz, bold, italic):
+    def wid(t, fam, sz, bold, italic, tr=0.0):
         key = (t, fam, sz, bold, italic)
         if key not in cache:
             w = metrics.text_width(t, fam, sz, bold=bold, italic=italic)
@@ -245,7 +248,7 @@ def predict_lines(p: Para, avail: float, metrics=None) -> Optional[int]:
                 unmeasurable.append(key)
                 w = 0.0
             cache[key] = w
-        return cache[key]
+        return cache[key] + tr * len(t)
 
     n, cur, first = 1, 0.0, True
     room0 = avail - max(0.0, p.first_indent)
@@ -259,14 +262,14 @@ def predict_lines(p: Para, avail: float, metrics=None) -> Optional[int]:
         # of real room; predicted as a faithful two-line flow, it rendered
         # on one line and lifted everything beneath it a line.
         room0 = avail - p.first_indent
-    for w, fam, sz, bold, italic in words:
-        ww = wid(w, fam, sz, bold, italic)
+    for w, fam, sz, bold, italic, tr in words:
+        ww = wid(w, fam, sz, bold, italic, tr)
         room = room0 if n == 1 else avail
         if first:
             cur = ww
             first = False
             continue
-        add = wid(" ", fam, sz, bold, italic) + ww
+        add = wid(" ", fam, sz, bold, italic, tr) + ww
         if cur + add > room + SLACK_PT:
             n += 1
             cur = ww
@@ -298,7 +301,7 @@ def _seg_width(seg_runs, cache, metrics) -> float:
             if got is None:
                 return -1.0
             cache[key] = got
-        w += cache[key]
+        w += cache[key] + getattr(r, "tracking", 0.0) * len(r.text)
     return w
 
 
@@ -315,7 +318,8 @@ def _slice_runs(runs: List[Run], a: int, b: int) -> List[Run]:
                     color=r.color, bold=r.bold, italic=r.italic, mono=r.mono,
                     serif=r.serif, link=r.link, underline=r.underline,
                     superscript=r.superscript, field=r.field,
-                    width_scale=r.width_scale)
+                    width_scale=r.width_scale,
+                    tracking=getattr(r, "tracking", 0.0))
             out.append(c)
         pos += n
     return out

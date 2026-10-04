@@ -207,6 +207,55 @@ Non-gating; the expansion parity policy re-pins its corpus hash only.
   53, y12 83, y02 128, y21 60, everything else unchanged — the matrix
   and README carry these numbers, and the booklet class stands at
   1.41–1.71×.
+- **text fidelity: the characters a reader searches for.** Six defects of
+  the real-document catalogue, each traced to where the text is assembled.
+  *Line-end hyphens* are decided by the document's own vocabulary
+  (`exactdoc/hyphen.py`): the joined form spelled out elsewhere means a break,
+  the hyphenated form means a compound, and the document's balance of the two
+  is the prior — PDFium returns every line-end hyphen as U+0002 whatever the
+  producer drew, so the code point cannot decide. `Con-gress`/`re-turn`
+  kept mid-word (pub501 464, SCOTUS 204, 1040i 176, WDR 70 on the 30-page
+  cuts) and `singlecorpus`/`middleincome` deleted all go to zero; against the
+  opinion's own U+00AD readings 881 of 885 breaks join. `autoHyphenation` now
+  follows the same evidence instead of a raw count of 6 (SP 800-63B and
+  SP 800-207 lose it, lshort and LuaTeX gain it), sits where CT_Settings puts
+  it, adds `doNotHyphenateCaps`, and headings, centred lines and one-line
+  paragraphs opt out. *Word spaces*: a style boundary is now tested for a
+  space at all (RFC 9110's 26 `MUST NOTgenerate` fusions), and space glyphs
+  PDFium drops because each is its own zero-width object are restored where
+  they left a gap (`A smaller`, `Cobalt Analytics` on the résumés; README
+  #48 closed — the cause was never ink-vs-advance). *Letter-spacing* is
+  measured per run and written as `w:spacing` (résumé headings 1.3-1.6pt,
+  Chromium body text's 5-7% wider setting, WDR's `O V E R V I E W` closed up
+  to `OVERVIEW` when the document spells the word). *Superscripts* take
+  their line's size under `vertAlign` (EUR-Lex markers rendered ~3pt;
+  standard profile only). *Symbol, Wingdings, ZapfDingbats, MT Extra* PUA
+  code points map to their published Unicode (FIPS 180: 398 of 450).
+  *Line assembly*: overprinted lines of different sizes stay apart (x07's
+  interleaved `4Tr.anCsiti`), a script must be smaller than the glyph it
+  attaches to rather than the row's largest (Pub 501's index columns), TeX's
+  lowered logo `E` and `2ε` stay in their word (132 broken logos per 30
+  pages of lshort), and a one-line paragraph past the inferred column keeps
+  room for itself (RFC's `Page N`, one character per line on every page).
+  Measured in the canonical container, raw lane, against HEAD: gate PASS
+  both lanes with every gated document's line unchanged; expansion
+  within-2pt x07 +0.43, x08 +0.41, x09 +0.45, x12 +0.50 (product lane
+  +0.49 to +0.75), x17/x18 word recall +0.08, RFC 9110 228 → 221 pages,
+  lshort 222 → 216 (product 167 → 163, word recall +0.12). Worse, and why:
+  x10 raw 2 → 3 pages (its Table 3 is emitted as stacked one-cell
+  paragraphs at HEAD; text set at its true width no longer hides that; the
+  product lane keeps 2) and x11 product 2 → 3 (already 4 pages raw at HEAD);
+  Pub 501 raw 59 → 60 and small live-text/doc-recall dips on the IRS
+  booklets, which the harness charges for removing the discretionary
+  hyphens its reference text contains (geometry-only hyphenation restores
+  both, measured). 53 new tests. Re-measured after merging WP1/3/4/6/11 and
+  tranche 4 (90 documents, raw lane, against the integration head 5ef641a):
+  pages −2, summed word recall +0.17, doc recall +0.45, within-2pt +2.63,
+  char recall −0.07; worse pages on x10, the IRS booklets (+1 to +3), y37,
+  y41 and the y56 scan (+1 each). Two rules were narrowed on that corpus: a
+  logo glyph must sit between its neighbours, not under one (fraction
+  denominators, y40 15 → 18 pages otherwise), and only short one-line
+  paragraphs are pulled back into the column.
 - **drawings count as structure only when a reader can see them.** Three
   false-structure defects from weak drawing evidence, fixed in `dialect`
   (visibility) and at two `infer` decision sites:
