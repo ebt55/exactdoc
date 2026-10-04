@@ -79,15 +79,27 @@ OUTPUT_PROFILES = ("standard", "gdocs")
 #   footnotes   source footnotes as word/footnotes.xml notes referenced from
 #               the text, instead of body paragraphs at the page bottom.
 #
-# Google Docs keeps the typed forms until a live pass shows its importer
-# places them correctly. That is not caution for its own sake: a list-indent
+# Google Docs gets each structure only once a live pass shows its importer
+# places it correctly, because LibreOffice does not predict Docs: a list-indent
 # normalisation proven in LibreOffice regressed live Docs dx to 63.65pt
-# (2026-08-04), and LibreOffice does not predict Docs (see the probe set the
-# capability ships with, testkit/gdocs_probe_lists_notes.py). Flipping either
-# entry below is the whole change once that evidence exists.
+# (2026-08-04). The probe set (testkit/gdocs_probe_lists_notes.py) was flown
+# live on 2026-10-04 (docs/evidence/gdocs-2026-10-04-lists-notes-probe.json):
+#
+#   numbering   granted for tab-separated lists. Bullets and decimal/alpha/
+#               roman lists render word-for-word where the typed form put them
+#               (every metric identical on the probes and on all 16 gated
+#               documents but c1, c6_long's 50 items included), and the printed
+#               numbers equal the source's across an interrupted list. Run-in
+#               "1. text" lists (w:suff space/nothing) stay typed: Docs draws
+#               a tab where the space was (structures.numbering_plan).
+#   footnotes   withheld. Docs sets real notes at the foot of the text area,
+#               not where the source put them (dy_p90 3.3 -> 73.9pt), and it
+#               renumbers custom marks: a "*" note and a numbering restart at
+#               1 print as continuing automatic numbers ("3" where the source
+#               says "1"), which is wrong text, not wrong placement.
 PROFILE_CAPABILITIES = {
     "standard": frozenset({"numbering", "footnotes"}),
-    "gdocs": frozenset(),
+    "gdocs": frozenset({"numbering"}),
 }
 
 

@@ -2,14 +2,15 @@
 
     python testkit/gdocs_probe_lists_notes.py --out DIR
 
-The gdocs output profile writes lists and footnotes TYPED
-(`exactdoc.options.PROFILE_CAPABILITIES`) because LibreOffice does not predict
+The gdocs output profile writes a structure for real only on live evidence
+(`exactdoc.options.PROFILE_CAPABILITIES`), because LibreOffice does not predict
 the Docs importer: a list-indent normalisation proven in LibreOffice regressed
-live Docs dx to 63.65pt (2026-08-04). Flipping the capability needs live
-evidence, and this script makes it: five small synthetic PDFs, each converted
-by the gdocs profile twice -- typed, as it ships, and with the capability
-forced on, which is exactly what flipping the switch would produce -- plus the
-standard profile's real form for reference. Nothing here uploads anything;
+live Docs dx to 63.65pt (2026-08-04). This script makes that evidence: five
+small synthetic PDFs, each converted by the gdocs profile twice -- without the
+probed capability and with it, which is exactly what the switch decides --
+plus the standard profile's real form for reference. Flown live 2026-10-04
+(docs/evidence/gdocs-2026-10-04-lists-notes-probe.json): numbering granted for
+tab-separated lists, footnotes withheld. Nothing here uploads anything;
 the live pass is a separate, consented step.
 
 What to read off a live render of each pair (word boxes from Docs' exported
@@ -215,8 +216,8 @@ def main(argv=None):
             make(pdf)
             files = {"source": os.path.basename(pdf)}
             for tag, opts, caps in (
-                    ("gdocs-typed", O.PDFIUM_GDOCS_CANDIDATE, gd_caps),
-                    ("gdocs-real", O.PDFIUM_GDOCS_CANDIDATE, frozenset({cap})),
+                    ("gdocs-typed", O.PDFIUM_GDOCS_CANDIDATE, gd_caps - {cap}),
+                    ("gdocs-real", O.PDFIUM_GDOCS_CANDIDATE, gd_caps | {cap}),
                     ("standard", O.RAW, None)):
                 if caps is not None:
                     O.PROFILE_CAPABILITIES["gdocs"] = caps

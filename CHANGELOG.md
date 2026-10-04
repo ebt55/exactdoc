@@ -20,6 +20,27 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **gdocs: tab-separated lists are real Word lists in Google Docs; footnotes
+  stay typed (live, 2026-10-04).** The WP17 probe set was flown through Google
+  Docs, then the whole gated corpus, seven list-bearing expansion documents and
+  a private 32-page report, each typed vs real
+  ([evidence](docs/evidence/gdocs-2026-10-04-lists-notes-probe.json)). Bullets
+  and decimal/alpha/roman lists separated by a tab render with every metric
+  identical to the typed form — 577 list paragraphs: 71 in eight gated
+  documents (c6_long 50), 444 in x03, x09, y17, y24 (253), y28 and y30, 62 in
+  the report — and print the source's numbers
+  across an interrupted list, so `PROFILE_CAPABILITIES["gdocs"]` now has
+  `numbering`. Two Docs rules found on the way: it ignores `w:suff
+  space`/`nothing` and draws a tab where the space was, about half an inch
+  past the label's indent (c1's run-in "1. text" recommendations 79.6 →
+  106.0pt), so under gdocs a list with a
+  non-tab level stays typed, whole (`structures.numbering_plan(tab_only=)`);
+  and real footnotes sit at the foot of the text area (dy_p90 3.3 → 73.9pt)
+  with custom marks and restarts renumbered as automatic ("3" where the source
+  says "1"), so footnotes stay typed. Live pass 9b
+  ([qualification](docs/evidence/gdocs-2026-10-04-pass9b-qualification.json)):
+  overall pass, zero blocking findings, every fidelity metric identical to pass
+  8b on all 16 documents; the private report stays CLEAN 32/32.
 - **fonts: a family table replaces the descriptor-flag heuristic (audit B12–B15,
   B30, defect catalogue #3/#19).** pdfTeX's Type 1 fonts carry no Serif or
   FixedPitch bit, so `NimbusRomNo9L` (Times' metric clone) became Arial,
@@ -504,9 +525,10 @@ Non-gating; the expansion parity policy re-pins its corpus hash only.
   reproduces the source and are custom marks elsewhere (symbols, SCOTUS's
   dissent restarting at 1). *Writing* (`structures.py`) is a profile
   capability (`options.PROFILE_CAPABILITIES`): standard writes
-  numbering.xml and footnotes.xml, gdocs keeps both typed (text-identical on
-  all 13 documents with notes) until a live pass grades the probe set
-  `testkit/gdocs_probe_lists_notes.py` writes. Typed vs numbered renders in
+  numbering.xml and footnotes.xml, gdocs kept both typed (text-identical on
+  all 13 documents with notes) until a live pass graded the probe set
+  `testkit/gdocs_probe_lists_notes.py` writes (it since has: see the gdocs
+  lists entry above). Typed vs numbered renders in
   the canonical LibreOffice: 0 words moved > 0.5pt on x03, x09, x17, x18,
   c1, c6, 01, 04, 05, l1, c8, r1, y17, y28, y30 (y24: 4 of 44,352, ≤ 0.66pt)
   — after designing around three LibreOffice rules: the tab after a label

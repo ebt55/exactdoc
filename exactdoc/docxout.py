@@ -3063,7 +3063,8 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
     # written whole is written typed, never half-converted.
     from .structures import footnote_plan, numbering_plan
     if ctx.numbering and lay.lists:
-        ctx = dataclasses.replace(ctx, list_defs=numbering_plan(lay))
+        ctx = dataclasses.replace(ctx, list_defs=numbering_plan(
+            lay, tab_only=ctx.output_profile == "gdocs"))
     note_ids = footnote_plan(lay) if ctx.footnotes and not ctx.notes_vetoed \
         else {}
     if note_ids:
