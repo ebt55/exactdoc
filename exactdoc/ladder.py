@@ -218,6 +218,16 @@ def predict_lines(p: Para, avail: float, metrics=None) -> Optional[int]:
 
     n, cur, first = 1, 0.0, True
     room0 = avail - max(0.0, p.first_indent)
+    if p.first_indent < 0 and getattr(p, "_list_item", False) \
+            and not any(r.is_tab for r in p.runs):
+        # A typed-marker item ("• text", no tab) starts its first line out
+        # in the hang, so that line has the hang's width MORE room, not
+        # less. (A tabbed marker's text starts at the stop, which is why
+        # this is confined to the typed form.) Measured on x17: the first
+        # bullet's line 1 is 506.5pt against 496.8pt of avail but 508.3pt
+        # of real room; predicted as a faithful two-line flow, it rendered
+        # on one line and lifted everything beneath it a line.
+        room0 = avail - p.first_indent
     for w, fam, sz, bold, italic in words:
         ww = wid(w, fam, sz, bold, italic)
         room = room0 if n == 1 else avail
