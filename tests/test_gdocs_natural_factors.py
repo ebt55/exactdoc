@@ -37,12 +37,13 @@ class CalibriFamily(unittest.TestCase):
                        ("Vollkorn", 1.393), ("Consolas", 1.171)):
             self.assertAlmostEqual(_natural_factor(fam), f, places=4, msg=fam)
 
-    def test_arial_and_times_stay_at_their_calibrated_value(self):
-        # They measure 1.150 as well, but the gdocs levers were calibrated
-        # against 1.144 and the true factor alone broke 01's SSIM bound
-        # (pass 12). Change these only together with those levers.
-        self.assertEqual(_natural_factor("Arial"), 1.144)
-        self.assertEqual(_natural_factor("Times New Roman"), 1.144)
+    def test_arial_and_times_at_their_true_value(self):
+        # They were held at 1.144 because the true factor ALONE broke 01's
+        # SSIM bound (pass 12). WP19 moved them with the levers tuned around
+        # them, on the evidence of Google's own exports (every Times/Arial
+        # line 0.5% tall at 1.144); see tests/test_gdocs_page_planner.py.
+        self.assertEqual(_natural_factor("Arial"), 1.150)
+        self.assertEqual(_natural_factor("Times New Roman"), 1.150)
 
     def test_a_carlito_line_at_its_natural_pitch_is_single_spacing(self):
         # 11pt Carlito at Docs' own 13.43pt pitch is exactly 1.0 x natural, so

@@ -1531,6 +1531,16 @@ def para_from_lines(lines: List[Line], col_l: float, col_r: float,
         base = [ln.baseline for ln in lines]
         diffs = [b2 - b1 for b1, b2 in zip(base, base[1:]) if b2 > b1]
         p.leading = round(sorted(diffs)[len(diffs) // 2], 2) if diffs else 0.0
+        # The paragraph's mean pitch, beside the median. Word sets lines on a
+        # device grid and alternates two pitches -- NIST SP 800-63B's 12pt
+        # body steps 13.68 / 13.92 -- and the upper median wins, so the
+        # paragraph is n x 13.92 where the source spent n x 13.84 (2,476
+        # Times paragraphs measured in Google Docs' exports: +0.08pt per line,
+        # p95 +0.26). Only the gdocs writer reads it (docxout._docs_lead); the
+        # standard profile keeps the median it was calibrated on.
+        if len(diffs) >= 2 and len(diffs) == len(base) - 1:
+            p._pitch_mean = round((base[-1] - base[0]) / len(diffs), 3)
+            p._pitch_n = len(base)    # stale once a later pass merges lines in
     else:
         # exact single-line height: a hair above natural so nothing clips
         p.leading = round(max(first_sz * 1.16, 4.0), 2)

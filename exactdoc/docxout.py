@@ -24,7 +24,7 @@ from docx.oxml.ns import qn
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
 
 from .layout import (DocLayout, Para, Run, Cell, TableEl, FigureEl, ImageEl,
-                     RuleEl, ColBreak, HFPart, Chunk, PageLayout)
+                     RuleEl, ColBreak, HFPart, Chunk, PageLayout, FloatEl)
 from .fonts import (complex_script, complex_script_family, east_asian_family,
                     font_table_desc, map_font)
 from .metrics import source_line_width
@@ -534,14 +534,18 @@ NATURAL_FACTORS = {
     # the original four-line probe; at 9-16 lines and two sizes the pitch
     # agrees with the formula to four decimals.
     #
-    # Arial and Times New Roman measure 1.150 too, and are deliberately left
-    # at 1.144: the gdocs profile's other levers (the single-line -0.38pt in
-    # write_para among them) were calibrated live against 1.144, and setting
-    # the true factor alone moved the gated corpus both ways (pass 12:
-    # within-2pt sum 4.29 -> 5.05, 02 0.09 -> 0.59, c2 0.86 -> 0.91, but 01's
-    # mean SSIM 0.704 -> 0.680 broke its policy bound, and c6 0.34 -> 0.20).
-    # Correcting them needs those levers re-measured with it, in one change.
-    "arial": 1.144, "times new roman": 1.144, "courier new": 1.133,
+    # Arial and Times New Roman at their true 1.150 (WP19). They were held at
+    # 1.144 because setting the factor alone moved the gated corpus both ways
+    # (pass 12: 02 within-2pt 0.09 -> 0.59, but 01's mean SSIM 0.704 -> 0.680
+    # broke its bound). Google's own exports of the 2c1c68f sweep say why it
+    # had to move with the rest: every Times/Arial line came out 0.5% taller
+    # than written (3,500 multi-line paragraphs; TNR 12pt +0.056pt/line, Arial
+    # 12pt +0.113), which is exactly 1.150/1.144, and the size quantisation
+    # and the IR's median pitch added theirs on top (see `_docs_lead` and
+    # `_apply_leading`). The single-line -0.38pt lever in write_para measured
+    # right with them: consecutive one-line paragraphs advanced +0.08pt each,
+    # the 1.144 residue (853 boundaries).
+    "arial": 1.150, "times new roman": 1.150, "courier new": 1.133,
     "georgia": 1.1365, "roboto": 1.200,
     # Added when the metric fit began substituting these families. Docs' live
     # pass 2 rendered l1_word_native in Noto Serif at a 17.48pt pitch where the
@@ -585,8 +589,43 @@ NATURAL_FACTORS = {
     # Times New Roman and Caladea at 1.1500 and Cambria at 1.1724 -- each the
     # font file's own hhea line, with no offset.
     "carlito": 1.221, "calibri": 1.221, "cambria": 1.172, "caladea": 1.150,
+    # Families Google Docs renders natively (fonts.GDOCS_NATIVE) and so passes
+    # through, read from the fonts Docs itself embedded in its exports of the
+    # 2c1c68f sweep -- the file Docs set the text with. Docs' line is the
+    # font's typo line when it sets USE_TYPO_METRICS, else the larger of its
+    # hhea and win lines: that rule reproduces every family above (Roboto's
+    # 1.200 is its win line, its hhea is 1.172). Roboto Mono was missing and
+    # took the default: y17's ABNF appendix (RFC 9110) rendered every code
+    # line 15.3% tall, 1.144 x 1.153 = 1.319, its embedded hhea line exactly
+    # (52 paragraphs), and lost 8 of its 23 remaining pages to it.
+    "roboto mono": 1.319, "open sans": 1.362, "source code pro": 1.257,
+    "figtree": 1.200, "tahoma": 1.207, "ubuntu": 1.149,
+    "arial unicode ms": 1.340,
 }
 NATURAL_DEFAULT = 1.144
+
+# The ascent, descent and line gap (em) Google Docs uses for each family --
+# the same file tables NATURAL_FACTORS sums. A line that mixes families is set
+# at multiple x size x (largest ascent + largest descent + largest gap): Times
+# with an inline Courier New run is 0.8911 + 0.3003 + 0.0425 = 1.2339 em,
+# against 1.2332 measured on 918 such lines of y26 (Bash manual) -- each 0.95pt
+# taller than the Times lines around it. `_gdocs_mixed_lines` reads this.
+GDOCS_LINE_METRICS = {
+    "arial": (0.9053, 0.2119, 0.0327),
+    "times new roman": (0.8911, 0.2163, 0.0425),
+    "courier new": (0.8325, 0.3003, 0.0),
+    "georgia": (0.9170, 0.2192, 0.0),
+    "carlito": (0.9521, 0.2686, 0.0), "calibri": (0.9521, 0.2686, 0.0),
+    "noto serif": (1.069, 0.293, 0.0), "noto sans": (1.069, 0.293, 0.0),
+    "roboto": (0.9502, 0.2500, 0.0),
+    "roboto mono": (1.0479, 0.2710, 0.0),
+    "vollkorn": (0.952, 0.441, 0.0),
+    "open sans": (1.0688, 0.2930, 0.0),
+    "source code pro": (0.984, 0.273, 0.0),
+    "figtree": (0.950, 0.250, 0.0),
+    "tahoma": (1.0005, 0.2065, 0.0),
+    "ubuntu": (0.932, 0.189, 0.028),
+}
 # The two encodings. Which one is used is a per-write decision carried in
 # WriteCtx.line_mode, not a module global -- see WriteCtx.
 LINE_MODES = ("exact", "multiple")
@@ -663,11 +702,122 @@ def _natural_factor(family: str) -> float:
     return NATURAL_FACTORS.get((family or "").lower(), NATURAL_DEFAULT)
 
 
+# Hand-campaign lever [E], single-line half, gdocs profile only: list items
+# and other one-line paragraphs pitch ~0.38pt/line looser in Docs than the
+# source measured (47-line list block, +18pt on one page). A single line's
+# `leading` is the size*1.16 heuristic, not a measured baseline delta, so
+# shaving it is a correction of an estimate, not of a measurement.
+GDOCS_SINGLE_LINE_SHAVE_PT = 0.38
+# A paragraph's mean pitch replaces its median only within this of it: the
+# Word grid's two-step jitter is 0.24pt (13.68 / 13.92), and anything wider is
+# structure -- a line pushed down by a tall glyph -- that the mean would
+# spread over every line.
+GDOCS_PITCH_JITTER_PT = 0.3
+
+
+def _dominant_run(p: Para, profile: str = "standard"):
+    """(size, family) of the most text in `p`, family as the profile writes it."""
+    w = {}
+    for r in p.runs:
+        if r.text and not r.is_tab:
+            key = (r.size, map_font(r.font, mono=r.mono, serif=r.serif,
+                                    profile=profile))
+            w[key] = w.get(key, 0) + len(r.text)
+    return max(w, key=w.get) if w else (0.0, "")
+
+
+def _docs_lead(p: Para, dom_size: float) -> float:
+    """The line pitch the gdocs writer asks Google Docs for.
+
+    The source's mean pitch where Word's grid jitters it (see infer's
+    `_pitch_mean`), and the single-line lever above. Multi-line paragraphs
+    otherwise keep their measured pitch untouched. The page planner models
+    the page with this same value."""
+    lead = p.leading
+    pm = getattr(p, "_pitch_mean", None)
+    if pm and getattr(p, "_pitch_n", 0) == (p.src_lines or 0) \
+            and abs(pm - lead) <= GDOCS_PITCH_JITTER_PT:
+        lead = pm
+    if (p.src_lines or 1) == 1 and not p.line_breaks and lead > 0:
+        lead = max(dom_size * 1.0 if dom_size else 4.0,
+                   lead - GDOCS_SINGLE_LINE_SHAVE_PT)
+    return lead
+
+
+def _gdocs_mixed_lines(p: Para, runs, dom_size: float, dom_fam: str,
+                       n_lines: int, profile: str = "gdocs") -> float:
+    """The natural factor that keeps a mixed-family paragraph at its height.
+
+    Docs sets each line at multiple x size x (largest ascent + descent + gap
+    of the fonts ON that line; GDOCS_LINE_METRICS), so the lines carrying an
+    inline run of a deeper font -- Courier New in Times -- come out taller and
+    the rest stay put. One paragraph has one multiple, so it is chosen for the
+    paragraph's total: k of n lines at the mixed factor, the rest at the
+    family's own. Lines are located by character position (an inline run on
+    line floor(offset / chars x n)), exactly where the source broke them for
+    a paragraph with soft breaks. 0.0 = nothing to correct.
+
+    A larger run of the same family raises its line the same way, each run
+    scaled by its own size: y10's (FIPS 180) small-capital contents lines, 8pt
+    text under 10pt capitals, advanced 13.94pt in Docs against 11.17 asked --
+    the multiple times 10pt x 1.150 exactly. A list label counts: it is set
+    in the typed marker's font and size whether typed or numbered."""
+    dom = GDOCS_LINE_METRICS.get((dom_fam or "").lower())
+    if dom is None or dom_size <= 0 or n_lines < 1:
+        return 0.0
+    base = sum(dom)
+    best = list(dom)
+    spans = []             # (start, end) of runs that raise a line
+    pos = 0
+    texts = []
+    for r in runs:
+        t = "\t" if r.is_tab else (r.text or "")
+        a, pos = pos, pos + len(t)
+        texts.append(t)
+        if r.is_tab or not r.text or getattr(r, "superscript", False):
+            continue
+        fam = map_font(r.font, mono=r.mono, serif=r.serif, profile=profile)
+        m = GDOCS_LINE_METRICS.get(fam.lower())
+        if m is None:
+            continue
+        k = _quantised_size(r.size) / _quantised_size(dom_size)
+        scaled = [v * k for v in m]
+        if any(s > d + 1e-4 for s, d in zip(scaled, dom)):
+            best = [max(b, s) for b, s in zip(best, scaled)]
+            spans.append((a, pos))
+    mixed = sum(best)
+    if not spans or mixed <= base + 0.002:
+        return 0.0
+    hit = set()
+    if p.line_breaks:
+        joined = "".join(texts)
+        for a, b in spans:
+            first = joined.count("\n", 0, a)
+            last = joined.count("\n", 0, max(a, b - 1))
+            hit.update(range(first, last + 1))
+        n_lines = max(n_lines, joined.count("\n") + 1)
+    else:
+        total = max(1, pos)
+        for a, b in spans:
+            hit.update(range(min(n_lines - 1, a * n_lines // total),
+                             min(n_lines - 1, max(a, b - 1) * n_lines // total) + 1))
+    k = min(len(hit), n_lines)
+    return (_natural_factor(dom_fam) * (n_lines - k) +
+            (_natural_factor(dom_fam) + mixed - base) * k) / n_lines
+
+
 def _apply_leading(pf, leading: float, size: float, mode: str = "exact",
-                   family: str = ""):
-    """Encode a line height the way the chosen target actually honours."""
+                   family: str = "", line_factor: float = 0.0):
+    """Encode a line height the way the chosen target actually honours.
+
+    In multiple mode the natural line is the EMITTED size's: the run is
+    written in half-points (`_style_run`), so a 10.91pt LaTeX body is set at
+    11.0 and its lines were 0.8% tall -- y26's Times lines measured 13.33pt
+    in Docs against 13.15 written, the size step plus the 1.150 factor
+    (918 lines). `line_factor` overrides the family's natural factor (a
+    paragraph whose lines mix families, `_gdocs_mixed_lines`)."""
     if mode == "multiple" and size and size > 0.5 and leading > 1.0:
-        natural = size * _natural_factor(family)
+        natural = _quantised_size(size) * (line_factor or _natural_factor(family))
         pf.line_spacing = max(0.06, leading / natural)   # w:line as a multiple
         return
     pf.line_spacing_rule = WD_LINE_SPACING.EXACTLY
@@ -853,28 +1003,16 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None,
         pf.space_before = Pt(0)
     pf.space_after = Pt(round(max(0.0, p.space_after), 1))
     if p.leading and p.leading > 1:
-        dom, fam = 0.0, ""
-        if p.runs:
-            w = {}
-            for r in p.runs:
-                if r.text and not r.is_tab:
-                    key = (r.size, map_font(r.font, mono=r.mono, serif=r.serif,
-                                            profile=ctx.output_profile))
-                    w[key] = w.get(key, 0) + len(r.text)
-            if w:
-                dom, fam = max(w, key=w.get)
+        dom, fam = _dominant_run(p, ctx.output_profile)
         lead = p.leading
-        # Hand-campaign lever [E], single-line half, gdocs profile only:
-        # list items and other one-line paragraphs pitch ~0.38pt/line looser
-        # in Docs than the source measured (47-line list block, +18pt on
-        # one page). A single line's `leading` is the size*1.16 heuristic,
-        # not a measured baseline delta, so shaving it is a correction of
-        # an estimate, not of a measurement. Multi-line paragraphs keep
-        # their measured pitch untouched.
-        if ctx.output_profile == "gdocs" and (p.src_lines or 1) == 1 \
-                and not p.line_breaks and lead > 0:
-            lead = max(dom * 1.0 if dom else 4.0, lead - 0.38)
-        _apply_leading(pf, lead, dom, mode=ctx.line_mode, family=fam)
+        factor = 0.0
+        if ctx.output_profile == "gdocs":
+            # what Docs is asked for, and how its lines will mix families
+            lead = _docs_lead(p, dom)
+            factor = _gdocs_mixed_lines(p, p.runs, dom, fam,
+                                        max(1, p.src_lines or 1))
+        _apply_leading(pf, lead, dom, mode=ctx.line_mode, family=fam,
+                       line_factor=factor)
     if num is not None and not ind_from_level:
         # A numbered paragraph inherits its level's indents unless it says
         # otherwise, so a paragraph that differs must say so -- zeros included.
@@ -1891,6 +2029,228 @@ def _guard_page_tail(pg, content_w: float, lay: DocLayout, notes_h: float,
         return plan
     out = dict(plan)
     out[id(tail)] = round(gap - min(want, gap - floor), 1)
+    return out
+
+
+# --- the Google Docs page planner ---------------------------------------------
+# The gdocs profile ships with no refine loop, and every source page ends in a
+# page break, so a page Docs sets a point longer than the writer planned costs
+# a whole page. Measured on Google's own exports of the 2c1c68f sweep (WP19,
+# 1,845 single-column pages): pages the writer predicted to fit with under
+# 10pt to spare were lost 46% of the time, 10-15pt 26%, 15-30pt 11%, past
+# 30pt 2-5%. What Docs adds to the writer's model is partly systematic --
+# corrected at source where the evidence pins it (NATURAL_FACTORS,
+# `_docs_lead`, `_gdocs_mixed_lines`, the two excesses below) and modelled
+# where it does not -- and partly a paragraph wrapping one line longer than
+# predicted (1.7% of Times/Arial paragraphs, 2.7% Carlito, 6.2% Courier New;
+# a page of fifteen paragraphs meets one a fifth of the time). So the planner
+# models each page as Docs will set it and keeps one body line plus
+# GDOCS_PAGE_SAFETY_PT of it free, taking what that needs from the page's own
+# gaps -- proportionally, gently first -- and never more than the refine loop's
+# floors allow. A page that cannot be made to fit even then is left exactly as
+# the source spaced it: spending its spacing would not save it.
+#
+# A rule paragraph (write_rule: exact 2pt, 1pt run) is drawn this much lower in
+# Docs than the source drew it, and the text after it follows at the source's
+# distance: median over 433 rules in 11 documents, p25 2.3, p75 3.4. Paid out of
+# the rule's own gap, so the rule and everything after it land in place.
+GDOCS_RULE_EXCESS_PT = 2.8
+# An inline picture's paragraph is this much taller in Docs than the picture:
+# its top sits 1.5pt below where the source put it and the next line 2.45pt
+# further down (medians over 82 pictures in y01, y09, y36 and y28; 136 picture
+# boundaries over 20 documents total +3.9). Paid from the picture's own gap
+# and from the next element's.
+GDOCS_PICTURE_ABOVE_PT = 1.5
+GDOCS_PICTURE_BELOW_PT = 2.45
+# Docs rounds table rows up past the writer's floor(source) - 0.75 target
+# (GDOCS_ROW_SAFETY_PT): median +0.5pt a row over 263 tables. Modelled.
+GDOCS_TABLE_ROW_EXCESS_PT = 0.5
+# Sizes are half-points, gaps tenths and w:line 1/240ths of a line: a plan
+# that lands exactly on its target can still be a point out.
+GDOCS_PAGE_SAFETY_PT = 2.0
+# The first tier of the reclaim leaves every gap at least this share of its
+# source size; only a page that still needs room goes on to the refine floors
+# (SPILL_MIN_GAP_SCALE, SPILL_GAP_FLOOR_PT).
+GDOCS_GENTLE_GAP_SCALE = 0.6
+
+
+# A picture this narrow and this tall is a vertical rule -- the side of a box
+# drawn round a code listing -- and inline in the flow it is a line of its own
+# as tall as the rule: y17_rfc9110's ABNF appendix (RFC 9110) carries two
+# 4.75 x 629pt sides per page, Docs set each on a page of its own (Docs pages
+# 186-200 nearly empty; 12 of the 23 pages WP18 left). Anchored to the page
+# where the source drew it, behind the text, it takes no flow at all -- the
+# form `anchor_floats` gives a slide's graphics. Only y17, y48 and y53 carry
+# one in the expansion corpus (12 pictures); no gated document does.
+GDOCS_VRULE_MAX_W = 8.0
+GDOCS_VRULE_MIN_H = 36.0
+
+
+def _gdocs_vertical_rules(pg, body_line: float) -> dict:
+    """{id(element): FloatEl} for the page's vertical-rule pictures."""
+    out = {}
+    for ch in pg.chunks:
+        for el in ch.elements:
+            if not isinstance(el, (FigureEl, ImageEl)) or \
+                    getattr(el, "frame", None) is not None:
+                continue
+            if el.width > GDOCS_VRULE_MAX_W or \
+                    el.height < max(GDOCS_VRULE_MIN_H, 3.0 * body_line):
+                continue
+            bb = getattr(el, "clip", None) if isinstance(el, FigureEl) \
+                else getattr(el, "_bbox", None)
+            if bb is None:
+                continue
+            out[id(el)] = FloatEl(el=el, bbox=tuple(bb), behind=True)
+    return out
+
+
+def _gdocs_picture_inline(el, lay: DocLayout) -> bool:
+    return isinstance(el, (FigureEl, ImageEl)) and \
+        getattr(el, "frame", None) is None and \
+        not _fills_page(el.width, el.height, (lay.page_w, lay.page_h))
+
+
+def _gdocs_page_model(pg, content_w: float, lay: DocLayout, notes_h: float,
+                      seam_drops_gap: bool, plan: dict, skip=()):
+    """-> (used_pt, [(element, gap_now, source_gap)]) for one source page as
+    Google Docs will set it, under the gap overrides in `plan`; None where the
+    page is not additive (columns, a column break, a block with no box).
+
+    Paragraphs take their predicted line count -- the ladder's re-wrap, which
+    Docs reproduced on 98% of Times/Arial paragraphs -- and their source count
+    where the font has no width table (y17's Noto Serif: Docs kept the source
+    count on 95.6%), at the pitch the writer asks Docs for. `seam_drops_gap`:
+    the page's first paragraph carries the page break as pageBreakBefore, and
+    Docs drops its space-before there (1,640 pages measured: first line at
+    margin + line, +0.3pt median, whatever the gap) -- room the page has.
+    `skip`: elements that leave the flow (`_gdocs_vertical_rules`)."""
+    metrics = _text_metrics("gdocs")
+    used = 0.0
+    gaps = []
+    first = True
+    for ch in pg.chunks:
+        if ch.n_cols > 1:
+            return None
+        used += max(0.0, ch.pre_gap)
+        for el in ch.elements:
+            if isinstance(el, ColBreak):
+                return None
+            if notes_h > 0 and getattr(el, "role", "") == "footnote":
+                continue
+            if id(el) in skip:
+                continue
+            src_gap = getattr(el, "space_before", 0.0) or 0.0
+            gap = plan.get(id(el), src_gap)
+            # The gaps the plan may spend: a paragraph's, an inline picture's,
+            # a flowing rule's (a table's is its spacer paragraph, and the
+            # writer applies no plan to it). Not the gap Docs drops anyway.
+            if first and seam_drops_gap and isinstance(el, Para):
+                gap = 0.0
+            elif isinstance(el, Para) or _gdocs_picture_inline(el, lay) or (
+                    isinstance(el, RuleEl) and getattr(el, "frame", None) is None):
+                gaps.append((el, gap, src_gap))
+            first = False
+            after = getattr(el, "space_after", 0.0) or 0.0
+            if isinstance(el, Para):
+                dom, _fam = _dominant_run(el, "gdocs")
+                lead = _docs_lead(el, dom) if el.leading and el.leading > 1 \
+                    else _line_height(el)
+                if el.gdocs_rows:
+                    n = len(el.gdocs_rows)
+                else:
+                    n = predict_lines_for(
+                        el, content_w - el.left_indent - el.right_indent,
+                        metrics) if metrics is not None else None
+                    if n is None:
+                        n = max(1, el.src_lines or 1)
+                used += gap + n * lead + after
+            elif isinstance(el, RuleEl):
+                if getattr(el, "frame", None) is not None:
+                    continue
+                used += gap + 2.0 + GDOCS_RULE_EXCESS_PT + after
+            elif isinstance(el, (FigureEl, ImageEl)):
+                if not _gdocs_picture_inline(el, lay):
+                    used += 1.0          # anchored behind text: a 1pt holder
+                    continue
+                used += gap + el.height + GDOCS_PICTURE_ABOVE_PT \
+                    + GDOCS_PICTURE_BELOW_PT + after
+            elif isinstance(el, TableEl):
+                bb = el.bbox
+                if bb is None:
+                    return None
+                used += gap + (bb[3] - bb[1]) + after \
+                    + GDOCS_TABLE_ROW_EXCESS_PT * len(el.rows)
+            else:
+                bb = getattr(el, "bbox", None) or getattr(el, "clip", None)
+                if bb is None:
+                    return None
+                used += gap + (bb[3] - bb[1]) + after
+    return used, gaps
+
+
+def _gdocs_page_plan(pg, content_w: float, lay: DocLayout, notes_h: float,
+                     body_line: float, seam_drops_gap: bool, skip=()) -> dict:
+    """The gap plan `{id(element): space_before}` for one gdocs page: the
+    rule and picture compensations, then whatever the page needs to keep a
+    body line plus GDOCS_PAGE_SAFETY_PT free in Docs (see the block comment
+    above). Nothing is mutated (see `_absorb_page_spill`)."""
+    if getattr(pg, "continuation_only", False) or not pg.chunks:
+        return {}
+    plan = {}
+    flow = [el for ch in pg.chunks for el in ch.elements
+            if not (notes_h > 0 and getattr(el, "role", "") == "footnote")
+            and id(el) not in skip]
+    for i, el in enumerate(flow):
+        gap = getattr(el, "space_before", 0.0) or 0.0
+        if isinstance(el, RuleEl) and getattr(el, "frame", None) is None:
+            if gap > 0.05:
+                plan[id(el)] = round(max(0.0, gap - GDOCS_RULE_EXCESS_PT), 1)
+        elif _gdocs_picture_inline(el, lay):
+            if gap > 0.05:
+                plan[id(el)] = round(max(0.0, gap - GDOCS_PICTURE_ABOVE_PT), 1)
+            nxt = flow[i + 1] if i + 1 < len(flow) else None
+            if nxt is not None and not isinstance(nxt, (TableEl, ColBreak)):
+                ngap = plan.get(id(nxt), getattr(nxt, "space_before", 0.0) or 0.0)
+                if ngap > 0.05:
+                    plan[id(nxt)] = round(max(0.0, ngap - GDOCS_PICTURE_BELOW_PT), 1)
+    got = _gdocs_page_model(pg, content_w, lay, notes_h, seam_drops_gap, plan,
+                            skip)
+    if got is None:
+        return plan
+    used, gaps = got
+    capacity = _body_capacity(lay) - notes_h
+    over = used - capacity
+    need = over + max(0.0, body_line) + GDOCS_PAGE_SAFETY_PT
+    if need <= 0.05:
+        return plan
+    # what each gap can give: gently first, then to the refine floors
+    tiers = []
+    for scale in (GDOCS_GENTLE_GAP_SCALE, SPILL_MIN_GAP_SCALE):
+        row = []
+        for el, gap, src in gaps:
+            floor = max(SPILL_GAP_FLOOR_PT, src * scale)
+            row.append(max(0.0, gap - floor))
+        tiers.append(row)
+    total = sum(tiers[-1])
+    if over > 0 and total < over + GDOCS_PAGE_SAFETY_PT:
+        return plan            # cannot be saved by its spacing: keep the source's
+    pay = min(need, total)
+    take = [0.0] * len(gaps)
+    for row in tiers:
+        avail = [max(0.0, r - t) for r, t in zip(row, take)]
+        room = sum(avail)
+        if room <= 0.05 or pay <= 0.05:
+            continue
+        f = min(1.0, pay / room)
+        for k, a in enumerate(avail):
+            take[k] += a * f
+        pay -= room * f
+    out = dict(plan)
+    for (el, gap, _src), t in zip(gaps, take):
+        if t > 0.05:
+            # tenths of a point, rounded down: the page never pays less
+            out[id(el)] = max(0.0, math.floor((gap - t) * 10 + 1e-6) / 10)
     return out
 
 
@@ -4265,10 +4625,28 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
         # written once per refine round and a gap reduced in place would
         # compound on every pass. The cover page keeps its own bleed geometry
         # and is never asked. See `_absorb_page_spill`.
-        spill_plan = {} if (has_cover and pi == 0) \
-            else _absorb_page_spill(pg, cw_ctx, glay,
-                                    notes_h.get(pg.number, 0.0),
-                                    ctx.output_profile)
+        # A picture that is a vertical rule leaves the flow (gdocs; see
+        # `_gdocs_vertical_rules`).
+        vrules = _gdocs_vertical_rules(pg, body_line) \
+            if ctx.output_profile == "gdocs" and not (has_cover and pi == 0) \
+            else {}
+        if has_cover and pi == 0:
+            spill_plan = {}
+        elif ctx.output_profile == "gdocs":
+            # No refine loop behind this profile: the page is planned against
+            # Google Docs' own measured behaviour (`_gdocs_page_plan`). The
+            # seam is pageBreakBefore on the page's first paragraph exactly
+            # when one is pending here (a section break or page 1 has none).
+            first_el = next((el for ch in pg.chunks for el in ch.elements
+                             if id(el) not in vrules), None)
+            spill_plan = _gdocs_page_plan(
+                pg, cw_ctx, glay, notes_h.get(pg.number, 0.0), body_line,
+                seam_drops_gap=pending_break[0] and isinstance(first_el, Para),
+                skip=vrules)
+        else:
+            spill_plan = _absorb_page_spill(pg, cw_ctx, glay,
+                                            notes_h.get(pg.number, 0.0),
+                                            ctx.output_profile)
         if not (has_cover and pi == 0):
             # The element closing the page keeps a body line of clearance
             # when it is only there for where it sits: `_guard_page_tail`.
@@ -4278,7 +4656,7 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                                           body_line)
         # A slide's graphics ride in the page's first paragraph, anchored to
         # the page (see anchor_floats); a page with no paragraph gets a host.
-        page_floats = list(getattr(pg, "floats", None) or ())
+        page_floats = list(getattr(pg, "floats", None) or ()) + list(vrules.values())
         framed = [el for ch in pg.chunks for el in ch.elements
                   if getattr(el, "frame", None) is not None]
         if framed:
@@ -4319,6 +4697,8 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                     continue        # carried by footnotes.xml instead
                 if id(el) in framed_ids:
                     continue        # written page-locked above
+                if id(el) in vrules:
+                    continue        # anchored to the page with the floats
                 page_written[0] = True
                 if isinstance(el, ColBreak):
                     if drop_col_break:
