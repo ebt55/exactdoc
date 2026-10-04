@@ -76,6 +76,24 @@ class HollowMarkers(unittest.TestCase):
                     drawings=[square(293.0, 633.0), square(280.0, 397.0)])
         self.assertEqual(_corroborated_markers(DocIR(path="t.pdf", pages=[p1])), set())
 
+    def test_a_square_flush_with_the_column_end_closes_a_proof(self):
+        # y41 p5: three end-of-proof squares at x=293-298.8, flush with the
+        # left column's justified lines; the right column starts at 306
+        def square(cy):
+            return DrawCmd(kind="fill", shape="rect",
+                           bbox=(293.0, cy - 2.9, 298.8, cy + 2.9), fill="#000000",
+                           stroke=None, width=0.0, opacity=1.0, n_items=5)
+        left = [_line("the left column is set justified to its edge", 54.0, 298.8,
+                      100.0 + 11.0 * i) for i in range(6)]
+        right = [_line("In this section we present a numerical evaluation", 306.0,
+                       558.0, cy + 2.5) for cy in (216.0, 370.0, 648.0)]
+        page = PageIR(1, 612.0, 792.0,
+                      blocks=[TextBlock(lines=[l], bbox=l.bbox) for l in left + right],
+                      drawings=[square(216.0), square(370.0), square(648.0)])
+        self.assertEqual(_corroborated_markers(DocIR(path="t.pdf", pages=[page])),
+                         set())
+        self.assertEqual(_markers_to_text(page), 0)
+
     def test_an_outlined_square_is_a_checkbox_not_a_bullet(self):
         lines = [_line("I agree", 101.7, 200.0, 228.8),
                  _line("I do not", 101.7, 200.0, 247.5)]

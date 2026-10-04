@@ -541,6 +541,8 @@ def _marker_hits(page: PageIR, lines=None) -> List[DrawCmd]:
             continue
         if _abuts_rule(d, page.drawings):
             continue
+        if _flush_with_column_end(d, lines):
+            continue
         if d.fill:
             hits.append(d)
         else:
@@ -559,6 +561,19 @@ def _marker_hits(page: PageIR, lines=None) -> List[DrawCmd]:
                 and len(near.text.strip()) >= 4:     # an item, not a tick label
             hits.append(d)
     return hits
+
+
+# IEEEtran's end-of-proof square is set flush with its column's right edge,
+# and the other column's text starts 7pt past it -- "in front of a line" as
+# far as position goes. y41's squares end where 19-28 lines of their page end;
+# the bullets of x09, x07-x10 and y02 where at most one does.
+END_MARK_FLUSH_LINES = 3
+
+
+def _flush_with_column_end(d: DrawCmd, lines) -> bool:
+    """Does the mark end where a text column's lines end (a tombstone)?"""
+    return sum(1 for l in lines
+               if abs(l.bbox[2] - d.bbox[2]) <= MARKER_ALIGN_TOL)         >= END_MARK_FLUSH_LINES
 
 
 def _aligned(hits: List[DrawCmd]) -> List[DrawCmd]:
