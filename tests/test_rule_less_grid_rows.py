@@ -140,6 +140,18 @@ class GridRows(unittest.TestCase):
         self.assertEqual(len(rows), 2)
         self.assertIn("503 2,236", rows[0].text)
 
+    def test_exponents_in_display_maths_are_not_figures(self):
+        # y43: two summation signs and their two raised 2s on one baseline
+        blocks = [_body(200.0)]
+        for t, x, sz in (("X+∞", 137.0, 10.0), ("X∞", 164.0, 10.0),
+                         ("2", 408.0, 5.0), ("2", 434.0, 5.0)):
+            s = _span(t, x, 150.0, size=sz)
+            ln = Line(spans=[s], bbox=s.bbox)
+            blocks.append(TextBlock(lines=[ln], bbox=ln.bbox))
+        paras, _ = _paras(DocIR(path="t.pdf",
+                                pages=[PageIR(1, 612.0, 792.0, blocks=blocks)]))
+        self.assertFalse(any(p.tab_stops for p in paras))
+
     def test_a_lone_row_of_figures_continues_a_table(self):
         # x10's "March" row, alone at the top of page 2
         blocks = [_body(200.0)]

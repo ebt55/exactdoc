@@ -16,7 +16,8 @@ Four small defects, each measured on an expansion fixture:
 """
 import unittest
 
-from exactdoc.dialect import _markers_to_text, _undecoded_markers_to_text
+from exactdoc.dialect import (_corroborated_markers, _markers_to_text,
+                              _undecoded_markers_to_text)
 from exactdoc.infer import infer, _inline_list_starts, _split_lines_to_paras
 from exactdoc.layout import Para
 from exactdoc.model import (DocIR, DrawCmd, Line, PageIR, Span, TextBlock,
@@ -49,6 +50,31 @@ class HollowMarkers(unittest.TestCase):
         self.assertEqual(_markers_to_text(page), 2)
         marks = [b.text for b in page.blocks if b.text in ("◦", "•")]
         self.assertEqual(marks, ["◦", "◦"])
+
+    def test_scatter_plot_circles_are_not_bullets(self):
+        # y38's figure: open circles strewn around short tick labels, several
+        # in front of one label, none in a column
+        labels = [_line("0.2", 360.0, 372.0, 345.0), _line("t5", 266.0, 274.0, 262.0)]
+        circles = [_circle(347.6, 343.0), _circle(352.0, 341.0),
+                   _circle(255.0, 260.0), _circle(258.0, 257.0)]
+        page = PageIR(1, 612.0, 792.0,
+                      blocks=[TextBlock(lines=[l], bbox=l.bbox) for l in labels],
+                      drawings=circles)
+        self.assertEqual(_markers_to_text(page), 0)
+
+    def test_a_lone_mark_needs_a_list_elsewhere_not_just_two_marks(self):
+        # IEEEtran's end-of-proof square lands before the other column's
+        # text, twice on one page, never in a column: no corroboration
+        def square(x, cy):
+            return DrawCmd(kind="fill", shape="rect",
+                           bbox=(x, cy - 2.9, x + 5.8, cy + 2.9), fill="#000000",
+                           stroke=None, width=0.0, opacity=1.0, n_items=5)
+        p1_lines = [_line("proved with the same strategy as above.", 306.0, 540.0, 636.0),
+                    _line("which completes the argument for the bound.", 306.0, 540.0, 400.0)]
+        p1 = PageIR(1, 612.0, 792.0,
+                    blocks=[TextBlock(lines=[l], bbox=l.bbox) for l in p1_lines],
+                    drawings=[square(293.0, 633.0), square(280.0, 397.0)])
+        self.assertEqual(_corroborated_markers(DocIR(path="t.pdf", pages=[p1])), set())
 
     def test_an_outlined_square_is_a_checkbox_not_a_bullet(self):
         lines = [_line("I agree", 101.7, 200.0, 228.8),
@@ -109,6 +135,47 @@ class FootnoteNumbers(unittest.TestCase):
         self.assertFalse(any(p.text.strip() == "1" for p in paras))
         # anchored on the NOTE's baseline, not the raised number's
         self.assertAlmostEqual(notes[0]._b1, 506.9, delta=0.01)
+
+    @staticmethod
+    def _paras(blocks):
+        lay = infer(DocIR(path="t.pdf", pages=[PageIR(1, 612.0, 792.0,
+                                                      blocks=blocks)]))
+        return [e for pg in lay.pages for ch in pg.chunks for e in ch.elements
+                if isinstance(e, Para)]
+
+    def test_each_numbered_note_is_its_own_paragraph(self):
+        # y50: one-line notes 11.5pt apart, each number a separate block
+        body = [_line("The full consultation text is published at the site and "
+                      "responses may be sent to the office", 70.0, 547.0,
+                      120.0 + 14.5 * i) for i in range(3)]
+        notes = ["Text mining", "Sentiment analysis", "Deep learning"]
+        blocks = [TextBlock(lines=[l], bbox=l.bbox) for l in body]
+        for i, t in enumerate(notes):
+            base = 712.0 + 11.5 * i
+            ln = _line(t, 77.0, 77.0 + 6.0 * len(t), base, size=10.0)
+            num = _line(str(i + 1), 71.0, 74.5, base - 3.5, size=6.5)
+            blocks += [TextBlock(lines=[ln], bbox=ln.bbox),
+                       TextBlock(lines=[num], bbox=num.bbox)]
+        paras = [p for p in self._paras(blocks) if "Costed" not in p.text
+                 and p.bbox[1] > 650]
+        self.assertEqual([p.text for p in paras],
+                         ["1Text mining", "2Sentiment analysis", "3Deep learning"])
+        # each note is set at its own 10pt, not at its 6.5pt number's size
+        self.assertTrue(all(p.leading >= 11.0 for p in paras))
+
+    def test_a_mark_at_the_left_end_of_a_right_to_left_line_is_a_reference(self):
+        # y50's body: the raised "33" closes the second line of a Persian
+        # paragraph; it must not cut the paragraph there
+        words = "در رویکرد " * 8
+        lines = [_line(words, 79.0, 525.0, 120.0 + 20.8 * i, size=13.0)
+                 for i in range(3)]
+        ref = _line("33", 71.0, 78.5, 120.0 + 20.8 - 4.5, size=7.0)
+        blocks = [TextBlock(lines=lines, bbox=(79.0, lines[0].bbox[1], 525.0,
+                                               lines[-1].bbox[3])),
+                  TextBlock(lines=[ref], bbox=ref.bbox)]
+        paras = self._paras(blocks)
+        self.assertEqual(len(paras), 1)
+        self.assertIn("33", paras[0].text)
 
 
 class UndecodedInsideALine(unittest.TestCase):

@@ -12,7 +12,7 @@ gutter of at most 0.234 of the content width; x11's was 0.485.
 """
 import unittest
 
-from exactdoc.infer import MAX_GUTTER_FRAC, infer
+from exactdoc.infer import MAX_GUTTER_FRAC, _prose_between, infer
 from exactdoc.layout import Para
 from exactdoc.model import DocIR, Line, PageIR, Span, TextBlock
 
@@ -64,6 +64,36 @@ def _true_two_columns():
             blocks.append(TextBlock(lines=lines, bbox=(x0, lines[0].bbox[1],
                                                        x1, lines[-1].bbox[3])))
     return DocIR(path="t.pdf", pages=[PageIR(1, PAGE_W, PAGE_H, blocks=blocks)])
+
+
+class ProseBetween(unittest.TestCase):
+    """The guard needs the page's prose across the gap, not just a wide gap.
+
+    y37's PLOS tables leave their stub and last columns either side of the
+    detected table; the gap is 0.437 of the content but nothing between the
+    "columns" is prose, and single-column layout stacked every label over its
+    figure (+4 pages). Only text blocks lying within the columns' own vertical
+    span count.
+    """
+
+    def test_a_table_across_the_gap_is_not_prose(self):
+        cols = [("blk", (200.0, 195.0, 252.0, 416.0), None),
+                ("blk", (524.0, 195.0, 556.0, 416.0), None)]
+        table = [("el", (263.0, 193.0, 523.0, 418.0), None)]
+        self.assertFalse(_prose_between(table, cols))
+
+    def test_paragraphs_between_the_items_are(self):
+        cols = [("blk", (58.0, 179.0, 170.0, 194.0), None),
+                ("blk", (549.0, 203.0, 554.5, 333.0), None),
+                ("blk", (58.0, 670.0, 242.0, 682.0), None)]
+        body = [("blk", (58.0, 377.0, 549.0, 420.0), None)]
+        self.assertTrue(_prose_between(body, cols))
+
+    def test_prose_only_above_or_below_is_a_lead_or_tail(self):
+        cols = [("blk", (72.0, 200.0, 300.0, 600.0), None),
+                ("blk", (312.0, 200.0, 540.0, 600.0), None)]
+        lead = [("blk", (72.0, 100.0, 540.0, 150.0), None)]
+        self.assertFalse(_prose_between(lead, cols))
 
 
 class LabelFieldPage(unittest.TestCase):

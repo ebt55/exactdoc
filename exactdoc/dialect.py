@@ -427,6 +427,7 @@ def _marker_at_text_scale(d: DrawCmd, line: Line) -> bool:
 # into the canonical form every other producer already uses -- a run of "."
 # characters on the label's baseline -- so `infer` has one leader idiom to
 # recognise, not two.
+MARKER_ALIGN_TOL = 1.0     # pt; markers of one list share their left edge
 LEADER_MARK_MAX = 2.5      # pt; a leader dot, not a bullet (x09's are 3-5pt)
 LEADER_MIN_MARKS = 8       # a short dotted rule is decoration, not a leader
 LEADER_MIN_SPAN = 24.0     # pt
@@ -531,7 +532,7 @@ def _marker_hits(page: PageIR, lines=None) -> List[DrawCmd]:
     # squares just left of cell text too, and y02 came out with 1,286 "•" for
     # its 24 real bullets, most of them inside table cells. A marker must also
     # be ink at its text's scale and must not be part of a rule.
-    hits = []
+    hits, hollow = [], []
     for d in page.drawings:
         if not _is_marker_glyph(d):
             continue
@@ -540,8 +541,31 @@ def _marker_hits(page: PageIR, lines=None) -> List[DrawCmd]:
             continue
         if _abuts_rule(d, page.drawings):
             continue
-        hits.append(d)
+        if d.fill:
+            hits.append(d)
+        else:
+            hollow.append((d, near))
+    # An outlined circle is also a chart's scatter marker: y38 (eLife) has
+    # 120 of them on one figure page, each "labelling" a tick label within
+    # 46pt. A list's circle sits just ahead of its item (x09: 7pt, 1.4 marker
+    # widths) and is the ONLY mark in front of that item; a scatter point is
+    # neither.
+    owners = {}
+    for d, near in hollow:
+        owners[id(near)] = owners.get(id(near), 0) + 1
+    for d, near in hollow:
+        w = d.bbox[2] - d.bbox[0]
+        if owners[id(near)] == 1 and near.bbox[0] - d.bbox[2] <= 2.5 * w \
+                and len(near.text.strip()) >= 4:     # an item, not a tick label
+            hits.append(d)
     return hits
+
+
+def _aligned(hits: List[DrawCmd]) -> List[DrawCmd]:
+    """Marks that share their left edge with another: a list's marker column."""
+    return [d for d in hits
+            if any(e is not d and abs(e.bbox[0] - d.bbox[0]) <= MARKER_ALIGN_TOL
+                   for e in hits)]
 
 
 def _marker_sig(d: DrawCmd):
@@ -555,12 +579,18 @@ def _marker_sig(d: DrawCmd):
 
 
 def _corroborated_markers(ir: DocIR) -> set:
-    """Marker signatures that some page shows as a list (two or more hits)."""
+    """Marker signatures that some page shows as a LIST.
+
+    Two hits are not enough on their own: IEEEtran's end-of-proof square
+    (y41) lands just left of the other column's text twice on some pages, and
+    corroborating it from there turned every lone proof square into a
+    bullet. A list's markers share a left edge; proof squares never do.
+    """
     sigs = set()
     for p in ir.pages:
-        hits = _marker_hits(p)
-        if len(hits) >= 2:
-            sigs.update(_marker_sig(d) for d in hits)
+        aligned = _aligned(_marker_hits(p))
+        if len(aligned) >= 2:
+            sigs.update(_marker_sig(d) for d in aligned)
     return sigs
 
 
@@ -575,6 +605,15 @@ def _markers_to_text(page: PageIR, corroborated=frozenset()) -> int:
     if not lines:
         return 0
     hits = _marker_hits(page, lines)
+    # Outlined circles must form a marker column on the page, or be
+    # corroborated by one elsewhere (see `_marker_hits` for why circles are
+    # held to more than solid marks).
+    hollow = [d for d in hits if not d.fill]
+    if hollow:
+        column = _aligned(hollow)
+        keep = {id(d) for d in column} | {
+            id(d) for d in hollow if _marker_sig(d) in corroborated}
+        hits = [d for d in hits if d.fill or id(d) in keep]
     # A real list has repetition. A single small square is more likely to be a
     # decorative dot, so require corroboration before rewriting anything --
     # from this page, or from the same mark labelling lines elsewhere in the

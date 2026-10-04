@@ -79,6 +79,18 @@ class WrappedEdge(unittest.TestCase):
         self.assertAlmostEqual(_wrapped_right_edge(ir, _hf(), PAGE_W), 500.4,
                                delta=0.01)
 
+    def test_a_multi_column_page_says_nothing_about_the_column(self):
+        # y61's Federal Register: three 170pt columns, plus a few "wide
+        # lines" the parser merged across them, ending at the outer edge
+        blocks = []
+        for i in range(12):
+            for x0 in (45.0, 222.0, 399.0):
+                ln = _line(x0, x0 + 168.0, 100.0 + 12.0 * i)
+                blocks.append(TextBlock(lines=[ln], bbox=ln.bbox))
+        blocks += [_para([566.0, 565.8, 562.8], 300.0, x0=45.0)]
+        ir = DocIR(path="t.pdf", pages=[PageIR(1, PAGE_W, 792.0, blocks=blocks)])
+        self.assertIsNone(_wrapped_right_edge(ir, _hf(), PAGE_W))
+
     def test_a_nested_line_is_not_a_continuation(self):
         # the next line starts further right: a sub-item, not a wrap
         b = _para([547.2], 100.0)

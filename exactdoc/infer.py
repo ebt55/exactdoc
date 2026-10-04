@@ -84,6 +84,22 @@ COL_SINGLE_BLOCK_FRAC = 0.5  # one block this tall is a column on its own
 # the content width (y22_lshort's two-column index; papers and booklets sit at
 # 0.03-0.10); x11's was 0.485. 0.30 sits between them.
 MAX_GUTTER_FRAC = 0.30
+# ...and only when the page's PROSE says so: text that crosses the split lying
+# between the "columns'" own items, as x11's body paragraphs lay between its
+# headings. A wide white gap flanked by a table's stub and last columns, with
+# the table itself across it, is a mis-read table (y37 p15-17, y35 p14), and
+# laying those pages out as one column stacked every label above its figure:
+# +4 pages on y37.
+
+
+def _prose_between(wide_items, col_items) -> bool:
+    """Does split-crossing TEXT lie inside the vertical span of the columns?"""
+    if not col_items:
+        return False
+    lo = min(t[1][1] for t in col_items)
+    hi = max(t[1][3] for t in col_items)
+    return any(kind == "blk" and lo < (bb[1] + bb[3]) / 2 < hi
+               for kind, bb, _o in wide_items)
 
 # --- side-margin page furniture -------------------------------------------
 # Clearance a shape must keep from the body column before it is called margin
@@ -332,6 +348,19 @@ def _wrapped_right_edge(ir: DocIR, hf: dict, page_w: float) -> Optional[float]:
     ends = []
     for p in ir.pages:
         ct = hf["consumed_text"][p.number]
+        # Only a page set in ONE wide column says anything about its width.
+        # On a multi-column page the few wide "lines" are the parser's
+        # cross-column merges ("safety. EPA determines whether acute In
+        # making its tolerance", y61's three-column Federal Register), they
+        # end at the outer column's edge, and widening to them reflowed that
+        # document from 8 pages to 10. A page whose lines are mostly narrow
+        # is such a page.
+        widths = sorted(l.bbox[2] - l.bbox[0]
+                        for bi, b in enumerate(p.blocks) for l in b.lines
+                        if (bi, id(l)) not in ct and l.horizontal and l.spans
+                        and l.text.strip().count(" ") >= 3)
+        if not widths or widths[len(widths) // 2] < 0.45 * page_w:
+            continue
         for bi, b in enumerate(p.blocks):
             ls = [l for l in b.lines
                   if (bi, id(l)) not in ct and l.horizontal and l.spans]
@@ -806,6 +835,16 @@ def _line_tracked(ln: Line) -> Optional[bool]:
     return None
 
 
+_RTL_TEXT = re.compile("[֐-ࣿיִ-﷿ﹰ-﻿]")
+
+
+def _opens_note(ln: Line) -> bool:
+    """Does the line open with a glued footnote number (`_merge_list_markers`)?"""
+    first = min((s for s in ln.spans if s.text.strip()),
+                key=lambda s: s.bbox[0], default=None)
+    return first is not None and getattr(first, "_note_mark", False)
+
+
 def _split_lines_to_paras(lines: List[Line],
                           list_starts: Optional[set] = None) -> List[List[Line]]:
     """Group a flat list of lines into paragraphs on large baseline gaps,
@@ -864,7 +903,8 @@ def _split_lines_to_paras(lines: List[Line],
         track_jump = (track_prev is not None and track_new is not None
                       and track_prev != track_new)
         if deltas[i] > max(lead * 1.55, lead + 4.0) or size_jump or track_jump \
-                or _line_starts_with_marker(ln) or _line_key(ln) in list_starts:
+                or _line_starts_with_marker(ln) or _line_key(ln) in list_starts \
+                or _opens_note(ln):
             groups.append(cur)
             cur = [ln]
         else:
@@ -890,7 +930,11 @@ def para_from_lines(lines: List[Line], col_l: float, col_r: float,
         m = _inline_marker(lines[0].text)
         p._list_style = m[0] if m else None
     p._tracked = all(_line_tracked(ln) is True for ln in lines)
-    first_sz = lines[0].spans[0].size if lines[0].spans else 10.0
+    # The line's size, not a glued note number's (`_merge_list_markers`): a
+    # 6pt number opening y50's 9pt notes made them 7.5pt-exact paragraphs.
+    first_sz = next((s.size for s in lines[0].spans
+                     if getattr(s, "_note_mark", None) is None),
+                    lines[0].spans[0].size if lines[0].spans else 10.0)
     p._b1 = lines[0].baseline
     p._size1 = first_sz
     if len(lines) >= 2:
@@ -1057,8 +1101,10 @@ def paras_from_line_list(lines: List[Line], col_l: float, col_r: float,
                         out.append(para_from_lines(
                             [l], col_l, col_r, list_start=_line_key(l) in list_starts))
                     continue
-        out.append(para_from_lines(grp, col_l, col_r,
-                                   list_start=_line_key(grp[0]) in list_starts))
+        p = para_from_lines(grp, col_l, col_r,
+                            list_start=_line_key(grp[0]) in list_starts)
+        p._note = _opens_note(grp[0])
+        out.append(p)
     return out
 
 
@@ -3434,10 +3480,16 @@ def _grid_rows(items, col_l, col_r):
     # A table that breaks across pages can leave ONE row on a page, with its
     # partners on the previous one (x10's "March" row). Alone it cannot show a
     # shared column edge, so it must show cells instead: two or more figures.
+    # Figures at the row's own size: under 0.8 of it (the footnote-number
+    # bound, `_merge_list_markers`) a digit is a script -- y43's display
+    # maths, "X+∞ X∞" with two exponent 2s, became a tabbed row.
     for i, (row, frags, ok) in enumerate(info):
-        if ok and i not in keep and sum(
-                1 for f in frags[1:]
-                if _NUMERIC_CELL.fullmatch(_frag_text(f))) >= 2:
+        if not ok or i in keep:
+            continue
+        size = max(_line_size(l) for l in row)
+        if sum(1 for f in frags[1:]
+               if _NUMERIC_CELL.fullmatch(_frag_text(f))
+               and max(s.size for s in f) >= 0.8 * size) >= 2:
             keep.add(i)
     out, consumed = [], set()
     for i in sorted(keep):
@@ -3654,6 +3706,9 @@ def _mergeable(a: Para, b: Para) -> bool:
     # paragraph (design audit B16).
     if getattr(b, "_list_item", False):
         return False
+    # Likewise a footnote that opens with its own number (`_opens_note`).
+    if getattr(b, "_note", False):
+        return False
     gap = b.bbox[1] - a.bbox[3]
     if not (-2.0 <= gap <= 3.2):
         return False
@@ -3760,9 +3815,18 @@ def _merge_list_markers(flow_blocks):
                 # The note's line keeps ITS baseline: `Line.baseline` reads
                 # the first span, and the paragraph is anchored on it.
                 host_base = fl.baseline
+                # A number opening a left-to-right line opens a NOTE, and
+                # each note is its own paragraph: y50's one-line notes,
+                # 11.5pt apart, had been kept apart only by the stray number
+                # paragraphs between them, and once glued they merged into
+                # one paragraph that re-wrapped as prose. At the LEFT end of
+                # a right-to-left line the same mark is an in-text reference
+                # closing that line (y50's body), not a note.
+                opens = not _RTL_TEXT.search(fl.text)
                 for s in ln.spans:
                     s.superscript = True
                     s.origin = (s.origin[0], host_base)
+                    s._note_mark = opens
             fl.spans[0:0] = list(ln.spans)
             fl.bbox = bbox_union(fl.bbox, ln.bbox)
             c.bbox = bbox_union(c.bbox, ln.bbox)
@@ -4089,10 +4153,12 @@ def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
         colR = [t for t in colitems if t[1][0] >= col_split - 20]
         gap = col_split - max((t[1][2] for t in colL), default=col_split - 24)
         gap = max(10.0, round(gap, 1))
-        if gap > MAX_GUTTER_FRAC * content_w:
+        if gap > MAX_GUTTER_FRAC * content_w and \
+                _prose_between(wide_tail, colitems):
             # Not a gutter: the white between a column of short labels and a
-            # column of right-hand fields. Lay the page out as the single
-            # column it is (see MAX_GUTTER_FRAC).
+            # column of right-hand fields, with the page's own prose running
+            # across it between them. Lay the page out as the single column
+            # it is (see MAX_GUTTER_FRAC).
             ch = Chunk(n_cols=1)
             ch.elements = _merge_flow_paras(
                 _to_flow(items, content_l, content_r, doc_rows=lay_rows),
