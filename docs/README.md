@@ -8,6 +8,7 @@ it, and what works today. This folder holds the details, for when you want them.
 | File | What it is for |
 |---|---|
 | [usage.md](usage.md) | Every option, the Python API, batch mode, input errors and exit codes, and what happens when LibreOffice is missing or fails |
+| [releasing.md](releasing.md) | How a version reaches PyPI: the one-time Trusted Publishing setup, the version bump and tag, the TestPyPI check, and what to do when a step fails |
 
 ## Deep dive
 

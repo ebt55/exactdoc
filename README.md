@@ -21,22 +21,40 @@ left than in the PDF.</sub>
 
 ## Install
 
-You need Python 3.9 or newer.
+You need Python 3.9 or newer (check with `python --version`). On Windows,
+macOS and Linux:
 
 ```bash
-git clone https://github.com/ebt55/exactdoc && cd exactdoc
-pip install -e .
+pip install exactdoc
+exactdoc --version
 ```
 
-Also install [LibreOffice](https://www.libreoffice.org/) if you can. By default
-exactdoc renders its own output with it, compares the result with the PDF and
-corrects the layout. Without LibreOffice, add `--refine 0` to skip that check.
+> **Not on PyPI yet.** The first beta (0.3.0b1) is being prepared, and until it
+> is published `pip install exactdoc` finds nothing. Install from a copy of this
+> repository instead:
+> `git clone https://github.com/ebt55/exactdoc && cd exactdoc && pip install .`
+
+That is all you need to convert PDFs. Two things are optional:
+
+- **[LibreOffice](https://www.libreoffice.org/download/)** (free) gives the best
+  layout. When it is installed, exactdoc opens its own DOCX in LibreOffice,
+  compares each page with the PDF and corrects page breaks and spacing. Without
+  it, exactdoc converts in one pass and prints a note saying so. The check takes
+  time: on a desktop PC a 31-page IRS publication took 88 seconds with it and
+  19 without. `--refine 0` skips it.
+- **The Google Docs tools** (`pip install "exactdoc[gdocs]"`) measure a DOCX
+  inside Google Docs with your own Google account. You do not need them to make
+  a DOCX for Google Docs: `--output-profile gdocs` works offline in every
+  install.
 
 ## Quick start
 
 ```bash
-# Convert one PDF
-exactdoc report.pdf -o report.docx
+# Convert one PDF: writes report.docx next to report.pdf
+exactdoc report.pdf
+
+# Choose the output name
+exactdoc report.pdf -o converted/report.docx
 
 # Make a DOCX for Google Docs (still offline: nothing is uploaded)
 exactdoc report.pdf -o report.docx --output-profile gdocs --refine 0
@@ -44,9 +62,13 @@ exactdoc report.pdf -o report.docx --output-profile gdocs --refine 0
 # Convert a whole folder, including subfolders
 exactdoc --input-dir pdfs --out-dir docx --recursive
 
-# No LibreOffice? Convert without the self-check
-exactdoc report.pdf -o report.docx --refine 0
+# Faster: skip the LibreOffice layout check
+exactdoc report.pdf --refine 0
 ```
+
+exactdoc never replaces a file you did not name: if `report.docx` already
+exists, `exactdoc report.pdf` stops and asks for `-o` or `--overwrite`. Long
+documents show their progress while they convert.
 
 From Python:
 
@@ -150,6 +172,7 @@ A refusal writes nothing and says why. For example:
 ```text
 $ exactdoc scanned_letter.pdf -o letter.docx
 error: this PDF appears to require OCR before conversion
+  hint: run it through an OCR tool first (for example OCRmyPDF), then convert the result
 
 $ exactdoc f1040.pdf -o f1040.docx
 error: this PDF is an interactive form: its content lives in fillable fields,
@@ -159,6 +182,27 @@ that looks like the form and is not one.
 
 The full list, with measurements, is in
 [docs/deep-dive/limitations.md](docs/deep-dive/limitations.md).
+
+### Known limits
+
+The short version, for anyone testing the beta:
+
+- **No OCR.** A scan without a text layer is refused; a scan that already has
+  one converts.
+- **No fillable forms**, and nothing over 250 pages unless you pass
+  `--max-pages`.
+- **Long documents grow.** Expect extra pages on long reports, and more of them
+  in Google Docs than in LibreOffice.
+- **The LibreOffice layout check is slow on long documents.** It renders the
+  document up to four times: a 126-page IRS booklet took 6 min 49 s on a
+  desktop PC, against 2 min 3 s with `--refine 0`.
+- **Equations, slides, brochures and posters** do not convert well yet.
+- **Word itself has not been measured.** Every number here comes from
+  LibreOffice and Google Docs. If Word shows something different, please
+  [report it](https://github.com/ebt55/exactdoc/issues/new?template=bad-conversion.yml).
+- **Reporting a bad conversion:** `exactdoc --diagnose your.pdf` prints a
+  summary with none of the document's text, which you can paste into the
+  report instead of attaching a private PDF.
 
 ## How good is it, and how do we know?
 
