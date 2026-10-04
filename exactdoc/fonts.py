@@ -168,6 +168,33 @@ _FAMILY_TABLE = {
     "lmromanslant": _serif(italic=True), "lmromancaps": _serif(),
     "lmromandemi": _serif(bold=True), "lmromandunh": _serif(),
     "lmromanunsl": _serif(),
+    # Linux Libertine, the ACM template's face (acmart sets it by default), in
+    # its Type 1 names (LinLibertineT/TB/TI/TBI, TZ the semibold) and its
+    # OpenType ones (LinLibertine_R/RB/RI/RBI/RZ); Libertinus is its fork.
+    # The weight and slant live in a suffix with no separator, so the styled
+    # names are listed. Nothing named it and no descriptor bit said serif:
+    # y42_arxiv_acmart's 23k characters of body text were written as Arial,
+    # ~10% wider than the Times New Roman a serif face maps to.
+    "linlibertine": _serif(), "linlibertinet": _serif(),
+    "linlibertinetb": _serif(bold=True), "linlibertineti": _serif(italic=True),
+    "linlibertinetbi": _serif(bold=True, italic=True),
+    "linlibertinetz": _serif(bold=True),
+    "linlibertinetzi": _serif(bold=True, italic=True),
+    "linlibertiner": _serif(), "linlibertinerb": _serif(bold=True),
+    "linlibertineri": _serif(italic=True),
+    "linlibertinerbi": _serif(bold=True, italic=True),
+    "linlibertinerz": _serif(bold=True),
+    "linlibertinerzi": _serif(bold=True, italic=True),
+    "libertinus": _serif(), "libertinusserif": _serif(),
+    "libertinemath": _serif(), "libertinusmath": _serif(),
+    # MathTime (MTMI/MTSY/MTEX, MathTime Pro's RMTMI) and txfonts' maths
+    # faces set the maths of Times-bodied journals (y39 Copernicus, y40
+    # Frontiers, y42's txmia); like CMMI/CMSY they are the body's serif.
+    "mtmi": _serif(italic=True), "mtmib": _serif(bold=True, italic=True),
+    "mtsy": _serif(), "mtsyn": _serif(), "mtex": _serif(),
+    "rmtmi": _serif(italic=True), "rmtmib": _serif(bold=True, italic=True),
+    "txmi": _serif(italic=True), "txmia": _serif(italic=True),
+    "txsy": _serif(), "txsys": _serif(), "txsyc": _serif(), "txex": _serif(),
     # --- Office families: their own names in the standard profile ---------
     # Calibri/Carlito and Cambria/Caladea are metric clones (checked glyph by
     # glyph over WinAnsi: Carlito == Calibri on 215 of 216 codepoints, the odd
@@ -209,6 +236,13 @@ _FAMILY_TABLE = {
     "callunasans": _sans(), "proximanova": _sans(), "sourcesans": _sans(),
     "sfprotext": _sans(), "sfprodisplay": _sans(), "sanfrancisco": _sans(),
     "cmusansserif": _sans(), "cmubright": _sans(), "lmsans": _sans(),
+    # Linux Biolinum, Libertine's sans companion (acmart's headings).
+    "linbiolinum": _sans(), "linbiolinumt": _sans(),
+    "linbiolinumtb": _sans(bold=True), "linbiolinumti": _sans(italic=True),
+    "linbiolinumto": _sans(italic=True),
+    "linbiolinumtbi": _sans(bold=True, italic=True),
+    "linbiolinumr": _sans(), "linbiolinumrb": _sans(bold=True),
+    "linbiolinumri": _sans(italic=True), "libertinussans": _sans(),
     "lmsansdemicond": _sans(bold=True), "lmsansquot": _sans(),
     # --- Courier and its clones, and every monospace face -> Courier New ---
     # Monospace stays monospace whatever its width: code is aligned on the
@@ -229,6 +263,8 @@ _FAMILY_TABLE = {
     "ocrb": _mono(), "firamono": _mono(), "cascadiacode": _mono(),
     "cascadiamono": _mono(), "beramono": _mono(), "dejavumono": _mono(),
     "cmutypewriter": _mono(), "lmmono": _mono(), "lmmonolt": _mono(),
+    "linlibertinemono": _mono(), "linlibertinemonot": _mono(),
+    "libertinusmono": _mono(),
     "lmmonoltcond": _mono(), "lmmonoslant": _mono(italic=True),
     "lmmonocaps": _mono(), "lmmonolightcond": _mono(),
     # --- symbol and dingbat faces ------------------------------------------

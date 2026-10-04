@@ -271,6 +271,10 @@ class Chunk:
     col_gap: float = 24.0
     pre_gap: float = 0.0   # vertical gap to emit BEFORE entering this chunk's section
     elements: List[Any] = field(default_factory=list)
+    # The columns' own widths in pt, left to right, when they are not equal (a
+    # sidebar beside a main column); empty means equal widths. The gap between
+    # them is `col_gap`.
+    col_widths: List[float] = field(default_factory=list)
 
 
 @dataclass
