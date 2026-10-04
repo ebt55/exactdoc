@@ -173,9 +173,49 @@ def _measure(src_pdf, rendered_pdf, backend):
             "src_pages": len(src)}
 
 
+# The lowest a footer is moved when the render shows the body needs the room:
+# a quarter inch, the common minimum printable margin. Measured on the NIST
+# class (y01, y02, y08, y09), whose re-wrapped body overruns the source's body
+# box by up to ~50pt a page: with every footer at its source distance (35-52pt)
+# those overruns spill -- y01 rendered 119 pages against 107 before footers
+# were emitted -- and with the footers at 18pt the same document rendered 105.
+FOOTER_FLOOR_PT = 18.0
+
+
+def _lower_footers(lay: DocLayout) -> bool:
+    """Spend the footer's own distance as correction currency, once.
+
+    A footer at its source distance bounds the body exactly where the source
+    did, which is right whenever the body fits -- and only then: a page whose
+    re-wrapped text runs a few points past the source's body box spills a
+    whole page. Before running footers were emitted at all, that overrun
+    silently used the space the footer now occupies. When the render shows
+    spills, the footers move down to FOOTER_FLOOR_PT and the bottom margin
+    follows them; a document that renders without spilling never gets here,
+    so its footers stay exactly where the source put them.
+    """
+    from .infer import _hf_extent
+    changed = False
+    parts = [p for p in (lay.footer_default, lay.footer_even, lay.footer_first)
+             if p is not None]
+    for part in parts:
+        if part.distance <= FOOTER_FLOOR_PT + 0.05:
+            continue
+        old_top = part.distance + _hf_extent(part)
+        part.distance = FOOTER_FLOOR_PT
+        if lay.margin_b <= old_top + 0.5:
+            # the body was bounded by this footer: follow it down
+            lay.margin_b = round(min(lay.margin_b, max(
+                14.0, FOOTER_FLOOR_PT + _hf_extent(part))), 1)
+        changed = True
+    return changed
+
+
 def _apply(lay: DocLayout, m) -> bool:
     """Fold the measurement back into the layout. True if anything changed."""
     changed = False
+    if any(m["spill"]):
+        changed = _lower_footers(lay)
     for idx, pl in enumerate(lay.pages):
         if idx >= len(m["spill"]):
             break

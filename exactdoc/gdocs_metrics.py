@@ -47,8 +47,8 @@ def iter_runs(lay: DocLayout):
                 _runs_in_element(el, out)
     if lay.cover_band is not None:
         _runs_in_table(lay.cover_band, out)
-    for part in (lay.header_default, lay.header_first,
-                 lay.footer_default, lay.footer_first):
+    for part in (lay.header_default, lay.header_first, lay.header_even,
+                 lay.footer_default, lay.footer_first, lay.footer_even):
         if part is None:
             continue
         for el in part.elements:

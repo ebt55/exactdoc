@@ -2013,6 +2013,100 @@ def _config_section(sec, lay: DocLayout, margin_t=None, cols: int = 1,
                 cols_el.attrib.pop(qn(a))
 
 
+# w:sectPr children that must FOLLOW w:pgNumType (ECMA-376 CT_SectPr order).
+_AFTER_PGNUM = ("w:cols", "w:formProt", "w:vAlign", "w:noEndnote", "w:titlePg",
+                "w:textDirection", "w:bidi", "w:rtlGutter", "w:docGrid",
+                "w:printerSettings", "w:sectPrChange")
+
+
+def _set_page_numbering(sec, start: Optional[int], fmt: Optional[str]):
+    """State a section's page numbering: `w:pgNumType w:start w:fmt`.
+
+    `start` None continues the count from the previous section. The format is
+    always written explicitly once numbering is managed, because python-docx's
+    `add_section` clones the previous section's sectPr into the new one, and a
+    roman front-matter format would otherwise silently carry into the body.
+    """
+    sp = sec._sectPr
+    el = sp.find(qn("w:pgNumType"))
+    if el is None:
+        el = OxmlElement("w:pgNumType")
+        nxt = next((c for c in sp if c.tag in {qn(t) for t in _AFTER_PGNUM}), None)
+        if nxt is not None:
+            nxt.addprevious(el)
+        else:
+            sp.append(el)
+    el.set(qn("w:fmt"), fmt or "decimal")
+    if start is None:
+        el.attrib.pop(qn("w:start"), None)
+    else:
+        el.set(qn("w:start"), str(int(start)))
+
+
+def _continue_numbering(sec):
+    """A section opened for any other reason (a column change) continues the
+    count: drop the restart python-docx's sectPr clone copied from the last one."""
+    el = sec._sectPr.find(qn("w:pgNumType"))
+    if el is not None:
+        el.attrib.pop(qn("w:start"), None)
+
+
+def _fill_default_parts(sec, lay: DocLayout, ctx, blank: bool = False,
+                        always: bool = False):
+    """Write a section's own default (and, under evenAndOddHeaders, even)
+    header and footer, for the sides the document has. `blank` writes them
+    empty; `always` also writes an empty part for a side the document lacks
+    (the cover path's historical form, kept byte-identical)."""
+    for part, obj in ((lay.header_default, sec.header),
+                      (lay.footer_default, sec.footer)):
+        if part is None and not always:
+            continue
+        _fill_hf(obj, None if blank else part, lay, ctx=ctx)
+    _fill_even_parts(sec, lay, ctx, blank)
+
+
+def _fill_even_parts(sec, lay: DocLayout, ctx, blank: bool = False):
+    """Even-page parts under w:evenAndOddHeaders, for the sides that have
+    furniture at all: an empty even part beside an absent default one is the
+    same LibreOffice page-style mismatch `_fill_first_page_parts` avoids."""
+    if not lay.even_odd:
+        return
+    for even, default, obj in ((lay.header_even, lay.header_default,
+                                sec.even_page_header),
+                               (lay.footer_even, lay.footer_default,
+                                sec.even_page_footer)):
+        if even is None and default is None:
+            continue
+        _fill_hf(obj, None if blank else (even or default), lay, ctx=ctx)
+
+
+def _fill_first_page_parts(sec, lay: DocLayout, ctx):
+    """The first-page header and footer under w:titlePg, written so that
+    LibreOffice's page styles stay consistent with the default ones.
+
+    Measured in the canonical LibreOffice (probe: 140 exact-12pt lines, a 36pt
+    header/footer distance): a first-page footer with NO default footer beside
+    it costs every later page two lines -- the body bottom rises from 753.6 to
+    729.6 -- and a first-page header with no default header pushes every
+    page's body top from 58 to 72pt. A side with neither part therefore gets no
+    reference at all (that measured exactly like no footer), and a side whose
+    first page states something the other pages do not gets an empty default
+    part beside it (one line, not two). Page 1 states its own footer,
+    including none: inference no longer substitutes the default footer for a
+    folio-less cover page.
+    """
+    for first, default, first_obj, default_obj in (
+            (lay.header_first, lay.header_default,
+             sec.first_page_header, sec.header),
+            (lay.footer_first, lay.footer_default,
+             sec.first_page_footer, sec.footer)):
+        if first is None and default is None:
+            continue
+        _fill_hf(first_obj, first, lay, ctx=ctx)
+        if first is not None and default is None:
+            _fill_hf(default_obj, None, lay, ctx=ctx)
+
+
 def _shifted_part(part: Optional[HFPart], dl: float, dr: float) -> Optional[HFPart]:
     """Clone a header/footer part with indents/tabs shifted (bleed sections)."""
     if part is None:
@@ -2545,6 +2639,17 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
     else:
         _config_section(sec, lay, cols=1)
 
+    # A booklet is one flow with no page seams (see below), so it can carry no
+    # page-numbering sections either; decided up front because section 1's
+    # parts depend on it.
+    booklet = _is_booklet(lay.pages)
+    num_secs = [] if booklet else list(lay.hf_sections)
+    sec1_blank = bool(num_secs) and num_secs[0].blank
+    if lay.even_odd:
+        doc.settings.odd_and_even_pages_header_footer = True
+    if num_secs and num_secs[0].num_fmt:
+        _set_page_numbering(sec, num_secs[0].num_start, num_secs[0].num_fmt)
+
     # headers/footers for section 1 (never create empty parts: an empty header
     # still reserves a line and pushes the body down)
     if has_cover:
@@ -2558,15 +2663,17 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                      _shifted_part(lay.footer_first or lay.footer_default, dl, dr),
                      lay, ctx=ctx)
     else:
-        if lay.header_default is not None:
-            _fill_hf(sec.header, lay.header_default, lay, ctx=ctx)
-        if lay.footer_default is not None:
-            _fill_hf(sec.footer, lay.footer_default, lay, ctx=ctx)
+        if sec1_blank:
+            _fill_default_parts(sec, lay, ctx, blank=True)
+        else:
+            if lay.header_default is not None:
+                _fill_hf(sec.header, lay.header_default, lay, ctx=ctx)
+            if lay.footer_default is not None:
+                _fill_hf(sec.footer, lay.footer_default, lay, ctx=ctx)
+            _fill_even_parts(sec, lay, ctx)
         if lay.different_first:
             sec.different_first_page_header_footer = True
-            _fill_hf(sec.first_page_header, lay.header_first, lay, ctx=ctx)
-            _fill_hf(sec.first_page_footer,
-                     lay.footer_first or lay.footer_default, lay, ctx=ctx)
+            _fill_first_page_parts(sec, lay, ctx)
 
     cur_cols = 1
     # config of the currently-open section; re-applied after each break because
@@ -2589,6 +2696,14 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
         sec = doc.sections[-1]
         _config_section(sec, lay, margin_t=margin_t, cols=cols, col_gap=gap,
                         margin_lr=margin_lr)
+        # `add_section` hands the new section a clone of the last sectPr. A
+        # distinct first page belongs to the document's first page only, and a
+        # numbering restart to the section that states it: neither may ride
+        # along into every later section (a restart copied into a column
+        # section would number that page 1 again).
+        if sec._sectPr.find(qn("w:titlePg")) is not None:
+            sec.different_first_page_header_footer = False
+        _continue_numbering(sec)
         cur_cfg = {"margin_t": margin_t, "cols": cols, "gap": gap,
                    "margin_lr": margin_lr, "hdr0": False}
         cur_cols = cols
@@ -2646,19 +2761,43 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
     # mixed-column text), and same-shape pages simply continue. The
     # non-booklet path -- every gated document -- keeps its page seams:
     # they ARE the page-exact reconstruction the gate certifies.
-    booklet = _is_booklet(lay.pages)
+    #
+    # Page-numbering sections still to open, in page order. A start page whose
+    # seam is not written (a coalesced table continuation) opens its section
+    # at the next seam that is.
+    pending_secs = num_secs[1:]
+    prev_blank = sec1_blank
     for pi, pg in enumerate(lay.pages):
         if pi > 0 and not pg.continuation_only:
             # page boundary
             after_cover = has_cover and pi == 1
             next_cols = pg.chunks[0].n_cols if pg.chunks else 1
+            num = None
+            while pending_secs and pending_secs[0].start_page <= pg.number:
+                num = pending_secs.pop(0)
             if after_cover:
                 gap = pg.chunks[0].col_gap if pg.chunks else 24.0
                 pre = pg.chunks[0].pre_gap if pg.chunks else 0.0
                 mt = (lay.margin_t + pre) if (next_cols > 1 and pre > 0.5) else None
                 s = new_section(WD_SECTION.NEW_PAGE, next_cols, gap, margin_t=mt)
-                _fill_hf(s.header, lay.header_default, lay, ctx=ctx)
-                _fill_hf(s.footer, lay.footer_default, lay, ctx=ctx)
+                _fill_default_parts(s, lay, ctx, always=True)
+                if num is not None:
+                    _set_page_numbering(s, num.num_start, num.num_fmt)
+                prev_blank = False
+            elif num is not None:
+                # a numbering restart (or a change of format) at this seam:
+                # a NEW_PAGE section replaces the page break, carrying the
+                # column shape the page needs exactly as a column change does
+                gap = pg.chunks[0].col_gap if pg.chunks else 24.0
+                pre = pg.chunks[0].pre_gap if pg.chunks else 0.0
+                mt = (lay.margin_t + pre) if (next_cols > 1 and pre > 0.5) else None
+                s = new_section(WD_SECTION.NEW_PAGE, next_cols, gap, margin_t=mt)
+                _set_page_numbering(s, num.num_start, num.num_fmt)
+                if prev_blank:
+                    # the lead-in section wrote empty parts; restate the
+                    # document's own from here on
+                    _fill_default_parts(s, lay, ctx)
+                    prev_blank = False
             elif booklet:
                 # the flow continues; a shape difference is handled by the
                 # chunk loop as a CONTINUOUS break. The first chunk's

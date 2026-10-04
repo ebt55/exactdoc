@@ -2166,6 +2166,25 @@ def _page_links(page, page_h, doc):
     return links
 
 
+def _page_labels(doc) -> Optional[List[Optional[str]]]:
+    """The document's /PageLabels, one string (or None) per page; None when the
+    PDF defines none. Corroboration only: inference believes the numbers
+    printed on the page, and a label merely lets a short run of them count."""
+    get = getattr(raw, "FPDF_GetPageLabel", None)
+    if get is None:
+        return None
+    out = []
+    for i in range(len(doc)):
+        n = get(doc.raw, i, None, 0)       # bytes incl. the UTF-16 terminator
+        if n <= 2:
+            out.append(None)
+            continue
+        buf = ctypes.create_string_buffer(n)
+        get(doc.raw, i, buf, n)
+        out.append(buf.raw[:n - 2].decode("utf-16-le", errors="replace"))
+    return out if any(out) else None
+
+
 def parse_pdf(path: str, keep_image_data: bool = True) -> DocIR:
     """Parse a PDF into the backend-neutral IR.
 
@@ -2189,6 +2208,9 @@ def parse_pdf(path: str, keep_image_data: bool = True) -> DocIR:
                     for k, v in (doc.get_metadata_dict() or {}).items()}
         except Exception:
             pass
+        labels = _page_labels(doc)
+        if labels:
+            meta["page_labels"] = labels
         ir = DocIR(path=path, meta=meta)
         for pno in range(len(doc)):
             page = doc[pno]
