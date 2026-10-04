@@ -2195,11 +2195,14 @@ def _gdocs_page_model(pg, content_w: float, lay: DocLayout, notes_h: float,
 
 
 def _gdocs_page_plan(pg, content_w: float, lay: DocLayout, notes_h: float,
-                     body_line: float, seam_drops_gap: bool, skip=()) -> dict:
+                     body_line: float, seam_drops_gap: bool, skip=(),
+                     budget: bool = True) -> dict:
     """The gap plan `{id(element): space_before}` for one gdocs page: the
     rule and picture compensations, then whatever the page needs to keep a
     body line plus GDOCS_PAGE_SAFETY_PT free in Docs (see the block comment
-    above). Nothing is mutated (see `_absorb_page_spill`)."""
+    above). `budget=False` (a booklet, written as one flow with no page
+    seams) keeps the compensations only: there is no page to fit. Nothing
+    is mutated (see `_absorb_page_spill`)."""
     if getattr(pg, "continuation_only", False) or not pg.chunks:
         return {}
     plan = {}
@@ -2219,6 +2222,8 @@ def _gdocs_page_plan(pg, content_w: float, lay: DocLayout, notes_h: float,
                 ngap = plan.get(id(nxt), getattr(nxt, "space_before", 0.0) or 0.0)
                 if ngap > 0.05:
                     plan[id(nxt)] = round(max(0.0, ngap - GDOCS_PICTURE_BELOW_PT), 1)
+    if not budget:
+        return plan
     got = _gdocs_page_model(pg, content_w, lay, notes_h, seam_drops_gap, plan,
                             skip)
     if got is None:
@@ -4647,7 +4652,7 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
             spill_plan = _gdocs_page_plan(
                 pg, cw_ctx, glay, notes_h.get(pg.number, 0.0), body_line,
                 seam_drops_gap=pending_break[0] and isinstance(first_el, Para),
-                skip=vrules)
+                skip=vrules, budget=not booklet)
         else:
             spill_plan = _absorb_page_spill(pg, cw_ctx, glay,
                                             notes_h.get(pg.number, 0.0),

@@ -264,6 +264,14 @@ class Planner(unittest.TestCase):
         pg = _page([im, _para()])
         self.assertEqual(_gdocs_page_plan(pg, 468.0, lay, 0.0, BODY, False), {})
 
+    def test_a_booklet_keeps_only_the_compensations(self):
+        lay = _lay()
+        rule = RuleEl(width_pct=100.0, thickness=0.75, color="#cccccc",
+                      space_before=10.0)
+        pg = _page(_fill(lay, slack=3.0) + [rule])
+        plan = _gdocs_page_plan(pg, 468.0, lay, 0.0, BODY, False, budget=False)
+        self.assertEqual(plan, {id(rule): round(10.0 - GDOCS_RULE_EXCESS_PT, 1)})
+
     def test_columns_and_continuations_are_not_planned(self):
         lay = _lay()
         pg = PageLayout(number=2, chunks=[Chunk(n_cols=2, elements=_fill(lay, -5.0))])
