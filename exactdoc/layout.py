@@ -158,6 +158,20 @@ class PageLayout:
     # The writer may then omit this source-page break and let Word paginate the
     # one logical table naturally.
     continuation_only: bool = False
+    # A page whose size differs from page 1's carries its own geometry: paper
+    # size and (left, right, top, bottom) margins measured on the pages of
+    # that size. None means the document's (DocLayout.page_w/h, margin_*).
+    # The writer opens a section wherever the geometry changes.
+    page_w: Optional[float] = None
+    page_h: Optional[float] = None
+    margins: Optional[Tuple[float, float, float, float]] = None
+    # True: the seam in front of this page may carry its page break on the
+    # first element itself, which keeps a non-paragraph first element's
+    # page-top gap in LibreOffice (B23; see the seam in docxout._write_docx).
+    # Only the refine loop sets it -- from docxout._stack_fits, once, before
+    # it moves any gap, so the form cannot flip under its own corrections.
+    # None (every open-loop write) keeps the 1pt carrier.
+    top_gap_fits: Optional[bool] = None
 
 
 @dataclass

@@ -91,6 +91,11 @@ class ConversionResult:
     oracle_runs: Tuple[OracleRun, ...] = ()
     warnings: Tuple[ConversionWarning, ...] = ()
     timings_ms: Dict[str, int] = dataclasses.field(default_factory=dict)
+    #: What the refine loop did, content-free: per-round pages/spill/offset
+    #: and timings, the published round, why it stopped, and the correction
+    #: levers the published DOCX carries (`levers`: points of gap, line pitch
+    #: and table padding taken, and on how many pages). Empty when open-loop.
+    refine: Dict[str, Any] = dataclasses.field(default_factory=dict)
 
     @property
     def degraded(self) -> bool:
@@ -126,4 +131,5 @@ class ConversionResult:
             "cleanup_ok": self.cleanup_ok,
             "warnings": [w.as_dict() for w in self.warnings],
             "timings_ms": dict(self.timings_ms),
+            "refine": dict(self.refine),
         }

@@ -27,6 +27,7 @@ import os
 import sys
 import time
 import traceback
+import warnings
 
 import _paths  # noqa: F401
 import evidence
@@ -71,6 +72,7 @@ def run_lane(lane, paths, options, out_dir, baseline=None, manifest=None,
              absolute=False, save_images=True):
     """Convert + score + gate one lane. Returns (results, verdict)."""
     from exactdoc.convert import convert
+    from exactdoc.errors import OracleDegradedWarning
 
     os.makedirs(out_dir, exist_ok=True)
     results, converted = [], []
@@ -81,7 +83,14 @@ def run_lane(lane, paths, options, out_dir, baseline=None, manifest=None,
         docx = os.path.join(out_dir, name + ".docx")
         t0 = time.time()
         try:
-            convert(p, docx, options=options)
+            # A conversion whose render oracle failed mid-run publishes the
+            # open-loop DOCX and only WARNS (OracleDegradedWarning). Scored,
+            # that would be the raw product under the product lane's name, so
+            # the gate escalates the warning: a degraded conversion is a
+            # CONVERT FAIL here, never a number.
+            with warnings.catch_warnings():
+                warnings.simplefilter("error", OracleDegradedWarning)
+                convert(p, docx, options=options)
             converted.append((p, docx, round(time.time() - t0, 2)))
         except Exception as e:
             results.append({"src": os.path.basename(p),
