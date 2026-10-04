@@ -20,6 +20,33 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **Journal and arXiv papers: two-column pages read from the gutter, display
+  maths from its rows (WP12).** The line microscope (docs/deep-dive/theory.md
+  §4) on the seven academic papers found the two-column split taken from the most
+  populous block cluster: display-maths fragments outnumbered y41's right column,
+  the split landed 52pt inside the left one and page 2 rendered one character per
+  line; equation numbers at a NeurIPS page's margin passed for a second column;
+  full-width floats moved below the columns; a Frontiers title page's sidebar was
+  set at the average column width. Now a two-column page is the white band its
+  column lines never cross, each LINE is placed left, right or across, and what
+  spans the page cuts it into bands in source order (`infer._two_column_gutter`,
+  `_gutter_chunks`); a narrow sidebar on its own baselines is a column of its own
+  width (`Chunk.col_widths`, written `w:equalWidth="0"`, standard profile only);
+  the parser no longer reads a two-column body with inline maths as table rows
+  (`_visual_pieces`). A displayed equation is one paragraph per baseline row at
+  the row's own pitch with its number on a right tab stop, and glyphs TeX stacks
+  over a line (the "~" of a congruence) join that line; Libertine, Biolinum,
+  MathTime and txfonts are named. Raw lane against 50f7436, all 95 documents:
+  y41 20→10 pages (word recall 0.159→0.523), y39 29→12 (0.195→0.742), y43 27→22,
+  y37 38→34, y40 15→14 (0.245→0.408, dy_p50 117→28pt), y42 7, y38 55; also y12
+  78→66, y21 72→54, y03 66→59, y06 168→164, y60 37→35. Product lane: y41 19→9,
+  y39 26→12, y40 13→10 (page-exact, recall 0.273→0.759), y43 22→18, y37 28→26.
+  Means: |page ratio−1| 0.287→0.236, word recall 0.590→0.606, within-2pt
+  0.2145→0.2149. Worse: y26 215→216 pages (recall 0.973→0.924) -- its index
+  pages already overflow (TeX's spaced leaders re-wrap), and with their headings
+  now where the source sets them the overflow costs a page; y64 within-2pt
+  0.112→0.062 (recall 0.130→0.180). The 16 gated layouts are identical. Under
+  gdocs the inference changes apply too (columns stay equal-width): unflown.
 - **gdocs: Calibri-family line heights measured in Google Docs; Word documents
   stop growing there (live, 2026-10-04).** The gdocs profile writes line
   height as a multiple of each family's natural line in Docs
