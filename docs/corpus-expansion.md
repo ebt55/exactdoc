@@ -1048,7 +1048,7 @@ already treated in tranches 2–3.
     1,418 times. A real defect, but text metrics on it would be noise, and
     `y31` already carries that producer.
 
-### Producer census — chains new to the corpus
+### Tranche-4 producer census — chains new to the corpus
 
 | class | chain | fixtures |
 |---|---|---|
@@ -1072,7 +1072,7 @@ already treated in tranches 2–3.
 | InDesign | CS4 (6.0.6) / PDF Library 9.0; 19.4 and 20.2 / PDF Library 17.0 | `y59` `y60` `y58` |
 | scans | Internet Archive: LuraDocument PDF 2.53 (MRC) and IA PDF 1.2.2 (mupdf, GlyphLessFont) | `y56` `y57` |
 
-### Tiers, assigned from measured geometry
+### Tranche-4 tiers, from the measured census
 
 The §10 census (prose blocks that overlap vertically while horizontally
 disjoint) was re-run on all 38, plus checks for rotated text, render-mode-3
