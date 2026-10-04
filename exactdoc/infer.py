@@ -5637,8 +5637,9 @@ FRAG_SCRIPT_SIZE = 0.85    # smaller than this share of the host: a script
 # [0, 2π)}." share baseline 595.8 in three blocks, 11.0 and 12.0pt apart --
 # past the dialect's fragment join, and each became a one-line paragraph. Once
 # the row constructs (tables, label/field rows) have taken their lines, a piece
-# on the same baseline starting within this many ems of a line's end, and no
-# wider than it, continues it.
+# of maths on the same baseline starting within this many ems of a line's end,
+# and a few glyphs wide against it (FRAG_MAX_SHARE), continues it. A
+# neighbouring column's line is neither: prose, and as wide as the line.
 FRAG_JOIN_GAP_EM = 1.5
 
 
@@ -5699,8 +5700,11 @@ def _absorb_fragments(items):
                 continue
             d = abs(fr.baseline - h.baseline)
             if d < 0.05 * hsz:
+                # a continuation: maths, a few glyphs wide -- never the line of
+                # a neighbouring column, which is prose as wide as its own
                 gap = fr.bbox[0] - h.bbox[2]
-                if hj == bi or fw > hw or not 0.0 <= gap <= FRAG_JOIN_GAP_EM * hsz:
+                if hj == bi or fw > FRAG_MAX_SHARE * hw or not _mathy([fr]) \
+                        or not 0.0 <= gap <= FRAG_JOIN_GAP_EM * hsz:
                     continue
                 if best is None or gap < best[0]:
                     best = (gap, h)
