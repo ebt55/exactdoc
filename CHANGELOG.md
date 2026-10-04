@@ -20,6 +20,17 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **Google Docs round trips survive large documents.** y06 (IRS 1040
+  instructions, a 9.9 MB DOCX of page images) could not be measured live at
+  all: Drive's simple upload carries at most 5 MB, the create call then
+  outlived httplib2's default socket timeout while Google converted it, and
+  `files.export` refuses a PDF over 10 MB. Both the product oracle
+  (`exactdoc/gdocs.py`) and the qualification oracle now upload over 5 MB
+  resumably, give Drive calls a 600 s timeout, and fetch a too-large export
+  through the Doc's own export link (only on that 403). Each upload carries a
+  unique name, so a create the client gave up on is found and deleted rather
+  than left in the user's Drive. y06 now round-trips in 113 s (189 pages,
+  15 MB) with nothing left behind.
 - **A picture that fills the page is placed on the page (live, 2026-10-04).**
   A designed cover or a scanned page kept as its image was written inline at
   612x792 inside the section margins: Google Docs put y28's cover at (73.5,
