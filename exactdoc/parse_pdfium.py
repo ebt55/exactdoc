@@ -17,6 +17,7 @@ flipped on the way in. Sizes are in points throughout.
 import bisect
 import ctypes
 import dataclasses
+import math
 import re
 import unicodedata
 from collections import namedtuple
@@ -149,6 +150,19 @@ MARKER_GAP_EM = 0.5       # separation that is not an interword space
 MARKER_GAP_ADV = 0.6      # ...and is wide against the marker's own advance
 _MARKER_BULLETS = set("•◦▪‣·-–—*➤►○●♦")
 _MARKER_RE = re.compile(r"^\(?(\d{1,3}|[a-zA-Z]|[ivxlIVXL]{1,5})[.):]$")
+# A line-number gutter (pleading paper, bills): a column of bare integers down
+# the left margin, each sharing a baseline with the body line it numbers. The
+# gap between them is narrower than LINE_SPLIT_EM -- 14.2pt at 14.04pt type
+# (1.01em) on y63_court_pleading_word365 -- so the number fused into the line
+# ("13    prevailing party; ...") and every numbered line's box began in the
+# margin. What sets a gutter apart is the sequence, not the gap: the same right
+# edge on many rows, counting up by one down the page. LINE_NUMBER_MIN_ROWS is
+# eight such rows; y63 carries 28 per page.
+LINE_NUMBER_MIN_ROWS = 8
+LINE_NUMBER_X_TOL = 1.0      # pt; right-aligned numbers share their right edge
+LINE_NUMBER_GAP_EM = 0.5     # MARKER_GAP_EM: wider than any interword space
+LINE_NUMBER_RUN_SHARE = 0.8  # of adjacent rows that must count up by exactly one
+LINE_NUMBER_CLEAR_PT = 3.0   # the gutter's right edge clears all other text by this
 
 
 def _line_size(ln) -> float:
@@ -344,7 +358,7 @@ def _meet(a, b):
 class _Char:
     __slots__ = ("u", "x0", "y0", "x1", "y1", "ox", "oy", "size", "font",
                  "flags", "color", "gen", "sup", "link", "dest", "tracked", "vi",
-                 "ix0", "ix1")
+                 "ix0", "ix1", "turned")
 
     def __init__(self):
         # Only the flags that _absorb_script_rows, _tag_char_links and
@@ -357,6 +371,10 @@ class _Char:
         self.dest = None
         self.tracked = False
         self.vi = -1
+        # Whether the glyph's own text matrix turns it off the page's reading
+        # direction (see _line_number_column). None: the matrix was not read,
+        # which keeps every caller's behaviour from before it was.
+        self.turned = None
 
     @property
     def mono_hint(self) -> bool:
@@ -528,12 +546,19 @@ def _page_chars(textpage, frame, vis=None, objs=None) -> List[_Char]:
         # 20). The effective size is the reported size times the matrix's
         # vertical scale; producers that use an identity matrix are unaffected.
         size = abs(float(get_size(tp, i)))
+        turned = None
         if get_matrix is not None:
             try:
                 if get_matrix(tp, i, p_m):
                     vs = (m.b * m.b + m.d * m.d) ** 0.5
                     if vs > 1e-6:
                         size *= vs
+                    if abs(m.a) > 1e-9 or abs(m.b) > 1e-9:
+                        # The glyph's quarter turn against the frame's, as
+                        # _reading_rotation counts them.
+                        q = int(round(math.degrees(math.atan2(m.b, m.a))
+                                      / 90.0)) % 4
+                        turned = q != frame.rot
             except Exception:
                 pass
         # PDFium's right-to-left path synthesises its word spaces without
@@ -547,9 +572,11 @@ def _page_chars(textpage, frame, vis=None, objs=None) -> List[_Char]:
         if not generated and size <= 1.0 and not font and chr(u).isspace():
             generated = True
         c.gen = generated
+        c.turned = turned
         # a generated space has no font of its own; inherit the run it joins
         if generated and out:
             prev = out[-1]
+            c.turned = prev.turned
             c.size = prev.size
             c.font, c.flags, c.color = prev.font, prev.flags, prev.color
             c.x0, c.x1 = prev.x1, max(prev.x1, c.x1)
@@ -1772,6 +1799,35 @@ VERT_MIN_CHARS = 8          # shorter runs are stacked punctuation, not a strip
 VERT_MAX_DX_FRAC = 0.35     # a vertical advance barely moves x
 VERT_MIN_DY_FRAC = 0.20     # ...and moves y by a real fraction of the size
 VERT_MAX_DY_FRAC = 2.0      # ...but not by more than a plausible advance
+VERT_UPRIGHT_LINE_EM = 1.1  # a line pitch is at least this (_line_number_column)
+
+
+def _line_number_column(run: List[_Char]) -> bool:
+    """Is this "vertical run" a column of one-digit LINES counting down the
+    page -- a line-number gutter's 1-9 -- rather than vertical text?
+
+    Geometry alone cannot tell them apart. Pleading paper's gutter sets 1-28
+    down the left margin at the double-spaced pitch, 24.1pt for 14.04pt digits
+    on y63_court_pleading_word365 (1.72em, inside VERT_MAX_DY_FRAC), so its
+    single digits 1-9 were read as the vertical run "123456789" and taken out
+    of the page on all five pages. Upright glyphs (by their own text matrix,
+    which is how PyMuPDF reads `dir`), every one a digit, a line pitch apart,
+    reading 1, 2, 3... down the page: that is a column of lines. Anything else
+    keeps the geometric reading, measured on the corpus: a chart's y axis
+    counts the other way (y21's "876543210"), an S-box's row labels run on
+    into hex (y03), and a TeX bracket is built of upright extension glyphs
+    (y41) -- in the flow each was a column of stray symbols that cost pages.
+    """
+    if any(c.turned is True for c in run):
+        return False
+    cs = sorted(run, key=lambda c: c.oy)
+    if not all("0" <= c.u <= "9" for c in cs):
+        return False
+    vals = [int(c.u) for c in cs]
+    if any(b != a + 1 for a, b in zip(vals, vals[1:])):
+        return False
+    return all(b.oy - a.oy >= VERT_UPRIGHT_LINE_EM * max(a.size, 1.0)
+               for a, b in zip(cs, cs[1:]))
 
 
 def _split_vertical_runs(chars: List[_Char]):
@@ -1804,7 +1860,8 @@ def _split_vertical_runs(chars: List[_Char]):
         while j < n and vert[j]:
             j += 1
         run = chars[i:j]
-        line = _vertical_line(run) if len(run) >= VERT_MIN_CHARS else None
+        line = _vertical_line(run) if len(run) >= VERT_MIN_CHARS and \
+            not _line_number_column(run) else None
         if line is None:
             flow.extend(run)
         else:
@@ -2131,6 +2188,95 @@ def _baseline_rows(chars: List[_Char]) -> List[List[_Char]]:
     return rows
 
 
+def _leading_number(row: List[_Char]):
+    """(value, n_chars) when a baseline row opens with a bare 1-3 digit integer
+    standing apart from what follows it (or alone), else None. `row` is sorted
+    by x."""
+    ink = []
+    for c in row:
+        if c.u.isspace():
+            break
+        if ink and c.x0 - ink[-1].x1 > SPACE_GAP_EM * max(c.size, 1.0):
+            break
+        ink.append(c)
+        if len(ink) > 3:
+            return None
+    if not ink or not all("0" <= c.u <= "9" for c in ink):
+        return None
+    rest = [c for c in row[len(ink):] if not c.u.isspace()]
+    if rest and rest[0].x0 - ink[-1].x1 < \
+            LINE_NUMBER_GAP_EM * max(ink[-1].size, rest[0].size, 1.0):
+        return None
+    return int("".join(c.u for c in ink)), len(ink)
+
+
+def _line_number_gutter(rows) -> Optional[float]:
+    """The right edge of this page's line-number gutter, or None.
+
+    See LINE_NUMBER_MIN_ROWS. The numbers must share a right edge and, read
+    down the page, count up by one on LINE_NUMBER_RUN_SHARE of adjacent rows:
+    a numbered list does not do that once per baseline, and a table's first
+    column of quantities does not count.
+    """
+    cands = []
+    for row in rows:
+        row = sorted(row, key=lambda c: c.x0)
+        hit = _leading_number(row)
+        if hit is not None:
+            value, n = hit
+            cands.append((row[n - 1].x1, row[0].oy, value))
+    if len(cands) < LINE_NUMBER_MIN_ROWS:
+        return None
+    cands.sort()
+    best = []
+    cur = [cands[0]]
+    for c in cands[1:]:
+        if c[0] - cur[-1][0] <= LINE_NUMBER_X_TOL:
+            cur.append(c)
+        else:
+            best = max(best, cur, key=len)
+            cur = [c]
+    best = max(best, cur, key=len)
+    if len(best) < LINE_NUMBER_MIN_ROWS:
+        return None
+    seq = [v for _, _, v in sorted(best, key=lambda t: t[1])]
+    counting = sum(1 for a, b in zip(seq, seq[1:]) if b == a + 1)
+    if counting < LINE_NUMBER_RUN_SHARE * (len(seq) - 1):
+        return None
+    # A gutter numbers the PAGE: it starts again at 1 on every page, and it
+    # stands in the margin, left of everything else on the page. A table's
+    # index column counts up too, but on from the page before (c3_tables:
+    # 1-9, then 10-38, then 39-46) and beside the text above the table.
+    if seq[0] != 1:
+        return None
+    x1 = sum(x for x, _, _ in best) / len(best)
+    for row in rows:
+        for c in row:
+            if c.u.isspace() or c.x0 >= x1 + LINE_NUMBER_CLEAR_PT:
+                continue
+            if not ("0" <= c.u <= "9" and c.x1 <= x1 + LINE_NUMBER_X_TOL):
+                return None             # text left of, or level with, it
+    return x1
+
+
+def _number_gutter_split(part: List[_Char], current: _Char,
+                         gutter: Optional[float]) -> bool:
+    """Whether `part`, the start of a row, is the row's line number in the
+    page's gutter (see _line_number_gutter) and `current` begins the text it
+    numbers."""
+    if gutter is None or not part or current.u.isspace():
+        return False
+    digits = part
+    while digits and digits[-1].u.isspace():     # a space PDFium put after it
+        digits = digits[:-1]
+    if not digits or len(digits) > 3 or \
+            not all("0" <= c.u <= "9" for c in digits):
+        return False
+    return abs(digits[-1].x1 - gutter) <= LINE_NUMBER_X_TOL and \
+        current.x0 - digits[-1].x1 >= LINE_NUMBER_GAP_EM * max(
+            digits[-1].size, current.size, 1.0)
+
+
 def _build_lines(chars: List[_Char]) -> List[Line]:
     """chars -> spans -> lines, by baseline then x.
 
@@ -2166,6 +2312,8 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
     # word space still does not. Running the real decision function twice is
     # deliberate -- duplicating its conditions to "predict" them is how the two
     # copies drift apart.
+    numbers = _line_number_gutter(rows)
+
     def _split_rows(gutters, record=None):
         out = []
         for ri, row in enumerate(rows):
@@ -2179,7 +2327,9 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
                         not _wide_gap_starts_visual_line(prev, c, part):
                     record.append((prev.x1 + c.x0) / 2)
                 if _wide_gap_starts_visual_line(prev, c, part, gutters) or \
-                        (not started and _marker_starts_visual_line(part, c)):
+                        (not started and _marker_starts_visual_line(part, c)) \
+                        or (not started and
+                            _number_gutter_split(part, c, numbers)):
                     out.append((ri, part))
                     part = [c]
                     started = True
@@ -2334,10 +2484,37 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
             continue
         lb = (min(b[0] for b in full), min(b[1] for b in full),
               max(b[2] for b in full), max(b[3] for b in full))
-        lines.append(Line(spans=sp_objs, bbox=lb, rtl=rtl))
+        line = Line(spans=sp_objs, bbox=lb, rtl=rtl)
+        if numbers is not None:
+            t = line.text.strip()
+            if 1 <= len(t) <= 3 and t.isdigit() and \
+                    abs(lb[2] - numbers) <= LINE_NUMBER_X_TOL:
+                line._gutter = True       # see _blocks_apart_from_gutter
+        lines.append(line)
     lines.sort(key=lambda l: (round(l.bbox[1], 1), l.bbox[0]))
     _reconstruct_indents(lines, mono_cells)
     return lines
+
+
+def _blocks_apart_from_gutter(lines: List[Line], page_w: float):
+    """Blocks with a line-number gutter's numbers blocked on their own.
+
+    Each number shares its row with the line it numbers, and the row model
+    blocks a row together (a table's cells, a marker and its item): left in,
+    the gutter made every numbered body line a block, and so a paragraph, of
+    its own -- y63's double-spaced paragraphs arrived as 26 one-line paragraphs
+    a page. Blocked apart, the body blocks exactly as it would without them,
+    and inference still sees the numbers (infer._page_number_gutter).
+    """
+    gutter = [l for l in lines if getattr(l, "_gutter", False)]
+    if not gutter:
+        return _build_blocks(lines, page_w)
+    body = [l for l in lines if not getattr(l, "_gutter", False)]
+    bb = gutter[0].bbox
+    for l in gutter[1:]:
+        bb = (min(bb[0], l.bbox[0]), min(bb[1], l.bbox[1]),
+              max(bb[2], l.bbox[2]), max(bb[3], l.bbox[3]))
+    return _build_blocks(body, page_w) + [TextBlock(lines=gutter, bbox=bb)]
 
 
 def _reconstruct_indents(lines: List[Line], mono_cells=None) -> None:
@@ -4236,7 +4413,7 @@ def parse_pdf(path: str, keep_image_data: bool = True,
                     pir.undecoded = _page_undecoded(objs, frame, tp)
                 finally:
                     tp.close()
-                pir.blocks = _build_blocks(lines, w)
+                pir.blocks = _blocks_apart_from_gutter(lines, w)
                 pir.drawings = _page_paths(objs, frame)
                 pir.images, pir.images_dropped = _page_images(
                     objs, frame, keep_image_data, doc=doc, page=page,

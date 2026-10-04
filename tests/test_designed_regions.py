@@ -45,10 +45,11 @@ def _y(top):
     return H - top
 
 
-def _infer(path):
+def _infer(path, anchored=True):
     from exactdoc.dialect import normalize
     from exactdoc.parse_pdfium import parse_pdf
-    return I.infer(normalize(parse_pdf(path, keep_image_data=True)))
+    return I.infer(normalize(parse_pdf(path, keep_image_data=True)),
+                   anchored=anchored)
 
 
 def _elements(lay, page=1):
@@ -209,6 +210,40 @@ def _gutter_cv(path):
     for k in range(6):
         c.drawString(176.5, _y(top + 15 * k),
                      "Body text in the main column, line %d of the closing summary." % k)
+    c.showPage()
+    c.save()
+    return path
+
+
+def _caption(path, body=True):
+    """y63's shape: a court caption, the parties | the case title, ruled
+    off down the middle; the order's text runs on under it when `body`."""
+    c = _canvas.Canvas(path, pagesize=(W, H))
+    c.setFont("Times-Roman", 14)
+    c.drawCentredString(306, _y(110), "UNITED STATES DISTRICT COURT")
+    top = 160
+    for text, right in (("LINDA LEE E.,", False), ("Plaintiff,", True), ("v.", False),
+                        ("CAROLYN W. COLVIN,", False),
+                        ("Acting Commissioner of Social Security", False),
+                        ("Defendant.", True)):
+        if right:
+            c.drawRightString(315, _y(top), text)
+        else:
+            c.drawString(76, _y(top), text)
+        top += 24
+    c.setLineWidth(0.75)
+    c.line(319, _y(146), 319, _y(top))
+    c.line(72, _y(top), 319, _y(top))
+    c.setFont("Times-Bold", 14)
+    for k, text in enumerate(("Case No.: 23cv770-LR", "ORDER GRANTING JOINT",
+                              "MOTION FOR THE AWARD AND", "PAYMENT OF ATTORNEY FEES",
+                              "PURSUANT TO THE EQUAL", "[ECF No. 16]")):
+        c.drawString(337, _y(160 + 24 * k), text)
+    if body:
+        c.setFont("Times-Roman", 14)
+        for k in range(8):
+            c.drawString(72, _y(top + 40 + 24 * k),
+                         "The Court has reviewed the joint motion, line %d of the order." % k)
     c.showPage()
     c.save()
     return path
@@ -377,6 +412,41 @@ class ForcedBreaks(unittest.TestCase):
         b = _line(_span("ated word", 45.0, 312.0, x1=100.0))
         self.assertFalse(I._forced_break(a, b, 297.0))
 
+    def _caption(self):
+        # y63's caption: the parties flush left, "Plaintiff," and
+        # "Defendant." flush right against the caption's rule
+        rows = [("LINDA LEE E.,1", 75.6, 171.9), ("Plaintiff,", 266.2, 315.6),
+                ("v.", 75.6, 86.2), ("CAROLYN W. COLVIN,2", 75.6, 228.0),
+                ("Acting Commissioner of Social Security", 75.6, 302.6),
+                ("Defendant.", 253.9, 315.7)]
+        return [_line(_span(t, x0, 303.0 + 24.0 * k, size=14.04, x1=x1))
+                for k, (t, x0, x1) in enumerate(rows)]
+
+    def test_flush_right_lines_in_a_flush_left_column_are_lines_of_their_own(self):
+        lines = self._caption()
+        edge = I._text_column_edge(lines)
+        self.assertEqual(edge, 302.6)               # the flush-left lines' edge
+        paras = I.paras_from_line_list(lines, 75.6, 315.7, forced=edge)
+        self.assertEqual([p.text for p in paras],
+                         ["LINDA LEE E.,1", "Plaintiff,", "v.", "CAROLYN W. COLVIN,2",
+                          "Acting Commissioner of Social Security", "Defendant."])
+
+    def test_two_columns_in_one_frame_are_still_not_one_column(self):
+        # y59's shape: the lines off the left edge are a column, not lines
+        # set flush right, and nothing but the heading rule may break
+        left = [_line(_span("left column text runs on", 50.0, 300.0 + 12 * k, x1=240.0))
+                for k in range(4)]
+        right = [_line(_span("right column", 300.0, 300.0 + 12 * k, x1=420.0 + 20 * k))
+                 for k in range(4)]
+        self.assertIsNone(I._flush_right_edge(left + right))
+        self.assertEqual(I._text_column_edge(left + right), float("-inf"))
+
+    def test_no_line_passes_an_ordinary_columns_edge(self):
+        a = _line(_span("a full line of text", 45.0, 300.0, x1=297.0))
+        b = _line(_span("and its next", 45.0, 312.0, x1=200.0))
+        self.assertFalse(I._forced_break(a, b, 297.0))
+        self.assertFalse(I._forced_break(a, b, float("-inf")))
+
 
 @unittest.skipIf(_canvas is None, "reportlab is not installed")
 class DesignedPagesEndToEnd(unittest.TestCase):
@@ -385,10 +455,16 @@ class DesignedPagesEndToEnd(unittest.TestCase):
         cls._dir = tempfile.TemporaryDirectory()
         d = cls._dir.name
         cls.statement = _infer(_statement(os.path.join(d, "statement.pdf")))
+        # the Google Docs profile keeps graphics in the flow (no `anchored`)
+        cls.statement_flow = _infer(os.path.join(d, "statement.pdf"),
+                                    anchored=False)
         cls.cards = _infer(_cards(os.path.join(d, "cards.pdf")))
         cls.sidebar = _infer(_sidebar(os.path.join(d, "sidebar.pdf")))
         cls.shaded = _infer(_sidebar(os.path.join(d, "shaded.pdf"), shaded=True))
         cls.cv = _infer(_gutter_cv(os.path.join(d, "cv.pdf")))
+        cls.caption = _infer(_caption(os.path.join(d, "caption.pdf")))
+        cls.caption_alone = _infer(_caption(os.path.join(d, "caption_alone.pdf"),
+                                            body=False))
 
     @classmethod
     def tearDownClass(cls):
@@ -415,8 +491,20 @@ class DesignedPagesEndToEnd(unittest.TestCase):
         # the panels keep their own heading as a paragraph of its own
         self.assertEqual(left[0].rows[0][0].paras[0].text, "Retirement Benefits")
 
+    def test_a_seal_set_into_the_top_margin_is_anchored_where_it_is(self):
+        # The seal starts 16pt above the masthead's text, in the top margin,
+        # which a flow cannot reach: where the profile positions graphics,
+        # WP15's `_float_backgrounds` anchors it, and the masthead flows.
+        pg = self.statement.pages[0]
+        self.assertEqual([type(f.el) for f in pg.floats], [ImageEl])
+        first = pg.chunks[0].elements[0]
+        self.assertIsInstance(first, Para)
+        self.assertIn("Your Benefit Statement", first.text)
+
     def test_a_seal_beside_the_masthead_is_a_layout_row(self):
-        first = self.statement.pages[0].chunks[0].elements[0]
+        # ...and where it keeps the flow (gdocs), the seal and the masthead
+        # are one layout row.
+        first = self.statement_flow.pages[0].chunks[0].elements[0]
         self.assertIsInstance(first, TableEl)
         self.assertEqual(first.role, "layout")
         cells = first.rows[0]
@@ -458,6 +546,23 @@ class DesignedPagesEndToEnd(unittest.TestCase):
         self.assertEqual(len(boxes), 1)
         self.assertEqual(boxes[0].rows[0][0].shading, "#ebf0f7")
         self.assertIn("EXPERIENCE", " ".join(p.text for p in main.paras))
+
+    def test_a_ruled_caption_over_the_pages_text_is_a_box_of_two_cells(self):
+        els = _elements(self.caption)
+        tables = [e for e in els if isinstance(e, TableEl) and e.role == "layout"]
+        self.assertEqual(len(tables), 1)
+        self.assertFalse([ch for ch in self.caption.pages[0].chunks if ch.n_cols > 1])
+        parties, title = tables[0].rows[0]
+        texts = [p.text for p in parties.paras]
+        # the flush-right labels stay lines of their own
+        self.assertIn("Plaintiff,", texts)
+        self.assertIn("Defendant.", texts)
+        self.assertIn("v.", texts)
+        self.assertIn("Case No.: 23cv770-LR", " ".join(p.text for p in title.paras))
+
+    def test_a_ruled_band_that_ends_the_page_stays_two_columns(self):
+        self.assertTrue([ch for ch in self.caption_alone.pages[0].chunks
+                         if ch.n_cols == 2])
 
     def test_gutter_dates_hang_beside_their_entries(self):
         self.assertLess(self.cv.margin_l, 55.0)

@@ -43,17 +43,25 @@ one verified fix at a time, each gated against the frozen 16.
   are one tabbed row; a chart's axis numbers ride with the chart, and an
   ornament inside a box is left to the box. The regions read only where
   neither two-column reading (WP12's gutter, the block clusters) claims the
-  page. Measured raw against cc1203a (WP12 merged) over 90 documents:
-  page-exact 40 -> 43, the sum of |page ratio - 1| 20.36 -> 17.12 with no
-  document gaining a page, mean char recall 0.768 -> 0.791, live text 0.932
-  -> 0.944, within-2pt 0.217 -> 0.222. y58 4 -> 3 pages (product 3 -> 2,
-  page-exact; live text 0.119 -> 0.888), y44 4 -> 3 (char recall 0.59 ->
-  1.00), y46 2 -> 1, y40 14 -> 12, c5 2 -> 1 (within-2pt 0.800 -> 0.975, past
-  its recorded shortfall), c1's cards live (char recall 0.972 -> 1.000,
-  within-2pt 0.869 -> 0.873); y59 and y60 unchanged at 18 and 37, WP12's
-  y39/y41/y43 unchanged, the owner's resume, y45, x17 and x18 unchanged in
-  inferred layout. The mean edit score dips 0.003: panels are one-cell
-  tables. Flown live in Google Docs (2026-10-04), the first probe found two
+  page. A court caption ruled off over a page that runs on in one column
+  (y63) is a box of two cells rather than a section -- the section breaks
+  around it cost LibreOffice a later page's footnote room -- and a flush-left
+  column's flush-right lines ("Plaintiff,", "Defendant.") are lines of their
+  own (`_flush_right_edge`). Measured raw against e17795e (WP12 and WP15
+  merged) over 90 documents: page-exact 48 -> 51, the sum of |page ratio -
+  1| 16.69 -> 13.46 with no document gaining a page, mean char recall 0.804
+  -> 0.826, live text 0.933 -> 0.945, within-2pt 0.229 -> 0.235. y58 4 -> 3
+  pages (live text 0.119 -> 0.888), y44 4 -> 3 (char recall 0.59 -> 1.00),
+  y46 2 -> 1 (within-2pt 0.000 -> 0.159), y40 14 -> 12, y10 39 -> 38, y64 47
+  -> 46, y60 35 -> 34, c5 2 -> 1 (within-2pt 0.800 -> 0.975, past its
+  recorded shortfall), c1's cards live (char recall 0.972 -> 1.000,
+  within-2pt 0.869 -> 0.873); WP15's targets keep their gains (y28-y36,
+  y54; y63 5 pages, recall 1.000, within-2pt 0.087 -> 0.116), WP12's
+  y39/y41/y43 and y59 (18 pages) unchanged, and the owner's resume, y29,
+  y45, x17 and x18 unchanged in inferred layout. The mean edit score dips
+  0.003: panels are one-cell tables, and y46's section-tag rows, one figure
+  each since WP15, cut its columns into two sections. Flown live in Google
+  Docs (2026-10-04), the first probe found two
   defects, both fixed: a layout row pinned to its region (778pt against a
   786pt body on the shaded-sidebar page) cannot split, and Docs' row padding
   plus its closing paragraph turned one page into three -- a layout row's
@@ -66,7 +74,67 @@ one verified fix at a time, each gated against the frozen 16.
   colour instead of #333333. Standard and raw output of the 16 gated
   documents is unchanged; the gdocs candidate output of 01, 03, c1 and c5
   gains the shading (c1's two callouts and c5's band also lose the dark
-  rails).
+  rails). The second probe passed live: the shaded sidebar is one page with
+  its fill, c5 2 -> 1 pages (word recall 0.17 -> 0.88), y46 2 -> 1, c1's
+  callouts and cards right (SSIM 0.820 -> 0.830), 03 within-2pt 0.209 ->
+  0.271, 01 unchanged; y58 stays 4 pages in Docs but its live text rises
+  0.12 -> 0.89.
+- **Office and Google Docs exports (WP15): a slide is a page, a blank page is
+  a page, and pleading paper's line numbers are furniture.** The classes
+  people convert most, diagnosed with the line-drift microscope.
+  *Slides* (`infer._deck_pages`: landscape pages whose text runs at a median
+  14pt or more -- y34's 18pt against 6.7pt for the corpus's only other
+  landscape document) are page-locked: each paragraph a `w:framePr` frame at
+  its source position, each table a floating `w:tblpPr` table, each picture
+  anchored to the page (`wp:anchor`, no wrap); the text stays editable.
+  Flowed, a slide stacked its logo, screenshots and callouts under the text
+  beside them, and 40 slides rendered 93-98 pages. Behind a new profile
+  capability, `anchored` (standard only: Google Docs output keeps the flow,
+  and a picture covering 97% of the page stays the writer's full-page rule's).
+  *Blank source pages are held* (`docxout._blank_page_holder`): Google Docs
+  exports a document's empty pages, and folding y32's away put every word
+  after its title page on the wrong page -- except behind a page that
+  overflows, where the spill takes the blank page's place (y30's cover).
+  *Pleading paper*: the parser splits each line number off the line it
+  numbers and keeps a 1-9 column out of the vertical-text pass; inference
+  consumes the 1-28 gutter and writes it as one framed header paragraph on
+  every page; full-height margin rules no longer set the margins or close
+  table lattices; double-spaced text (every step of the block >= 1.6em)
+  splits where the next line's first word would have fitted; a heading
+  number ending a block rejoins its heading; a joint square is not a box; a
+  long rule under a whole span is its underline. *Furniture*: a running
+  foot's rule outside the legacy zones goes with the foot into its part
+  (y36), and front-matter folios at the arabic folios' place are furniture
+  (y30). *Spreadsheets and pictures*: the right edge is also read from the
+  rightmost column of figures; two or more figure columns are a table's
+  values, not a second text column (y35; y60's text column now outvotes its
+  table's); a picture under text or bled into the top or bottom margin is
+  anchored (y33's tinted panels, its cover art); graphics side by side are
+  one figure; "2.5"-style section numbers glue to their headings. Canonical
+  raw sweep, all 90 documents, against the integration head cc1203a:
+  page-exact 40 -> 48, word recall 0.622 -> 0.679, char recall 0.768 ->
+  0.804, within-2pt 0.217 -> 0.229, |page ratio-1| 0.226 -> 0.185, SSIM
+  0.642 -> 0.663. Pages (word recall): y34 93 -> 40 (0.15 -> 0.92), y32
+  35 -> 37 (0.26 -> 0.99), y63 9 -> 5 (0.29 -> 0.995), y31 19 -> 18 (0.30
+  -> 0.98), y30 35 -> 33 (0.45 -> 0.98), y35 15 -> 14 (0.36 -> 1.00), y33 74
+  -> 69 (0.22 -> 0.45), y36 42 -> 36, y28 27 -> 22 (0.30 -> 0.37), y62 27 ->
+  20 (0.31 -> 0.72), y43 22 -> 19, y51 14 -> 12 (0.74 -> 0.99); y29 stays
+  4/4 at 1.000. Product lane, the 11 office/Docs targets: page-exact 4 -> 8,
+  word recall 0.525 -> 0.816, within-2pt 0.120 -> 0.221, |page ratio-1|
+  0.157 -> 0.016. Worse, honestly: held blank pages expose inflation the
+  dropped ones had hidden -- y24 169 -> 185 (16 blank pages in 180; recall
+  0.396 -> 0.300, every page after p46 now at a constant +5 where the head
+  drifted from +1 to -10), y21 54 -> 57 (four trailing blanks), y22 178 ->
+  184 and y52 61 -> 63 (both with recall up); y64's recall 0.180 -> 0.095
+  with a page fewer (one table page set as tabbed rows instead of two
+  columns; every other page's layout identical, the drop is its table pages'
+  repeated figures matching on other pages); y62 live text 0.805 -> 0.769 (a
+  bill's gutter differs page to page, so it is consumed and not printed);
+  y34 edit score 0.606 -> 0.450 (its text is in frames); y30's product-lane
+  recall 0.982 -> 0.975. The gated 16 write every DOCX XML part identically
+  in both profiles. Under the gdocs profile the expansion documents change
+  only through the general rules; a probe set for a live pass is prepared,
+  not flown. 54 new tests (`tests/test_office_export_classes.py`).
 - **gdocs: right-to-left paragraphs are real RTL paragraphs in Google Docs
   (live, 2026-10-04).** WP14's probe set flown live
   ([evidence](docs/evidence/gdocs-2026-10-04-rtl-probe.json)): with `bidi`,

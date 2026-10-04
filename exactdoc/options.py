@@ -78,6 +78,11 @@ OUTPUT_PROFILES = ("standard", "gdocs")
 #               text and marker where the typed form put them.
 #   footnotes   source footnotes as word/footnotes.xml notes referenced from
 #               the text, instead of body paragraphs at the page bottom.
+#   anchored    a slide's pictures and drawn figures anchored to the page at
+#               their source position (wp:anchor, no wrap) instead of stacked
+#               in the flow; inference reads a slide only for a profile that
+#               has it (infer._deck_pages). Docs' handling of page-anchored
+#               pictures is unmeasured, so the gdocs profile keeps the flow.
 #   bidi        right-to-left paragraphs as w:bidi with start/end alignment
 #               and indents, and their runs as w:rtl with complex-script
 #               size, weight and language, instead of left-to-right
@@ -109,7 +114,7 @@ OUTPUT_PROFILES = ("standard", "gdocs")
 #               leaves its within-2pt 0.50 -> 0.17); c4, y48 and y49
 #               unchanged.
 PROFILE_CAPABILITIES = {
-    "standard": frozenset({"numbering", "footnotes", "bidi"}),
+    "standard": frozenset({"numbering", "footnotes", "bidi", "anchored"}),
     "gdocs": frozenset({"numbering", "bidi"}),
 }
 
