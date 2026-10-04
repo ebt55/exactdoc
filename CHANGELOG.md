@@ -248,7 +248,14 @@ Non-gating; the expansion parity policy re-pins its corpus hash only.
   Pub 501 raw 59 → 60 and small live-text/doc-recall dips on the IRS
   booklets, which the harness charges for removing the discretionary
   hyphens its reference text contains (geometry-only hyphenation restores
-  both, measured). 53 new tests.
+  both, measured). 53 new tests. Re-measured after merging WP1/3/4/6/11 and
+  tranche 4 (90 documents, raw lane, against the integration head 5ef641a):
+  pages −2, summed word recall +0.17, doc recall +0.45, within-2pt +2.63,
+  char recall −0.07; worse pages on x10, the IRS booklets (+1 to +3), y37,
+  y41 and the y56 scan (+1 each). Two rules were narrowed on that corpus: a
+  logo glyph must sit between its neighbours, not under one (fraction
+  denominators, y40 15 → 18 pages otherwise), and only short one-line
+  paragraphs are pulled back into the column.
 - **drawings count as structure only when a reader can see them.** Three
   false-structure defects from weak drawing evidence, fixed in `dialect`
   (visibility) and at two `infer` decision sites:
