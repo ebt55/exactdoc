@@ -5731,16 +5731,28 @@ def _absorb_fragments(items):
     moved, hosts = set(), set()
     # left to right, so a line's continuation pieces join it one after another
     lines.sort(key=lambda t: (round(t[1].baseline), t[1].bbox[0]))
+    size = {id(ln): _line_size(ln) for _bi, ln in lines}
+    widest = max(ln.bbox[2] - ln.bbox[0] for _bi, ln in lines)
     for bi, fr in lines:
         if id(fr) in moved or id(fr) in hosts:
             continue
-        fsz = _line_size(fr)
+        fsz = size[id(fr)]
         fw = fr.bbox[2] - fr.bbox[0]
+        # Only maths, or a glyph or three, is ever a fragment (both branches
+        # below); deciding that first keeps a page of prose linear here.
+        # A short line of WORDS set close above another is a heading or a
+        # running head (x07's "Network Planning", 9.3pt over its body line),
+        # not a script of it.
+        if fw > FRAG_MAX_SHARE * widest:
+            continue
+        mathy = _mathy([fr])
+        if not mathy and len(fr.text.strip()) > FRAG_MAX_GLYPHS:
+            continue
         best = None
         for hj, h in lines:
             if h is fr or id(h) in moved:
                 continue
-            hsz = _line_size(h)
+            hsz = size[id(h)]
             hw = h.bbox[2] - h.bbox[0]
             if fsz > hsz + 0.1:
                 continue
@@ -5749,18 +5761,13 @@ def _absorb_fragments(items):
                 # a continuation: maths, a few glyphs wide -- never the line of
                 # a neighbouring column, which is prose as wide as its own
                 gap = fr.bbox[0] - h.bbox[2]
-                if hj == bi or fw > FRAG_MAX_SHARE * hw or not _mathy([fr]) \
+                if hj == bi or fw > FRAG_MAX_SHARE * hw or not mathy \
                         or not 0.0 <= gap <= FRAG_JOIN_GAP_EM * hsz:
                     continue
                 if best is None or gap < best[0]:
                     best = (gap, h)
                 continue
             if fw > FRAG_MAX_SHARE * hw or d > FRAG_REACH_EM * hsz:
-                continue
-            # a glyph or three, or maths: a short line of WORDS set close
-            # above another is a heading or a running head (x07's "Network
-            # Planning", 9.3pt over its body line), not a script of it
-            if len(fr.text.strip()) > FRAG_MAX_GLYPHS and not _mathy([fr]):
                 continue
             em = 0.5 * hsz
             if fr.bbox[0] < h.bbox[0] - em or fr.bbox[2] > h.bbox[2] + em:
@@ -5770,7 +5777,7 @@ def _absorb_fragments(items):
         if best is None:
             continue
         h = best[1]
-        hsz = _line_size(h)
+        hsz = size[id(h)]
         if abs(fr.baseline - h.baseline) < 0.05 * hsz and h.spans and \
                 fr.bbox[0] - h.bbox[2] > 0.25 * hsz and \
                 not h.spans[-1].text.endswith(" "):
