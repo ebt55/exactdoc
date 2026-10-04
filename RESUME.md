@@ -30,10 +30,15 @@ Delete this file before the final commit.
 - Before/after images: scratchpad `wp14/y49_p2_before_after.png`,
   `wp14/y47_p2_before_after.png`.
 
-## Next steps (exact)
+## Next steps (exact) -- updated after the coordinator's second RESUME
 
-1. Rerun the gate on fa04968 (`gate_full.sh wp14-gate-2 <worktree>`; the run in
-   flight was killed by this pause).
+0. Merge integration 50f7436 (`git merge claude/exactdoc-pdf-docx-tool-d4bf20`;
+   deep docs moved to docs/deep-dive/, README reworked -- the RTL tier line
+   now lives in docs/deep-dive/ or the new README: update THAT line). Nothing
+   was done after e86679b; the merge has not been started.
+1. Rerun the gate on the merged tree (`gate_full.sh wp14-gate-3 <worktree>`).
+   c4_i18n improving past its record will show as STALE: report it, do not
+   re-record.
 2. Product sweep of the targets on fa04968 and on 0b0f787 (extract with
    `git archive 0b0f787`) for the product delta table.
 3. CHANGELOG.md bullet under "## Unreleased" (WP14, measured numbers above);
@@ -42,7 +47,11 @@ Delete this file before the final commit.
    `testkit/gdocs_probe_rtl.py` is flown live; canonical-container Arabic fonts
    (FreeSerif/DejaVu) set Arabic 27-45% wider than Arial/Noto Naskh, which is
    the remaining raw inflation for y47/y48.
-4. Remove this RESUME.md, commit, final report via SubagentHandback.
+4. Remove this RESUME.md, commit, final report via SubagentHandback. The
+   coordinator flies testkit/gdocs_probe_rtl.py live: say in the report that
+   it writes to the directory given by `--out` (PDFs, the three DOCX variants
+   per probe: gdocs-visual / gdocs-bidi / standard, and manifest.json); a
+   local run already exists in scratchpad `wp14/gdocs_probe_rtl/`.
 
 ## Known remaining / follow-ups
 
