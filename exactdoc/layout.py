@@ -124,6 +124,10 @@ class Para:
     # text at the page bottom, carried by DocLayout.footnotes as a real note --
     # a writer with the footnotes capability leaves it out of the body flow.
     role: str = ""
+    # (x, y, width) on the page, points: the paragraph is page-locked at the
+    # position the source drew it (w:framePr), out of the flow. Set only on a
+    # slide (infer._lock_slide); None for every flowing paragraph.
+    frame: Optional[Tuple[float, float, float]] = None
     # A right-to-left paragraph (Hebrew, Arabic): its runs are in logical
     # order, and `align`, `left_indent`, `right_indent`, `first_indent` and
     # `tab_stops` are in START/END terms -- "left" is the start, which is the
@@ -211,6 +215,7 @@ class RuleEl:
     space_before: float = 0.0
     space_after: float = 0.0
     role: str = ""               # "footnote": the note separator (see Para.role)
+    frame: Optional[Tuple[float, float, float]] = None   # see Para.frame
 
 
 @dataclass
@@ -248,6 +253,21 @@ class NoteArea:
     bottom: float
     height: float
     runs_on: bool = False
+
+
+@dataclass
+class FloatEl:
+    """A graphic placed at its source position on the page, out of the flow.
+
+    Inference uses it only where the page is a slide (infer._deck_pages): a
+    slide is graphics positioned over and beside its text, which a flow can
+    only stack, so each one stood a page-height of pictures on top of the
+    text. Anchored to the page (wp:anchor) a graphic spends no flow height and
+    the text flows exactly as it would without it.
+    """
+    el: Any                      # ImageEl | FigureEl
+    bbox: BBox                   # where the source drew it, page points
+    behind: bool = False         # under text it overlaps (slide text sits on it)
 
 
 class ColBreak:
@@ -295,6 +315,9 @@ class PageLayout:
     # it moves any gap, so the form cannot flip under its own corrections.
     # None (every open-loop write) keeps the 1pt carrier.
     top_gap_fits: Optional[bool] = None
+    # Graphics anchored to this page out of the flow (FloatEl); empty unless
+    # inference read the page as a slide with a profile that anchors.
+    floats: List[Any] = field(default_factory=list)
 
 
 @dataclass
