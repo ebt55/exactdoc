@@ -476,7 +476,10 @@ def evaluate(docs, sweeps, lanes, gate, accepted=None, docx_dir=None,
         slow = sorted(((r["convert_s"] - limit_of(r["src_pages"]), r) for r in rows
                        if r["convert_s"] > limit_of(r["src_pages"])),
                       key=lambda t: -t[0])
-        parts.append("%s: %d of %d over" % (kind, len(slow), len(rows)))
+        jobs = sweeps[kind][1].get("jobs")
+        parts.append("%s: %d of %d over%s" % (
+            kind, len(slow), len(rows),
+            " (%d documents at a time)" % jobs if jobs else ""))
         offenders += ["%s %s %.0fs for %d pages (limit %.0fs)" % (
             kind, _short(r["document"]), r["convert_s"], r["src_pages"],
             limit_of(r["src_pages"])) for _, r in slow]
