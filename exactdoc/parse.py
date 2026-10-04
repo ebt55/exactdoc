@@ -17,7 +17,7 @@ from typing import List, Optional
 
 from .errors import BackendUnavailableError, UnsupportedInputError
 from .model import (DocIR, PageIR, TextBlock, Line, Span, DrawCmd, ImageObj,
-                    LinkDest, xml_safe_text, xml_safe_uri)
+                    LinkDest, rounded_rect_bbox, xml_safe_text, xml_safe_uri)
 
 _SUBSET_RE = re.compile(r"^[A-Z]{6}\+")
 
@@ -167,6 +167,31 @@ def _classify_path(d) -> str:
     return "complex"
 
 
+def _rounded_box(d):
+    """model.rounded_rect_bbox over a PyMuPDF drawing's items.
+
+    PyMuPDF lists each segment with its own start point ('l', p1, p2) and
+    ('c', p1, c1, c2, p2); a segment that does not start where the last one
+    ended opens a new subpath. Rectangles and quads are not candidates."""
+    items = d.get("items") or []
+    if not any(it[0] == "c" for it in items):
+        return None
+    segs, cur = [], None
+    for it in items:
+        if it[0] not in ("l", "c"):
+            return None
+        start = (float(it[1].x), float(it[1].y))
+        if cur is None or abs(start[0] - cur[0]) > 0.01 or abs(start[1] - cur[1]) > 0.01:
+            segs.append(("m", start))
+        pts = [(float(p.x), float(p.y)) for p in it[2:]]
+        if it[0] == "l":
+            segs.append(("l", pts[0]))
+        else:
+            segs.append(("c", pts[0], pts[1], pts[2]))
+        cur = pts[-1]
+    return rounded_rect_bbox(segs)
+
+
 def parse_pdf(path: str, keep_image_data: bool = True) -> DocIR:
     fitz = require_fitz()
     doc = fitz.open(path)
@@ -278,6 +303,11 @@ def parse_pdf(path: str, keep_image_data: bool = True) -> DocIR:
                 continue
 
             shape = _classify_path(d)
+            # a rectangle with rounded corners is a rectangle (see
+            # model.rounded_rect_bbox; parse_pdfium applies the same test)
+            rounded = _rounded_box(d)
+            if rounded is not None:
+                shape, bbox = "rect", rounded
             # a filled path with tiny height/width is effectively a rule
             if shape == "rect" and fill is not None:
                 if r.height <= 2.5 and r.width > 8:
@@ -287,7 +317,8 @@ def parse_pdf(path: str, keep_image_data: bool = True) -> DocIR:
             pir.drawings.append(DrawCmd(
                 kind=kind, shape=shape, bbox=bbox, fill=fill, stroke=stroke,
                 width=float(d.get("width") or 0.0), opacity=float(op),
-                n_items=len(d["items"]), seqno=int(d.get("seqno") or 0)))
+                n_items=len(d["items"]), seqno=int(d.get("seqno") or 0),
+                rounded=rounded is not None))
 
         # ---- images
         try:

@@ -214,6 +214,83 @@ class DrawCmd:
     opacity: float
     n_items: int
     seqno: int = 0
+    # The path is a rectangle with rounded corners (see rounded_rect_bbox):
+    # the parser reports it as shape 'rect', because that is what it is to
+    # every consumer, and keeps this as the evidence it was drawn with curves.
+    rounded: bool = False
+
+
+# A path whose straight edges are all axis-aligned and which fills at least
+# this share of its bounding box is a box, whatever its corners do. The two
+# populations it separates: a rounded panel or card fills 1 - (4 - pi) r^2 / wh
+# of its box -- 0.998 for y58_ssa_statement's 265x183pt panels (r ~ 10pt),
+# 0.97 for c1_whitepaper's 154x57pt stat cards -- and a pill of radius h/2 at
+# least 2.15x as wide as it is tall clears it too. A disc or an ellipse fills
+# pi/4 = 0.785 of its box and never does, nor does any shape whose straight
+# edges are diagonal (a speech-bubble tail, an arrow tag, a rotated square).
+ROUNDED_FILL_MIN = 0.90
+# ...and is more than this many points across in both directions. Anything
+# smaller is a glyph or a list marker, which dialect.normalize reads from
+# curves of that size (BULLET_MAX) and inference ignores (GLYPH_MAX).
+ROUNDED_MIN_SIDE = 9.0
+
+
+def rounded_rect_bbox(segs) -> Optional[BBox]:
+    """The box of a path that is a rectangle with rounded corners, or None.
+
+    `segs` is the path as ('m', (x, y)), ('l', (x, y)) and
+    ('c', (x1, y1), (x2, y2), (x, y)) tuples in page space. The path must be
+    ONE subpath with at least one curve, every straight segment must run
+    along an axis, and its area -- the curves sampled -- must fill
+    ROUNDED_FILL_MIN of its box. The box is taken from all points, control
+    points included: a corner arc's control points lie on the edges it joins,
+    so that is the geometric box and not the stroke-inflated ink envelope.
+
+    Producers draw every rounded panel, card and pill this way (InDesign,
+    Chromium, WeasyPrint, ReportLab's roundRect), and before this test each
+    one was a 'complex' path -- artwork -- so the region it backed was
+    rasterised with every paragraph inside it.
+    """
+    if not segs or segs[0][0] != "m":
+        return None
+    if sum(1 for s in segs if s[0] == "m") != 1 or not any(s[0] == "c" for s in segs):
+        return None
+    pts = [p for s in segs for p in s[1:]]
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    x0, y0, x1, y1 = min(xs), min(ys), max(xs), max(ys)
+    w, h = x1 - x0, y1 - y0
+    if w <= ROUNDED_MIN_SIDE or h <= ROUNDED_MIN_SIDE:
+        return None
+    tol = max(0.5, 0.02 * min(w, h))
+    poly = [segs[0][1]]
+    cur = segs[0][1]
+    for s in segs[1:]:
+        if s[0] == "l":
+            p = s[1]
+            if abs(p[0] - cur[0]) > tol and abs(p[1] - cur[1]) > tol:
+                return None                     # a diagonal edge: not a box
+            poly.append(p)
+            cur = p
+        elif s[0] == "c":
+            (ax, ay), (bx, by), (cx, cy) = s[1], s[2], s[3]
+            px, py = cur
+            for k in range(1, 9):
+                t = k / 8.0
+                u = 1.0 - t
+                poly.append((u * u * u * px + 3 * u * u * t * ax + 3 * u * t * t * bx
+                             + t * t * t * cx,
+                             u * u * u * py + 3 * u * u * t * ay + 3 * u * t * t * by
+                             + t * t * t * cy))
+            cur = (cx, cy)
+        else:
+            return None
+    area = 0.0
+    for (ax, ay), (bx, by) in zip(poly, poly[1:] + poly[:1]):
+        area += ax * by - bx * ay
+    if abs(area) / 2.0 < ROUNDED_FILL_MIN * w * h:
+        return None
+    return (x0, y0, x1, y1)
 
 
 @dataclass

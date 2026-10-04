@@ -140,6 +140,12 @@ class Cell:
     # w:vMerge.
     col_span: int = 1
     row_span: int = 1
+    # A LAYOUT cell (TableEl.role "layout": one column of a side-by-side page
+    # region) holds a column's whole flow -- paragraphs, rules, pictures and
+    # boxes -- in order. When set, the writer writes these instead of `paras`;
+    # `paras` then lists the Para members of `blocks` (the same objects), so
+    # every pass that reads cell paragraphs still sees them.
+    blocks: List[Any] = field(default_factory=list)
 
 
 @dataclass
@@ -339,7 +345,11 @@ def iter_paras(lay: DocLayout):
             for row in el.rows:
                 for cell in row:
                     if isinstance(cell, Cell):
-                        yield from cell.paras
+                        if cell.blocks:
+                            for b in cell.blocks:
+                                yield from walk(b)
+                        else:
+                            yield from cell.paras
     for page in lay.pages:
         for chunk in page.chunks:
             for el in chunk.elements:
@@ -355,3 +365,18 @@ def iter_paras(lay: DocLayout):
     # the footnotes capability (their typed twins are in the body above).
     for note in lay.footnotes:
         yield from note.paras
+
+def page_sequences(pg):
+    """A page's element sequences in reading order: each chunk's elements, and
+    each column of a layout table (infer._layout_table), whose paragraphs are
+    the page's flow as much as any chunk's -- headings, lists and list hangs
+    read them too."""
+    for ch in pg.chunks:
+        els = [e for e in ch.elements if not isinstance(e, ColBreak)]
+        yield els
+        for el in els:
+            if isinstance(el, TableEl) and el.role == "layout":
+                for row in el.rows:
+                    for c in row:
+                        if c is not None and c.blocks:
+                            yield list(c.blocks)

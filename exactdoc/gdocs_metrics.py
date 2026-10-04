@@ -29,6 +29,11 @@ def _runs_in_table(table, out):
             if isinstance(cell, Cell):
                 for para in cell.paras:
                     _runs_in_para(para, out)
+                # a layout cell's nested boxes (infer._layout_table); its own
+                # paragraphs are already in `paras`
+                for el in cell.blocks:
+                    if isinstance(el, TableEl):
+                        _runs_in_table(el, out)
 
 
 def _runs_in_element(el, out):

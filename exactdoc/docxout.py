@@ -1643,7 +1643,9 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
     tw.set(qn("w:w"), str(int(round(sum(t.col_widths) * 20))))
     tw.set(qn("w:type"), "dxa")
     tblPr.append(tw)
-    if t.left_indent > 0.5:
+    # Negative too: a panel the source bled into the margin (infer's
+    # side-by-side columns) keeps its x. Nothing else asks for one.
+    if abs(t.left_indent) > 0.5:
         ind = OxmlElement("w:tblInd")
         ind.set(qn("w:w"), str(int(round(t.left_indent * 20))))
         ind.set(qn("w:type"), "dxa")
@@ -1702,7 +1704,14 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
         # A row whose only text is a merged cell's is, for its own height,
         # a row with no text.
         row_has_text = any(any(p.text.strip() for p in c.paras) for c in own)
-        if h and not row_has_text:
+        # A layout row (infer._layout_table: the columns of a side-by-side
+        # region) is pinned at least to the region it reproduces. Its cells
+        # are independent columns with no bottom pads -- LibreOffice adds the
+        # row's LARGEST bottom pad to its tallest content (see
+        # _uniform_row_pads) -- and a panel side's shading must still reach
+        # the panel's foot however short its text is. A pin is the row's
+        # total (THEORY 3.2 addendum); atLeast lets a re-wrapped column grow.
+        if h and (not row_has_text or t.role == "layout"):
             trPr = row._tr.get_or_add_trPr()
             th = OxmlElement("w:trHeight")
             # A pinned height is the row's total, borders included (measured
@@ -1757,7 +1766,9 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
                 need = max(need, cell_h)
             # standard profile: compress to the source height, as always.
             # (the gdocs target is set by the round-4 lever [C] below)
-            if not gdocs_rowpin and need > h + 0.5:
+            # (never a layout row: its cells stack columns whose height the
+            # paragraph sum above does not describe)
+            if not gdocs_rowpin and need > h + 0.5 and t.role != "layout":
                 row_shrink = max(MIN_ROW_SHRINK, h / need)
         # Round-4 lever [C], gdocs profile: Docs rounds every row box UP to
         # a whole point, and that rounding was the measured +1.27pt/row
@@ -1876,7 +1887,7 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
                 va = OxmlElement("w:vAlign")
                 va.set(qn("w:val"), spec.valign)
                 tcPr.append(va)
-            if spec.paras:
+            if spec.paras or spec.blocks:
                 # Cell paragraphs carry indents measured from the CELL EDGE
                 # (text x minus cell x), and the same distance is already
                 # emitted as tcMar above -- so an unadjusted indent applies the
@@ -1928,6 +1939,9 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
                     if _s < 0.999 and p.leading:
                         q.leading = max(2.0, p.leading * _s)
                     return q
+                if spec.blocks:
+                    _write_cell_blocks(cell, spec, cw, ctx, _depadded)
+                    continue
                 first = cell.paragraphs[0]
                 for pi, p in enumerate(spec.paras):
                     q = _depadded(p)
@@ -2044,8 +2058,10 @@ def _write_box_paragraphs(container, t: TableEl, content_w: float, ctx=None,
     n = len(cell.paras)
     for pi, p in enumerate(cell.paras):
         q = copy.copy(p)
-        space_l = max(0.0, min(31.0, pads[1] + q.left_indent))
-        q.left_indent = max(0.0, t.left_indent + pads[1] + q.left_indent)
+        # A box paragraph's indent is measured from the box edge, its left pad
+        # included (infer.build_box), as every cell's is.
+        space_l = max(0.0, min(31.0, q.left_indent))
+        q.left_indent = max(0.0, t.left_indent + q.left_indent)
         # measured from the BOX's right edge, not the column's: a box
         # narrower than its column otherwise wraps its text at the column
         q.right_indent = max(0.0, pad_right)
@@ -2178,6 +2194,56 @@ def _merge_part_borders(borders: dict, first: bool, last: bool) -> dict:
     if not last:
         b.pop("bottom", None)
     return b
+
+
+def _carrier(par, height: float = 1.0):
+    """An empty paragraph reduced to `height` points of exact line."""
+    pf = par.paragraph_format
+    pf.space_before = Pt(0)
+    pf.space_after = Pt(0)
+    pf.line_spacing_rule = WD_LINE_SPACING.EXACTLY
+    pf.line_spacing = Pt(height)
+
+
+def _write_cell_blocks(cell, spec, cw: float, ctx, depad):
+    """A layout cell's column flow (infer._layout_table), written in order.
+
+    Paragraphs go through the same de-padding as any cell's; rules, pictures
+    and boxes through their own writers, into the cell. Word requires a cell
+    to END in a paragraph, so python-docx follows a nested table with an empty
+    one; it is reduced to a 1pt carrier, and the cell's own initial paragraph
+    is removed when no paragraph claimed it, rather than standing above the
+    first block as a full default-height line."""
+    pads = spec.pad if len(spec.pad) >= 4 else (0.0, 0.0, 0.0, 0.0)
+    inner = max(1.0, cw - pads[1] - pads[3])
+    first = cell.paragraphs[0]
+    used_first = False
+    for el in spec.blocks:
+        if isinstance(el, Para):
+            q = depad(el)
+            par = write_para(cell, q, cw, par=None if used_first else first,
+                             ctx=ctx)
+            used_first = True
+            if par is not None:
+                _size_mark_to_content(par, q)
+        elif isinstance(el, RuleEl):
+            write_rule(cell, el, inner)
+        elif isinstance(el, FigureEl):
+            write_figure(cell, el, ctx=ctx)
+        elif isinstance(el, ImageEl):
+            write_image(cell, el, ctx=ctx)
+        elif isinstance(el, TableEl):
+            write_table(cell, el, inner, ctx=ctx)
+            last = cell._tc[-1]
+            prev = last.getprevious()
+            if last.tag == qn("w:p") and prev is not None and prev.tag == qn("w:tbl"):
+                _carrier(cell.paragraphs[-1])
+    if not used_first:
+        p = first._p
+        if p.getnext() is not None:
+            p.getparent().remove(p)
+        else:
+            _carrier(first)
 
 
 def _blank_cell(cell):
@@ -2907,6 +2973,14 @@ def _merge_grid_page_runs(pages):
         multi-col chunk's column count, else None (not a run member)."""
         multis = [c for c in pg.chunks if c.n_cols >= 2]
         if len(multis) > 1 or pg.continuation_only:
+            return None
+        # A side-by-side region (infer._side_by_side_chunks: panels in two
+        # columns, a photo beside a masthead) is this page's own structure,
+        # not a column flow continuing from the page before: merged into a
+        # run, its column break was dropped and the page's single-column
+        # lead poured into columns -- y41 p5's right-column lines, indented
+        # 235pt for a full-width body, wrapped one character per line.
+        if any(getattr(c, "_sbs", None) for c in pg.chunks):
             return None
         if multis:
             if booklet and _carries_rigid_spanning_element(pg):
