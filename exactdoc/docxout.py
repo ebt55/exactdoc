@@ -971,6 +971,74 @@ def _col_floors(t: TableEl) -> List[float]:
     return floor
 
 
+def _absorbable(cell, nb) -> bool:
+    """Can `cell` span over its right-hand neighbour `nb` without losing ink?
+
+    `nb` must draw nothing of its own -- no text, fill or span -- and the two
+    must agree on their top and bottom rules, with no vertical rule between
+    them. A rule running under the whole row (x14's totals) is then drawn by
+    the merged cell exactly as the separate cells drew it.
+    """
+    if nb is None or nb.shading or \
+            max(1, getattr(nb, "col_span", 1)) > 1 or \
+            max(1, getattr(nb, "row_span", 1)) > 1 or \
+            any(p.text.strip() for p in nb.paras):
+        return False
+    for side in ("top", "bottom"):
+        if (cell.borders.get(side) or None) != (nb.borders.get(side) or None):
+            return False
+    return not cell.borders.get("right") and not nb.borders.get("left")
+
+
+def _span_into_blank_neighbours(t: TableEl) -> TableEl:
+    """`t` with each one-line cell that overflows its column spanning the
+    blank cells beside it, instead of widening the column.
+
+    A totals label runs across the empty column next to it: x14's
+    "Contingency applied" drew 81.5pt from a 35pt column through the empty
+    54.5pt one beside it. Widening its column moved the whole indented table
+    48-52pt into the right margin; keeping it wrapped the label. Spanning is
+    what the source drew. Clustered-edge tables only: a drawn grid is the
+    author's own statement of the columns (see `_fit_col_widths`).
+    """
+    if getattr(t, "col_edges_drawn", False) or len(t.col_widths) < 2:
+        return t
+    rows, changed = [], False
+    for row in t.rows:
+        row = list(row)
+        for ci, cell in enumerate(row):
+            if cell is None or max(1, getattr(cell, "col_span", 1)) > 1 or \
+                    max(1, getattr(cell, "row_span", 1)) > 1:
+                continue
+            w = _cell_text_width(cell)
+            if w <= 0 or ci >= len(t.col_widths):
+                continue
+            pads = cell.pad[1] + cell.pad[3] if len(cell.pad) >= 4 else 8.0
+            need = w + pads + 1.0
+            have, span = t.col_widths[ci], 1
+            while have < need and ci + span < len(row) and \
+                    ci + span < len(t.col_widths) and \
+                    _absorbable(cell, row[ci + span]):
+                have += t.col_widths[ci + span]
+                span += 1
+            if span > 1 and have >= need:
+                borders = dict(cell.borders)
+                outer = row[ci + span - 1].borders.get("right")
+                if outer:
+                    borders["right"] = outer
+                row[ci] = dataclasses.replace(cell, col_span=span,
+                                              borders=borders)
+                for k in range(ci + 1, ci + span):
+                    row[k] = None
+                changed = True
+        rows.append(row)
+    if not changed:
+        return t
+    out = copy.copy(t)
+    out.rows = rows
+    return out
+
+
 def _fit_col_widths(t: TableEl, content_w: float = 0.0) -> List[float]:
     """Widen any column too narrow for its own single-line content, funded by
     columns with slack. Table width is unchanged.
@@ -1041,7 +1109,14 @@ def _fit_col_widths(t: TableEl, content_w: float = 0.0) -> List[float]:
     # measured effect: zero.) Funds are the gap up to the container width
     # first -- growing the table costs nothing visually, the source usually
     # leaves room -- then slack shaved from over-wide columns.
-    grow = max(0.0, (content_w or 0.0) - sum(widths)) if content_w else 0.0
+    # The free room is what lies to the table's RIGHT: the writer places it at
+    # `left_indent` (w:tblInd), so room left of it cannot be grown into. Counted
+    # from the container's left edge instead, x14's totals block -- indented
+    # 322pt -- "found" 318pt and widened its label column 35 -> 83.5pt, which
+    # pushed its amounts 48-52pt into the right margin in LibreOffice and
+    # Google Docs alike.
+    grow = max(0.0, (content_w or 0.0) - max(0.0, t.left_indent)
+               - sum(widths)) if content_w else 0.0
     have = grow + sum(surplus)
     order = sorted((i for i in range(n) if deficit[i] > 0),
                    key=lambda i: deficit[i])
@@ -1666,7 +1741,7 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
     n_cols = len(t.col_widths)
     if n_rows == 0 or n_cols == 0:
         return None
-    t = copy.copy(t)
+    t = _span_into_blank_neighbours(copy.copy(t))
     t.col_widths = _fit_col_widths(t, content_w)
     # the importer drops sub-minimum columns' boundaries (see the constant);
     # lift them before the grid is written

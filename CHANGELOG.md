@@ -20,6 +20,19 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **tables: an indented table no longer grows into the margin; a label too
+  wide for its column spans the blank cells beside it.** x14's totals block
+  (an indented table, 322pt in) put its amounts 48-52pt into the right
+  margin in LibreOffice and Google Docs alike. The width fit funded a
+  too-narrow label column from "free room" counted from the container's
+  left edge -- room that lay LEFT of the table -- and grew the table to the
+  right. The room is now what lies to the table's right
+  (`_fit_col_widths`), and a one-line cell that overflows its column spans
+  the blank cells beside it when they draw nothing of their own and share
+  its top and bottom rules (`_span_into_blank_neighbours`; clustered-edge
+  tables only). x14 in LibreOffice: amounts within 3pt of the source (were
+  52pt off), the label on one line, the content below within 3.4pt (24pt
+  when the label wrapped).
 - **gdocs: the other families' line heights re-measured in Google Docs.** The
   same live probe, run over every family in `NATURAL_FACTORS`, found each one
   equal to its font file's own hhea line, with no offset. The table's older
