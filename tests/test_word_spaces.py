@@ -65,6 +65,39 @@ class StyleBoundarySpaces(unittest.TestCase):
         self.assertEqual(_build_lines(chars)[0].text, "abcd")
 
 
+class MonospaceGapsStillCount(unittest.TestCase):
+    """The space test moved ahead of the span split; a code listing's gaps must
+    still count as many spaces as cells they span, in the face's own cell."""
+
+    def _mono(self, text, x0, cell, font="CMTT10"):
+        return [_char(ch, x0 + i * cell, x0 + (i + 1) * cell, font=font)
+                for i, ch in enumerate(text)]
+
+    # Gaps wider than LINE_SPLIT_EM (1.1em) end the visual line before any of
+    # this runs, so in-line counting is about gaps of a cell or two; leading
+    # indentation is _reconstruct_indents' job (test_width_scale covers it).
+    def test_typewriter_gap_counts_its_own_cells(self):
+        # two 0.525em CMTT cells (1.05em) are two spaces
+        a = self._mono("x=1", 10.0, 5.25)
+        b = self._mono("#c", 10.0 + 3 * 5.25 + 2 * 5.25, 5.25)
+        self.assertEqual(_build_lines(a + b)[0].text, "x=1" + " " * 2 + "#c")
+
+    def test_monospace_keeps_counting_beside_a_drawn_space(self):
+        # a drawn space then one more empty cell: proportional text stops at
+        # the space it has, a listing counts the cell too
+        a = self._mono("a ", 10.0, 5.25)
+        b = self._mono("b", 10.0 + 2 * 5.25 + 5.25, 5.25)
+        self.assertEqual(_build_lines(a + b)[0].text, "a  b")
+        p = [_char("a", 10.0, 15.0), _char(" ", 15.0, 17.8),
+             _char("b", 23.0, 28.0)]
+        self.assertEqual(_build_lines(p)[0].text, "a b")
+
+    def test_courier_gap_across_a_style_boundary(self):
+        a = self._mono("f(x)", 10.0, 6.0, font="Courier")
+        b = self._mono("ok", 10.0 + 4 * 6.0 + 6.0, 6.0, font="Courier-Bold")
+        self.assertEqual(_build_lines(a + b)[0].text, "f(x) ok")
+
+
 class DroppedSpaceGlyphs(unittest.TestCase):
     def test_kerned_space_is_restored(self):
         # x17: `A` 43.50-50.50, space object at 49.50, `s` at 51.75.

@@ -186,6 +186,36 @@ def editability(docx_path, src_pages):
     return c
 
 
+def char_recall(src_pdf, out_pdf):
+    """(right-page, anywhere) recall of non-whitespace characters.
+
+    Word recall is meaningless for scripts written without spaces: tranche 4's
+    Thai document kept all 5,081 of its characters in the DOCX and scored 0.061
+    word recall, because a "word" there is a whole clause and one changed line
+    break unmatches it. Characters have no such dependence on segmentation.
+    Multiset overlap per page (did the text land on its own page?) and over the
+    whole document (did it survive at all?).
+    """
+    import fitz
+    from collections import Counter
+
+    def pages(path):
+        with fitz.open(path) as d:
+            return [Counter(ch for ch in p.get_text("text") if not ch.isspace())
+                    for p in d]
+    s, o = pages(src_pdf), pages(out_pdf)
+    total = sum(sum(c.values()) for c in s)
+    if not total:
+        return None, None
+    right = sum(sum((c & o[i]).values()) for i, c in enumerate(s) if i < len(o))
+    sa, oa = Counter(), Counter()
+    for c in s:
+        sa.update(c)
+    for c in o:
+        oa.update(c)
+    return round(right / total, 4), round(sum((sa & oa).values()) / total, 4)
+
+
 def _work(args):
     doc_id, path, tier, dialect, profile_name, out_root, save_images = args
     tmp = tempfile.mkdtemp(prefix="qs_%s_" % os.path.splitext(doc_id)[0],
@@ -225,6 +255,10 @@ def _work(args):
     row["page_ratio"] = round(res["out_pages"] / max(1, res["src_pages"]), 3)
     row["docx_bytes"] = res.get("docx_bytes")
     try:
+        row["char_recall"], row["char_doc_recall"] = char_recall(path, res["render_pdf"])
+    except Exception as e:
+        row["char_recall_error"] = "%s: %s" % (type(e).__name__, str(e)[:200])
+    try:
         row["editability"] = editability(docx, res["src_pages"])
         row["edit_score"] = row["editability"]["edit_score"]
     except Exception as e:                   # a census failure is not a conversion failure
@@ -245,8 +279,8 @@ def summarise(rows):
         s["median_ratio"] = round(statistics.median(r["page_ratio"] for r in ok), 3)
         s["mean_abs_ratio_err"] = round(statistics.mean(
             abs(r["page_ratio"] - 1) for r in ok), 4)
-        for k in ("word_recall", "doc_recall", "within2pt", "live_text_cov",
-                  "mean_ssim", "edit_score"):
+        for k in ("word_recall", "doc_recall", "char_recall", "char_doc_recall",
+                  "within2pt", "live_text_cov", "mean_ssim", "edit_score"):
             vals = [r[k] for r in ok if k in r]
             if vals:
                 s["mean_" + k.replace("mean_", "")] = round(statistics.mean(vals), 4)

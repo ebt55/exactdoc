@@ -1,0 +1,1481 @@
+{
+ "adjudicated": false,
+ "corpus": "expansion",
+ "documents": [
+  {
+   "convert_s": 30.6,
+   "dialect": "Microsoft Word for Microsoft 365 (direct export)",
+   "doc_recall": 0.9676,
+   "document": "y28_doe_oig_word365.pdf",
+   "docx_bytes": 1985836,
+   "dx_p50": 73.14,
+   "dy_p50": 61.19,
+   "dy_p90": 337.26,
+   "live_text_cov": 0.9862,
+   "mean_ssim": 0.3354,
+   "out_pages": 37,
+   "page_ratio": 1.762,
+   "src_pages": 21,
+   "tier": "ordinary_digital",
+   "within2pt": 0.0132,
+   "within5pt": 0.0148,
+   "word_recall": 0.1864,
+   "worst_pages_dy90": [
+    [
+     12,
+     580.7
+    ],
+    [
+     1,
+     574.3
+    ],
+    [
+     13,
+     458.9
+    ],
+    [
+     10,
+     404.8
+    ],
+    [
+     11,
+     402.1
+    ]
+   ]
+  },
+  {
+   "convert_s": 6.2,
+   "dialect": "Microsoft Word for Microsoft 365 (direct export)",
+   "doc_recall": 1.0,
+   "document": "y29_uk_letter_word365.pdf",
+   "docx_bytes": 143943,
+   "dx_p50": 36.64,
+   "dy_p50": 1.54,
+   "dy_p90": 15.97,
+   "live_text_cov": 0.9994,
+   "mean_ssim": 0.7193,
+   "out_pages": 4,
+   "page_ratio": 1.0,
+   "src_pages": 4,
+   "tier": "ordinary_digital",
+   "within2pt": 0.2973,
+   "within5pt": 0.3186,
+   "word_recall": 1.0,
+   "worst_pages_dy90": [
+    [
+     2,
+     16.4
+    ],
+    [
+     1,
+     16.1
+    ],
+    [
+     3,
+     14.1
+    ],
+    [
+     4,
+     13.4
+    ]
+   ]
+  },
+  {
+   "convert_s": 43.8,
+   "dialect": "Microsoft Word for Microsoft 365 (direct export)",
+   "doc_recall": 0.9346,
+   "document": "y30_nz_guideline_word365.pdf",
+   "docx_bytes": 181943,
+   "dx_p50": 19.14,
+   "dy_p50": 14.24,
+   "dy_p90": 329.04,
+   "live_text_cov": 0.946,
+   "mean_ssim": 0.6311,
+   "out_pages": 35,
+   "page_ratio": 1.061,
+   "src_pages": 33,
+   "tier": "ordinary_digital",
+   "within2pt": 0.0788,
+   "within5pt": 0.1427,
+   "word_recall": 0.4374,
+   "worst_pages_dy90": [
+    [
+     28,
+     550.1
+    ],
+    [
+     18,
+     484.3
+    ],
+    [
+     21,
+     477.9
+    ],
+    [
+     22,
+     470.4
+    ],
+    [
+     10,
+     467.5
+    ]
+   ]
+  },
+  {
+   "convert_s": 11.3,
+   "dialect": "Microsoft: Print To PDF (Word via the Windows print driver)",
+   "doc_recall": 0.9931,
+   "document": "y31_uk_policy_printtopdf.pdf",
+   "docx_bytes": 152400,
+   "dx_p50": 65.14,
+   "dy_p50": 88.17,
+   "dy_p90": 356.62,
+   "live_text_cov": 0.9967,
+   "mean_ssim": 0.7195,
+   "out_pages": 17,
+   "page_ratio": 0.944,
+   "src_pages": 18,
+   "tier": "ordinary_digital",
+   "within2pt": 0.0039,
+   "within5pt": 0.0049,
+   "word_recall": 0.3192,
+   "worst_pages_dy90": [
+    [
+     4,
+     536.3
+    ],
+    [
+     6,
+     509.0
+    ],
+    [
+     16,
+     492.8
+    ],
+    [
+     10,
+     371.2
+    ],
+    [
+     11,
+     364.6
+    ]
+   ]
+  },
+  {
+   "convert_s": 16.6,
+   "dialect": "Skia/PDF m147 Google Docs Renderer",
+   "doc_recall": 0.985,
+   "document": "y32_uk_response_gdocs.pdf",
+   "docx_bytes": 181711,
+   "dx_p50": 50.58,
+   "dy_p50": 76.55,
+   "dy_p90": 412.51,
+   "live_text_cov": 0.99,
+   "mean_ssim": 0.7709,
+   "out_pages": 37,
+   "page_ratio": 1.0,
+   "src_pages": 37,
+   "tier": "ordinary_digital",
+   "within2pt": 0.015,
+   "within5pt": 0.032,
+   "word_recall": 0.299,
+   "worst_pages_dy90": [
+    [
+     6,
+     657.0
+    ],
+    [
+     14,
+     592.7
+    ],
+    [
+     19,
+     571.9
+    ],
+    [
+     18,
+     527.8
+    ],
+    [
+     26,
+     515.8
+    ]
+   ]
+  },
+  {
+   "convert_s": 130.0,
+   "dialect": "Power PDF Create (Kofax/Nuance)",
+   "doc_recall": 0.8557,
+   "document": "y33_nz_paper_powerpdf.pdf",
+   "docx_bytes": 6747666,
+   "dx_p50": 66.85,
+   "dy_p50": 63.14,
+   "dy_p90": 320.74,
+   "live_text_cov": 0.87,
+   "mean_ssim": 0.5626,
+   "out_pages": 70,
+   "page_ratio": 1.167,
+   "src_pages": 60,
+   "tier": "ordinary_digital",
+   "within2pt": 0.0005,
+   "within5pt": 0.0043,
+   "word_recall": 0.2238,
+   "worst_pages_dy90": [
+    [
+     5,
+     559.4
+    ],
+    [
+     9,
+     488.9
+    ],
+    [
+     8,
+     457.3
+    ],
+    [
+     53,
+     412.1
+    ],
+    [
+     1,
+     406.5
+    ]
+   ]
+  },
+  {
+   "convert_s": 28.6,
+   "dialect": "Microsoft PowerPoint for Microsoft 365 (direct export)",
+   "doc_recall": 0.9226,
+   "document": "y34_census_slides_pptx365.pdf",
+   "docx_bytes": 4450373,
+   "dx_p50": 6.24,
+   "dy_p50": 31.47,
+   "dy_p90": 116.85,
+   "live_text_cov": 0.885,
+   "mean_ssim": 0.3419,
+   "out_pages": 86,
+   "page_ratio": 2.15,
+   "src_pages": 40,
+   "tier": "ordinary_digital",
+   "within2pt": 0.0538,
+   "within5pt": 0.0911,
+   "word_recall": 0.2411,
+   "worst_pages_dy90": [
+    [
+     17,
+     179.5
+    ],
+    [
+     8,
+     164.2
+    ],
+    [
+     39,
+     158.7
+    ],
+    [
+     2,
+     157.7
+    ],
+    [
+     10,
+     147.9
+    ]
+   ]
+  },
+  {
+   "convert_s": 25.1,
+   "dialect": "Microsoft Excel for Microsoft 365 (direct export)",
+   "doc_recall": 0.9787,
+   "document": "y35_uk_rates_excel365.pdf",
+   "docx_bytes": 66324,
+   "dx_p50": 59.44,
+   "dy_p50": 29.99,
+   "dy_p90": 157.36,
+   "live_text_cov": 0.9697,
+   "mean_ssim": 0.8357,
+   "out_pages": 14,
+   "page_ratio": 1.0,
+   "src_pages": 14,
+   "tier": "ordinary_digital",
+   "within2pt": 0.0322,
+   "within5pt": 0.0697,
+   "word_recall": 0.9349,
+   "worst_pages_dy90": [
+    [
+     14,
+     510.0
+    ],
+    [
+     7,
+     339.5
+    ],
+    [
+     6,
+     230.1
+    ],
+    [
+     13,
+     196.6
+    ],
+    [
+     9,
+     186.9
+    ]
+   ]
+  },
+  {
+   "convert_s": 53.7,
+   "dialect": "LibreOffice 7.1 / Writer (real-world export)",
+   "doc_recall": 0.9229,
+   "document": "y36_lo_writer_guide.pdf",
+   "docx_bytes": 3100631,
+   "dx_p50": 60.61,
+   "dy_p50": 70.75,
+   "dy_p90": 385.6,
+   "live_text_cov": 0.9288,
+   "mean_ssim": 0.427,
+   "out_pages": 37,
+   "page_ratio": 1.48,
+   "src_pages": 25,
+   "tier": "ordinary_digital",
+   "within2pt": 0.0079,
+   "within5pt": 0.0183,
+   "word_recall": 0.1981,
+   "worst_pages_dy90": [
+    [
+     5,
+     613.8
+    ],
+    [
+     4,
+     606.8
+    ],
+    [
+     24,
+     559.8
+    ],
+    [
+     7,
+     547.5
+    ],
+    [
+     14,
+     527.8
+    ]
+   ]
+  },
+  {
+   "convert_s": 94.6,
+   "dialect": "MiKTeX-dvipdfmx (20220710) / LaTeX (PLOS ONE)",
+   "doc_recall": 0.8903,
+   "document": "y37_plos_one_dvipdfmx.pdf",
+   "docx_bytes": 101000,
+   "dx_p50": 51.18,
+   "dy_p50": 40.58,
+   "dy_p90": 277.99,
+   "live_text_cov": 0.876,
+   "mean_ssim": 0.5004,
+   "out_pages": 28,
+   "page_ratio": 1.273,
+   "src_pages": 22,
+   "tier": "ordinary_digital",
+   "within2pt": 0.0116,
+   "within5pt": 0.0161,
+   "word_recall": 0.2802,
+   "worst_pages_dy90": [
+    [
+     10,
+     467.4
+    ],
+    [
+     19,
+     457.7
+    ],
+    [
+     8,
+     379.5
+    ],
+    [
+     17,
+     374.7
+    ],
+    [
+     12,
+     353.7
+    ]
+   ]
+  },
+  {
+   "convert_s": 159.3,
+   "dialect": "GPL Ghostscript 9.15 / Arbortext Advanced Print Publisher 9.0",
+   "doc_recall": 0.9627,
+   "document": "y38_elife_arbortext_gs.pdf",
+   "docx_bytes": 2049191,
+   "dx_p50": 63.83,
+   "dy_p50": 38.47,
+   "dy_p90": 292.66,
+   "live_text_cov": 0.9532,
+   "mean_ssim": 0.3658,
+   "out_pages": 53,
+   "page_ratio": 1.606,
+   "src_pages": 33,
+   "tier": "ordinary_digital",
+   "within2pt": 0.0178,
+   "within5pt": 0.0212,
+   "word_recall": 0.199,
+   "worst_pages_dy90": [
+    [
+     22,
+     452.0
+    ],
+    [
+     25,
+     411.3
+    ],
+    [
+     20,
+     388.6
+    ],
+    [
+     8,
+     372.1
+    ],
+    [
+     23,
+     366.6
+    ]
+   ]
+  },
+  {
+   "convert_s": 69.1,
+   "dialect": "pdfTeX-1.40.19 / copernicus.cls (XML to LaTeX)",
+   "doc_recall": 0.8572,
+   "document": "y39_copernicus_npg_2col.pdf",
+   "docx_bytes": 491539,
+   "dx_p50": 64.25,
+   "dy_p50": 30.98,
+   "dy_p90": 265.57,
+   "live_text_cov": 0.9376,
+   "mean_ssim": 0.1894,
+   "out_pages": 27,
+   "page_ratio": 2.455,
+   "src_pages": 11,
+   "tier": "ordinary_digital",
+   "within2pt": 0.0006,
+   "within5pt": 0.0031,
+   "word_recall": 0.1741,
+   "worst_pages_dy90": [
+    [
+     2,
+     510.4
+    ],
+    [
+     7,
+     380.4
+    ],
+    [
+     9,
+     367.7
+    ],
+    [
+     4,
+     314.9
+    ],
+    [
+     10,
+     287.9
+    ]
+   ]
+  },
+  {
+   "convert_s": 99.0,
+   "dialect": "dvips + MiKTeX GPL Ghostscript 9.0 / LaTeX hypdvips",
+   "doc_recall": 0.7956,
+   "document": "y40_frontiers_dvips_gs.pdf",
+   "docx_bytes": 2727266,
+   "dx_p50": 14.71,
+   "dy_p50": 22.45,
+   "dy_p90": 276.74,
+   "live_text_cov": 0.8917,
+   "mean_ssim": 0.5188,
+   "out_pages": 12,
+   "page_ratio": 1.2,
+   "src_pages": 10,
+   "tier": "ordinary_digital",
+   "within2pt": 0.0795,
+   "within5pt": 0.1258,
+   "word_recall": 0.4271,
+   "worst_pages_dy90": [
+    [
+     10,
+     513.6
+    ],
+    [
+     8,
+     497.8
+    ],
+    [
+     5,
+     458.9
+    ],
+    [
+     9,
+     457.3
+    ],
+    [
+     4,
+     314.6
+    ]
+   ]
+  },
+  {
+   "convert_s": 80.5,
+   "dialect": "pdfTeX-1.40.25 / LaTeX IEEEtran (arXiv)",
+   "doc_recall": 0.8172,
+   "document": "y41_arxiv_ieeetran.pdf",
+   "docx_bytes": 238358,
+   "dx_p50": 57.21,
+   "dy_p50": 32.02,
+   "dy_p90": 136.53,
+   "live_text_cov": 0.9298,
+   "mean_ssim": 0.2159,
+   "out_pages": 21,
+   "page_ratio": 2.625,
+   "src_pages": 8,
+   "tier": "ordinary_digital",
+   "within2pt": 0.0,
+   "within5pt": 0.015,
+   "word_recall": 0.1568,
+   "worst_pages_dy90": [
+    [
+     2,
+     459.1
+    ],
+    [
+     5,
+     314.1
+    ],
+    [
+     4,
+     237.0
+    ],
+    [
+     3,
+     226.1
+    ],
+    [
+     6,
+     180.5
+    ]
+   ]
+  },
+  {
+   "convert_s": 47.1,
+   "dialect": "pdfTeX-1.40.25 (TeX Live 2023) / LaTeX acmart (arXiv)",
+   "doc_recall": 0.5927,
+   "document": "y42_arxiv_acmart.pdf",
+   "docx_bytes": 2807627,
+   "dx_p50": 67.12,
+   "dy_p50": 89.84,
+   "dy_p90": 365.07,
+   "live_text_cov": 0.6234,
+   "mean_ssim": 0.2191,
+   "out_pages": 12,
+   "page_ratio": 2.4,
+   "src_pages": 5,
+   "tier": "ordinary_digital",
+   "within2pt": 0.0,
+   "within5pt": 0.0074,
+   "word_recall": 0.1582,
+   "worst_pages_dy90": [
+    [
+     2,
+     397.6
+    ],
+    [
+     1,
+     365.1
+    ],
+    [
+     3,
+     312.5
+    ],
+    [
+     4,
+     221.7
+    ],
+    [
+     5,
+     202.9
+    ]
+   ]
+  },
+  {
+   "convert_s": 69.5,
+   "dialect": "pdfTeX-1.40.25 / LaTeX NeurIPS style (arXiv)",
+   "doc_recall": 0.9614,
+   "document": "y43_arxiv_neurips.pdf",
+   "docx_bytes": 2037900,
+   "dx_p50": 64.37,
+   "dy_p50": 54.28,
+   "dy_p90": 249.1,
+   "live_text_cov": 0.9786,
+   "mean_ssim": 0.3659,
+   "out_pages": 26,
+   "page_ratio": 1.733,
+   "src_pages": 15,
+   "tier": "ordinary_digital",
+   "within2pt": 0.008,
+   "within5pt": 0.0123,
+   "word_recall": 0.2606,
+   "worst_pages_dy90": [
+    [
+     11,
+     534.0
+    ],
+    [
+     9,
+     503.2
+    ],
+    [
+     15,
+     490.3
+    ],
+    [
+     13,
+     463.5
+    ],
+    [
+     6,
+     372.3
+    ]
+   ]
+  },
+  {
+   "convert_s": 5.1,
+   "dialect": "Typst 0.14.2 (RenderCV)",
+   "doc_recall": 0.9956,
+   "document": "y44_cv_rendercv_typst.pdf",
+   "docx_bytes": 41065,
+   "dx_p50": 17.13,
+   "dy_p50": 11.77,
+   "dy_p90": 49.73,
+   "live_text_cov": 0.9918,
+   "mean_ssim": 0.756,
+   "out_pages": 3,
+   "page_ratio": 1.0,
+   "src_pages": 3,
+   "tier": "ordinary_digital",
+   "within2pt": 0.1175,
+   "within5pt": 0.1733,
+   "word_recall": 0.9956,
+   "worst_pages_dy90": [
+    [
+     1,
+     64.2
+    ],
+    [
+     2,
+     37.7
+    ],
+    [
+     3,
+     11.8
+    ]
+   ]
+  },
+  {
+   "convert_s": 7.7,
+   "dialect": "pdfTeX-1.40.28 / LaTeX",
+   "doc_recall": 0.9927,
+   "document": "y45_cv_academic_pdftex.pdf",
+   "docx_bytes": 41408,
+   "dx_p50": 7.92,
+   "dy_p50": 5.3,
+   "dy_p90": 35.9,
+   "live_text_cov": 0.9645,
+   "mean_ssim": 0.7792,
+   "out_pages": 3,
+   "page_ratio": 1.0,
+   "src_pages": 3,
+   "tier": "ordinary_digital",
+   "within2pt": 0.0643,
+   "within5pt": 0.204,
+   "word_recall": 0.9927,
+   "worst_pages_dy90": [
+    [
+     1,
+     49.1
+    ],
+    [
+     2,
+     11.8
+    ],
+    [
+     3,
+     6.6
+    ]
+   ]
+  },
+  {
+   "convert_s": 5.3,
+   "dialect": "xdvipdfmx (0.1) / LaTeX",
+   "doc_recall": 0.5879,
+   "document": "y46_cv_twocol_xdvipdfmx.pdf",
+   "docx_bytes": 321143,
+   "dx_p50": 27.62,
+   "dy_p50": 54.65,
+   "dy_p90": 70.98,
+   "live_text_cov": 0.6445,
+   "mean_ssim": 0.2994,
+   "out_pages": 2,
+   "page_ratio": 2.0,
+   "src_pages": 1,
+   "tier": "ordinary_digital",
+   "within2pt": 0.0,
+   "within5pt": 0.0,
+   "word_recall": 0.2,
+   "worst_pages_dy90": [
+    [
+     1,
+     71.0
+    ]
+   ]
+  },
+  {
+   "convert_s": 314.6,
+   "dialect": "Microsoft Word pour Microsoft 365 (direct export)",
+   "doc_recall": 0.7521,
+   "document": "y47_ar_ilo_word365.pdf",
+   "docx_bytes": 6433249,
+   "dx_p50": 66.55,
+   "dy_p50": 64.27,
+   "dy_p90": 366.44,
+   "live_text_cov": 0.832,
+   "mean_ssim": 0.3911,
+   "out_pages": 78,
+   "page_ratio": 1.368,
+   "src_pages": 57,
+   "tier": "designed_stress",
+   "within2pt": 0.0008,
+   "within5pt": 0.0045,
+   "word_recall": 0.1663,
+   "worst_pages_dy90": [
+    [
+     56,
+     676.3
+    ],
+    [
+     48,
+     659.7
+    ],
+    [
+     29,
+     655.0
+    ],
+    [
+     41,
+     635.0
+    ],
+    [
+     15,
+     626.3
+    ]
+   ]
+  },
+  {
+   "convert_s": 28.9,
+   "dialect": "WeasyPrint 70.0",
+   "doc_recall": 0.7105,
+   "document": "y48_ar_weasyprint.pdf",
+   "docx_bytes": 694453,
+   "dx_p50": 97.6,
+   "dy_p50": 36.34,
+   "dy_p90": 323.19,
+   "live_text_cov": 0.7589,
+   "mean_ssim": 0.5079,
+   "out_pages": 10,
+   "page_ratio": 1.429,
+   "src_pages": 7,
+   "tier": "designed_stress",
+   "within2pt": 0.0,
+   "within5pt": 0.0063,
+   "word_recall": 0.1509,
+   "worst_pages_dy90": [
+    [
+     6,
+     412.6
+    ],
+    [
+     5,
+     375.7
+    ],
+    [
+     7,
+     330.7
+    ],
+    [
+     3,
+     209.0
+    ],
+    [
+     2,
+     109.0
+    ]
+   ]
+  },
+  {
+   "convert_s": 154.2,
+   "dialect": "Microsoft Word 2016 (direct export)",
+   "doc_recall": 0.7734,
+   "document": "y49_he_word2016.pdf",
+   "docx_bytes": 4607322,
+   "dx_p50": 72.32,
+   "dy_p50": 52.48,
+   "dy_p90": 329.54,
+   "live_text_cov": 0.8026,
+   "mean_ssim": 0.2876,
+   "out_pages": 60,
+   "page_ratio": 2.143,
+   "src_pages": 28,
+   "tier": "designed_stress",
+   "within2pt": 0.0021,
+   "within5pt": 0.0051,
+   "word_recall": 0.1172,
+   "worst_pages_dy90": [
+    [
+     12,
+     575.8
+    ],
+    [
+     17,
+     566.6
+    ],
+    [
+     26,
+     544.9
+    ],
+    [
+     15,
+     526.2
+    ],
+    [
+     8,
+     472.3
+    ]
+   ]
+  },
+  {
+   "convert_s": 52.1,
+   "dialect": "Microsoft Word 2016 (direct export)",
+   "doc_recall": 0.7114,
+   "document": "y50_fa_word2016.pdf",
+   "docx_bytes": 1497518,
+   "dx_p50": 74.54,
+   "dy_p50": 42.04,
+   "dy_p90": 267.26,
+   "live_text_cov": 0.8733,
+   "mean_ssim": 0.4855,
+   "out_pages": 21,
+   "page_ratio": 1.4,
+   "src_pages": 15,
+   "tier": "designed_stress",
+   "within2pt": 0.0,
+   "within5pt": 0.019,
+   "word_recall": 0.2237,
+   "worst_pages_dy90": [
+    [
+     12,
+     372.4
+    ],
+    [
+     13,
+     369.9
+    ],
+    [
+     8,
+     334.0
+    ],
+    [
+     6,
+     328.1
+    ],
+    [
+     4,
+     326.0
+    ]
+   ]
+  },
+  {
+   "convert_s": 24.2,
+   "dialect": "JUST PDF 4 (JustSystems)",
+   "doc_recall": 0.9941,
+   "document": "y51_ja_justpdf.pdf",
+   "docx_bytes": 51685,
+   "dx_p50": 17.5,
+   "dy_p50": 2.7,
+   "dy_p90": 39.36,
+   "live_text_cov": 0.9978,
+   "mean_ssim": 0.642,
+   "out_pages": 12,
+   "page_ratio": 1.0,
+   "src_pages": 12,
+   "tier": "designed_stress",
+   "within2pt": 0.0955,
+   "within5pt": 0.1727,
+   "word_recall": 0.994,
+   "worst_pages_dy90": [
+    [
+     9,
+     83.4
+    ],
+    [
+     5,
+     51.3
+    ],
+    [
+     7,
+     50.2
+    ],
+    [
+     10,
+     39.4
+    ],
+    [
+     11,
+     35.8
+    ]
+   ]
+  },
+  {
+   "convert_s": 61.8,
+   "dialect": "Microsoft Word for Microsoft 365, zh-TW UI (direct export)",
+   "doc_recall": 0.9877,
+   "document": "y52_zh_tw_word365.pdf",
+   "docx_bytes": 95529,
+   "dx_p50": 58.76,
+   "dy_p50": 34.25,
+   "dy_p90": 249.22,
+   "live_text_cov": 0.9942,
+   "mean_ssim": 0.6245,
+   "out_pages": 51,
+   "page_ratio": 1.0,
+   "src_pages": 51,
+   "tier": "designed_stress",
+   "within2pt": 0.0064,
+   "within5pt": 0.0261,
+   "word_recall": 0.5435,
+   "worst_pages_dy90": [
+    [
+     40,
+     674.9
+    ],
+    [
+     21,
+     396.4
+    ],
+    [
+     37,
+     395.0
+    ],
+    [
+     35,
+     390.0
+    ],
+    [
+     34,
+     387.8
+    ]
+   ]
+  },
+  {
+   "convert_s": 45.2,
+   "dialect": "Microsoft Word 2016 (direct export)",
+   "doc_recall": 0.94,
+   "document": "y53_ko_word2016.pdf",
+   "docx_bytes": 749138,
+   "dx_p50": 32.37,
+   "dy_p50": 24.04,
+   "dy_p90": 174.78,
+   "live_text_cov": 0.9371,
+   "mean_ssim": 0.6272,
+   "out_pages": 32,
+   "page_ratio": 1.143,
+   "src_pages": 28,
+   "tier": "designed_stress",
+   "within2pt": 0.0159,
+   "within5pt": 0.0802,
+   "word_recall": 0.6465,
+   "worst_pages_dy90": [
+    [
+     17,
+     452.6
+    ],
+    [
+     16,
+     433.8
+    ],
+    [
+     15,
+     362.3
+    ],
+    [
+     28,
+     328.7
+    ],
+    [
+     14,
+     314.9
+    ]
+   ]
+  },
+  {
+   "convert_s": 5.4,
+   "dialect": "Skia/PDF m136 Google Docs Renderer",
+   "doc_recall": 0.0951,
+   "document": "y54_hi_gdocs.pdf",
+   "docx_bytes": 63720,
+   "dx_p50": 0.94,
+   "dy_p50": 5.33,
+   "dy_p90": 15.63,
+   "live_text_cov": 0.7166,
+   "mean_ssim": 0.7511,
+   "out_pages": 4,
+   "page_ratio": 1.0,
+   "src_pages": 4,
+   "tier": "designed_stress",
+   "within2pt": 0.2065,
+   "within5pt": 0.3261,
+   "word_recall": 0.0951,
+   "worst_pages_dy90": [
+    [
+     3,
+     25.8
+    ],
+    [
+     2,
+     15.6
+    ],
+    [
+     1,
+     8.8
+    ],
+    [
+     4,
+     3.7
+    ]
+   ]
+  },
+  {
+   "convert_s": 6.2,
+   "dialect": "macOS 15.7.1 Quartz PDFContext / Apple Pages",
+   "doc_recall": 0.061,
+   "document": "y55_th_pages_quartz.pdf",
+   "docx_bytes": 42095,
+   "dx_p50": 0.15,
+   "dy_p50": 16.48,
+   "dy_p90": 42.3,
+   "live_text_cov": 1.0,
+   "mean_ssim": 0.6976,
+   "out_pages": 3,
+   "page_ratio": 1.0,
+   "src_pages": 3,
+   "tier": "designed_stress",
+   "within2pt": 0.0667,
+   "within5pt": 0.2,
+   "word_recall": 0.061,
+   "worst_pages_dy90": [
+    [
+     1,
+     57.4
+    ],
+    [
+     2,
+     19.6
+    ],
+    [
+     3,
+     3.0
+    ]
+   ]
+  },
+  {
+   "convert_s": 128.7,
+   "dialect": "Recoded by LuraDocument PDF v2.53 / Internet Archive scan",
+   "doc_recall": 0.9645,
+   "document": "y56_scan_usda1921_lura.pdf",
+   "docx_bytes": 31387165,
+   "live_text_cov": 0.9551,
+   "mean_ssim": 0.2372,
+   "out_pages": 29,
+   "page_ratio": 2.9,
+   "src_pages": 10,
+   "tier": "designed_stress",
+   "word_recall": 0.0,
+   "worst_pages_dy90": []
+  },
+  {
+   "convert_s": 270.6,
+   "dialect": "Internet Archive PDF 1.2.2 (mupdf, pymupdf) / Scribe scan",
+   "doc_recall": 0.7561,
+   "document": "y57_scan_usda1950_ia.pdf",
+   "docx_bytes": 73058880,
+   "dx_p50": 56.05,
+   "dy_p50": 55.97,
+   "dy_p90": 279.29,
+   "live_text_cov": 0.7663,
+   "mean_ssim": 0.2574,
+   "out_pages": 45,
+   "page_ratio": 2.812,
+   "src_pages": 16,
+   "tier": "designed_stress",
+   "within2pt": 0.0,
+   "within5pt": 0.0,
+   "word_recall": 0.0146,
+   "worst_pages_dy90": [
+    [
+     10,
+     616.7
+    ],
+    [
+     11,
+     264.6
+    ],
+    [
+     15,
+     240.4
+    ],
+    [
+     8,
+     205.4
+    ]
+   ]
+  },
+  {
+   "convert_s": 17.0,
+   "dialect": "Adobe PDF Library 17.0 / Adobe InDesign 20.2",
+   "doc_recall": 0.1195,
+   "document": "y58_ssa_statement_indd20.pdf",
+   "docx_bytes": 1980418,
+   "dx_p50": 116.45,
+   "dy_p50": 96.4,
+   "dy_p90": 287.73,
+   "live_text_cov": 0.1195,
+   "mean_ssim": 0.2455,
+   "out_pages": 4,
+   "page_ratio": 2.0,
+   "src_pages": 2,
+   "tier": "ordinary_digital",
+   "within2pt": 0.0,
+   "within5pt": 0.0,
+   "word_recall": 0.037,
+   "worst_pages_dy90": [
+    [
+     2,
+     325.3
+    ],
+    [
+     1,
+     104.4
+    ]
+   ]
+  },
+  {
+   "convert_s": 34.2,
+   "dialect": "Adobe PDF Library 9.0 / Adobe InDesign CS4 (6.0.6)",
+   "doc_recall": 0.7823,
+   "document": "y59_cms_notice_inddcs4.pdf",
+   "docx_bytes": 2881149,
+   "dx_p50": 87.48,
+   "dy_p50": 44.36,
+   "dy_p90": 219.97,
+   "live_text_cov": 0.7777,
+   "mean_ssim": 0.2306,
+   "out_pages": 17,
+   "page_ratio": 2.833,
+   "src_pages": 6,
+   "tier": "designed_stress",
+   "within2pt": 0.0508,
+   "within5pt": 0.0977,
+   "word_recall": 0.1099,
+   "worst_pages_dy90": [
+    [
+     3,
+     309.7
+    ],
+    [
+     5,
+     270.3
+    ],
+    [
+     6,
+     215.6
+    ],
+    [
+     4,
+     129.5
+    ],
+    [
+     1,
+     4.3
+    ]
+   ]
+  },
+  {
+   "convert_s": 165.0,
+   "dialect": "Adobe PDF Library 17.0 / Adobe InDesign 19.4",
+   "doc_recall": 0.9306,
+   "document": "y60_cdc_mmwr_indd19.pdf",
+   "docx_bytes": 399039,
+   "dx_p50": 84.44,
+   "dy_p50": 88.81,
+   "dy_p90": 371.78,
+   "live_text_cov": 0.9413,
+   "mean_ssim": 0.3106,
+   "out_pages": 38,
+   "page_ratio": 1.583,
+   "src_pages": 24,
+   "tier": "ordinary_digital",
+   "within2pt": 0.0273,
+   "within5pt": 0.0381,
+   "word_recall": 0.2621,
+   "worst_pages_dy90": [
+    [
+     3,
+     540.2
+    ],
+    [
+     19,
+     516.7
+    ],
+    [
+     8,
+     472.2
+    ],
+    [
+     16,
+     465.8
+    ],
+    [
+     10,
+     464.5
+    ]
+   ]
+  },
+  {
+   "convert_s": 60.3,
+   "dialect": "iText Core 7.2.3 / govinfo (GPO Federal Register)",
+   "doc_recall": 0.9627,
+   "document": "y61_fedreg_gpo_3col.pdf",
+   "docx_bytes": 57530,
+   "dx_p50": 61.07,
+   "dy_p50": 28.99,
+   "dy_p90": 408.94,
+   "live_text_cov": 0.9508,
+   "mean_ssim": 0.2237,
+   "out_pages": 6,
+   "page_ratio": 1.5,
+   "src_pages": 4,
+   "tier": "designed_stress",
+   "within2pt": 0.006,
+   "within5pt": 0.0181,
+   "word_recall": 0.438,
+   "worst_pages_dy90": [
+    [
+     1,
+     477.9
+    ],
+    [
+     2,
+     408.9
+    ],
+    [
+     4,
+     210.3
+    ],
+    [
+     3,
+     192.1
+    ]
+   ]
+  },
+  {
+   "convert_s": 37.8,
+   "dialect": "Acrobat Distiller 23.0 + GPO iText 7.2.3 (bill)",
+   "doc_recall": 0.9134,
+   "document": "y62_bill_gpo_linenum.pdf",
+   "docx_bytes": 51375,
+   "dx_p50": 52.06,
+   "dy_p50": 14.12,
+   "dy_p90": 180.76,
+   "live_text_cov": 0.7872,
+   "mean_ssim": 0.6479,
+   "out_pages": 25,
+   "page_ratio": 1.25,
+   "src_pages": 20,
+   "tier": "ordinary_digital",
+   "within2pt": 0.0585,
+   "within5pt": 0.0791,
+   "word_recall": 0.4068,
+   "worst_pages_dy90": [
+    [
+     11,
+     510.3
+    ],
+    [
+     9,
+     494.0
+    ],
+    [
+     4,
+     466.3
+    ],
+    [
+     7,
+     433.8
+    ],
+    [
+     5,
+     370.3
+    ]
+   ]
+  },
+  {
+   "convert_s": 34.7,
+   "dialect": "Word for Microsoft 365 + AO and GPO iText 7.2.3",
+   "doc_recall": 0.9701,
+   "document": "y63_court_pleading_word365.pdf",
+   "docx_bytes": 48444,
+   "dx_p50": 30.41,
+   "dy_p50": 28.65,
+   "dy_p90": 321.76,
+   "live_text_cov": 0.9176,
+   "mean_ssim": 0.2417,
+   "out_pages": 13,
+   "page_ratio": 2.6,
+   "src_pages": 5,
+   "tier": "ordinary_digital",
+   "within2pt": 0.0,
+   "within5pt": 0.0758,
+   "word_recall": 0.1316,
+   "worst_pages_dy90": [
+    [
+     1,
+     410.7
+    ],
+    [
+     2,
+     385.6
+    ],
+    [
+     3,
+     351.4
+    ],
+    [
+     5,
+     134.5
+    ],
+    [
+     4,
+     15.7
+    ]
+   ]
+  },
+  {
+   "convert_s": 162.4,
+   "dialect": "Adobe Acrobat Pro 25.1 / XPP",
+   "doc_recall": 0.9547,
+   "document": "y64_bls_release_xpp.pdf",
+   "docx_bytes": 634809,
+   "dx_p50": 56.76,
+   "dy_p50": 38.09,
+   "dy_p90": 249.79,
+   "live_text_cov": 0.9572,
+   "mean_ssim": 0.4799,
+   "out_pages": 48,
+   "page_ratio": 1.231,
+   "src_pages": 39,
+   "tier": "ordinary_digital",
+   "within2pt": 0.0279,
+   "within5pt": 0.038,
+   "word_recall": 0.1124,
+   "worst_pages_dy90": [
+    [
+     11,
+     572.0
+    ],
+    [
+     16,
+     530.3
+    ],
+    [
+     32,
+     436.2
+    ],
+    [
+     13,
+     429.7
+    ],
+    [
+     10,
+     425.7
+    ]
+   ]
+  },
+  {
+   "convert_s": 14.3,
+   "dialect": "iText 2.1.7 / JasperReports",
+   "doc_recall": 1.0,
+   "document": "y65_nrc_jasperreports.pdf",
+   "docx_bytes": 84821,
+   "dx_p50": 0.1,
+   "dy_p50": 8.31,
+   "dy_p90": 45.78,
+   "live_text_cov": 0.9913,
+   "mean_ssim": 0.8432,
+   "out_pages": 3,
+   "page_ratio": 1.0,
+   "src_pages": 3,
+   "tier": "ordinary_digital",
+   "within2pt": 0.4295,
+   "within5pt": 0.4315,
+   "word_recall": 1.0,
+   "worst_pages_dy90": [
+    [
+     1,
+     45.8
+    ],
+    [
+     2,
+     9.6
+    ],
+    [
+     3,
+     8.3
+    ]
+   ]
+  }
+ ],
+ "elapsed_s": 579.6,
+ "gating": false,
+ "profile": "pdfium/standard/libreoffice/refine3@240dpi",
+ "schema": "exactdoc.quality-sweep.v1",
+ "summary": {
+  "documents": 38,
+  "errors": 0,
+  "mean_abs_ratio_err": 0.5832,
+  "mean_doc_recall": 0.8261,
+  "mean_live_text_cov": 0.88,
+  "mean_ssim": 0.4812,
+  "mean_within2pt": 0.0485,
+  "mean_word_recall": 0.3472,
+  "measured": 38,
+  "median_ratio": 1.384,
+  "page_exact": 10,
+  "refused": 0,
+  "total_convert_s": 2600.7
+ }
+}

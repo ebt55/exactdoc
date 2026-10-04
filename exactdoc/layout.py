@@ -25,9 +25,14 @@ class Run:
     # values compress a line that TeX fitted by shrinking inter-word glue --
     # something Word's line breaker cannot do on its own.
     char_spacing: float = 0.0
+    # Horizontal scale the writer emits as w:w (1.0 = none; 0.0 = not set) so
+    # the run occupies the width the source drew it at -- see
+    # metrics.apply_width_scale. The ladder shapes with it too.
+    width_scale: float = 0.0
     # The SOURCE's letter-spacing in points (model.Span.tracking), kept apart
     # from the ladder's compression above so that neither overwrites the other;
-    # the writer emits their sum.
+    # the writer emits their sum. It ADDS space after each glyph, where
+    # width_scale scales the glyphs themselves; the two compose.
     tracking: float = 0.0
 
 
@@ -186,6 +191,9 @@ class DocLayout:
     pages: List[PageLayout] = field(default_factory=list)
     src_path: str = ""
     ladder_report: dict = field(default_factory=dict)  # see ladder.py
+    # The source's own glyph advances, {font: {char: em}}, carried from
+    # DocIR.font_advances for metrics.apply_width_scale.
+    font_advances: Dict[str, Dict[str, float]] = field(default_factory=dict)
 
     @property
     def content_w(self) -> float:
