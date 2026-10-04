@@ -11,9 +11,10 @@ wrapping a line longer than predicted, which the planner budgets for:
    Mono (y17's ABNF appendix, every line 15.3% tall) with the families Docs
    embeds in its exports.
 2. A line multiple is computed against the EMITTED half-point size.
-3. A paragraph's pitch is its source mean where Word's device grid jitters it.
-4. Lines mixing families (Times with inline Courier New) are set taller by
-   Docs; the paragraph's multiple is chosen for its total.
+3. A paragraph keeps its median pitch: infer's gaps were computed against it.
+4. Lines mixing families or sizes (Times with inline Courier New, capitals
+   over small capitals) are set taller by Docs; where the source set them at
+   one pitch, the paragraph's multiple is chosen for its total.
 5. Rules and inline pictures are compensated by what Docs adds to them.
 6. Each page is modelled as Docs sets it and keeps a body line plus a safety
    free, paid from its own gaps, gently first, never past the refine floors.
@@ -111,17 +112,12 @@ class Calibration(unittest.TestCase):
                  leading=13.15, src_lines=3)
         self.assertEqual(self._line(p), round(240 * 13.15 / (11.0 * 1.150)))
 
-    def test_the_mean_pitch_replaces_a_jittered_median(self):
+    def test_a_jittered_paragraph_keeps_its_median(self):
+        # Word's grid steps 13.68 / 13.92 and the gap below was computed
+        # against the 13.92 median: the paragraph plus its gap advance as the
+        # source did, and the mean would lift everything after it
         p = _para(lines=5, lead=13.92)
-        p._pitch_mean, p._pitch_n = 13.84, 5
-        self.assertEqual(_docs_lead(p, 12.0), 13.84)
-
-    def test_a_stale_or_structural_mean_is_ignored(self):
-        p = _para(lines=6, lead=13.92)
-        p._pitch_mean, p._pitch_n = 13.84, 5           # a later pass merged lines
-        self.assertEqual(_docs_lead(p, 12.0), 13.92)
-        p._pitch_n = 6
-        p._pitch_mean = 13.92 + D.GDOCS_PITCH_JITTER_PT + 0.2   # a pushed line
+        p._pitch_max, p._pitch_n = 13.92, 5
         self.assertEqual(_docs_lead(p, 12.0), 13.92)
 
     def test_the_single_line_lever_stands(self):
@@ -150,6 +146,21 @@ class Calibration(unittest.TestCase):
         # a smaller run does not
         runs[0] = _run("x", font="Times-Roman", size=6.0)
         self.assertEqual(_gdocs_mixed_lines(p, runs, 8.0, "Times New Roman", 1), 0.0)
+
+    def test_a_source_that_stepped_its_own_mixed_lines_is_left(self):
+        # Word sets the line with the Courier run taller itself, and the
+        # baseline-anchored gap below already spent it
+        runs = [_run("a" * 30, font="Times-Roman", size=11.0),
+                _run("code", font="Courier", size=11.0, mono=True),
+                _run("b" * 86, font="Times-Roman", size=11.0)]
+        p = Para(runs=runs, leading=13.15, src_lines=4)
+        p._pitch_max, p._pitch_n = 13.15 + 1.0, 4
+        self.assertEqual(_gdocs_mixed_lines(p, runs, 11.0, "Times New Roman", 4), 0.0)
+        p._pitch_max = 13.15 + 0.24              # grid jitter, not a taller line
+        self.assertGreater(_gdocs_mixed_lines(p, runs, 11.0, "Times New Roman", 4), 1.15)
+        p._pitch_n = 5                           # stale: a later pass merged lines
+        p._pitch_max = 13.15 + 1.0
+        self.assertGreater(_gdocs_mixed_lines(p, runs, 11.0, "Times New Roman", 4), 1.15)
 
     def test_one_family_needs_no_correction(self):
         runs = [_run("plain " * 20, font="Times-Roman", size=11.0)]
@@ -361,8 +372,8 @@ def _jittered_pdf(path):
     c.save()
 
 
-class TheMeanPitchEndToEnd(unittest.TestCase):
-    def test_docs_is_asked_for_the_mean_not_the_upper_median(self):
+class TheMedianPitchEndToEnd(unittest.TestCase):
+    def test_both_profiles_keep_the_median(self):
         from exactdoc.convert import convert
         from exactdoc.options import PDFIUM_GDOCS_CANDIDATE, RAW
         with tempfile.TemporaryDirectory() as d:
@@ -372,11 +383,10 @@ class TheMeanPitchEndToEnd(unittest.TestCase):
             convert(src, gd, options=PDFIUM_GDOCS_CANDIDATE, max_pages=0)
             xml = zipfile.ZipFile(gd).read("word/document.xml").decode("utf-8")
             lines = [int(v) for v in re.findall(r'w:line="(\d+)" w:lineRule="auto"', xml)]
-            # mean pitch 13.80 at 12pt x 1.150 is single spacing (240); the
-            # upper median 13.92 would ask for 242
-            self.assertIn(240, lines)
-            self.assertNotIn(242, lines)
-            # the standard profile keeps the median it was calibrated on
+            # the 13.92 median at 12pt x 1.150 (242), not the 13.80 mean (240)
+            self.assertIn(242, lines)
+            self.assertNotIn(240, lines)
+            # the standard profile writes the same median, exactly
             std = os.path.join(d, "std.docx")
             convert(src, std, options=RAW, max_pages=0)
             xml = zipfile.ZipFile(std).read("word/document.xml").decode("utf-8")

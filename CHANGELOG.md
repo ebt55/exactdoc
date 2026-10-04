@@ -36,10 +36,11 @@ one verified fix at a time, each gated against the frozen 16.
   - Roboto Mono and five other native families at the factor read from the
     fonts Docs embeds. y17's code lines were 15.3% taller than written.
   - Multiples are taken against the emitted half-point size.
-  - Word's jittered pitch is replaced by the source mean.
   - Lines mixing families or sizes follow Docs' largest-ascent-plus-largest-descent
-    rule: inline Courier New in Times measured 1.2332 em against 1.2339
-    predicted, over 918 lines.
+    rule wherever the source set them at one pitch: inline Courier New in
+    Times measured 1.2332 em against 1.2339 predicted, over 918 lines.
+    Asking for Word's mean pitch was tried and reverted: infer's gaps were
+    computed against the median.
   - Rules are compensated by the 2.8pt Docs adds above them.
   - Inline pictures are compensated by 1.5pt above and 2.45pt below.
   - Code-box sides (pictures 8pt or narrower and 36pt or taller) are anchored

@@ -708,11 +708,10 @@ def _natural_factor(family: str) -> float:
 # `leading` is the size*1.16 heuristic, not a measured baseline delta, so
 # shaving it is a correction of an estimate, not of a measurement.
 GDOCS_SINGLE_LINE_SHAVE_PT = 0.38
-# A paragraph's mean pitch replaces its median only within this of it: the
-# Word grid's two-step jitter is 0.24pt (13.68 / 13.92), and anything wider is
-# structure -- a line pushed down by a tall glyph -- that the mean would
-# spread over every line.
-GDOCS_PITCH_JITTER_PT = 0.3
+# A source paragraph whose widest line step exceeds its median by more than
+# this set its taller lines itself: Word's grid jitter is 0.24pt (13.68 /
+# 13.92), a line raised by an inline Courier New run a point or more.
+GDOCS_PITCH_STEP_PT = 0.5
 
 
 def _dominant_run(p: Para, profile: str = "standard"):
@@ -727,17 +726,17 @@ def _dominant_run(p: Para, profile: str = "standard"):
 
 
 def _docs_lead(p: Para, dom_size: float) -> float:
-    """The line pitch the gdocs writer asks Google Docs for.
+    """The line pitch the gdocs writer asks Google Docs for: the measured
+    pitch, and the single-line lever above. The page planner models the page
+    with this same value.
 
-    The source's mean pitch where Word's grid jitters it (see infer's
-    `_pitch_mean`), and the single-line lever above. Multi-line paragraphs
-    otherwise keep their measured pitch untouched. The page planner models
-    the page with this same value."""
+    Not the source's mean pitch where Word's grid jitters it (13.68 / 13.92,
+    the upper median wins). The median is what infer's baseline-anchored gaps
+    were computed against, so the paragraph plus the gap below it already
+    advance exactly as the source did; asking for the mean shortened every
+    such paragraph and lifted everything below it (tried: LibreOffice
+    within-2pt on x07 0.44 -> 0.15)."""
     lead = p.leading
-    pm = getattr(p, "_pitch_mean", None)
-    if pm and getattr(p, "_pitch_n", 0) == (p.src_lines or 0) \
-            and abs(pm - lead) <= GDOCS_PITCH_JITTER_PT:
-        lead = pm
     if (p.src_lines or 1) == 1 and not p.line_breaks and lead > 0:
         lead = max(dom_size * 1.0 if dom_size else 4.0,
                    lead - GDOCS_SINGLE_LINE_SHAVE_PT)
@@ -764,6 +763,12 @@ def _gdocs_mixed_lines(p: Para, runs, dom_size: float, dom_fam: str,
     in the typed marker's font and size whether typed or numbered."""
     dom = GDOCS_LINE_METRICS.get((dom_fam or "").lower())
     if dom is None or dom_size <= 0 or n_lines < 1:
+        return 0.0
+    # A source that stepped its own taller lines already spent the height,
+    # and the gap below accounted for it (see infer's `_pitch_max`).
+    step = getattr(p, "_pitch_max", None)
+    if step is not None and getattr(p, "_pitch_n", 0) == (p.src_lines or 0) \
+            and step - (p.leading or 0.0) > GDOCS_PITCH_STEP_PT:
         return 0.0
     base = sum(dom)
     best = list(dom)
