@@ -82,6 +82,10 @@ class WriteCtx:
     # Set when a write found a reference missing and fell back to typed notes
     # (see the check before write_footnotes in _write_docx).
     notes_vetoed: bool = False
+    # gdocs profile, per page: True when the page is at risk in Google Docs
+    # and is written in the calibrated form (`_gdocs_page_at_risk`); False
+    # writes the form the profile shipped before WP19, byte for byte.
+    gdocs_calibrated: bool = False
 
     @property
     def numbering(self) -> bool:
@@ -606,10 +610,13 @@ NATURAL_DEFAULT = 1.144
 
 # The ascent, descent and line gap (em) Google Docs uses for each family --
 # the same file tables NATURAL_FACTORS sums. A line that mixes families is set
-# at multiple x size x (largest ascent + largest descent + largest gap): Times
-# with an inline Courier New run is 0.8911 + 0.3003 + 0.0425 = 1.2339 em,
-# against 1.2332 measured on 918 such lines of y26 (Bash manual) -- each 0.95pt
-# taller than the Times lines around it. `_gdocs_mixed_lines` reads this.
+# at multiple x size x (largest ascent-plus-gap + largest descent): Times with
+# an inline Courier New run is 0.9336 + 0.3003 = 1.2339 em, against 1.2332
+# measured on 918 such lines of y26 (Bash manual), each 0.95pt taller than the
+# Times lines around it; Arial in Times is 0.9380 + 0.2163 = 1.1543, and the
+# WP19 calibration page measured 12.70pt for that 11pt line (12.697 predicted;
+# summing the largest gap separately would say 12.81). `_gdocs_mixed_lines`
+# reads this.
 GDOCS_LINE_METRICS = {
     "arial": (0.9053, 0.2119, 0.0327),
     "times new roman": (0.8911, 0.2163, 0.0425),
@@ -708,10 +715,26 @@ def _natural_factor(family: str) -> float:
 # `leading` is the size*1.16 heuristic, not a measured baseline delta, so
 # shaving it is a correction of an estimate, not of a measurement.
 GDOCS_SINGLE_LINE_SHAVE_PT = 0.38
-# A source paragraph whose widest line step exceeds its median by more than
-# this set its taller lines itself: Word's grid jitter is 0.24pt (13.68 /
-# 13.92), a line raised by an inline Courier New run a point or more.
-GDOCS_PITCH_STEP_PT = 0.5
+
+# The families whose natural factor WP19 moved or added. A page that fits in
+# Docs keeps the form shipped before (`_gdocs_legacy_factor`): Arial and Times
+# at 1.144 and these at the 1.144 default, the multiple taken against the
+# unquantised size. That form carries errors that cancel -- live, c1's Times
+# lines ran +0.32pt each against its callout boxes' -9.7pt, x05's single-line
+# paragraphs sat 2pt high against its body's drift -- and correcting one of a
+# cancelling pair on a page that already fit moved its words: within-2pt c1
+# 0.154 -> 0.064, x05 0.785 -> 0.066, 01 0.362 -> 0.236 (WP19 probe 1).
+GDOCS_LEGACY_1144 = frozenset({"arial", "times new roman", "roboto mono",
+                               "open sans", "source code pro", "figtree",
+                               "tahoma", "ubuntu", "arial unicode ms"})
+
+
+def _gdocs_legacy_factor(family: str) -> float:
+    """The natural factor the gdocs profile shipped before WP19."""
+    key = (family or "").lower()
+    if key in GDOCS_LEGACY_1144:
+        return NATURAL_DEFAULT
+    return _natural_factor(family)
 
 
 def _dominant_run(p: Para, profile: str = "standard"):
@@ -760,16 +783,16 @@ def _gdocs_mixed_lines(p: Para, runs, dom_size: float, dom_fam: str,
     scaled by its own size: y10's (FIPS 180) small-capital contents lines, 8pt
     text under 10pt capitals, advanced 13.94pt in Docs against 11.17 asked --
     the multiple times 10pt x 1.150 exactly. A list label counts: it is set
-    in the typed marker's font and size whether typed or numbered."""
-    dom = GDOCS_LINE_METRICS.get((dom_fam or "").lower())
-    if dom is None or dom_size <= 0 or n_lines < 1:
+    in the typed marker's font and size whether typed or numbered.
+
+    It applies whether or not the source stepped those lines wider itself: a
+    Word source's taller line moved the next paragraph's baseline, and infer
+    anchored that paragraph's gap on it, so the source's extra is already in
+    the gap -- Docs setting the line taller again would count it twice."""
+    m0 = GDOCS_LINE_METRICS.get((dom_fam or "").lower())
+    if m0 is None or dom_size <= 0 or n_lines < 1:
         return 0.0
-    # A source that stepped its own taller lines already spent the height,
-    # and the gap below accounted for it (see infer's `_pitch_max`).
-    step = getattr(p, "_pitch_max", None)
-    if step is not None and getattr(p, "_pitch_n", 0) == (p.src_lines or 0) \
-            and step - (p.leading or 0.0) > GDOCS_PITCH_STEP_PT:
-        return 0.0
+    dom = (m0[0] + m0[2], m0[1])        # ascent + gap, descent
     base = sum(dom)
     best = list(dom)
     spans = []             # (start, end) of runs that raise a line
@@ -786,7 +809,7 @@ def _gdocs_mixed_lines(p: Para, runs, dom_size: float, dom_fam: str,
         if m is None:
             continue
         k = _quantised_size(r.size) / _quantised_size(dom_size)
-        scaled = [v * k for v in m]
+        scaled = [(m[0] + m[2]) * k, m[1] * k]
         if any(s > d + 1e-4 for s, d in zip(scaled, dom)):
             best = [max(b, s) for b, s in zip(best, scaled)]
             spans.append((a, pos))
@@ -812,7 +835,8 @@ def _gdocs_mixed_lines(p: Para, runs, dom_size: float, dom_fam: str,
 
 
 def _apply_leading(pf, leading: float, size: float, mode: str = "exact",
-                   family: str = "", line_factor: float = 0.0):
+                   family: str = "", line_factor: float = 0.0,
+                   quantise: bool = True):
     """Encode a line height the way the chosen target actually honours.
 
     In multiple mode the natural line is the EMITTED size's: the run is
@@ -820,9 +844,12 @@ def _apply_leading(pf, leading: float, size: float, mode: str = "exact",
     11.0 and its lines were 0.8% tall -- y26's Times lines measured 13.33pt
     in Docs against 13.15 written, the size step plus the 1.150 factor
     (918 lines). `line_factor` overrides the family's natural factor (a
-    paragraph whose lines mix families, `_gdocs_mixed_lines`)."""
+    paragraph whose lines mix families, `_gdocs_mixed_lines`; the shipped
+    form's `_gdocs_legacy_factor`), and `quantise=False` is that form's
+    unquantised size."""
     if mode == "multiple" and size and size > 0.5 and leading > 1.0:
-        natural = _quantised_size(size) * (line_factor or _natural_factor(family))
+        natural = (_quantised_size(size) if quantise else size) * \
+            (line_factor or _natural_factor(family))
         pf.line_spacing = max(0.06, leading / natural)   # w:line as a multiple
         return
     pf.line_spacing_rule = WD_LINE_SPACING.EXACTLY
@@ -1011,13 +1038,18 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None,
         dom, fam = _dominant_run(p, ctx.output_profile)
         lead = p.leading
         factor = 0.0
+        quantise = True
         if ctx.output_profile == "gdocs":
-            # what Docs is asked for, and how its lines will mix families
             lead = _docs_lead(p, dom)
-            factor = _gdocs_mixed_lines(p, p.runs, dom, fam,
-                                        max(1, p.src_lines or 1))
+            if ctx.gdocs_calibrated:
+                # what Docs is asked for, and how its lines will mix families
+                factor = _gdocs_mixed_lines(p, p.runs, dom, fam,
+                                            max(1, p.src_lines or 1))
+            else:
+                # a page that fits keeps the shipped form, byte for byte
+                factor, quantise = _gdocs_legacy_factor(fam), False
         _apply_leading(pf, lead, dom, mode=ctx.line_mode, family=fam,
-                       line_factor=factor)
+                       line_factor=factor, quantise=quantise)
     if num is not None and not ind_from_level:
         # A numbered paragraph inherits its level's indents unless it says
         # otherwise, so a paragraph that differs must say so -- zeros included.
@@ -2051,8 +2083,8 @@ def _guard_page_tail(pg, content_w: float, lay: DocLayout, notes_h: float,
 # a page of fifteen paragraphs meets one a fifth of the time). So the planner
 # models each page as Docs will set it and keeps one body line plus
 # GDOCS_PAGE_SAFETY_PT of it free, taking what that needs from the page's own
-# gaps -- proportionally, gently first -- and never more than the refine loop's
-# floors allow. A page that cannot be made to fit even then is left exactly as
+# gaps -- from the foot of the page up, gently first -- and never more than the
+# refine loop's floors allow. A page that cannot be made to fit even then is left exactly as
 # the source spaced it: spending its spacing would not save it.
 #
 # A rule paragraph (write_rule: exact 2pt, 1pt run) is drawn this much lower in
@@ -2117,7 +2149,8 @@ def _gdocs_picture_inline(el, lay: DocLayout) -> bool:
 
 
 def _gdocs_page_model(pg, content_w: float, lay: DocLayout, notes_h: float,
-                      seam_drops_gap: bool, plan: dict, skip=()):
+                      seam_drops_gap: bool, plan: dict, skip=(),
+                      legacy: bool = False):
     """-> (used_pt, [(element, gap_now, source_gap)]) for one source page as
     Google Docs will set it, under the gap overrides in `plan`; None where the
     page is not additive (columns, a column break, a block with no box).
@@ -2129,7 +2162,13 @@ def _gdocs_page_model(pg, content_w: float, lay: DocLayout, notes_h: float,
     the page's first paragraph carries the page break as pageBreakBefore, and
     Docs drops its space-before there (1,640 pages measured: first line at
     margin + line, +0.3pt median, whatever the gap) -- room the page has.
-    `skip`: elements that leave the flow (`_gdocs_vertical_rules`)."""
+    `skip`: elements that leave the flow (`_gdocs_vertical_rules`).
+
+    `legacy`: the page as the shipped form would set it -- each paragraph's
+    multiple at `_gdocs_legacy_factor` over the unquantised size, rendered at
+    the true factor of the emitted size, lines that mix families taller by
+    Docs' rule, rules and pictures with their full excess (no compensation
+    is written in that form)."""
     metrics = _text_metrics("gdocs")
     used = 0.0
     gaps = []
@@ -2158,9 +2197,16 @@ def _gdocs_page_model(pg, content_w: float, lay: DocLayout, notes_h: float,
             first = False
             after = getattr(el, "space_after", 0.0) or 0.0
             if isinstance(el, Para):
-                dom, _fam = _dominant_run(el, "gdocs")
+                dom, fam = _dominant_run(el, "gdocs")
                 lead = _docs_lead(el, dom) if el.leading and el.leading > 1 \
                     else _line_height(el)
+                if legacy and el.leading and el.leading > 1 and dom > 0.5:
+                    # what Docs makes of the shipped multiple, on average
+                    true = _gdocs_mixed_lines(el, el.runs, dom, fam,
+                                              max(1, el.src_lines or 1)) \
+                        or _natural_factor(fam)
+                    lead = lead / (dom * _gdocs_legacy_factor(fam)) \
+                        * _quantised_size(dom) * true
                 if el.gdocs_rows:
                     n = len(el.gdocs_rows)
                 else:
@@ -2194,22 +2240,71 @@ def _gdocs_page_model(pg, content_w: float, lay: DocLayout, notes_h: float,
     return used, gaps
 
 
+# The WP19 calibration page (live, 2026-10-05) measured how Docs treats an
+# empty paragraph that carries the page break in front of a gapped one: the
+# gap is kept (dropped when the gapped paragraph carries the break itself),
+# and the holder costs 1.07pt with the template's 11pt mark, 0.22pt with a
+# 1pt mark -- exact 1pt line, 1pt run. Off until a probe of real documents
+# has measured it: a kept page-top gap is the source's placement, and room.
+GDOCS_PAGE_TOP_HOLDER = False
+GDOCS_HOLDER_PT = 0.22
+
+
+def _gdocs_page_at_risk(pg, content_w: float, lay: DocLayout, notes_h: float,
+                        body_line: float, seam_drops_gap: bool) -> bool:
+    """Would Google Docs set this page, written in the shipped form, with
+    less than a body line plus GDOCS_PAGE_SAFETY_PT to spare? Only such a
+    page is calibrated and planned; every other page keeps the shipped form
+    (see GDOCS_LEGACY_1144). A page the model cannot add up is not at risk:
+    it is written as it always was."""
+    got = _gdocs_page_model(pg, content_w, lay, notes_h, seam_drops_gap, {},
+                            legacy=True)
+    if got is None:
+        return False
+    return got[0] + max(0.0, body_line) + GDOCS_PAGE_SAFETY_PT > \
+        _body_capacity(lay) - notes_h
+
+
+def _gdocs_seam_holder(doc):
+    """The empty paragraph that carries a page seam ahead of a gapped one, so
+    Docs keeps the gap (GDOCS_PAGE_TOP_HOLDER): exact 1pt line, 1pt run and
+    a 1pt paragraph mark."""
+    par = _blank_page_holder(doc, True)
+    for r in par.runs:
+        r.font.size = Pt(1)
+    ppr = par._p.get_or_add_pPr()
+    rpr = OxmlElement("w:rPr")
+    for tag in ("w:sz", "w:szCs"):
+        el = OxmlElement(tag)
+        el.set(qn("w:val"), "2")
+        rpr.append(el)
+    ppr.append(rpr)
+    return par
+
+
 def _gdocs_page_plan(pg, content_w: float, lay: DocLayout, notes_h: float,
                      body_line: float, seam_drops_gap: bool, skip=(),
-                     budget: bool = True) -> dict:
-    """The gap plan `{id(element): space_before}` for one gdocs page: the
-    rule and picture compensations, then whatever the page needs to keep a
-    body line plus GDOCS_PAGE_SAFETY_PT free in Docs (see the block comment
-    above). `budget=False` (a booklet, written as one flow with no page
-    seams) keeps the compensations only: there is no page to fit. Nothing
-    is mutated (see `_absorb_page_spill`)."""
+                     legacy: bool = False, report: Optional[dict] = None) -> dict:
+    """The gap plan `{id(element): space_before}` for one gdocs page at risk
+    (`_gdocs_page_at_risk`): the rule and picture compensations, then
+    whatever the page needs to keep a body line plus GDOCS_PAGE_SAFETY_PT
+    free in Docs (see the block comment above). A booklet is never asked: it
+    is one flow with no page seams, written in the shipped form. Nothing is
+    mutated (see `_absorb_page_spill`).
+
+    `legacy`: plan the page in the shipped form -- gaps only, no
+    compensation, the shipped form's heights (`_gdocs_page_model`). `report`
+    receives `short`, the points of the budget the page's gaps could not pay
+    (0.0 when the plan pays it all)."""
+    if report is not None:
+        report["short"] = 0.0
     if getattr(pg, "continuation_only", False) or not pg.chunks:
         return {}
     plan = {}
     flow = [el for ch in pg.chunks for el in ch.elements
             if not (notes_h > 0 and getattr(el, "role", "") == "footnote")
             and id(el) not in skip]
-    for i, el in enumerate(flow):
+    for i, el in enumerate(flow if not legacy else ()):
         gap = getattr(el, "space_before", 0.0) or 0.0
         if isinstance(el, RuleEl) and getattr(el, "frame", None) is None:
             if gap > 0.05:
@@ -2222,10 +2317,8 @@ def _gdocs_page_plan(pg, content_w: float, lay: DocLayout, notes_h: float,
                 ngap = plan.get(id(nxt), getattr(nxt, "space_before", 0.0) or 0.0)
                 if ngap > 0.05:
                     plan[id(nxt)] = round(max(0.0, ngap - GDOCS_PICTURE_BELOW_PT), 1)
-    if not budget:
-        return plan
     got = _gdocs_page_model(pg, content_w, lay, notes_h, seam_drops_gap, plan,
-                            skip)
+                            skip, legacy=legacy)
     if got is None:
         return plan
     used, gaps = got
@@ -2243,19 +2336,24 @@ def _gdocs_page_plan(pg, content_w: float, lay: DocLayout, notes_h: float,
             row.append(max(0.0, gap - floor))
         tiers.append(row)
     total = sum(tiers[-1])
+    if report is not None:
+        report["short"] = max(0.0, need - total)
     if over > 0 and total < over + GDOCS_PAGE_SAFETY_PT:
         return plan            # cannot be saved by its spacing: keep the source's
     pay = min(need, total)
     take = [0.0] * len(gaps)
+    # From the foot of the page up, each tier in turn: a gap taken low on the
+    # page moves only the lines under it, so the fewest words leave their
+    # source position (the first probe's proportional reclaim moved every
+    # line below the first gap it touched).
     for row in tiers:
-        avail = [max(0.0, r - t) for r, t in zip(row, take)]
-        room = sum(avail)
-        if room <= 0.05 or pay <= 0.05:
-            continue
-        f = min(1.0, pay / room)
-        for k, a in enumerate(avail):
-            take[k] += a * f
-        pay -= room * f
+        for k in range(len(gaps) - 1, -1, -1):
+            if pay <= 0.05:
+                break
+            a = max(0.0, row[k] - take[k])
+            t = min(a, pay)
+            take[k] += t
+            pay -= t
     out = dict(plan)
     for (el, gap, _src), t in zip(gaps, take):
         if t > 0.05:
@@ -4635,24 +4733,64 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
         # written once per refine round and a gap reduced in place would
         # compound on every pass. The cover page keeps its own bleed geometry
         # and is never asked. See `_absorb_page_spill`.
-        # A picture that is a vertical rule leaves the flow (gdocs; see
-        # `_gdocs_vertical_rules`).
-        vrules = _gdocs_vertical_rules(pg, body_line) \
-            if ctx.output_profile == "gdocs" and not (has_cover and pi == 0) \
-            else {}
+        # gdocs: a page at risk in Google Docs is written in the calibrated
+        # form and planned (`_gdocs_page_plan`); every other page keeps the
+        # shipped form (`_gdocs_page_at_risk`). The seam is pageBreakBefore on
+        # the page's first paragraph exactly when one is pending here (a
+        # section break or page 1 has none), and Docs drops that gap.
+        vrules = {}
+        holder_gap = None
+        calibrated = False
+        first_el = next((el for ch in pg.chunks for el in ch.elements), None)
+        pbb_seam = pending_break[0] and isinstance(first_el, Para)
+        # A page followed by a blank source page is left as shipped: when it
+        # overflows (`_stack_fits` false) the writer holds no page for the
+        # blank, and the overflow is what fills it -- y30's cover runs a logo
+        # row onto its blank verso and was page-exact live. Fitting it would
+        # delete the verso.
+        nxt_pg = lay.pages[pi + 1] if pi + 1 < len(lay.pages) else None
+        before_blank = nxt_pg is not None and not getattr(nxt_pg, "floats", None) \
+            and not any(ch.elements for ch in nxt_pg.chunks)
+        if ctx.output_profile == "gdocs" and not (has_cover and pi == 0) \
+                and not booklet and not before_blank:
+            nh = notes_h.get(pg.number, 0.0)
+            calibrated = _gdocs_page_at_risk(pg, cw_ctx, glay, nh, body_line,
+                                             pbb_seam)
+            if not calibrated and pbb_seam and GDOCS_PAGE_TOP_HOLDER and \
+                    getattr(first_el, "frame", None) is None and \
+                    (first_el.space_before or 0.0) > 1.0 and \
+                    not _gdocs_page_at_risk(pg, cw_ctx, glay, nh, body_line,
+                                            False):
+                holder_gap = first_el.space_before
+        legacy_plan = None
+        if calibrated and not (has_cover and pi == 0):
+            # At risk. The least change first: the shipped form, its own gaps
+            # paying the budget. Only a page those gaps cannot fit is
+            # calibrated -- the form that also sets every line at Docs' true
+            # height and compensates rules and pictures.
+            rep = {}
+            legacy_plan = _gdocs_page_plan(pg, cw_ctx, glay,
+                                           notes_h.get(pg.number, 0.0),
+                                           body_line, pbb_seam, legacy=True,
+                                           report=rep)
+            if rep["short"] <= 0.05:
+                calibrated = False
+            else:
+                legacy_plan = None
         if has_cover and pi == 0:
             spill_plan = {}
-        elif ctx.output_profile == "gdocs":
-            # No refine loop behind this profile: the page is planned against
-            # Google Docs' own measured behaviour (`_gdocs_page_plan`). The
-            # seam is pageBreakBefore on the page's first paragraph exactly
-            # when one is pending here (a section break or page 1 has none).
+        elif legacy_plan is not None:
+            spill_plan = legacy_plan
+        elif calibrated:
+            # A picture that is a vertical rule leaves the flow
+            # (`_gdocs_vertical_rules`).
+            vrules = _gdocs_vertical_rules(pg, body_line)
             first_el = next((el for ch in pg.chunks for el in ch.elements
                              if id(el) not in vrules), None)
             spill_plan = _gdocs_page_plan(
                 pg, cw_ctx, glay, notes_h.get(pg.number, 0.0), body_line,
                 seam_drops_gap=pending_break[0] and isinstance(first_el, Para),
-                skip=vrules, budget=not booklet)
+                skip=vrules)
         else:
             spill_plan = _absorb_page_spill(pg, cw_ctx, glay,
                                             notes_h.get(pg.number, 0.0),
@@ -4664,6 +4802,16 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                                           notes_h.get(pg.number, 0.0),
                                           ctx.output_profile, spill_plan,
                                           body_line)
+        if ctx.output_profile == "gdocs":
+            ctx = dataclasses.replace(ctx, gdocs_calibrated=calibrated)
+        if holder_gap is not None:
+            # the seam rides on an empty holder, and the first paragraph keeps
+            # its gap less the holder's own height (GDOCS_PAGE_TOP_HOLDER)
+            _gdocs_seam_holder(doc)
+            pending_break[0] = False
+            spill_plan = dict(spill_plan)
+            spill_plan[id(first_el)] = round(max(0.0, spill_plan.get(
+                id(first_el), holder_gap) - GDOCS_HOLDER_PT), 1)
         # A slide's graphics ride in the page's first paragraph, anchored to
         # the page (see anchor_floats); a page with no paragraph gets a host.
         page_floats = list(getattr(pg, "floats", None) or ()) + list(vrules.values())

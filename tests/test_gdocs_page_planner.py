@@ -13,11 +13,18 @@ wrapping a line longer than predicted, which the planner budgets for:
 2. A line multiple is computed against the EMITTED half-point size.
 3. A paragraph keeps its median pitch: infer's gaps were computed against it.
 4. Lines mixing families or sizes (Times with inline Courier New, capitals
-   over small capitals) are set taller by Docs; where the source set them at
-   one pitch, the paragraph's multiple is chosen for its total.
+   over small capitals) are set taller by Docs; the paragraph's multiple is
+   chosen for its total.
 5. Rules and inline pictures are compensated by what Docs adds to them.
 6. Each page is modelled as Docs sets it and keeps a body line plus a safety
-   free, paid from its own gaps, gently first, never past the refine floors.
+   free, paid from its own gaps from the foot up, gently first, never past
+   the refine floors.
+
+All of that is written ONLY on a page at risk in Docs. A page that fits as the
+profile shipped it keeps that form byte for byte: its errors cancel, and the
+first live probe measured placement on such pages falling when one of a
+cancelling pair was corrected (c1 within-2pt 0.154 -> 0.064, x05 0.785 ->
+0.066) while the pages at risk came back (y18 258 -> 145, y17 217 -> 195).
 """
 import os
 import re
@@ -96,21 +103,35 @@ class Calibration(unittest.TestCase):
             self.assertAlmostEqual(a + d + g, _natural_factor(fam), delta=0.002,
                                    msg=fam)
 
-    def _line(self, para):
-        lay = DocLayout(pages=[PageLayout(1, [Chunk(elements=[para])])])
+    def _line(self, para, at_risk=False):
+        lay = _lay()
+        els = [para]
+        if at_risk:
+            # a full page whose gaps are already at their floor: inside its
+            # box, short of its budget, and nothing the gaps alone can pay
+            room = _body_capacity(lay) - 3.0 - para.src_lines * para.leading
+            k = int(room // (2 * LEAD))
+            fill = [_para(gap=0.0, lead=room / (2 * k)) for _ in range(k)]
+            els = fill + [para]
+        lay.pages = [PageLayout(1, [Chunk(elements=els)])]
         with tempfile.TemporaryDirectory() as td:
             path = os.path.join(td, "c.docx")
             write_docx(lay, path, output_profile="gdocs")
             with zipfile.ZipFile(path) as z:
                 xml = z.read("word/document.xml").decode("utf-8")
-        return int(re.search(r'w:line="(\d+)" w:lineRule="auto"', xml).group(1))
+        return int(re.findall(r'w:line="(\d+)" w:lineRule="auto"', xml)[-1])
 
     def test_the_multiple_is_taken_against_the_emitted_size(self):
         # a 10.91pt LaTeX body is written at 11.0 (half-points): y26's lines
         # measured 13.33pt in Docs against 13.15 written at the 10.91 multiple
-        p = Para(runs=[_run("x" * 40, font="Times-Roman", size=10.91)],
-                 leading=13.15, src_lines=3)
-        self.assertEqual(self._line(p), round(240 * 13.15 / (11.0 * 1.150)))
+        p = Para(runs=[_run("alpha beta gamma delta " * 14, font="Times-Roman",
+                            size=10.91)], leading=13.15)
+        p.src_lines = D.predict_lines_for(p, 468.0, D._text_metrics("gdocs"))
+        self.assertGreaterEqual(p.src_lines, 2)
+        self.assertEqual(self._line(p, at_risk=True),
+                         round(240 * 13.15 / (11.0 * 1.150)))
+        # on a page that fits, the shipped form: 1.144 over the unquantised size
+        self.assertEqual(self._line(p), round(240 * 13.15 / (10.91 * 1.144)))
 
     def test_a_jittered_paragraph_keeps_its_median(self):
         # Word's grid steps 13.68 / 13.92 and the gap below was computed
@@ -147,20 +168,23 @@ class Calibration(unittest.TestCase):
         runs[0] = _run("x", font="Times-Roman", size=6.0)
         self.assertEqual(_gdocs_mixed_lines(p, runs, 8.0, "Times New Roman", 1), 0.0)
 
-    def test_a_source_that_stepped_its_own_mixed_lines_is_left(self):
-        # Word sets the line with the Courier run taller itself, and the
-        # baseline-anchored gap below already spent it
+    def test_a_source_that_stepped_its_own_mixed_lines_is_corrected_too(self):
+        # Word sets the Courier line taller itself, and infer anchored the next
+        # paragraph's gap on the moved baseline: the source's extra is in the
+        # gap, so Docs setting the line taller again would count it twice
         runs = [_run("a" * 30, font="Times-Roman", size=11.0),
                 _run("code", font="Courier", size=11.0, mono=True),
                 _run("b" * 86, font="Times-Roman", size=11.0)]
         p = Para(runs=runs, leading=13.15, src_lines=4)
-        p._pitch_max, p._pitch_n = 13.15 + 1.0, 4
-        self.assertEqual(_gdocs_mixed_lines(p, runs, 11.0, "Times New Roman", 4), 0.0)
-        p._pitch_max = 13.15 + 0.24              # grid jitter, not a taller line
         self.assertGreater(_gdocs_mixed_lines(p, runs, 11.0, "Times New Roman", 4), 1.15)
-        p._pitch_n = 5                           # stale: a later pass merged lines
-        p._pitch_max = 13.15 + 1.0
-        self.assertGreater(_gdocs_mixed_lines(p, runs, 11.0, "Times New Roman", 4), 1.15)
+
+    def test_arial_in_times_takes_the_largest_ascent_plus_gap(self):
+        # the calibration page: an Arial run in an 11pt Times line set 12.70pt
+        runs = [_run("times words " * 3, font="Times-Roman", size=11.0),
+                _run("arial", font="Helvetica", size=11.0)]
+        p = Para(runs=runs, leading=12.65, src_lines=1)
+        f = _gdocs_mixed_lines(p, runs, 11.0, "Times New Roman", 1)
+        self.assertAlmostEqual(11.0 * f, 12.70, delta=0.02)
 
     def test_one_family_needs_no_correction(self):
         runs = [_run("plain " * 20, font="Times-Roman", size=11.0)]
@@ -192,7 +216,7 @@ class Planner(unittest.TestCase):
         self.assertGreaterEqual(free, BODY + GDOCS_PAGE_SAFETY_PT - 0.01)
         self.assertLess(free, BODY + GDOCS_PAGE_SAFETY_PT + 0.1 * len(plan) + 0.01)
 
-    def test_the_reclaim_is_gentle_first_and_proportional(self):
+    def test_the_reclaim_is_gentle_first_and_from_the_foot_up(self):
         lay = _lay()
         els = _fill(lay, slack=3.0)
         pg = _page(els)
@@ -201,10 +225,11 @@ class Planner(unittest.TestCase):
             if id(el) in plan:
                 self.assertGreaterEqual(plan[id(el)] + 0.1,
                                         el.space_before * GDOCS_GENTLE_GAP_SCALE)
-        # equal gaps give equally
-        taken = {round(el.space_before - plan[id(el)], 1)
-                 for el in els[:-1] if id(el) in plan}
-        self.assertEqual(len(taken), 1)
+        # the lowest gaps pay; the top of the page keeps its source spacing
+        touched = [i for i, el in enumerate(els) if id(el) in plan]
+        self.assertTrue(touched)
+        self.assertEqual(touched, list(range(touched[0], len(els))))
+        self.assertGreater(touched[0], len(els) // 2)
 
     def test_an_overflow_is_paid_down_to_the_refine_floors(self):
         lay = _lay()
@@ -264,14 +289,6 @@ class Planner(unittest.TestCase):
         pg = _page([im, _para()])
         self.assertEqual(_gdocs_page_plan(pg, 468.0, lay, 0.0, BODY, False), {})
 
-    def test_a_booklet_keeps_only_the_compensations(self):
-        lay = _lay()
-        rule = RuleEl(width_pct=100.0, thickness=0.75, color="#cccccc",
-                      space_before=10.0)
-        pg = _page(_fill(lay, slack=3.0) + [rule])
-        plan = _gdocs_page_plan(pg, 468.0, lay, 0.0, BODY, False, budget=False)
-        self.assertEqual(plan, {id(rule): round(10.0 - GDOCS_RULE_EXCESS_PT, 1)})
-
     def test_columns_and_continuations_are_not_planned(self):
         lay = _lay()
         pg = PageLayout(number=2, chunks=[Chunk(n_cols=2, elements=_fill(lay, -5.0))])
@@ -306,7 +323,8 @@ class VerticalRules(unittest.TestCase):
         self.assertEqual(D._gdocs_vertical_rules(pg, BODY), {})
 
     def test_written_anchored_not_inline(self):
-        side = self._fig(4.75, 300.0)
+        # tall enough that the page, written inline, cannot fit: at risk
+        side = self._fig(4.75, 640.0)
         lay = _lay()
         lay.pages = [_page([_para(gap=0.0)], number=1),
                      _page([side, _para(), _para()], number=2)]
@@ -328,6 +346,79 @@ def _png():
     b = io.BytesIO()
     Image.new("RGB", (4, 40), (0, 0, 0)).save(b, "PNG")
     return b.getvalue()
+
+
+class OnlyPagesAtRisk(unittest.TestCase):
+    def test_a_page_with_room_is_not_at_risk(self):
+        lay = _lay()
+        pg = _page(_fill(lay, slack=60.0))
+        self.assertFalse(D._gdocs_page_at_risk(pg, 468.0, lay, 0.0, BODY, False))
+        pg = _page(_fill(lay, slack=5.0))
+        self.assertTrue(D._gdocs_page_at_risk(pg, 468.0, lay, 0.0, BODY, False))
+
+    def test_a_page_before_a_blank_page_is_left_as_shipped(self):
+        # y30's cover overflows onto its blank verso by design: the writer
+        # holds no page for the blank, and fitting the cover would delete it
+        lay = _lay()
+        rule = RuleEl(width_pct=100.0, thickness=0.75, color="#cccccc",
+                      space_before=10.0)
+        full = _fill(lay, slack=3.0)
+        lay.pages = [_page([_para(gap=0.0)], number=1),
+                     _page(full + [rule], number=2),
+                     PageLayout(number=3, chunks=[Chunk(elements=[])]),
+                     _page([_para()], number=4)]
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "o.docx")
+            write_docx(lay, path, output_profile="gdocs")
+            xml = zipfile.ZipFile(path).read("word/document.xml").decode("utf-8")
+        for el in full:
+            self.assertIn('w:before="%d"' % round(el.space_before * 20), xml)
+
+    def test_the_shipped_form_is_modelled_at_its_true_height(self):
+        # Times at 1.144: every line 0.5% taller in Docs than asked
+        lay = _lay()
+        p = Para(runs=[_run("x" * 40, font="Times-Roman", size=12.0)],
+                 leading=14.0, src_lines=10)
+        pg = _page([p])
+        legacy = _gdocs_page_model(pg, 468.0, lay, 0.0, False, {}, legacy=True)[0]
+        calibrated = _gdocs_page_model(pg, 468.0, lay, 0.0, False, {})[0]
+        self.assertAlmostEqual(calibrated % 14.0, 0.0, places=6)   # n x 14.0
+        self.assertAlmostEqual(legacy / calibrated, 1.150 / 1.144, places=6)
+
+    def test_a_fitting_page_is_written_as_shipped(self):
+        lay = _lay()
+        rule = RuleEl(width_pct=100.0, thickness=0.75, color="#cccccc",
+                      space_before=10.0)
+        lay.pages = [_page([_para(gap=0.0)], number=1),
+                     _page([_para(), rule, _para()], number=2)]
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "o.docx")
+            write_docx(lay, path, output_profile="gdocs")
+            xml = zipfile.ZipFile(path).read("word/document.xml").decode("utf-8")
+        self.assertIn('w:before="200"', xml)         # the rule's own 10pt
+
+    def test_the_holder_keeps_a_page_top_gap_when_switched_on(self):
+        lay = _lay()
+        top = _para(gap=18.0)
+        lay.pages = [_page([_para(gap=0.0)], number=1), _page([top, _para()], number=2)]
+
+        def written():
+            with tempfile.TemporaryDirectory() as d:
+                path = os.path.join(d, "o.docx")
+                write_docx(lay, path, output_profile="gdocs")
+                return zipfile.ZipFile(path).read("word/document.xml").decode("utf-8")
+        self.assertFalse(D.GDOCS_PAGE_TOP_HOLDER)       # off until measured
+        plain = written()
+        D.GDOCS_PAGE_TOP_HOLDER = True
+        try:
+            held = written()
+        finally:
+            D.GDOCS_PAGE_TOP_HOLDER = False
+        self.assertEqual(plain.count("<w:pageBreakBefore/>"), 1)
+        self.assertEqual(held.count("<w:pageBreakBefore/>"), 1)
+        # the gap now follows an empty 1pt holder that took the break
+        self.assertIn('w:before="356"', held)            # 18pt less 0.22
+        self.assertEqual(held.count('<w:sz w:val="2"/>'), 2)
 
 
 class TheWriter(unittest.TestCase):
@@ -391,9 +482,10 @@ class TheMedianPitchEndToEnd(unittest.TestCase):
             convert(src, gd, options=PDFIUM_GDOCS_CANDIDATE, max_pages=0)
             xml = zipfile.ZipFile(gd).read("word/document.xml").decode("utf-8")
             lines = [int(v) for v in re.findall(r'w:line="(\d+)" w:lineRule="auto"', xml)]
-            # the 13.92 median at 12pt x 1.150 (242), not the 13.80 mean (240)
-            self.assertIn(242, lines)
-            self.assertNotIn(240, lines)
+            # a page that fits keeps the shipped multiple of the 13.92 median
+            # (1.144: 243), not the 13.80 mean's
+            self.assertIn(243, lines)
+            self.assertNotIn(241, lines)
             # the standard profile writes the same median, exactly
             std = os.path.join(d, "std.docx")
             convert(src, std, options=RAW, max_pages=0)
