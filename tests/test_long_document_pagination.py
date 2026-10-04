@@ -124,13 +124,26 @@ class VerticalRulesAreNotFigures(unittest.TestCase):
 
     def test_a_box_side_down_the_page_takes_no_flow_height(self):
         lay = I.infer(DocIR(path="x.pdf", pages=[self._page(553.0)]))
-        els = [e for ch in lay.pages[0].chunks for e in ch.elements]
+        pg = lay.pages[0]
+        els = [e for ch in pg.chunks for e in ch.elements]
         self.assertFalse(any(isinstance(e, FigureEl) for e in els))
+        # drawn where the source drew them, behind the text
+        sides = [f for f in pg.floats if isinstance(f.el, FigureEl)]
+        self.assertEqual(len(sides), 2)
+        self.assertTrue(all(f.behind and f.wrap is None for f in sides))
 
-    def test_a_short_stroke_keeps_the_old_path(self):
-        self.assertLess(10.0, I.VLINE_FIGURE_MIN_PT)
-        # nothing to assert about its fate but that inference still runs
-        I.infer(DocIR(path="x.pdf", pages=[self._page(10.0)]))
+    def test_the_google_docs_profile_keeps_its_flow(self):
+        # its writer places these itself; inference leaves them as they were
+        lay = I.infer(DocIR(path="x.pdf", pages=[self._page(553.0)]),
+                      anchored=False)
+        self.assertEqual(lay.pages[0].floats, [])
+
+    def test_a_bar_shorter_than_half_the_page_keeps_the_old_path(self):
+        # an accent bar beside a heading (y48): not a frame's side
+        h = (I.VLINE_FLOAT_MIN_FRAC - 0.1) * 842.0
+        lay = I.infer(DocIR(path="x.pdf", pages=[self._page(h)]))
+        self.assertFalse([f for f in lay.pages[0].floats
+                          if isinstance(f.el, FigureEl)])
 
 
 # -------------------------------------------- 3. pictures on and in the text
@@ -336,6 +349,15 @@ class OneLineStaysOneLine(unittest.TestCase):
         self.assertEqual(L.predict_lines(
             p, col - p.left_indent - p.right_indent, self.m), 1)
 
+    def test_a_line_that_fills_its_column_is_prose_not_a_title(self):
+        # y40's "Proof. Assume that ..." read as right-set: 94% of its column
+        col = 241.0
+        p = _title("right", 13.9, 0.0, text="Proof. Assume that the arbitrary "
+                   "function u attains its minimum", size=10.0)
+        p.bbox = (64.0, 625.0, 291.0, 634.0)
+        self.assertFalse(L.relieve_one_line(p, col - 13.9, self.m))
+        self.assertEqual(p.left_indent, 13.9)
+
     def test_a_line_wider_than_its_column_is_left_alone(self):
         p = _title("right", 10.0, 0.0)
         self.assertFalse(L.relieve_one_line(p, self.w / 2, self.m))
@@ -428,6 +450,61 @@ class FloatsBackIntoTheFlow(unittest.TestCase):
         _floats_into_flow(pg)
         self.assertEqual(pg.floats, [])
         self.assertEqual(pg.chunks[0].elements, [a, im, b])
+
+
+# ----------------------------- 10. a sidebar beside a column, not welded
+def _two_span_line(a, ax0, ax1, b, bx0, bx1, top, size=12.0):
+    sa = Span(a, "Times-Roman", size, "#000000", False, False, False, True,
+              False, (ax0, top, ax1, top + 1.2 * size), (ax0, top + 0.95 * size))
+    sb = Span(b, "Times-Roman", size, "#000000", False, False, False, True,
+              False, (bx0, top, bx1, top + 1.2 * size), (bx0, top + 0.95 * size))
+    return Line([sa, sb], (ax0, top, bx1, top + 1.2 * size))
+
+
+class SidebarBesideColumn(unittest.TestCase):
+    def test_a_line_welded_across_the_panel_side_stays_cut(self):
+        # DOE OIG's highlights page: a shaded sidebar (x 41-239) beside the
+        # findings (252-560); the parser joins the two halves of a shared
+        # baseline into one line across the panel's side.
+        side = [_line("Sidebar line number %d of the panel" % i, 54.0,
+                      200.0 + 14.0 * i, 224.0) for i in range(20)]
+        col = [_line("Findings line number %d runs across the right column"
+                     % i, 252.0, 207.0 + 14.0 * i, 558.0) for i in range(20)]
+        welded = [_two_span_line("determine whether the Department ", 54.0,
+                                 224.0, "We suggest that the Department", 252.0,
+                                 492.0, 523.0 + 14.0 * i) for i in range(3)]
+        panel = DrawCmd(kind="fill", shape="rect", bbox=(40.6, 189.3, 238.6, 738.9),
+                        fill="#e7f5f7", stroke=None, width=0.0, opacity=1.0,
+                        n_items=1)
+        page = PageIR(number=1, width=612.0, height=792.0,
+                      blocks=[_block(side), _block(col), _block(welded)],
+                      drawings=[panel])
+        lay = I.infer(DocIR(path="x.pdf", pages=[page]))
+        texts = []
+        for ch in lay.pages[0].chunks:
+            for e in ch.elements:
+                texts.append(getattr(e, "text", "") or "")
+                for row in getattr(e, "rows", []) or []:
+                    for c in row:
+                        texts += [q.text for q in (c.paras if c else [])]
+        self.assertFalse(any("determine whether" in t and "We suggest" in t
+                             for t in texts), texts)
+
+    def test_only_a_sidebars_cut_stands(self):
+        inside = _line("determine whether the Department", 54.0, 523.0, 224.0)
+        beside = _line("We suggest that the Department", 252.0, 523.0, 492.0)
+        far = _line("We suggest that the Department", 320.0, 523.0, 560.0)
+        consumed = {id(inside)}
+        side = (40.6, 189.3, 238.6, 738.9)
+        self.assertTrue(I._sidebar_cut((None, None, [inside, beside]), [side],
+                                       consumed, 520.0))
+        # a panel a column wide is one column of two (y60's summary boxes)
+        column = (36.0, 72.0, 293.0, 740.0)
+        self.assertFalse(I._sidebar_cut((None, None, [inside, beside]),
+                                        [column], consumed, 540.0))
+        # text a column away is another column of the page (y59's brochure)
+        self.assertFalse(I._sidebar_cut((None, None, [inside, far]), [side],
+                                        consumed, 520.0))
 
 
 # ------------------------------------------------ 7. a contents line's words

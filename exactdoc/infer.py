@@ -282,11 +282,13 @@ PAGE_COVER_FRAC = 0.9
 # 28.5-29.7pt / 2.4-2.5em and was wrapping 56 of 59 pages in a quote table.
 QUOTE_MAX_GAP_EM = 2.0
 QUOTE_MAX_OVERHANG_EM = 1.5
-# A lone vline at least this tall is a rule, never a figure (the stray-shape
-# branch of `_infer_body`). The same 16pt the quote-bar merge calls tall: below
-# it a vertical stroke can be a glyph-sized ornament or a table tick, and those
-# keep the old path.
-VLINE_FIGURE_MIN_PT = 16.0
+# A lone vline running at least this share of the page's height is the side of
+# a frame or a box down the page, drawn behind the text rather than stacked in
+# the flow as a picture (the stray-shape branch of `_infer_body`). RFC 9110's
+# collected-ABNF box sides run 0.66-0.75 of the page. Shorter bars keep the old
+# path: an accent bar beside a heading (y48's, 0.27 of its page) is placed with
+# the heading by the flow, and floated it moved the median word 15pt.
+VLINE_FLOAT_MIN_FRAC = 0.5
 
 # --- grid tables: merged cells and per-edge borders ------------------------
 # Every producer in the corpus that rules a table draws its borders PER CELL
@@ -4552,6 +4554,51 @@ def _split_lines_at_box_edges(blocks, rects, consumed=frozenset()) -> list:
     return cuts
 
 
+def _keeps_panel_cuts(blocks, consumed, lay) -> bool:
+    """Do this page's panel-side cuts stand (see `_infer_body`)? Yes unless
+    the page's flow reads as two columns."""
+    return _two_column_gutter(
+        [l for l in _all_lines(blocks) if id(l) not in consumed],
+        lay.margin_l, lay.page_w - lay.margin_r) is None
+
+
+# A panel narrower than this share of the content width is a sidebar, not a
+# column: the narrowest genuine column of a two-column page is 0.46 of it
+# (TWO_COL_MIN_BAND_FRAC's measurement); DOE OIG's sidebar is 0.38, the MMWR
+# summary boxes that fill one column of two (y60) 0.48.
+SIDEBAR_MAX_FRAC = 0.45
+# ... and the text set beside it starts within this many ems of its side: the
+# panel's own inset (DOE OIG: 1.1em). A piece further off is another column of
+# the page (y59's brochure panels, 5.6em).
+SIDEBAR_GAP_EM = 2.0
+
+
+def _sidebar_cut(cut, rects, consumed, content_w: float) -> bool:
+    """Is this panel-side cut a sidebar's -- the panel a sidebar, and the
+    piece outside it the start of the text set right beside it?"""
+    _b, _ln, pieces = cut
+    inside = [p for p in pieces if id(p) in consumed]
+    outside = [p for p in pieces if id(p) not in consumed]
+    if not inside or not outside:
+        return False
+    box = next((r for r in rects
+                if any(bbox_overlap(p.bbox, r) > 0.55 * max(1e-6, bbox_area(p.bbox))
+                       for p in inside)), None)
+    if box is None or box[2] - box[0] >= SIDEBAR_MAX_FRAC * max(1.0, content_w):
+        return False
+    for p in outside:
+        size = max((s.size for s in p.spans if s.text.strip()), default=10.0)
+        if p.bbox[0] >= box[2] - 1.0:
+            gap = p.bbox[0] - box[2]
+        elif p.bbox[2] <= box[0] + 1.0:
+            gap = box[0] - p.bbox[2]
+        else:
+            return False
+        if gap > SIDEBAR_GAP_EM * size:
+            return False
+    return True
+
+
 def _restore_uncut(cuts, consumed) -> None:
     """Put back each cut line unless regions took EVERY piece of it.
 
@@ -5652,6 +5699,7 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
                 if cont is not None:
                     elements.append(cont)
         leftover = []
+        rule_floats = []        # vertical rules drawn behind the text (below)
         page_text_area = sum(bbox_area(l.bbox) for l in _all_lines(blocks)) or 1.0
         clusters = _clusters(draws)
         # Fill-tiled tables first: their row bands are separate clusters,
@@ -5826,18 +5874,22 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
                 continue        # stray ornament: not worth rasterising a region for
             if _ornament_on_box(d, elements):
                 continue
-            if d.shape == "vline" and \
-                    (d.bbox[3] - d.bbox[1]) >= VLINE_FIGURE_MIN_PT:
+            if anchored and d.shape == "vline" and \
+                    (d.bbox[3] - d.bbox[1]) >= VLINE_FLOAT_MIN_FRAC * p.height and \
+                    (d.fill and bbox_area(d.bbox) > 400):
                 # A vertical rule that is not a quote bar (above) is a frame
                 # or margin line, and the flow has nothing to place it with.
-                # Its fill passed the stray-shape area test below, so it went
+                # Its fill passes the stray-shape area test below, so it went
                 # into the flow as a picture of a rule, and a picture in the
                 # flow spends its full height: RFC 9110's collected ABNF sits
                 # in a box drawn as two 0.8pt vlines down the page, 553pt
-                # each, and its four pages rendered as twelve. A rule is never
-                # a figure on its own (`_classify_cluster` says the same of a
-                # cluster), so it is left out, as the quote branch leaves out
-                # the margin rule it rejects.
+                # each, and its four pages rendered as twelve. Drawn where the
+                # source drew it, behind the text, it spends none. (Not under
+                # the Google Docs profile, which keeps the flow; its writer
+                # places these itself.)
+                fig = build_figure([d], blocks, p.images, consumed, p)
+                rule_floats.append(FloatEl(el=fig, bbox=tuple(fig.clip),
+                                           behind=True))
                 continue
             if d.shape in ("curve", "complex", "line") or (
                     d.fill and bbox_area(d.bbox) > 400):
@@ -5869,14 +5921,30 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
             elements.append(el)
 
         elements = _merge_box_rows(_merge_figures(elements))
+        if cuts and _keeps_panel_cuts(blocks, consumed, lay):
+            # Not a two-column page, so the piece left outside a panel is not
+            # the other column running past it (y60's MMWR summary boxes, one
+            # column of two, which the cut re-paragraphed): it is the text
+            # set BESIDE the panel. DOE OIG's highlights page sets a shaded
+            # sidebar (x 41-239) beside its findings (252-560); welded back,
+            # the sidebar's last lines read across into the findings, the
+            # page lost its side-by-side reading, the sidebar stood 570pt
+            # above the findings, and every later page was a page late.
+            # Kept cut, the region readers lay the two out side by side. Only
+            # for a sidebar's cut (`_sidebar_cut`).
+            rects = [d.bbox for _, d in draws if _box_candidate(d)]
+            cuts = [c for c in cuts
+                    if not _sidebar_cut(c, rects, consumed, lay.content_w)]
         _restore_uncut(cuts, consumed)
         if p.number in deck:
             elements, pl.floats = _float_graphics(elements, blocks,
                                                   p.width, p.height)
+            pl.floats = rule_floats + list(pl.floats)
         else:
             if anchored:
                 elements, pl.floats = _float_backgrounds(elements, blocks,
                                                          lay, p.width, p.height)
+                pl.floats = rule_floats + list(pl.floats)
             elements = _merge_graphic_rows(elements, blocks, p.number)
 
         # rebuild flow blocks from unconsumed lines (contiguous runs)
@@ -9505,9 +9573,13 @@ def _row_accepted(row, col_l: float, col_r: float) -> bool:
              for p in row]
     if min(sizes) <= 0 or max(sizes) > ROW_FUSE_MAX_SIZE_RATIO * min(sizes):
         return False
+    # The leftmost piece may be a row's label -- BLS's "Participation rate
+    # ......" stub, 44% of the column, before five figures that each stood a
+    # line of their own (a 39-page release rendered 46) -- but every piece
+    # after it is short.
     return all(p.bbox[2] - p.bbox[0] <=
                ROW_FUSE_MANY_SHARE * max(1.0, col_r - col_l)
-               for p in row)
+               for p in xs[1:])
 
 
 def _fuse_baseline_rows(chunks: List[Chunk], col_l: float, col_r: float) -> None:

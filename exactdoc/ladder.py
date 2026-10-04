@@ -497,6 +497,10 @@ PAGE_SLACK_FRAC = 0.25
 # rounding.
 RELIEF_SLACK_FRAC = 0.01
 RELIEF_SLACK_PT = 2.0
+# A one-line paragraph whose ink spans this share of its column is a full line
+# of prose, not a title placed by its alignment (see relieve_one_line). The
+# titles this is for span 0.47-0.65 of theirs (NIST covers).
+RELIEF_MAX_FILL = 0.90
 
 
 def one_line_width(p: Para, metrics) -> Optional[float]:
@@ -538,6 +542,15 @@ def relieve_one_line(p: Para, avail: float, metrics) -> bool:
         return False
     text = "".join(r.text for r in p.runs)
     if not _lockable_text(text):
+        return False
+    measure = avail + (p.left_indent or 0.0) + (p.right_indent or 0.0)
+    if p.bbox is not None and \
+            p.bbox[2] - p.bbox[0] >= RELIEF_MAX_FILL * max(1.0, measure):
+        # A line that fills its column is a line of a justified paragraph,
+        # whatever alignment its single line was read as: y40's "Proof.
+        # Assume that the arbitrary function..." filled 94% of its column
+        # and read as right-set. `infer._keep_room` refuses those lines for
+        # the same reason; their wrap is the paragraph's, not a title's.
         return False
     pred = predict_lines(p, avail, metrics)
     if pred is None or pred <= 1:
