@@ -483,6 +483,55 @@ class BottomReserve(unittest.TestCase):
         self.assertLess(lay.margin_b, FOOTER_FLOOR_PT + 12.0)
 
 
+class RunningHeadSections(unittest.TestCase):
+    """Varying heads (a chapter title) are stated per section, the way a Word
+    author does it, with the chapter opener as the section's first page."""
+
+    def _book(self):
+        chapters = [("Introduction", 4), ("Definitions", 5), ("Features", 6)]
+        pages, pg = [], 1
+        pages.append(_page(pg, [_ln("A Manual", 200, 300, size=24)]))
+        for title, length in chapters:
+            for k in range(length):
+                pg += 1
+                lines = []
+                if k > 0:                    # the opener prints no head
+                    lines.append(_ln("Chapter: %s" % title, 72, 36, size=10))
+                lines += _body(pg)
+                lines.append(_ln(str(pg), 300, 745, size=9))
+                pages.append(_page(pg, lines))
+        return DocIR(path="book.pdf", pages=pages)
+
+    def test_a_section_per_chapter_opening_on_the_opener(self):
+        lay = infer(self._book())
+        rh = [s for s in lay.hf_sections if s.parts is not None]
+        self.assertEqual([s.start_page for s in rh], [1, 6, 11])
+        self.assertEqual([_text(s.parts["header"]) for s in rh],
+                         ["Chapter: Introduction", "Chapter: Definitions",
+                          "Chapter: Features"])
+        self.assertEqual([s.title_pg for s in rh], [False, True, True])
+        self.assertIsNone(rh[1].parts["header_first"])     # opener: no head
+        self.assertEqual(_text(rh[1].parts["footer_first"]), "{PAGE}")
+
+    def test_writer_states_each_sections_head(self):
+        lay = infer(self._book())
+        doc, _ = _write(lay)
+        s = _sects(doc)
+        self.assertEqual(len(s), 3)
+        # section 1's first page is the cover; the others' are the openers
+        self.assertEqual([x.find(W_NS + "titlePg") is not None for x in s],
+                         [True, True, True])
+        self.assertTrue(all(("h", "default") in _refs(x) for x in s))
+
+    def test_a_head_that_changes_every_page_is_not_a_running_head(self):
+        pages = [_page(1, [_ln("Cover", 200, 300, size=24)])]
+        for pg in range(2, 12):
+            lines = [_ln("Entry %s" % WORDS[pg], 72, 36, size=10)] + _body(pg)
+            pages.append(_page(pg, lines))
+        lay = infer(DocIR(path="dict.pdf", pages=pages))
+        self.assertFalse([s for s in lay.hf_sections if s.parts is not None])
+
+
 class SplitRunsKeepTheirFace(unittest.TestCase):
     def test_pagefields_split_keeps_serif(self):
         from exactdoc.infer import _pagefields

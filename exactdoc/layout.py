@@ -180,6 +180,13 @@ class HFSection:
     num_start: Optional[int] = None
     num_fmt: Optional[str] = None
     blank: bool = False
+    # Running-head parts this section states itself, because the source's
+    # varying furniture changes here (a new chapter title in the head). Keys
+    # 'header', 'footer', 'header_even', 'footer_even', 'header_first',
+    # 'footer_first'; None (the attribute) = inherit the previous section's.
+    parts: Optional[Dict[str, Optional["HFPart"]]] = None
+    # The section's first page is a chapter opener without the running head.
+    title_pg: bool = False
 
 
 @dataclass

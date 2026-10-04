@@ -1983,6 +1983,17 @@ def write_rule(container, rule: RuleEl, content_w: float):
 
 
 # ------------------------------------------------------------------ sections
+def _part_distance(lay: DocLayout, side: str) -> float:
+    """The w:pgMar header/footer distance: the document's default part's, else
+    the first part of that side any section states (a manual whose only head
+    is its chapter title has no default part), else Word's 0.5in."""
+    parts = [getattr(lay, side + "_default"), getattr(lay, side + "_even")]
+    for s in lay.hf_sections:
+        if s.parts:
+            parts += [s.parts.get(side), s.parts.get(side + "_even")]
+    return next((p.distance for p in parts if p is not None), 36.0)
+
+
 def _config_section(sec, lay: DocLayout, margin_t=None, cols: int = 1,
                     col_gap: float = 24.0, margin_lr=None):
     sec.page_width = Emu(int(lay.page_w * 12700))
@@ -1993,8 +2004,8 @@ def _config_section(sec, lay: DocLayout, margin_t=None, cols: int = 1,
     sec.right_margin = Emu(int(mr * 12700))
     sec.top_margin = Emu(int((lay.margin_t if margin_t is None else margin_t) * 12700))
     sec.bottom_margin = Emu(int(lay.margin_b * 12700))
-    hd = lay.header_default.distance if lay.header_default else 36.0
-    fd = lay.footer_default.distance if lay.footer_default else 36.0
+    hd = _part_distance(lay, "header")
+    fd = _part_distance(lay, "footer")
     sec.header_distance = Emu(int(max(0.0, hd) * 12700))
     sec.footer_distance = Emu(int(max(0.0, fd) * 12700))
     sectPr = sec._sectPr
@@ -2105,6 +2116,32 @@ def _fill_first_page_parts(sec, lay: DocLayout, ctx):
         _fill_hf(first_obj, first, lay, ctx=ctx)
         if first is not None and default is None:
             _fill_hf(default_obj, None, lay, ctx=ctx)
+
+
+def _fill_section_parts(sec, lay: DocLayout, ctx, spec):
+    """A running-head section's own parts (`HFSection.parts`), written for the
+    sides the document has; under w:titlePg its chapter-opener page gets the
+    first-page parts. Same page-style rules as section 1: no side the document
+    lacks is given a reference, and every first or even part has its default
+    beside it."""
+    parts = spec.parts or {}
+    sides = (("header", sec.header, sec.even_page_header, sec.first_page_header,
+              lay.header_default),
+             ("footer", sec.footer, sec.even_page_footer, sec.first_page_footer,
+              lay.footer_default))
+    for name, obj, even_obj, first_obj, doc_default in sides:
+        mine = [parts.get(name), parts.get(name + "_even"),
+                parts.get(name + "_first")]
+        if doc_default is None and all(p is None for p in mine):
+            continue
+        _fill_hf(obj, parts.get(name), lay, ctx=ctx)
+        if lay.even_odd:
+            _fill_hf(even_obj, parts.get(name + "_even") or parts.get(name),
+                     lay, ctx=ctx)
+        if spec.title_pg:
+            _fill_hf(first_obj, parts.get(name + "_first"), lay, ctx=ctx)
+    if spec.title_pg:
+        sec.different_first_page_header_footer = True
 
 
 def _shifted_part(part: Optional[HFPart], dl: float, dr: float) -> Optional[HFPart]:
@@ -2665,6 +2702,8 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
     else:
         if sec1_blank:
             _fill_default_parts(sec, lay, ctx, blank=True)
+        elif num_secs and num_secs[0].parts is not None:
+            _fill_section_parts(sec, lay, ctx, num_secs[0])
         else:
             if lay.header_default is not None:
                 _fill_hf(sec.header, lay.header_default, lay, ctx=ctx)
@@ -2780,20 +2819,32 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                 pre = pg.chunks[0].pre_gap if pg.chunks else 0.0
                 mt = (lay.margin_t + pre) if (next_cols > 1 and pre > 0.5) else None
                 s = new_section(WD_SECTION.NEW_PAGE, next_cols, gap, margin_t=mt)
-                _fill_default_parts(s, lay, ctx, always=True)
-                if num is not None:
+                spec = num if (num is not None and num.parts is not None) else \
+                    (num_secs[0] if num_secs and num_secs[0].parts is not None
+                     else None)
+                if spec is not None:
+                    # the cover took section 1; its running heads start here
+                    _fill_section_parts(s, lay, ctx, spec)
+                else:
+                    _fill_default_parts(s, lay, ctx, always=True)
+                if num is not None and num.num_fmt is not None:
                     _set_page_numbering(s, num.num_start, num.num_fmt)
                 prev_blank = False
             elif num is not None:
-                # a numbering restart (or a change of format) at this seam:
-                # a NEW_PAGE section replaces the page break, carrying the
-                # column shape the page needs exactly as a column change does
+                # a numbering restart, a change of format or a change of
+                # running head at this seam: a NEW_PAGE section replaces the
+                # page break, carrying the column shape the page needs exactly
+                # as a column change does
                 gap = pg.chunks[0].col_gap if pg.chunks else 24.0
                 pre = pg.chunks[0].pre_gap if pg.chunks else 0.0
                 mt = (lay.margin_t + pre) if (next_cols > 1 and pre > 0.5) else None
                 s = new_section(WD_SECTION.NEW_PAGE, next_cols, gap, margin_t=mt)
-                _set_page_numbering(s, num.num_start, num.num_fmt)
-                if prev_blank:
+                if num.num_fmt is not None:
+                    _set_page_numbering(s, num.num_start, num.num_fmt)
+                if num.parts is not None:
+                    _fill_section_parts(s, lay, ctx, num)
+                    prev_blank = False
+                elif prev_blank:
                     # the lead-in section wrote empty parts; restate the
                     # document's own from here on
                     _fill_default_parts(s, lay, ctx)

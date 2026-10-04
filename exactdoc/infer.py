@@ -772,6 +772,9 @@ def detect_hf(ir: DocIR):
         "band_first": None, "band_def": None, "rep_lines": defaultdict(list),
         "rep_draws": defaultdict(list), "line_roles": {},
         "page_numbers": {}, "num_sections": [], "parity": {},
+        # varying furniture: consumed from the body, not part of the modal
+        # signature; `infer` states it per running-head section
+        "var_lines": defaultdict(list),
     }
     if n == 0:
         return res
@@ -970,6 +973,7 @@ def detect_hf(ir: DocIR):
             for pg in single:
                 bi, ln = per_page[pg][0]
                 res["consumed_text"][pg].add((bi, id(ln)))
+                res["var_lines"][pg].append((sig[0], bi, ln))
 
     # EXTENDED-band furniture (audit B2). The fixed 62/64pt bands left the RFC
     # footer "Fielding, et al.  Standards Track  [Page 40]" -- 105pt above the
@@ -1002,6 +1006,8 @@ def detect_hf(ir: DocIR):
                     if sig is not None:
                         res["rep_lines"][pg].append((zone, bi, ln))
                         sig_lines.append((sig, pg, ln))
+                    else:
+                        res["var_lines"][pg].append((zone, bi, ln))
 
     # page-1 band text
     if band1_bb is not None:
@@ -1088,6 +1094,12 @@ def detect_hf(ir: DocIR):
                 else:
                     roles.append("LIT")
             if uniform or "PAGE" in roles:
+                res["line_roles"][id(ln)] = roles
+    for pg, items in res["var_lines"].items():
+        for _, _, ln in items:
+            roles = ["PAGE" if is_page_number(pn, pg, fmt, v) else "LIT"
+                     for _, _, fmt, v in num_tokens(ln.text)]
+            if "PAGE" in roles:
                 res["line_roles"][id(ln)] = roles
     res["page_numbers"] = pn
     res["num_sections"] = numbering_sections(pn, n)
@@ -1305,6 +1317,121 @@ def _hf_extent(part: Optional[HFPart]) -> float:
         if bb:
             h += (bb[3] - bb[1]) + (getattr(el, "space_before", 0.0) or 0.0)
     return h
+
+
+def _running_head_sections(ir: DocIR, hf, lay: DocLayout, zs, roles):
+    """[(start_page, parts, title_pg)] -- one entry per change of running head.
+
+    Varying furniture (a chapter title in the head, a section title in the
+    recto head) is consumed from the body by `detect_hf` because no single
+    header part can state it: the bash manual's "Chapter 3: Basic Shell
+    Features" vanished from 212 pages, the pandoc manual's chapter names from
+    138. A Word author states such heads the only way DOCX can -- a section
+    per chapter, each with its own header -- and that is what this plans: the
+    pages are walked in order, and wherever the varying text on a side (per
+    parity, under evenAndOddHeaders) changes, a section starts. It starts on
+    the first page after the last one that carried varying furniture, so a
+    chapter opener that prints no running head belongs to its own chapter and
+    gets a first-page part of its own (w:titlePg).
+
+    Each section's parts are built from its own representative pages, fixed
+    and varying furniture together. Returns [] when there is nothing to vary,
+    or when the "head" changes so often (more than one section per two pages)
+    that it is not a running head at all.
+    """
+    vl = hf.get("var_lines") or {}
+    n = len(ir.pages)
+    if not any(vl.get(pg) for pg in range(2, n + 1)):
+        return []
+    parity = hf.get("parity") or {}
+    zones = ("top", "bot")
+
+    def cls_of(pg):
+        return parity.get(pg, pg % 2) if lay.even_odd else 1
+
+    def var_sig(pg, zone):
+        items = sorted((l for z, _, l in vl.get(pg, ()) if z == zone),
+                       key=lambda l: (round(l.bbox[1] / 3), l.bbox[0]))
+        return tuple((_role_text(l, roles.get(id(l))),
+                      _hf_anchor(l.bbox, lay.page_w)) for l in items)
+
+    def says_something(sig):
+        # a varying line that is only a folio (a chapter opener printing its
+        # number where the head would be) states no running head: it opens
+        # the chapter rather than starting a section of its own
+        return any(re.sub(r"\{P\}|#", "", t).strip() for t, _ in sig)
+
+    sigs = {pg: {z: (s if says_something(s) else ())
+                 for z in zones for s in (var_sig(pg, z),)}
+            for pg in range(2, n + 1)}
+    # Boundaries: a page whose varying text differs from the running state,
+    # and the first page that states a running head at all when pages before
+    # it print none (front matter ahead of chapter 1). A section begins on the
+    # first silent page after the last page that stated a head -- the chapter
+    # opener -- but never before the numbering section the head belongs to:
+    # the bash manual's chapter 1 opens on the page its arabic count starts.
+    num_starts = [s for s, _, _ in hf.get("num_sections") or []]
+    state, bounds, prev_furn, seen = {}, [], 1, False
+    for pg in range(2, n + 1):
+        changed = False
+        for z in zones:
+            s = sigs[pg][z]
+            if not s:
+                continue
+            key = (z, cls_of(pg))
+            if state.get(key) is not None and state[key] != s:
+                changed = True
+            state[key] = s
+        stated = any(sigs[pg].values())
+        first = stated and not seen and pg > 2
+        if changed or first:
+            floor = max([s for s in num_starts if s <= pg], default=1) \
+                if first else 0
+            start = max(prev_furn + 1, floor,
+                        (bounds[-1] + 1) if bounds else 2)
+            if 2 < start <= pg:     # page 2 belongs to section 1 anyway
+                bounds.append(start)
+        if stated:
+            prev_furn, seen = pg, True
+    if not bounds or len(bounds) + 1 > max(2, n // 2):
+        return []
+
+    def full_part(pg, zone):
+        a, b = zs(pg, zone)
+        a = a + [(z, bi, l) for (z, bi, l) in vl.get(pg, ()) if z == zone]
+        return build_hf_part(a, b, ir.pages[pg - 1], lay.margin_l, lay.margin_r,
+                             roles, band=hf["band_def"] if zone == "top" else None)
+
+    defaults = {("top", 1): lay.header_default, ("bot", 1): lay.footer_default,
+                ("top", 0): lay.header_even or lay.header_default,
+                ("bot", 0): lay.footer_even or lay.footer_default}
+    out, rep = [], {}
+    edges = [2] + bounds + [n + 1]
+    for i in range(len(edges) - 1):
+        s, e = edges[i], edges[i + 1]
+        for pg in range(s, e):
+            for z in zones:
+                if sigs[pg][z]:
+                    rep.setdefault((z, cls_of(pg), i), pg)
+        parts = {}
+        for z, name in (("top", "header"), ("bot", "footer")):
+            for c, suffix in ((1, ""), (0, "_even")):
+                if suffix and not lay.even_odd:
+                    continue
+                # this section's own page, else the last one before it
+                pg = rep.get((z, c, i))
+                if pg is None:
+                    pg = next((rep[(z, c, j)] for j in range(i - 1, -1, -1)
+                               if (z, c, j) in rep), None)
+                part = full_part(pg, z) if pg is not None else defaults[(z, c)]
+                parts[name + suffix] = part
+        first_furn = next((pg for pg in range(s, e) if any(sigs[pg].values())), s)
+        title_pg = i > 0 and first_furn > s
+        if title_pg:
+            parts["header_first"] = full_part(s, "top")
+            parts["footer_first"] = full_part(s, "bot")
+        out.append((1 if i == 0 else s, parts, title_pg))
+    return out
 
 
 def build_hf_part(zone_items, zone_draws, page: PageIR, margin_l, margin_r,
@@ -2467,28 +2594,44 @@ def infer(ir: DocIR) -> DocLayout:
         lay.header_default = hdr1
         lay.footer_default = ftr1
 
+    # Running-head sections: varying furniture stated per section.
+    rh = _running_head_sections(ir, hf, lay, zs, roles) if n_pages >= 3 else []
+    vl = hf.get("var_lines") or {}
+
     # Page-numbering sections (audit B3): printed numbers that differ from the
     # physical index -- roman front matter, a restart at 1, a slip opinion's
     # per-opinion numbering -- are live PAGE fields whose section states where
     # the count starts and in which format.
     # A section costs a section-break paragraph at a seam, so none is opened
-    # unless an emitted part actually shows the number: the bash manual's
-    # folios ride on varying chapter heads that are consumed, not emitted.
-    shows_number = any(_part_has_page_field(p) for p in (
-        lay.header_default, lay.header_even, lay.header_first,
-        lay.footer_default, lay.footer_even, lay.footer_first))
-    lay.hf_sections = [HFSection(start_page=s, num_start=v, num_fmt=f)
-                       for s, f, v in hf.get("num_sections") or []] \
+    # unless an emitted part actually shows the number.
+    all_parts = [lay.header_default, lay.header_even, lay.header_first,
+                 lay.footer_default, lay.footer_even, lay.footer_first]
+    all_parts += [p for _, parts, _ in rh for p in parts.values()]
+    shows_number = any(_part_has_page_field(p) for p in all_parts)
+    num_secs = [HFSection(start_page=s, num_start=v, num_fmt=f)
+                for s, f, v in hf.get("num_sections") or []] \
         if shows_number else []
-    if len(lay.hf_sections) > 1 and lay.hf_sections[0].num_fmt is None:
+    if len(num_secs) > 1 and num_secs[0].num_fmt is None:
         # An unnumbered lead-in (cover, title page, notices) before numbered
         # front matter. When none of its pages after the first carries any
         # furniture it is written as a section with empty parts, so the
         # running head does not appear on the title page; page 1 keeps its
         # own first-page parts either way.
-        end = lay.hf_sections[1].start_page
-        if end > 2 and not any(rl.get(pg) or rd.get(pg) for pg in range(2, end)):
-            lay.hf_sections[0].blank = True
+        end = num_secs[1].start_page
+        if end > 2 and not any(rl.get(pg) or rd.get(pg) or vl.get(pg)
+                               for pg in range(2, end)):
+            num_secs[0].blank = True
+    # Merge the two kinds of section start: one DOCX section per start page.
+    by_start = {s.start_page: s for s in num_secs}
+    for start, parts, title_pg in rh:
+        s = by_start.setdefault(start, HFSection(start_page=start))
+        s.parts, s.title_pg = parts, title_pg
+    if by_start and 1 not in by_start:
+        by_start[1] = HFSection(start_page=1)
+    lay.hf_sections = [by_start[k] for k in sorted(by_start)]
+    if len(lay.hf_sections) == 1 and lay.hf_sections[0].parts is None and \
+            lay.hf_sections[0].num_fmt is None:
+        lay.hf_sections = []
 
     # The body starts where the source body starts in every renderer (audit
     # B26). Measured in the canonical LibreOffice: the body begins at
@@ -2498,13 +2641,16 @@ def infer(ir: DocIR) -> DocLayout:
     # body position is computed from margin_t, so a margin inside the header
     # displaced every page's content by the difference: y17 was written with
     # `pgMar top=200tw` under a header at 35pt, 37pt of drift on 193 pages.
-    top_need = max((p.distance + _hf_extent(p)
-                    for p in (lay.header_default, lay.header_even)
+    heads = [lay.header_default, lay.header_even]
+    feet = [lay.footer_default, lay.footer_even]
+    for _, parts, _ in rh:
+        heads += [parts.get("header"), parts.get("header_even")]
+        feet += [parts.get("footer"), parts.get("footer_even")]
+    top_need = max((p.distance + _hf_extent(p) for p in heads
                     if p is not None), default=0.0)
     if top_need > lay.margin_t:
         lay.margin_t = math.ceil(top_need * 10) / 10
-    bot_need = max((p.distance + _hf_extent(p)
-                    for p in (lay.footer_default, lay.footer_even)
+    bot_need = max((p.distance + _hf_extent(p) for p in feet
                     if p is not None), default=0.0)
     if bot_need > lay.margin_b:
         lay.margin_b = math.ceil(bot_need * 10) / 10
@@ -2756,8 +2902,11 @@ def infer(ir: DocIR) -> DocLayout:
         # footer's top when there is a footer. This is deliberately withheld
         # when a cover section or a figure-flow overlay could occupy the same
         # physical bottom area.
-        floor = max([14.0] + [p.distance + _hf_extent(p) for p in (
-            lay.footer_default, lay.footer_even) if p is not None])
+        feet = [lay.footer_default, lay.footer_even]
+        feet += [s.parts.get(k) for s in lay.hf_sections if s.parts
+                 for k in ("footer", "footer_even")]
+        floor = max([14.0] + [p.distance + _hf_extent(p) for p in feet
+                              if p is not None])
         lay.margin_b = min(lay.margin_b, math.ceil(floor * 10) / 10)
     return lay
 

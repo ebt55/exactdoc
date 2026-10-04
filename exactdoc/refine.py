@@ -196,8 +196,12 @@ def _lower_footers(lay: DocLayout) -> bool:
     """
     from .infer import _hf_extent
     changed = False
-    parts = [p for p in (lay.footer_default, lay.footer_even, lay.footer_first)
-             if p is not None]
+    parts = [lay.footer_default, lay.footer_even, lay.footer_first]
+    for s in lay.hf_sections:          # running-head sections' own footers
+        if s.parts:
+            parts += [s.parts.get(k) for k in ("footer", "footer_even",
+                                                "footer_first")]
+    parts = [p for p in parts if p is not None]
     for part in parts:
         if part.distance <= FOOTER_FLOOR_PT + 0.05:
             continue
