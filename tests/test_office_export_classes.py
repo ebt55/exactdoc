@@ -308,6 +308,26 @@ class DoubleSpacedParagraphs(unittest.TestCase):
         groups = I._split_lines_to_paras(self._lines(24.1))
         self.assertEqual([len(g) for g in groups], [2, 2])
 
+    def test_a_heading_gap_is_not_double_spacing(self):
+        # y39: a heading 23pt above body set at a 12pt pitch; the median of
+        # the block's steps said "double spaced", its tightest step does not
+        lines = [_line("3 Extending ensemble filters", 56.0, 100.0, 220.0,
+                       size=9.5, baseline=110.0),
+                 _line("Algorithms are described to extend the filter", 56.0,
+                       123.0, 290.0, size=9.5, baseline=133.0),
+                 _line("to the case of a nonlinear model.", 56.0, 135.0, 200.0,
+                       size=9.5, baseline=145.0)]
+        # the splitter leaves this block exactly as it did before the rule
+        self.assertEqual([len(g) for g in I._split_lines_to_paras(lines)], [3])
+        self.assertFalse(I._author_break(lines[0], lines[1], 290.0, 12.0, 3))
+
+    def test_two_lines_carry_no_pitch(self):
+        a = _line("Network Planning Directorate", 65.0, 114.0, 197.0, size=11.0,
+                  baseline=123.0)
+        b = _line("Published under the transparency requirement", 65.0, 138.0,
+                  267.0, size=11.0, baseline=147.5)
+        self.assertFalse(I._author_break(a, b, 267.0, 24.5, 2))
+
     def test_a_stack_of_figures_is_not_prose(self):
         # y47's chart axis: "54" over "52" over "50" at a 15pt pitch for 9pt
         # type -- double-spaced by the numbers, filled by no line breaker
@@ -347,6 +367,16 @@ class SeparatedMarkers(unittest.TestCase):
         out = I._merge_list_markers([num, head])
         self.assertEqual(len(out), 1)
         self.assertTrue(out[0].lines[0].text.startswith("2.5"))
+
+    def test_a_lone_initial_at_a_column_end_is_not_a_marker(self):
+        # y41: "S." ends a left-column line at x 283; the right column's
+        # text 21pt away is across the gutter, not its item
+        prose = _block([_line("then the eigenvalues of the operator follow from",
+                              54.0, 239.0, 292.0, size=10.0, baseline=248.0),
+                        _line("S.", 283.0, 251.0, 292.0, size=10.0, baseline=260.0)])
+        other = _block([_line("from the literature on representative trees",
+                              313.0, 251.0, 560.0, size=10.0, baseline=260.0)])
+        self.assertFalse(I._has_item_beside(prose.lines[-1], prose, [prose, other]))
 
     def test_a_marker_ending_a_block_glues_to_the_item_beside_it(self):
         prose = _block([_line("also 28 U.S.C. 2412(a), (d). The Court addresses",
