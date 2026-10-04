@@ -2916,6 +2916,11 @@ def _gutter_bounds(rows, x0: float, x1: float) -> Optional[List[float]]:
         return None
     mode = max(set(counts), key=counts.count)
     body = [f for r in rows if len(r) >= mode for f in r]
+    if any(f.bbox[0] < x0 - 2.0 or f.bbox[2] > x1 + 2.0 for f in body):
+        # the rules do not span the text they are supposed to frame (an
+        # eLife funding block ruled under two of its three columns): not a
+        # table this reading can bound
+        return None
     ivs = sorted((f.bbox[0], f.bbox[2]) for f in body)
     merged = [list(ivs[0])]
     for a, b in ivs[1:]:
@@ -2957,6 +2962,14 @@ def build_rules_table(hgroup: List[DrawCmd], blocks, consumed) -> Optional[Table
     if multi < max(2, int(0.6 * len(rows))):
         return None
     bounds = _gutter_bounds(rows, x0, x1) if joined else None
+    if joined and bounds is None:
+        # the cut-apart reading found no columns it can bound: read the
+        # lines whole, exactly as before the cut existed
+        joined, lines = False, whole
+        rows = _group_lines_by_row(lines)
+        if len(rows) < 2 or sum(1 for r in rows if len(r) >= 2) < \
+                max(2, int(0.6 * len(rows))):
+            return None
     if bounds is None:
         col_lefts = _cluster([ln.bbox[0] for ln in lines], 7.0)
         if len(col_lefts) < 2:
