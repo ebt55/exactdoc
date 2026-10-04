@@ -4,7 +4,15 @@ Notable changes to exactdoc. Every quality number in this file is measured in
 the canonical environment (`docker/gate.Dockerfile`, pinned by digest) and
 traceable to a committed artifact under `docs/evidence/`.
 
-## Unreleased — porting the live-verified defect catalogue into the converter
+## Unreleased (0.2.0a1, alpha) — porting the live-verified defect catalogue into the converter
+
+**Version renumbered 1.0.1 → 0.2.0a1 (2026-10-04, owner decision).** A 1.x number
+promises a stable converter, and this one is changing by the day: the 2026-10-04
+programme rewrote parsing geometry, fonts, tables, lists, footnotes, headers and
+the refine loop in a single day. Development Status is now "3 - Alpha". The
+`v1.0.0` / `v1.0.1` tags stay as history; 1.0 is reserved for the release that
+meets the bar in Word, LibreOffice and Google Docs across the expanded corpus.
+Nothing was published to PyPI under 1.x, so no installed version sorts above this one.
 
 Between 2026-09-05 and 2026-09-07 a 32-page real report was converted and taken
 to CLEAN 1:1 in Google Docs through seven rounds of hand surgery on the output
