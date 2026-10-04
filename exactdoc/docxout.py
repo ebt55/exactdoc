@@ -17,6 +17,7 @@ from docx.shared import Pt, Emu, RGBColor, Twips
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING, WD_TAB_ALIGNMENT, WD_BREAK
 from docx.enum.section import WD_SECTION
 from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.table import _Cell
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
@@ -786,13 +787,14 @@ def _col_floors(t: TableEl) -> List[float]:
     floor = [0.0] * len(t.col_widths)
     drawn = getattr(t, "col_edges_drawn", False)
     for row in t.rows:
-        ci = 0
-        for cell in row:
-            if cell is None:
-                ci += 1
+        # Rows are full-width (None where a merged cell covers a position).
+        # A cell spanning columns floors their SUM, which a per-column floor
+        # cannot say -- and on the drawn-edge tables that carry spans the
+        # columns are the author's anyway -- so it sets none.
+        for ci, cell in enumerate(row):
+            if cell is None or max(1, getattr(cell, "col_span", 1)) > 1:
                 continue
-            span = max(1, getattr(cell, "col_span", 1))
-            if cell and ci < len(floor):
+            if ci < len(floor):
                 pads = cell.pad[1] + cell.pad[3] \
                     if len(cell.pad) >= 4 else 8.0
                 widest = 0.0
@@ -806,7 +808,6 @@ def _col_floors(t: TableEl) -> List[float]:
                     # construction held everything the author drew in it.
                     widest = min(widest, t.col_widths[ci]) if drawn else widest
                     floor[ci] = max(floor[ci], widest + pads)
-            ci += span
     return floor
 
 
@@ -833,10 +834,8 @@ def _fit_col_widths(t: TableEl, content_w: float = 0.0) -> List[float]:
     # its first run.
     need = [0.0] * n
     for row in t.rows:
-        ci = 0
-        for cell in row:
+        for ci, cell in enumerate(row):     # full-width rows; see _col_floors
             if cell is None:
-                ci += 1
                 continue
             span = max(1, getattr(cell, "col_span", 1))
             w = _cell_text_width(cell)
@@ -853,7 +852,6 @@ def _fit_col_widths(t: TableEl, content_w: float = 0.0) -> List[float]:
                 # estimate that was wrong.
                 if getattr(t, "col_edges_drawn", False) \
                         and w > widths[ci] + 1.0:
-                    ci += span
                     continue
                 pads = cell.pad[1] + cell.pad[3] if len(cell.pad) >= 4 else 8.0
                 # A line the author's own grid HELD needs no widening: on
@@ -865,7 +863,6 @@ def _fit_col_widths(t: TableEl, content_w: float = 0.0) -> List[float]:
                 if getattr(t, "col_edges_drawn", False):
                     ask = min(ask, widths[ci])
                 need[ci] = max(need[ci], ask)
-            ci += span
     deficit = [max(0.0, need[i] - widths[i]) for i in range(n)]
     # The surplus a column may give up is bounded below by its FLOOR --
     # the widest line its cells actually drew. The old `width - 12` default
@@ -1476,6 +1473,16 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
         gc.set(qn("w:w"), str(int(round(wpt * 20))))
 
     first_cover_text = True
+    # Merged cells (infer.build_grid_table): every grid position a span
+    # covers, other than the span's own, maps to (cell, r0, c0, cols, rows).
+    cover = _span_cover(t, n_rows, n_cols)
+    # What each row's cells are WRITTEN with: one top and one bottom pad per
+    # row (see _uniform_row_pads). The row-height arithmetic below keeps
+    # reading the cells as inferred. Not under the gdocs profile, whose
+    # row model was calibrated live on per-cell pads (the round-4 levers
+    # below) and has no measurement of Docs' rule yet.
+    emit_rows = t.rows if ctx.output_profile == "gdocs" \
+        else _uniform_row_pads(t.rows, n_cols)
     for ri, rowspec in enumerate(t.rows):
         row = tbl.rows[ri]
         if ri < t.repeat_header_rows:
@@ -1486,15 +1493,28 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
             hdr.set(qn("w:val"), "true")
             trPr.append(hdr)
         h = t.row_heights[ri] if ri < len(t.row_heights) else None
+        # A row's height belongs to the cells that live in it alone. A cell
+        # merged down over several rows is laid out across all of them
+        # (Word, LibreOffice and Docs all grow the LAST row of a merge if
+        # its content needs more), so counting its whole text against its
+        # first row would compress -- or grow -- that row for content that
+        # is not in it.
+        own = [c for c in rowspec[:n_cols]
+               if c and max(1, getattr(c, "row_span", 1)) == 1]
         # Only pin height on rows with no text: text rows are content-driven
         # (cell pads + exact-leading paragraphs sum to the source height,
         # which renders identically in Word, Google Docs and LibreOffice).
-        row_has_text = any(c and any(p.text.strip() for p in c.paras)
-                           for c in rowspec)
+        # A row whose only text is a merged cell's is, for its own height,
+        # a row with no text.
+        row_has_text = any(any(p.text.strip() for p in c.paras) for c in own)
         if h and not row_has_text:
             trPr = row._tr.get_or_add_trPr()
             th = OxmlElement("w:trHeight")
-            th.set(qn("w:val"), str(int(round(h * 20))))
+            # the renderer adds the row's borders to the pinned height (see
+            # _row_border_allowance); the source pitch already holds them
+            pin = h if ctx.output_profile == "gdocs" \
+                else max(1.0, h - _row_border_allowance(rowspec))
+            th.set(qn("w:val"), str(int(round(pin * 20))))
             th.set(qn("w:hRule"), "atLeast")
             trPr.append(th)
         # The Google Docs importer pads every table row by about 1.9pt on
@@ -1525,9 +1545,7 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
         row_shrink = 1.0
         if h and row_has_text:
             need = 0.0
-            for c in rowspec:
-                if not c:
-                    continue
+            for c in own:
                 cell_h = (c.pad[0] + c.pad[2]) if len(c.pad) >= 4 else 0.0
                 for p in c.paras:
                     lead = p.leading or (p.runs[0].size * 1.2 if p.runs else 11.0)
@@ -1548,34 +1566,75 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
         if gdocs_rowpin and h and row_has_text:
             target = math.floor(h) - GDOCS_ROW_SAFETY_PT
             if need > target + 0.5:
-                avail = max((c.pad[2] if c and len(c.pad) >= 4 else 0.0)
-                            for c in rowspec)
+                avail = max([(c.pad[2] if len(c.pad) >= 4 else 0.0)
+                             for c in own] or [0.0])
                 pad_cut = min(need - target, max(0.0, avail))
                 need -= pad_cut
                 if need > target + 0.5:
                     row_shrink = max(MIN_ROW_SHRINK, target / need)
                 else:
                     row_shrink = 1.0
+        tcs = list(row._tr.tc_lst)
+        emitspec = emit_rows[ri]
         for ci in range(n_cols):
-            spec = rowspec[ci] if ci < len(rowspec) else None
-            cell = tbl.cell(ri, ci)
-            tcPr = cell._tc.get_or_add_tcPr()
+            spec = emitspec[ci] if ci < len(emitspec) else None
+            covered = cover.get((ri, ci)) if spec is None else None
+            if covered is not None and (covered[1] == ri or covered[2] != ci):
+                # inside a gridSpan: the spanning w:tc owns this grid column
+                row._tr.remove(tcs[ci])
+                continue
+            tc = tcs[ci]
+            cell = _Cell(tc, tbl)
+            tcPr = tc.get_or_add_tcPr()
             for old in tcPr.findall(qn("w:tcW")):
                 tcPr.remove(old)
+            cs = 1 if spec is None else \
+                max(1, min(getattr(spec, "col_span", 1), n_cols - ci))
+            rs = 1 if spec is None else \
+                max(1, min(getattr(spec, "row_span", 1), n_rows - ri))
+            if covered is not None:
+                spec, r0, _c0, cs, rs = covered
+            cw = sum(t.col_widths[ci:ci + cs])
             tcw = OxmlElement("w:tcW")
-            tcw.set(qn("w:w"), str(int(round(t.col_widths[ci] * 20))))
+            tcw.set(qn("w:w"), str(int(round(cw * 20))))
             tcw.set(qn("w:type"), "dxa")
             tcPr.append(tcw)
+            # schema order: tcW, gridSpan, vMerge, tcBorders, shd, ...
+            if cs > 1:
+                gs = OxmlElement("w:gridSpan")
+                gs.set(qn("w:val"), str(cs))
+                tcPr.append(gs)
+            if rs > 1:
+                vm = OxmlElement("w:vMerge")
+                if covered is None:
+                    vm.set(qn("w:val"), "restart")
+                tcPr.append(vm)
+            if covered is not None:
+                # A continuation row of a merged cell: an empty w:tc carrying
+                # the merge's shading and its own row's share of the borders
+                # (sides, and the bottom only on the merge's last row).
+                last = ri == r0 + rs - 1
+                if spec.shading:
+                    shd = OxmlElement("w:shd")
+                    shd.set(qn("w:val"), "clear")
+                    shd.set(qn("w:fill"), _hex(spec.shading))
+                    tcPr.append(shd)
+                _set_borders(tcPr, _merge_part_borders(spec.borders, False, last),
+                             "w:tcBorders")
+                _blank_cell(cell)
+                continue
             if spec is None:
                 _blank_cell(cell)
                 _set_borders(tcPr, {}, "w:tcBorders")
                 continue
+            spanning = rs > 1
             if spec.shading:
                 shd = OxmlElement("w:shd")
                 shd.set(qn("w:val"), "clear")
                 shd.set(qn("w:fill"), _hex(spec.shading))
                 tcPr.append(shd)
-            _set_borders(tcPr, spec.borders, "w:tcBorders")
+            _set_borders(tcPr, _merge_part_borders(spec.borders, True, not spanning)
+                         if spanning else spec.borders, "w:tcBorders")
             tmar = OxmlElement("w:tcMar")
             pads = spec.pad  # (top, left, bottom, right)
             # Google ignores tcMar/left: first measured on the bleed cover
@@ -1597,7 +1656,9 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
             # 20tw on top of the 0.75pt loss; 1.75pt total). It is
             # monotone-safe: widening the wrap width can only REMOVE a wrap,
             # never add one.
-            emitted_pads = (pads[0], 0.0, max(0.0, pads[2] - pad_cut),
+            # (a merged cell's rows were sized without it: no cut, no shrink)
+            cell_cut = 0.0 if spanning else pad_cut
+            emitted_pads = (pads[0], 0.0, max(0.0, pads[2] - cell_cut),
                             max(0.0, pads[3] - 1.75)) \
                 if gdocs_cellpad else pads
             for side, val in zip(("top", "left", "bottom", "right"),
@@ -1619,7 +1680,7 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
                 # 35.8pt column left 14.6pt for '24.6' (17.5pt), so the number
                 # wrapped char-by-char and the row doubled. Word indents are
                 # measured from the tcMar edge; make the paragraphs agree.
-                def _depadded(p, _s=row_shrink):
+                def _depadded(p, _s=1.0 if spanning else row_shrink):
                     q = copy.copy(p)
                     if gdocs_cellpad:
                         # Standard rendering lands at max(source indent,
@@ -1653,8 +1714,7 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
                         if pos > 0.0 and ci < len(t.col_widths):
                             w = source_line_width(p)
                             if w is not None:
-                                inner = max(0.0, t.col_widths[ci]
-                                            - emitted_pads[3] - 2.0)
+                                inner = max(0.0, cw - emitted_pads[3] - 2.0)
                                 pos = min(pos, max(
                                     0.0, inner - w * 1.15 - 1.0))
                         q.left_indent = pos
@@ -1676,7 +1736,7 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
                                      _GDOCS_COVER_BEFORE_COMP_TWIPS)
                         q.space_before = before / 20.0
                         first_cover_text = False
-                    cpar = write_para(cell, q, t.col_widths[ci],
+                    cpar = write_para(cell, q, cw,
                                       par=first if pi == 0 else None, ctx=ctx)
                     _size_mark_to_content(cpar, q)
             else:
@@ -1788,6 +1848,107 @@ def _write_box_paragraphs(container, t: TableEl, content_w: float, ctx=None):
         _side("right", right, pad_right)
         out.append(par)
     return out[0] if out else None
+
+
+def _span_cover(t: TableEl, n_rows: int, n_cols: int) -> dict:
+    """{(row, col): (cell, r0, c0, col_span, row_span)} for every grid
+    position a merged cell covers other than its own top-left one."""
+    cover = {}
+    for r0, rowspec in enumerate(t.rows[:n_rows]):
+        for c0, spec in enumerate(rowspec[:n_cols]):
+            if spec is None:
+                continue
+            cs = max(1, min(getattr(spec, "col_span", 1), n_cols - c0))
+            rs = max(1, min(getattr(spec, "row_span", 1), n_rows - r0))
+            if cs == 1 and rs == 1:
+                continue
+            for r in range(r0, r0 + rs):
+                for c in range(c0, c0 + cs):
+                    if (r, c) != (r0, c0):
+                        cover[(r, c)] = (spec, r0, c0, cs, rs)
+    return cover
+
+
+def _row_border_allowance(row) -> float:
+    """Height a row's own horizontal borders add to it in the renderer.
+
+    Pads are derived from the source's line CENTRES, so the source row
+    pitch already contains its rules. LibreOffice lays the border out on
+    top of pads + content: measured (exp/border) a 14.0pt row of pads and
+    one line renders at a 14.0 + w pitch for borders of width w on every
+    cell, w from 0.25 to 4.0 exactly. Half the top and half the bottom
+    border, the widest in the row.
+    """
+    allow = 0.0
+    for c in row:
+        if c is None:
+            continue
+        b = c.borders or {}
+        w = sum((b.get(k) or (0.0,))[0] for k in ("top", "bottom")) / 2.0
+        allow = max(allow, w)
+    return allow
+
+
+def _uniform_row_pads(rows, n_cols: int):
+    """Each row's cells with ONE top and ONE bottom margin; the difference
+    moved into the first paragraph's space-before. Returns new rows.
+
+    The content-driven row model (THEORY 3.2) derives every cell's pads from
+    its own geometry, so that pads + exact-leading lines sum to the source
+    row in each cell. Word sizes a row per cell. LibreOffice does not: it
+    measured max(top pads) + max(content) + max(bottom pads) across the row
+    (exp/pad3: a two-line cell with pads 0.7/2.0 beside a one-line cell with
+    1.3/12.8 renders 36.6pt, not 24.7; a 0/2 cell beside a 12/2 one renders
+    36.5, not 25.0). A one-line cell next to a wrapped one always carries a
+    large bottom pad -- that is what makes the row's height add up -- so
+    every such row grew by about that pad: on NIST SP 800-171's mapping
+    tables, +12pt on most rows.
+
+    With every cell sharing the row's smallest top and bottom gaps, and each
+    cell's remaining top offset expressed as space-before, both renderers
+    compute the same height: the tallest cell's content plus the shared
+    pads, which is the source row. Cells merged down from a row (row_span >
+    1) give up their bottom pad entirely -- their rows are sized by the
+    cells that live in them -- and blank cells take the shared pads so they
+    cannot raise the row's maxima.
+    """
+    out = []
+    for rowspec in rows:
+        row = list(rowspec)
+        live = [c for c in row[:n_cols] if c is not None]
+        texted = [c for c in live if max(1, getattr(c, "row_span", 1)) == 1
+                  and len(c.pad) >= 4 and any(p.text.strip() for p in c.paras)]
+        top = min((c.pad[0] for c in texted), default=0.0)
+        bot = max(0.0, min((c.pad[2] for c in texted), default=0.0)
+                  - _row_border_allowance(row))
+        for ci, c in enumerate(row[:n_cols]):
+            if c is None or len(c.pad) < 4:
+                continue
+            q = copy.copy(c)
+            spanning = max(1, getattr(c, "row_span", 1)) > 1
+            if c.paras and any(p.text.strip() for p in c.paras):
+                lift = max(0.0, c.pad[0] - top)
+                if lift > 0.05:
+                    first = copy.copy(c.paras[0])
+                    first.space_before = round((first.space_before or 0.0) + lift, 2)
+                    q.paras = [first] + list(c.paras[1:])
+            q.pad = (min(top, c.pad[0]), c.pad[1],
+                     0.0 if spanning else min(bot, c.pad[2]), c.pad[3])
+            row[ci] = q
+        out.append(row)
+    return out
+
+
+def _merge_part_borders(borders: dict, first: bool, last: bool) -> dict:
+    """One row's w:tc of a vertically merged cell: its sides, the merge's top
+    edge on the first row only, its bottom edge on the last only -- so no
+    renderer draws a rule across the inside of the merge."""
+    b = dict(borders or {})
+    if not first:
+        b.pop("top", None)
+    if not last:
+        b.pop("bottom", None)
+    return b
 
 
 def _blank_cell(cell):

@@ -549,7 +549,10 @@ def apply_ladder(lay: DocLayout, enabled: bool = True, metrics=None) -> dict:
                         for ci, cell in enumerate(row):
                             if cell is None:
                                 continue
-                            cw = el.col_widths[ci] if ci < len(el.col_widths) else 100.0
+                            # a merged cell is as wide as the columns it spans
+                            span = max(1, getattr(cell, "col_span", 1))
+                            cw = sum(el.col_widths[ci:ci + span]) \
+                                if ci < len(el.col_widths) else 100.0
                             for cp in cell.paras:
                                 # A cell's height is declared by the source; the
                                 # lock restores it rather than inventing it.
