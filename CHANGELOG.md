@@ -92,6 +92,27 @@ never held — Typst, XeLaTeX, LuaTeX+ConTeXt, pandoc, Arbortext+PDFlib,
 Word→PostScript→Distiller — and closing LaTeX-light 1→6, other real-world
 1→6. Non-gating, as §7 requires.
 
+Corpus tranche 4 (see `docs/corpus-expansion.md` §13): "what people actually
+convert" — 38 licence-verified documents sealed as y28–y65 (16 gated + 79
+expansion = 95, 21.9 MB added).
+
+- **Producer chains new to the corpus:** Word, PowerPoint and Excel for
+  Microsoft 365 direct exports, Google Docs, Apple Pages, real-world
+  LibreOffice, Power PDF, Print To PDF, WeasyPrint, JUST PDF, XPP,
+  JasperReports, GPO, three journal pipelines and three arXiv classes.
+- **Coverage:** CVs, eight non-Latin scripts and two OCR'd scans.
+- **First sweep** (product profile at ec22cbf,
+  `docs/evidence/quality-sweep-tranche4-2026-10-04.json`): 38/38 convert, but
+  only 10/38 are page-exact. Median ratio 1.38×.
+- **Two-column papers** inflate 2.4–2.6× (y41, y39, y42).
+- **Panel-backed InDesign text is rasterised wholesale:** y58 keeps 12% live
+  text.
+- **Scans** go 2.8–2.9× in pages and 53–58× in DOCX size.
+- **The word-recall metric cannot grade Thai or Devanagari** (y55 keeps every
+  Thai character and scores 0.061).
+
+Non-gating; the expansion parity policy re-pins its corpus hash only.
+
 - **the booklet class, fixed at the root (detection, then flow).** Three
   coordinated changes: the gutter scan reads only narrow lines (≤0.62 of the
   content width) so a spanning caution line can no longer veto a genuine
