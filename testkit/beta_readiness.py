@@ -109,8 +109,8 @@ BAR = {
     "readme_stale_days": 7,
     # 13. the ratified Google Docs quality policy's per-document thresholds
     #     (testkit/gdocs_quality_policy.json, tier ordinary_digital), read from
-    #     that file, on this share of promised documents in the live Docs lane
-    #     -- reported for beta, GA gate
+    #     that file, on this share of promised documents in EVERY lane (LO raw,
+    #     Word, Docs live) -- reported for beta, GA gate
     "gdocs_policy_share": 0.90,
     # an input older than the newest input by more than this is flagged stale
     "stale_input_hours": 24,
@@ -476,7 +476,10 @@ def evaluate(docs, sweeps, lanes, gate, accepted=None, docx_dir=None,
         slow = sorted(((r["convert_s"] - limit_of(r["src_pages"]), r) for r in rows
                        if r["convert_s"] > limit_of(r["src_pages"])),
                       key=lambda t: -t[0])
-        parts.append("%s: %d of %d over" % (kind, len(slow), len(rows)))
+        jobs = sweeps[kind][1].get("jobs")
+        parts.append("%s: %d of %d over%s" % (
+            kind, len(slow), len(rows),
+            " (%d documents at a time)" % jobs if jobs else ""))
         offenders += ["%s %s %.0fs for %d pages (limit %.0fs)" % (
             kind, _short(r["document"]), r["convert_s"], r["src_pages"],
             limit_of(r["src_pages"])) for _, r in slow]
@@ -709,28 +712,39 @@ def evaluate(docs, sweeps, lanes, gate, accepted=None, docx_dir=None,
              len(stale["misses"]) or None, stale["misses"])
 
     # 13. the ratified gdocs policy on promised documents (reported) ----------
+    # Clarified by the coordinator 2026-10-05: the policy applies in ALL three
+    # lanes (LibreOffice raw, Word, Docs live), each on its own share.
     policy = _gdocs_policy_thresholds()
-    rows = L.get("docs")
-    name = ("ratified Google Docs quality policy on >=%d%% of promised documents "
-            "(Docs live)" % round(100 * BAR["gdocs_policy_share"]))
-    if not policy or rows is None:
+    name = ("ratified Google Docs quality policy's per-document thresholds on "
+            ">=%d%% of promised documents, in every lane"
+            % round(100 * BAR["gdocs_policy_share"]))
+    if not policy:
         crit(13, "gdocs-policy", name, REPORTED,
-             "unmeasured: %s" % ("no live Docs rows" if policy else
-                                 "gdocs_quality_policy.json unreadable"))
+             "unmeasured: gdocs_quality_policy.json unreadable")
     else:
-        group = [rows[d] for d in sorted(promised) if measured(rows.get(d))]
-        bad = []
-        for r in group:
-            why = [k for k, rule in policy.items() if not _meets(r, k, rule)]
-            if why:
-                bad.append("%s (%s)" % (_short(r["doc"]), ", ".join(why)))
-        k = len(group) - len(bad)
-        short = _shortfall(k, len(group), BAR["gdocs_policy_share"])
-        crit(13, "gdocs-policy", name, REPORTED,
-             "%s; %d promised not measured live; would %s for GA" % (
-                 _pct(k, len(group)), len(promised) - len(group),
-                 "FAIL by %d" % short if short else "PASS"),
-             short or None, bad)
+        lines, misses, by, missing = [], [], 0, []
+        for lane in BAR["lanes"]:
+            rows = L.get(lane)
+            if rows is None:
+                missing.append(names[lane])
+                lines.append("%s unmeasured" % names[lane])
+                continue
+            group = [rows[d] for d in sorted(promised) if measured(rows.get(d))]
+            bad = []
+            for r in group:
+                why = [k for k, rule in policy.items() if not _meets(r, k, rule)]
+                if why:
+                    bad.append("%s %s (%s)" % (names[lane], _short(r["doc"]),
+                                               ", ".join(why)))
+            k = len(group) - len(bad)
+            by += _shortfall(k, len(group), BAR["gdocs_policy_share"])
+            lines.append("%s %s%s" % (names[lane], _pct(k, len(group)),
+                                      " (%d not measured)" % (len(promised) - len(group))
+                                      if len(promised) > len(group) else ""))
+            misses += bad
+        lines.append("would %s for GA" % ("FAIL by %d" % by if by else
+                                          ("be UNMEASURED" if missing else "PASS")))
+        crit(13, "gdocs-policy", name, REPORTED, "; ".join(lines), by or None, misses)
 
     gating = [c for c in criteria if c["key"] not in BAR["reported_only"]]
     statuses = [c["status"] for c in gating]
