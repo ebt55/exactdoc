@@ -532,6 +532,50 @@ class RunningHeadSections(unittest.TestCase):
         self.assertFalse([s for s in lay.hf_sections if s.parts is not None])
 
 
+class FooterFitsBelowTheBody(unittest.TestCase):
+    """A footer keeps its source distance unless that would shrink the one
+    body box below what the source body uses on some page."""
+
+    def _ir(self, low_line_on=None):
+        pages = []
+        for pg in range(1, 9):
+            lines = _body(pg) + [_ln("Page %d" % pg, 280, 735, size=9)]
+            if pg == low_line_on:
+                lines.append(_ln("a table row set low on the page", 72, 755))
+            pages.append(_page(pg, lines))
+        return DocIR(path="fit.pdf", pages=pages)
+
+    def test_source_distance_kept_when_the_body_clears_it(self):
+        lay = infer(self._ir())
+        # 792 - (735 + 9.9): the source's own footer distance
+        self.assertAlmostEqual(lay.footer_default.distance, 47.1, delta=0.2)
+
+    def test_footer_moves_below_a_low_body_line(self):
+        from exactdoc.infer import FOOTER_FLOOR_PT
+        lay = infer(self._ir(low_line_on=5))
+        self.assertEqual(lay.footer_default.distance, FOOTER_FLOOR_PT)
+
+
+class FurnitureRowsSideBySide(unittest.TestCase):
+    """A folio centred between two footer lines is beside them, not under."""
+
+    def test_folio_joins_the_row_it_sits_beside(self):
+        from exactdoc.infer import _group_hf_rows
+        a = _ln("GUIDELINE ON THE REGULATION", 70, 801.3, size=7.4, x1=330)
+        folio = _ln("1", 520, 805.0, size=10.0, x1=526)
+        b = _ln("GUIDANCE FOR A NEW PRODUCT", 70, 811.2, size=7.4, x1=300)
+        rows = _group_hf_rows([a, folio, b])
+        self.assertEqual([[l.text for l in r] for r in rows],
+                         [["GUIDELINE ON THE REGULATION", "1"],
+                          ["GUIDANCE FOR A NEW PRODUCT"]])
+
+    def test_stacked_lines_stay_stacked(self):
+        from exactdoc.infer import _group_hf_rows
+        a = _ln("388", 280, 734.1, size=8.7, x1=295)
+        b = _ln("US Department of Health", 72, 748.6, size=8.7, x1=300)
+        self.assertEqual(len(_group_hf_rows([a, b])), 2)
+
+
 class SplitRunsKeepTheirFace(unittest.TestCase):
     def test_pagefields_split_keeps_serif(self):
         from exactdoc.infer import _pagefields

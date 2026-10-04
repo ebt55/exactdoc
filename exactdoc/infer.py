@@ -1711,6 +1711,47 @@ def _group_lines_by_row(lines: List[Line]) -> List[List[Line]]:
     return rows
 
 
+# A furniture line joins a neighbouring row, rather than stacking as a row of
+# its own, when it shares at least this fraction of the shorter line's height
+# with that row and sits beside it rather than under it. Measured on the NZ
+# medicinal-cannabis guideline (y30): its folio (805.0-816.0) is centred
+# between two left-hand footer lines (801.3-809.4, 811.2-819.2), overlapping
+# each by 54% and 60%; stacked as three paragraphs the footer was 31.5pt tall
+# against the source's 18pt, and every page lost the 13pt difference.
+HF_ROW_OVERLAP = 0.5
+
+
+def _group_hf_rows(lines: List[Line]) -> List[List[Line]]:
+    """`_group_lines_by_row`, plus: a line that sits BESIDE a row (sharing
+    HF_ROW_OVERLAP of its height, and no x-range with the row's lines) is
+    part of that row -- one paragraph with a tab, as the source sets it --
+    not a paragraph stacked under it."""
+    rows = _group_lines_by_row(lines)
+    if len(rows) < 2:
+        return rows
+
+    def vov(a, b):
+        ov = min(a.bbox[3], b.bbox[3]) - max(a.bbox[1], b.bbox[1])
+        return ov / max(1e-6, min(a.bbox[3] - a.bbox[1], b.bbox[3] - b.bbox[1]))
+
+    def beside(ln, row):
+        return all(ln.bbox[2] <= o.bbox[0] or ln.bbox[0] >= o.bbox[2]
+                   for o in row)
+
+    out: List[List[Line]] = []
+    for row in rows:
+        if len(row) == 1 and out:
+            ln = row[0]
+            host = next((r for r in out if beside(ln, r) and
+                         max(vov(ln, o) for o in r) >= HF_ROW_OVERLAP), None)
+            if host is not None:
+                host.append(ln)
+                host.sort(key=lambda l: l.bbox[0])
+                continue
+        out.append(list(row))
+    return out
+
+
 def _hf_row_para(row: List[Line], margin_l: float, content_w: float,
                  line_roles: Dict[int, List[str]]) -> Para:
     p = Para()
@@ -1865,6 +1906,58 @@ def _hf_extent(part: Optional[HFPart]) -> float:
     return h
 
 
+# The lowest a footer is placed: a quarter inch, the common minimum printable
+# margin (also the refine loop's floor, refine.FOOTER_FLOOR_PT).
+FOOTER_FLOOR_PT = 18.0
+# A footer is moved only when that frees at least a line of body: 12pt, the
+# common body leading of the documents measured. A smaller move buys nothing
+# and only perturbs the page (EUR-Lex: 1.2pt cost the refine loop its 144/144).
+FOOTER_MIN_GAIN_PT = 12.0
+# The reserve below the lowest body line that `_measure_margins` keeps.
+BODY_FOOT_RESERVE_PT = 16.0
+
+
+def _fit_footers_below_body(ir: DocIR, hf, lay: DocLayout, rh) -> None:
+    """Keep the footers, but never let one shrink the body box below what the
+    source body uses.
+
+    A DOCX section has ONE body box for all its pages, and a footer bounds it
+    from below. The margin model already measures that box from the lowest
+    body line on any page (`_measure_margins`); a footer placed at its source
+    distance can sit higher than that, and then every page loses the
+    difference. Before running footers were written the body had that room,
+    and the documents whose re-wrapped text needs it -- the Word-export class
+    -- spilled once the footer took it: on the merged tree y01 89 -> 96 pages,
+    y03 63 -> 71, y08 67 -> 72, y36 42 -> 47. Measured with each footer moved
+    down just far enough to sit below the box (never under FOOTER_FLOOR_PT,
+    never by less than FOOTER_MIN_GAIN_PT), over 19 documents: 1528 -> 1493
+    pages and word recall 0.3025 -> 0.3221 -- y01 92, y03 66 (recall 0.262 ->
+    0.404), y08 68, y36 42, y28 33 -> 28 -- and no document worse. A footer
+    whose source position already clears the box (every gated document, the
+    RFCs at 105pt) is not touched.
+    """
+    feet = [lay.footer_default, lay.footer_even]
+    for _, parts, _ in rh:
+        feet += [parts.get("footer"), parts.get("footer_even")]
+    feet = list({id(p): p for p in feet if p is not None}.values())
+    if not feet:
+        return
+    room = None
+    for p in ir.pages:
+        ct = hf["consumed_text"][p.number]
+        bots = [l.bbox[3] for bi, b in enumerate(p.blocks) for l in b.lines
+                if (bi, id(l)) not in ct]
+        if bots:
+            r = p.height - max(bots) - BODY_FOOT_RESERVE_PT
+            room = r if room is None else min(room, r)
+    if room is None:
+        return
+    for part in feet:
+        target = room - _hf_extent(part)
+        if part.distance - target >= FOOTER_MIN_GAIN_PT:
+            part.distance = max(FOOTER_FLOOR_PT, round(target, 1))
+
+
 def _running_head_sections(ir: DocIR, hf, lay: DocLayout, zs, roles):
     """[(start_page, parts, title_pg)] -- one entry per change of running head.
 
@@ -2004,7 +2097,7 @@ def build_hf_part(zone_items, zone_draws, page: PageIR, margin_l, margin_r,
 
     rules = [d for (_, _, d) in zone_draws if d.shape in ("hline", "line")]
     text_paras = []
-    for rowlines in _group_lines_by_row([ln for (_, _, ln) in rest]):
+    for rowlines in _group_hf_rows([ln for (_, _, ln) in rest]):
         pp = _hf_row_para(rowlines, margin_l, content_w, line_roles)
         y0 = min(l.bbox[1] for l in rowlines)
         y1 = max(l.bbox[3] for l in rowlines)
@@ -4209,6 +4302,7 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
     # body position is computed from margin_t, so a margin inside the header
     # displaced every page's content by the difference: y17 was written with
     # `pgMar top=200tw` under a header at 35pt, 37pt of drift on 193 pages.
+    _fit_footers_below_body(ir, hf, lay, rh)
     heads = [lay.header_default, lay.header_even]
     feet = [lay.footer_default, lay.footer_even]
     for _, parts, _ in rh:
