@@ -56,7 +56,7 @@ from typing import List, Optional
 
 from .layout import DocLayout, Para, Run, TableEl
 from .fonts import map_font
-from .metrics import shaped_size
+from .metrics import honours_tracking, shaped_size
 
 # Base-14 metric equivalents. Anything absent is "not predictable" -- see below.
 _B14 = {
@@ -230,8 +230,9 @@ def predict_lines(p: Para, avail: float, metrics=None) -> Optional[int]:
         if fn is None:
             return None
         # The source's letter-spacing widens every character the renderer
-        # sets, the space included (see Run.tracking).
-        tr = getattr(r, "tracking", 0.0)
+        # sets, the space included (see Run.tracking) -- where the renderer
+        # honours it. Google Docs does not (metrics.RendererMetrics).
+        tr = getattr(r, "tracking", 0.0) if honours_tracking(metrics) else 0.0
         for w in r.text.replace("\n", " ").split(" "):
             if w:
                 words.append((w, fam, shaped_size(r), r.bold, r.italic, tr))
@@ -301,7 +302,8 @@ def _seg_width(seg_runs, cache, metrics) -> float:
             if got is None:
                 return -1.0
             cache[key] = got
-        w += cache[key] + getattr(r, "tracking", 0.0) * len(r.text)
+        tr = getattr(r, "tracking", 0.0) if honours_tracking(metrics) else 0.0
+        w += cache[key] + tr * len(r.text)
     return w
 
 
@@ -388,6 +390,11 @@ def _lock(p: Para, avail: float, metrics) -> bool:
         nch = sum(len(r.text) for r in seg)
         track = 0.0
         if w > room - SLACK_PT and nch > 1:
+            if not honours_tracking(metrics):
+                # A renderer that discards tracking would set this line at its
+                # natural width, overflow, and wrap it: locking without fitting,
+                # the case measured above as strictly worse than flow.
+                return False
             track = -(w - room + SLACK_PT) / (nch - 1)
             if -track > MAX_TRACK:
                 return False

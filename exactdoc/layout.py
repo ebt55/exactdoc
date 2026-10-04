@@ -114,6 +114,10 @@ class Para:
     # rows as an alternate, target-specific serialization; standard DOCX keeps
     # its existing flow form while the Google Docs profile can preserve them.
     gdocs_rows: List[List[Run]] = field(default_factory=list)
+    # A contents line's leader as the source typed it ("....."), kept beside
+    # the dot-leader tab stop that replaces it: Google Docs draws no tab
+    # leaders, so that profile types these dots instead (docxout).
+    leader_text: str = ""
     # Membership of a real list; None for every other paragraph. See ListItem.
     numbering: Optional[ListItem] = None
     # "" for ordinary flow. "footnote": this paragraph is the source's footnote
