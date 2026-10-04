@@ -10,6 +10,7 @@ from .model import (DocIR, PageIR, TextBlock, Line, Span, DrawCmd, ImageObj,
                     BBox, bbox_union, bbox_overlap, bbox_area, contains)
 from .layout import (Run, Para, Cell, TableEl, FigureEl, ImageEl, RuleEl,
                      ColBreak, Chunk, PageLayout, HFPart, DocLayout)
+from . import hyphen
 
 BULLET_CHARS = set("•◦▪‣·-–—*➤►○●♦")
 NUM_RE = re.compile(r"^\(?(\d{1,3}|[a-zA-Z]|[ivxlIVXL]{1,5})[\.\)\:]$")
@@ -342,16 +343,53 @@ def _soft_join(runs: List[Run], next_text: str, dehyphenate: bool = True):
     Unconditional dehyphenation deleted 37 real hyphens and spaced 4 more on
     a 32-page ragged-right report (defect catalogue #10, live-verified in
     Google Docs: every drawn hyphen in it is real text, none a break).
+
+    Inside a conversion the geometry verdict is only the last resort: the
+    document's own vocabulary decides first (exactdoc.hyphen). Geometry alone
+    kept 464 breaks mid-word on a ragged-right booklet (`re-turn`) and deleted
+    real hyphens in a justified paper (`singlecorpus`).
     """
     if not runs:
         return
     last = runs[-1].text
     nxt = next_text.lstrip()[:1]
-    if dehyphenate and last.endswith("-") and len(last) >= 2 \
-            and last[-2].isalpha() and nxt.islower():
-        runs[-1].text = last[:-1]
+    if last.endswith("-") and len(last) >= 2 and last[-2].isalpha() \
+            and nxt.islower():
+        ev = hyphen.current()
+        pair = hyphen.split_pair(last, next_text) if ev is not None else None
+        if pair is not None:
+            dehyphenate = ev.is_break(pair[0], pair[1], at_edge=dehyphenate)
+        if dehyphenate:
+            runs[-1].text = last[:-1]
     elif not last.endswith((" ", "-")):
         runs[-1].text += " "
+
+
+# Two runs whose measured letter-spacing differs by less than this are one run:
+# every source line measures its own value (x07's body lines 0.24-0.34pt, the
+# spread of Chromium's pixel rounding), and splitting a paragraph's runs at each
+# line would fragment it for a difference the writer's 1/20pt unit barely holds.
+TRACK_MERGE_PT = 0.1
+
+
+def _closed_up(s: Span) -> Optional[str]:
+    """`O V E R V I E W` -> `OVERVIEW`, when the document spells the word.
+
+    A word set in spaced capitals arrives with a space in every gap, because
+    each gap is wider than a space (WDR: 0.42em). The parser marks such a run;
+    whether it is ONE word or a row of letters (an alphabet bar, a key) is a
+    question of vocabulary, so it is answered here, where the document's own
+    word list exists. Unattested strings keep their spaces.
+    """
+    if not getattr(s, "spaced_letters", False):
+        return None
+    word = re.sub(r"\s+", "", s.text)
+    ev = hyphen.current()
+    if ev is None or not word.isalpha() or not ev.words[word.lower()]:
+        return None
+    lead = s.text[:len(s.text) - len(s.text.lstrip())]
+    trail = s.text[len(s.text.rstrip()):]
+    return lead + word + (" " if trail else "")
 
 
 def runs_from_spans(spans: List[Span]) -> List[Run]:
@@ -360,17 +398,28 @@ def runs_from_spans(spans: List[Span]) -> List[Run]:
         # justified text extracts stretched word gaps as doubled spaces;
         # collapse them (except in monospace) so re-wrap matches the source
         txt = s.text if s.mono else re.sub(r" {2,}", " ", s.text)
+        tracking = getattr(s, "tracking", 0.0)
+        closed = _closed_up(s)
+        if closed is not None:
+            txt = closed
+        elif getattr(s, "spaced_letters", False):
+            tracking = 0.0              # the spaces stay, and carry the width
         r = Run(text=txt, font=s.font, size=s.size, color=s.color,
                 bold=s.bold, italic=s.italic, mono=s.mono, serif=s.serif,
                 link=s.link, dest=getattr(s, "dest", None),
                 underline=bool(getattr(s, "_ul", False)),
-                superscript=s.superscript)
+                superscript=s.superscript, tracking=tracking)
         if runs:
             p = runs[-1]
             if (p.font == r.font and abs(p.size - r.size) < 0.05 and p.color == r.color
                     and p.bold == r.bold and p.italic == r.italic and p.link == r.link
                     and p.dest == r.dest
-                    and p.underline == r.underline and p.superscript == r.superscript):
+                    and p.underline == r.underline and p.superscript == r.superscript
+                    and abs(p.tracking - r.tracking) < TRACK_MERGE_PT):
+                if p.tracking != r.tracking:
+                    n_p, n_r = len(p.text), len(r.text)
+                    p.tracking = round((p.tracking * n_p + r.tracking * n_r)
+                                       / max(1, n_p + n_r), 3)
                 if not p.mono and p.text.endswith(" ") and r.text.startswith(" "):
                     p.text += r.text.lstrip(" ")
                 else:
@@ -384,6 +433,37 @@ def runs_from_spans(spans: List[Span]) -> List[Run]:
 
 def _line_size(ln: Line) -> float:
     return max((s.size for s in ln.spans), default=10.0)
+
+
+# Line-level form of parse_pdfium's collision rule: text runs of two lines that
+# cover each other horizontally are two lines, whatever their baselines say.
+# Without it a heading overprinting a running footer 0.75pt away (x07) became
+# one row, and a booklet index's 8pt entries 9.5pt above a large index letter
+# were absorbed as "superscripts" of the line beside it (y13: `Kidnapped 13,
+# 18` + raised `age 18 3, 4`). A script sits beside the glyph it modifies.
+OVERPRINT_FRAC = 0.5
+SCRIPT_MAX_EM = 1.5     # wider than this (about three glyphs) is not a script
+
+
+def _overprinted(a: Line, b: Line, sized: bool = False) -> bool:
+    """Do two lines' inked spans cover each other by more than half the
+    narrower span? With `sized`, only lines whose type differs by >15% count:
+    a same-size overlap is a producer drawing one line twice."""
+    if sized:
+        sa, sb = _line_size(a), _line_size(b)
+        if abs(sa - sb) <= 0.15 * max(sa, sb):
+            return False
+    for s in a.spans:
+        if not s.text.strip():
+            continue
+        for t in b.spans:
+            if not t.text.strip():
+                continue
+            ov = min(s.bbox[2], t.bbox[2]) - max(s.bbox[0], t.bbox[0])
+            w = min(s.bbox[2] - s.bbox[0], t.bbox[2] - t.bbox[0])
+            if w > 0.5 and ov > OVERPRINT_FRAC * w:
+                return True
+    return False
 
 
 def _merge_row_lines(lines: List[Line]) -> List[Line]:
@@ -410,7 +490,8 @@ def _merge_row_lines(lines: List[Line]) -> List[Line]:
         placed = False
         for row in rows:
             tol = max(1.2, 0.18 * _line_size(row[0]))
-            if abs(ln.baseline - row[0].baseline) < tol:
+            if abs(ln.baseline - row[0].baseline) < tol and \
+                    not any(_overprinted(ln, o, sized=True) for o in row):
                 row.append(ln)
                 placed = True
                 break
@@ -440,6 +521,12 @@ def _merge_row_lines(lines: List[Line]) -> List[Line]:
                 hx1 = max(l.bbox[2] for l in host)
                 if f.bbox[0] < hx0 - 2.0 or f.bbox[0] > hx1 + 0.5 * hsz:
                     continue                      # not adjacent horizontally
+                # A script is a glyph or three; a host span's box can contain
+                # one legitimately (the span runs on past it), so only a
+                # fragment longer than that is tested for overprinting.
+                if (f.bbox[2] - f.bbox[0]) > SCRIPT_MAX_EM * fsz and \
+                        any(_overprinted(f, h) for h in host):
+                    continue                      # a line over the host's text
                 for s in f.spans:
                     if f.baseline < hb - 0.12 * hsz:
                         s.superscript = True
@@ -713,7 +800,51 @@ def para_from_lines(lines: List[Line], col_l: float, col_r: float) -> Para:
                                         >= col_r - p.right_indent - 3.0))
                 runs.extend(runs_from_spans(lines[j].spans))
             p.runs = runs
+    _keep_room(p, col_l, col_r)
     return p
+
+
+# Which paragraphs the guard repairs. A ONE-line paragraph that overhangs by
+# more than OVERHANG_TOL wraps where the source did not (RFC 9110's full-length
+# `Page N`: 17pt of room for 27pt, on every page). A longer paragraph is
+# repaired only when STARVED -- left less than half its widest line, so it
+# re-wraps into at least twice its lines (one character per line at the
+# extreme). A few points of overhang on running text is something else: the
+# inferred margin disagreeing with the text's edge, which moving the text does
+# not settle -- pulling WDR's 87 column-2 paragraphs in by 5.7pt each (206pt of
+# room for 212pt lines) cost that document 2 pages under the refine loop.
+OVERHANG_TOL = 3.0
+STARVED_FRAC = 0.5
+
+
+def _keep_room(p: Para, col_l: float, col_r: float) -> None:
+    """Never leave a paragraph less room than its own widest source line.
+
+    The indent is the line's distance from the column's left edge, and the
+    column's right edge is inferred from the BODY text. A line set further
+    right than that -- a running footer's `Page 5` at x 512-539 on RFC 9110,
+    whose body column ends at 506; EUR-Lex's masthead `L series` -- then has
+    an indent wider than the column (446pt in a 440pt column): Word and
+    LibreOffice wrap it one character per line, 30 times in 30 pages of the
+    RFC. The paragraph's extent is known, so when it is starved (see
+    STARVED_FRAC) the indent is pulled left until the widest line fits; it
+    cannot go past the column's own left edge. A
+    right-aligned line keeps its alignment, which is what places it; the
+    indent only ever bounded its wrap.
+    """
+    if not p.bbox or p.align == "center":
+        return
+    width = p.bbox[2] - p.bbox[0]
+    room = (col_r - col_l) - p.right_indent
+    if width > room:
+        return              # wider than the column: no indent makes it fit
+    start = p.left_indent + min(0.0, p.first_indent)
+    over = start + width - room
+    if start <= 0 or over <= OVERHANG_TOL:
+        return
+    if (p.src_lines or 1) > 1 and room - start >= STARVED_FRAC * width:
+        return
+    p.left_indent = round(max(0.0, -p.first_indent, p.left_indent - over), 1)
 
 
 def paras_from_line_list(lines: List[Line], col_l: float, col_r: float) -> List[Para]:
@@ -971,7 +1102,7 @@ def _pagefields(runs: List[Run], roles_for_line: Optional[List[str]],
                 continue
             nr = Run(text=part, font=r.font, size=r.size, color=r.color,
                      bold=r.bold, italic=r.italic, mono=r.mono, link=r.link,
-                     dest=r.dest, underline=r.underline)
+                     dest=r.dest, underline=r.underline, tracking=r.tracking)
             if part.isdigit():
                 role = next_role()
                 if role == "PAGE":
@@ -1654,7 +1785,8 @@ def _split_span_at_boundaries(s: Span, col_xs: List[float]) -> List[Span]:
                         bold=s.bold, italic=s.italic, mono=s.mono,
                         serif=s.serif, superscript=s.superscript,
                         bbox=(x0, s.bbox[1], x1, s.bbox[3]),
-                        origin=(x0, s.origin[1])))
+                        origin=(x0, s.origin[1]),
+                        tracking=getattr(s, "tracking", 0.0)))
         start = j
     return out
 
@@ -2028,6 +2160,23 @@ def _figure_in_budget(cl_ds, blocks, images, consumed, page, text_area):
 
 # ------------------------------------------------------------------ main
 def infer(ir: DocIR) -> DocLayout:
+    """DocIR -> DocLayout.
+
+    The document's hyphenation evidence is built first and made current for
+    the whole inference, so every line join -- paragraphs, cells, headers,
+    merged flow -- resolves its line-end hyphen against the same vocabulary
+    (see exactdoc.hyphen and _soft_join).
+    """
+    token = hyphen.activate(hyphen.HyphenEvidence.from_ir(ir) if ir.pages else None)
+    try:
+        lay = _infer(ir)
+    finally:
+        hyphen.deactivate(token)
+    hyphen.mark_unhyphenated(lay)
+    return lay
+
+
+def _infer(ir: DocIR) -> DocLayout:
     lay = DocLayout(src_path=ir.path)
     if not ir.pages:
         return lay
@@ -2114,16 +2263,14 @@ def infer(ir: DocIR) -> DocLayout:
     max_bot = max(bots) if bots else lay.page_h - 54
     lay.margin_b = round(max(14.0, min(72.0, lay.page_h - max_bot - 16.0)), 1)
 
-    # hyphenated justification? (line ends with letter-hyphen, next starts lower)
-    hyph = 0
-    for p in ir.pages:
-        for b in p.blocks:
-            for l1, l2 in zip(b.lines, b.lines[1:]):
-                t1, t2 = l1.text.rstrip(), l2.text.lstrip()
-                if t1.endswith("-") and len(t1) >= 2 and t1[-2].isalpha() \
-                        and t2[:1].islower():
-                    hyph += 1
-    lay.hyphenated = hyph >= 6
+    # Was the source set with hyphenation? This was `>= 6` hyphenated line
+    # pairs anywhere, a count that cannot tell a hyphenating document from a
+    # long one full of compounds: SP 800-63B reached it on `Out-of-/Band` and
+    # friends (1 attested break against 17 attested compounds) and its title
+    # rendered as `Publica-tion`. The document's vocabulary answers the
+    # question that was meant -- see hyphen.HyphenEvidence.hyphenates.
+    ev = hyphen.current()
+    lay.hyphenated = bool(ev is not None and ev.hyphenates)
 
     # ---------- headers/footers
     rl, rd = hf["rep_lines"], hf["rep_draws"]

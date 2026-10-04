@@ -142,6 +142,14 @@ class Span:
     # emits tracking from it. Inference uses it as a paragraph boundary, because
     # a letter-spaced line among un-letter-spaced ones is a heading.
     tracked: bool = False
+    # The letter-spacing itself, in points: the extra advance the producer put
+    # after each glyph beyond the font's own. 0.0 when the run carries none that
+    # the parser could measure consistently (see parse_pdfium._span_tracking).
+    tracking: float = 0.0
+    # The run is a word set as spaced capitals (`O V E R V I E W`): the spaces
+    # in `text` stand for tracking wider than a space, not for word breaks.
+    # Inference decides whether to close them up (it has the vocabulary).
+    spaced_letters: bool = False
 
 
 @dataclass

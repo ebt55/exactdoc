@@ -14,6 +14,7 @@ what testkit/golden_ir.py measures.
 Coordinates: PDFium is bottom-left origin, the IR is top-left. Every y is
 flipped on the way in. Sizes are in points throughout.
 """
+import bisect
 import ctypes
 import re
 from typing import List, Optional
@@ -38,6 +39,17 @@ BASELINE_TOL = 1.0        # chars on the same visual line
 SPAN_GAP_EM = 0.28        # style-independent gap that ends a span
 SPACE_GAP_EM = 0.24       # gap wide enough to mean a space the producer drew
                           # by positioning rather than by emitting a character
+# The same question across a STYLE boundary, where the bar can be lower: kerning
+# lives inside one font, so a gap between two style runs carries no kerning
+# noise, only positioning. Censused over 60 documents (gated, expansion and the
+# owner's three; first 30 pages each), boundary gaps with no space glyph on
+# either side are rare outside four documents: prose boundaries inside a word
+# (RFC 9110's ligature font, FIPS 197's scripts) sit at <=0.06em, RFC 9110's
+# skipped keyword spaces at 0.223-0.236em and RFC 9000's at 0.28em. Word-set
+# maths (FIPS 180) runs continuously from 0.04 to 0.40em and no bar separates
+# it. A space kerned against a capital loses ~0.06em of its ~0.25em; 0.20 sits
+# under that. The gated 16 carry ONE boundary gap above 0.06em (c4, 0.08em).
+BOUNDARY_SPACE_EM = 0.20
 LINE_SPLIT_EM = 1.10      # gap that ends the LINE, not merely the span:
                           # sharing a baseline is not sharing a line. Table
                           # cells and the two halves of a two-column page do
@@ -146,7 +158,7 @@ class _Char:
         return bool(self.flags & _FLAG_FIXED) or "courier" in fl or "mono" in fl
 
 
-def _page_chars(textpage, page_h) -> List[_Char]:
+def _page_chars(textpage, page_h, page=None) -> List[_Char]:
     """Characters with geometry, in content-stream order.
 
     A note on unmapped glyphs, because one of them crashed every conversion of
@@ -297,6 +309,8 @@ def _page_chars(textpage, page_h) -> List[_Char]:
             continue
         adv = (MONO_ADV_EM if c.mono_hint else SPACE_ADV_EM) * max(c.size, 1.0)
         c.x1 = min(nxt.x0, max(c.x1, c.x0 + adv))
+    if page is not None:
+        _restore_dropped_spaces(out, _dropped_space_points(page, textpage, page_h))
     out = _drop_tracking_spaces(out)
     _restore_soft_hyphens(out)
     return out
@@ -460,6 +474,13 @@ def _restore_soft_hyphens(chars: List[_Char]) -> int:
 
     Deliberately not keyed on the font name: `Times New Roman` is this
     producer's body face, not a property of the defect.
+
+    Later census, 57 documents: U+0002 is not PDFMaker's code at all but
+    PDFium's own marking of EVERY line-end hyphen it recognises (with
+    FPDFText_IsHyphen set) -- 750 on Pub 501, 357 on the Supreme Court opinion
+    whose producer drew U+00AD, 5 on a WeasyPrint paper whose hyphens are all
+    real. So the restored `-` says where the line broke and nothing about
+    whether the hyphen belongs to the word; exactdoc.hyphen decides that.
     """
     restored = 0
     for i, c in enumerate(chars):
@@ -471,6 +492,126 @@ def _restore_soft_hyphens(chars: List[_Char]) -> int:
         c.u = "-"
         restored += 1
     return restored
+
+
+def _dropped_space_points(page, textpage, page_h) -> List[tuple]:
+    """Where a producer drew a glyph that PDFium's text page threw away unread.
+
+    PDFium skips a text object whose box has no width before it reads a single
+    character from it. A space has no ink, so a producer that draws each glyph
+    as its own text object -- Chromium does, one object per glyph -- loses every
+    word space at this step, and the text page then re-synthesises spaces from
+    the gaps by its own threshold (about half a space). A KERNED space defeats
+    that: Liberation Serif kerns `A` against the space, so `A smaller` leaves a
+    1.25pt (0.13em) gap between `A` and `s`, PDFium generates nothing, and the
+    word arrives fused. Measured on the resume fixtures: `Asmaller`,
+    `CobaltAnalytics` and `—Anytown`, three per document, every one beside a
+    kerned capital; PyMuPDF, which reads the content stream, reports the space
+    glyph at x=49.5 in the first.
+
+    The page-object layer still has the object: empty text (the text page kept
+    nothing of it) and bounds collapsed to its origin. Returned as (x, baseline)
+    in the IR's top-left origin; _restore_dropped_spaces decides which of them
+    sit between two characters of a line, which is what makes one a space.
+    """
+    out = []
+    tp_raw = getattr(textpage, "raw", textpage)
+    for obj in page.get_objects():
+        try:
+            if raw.FPDFPageObj_GetType(obj.raw) != raw.FPDF_PAGEOBJ_TEXT:
+                continue
+        except Exception:
+            continue
+        l = ctypes.c_float(); b = ctypes.c_float()
+        r_ = ctypes.c_float(); t = ctypes.c_float()
+        if not raw.FPDFPageObj_GetBounds(obj.raw, ctypes.byref(l), ctypes.byref(b),
+                                         ctypes.byref(r_), ctypes.byref(t)):
+            continue
+        if (float(r_.value) - float(l.value)) > _DEGENERATE_EXTENT or \
+                (float(t.value) - float(b.value)) > _DEGENERATE_EXTENT:
+            continue                      # has ink: the text page read it
+        if _obj_text(obj, tp_raw).strip():
+            continue
+        out.append((float(l.value), page_h - float(b.value)))
+    return out
+
+
+def _restore_dropped_spaces(chars: List[_Char], points) -> int:
+    """Put a dropped space glyph back where it sits between two characters.
+
+    Only where nothing else will: the two neighbours share the object's
+    baseline, no space (drawn or generated) is already between them, and the
+    gap between them is too small for _gap_spaces to bridge -- which is exactly
+    the kerned case, since any wider gap already gets its space. The restored
+    space is a DRAWN one (gen=False): the producer put a glyph there, so
+    _drop_tracking_spaces, which second-guesses only PDFium's own synthesis,
+    leaves it alone.
+
+    A point with no character on its left on the line is not a word space; it
+    is left to _page_undecoded, which considers it as a possible list marker.
+    """
+    if not points or not chars:
+        return 0
+    rows = {}
+    for i, c in enumerate(chars):
+        rows.setdefault(round(c.oy), []).append(i)
+    inserts, seen = [], set()
+    for x, y in points:
+        cand = []
+        for key in (round(y) - 1, round(y), round(y) + 1):
+            cand.extend(i for i in rows.get(key, ()) if abs(chars[i].oy - y) < 0.5)
+        if not cand:
+            continue
+        # Partition on x0, the coordinate every character has: a generated
+        # space keeps PDFium's own origin, which can sit a glyph to the right,
+        # but its x0 was moved to the end of the glyph before it.
+        left = [i for i in cand if chars[i].x0 <= x + 0.01]
+        right = [i for i in cand if chars[i].x0 > x + 0.01]
+        if not left or not right:
+            continue
+        pi = max(left, key=lambda i: (chars[i].x0, i))
+        ni = min(right, key=lambda i: (chars[i].x0, i))
+        prev, nxt = chars[pi], chars[ni]
+        if prev.u.isspace() or nxt.u.isspace() or not prev.u.strip():
+            continue
+        # A space is drawn AFTER the glyph before it and still moves the pen
+        # once kerned. See KERNED_SPACE_MIN_EM for the measurement; the origin
+        # test refuses the zero-width objects InDesign stacks on a glyph's own
+        # origin inside words (`M|anager`, `m|illion`: dx 0.00, gap <=0.015em).
+        em = max(min(prev.size, nxt.size), 1.0)
+        if x < prev.x0 + 0.5 * (prev.x1 - prev.x0):
+            continue
+        if nxt.x0 - prev.x1 < KERNED_SPACE_MIN_EM * em:
+            continue
+        if _gap_spaces(prev, nxt):
+            continue                      # the gap rule already spaces it
+        if nxt.x0 - prev.x1 > SPACE_GAP_EM * max(prev.size, nxt.size, 1.0):
+            continue
+        if (pi, ni) in seen:
+            continue
+        seen.add((pi, ni))
+        inserts.append((pi, prev, nxt, x))
+    if not inserts:
+        return 0
+    added = {}
+    for pi, prev, nxt, x in inserts:
+        c = _Char()
+        c.u = " "
+        c.gen = False
+        c.size, c.font, c.flags, c.color = prev.size, prev.font, prev.flags, prev.color
+        # Inside the gap, and never to the right of the next glyph's start:
+        # rows are ordered by x0, and kerning can pull `s` left of `A`'s end.
+        c.x0 = min(prev.x1, nxt.x0)
+        c.x1 = max(c.x0, nxt.x0)
+        c.y0, c.y1 = prev.y0, prev.y1
+        c.ox, c.oy = min(max(x, prev.ox), c.x0), prev.oy
+        added.setdefault(pi, []).append(c)
+    out = []
+    for i, c in enumerate(chars):
+        out.append(c)
+        out.extend(added.get(i, ()))
+    chars[:] = out
+    return len(inserts)
 
 
 def _is_rtl(ch: str) -> bool:
@@ -692,6 +833,59 @@ def _row_span(row: List[_Char]):
     return min(c.x0 for c in row), max(c.x1 for c in row)
 
 
+# A FULL-SIZE glyph can leave the baseline inside a word too, and the TeX logos
+# are the case that matters: \TeX lowers its `E` by 0.5ex and kerns it under
+# both neighbours (-0.1667em, -0.125em). Measured on lshort: `E` 2.34pt
+# (0.21em) below `T`/`X`, its box 1.81pt into `T` and 1.36pt into `X`. Being the
+# host's size, the script rule refused it as "a real line", so it became a line
+# of its own -- 132 logos in lshort's first 30 pages printed `LATX` with an `E`
+# paragraph under each, and `2ε` lost its epsilon the same way. A short group
+# of glyphs set INTO the host's text -- kerned against the glyph before it, or
+# abutting it (lshort's `ε` sits 0.001em after its `2`), within half an em of
+# the baseline -- belongs to that word. Anything set further off keeps the old
+# answer, "a real line": a full-size glyph placed by layout rather than by a
+# kern sits a visible distance away (the script tests pin 0.05em as a line).
+# Two glyphs is the most a logo lowers; a third would be a word, and a word on
+# its own baseline is a line.
+INSET_MAX_GLYPHS = 2
+INSET_DY_EM = 0.5
+INSET_GAP_EM = 0.02     # ...no further from the glyph before it than this
+
+
+def _attach_size(host, fx0, hsz) -> float:
+    """The size of the host glyph a fragment would attach to.
+
+    A script is smaller than the text it modifies -- the glyph just before it --
+    not smaller than the largest glyph anywhere on the row. Measured on Pub 501:
+    a column-1 line that ran on into column 3 (a ragged line's trailing space
+    exempts its gap) carried a 9.6pt bullet, so column 2's own 8pt lines, 2.5pt
+    above and 7pt below, read as "scripts" of that row and were absorbed glyph
+    by glyph, interleaved (`p p l l e ie`). The glyph before them is 8pt, the
+    same as theirs. A width bound caught that case too, and also refused FIPS
+    197's genuinely long exponents (a page lost, measured), so it is the size
+    reference that changed.
+    """
+    best = None
+    for c in host:
+        if c.u.strip() and c.x0 < fx0 and (best is None or c.x1 > best.x1):
+            best = c
+    return best.size if best is not None else hsz
+
+
+def _set_into(frag, host, hsz) -> bool:
+    """Is this full-size fragment a glyph or two set into the host's word?"""
+    inked = [c for c in frag if c.u.strip()]
+    if not 1 <= len(inked) <= INSET_MAX_GLYPHS:
+        return False
+    x0 = min(c.x0 for c in inked)
+    left = [c for c in host if c.u.strip() and c.x0 < x0]
+    if not left:
+        return False
+    prev = max(left, key=lambda c: c.x0)
+    gap = x0 - prev.x1
+    return -0.5 * hsz <= gap <= INSET_GAP_EM * hsz
+
+
 def _absorb_script_rows(vis_rows):
     """Put super/subscript fragments back on the line they belong to.
 
@@ -739,22 +933,27 @@ def _absorb_script_rows(vis_rows):
             if j == i or j in absorbed or host_ri == frag_ri:
                 continue
             hsz = max(c.size for c in host)
-            if fsz >= SCRIPT_SIZE_FRAC * hsz:
-                continue                      # same size: a real line
             dy = fb - host[0].oy
             if abs(dy) > SCRIPT_BASE_EM * hsz:
                 continue                      # outside the em box
             hx0, hx1 = _row_span(host)
             if fx0 <= hx0 or fx0 > hx1 + SCRIPT_REACH_EM * hsz:
                 continue                      # not adjacent, or would lead
+            inset = fsz >= SCRIPT_SIZE_FRAC * _attach_size(host, fx0, hsz)
+            if inset and not _set_into(frag, host, hsz):
+                continue                      # same size: a real line
+            if inset and abs(dy) > INSET_DY_EM * hsz:
+                continue
             score = (max(0.0, fx0 - hx1), abs(dy))
             if best is None or score < best[0]:
-                best = (score, j, hsz)
+                best = (score, j, hsz, inset)
         if best is None:
             continue
-        _, j, hsz = best
+        _, j, hsz, inset = best
         host = rows[j][1]
-        if fb < host[0].oy - SCRIPT_RAISE_EM * hsz:
+        # A full-size glyph set off the baseline is a letter of the word (the
+        # logo's `E`), not a script: the writer must not shrink it.
+        if not inset and fb < host[0].oy - SCRIPT_RAISE_EM * hsz:
             for c in frag:
                 c.sup = True
         host.extend(frag)
@@ -881,6 +1080,189 @@ def _tag_char_links(chars: List[_Char], links) -> None:
                 break
 
 
+# A dropped glyph is restored as a space only where it left a gap (see
+# _restore_dropped_spaces). Measured over every empty, inkless text object that
+# sits between two characters of a line in the corpus: the kerned spaces leave
+# 0.104-0.32em between the glyphs either side (resumes 0.129-0.153, the Supreme
+# Court opinion's thin spaces between nested quotes 0.107-0.124); the objects
+# that are not spaces leave none -- InDesign's zero-width objects inside words
+# at <=0.015em, one inside `Secur|ity` on SP 800-171 at -0.002em. Intra-word
+# kerning moves glyphs by a few hundredths of an em, so 0.06 sits clear of it.
+KERNED_SPACE_MIN_EM = 0.06
+
+
+def _gap_spaces(prev: _Char, c: _Char, boundary: bool = False) -> int:
+    """How many spaces the gap between two adjacent characters stands for.
+
+    A gap wider than SPACE_GAP_EM is a space the producer drew by positioning.
+    Measured against the smaller of the two sizes: within one style run the two
+    are equal, and across a style boundary the space that was skipped belongs
+    to either side, so the stricter em would refuse a real one (see the caller).
+
+    `boundary` -- the two characters are in different style runs -- lowers the
+    bar to BOUNDARY_SPACE_EM. See that constant for the measurement.
+    """
+    gap = c.x0 - prev.x1
+    size = max(min(prev.size, c.size), 1.0)
+    bar = BOUNDARY_SPACE_EM if boundary else SPACE_GAP_EM
+    if gap <= bar * size or not prev.u or _is_cjk(prev.u[-1]) \
+            or _is_cjk(c.u):
+        return 0
+    # A gap can stand for SEVERAL spaces. Code indentation is one wide gap, and
+    # emitting a single space for it collapsed four columns to one -- 19
+    # unmatched words and 40pt of horizontal drift on a listing. Monospace
+    # advances are ~0.6em, so the count is recoverable from the gap;
+    # proportional text is ~0.28em and rarely runs more than one.
+    adv = (MONO_ADV_EM if prev.mono_hint else SPACE_ADV_EM) * size
+    n_sp = int(round(gap / adv)) if adv > 0 else 1
+    if prev.u.isspace() or c.u.isspace():
+        # A space is already there, and in proportional text that is the whole
+        # answer however far the gap has been stretched. Justified text pulls
+        # its word gaps to 7.84pt at 9.5pt type on 02_research_paper and
+        # PyMuPDF still reports ONE space; adding to it gave
+        # `Speculative··decoding` on 22% of that document's lines and 12% of
+        # 01_whitepaper_market's, displacing every word after it along the line.
+        #
+        # Monospace keeps counting: there a run length is code indentation, and
+        # collapsing it once cost 19 unmatched words and 40pt of horizontal
+        # drift on a listing.
+        n_sp = n_sp if prev.mono_hint else 0
+    return min(max(n_sp, 0), 24)
+
+
+# Two characters of one line never sit on top of each other: kerning moves a
+# glyph by hundredths of an em. Two LINES can, when a producer overprints --
+# x07's Chromium memo puts its 13.5pt `4. Circulation` heading 0.75pt from the
+# baseline of its own 8pt running footer, and baseline grouping took both into
+# one row, sorted the glyphs by x and wrote `4Tr.anCsiti Aructhuorlitay`.
+#
+# The unit of evidence is the STRAND -- the characters of a row that share one
+# exact baseline and one size, i.e. what one producer call drew -- not the
+# character: deciding glyph by glyph left the footer glyphs that happened to
+# fall between two heading glyphs in the heading's row. Two strands collide
+# when COLLIDE_MIN glyph pairs cover each other by more than COLLIDE_FRAC of the
+# narrower glyph; colliding strands become separate rows. Strands of the same
+# size never collide here: a same-size overlap is a producer drawing one text
+# twice (fake bold), which the row keeps together as it always has.
+COLLIDE_FRAC = 0.5
+COLLIDE_MIN = 2
+COLLIDE_SIZE_FRAC = 0.15
+# The widest glyph advance looked back over when searching for overlap.
+_COLLIDE_REACH = 60.0
+
+
+def _strand_hits(a, b) -> int:
+    """How many glyphs of strand `a` overprint a glyph of strand `b`."""
+    ink = sorted((c.x0, c.x1) for c in b if c.u.strip())
+    hits = 0
+    for c in a:
+        if not c.u.strip():
+            continue
+        w = max(c.x1 - c.x0, 0.1)
+        i = bisect.bisect_left(ink, (c.x0 - _COLLIDE_REACH,))
+        while i < len(ink) and ink[i][0] < c.x1:
+            x0, x1 = ink[i]
+            i += 1
+            if min(x1, c.x1) - max(x0, c.x0) > COLLIDE_FRAC * min(w, max(x1 - x0, 0.1)):
+                hits += 1
+                break
+    return hits
+
+
+def _separate_overprints(row):
+    """One baseline row -> one row per non-colliding group of strands."""
+    strands = {}
+    for c in row:
+        strands.setdefault((round(c.oy, 1), round(c.size, 1)), []).append(c)
+    if len(strands) < 2:
+        return [row]
+    sizes = {k[1] for k in strands}
+    if max(sizes) - min(sizes) <= COLLIDE_SIZE_FRAC * max(sizes):
+        return [row]
+    groups = []
+    for key in sorted(strands, key=lambda k: -len(strands[k])):
+        s = strands[key]
+        for g in groups:
+            if all(abs(key[1] - k2[1]) <= COLLIDE_SIZE_FRAC * max(key[1], k2[1])
+                   or _strand_hits(s, strands[k2]) < COLLIDE_MIN for k2 in g):
+                g.append(key)
+                break
+        else:
+            groups.append([key])
+    if len(groups) < 2:
+        return [row]
+    return [[c for k in g for c in strands[k]] for g in groups]
+
+
+# Letter-spacing, measured so the writer can reproduce it (w:spacing). The loose
+# box of a glyph is its ADVANCE (origin to origin + width from the font), so the
+# gap from one glyph's box to the next glyph's origin is exactly what the
+# producer added: kerning, tracking, rounding. Censused per style run over 60
+# documents (first 20 pages; gaps between glyphs of one word):
+#
+#   TeX, Word, LibreOffice, ReportLab, fpdf    median 0.00em in >99% of runs
+#   Chromium body text (x07-x12, x17, x18)      median 0.034em, mean 0.022-0.031
+#                                               -- the drawn lines are 5-7%
+#                                               wider than the font's advances
+#   letter-spaced headings (owner's resume,     median 0.158em (owner), 0.203em
+#   x17/x18 `EXPERIENCE`, WDR)                  (x17), WDR's 0.048em
+#   kerning-heavy italics (IRS, lshort)         NEGATIVE, -0.02 to -0.05em
+#   xml2rfc/cairo                               median 0.02, mean 0.003-0.019
+#
+# So a run is called tracked when its MEAN gap is at least TRACK_EMIT_MIN_EM and
+# agrees with its median to within half (cairo's 0.023/0.006 is rounding with a
+# long tail, not spacing), over at least TRACK_EMIT_MIN_GAPS gaps. Only POSITIVE
+# spacing is emitted: the negative populations are kerning, which renderers
+# apply (or not) from the font's own tables. The value emitted is the mean,
+# because it is the mean that sets the line's width, and the width is what
+# decides where the renderer wraps.
+TRACK_EMIT_MIN_EM = 0.02
+TRACK_EMIT_MIN_GAPS = 6
+# Spaced capitals (`O V E R V I E W`, WDR at 0.42em) have gaps wider than a
+# space, so _gap_spaces rightly puts a space in each. They are told from a row
+# of separate letters by uniformity here and by vocabulary in inference.
+SPACED_MIN_LETTERS = 4
+
+
+def _span_tracking(cs) -> tuple:
+    """(tracking in pt, spaced_letters) for one span's characters."""
+    inked = [c for c in cs if c.u.strip()]
+    if len(inked) < SPACED_MIN_LETTERS:
+        return 0.0, False
+    size = max(max(c.size for c in inked), 1.0)
+    if sum(1 for c in inked if _is_cjk(c.u[0]) or _is_rtl(c.u[0])) * 2 > len(inked):
+        return 0.0, False                 # no word spaces to protect, no letter-spacing
+    tight, spaced = [], []
+    for a, b in zip(cs, cs[1:]):
+        if not a.u.strip() or not b.u.strip():
+            continue
+        gap = b.x0 - a.x1
+        if a.u != a.u.rstrip():             # a space was synthesised after `a`
+            spaced.append(gap)
+        else:
+            tight.append(gap)
+    # A whitespace character between two glyphs also separates them.
+    for i in range(1, len(cs) - 1):
+        if not cs[i].u.strip() and cs[i - 1].u.strip() and cs[i + 1].u.strip():
+            spaced.append(cs[i + 1].x0 - cs[i - 1].x1)
+    if not tight and len(spaced) >= SPACED_MIN_LETTERS - 1 and \
+            all(len(c.u.strip()) == 1 for c in inked) and \
+            sum(1 for c in inked if c.u.strip().isalpha()) >= TRACK_MIN_ALPHA * len(inked):
+        med = sorted(spaced)[len(spaced) // 2]
+        if med > SPACE_GAP_EM * size and \
+                all(abs(g - med) <= TRACK_UNIFORM_EM * size for g in spaced):
+            return round(med, 3), True
+        return 0.0, False
+    if len(tight) < TRACK_EMIT_MIN_GAPS:
+        return 0.0, False
+    tight.sort()
+    med = tight[len(tight) // 2]
+    mean = sum(tight) / len(tight)
+    if mean < TRACK_EMIT_MIN_EM * size or mean < 0.5 * med:
+        return 0.0, False
+    return round(mean, 3), False
+
+
 def _build_lines(chars: List[_Char]) -> List[Line]:
     """chars -> spans -> lines, by baseline then x.
 
@@ -902,6 +1284,9 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
                 break
         if not placed:
             rows.append([c])
+    # Sharing a baseline is not sharing a line when the two collide: see
+    # _separate_overprints for the page where a heading overprinted a footer.
+    rows = [part for r in rows for part in _separate_overprints(r)]
 
     # split each baseline row into visual lines at wide horizontal gaps.
     # The row index travels with the fragment so _absorb_script_rows can tell a
@@ -956,13 +1341,30 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
             row = row[:-1]
         if not row:
             continue
-        spans, cur, cur_key = [], [], None
+        spans, cur, cur_key, last = [], [], None, None
         for c in row:
             k = _style(c)
-            gap = (c.x0 - cur[-1].x1) if cur else 0.0
+            # The space test runs against the previous CHARACTER, not the
+            # previous character of the current span, so it also runs at a style
+            # boundary. It used to sit behind the span split below, which reset
+            # `cur` first -- so a gap between two styles was never tested at all,
+            # however wide. That is where xml2rfc puts its keywords: the regular
+            # stream draws `A sender ` and then jumps over the bold `MUST NOT`
+            # (drawn later, as its own object) to `generate`, leaving a 2.36pt
+            # gap at 10pt with no space glyph in it. Measured on RFC 9110, 26
+            # keyword fusions in 30 pages (`MUST NOTgenerate`, `SHOULDparse`).
+            # The em is the SMALLER of the two sizes, and a boundary gets its
+            # own bar (BOUNDARY_SPACE_EM): those gaps measure 0.223-0.236em of
+            # the 9pt keyword, under the in-span 0.24. Within a span both sizes
+            # are equal and the bar is unchanged, so nothing that was already
+            # decided there moves.
+            if last is not None:
+                n_sp = _gap_spaces(last, c, boundary=bool(cur) and k != cur_key)
+                if n_sp:
+                    last.u += " " * n_sp
             # A span ends where the STYLE ends. A gap does not end it: a gap
             # with the same style on both sides is a space the producer drew by
-            # positioning, and the branch below turns it into one.
+            # positioning, and the test above turns it into one.
             #
             # This condition used to also split on `gap > SPAN_GAP_EM`, which
             # ran BEFORE the space-insertion branch and so consumed the gap
@@ -980,32 +1382,8 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
                 cur, cur_key = [], None
             if not cur:
                 cur_key = k
-            elif gap > SPACE_GAP_EM * max(c.size, 1.0) \
-                    and not _is_cjk(cur[-1].u[-1]) and not _is_cjk(c.u):
-                # A gap can stand for SEVERAL spaces. Code indentation is one
-                # wide gap, and emitting a single space for it collapsed four
-                # columns to one -- 19 unmatched words and 40pt of horizontal
-                # drift on a listing. Monospace advances are ~0.6em, so the
-                # count is recoverable from the gap; proportional text is
-                # ~0.28em and rarely runs more than one.
-                adv = (MONO_ADV_EM if cur[-1].mono_hint else SPACE_ADV_EM) * max(c.size, 1.0)
-                n_sp = int(round(gap / adv)) if adv > 0 else 1
-                if cur[-1].u.isspace() or c.u.isspace():
-                    # A space is already there, and in proportional text that is
-                    # the whole answer however far the gap has been stretched.
-                    # Justified text pulls its word gaps to 7.84pt at 9.5pt type
-                    # on 02_research_paper and PyMuPDF still reports ONE space;
-                    # adding to it gave `Speculative··decoding` on 22% of that
-                    # document's lines and 12% of 01_whitepaper_market's,
-                    # displacing every word after it along the line.
-                    #
-                    # Monospace keeps counting: there a run length is code
-                    # indentation, and collapsing it once cost 19 unmatched
-                    # words and 40pt of horizontal drift on a listing.
-                    n_sp = n_sp if cur[-1].mono_hint else 0
-                if n_sp >= 1:
-                    cur[-1].u += " " * min(n_sp, 24)
             cur.append(c)
+            last = c
         if cur:
             spans.append((cur, cur_key))
 
@@ -1027,11 +1405,13 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
             # Both link fields ride the style key, so every character in this
             # span agreed on them by construction; there is nothing to re-derive
             # from cs[0].
+            track, spaced = _span_tracking(cs)
             sp_objs.append(Span(
                 text=text, font=font, size=size, color=color, bold=bold,
                 italic=italic, mono=mono, serif=serif, superscript=sup,
                 bbox=bb, origin=(cs[0].ox, cs[0].oy),
-                link=link, dest=dest, tracked=tracked))
+                link=link, dest=dest, tracked=tracked,
+                tracking=track, spaced_letters=spaced))
         if not sp_objs:
             continue
         lb = (min(s.bbox[0] for s in sp_objs), min(s.bbox[1] for s in sp_objs),
@@ -2198,7 +2578,7 @@ def parse_pdf(path: str, keep_image_data: bool = True) -> DocIR:
                 pir.links = _page_links(page, h, doc)
                 tp = page.get_textpage()
                 try:
-                    chars = _page_chars(tp, h)
+                    chars = _page_chars(tp, h, page)
                     # Before spans exist: a link is a property of characters, and
                     # settling it here lets _style end a span at the anchor's
                     # edge. See _tag_char_links for what the old span-level test

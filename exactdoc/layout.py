@@ -25,6 +25,10 @@ class Run:
     # values compress a line that TeX fitted by shrinking inter-word glue --
     # something Word's line breaker cannot do on its own.
     char_spacing: float = 0.0
+    # The SOURCE's letter-spacing in points (model.Span.tracking), kept apart
+    # from the ladder's compression above so that neither overwrites the other;
+    # the writer emits their sum.
+    tracking: float = 0.0
 
 
 @dataclass
@@ -186,3 +190,28 @@ class DocLayout:
     @property
     def content_w(self) -> float:
         return self.page_w - self.margin_l - self.margin_r
+
+
+def iter_paras(lay: DocLayout):
+    """Every Para a written document will contain: body, table cells, the
+    cover band, headers and footers. `gdocs_rows` are alternate serialisations
+    of a Para's own runs, not paragraphs, and are not yielded."""
+    def walk(el):
+        if isinstance(el, Para):
+            yield el
+        elif isinstance(el, TableEl):
+            for row in el.rows:
+                for cell in row:
+                    if isinstance(cell, Cell):
+                        yield from cell.paras
+    for page in lay.pages:
+        for chunk in page.chunks:
+            for el in chunk.elements:
+                yield from walk(el)
+    if lay.cover_band is not None:
+        yield from walk(lay.cover_band)
+    for part in (lay.header_default, lay.header_first,
+                 lay.footer_default, lay.footer_first):
+        if part is not None:
+            for el in part.elements:
+                yield from walk(el)

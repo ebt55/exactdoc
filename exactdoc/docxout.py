@@ -118,10 +118,11 @@ def _style_run(r, run: Run):
         va = OxmlElement("w:vertAlign")
         va.set(qn("w:val"), "superscript")
         rpr.append(va)
-    if abs(getattr(run, "char_spacing", 0.0)) > 0.004:
+    spacing = getattr(run, "char_spacing", 0.0) + getattr(run, "tracking", 0.0)
+    if abs(spacing) > 0.004:
         # w:spacing on rPr is character tracking, in twentieths of a point
         sp = OxmlElement("w:spacing")
-        sp.set(qn("w:val"), str(int(round(run.char_spacing * 20))))
+        sp.set(qn("w:val"), str(int(round(spacing * 20))))
         rpr.append(sp)
     try:
         f.color.rgb = RGBColor.from_string(_hex(run.color))
@@ -558,6 +559,15 @@ def _page_break_carrier(doc):
     return par
 
 
+# CT_PPrBase's sequence after w:suppressAutoHyphens (ECMA-376 Part 1, 17.3.1.26).
+_PPR_AFTER_SUPPRESS_HYPHENS = (
+    "kinsoku", "wordWrap", "overflowPunct", "topLinePunct", "autoSpaceDE",
+    "autoSpaceDN", "bidi", "adjustRightInd", "snapToGrid", "spacing", "ind",
+    "contextualSpacing", "mirrorIndents", "suppressOverlap", "jc",
+    "textDirection", "textAlignment", "textboxTightWrap", "outlineLvl",
+    "divId", "cnfStyle", "rPr", "sectPr", "pPrChange")
+
+
 def write_para(container, p: Para, content_w: float, par=None, ctx=None,
                space_before: Optional[float] = None,
                page_break_before: bool = False):
@@ -645,6 +655,14 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None,
         if bb:
             bd["bottom"] = bb
         _set_borders(ppr, bd, "w:pBdr")
+    if getattr(p, "no_hyphenation", False):
+        # Set only in a document that auto-hyphenates; see
+        # hyphen.mark_unhyphenated for which paragraphs opt out and why.
+        ppr = par._p.get_or_add_pPr()
+        if ppr.find(qn("w:suppressAutoHyphens")) is None:
+            ppr.insert_element_before(
+                OxmlElement("w:suppressAutoHyphens"),
+                *("w:" + t for t in _PPR_AFTER_SUPPRESS_HYPHENS))
 
     i = 0
     if gdocs_rows:
@@ -2490,6 +2508,45 @@ def _merge_grid_page_runs(pages):
     return out
 
 
+def _script_base_sizes(lay: DocLayout) -> int:
+    """Give each superscript run the size of the text it is raised against.
+
+    `vertAlign=superscript` means "shrink and raise": Word and LibreOffice
+    render the run at roughly 0.6x its own `w:sz` (LibreOffice 58%). Every
+    script run carried the size it was DRAWN at, which is already the shrunk
+    size, so the renderer shrank it a second time: EUR-Lex footnote markers
+    drawn at 4.93pt (0.58 of the body) wrote `sz=10` and rendered near 3pt, a
+    dot in brackets; 13 of 32 real documents carried such runs (FIPS 180 939,
+    1040 instructions 347, Pub 501 166, lshort 158). This is how Word itself
+    writes a superscript: the line's size, with vertAlign doing the shrink.
+    Censused, the drawn script/host ratios are 0.58-0.73, so the renderer's
+    own ratio lands within a few tenths of a point of the source.
+
+    The host is the nearest non-script run with text, before the script, else
+    after it. A script with no host in its paragraph, or one already drawn at
+    its host's size, has nothing to be shrunk against: it keeps the size it was
+    drawn at and loses only the raise, rather than shrinking to illegibility.
+    """
+    from .layout import iter_paras
+
+    def inked(r):
+        return not r.superscript and not r.is_tab and bool(r.text.strip())
+    n = 0
+    for p in iter_paras(lay):
+        runs = p.runs
+        for i, r in enumerate(runs):
+            if not r.superscript or not r.text.strip():
+                continue
+            host = next((h for h in reversed(runs[:i]) if inked(h)), None) or \
+                next((h for h in runs[i + 1:] if inked(h)), None)
+            if host is not None and host.size > 1.05 * r.size:
+                r.size = host.size
+            else:
+                r.superscript = False
+            n += 1
+    return n
+
+
 def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
     lay = copy.deepcopy(lay)
     lay.pages = _merge_grid_page_runs(lay.pages)
@@ -2506,6 +2563,11 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
         # the bookmark plan above stays valid.
         from .gdocs_metrics import apply_metric_fit
         apply_metric_fit(lay)
+    else:
+        # Same safety argument: run properties on the copy only. Not under the
+        # gdocs profile -- Google Docs' own superscript ratio is unmeasured,
+        # and that profile changes only on live evidence.
+        _script_base_sizes(lay)
     doc = Document()
     dpi = ctx.dpi
     content_w = lay.content_w
@@ -2522,12 +2584,25 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
     _restyle_outline_styles(doc)
     if lay.hyphenated:
         # source justifies with hyphenation: let Word/Docs hyphenate too so
-        # line packing (and therefore paragraph heights) stay comparable
+        # line packing (and therefore paragraph heights) stay comparable.
+        # Placed where CT_Settings puts it -- straight after defaultTabStop;
+        # appended at the end it sat after listSeparator, where a strict reader
+        # ignores it. doNotHyphenateCaps follows it in the same sequence: no
+        # producer in the corpus hyphenates an all-caps word, and LibreOffice
+        # did (`AP-PEALS` on the Supreme Court caption).
         st = doc.settings.element
         if st.find(qn("w:autoHyphenation")) is None:
             ah = OxmlElement("w:autoHyphenation")
             ah.set(qn("w:val"), "1")
-            st.append(ah)
+            caps = OxmlElement("w:doNotHyphenateCaps")
+            caps.set(qn("w:val"), "1")
+            dts = st.find(qn("w:defaultTabStop"))
+            if dts is not None:
+                dts.addnext(ah)
+                ah.addnext(caps)
+            else:
+                st.append(ah)
+                st.append(caps)
 
     sec = doc.sections[0]
     has_cover = lay.cover_band is not None

@@ -509,7 +509,6 @@ wrong page, so word recall collapses even though document recall holds near
 | #43 | `05_memo` shared displacement | +4.64pt on both arms — explicitly *not* excused by the ratified within2pt entry |
 | #44 | `y10` discriminator | the metric moved because the reference degraded; the trade is adjudicated, the discriminator is not fixed |
 | #47 | cross-platform byte deltas | 6 of 16 gated fixtures byte-identical across platforms; rasterised regions differ by hundreds of bytes, four image-free documents by 2–11 |
-| #48 | ink-vs-advance space synthesis | space insertion measures ink extent, not advance width, so a narrow glyph pair can lose its space (`A smaller` → `Asmaller`) |
 
 **Résumés got a fixture in 1.0.1, and it found six defects.** The corpus had no
 résumé, so nothing had ever exercised role/date pairs sharing a baseline,
