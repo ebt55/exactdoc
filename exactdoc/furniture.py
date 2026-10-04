@@ -39,8 +39,9 @@ _ROMAN_VAL = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100, "D": 500, "M": 1000}
 # Three, not two: two consecutive pages whose stray numbers happen to step by
 # one -- "Step 1" / "Step 2" in a top band -- are a coincidence a short
 # document produces; three in a row at the same offset are a counter. Offset 0
-# keeps its historical two-page bar (the cross-page rule THEORY.md section 2
-# documents), so no existing PAGE field changes.
+# keeps its historical two-page bar (the cross-page rule
+# docs/deep-dive/theory.md section 2 documents), so no existing PAGE field
+# changes.
 PN_RUN_MIN = 3
 # A run may skip pages that print no number (a chapter opener, a full-page
 # figure, a blank verso): up to two consecutive silent pages.

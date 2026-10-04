@@ -287,7 +287,7 @@ Non-gating; the expansion parity policy re-pins its corpus hash only.
   restarted container (environment drift, not a code effect). 11 new
   tests.
 - **the support matrix is now by producing engine.** One diagram
-  (`docs/diagrams/support-by-engine.svg`, replacing the two per-renderer
+  (`docs/deep-dive/support-by-engine.svg`, replacing the two per-renderer
   matrices) answers the question a user actually asks — *my PDF came from
   LaTeX / Word / the browser: how will it convert?* Rows are producer
   engines, columns the two output profiles, and the Google Docs column

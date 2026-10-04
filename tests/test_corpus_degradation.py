@@ -6,7 +6,7 @@ subprocess.run([None, ...]) and died on a bare TypeError before writing a single
 file -- including the eight documents that need no Chromium at all. An executor
 who cannot generate a corpus cannot run the gate, and this repository has
 already learned once that a gate which cannot run looks exactly like a gate that
-passes (STATUS.md §5).
+passes (docs/deep-dive/status.md §5).
 
 So the contract is:
 

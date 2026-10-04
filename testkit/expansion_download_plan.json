@@ -1,5 +1,5 @@
 {
- "_note": "ACQUISITION PHASE CLOSED. The corpus stands at 16 gated + 29 expansion = 45 documents, inside the 40-60 target set in ROADMAP.md, so no further fetch round is planned. `candidates` is deliberately EMPTY: fetch_expansion.py refuses a plan with no candidates, so this file can no longer cause a download even if someone passes --allow-download to it. The five candidates that never arrived are recorded in _open_annex below, with what three rounds taught us about each host, so that reopening acquisition starts from evidence rather than from the same guesses.",
+ "_note": "ACQUISITION PHASE CLOSED. The corpus stands at 16 gated + 29 expansion = 45 documents, inside the 40-60 target set in docs/deep-dive/roadmap.md, so no further fetch round is planned. `candidates` is deliberately EMPTY: fetch_expansion.py refuses a plan with no candidates, so this file can no longer cause a download even if someone passes --allow-download to it. The five candidates that never arrived are recorded in _open_annex below, with what three rounds taught us about each host, so that reopening acquisition starts from evidence rather than from the same guesses.",
  "schema": "exactdoc.expansion-download-plan.v1",
  "candidates": [],
  "_acquisition_record": {

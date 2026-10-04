@@ -97,7 +97,7 @@ task #22: below 2.0pt on both arms the metric is reporting a base-14 ascent
 convention rather than placement, so it is exempt — but only while `within2pt`
 holds, which keeps `02_research_paper` and `03_tech_report_code` blocked on a
 real placement regression the dy framing had been masking. Details in
-[docs/dy-ascent-artifact.md](docs/dy-ascent-artifact.md).
+[docs/dy-ascent-artifact.md](../dy-ascent-artifact.md).
 
 The long-document pagination campaign is **closed and exonerated**. Seven
 mechanisms landed — `y01` 158→92 pages against an 80-page source, `y02` 314→142,
@@ -223,7 +223,7 @@ migration has landed** (2026-08-06, commits `900f0ab`, `f457567`, `017c1e1`,
 2. two clean full-corpus Google Docs passes for the exact candidate, each after
    explicit upload consent — **MET**: passes 4 and 5;
 3. a no-PyMuPDF/base-wheel proof — **MET** (2026-08-06,
-   [docs/evidence/base-wheel-proof-2026-08-06.json](docs/evidence/base-wheel-proof-2026-08-06.json)).
+   [docs/evidence/base-wheel-proof-2026-08-06.json](../evidence/base-wheel-proof-2026-08-06.json)).
    The dependency moved, so the install this gate asks about became possible and
    was then performed: a wheel built from the flipped tree, installed into a
    virtualenv that never had PyMuPDF, 8 packages with no copyleft term, 25 of 25
@@ -232,7 +232,7 @@ migration has landed** (2026-08-06, commits `900f0ab`, `f457567`, `017c1e1`,
    rather than one module, and asking for the absent backend raises a typed
    error naming the `mupdf` extra;
 4. a dependency, provenance, and license audit — **first pass done**,
-   [docs/license-audit.md](docs/license-audit.md). Its §10 open items did not
+   [docs/license-audit.md](../license-audit.md). Its §10 open items did not
    close with the migration and are not claimed to have.
 
 The live status table lives in the audit; this list is the contract.
@@ -241,7 +241,7 @@ The live status table lives in the audit; this list is the contract.
 shipping profile has been replaced and the numeric evidence re-recorded, once,
 deliberately, with every movement predicted in advance by the ratified parity
 record and checked against it before recording
-([docs/evidence/parser-default-flip-2026-08-06.json](docs/evidence/parser-default-flip-2026-08-06.json)).
+([docs/evidence/parser-default-flip-2026-08-06.json](../evidence/parser-default-flip-2026-08-06.json)).
 Do not do either again outside a decision of that kind — and in particular, never
 regenerate numeric evidence to silence a failure.
 
@@ -275,7 +275,7 @@ PDFs are explicitly unsupported rather than silently mishandled.
 backend, and all four migration gates were met before the switch rather than
 after it. This roadmap is project strategy, not legal advice.
 
-The audit it rests on is [docs/license-audit.md](docs/license-audit.md). It
+The audit it rests on is [docs/license-audit.md](../license-audit.md). It
 reads every licence from installed metadata rather than memory, and its result
 was narrow — **PyMuPDF was the only code-licence blocker in the entire
 dependency graph.** Of 35 resolved packages only four carried any copyleft term:
@@ -298,11 +298,11 @@ it vendors 2.3, which predates AGG's move to GPL.
   data. `metrics.Base14Metrics` carries them with no dependency, both installs
   now produce identical DOCX content on all 16 fixtures, and the extra is no
   longer a quality axis.
-  [docs/evidence/permissive-shaper-2026-08-06.json](docs/evidence/permissive-shaper-2026-08-06.json)
+  [docs/evidence/permissive-shaper-2026-08-06.json](../evidence/permissive-shaper-2026-08-06.json)
 - The gate baseline moved with the parser and is slightly worse in aggregate.
   Every movement was predicted by the ratified parity record and checked against
   it before recording:
-  [docs/evidence/parser-default-flip-2026-08-06.json](docs/evidence/parser-default-flip-2026-08-06.json).
+  [docs/evidence/parser-default-flip-2026-08-06.json](../evidence/parser-default-flip-2026-08-06.json).
 
 ## Reproducible checks
 
