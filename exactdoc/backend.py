@@ -334,14 +334,31 @@ class PDFiumBackend:
         finally:
             bitmap.close()
 
+    @staticmethod
+    def _frame(page):
+        """The frame parse_pdf put this page's bboxes in (see _Frame.of)."""
+        from .parse_pdfium import _Frame
+        textpage = page.get_textpage()
+        try:
+            return _Frame.of(page, textpage)
+        finally:
+            textpage.close()
+
     @classmethod
-    def _clip_png(cls, page, clip: BBox, dpi: int) -> bytes:
-        # `crop` is applied after rotation, in the displayed frame -- the
-        # frame parse_pdf reports every bbox in, so a clip is cropped as is.
-        h = page.get_height()
+    def _clip_png(cls, page, clip: BBox, dpi: int, frame=None) -> bytes:
+        # `crop` is applied after rotation, in the rendered frame. parse_pdf
+        # reports every bbox in the frame its text reads in, which is the
+        # displayed one unless _Frame.of turned the page; then the render is
+        # turned the same way and the clip is cropped as is.
+        frame = frame if frame is not None else cls._frame(page)
+        if not frame.render_rotation:
+            h = page.get_height()
+            return cls._png(page.render(
+                scale=dpi / 72.0,
+                crop=(clip[0], h - clip[3], page.get_width() - clip[2], clip[1])))
         return cls._png(page.render(
-            scale=dpi / 72.0,
-            crop=(clip[0], h - clip[3], page.get_width() - clip[2], clip[1])))
+            scale=dpi / 72.0, rotation=frame.render_rotation,
+            crop=(clip[0], frame.h - clip[3], frame.w - clip[2], clip[1])))
 
     def render_clip(self, path: str, page_no: int, clip: BBox,
                     dpi: int = 240) -> Optional[bytes]:
@@ -362,7 +379,11 @@ class PDFiumBackend:
         try:
             page = doc[page_no - 1]
             try:
-                return self._png(page.render(scale=dpi / 72.0))
+                # In the frame the parse used, so a page turned to read
+                # upright is compared upright.
+                return self._png(page.render(
+                    scale=dpi / 72.0,
+                    rotation=self._frame(page).render_rotation))
             finally:
                 page.close()
         finally:
@@ -381,9 +402,9 @@ class PDFiumBackend:
             for i in range(len(doc)):
                 page = doc[i]
                 try:
-                    frame = _Frame.of(page)
                     textpage = page.get_textpage()
                     try:
+                        frame = _Frame.of(page, textpage)
                         vis = _text_visibility(textpage,
                                                _page_objects(page, frame), frame)
                         chars = _page_chars(textpage, frame, vis)
@@ -441,19 +462,20 @@ class _PdfiumClipSession:
         import pypdfium2 as pdfium
         self._backend = backend
         self._doc = pdfium.PdfDocument(path)
-        self._page_no, self._page = None, None
+        self._page_no, self._page, self._page_frame = None, None, None
 
     def render_clip(self, page_no: int, clip: BBox, dpi: int = 240) -> Optional[bytes]:
         if self._page_no != page_no:
             self._drop_page()
             self._page = self._doc[page_no - 1]
             self._page_no = page_no
-        return self._backend._clip_png(self._page, clip, dpi)
+            self._page_frame = self._backend._frame(self._page)
+        return self._backend._clip_png(self._page, clip, dpi, self._page_frame)
 
     def _drop_page(self):
         if self._page is not None:
             self._page.close()
-        self._page_no, self._page = None, None
+        self._page_no, self._page, self._page_frame = None, None, None
 
     def close(self):
         self._drop_page()

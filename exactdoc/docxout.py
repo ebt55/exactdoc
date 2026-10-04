@@ -2488,7 +2488,9 @@ def _merge_grid_page_runs(pages):
             continue
         run = [pg]
         j = i + 1
-        while j < n and shape_of(pages[j]) == key:
+        # A run never crosses a change of paper: the writer must open a
+        # NEW_PAGE section there (see _page_geometry).
+        while j < n and shape_of(pages[j]) == key and                 _paper(pages[j]) == _paper(pg):
             run.append(pages[j])
             j += 1
         if len(run) == 1:
@@ -2501,7 +2503,9 @@ def _merge_grid_page_runs(pages):
             for rp in run[1:]:
                 cap_join_gaps([c.elements for c in rp.chunks])
             merged = PageLayout(number=pg.number,
-                                chunks=[c for rp in run for c in rp.chunks])
+                                chunks=[c for rp in run for c in rp.chunks],
+                                page_w=pg.page_w, page_h=pg.page_h,
+                                margins=pg.margins)
             out.append(merged)
             i = j
             continue
@@ -2536,9 +2540,16 @@ def _merge_grid_page_runs(pages):
         cap_join_gaps([c.elements for c in tail_prev])
         merged_grid.elements.extend(el for c in tail_prev for el in c.elements)
         new_chunks = list(first_chunks) + [merged_grid]
-        out.append(PageLayout(number=run[0].number, chunks=new_chunks))
+        out.append(PageLayout(number=run[0].number, chunks=new_chunks,
+                              page_w=pg.page_w, page_h=pg.page_h,
+                              margins=pg.margins))
         i = j
     return out
+
+
+def _paper(pg: PageLayout):
+    """A page's own geometry, as inference recorded it (None: the document's)."""
+    return (pg.page_w, pg.page_h, pg.margins)
 
 
 def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:

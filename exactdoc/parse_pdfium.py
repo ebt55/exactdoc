@@ -128,8 +128,18 @@ def _hexcol(r, g, b):
 
 
 # ------------------------------------------------------------ page geometry
+# A page whose text reads in another orientation than its /Rotate displays it
+# is parsed in the orientation its text reads (see _Frame.of). The bar is a
+# clear majority of a real sample: measured over all 57 corpus documents, the
+# only page whose dominant glyph direction differs from its /Rotate is y21's
+# cover, at 0.57 -- the vertical "Public Disclosure Authorized" margin marks
+# outnumbering a cover's few words -- and it must stay as displayed.
+READ_SHARE = 0.8
+READ_MIN_CHARS = 20
+
+
 class _Frame:
-    """PDF user space -> the VISIBLE page, in the IR's top-left points.
+    """PDF user space -> the page as it is read, in the IR's top-left points.
 
     What a viewer shows is the CropBox (clipped to the MediaBox), turned by
     /Rotate. PDFium reports glyph boxes, object bounds, path points, link
@@ -143,30 +153,55 @@ class _Frame:
     142; /Rotate 90 put it at -88 and lost the rectangle.
 
     The mapping is PDFium's own page matrix (CPDF_Page::UpdateDimensions), so
-    the frame is exactly what page.render() draws -- which is what
-    render_clip crops and what the verify loop compares against.
+    for the displayed rotation the frame is exactly what page.render() draws --
+    which is what render_clip crops and what the verify loop compares against.
+    `render_rotation` is the extra turn a render needs when the frame is not
+    the displayed one (see `of`).
 
     `plain` (box at the origin, no rotation) keeps the historical arithmetic
     `h - y` to the bit, so every document that never had the bug parses to the
     same IR it always did.
     """
-    __slots__ = ("w", "h", "rot", "l", "b", "r", "t", "plain")
+    __slots__ = ("w", "h", "rot", "l", "b", "r", "t", "plain", "render_rotation")
 
-    def __init__(self, w, h, box=None, rot=0):
+    def __init__(self, w, h, box=None, rot=0, render_rotation=0):
         self.w, self.h = float(w), float(h)
         l, b, r, t = box if box is not None else (0.0, 0.0, w, h)
         self.l, self.b, self.r, self.t = float(l), float(b), float(r), float(t)
         self.rot = int(rot) % 4
         self.plain = self.rot == 0 and self.l == 0.0 and self.b == 0.0
+        self.render_rotation = render_rotation
 
     @classmethod
-    def of(cls, page) -> "_Frame":
+    def of(cls, page, textpage=None) -> "_Frame":
+        """The page's frame: as displayed, unless its text reads otherwise.
+
+        /Rotate is how a viewer turns the page, and a page whose content was
+        drawn sideways and turned upright by it (the usual way a landscape page
+        is made by rotation) reads correctly in the displayed frame. A page
+        whose UPRIGHT content is turned sideways by /Rotate -- or whose content
+        is drawn sideways with no /Rotate at all, a landscape table set on a
+        portrait sheet -- does not: in the displayed frame every line is
+        vertical, inference takes vertical text out of the flow, and the
+        page's whole text would be lost. Given the text page, the frame follows
+        the direction most glyphs advance in (READ_SHARE of at least
+        READ_MIN_CHARS), which is the orientation a reader turns the page to.
+        """
         try:
             box = page.get_bbox()           # CropBox intersected with MediaBox
-            rot = (page.get_rotation() // 90) % 4
+            shown = (page.get_rotation() // 90) % 4
         except Exception:
-            box, rot = None, 0
-        return cls(page.get_width(), page.get_height(), box, rot)
+            return cls(page.get_width(), page.get_height())
+        rot = shown
+        if textpage is not None:
+            read = _reading_rotation(textpage)
+            if read is not None:
+                rot = read
+        if rot == shown:
+            return cls(page.get_width(), page.get_height(), box, rot)
+        bw, bh = box[2] - box[0], box[3] - box[1]
+        w, h = (bw, bh) if rot % 2 == 0 else (bh, bw)
+        return cls(w, h, box, rot, render_rotation=((rot - shown) % 4) * 90)
 
     def pt(self, x, y):
         """A user-space point in the frame."""
@@ -195,6 +230,41 @@ class _Frame:
 
     def holds(self, x, y) -> bool:
         return 0.0 <= x <= self.w and 0.0 <= y <= self.h
+
+
+def _reading_rotation(textpage) -> Optional[int]:
+    """Clockwise quarter turns that make most of the page's glyphs upright,
+    or None when no direction holds READ_SHARE of a READ_MIN_CHARS sample.
+
+    A glyph advancing at angle theta (counter-clockwise, user space) reads
+    left to right once the page is turned theta clockwise: /Rotate 90 maps
+    user +y onto the displayed +x."""
+    import math
+    tp = getattr(textpage, "raw", textpage)
+    n = raw.FPDFText_CountChars(tp)
+    if n < READ_MIN_CHARS:
+        return None
+    step = max(1, n // 400)                # a sample is a measurement here
+    votes = [0, 0, 0, 0]
+    m = raw.FS_MATRIX()
+    for i in range(0, n, step):
+        u = raw.FPDFText_GetUnicode(tp, i)
+        if not u or u == 0xFFFE or chr(u).isspace():
+            continue
+        try:
+            if not raw.FPDFText_GetMatrix(tp, i, ctypes.byref(m)):
+                continue
+        except Exception:
+            return None
+        if abs(m.a) < 1e-9 and abs(m.b) < 1e-9:
+            continue
+        q = int(round(math.degrees(math.atan2(m.b, m.a)) / 90.0)) % 4
+        votes[q] += 1
+    total = sum(votes)
+    if total < READ_MIN_CHARS:
+        return None
+    best = max(range(4), key=lambda k: votes[k])
+    return best if votes[best] >= READ_SHARE * total else None
 
 
 def _as_frame(frame) -> _Frame:
@@ -1974,12 +2044,14 @@ class _PObj:
     child over without its parent's matrix, so the walk is done here.
 
     `clip` is the intersection of the ancestor forms' clip boxes, in the frame:
-    a form painted under a clip clips everything inside it.
+    a form painted under a clip clips everything inside it. `parent` is the
+    key (_handle_key) of the form the object is drawn in, None at page level.
     """
-    __slots__ = ("raw", "type", "ctm", "clip")
+    __slots__ = ("raw", "type", "ctm", "clip", "parent")
 
-    def __init__(self, h, t, ctm, clip):
+    def __init__(self, h, t, ctm, clip, parent=None):
         self.raw, self.type, self.ctm, self.clip = h, t, ctm, clip
+        self.parent = parent
 
     def bounds(self, frame):
         """Frame bbox of the object, or None when PDFium cannot place it."""
@@ -2006,7 +2078,7 @@ def _page_objects(page, frame) -> List[_PObj]:
     out: List[_PObj] = []
     page_raw = getattr(page, "raw", page)
 
-    def walk(form, ctm, anc_clip, depth):
+    def walk(form, ctm, anc_clip, depth, parent=None):
         if form is None:
             n = raw.FPDFPage_CountObjects(page_raw)
         else:
@@ -2020,10 +2092,11 @@ def _page_objects(page, frame) -> List[_PObj]:
                 t = raw.FPDFPageObj_GetType(h)
             except Exception:
                 continue
-            out.append(_PObj(h, t, ctm, anc_clip))
+            out.append(_PObj(h, t, ctm, anc_clip, parent))
             if t == raw.FPDF_PAGEOBJ_FORM and depth < _FORM_MAX_DEPTH:
                 inner = _compose(_obj_matrix(h), ctm)
-                walk(h, inner, _meet(anc_clip, _clip_box(h, ctm, frame)), depth + 1)
+                walk(h, inner, _meet(anc_clip, _clip_box(h, ctm, frame)),
+                     depth + 1, _handle_key(h))
 
     walk(None, None, None, 0)
     return out
@@ -2091,6 +2164,17 @@ OCR_INVISIBLE_SHARE = 0.5
 OCR_IMAGE_COVER = 0.5
 OCR_INK = "#000000"
 OCR_LAYER_MODES = ("text", "image")
+# An icon is a small Form XObject that paints its own shape and letters it:
+# IRS's TIP / CAUTION / "!" badges. Its lettering is part of the picture, not
+# of the sentence it sits beside -- once forms are placed where they are drawn
+# (_PObj) the label lands on the body line and fuses with it ("CAUTIONrect
+# SSN, certain tax benefits..."), and lines starting at the label's x moved
+# y13's measured left margin from 42.0 to 44.2pt, which unhooked its column
+# grid on later pages. Census of text lettered on a fill drawn in its own form,
+# by the form's larger dimension: icons 10-49pt (y06 195 glyphs, y13 43; none
+# anywhere else in the corpus), then nothing below 100pt (callout boxes and
+# tables, which are text). One inch sits in that gap.
+ICON_MAX_PT = 72.0
 
 
 class _Visibility:
@@ -2116,7 +2200,7 @@ def _text_visibility(textpage, objs: List[_PObj], frame,
     """Decide, per character, whether the page shows it (design audit B8).
 
     PDFium's text page reports every glyph the content stream SHOWS, painted or
-    not. Five kinds are not seen by a reader and used to arrive as ordinary
+    not. Six kinds are not text a reader reads, and all used to arrive as ordinary
     text:
 
       offpage     the glyph's centre lies outside the visible frame -- above
@@ -2131,6 +2215,9 @@ def _text_visibility(textpage, objs: List[_PObj], frame,
                   (y19) starts lines with mode-3 spaces, which arrived as
                   doubled and leading spaces
       clipped     the centre lies outside the object's clip
+      icon        the lettering of an icon (ICON_MAX_PT): drawn by the icon's
+                  own small form, on its own fill. It belongs to the picture,
+                  which inference rasterises with it, not to the sentence
       background  filled in the page's white with nothing painted beneath it:
                   y21's white "Public Disclosure Authorized" marks. White text
                   ON something -- any filled path, image or shading, of any
@@ -2158,9 +2245,14 @@ def _text_visibility(textpage, objs: List[_PObj], frame,
     text_objs = {}
     paint = []          # frame boxes of anything that lays down colour
     images = []         # (key, frame box)
+    icons = {}          # icon-sized form key -> boxes of the fills it paints
     for ob in objs:
         if ob.type == raw.FPDF_PAGEOBJ_TEXT:
             text_objs[_handle_key(ob.raw)] = ob
+        elif ob.type == raw.FPDF_PAGEOBJ_FORM:
+            bb = ob.bounds(frame)
+            if bb and max(bb[2] - bb[0], bb[3] - bb[1]) <= ICON_MAX_PT:
+                icons[_handle_key(ob.raw)] = []
         elif ob.type == raw.FPDF_PAGEOBJ_PATH:
             fm = ctypes.c_int(); st = ctypes.c_int()
             if raw.FPDFPath_GetDrawMode(ob.raw, ctypes.byref(fm), ctypes.byref(st)) \
@@ -2168,6 +2260,8 @@ def _text_visibility(textpage, objs: List[_PObj], frame,
                 bb = ob.bounds(frame)
                 if bb:
                     paint.append(bb)
+                    if ob.parent in icons:
+                        icons[ob.parent].append(bb)
         elif ob.type in (raw.FPDF_PAGEOBJ_IMAGE, raw.FPDF_PAGEOBJ_SHADING):
             bb = ob.bounds(frame)
             if bb:
@@ -2176,7 +2270,7 @@ def _text_visibility(textpage, objs: List[_PObj], frame,
                     images.append((_handle_key(ob.raw), bb))
 
     def obj_info(h, i):
-        """(mode, clip, white, alpha0, plain, tiny) for the object of char i."""
+        """(mode, clip, white, alpha0, plain, tiny, icon) for char i's object."""
         try:
             mode = raw.FPDFTextObj_GetTextRenderMode(h)
         except Exception:
@@ -2184,9 +2278,14 @@ def _text_visibility(textpage, objs: List[_PObj], frame,
         ob = text_objs.get(_handle_key(h))
         clip = None
         bb = None
+        icon = False
         if ob is not None:
             clip = _meet(ob.clip, _clip_box(h, ob.ctm, frame))
             bb = ob.bounds(frame)
+            fills = icons.get(ob.parent)
+            if fills and bb is not None:
+                cx, cy = (bb[0] + bb[2]) / 2.0, (bb[1] + bb[3]) / 2.0
+                icon = any(f[0] <= cx <= f[2] and f[1] <= cy <= f[3] for f in fills)
         white = alpha0 = False
         if mode in _TR_FILL_ONLY:
             r = ctypes.c_uint(); g = ctypes.c_uint()
@@ -2203,8 +2302,9 @@ def _text_visibility(textpage, objs: List[_PObj], frame,
             0.0 <= bb[1] and bb[3] <= frame.h and \
             (clip is None or (clip[0] - CLIP_TOL <= bb[0] and bb[2] <= clip[2] + CLIP_TOL and
                               clip[1] - CLIP_TOL <= bb[1] and bb[3] <= clip[3] + CLIP_TOL))
-        plain = inside and not (white or alpha0 or tiny) and mode not in _TR_INVISIBLE
-        return mode, clip, white, alpha0, plain, tiny
+        plain = inside and not (white or alpha0 or tiny or icon) and \
+            mode not in _TR_INVISIBLE
+        return mode, clip, white, alpha0, plain, tiny, icon
 
     info = {}           # text-object key -> obj_info
     status = [None] * n
@@ -2227,7 +2327,7 @@ def _text_visibility(textpage, objs: List[_PObj], frame,
         got = info.get(key)
         if got is None:
             got = info[key] = obj_info(h, i)
-        mode, clip, is_white, alpha0, plain, tiny = got
+        mode, clip, is_white, alpha0, plain, tiny, icon = got
         if plain:
             status[i] = prev = None
             continue
@@ -2242,6 +2342,8 @@ def _text_visibility(textpage, objs: List[_PObj], frame,
             reason = "offpage"
         elif tiny:
             reason = "tiny"
+        elif icon:
+            reason = "icon"
         elif mode in _TR_INVISIBLE or alpha0:
             reason = "invisible"
         elif clip is not None and not (clip[0] - CLIP_TOL <= cx <= clip[2] + CLIP_TOL and
@@ -2892,13 +2994,13 @@ def parse_pdf(path: str, keep_image_data: bool = True,
         for pno in range(len(doc)):
             page = doc[pno]
             try:
-                frame = frames[pno] = _Frame.of(page)
-                w = frame.w
-                pir = PageIR(number=pno + 1, width=w, height=frame.h)
-                pir.links = _page_links(page, frame, doc)
-                objs = _page_objects(page, frame)
                 tp = page.get_textpage()
                 try:
+                    frame = frames[pno] = _Frame.of(page, tp)
+                    w = frame.w
+                    pir = PageIR(number=pno + 1, width=w, height=frame.h)
+                    pir.links = _page_links(page, frame, doc)
+                    objs = _page_objects(page, frame)
                     vis = _text_visibility(tp, objs, frame, ocr_layer)
                     pir.hidden_chars = dict(vis.counts)
                     pir.ocr_chars = vis.ocr_chars

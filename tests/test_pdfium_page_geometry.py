@@ -136,10 +136,24 @@ class Rotation(unittest.TestCase):
         cls.turned = _post(os.path.join(d, "turned.pdf"),
                            os.path.join(d, "rot90.pdf"),
                            lambda p: p.set_rotation(90))
-        ref = _reference(os.path.join(d, "ref.pdf"))
-        cls.rot = {deg: _post(ref, os.path.join(d, "r%d.pdf" % deg),
+        # Drawings only: with no text to read, the displayed /Rotate decides.
+        bare = os.path.join(d, "bare.pdf")
+        c = _canvas.Canvas(bare, pagesize=(612, 792))
+        c.rect(100, 600, 200, 50, stroke=1, fill=0)
+        c.save()
+        cls.rot = {deg: _post(bare, os.path.join(d, "r%d.pdf" % deg),
                               lambda p, deg=deg: p.set_rotation(deg))
                    for deg in (90, 180, 270)}
+        # Upright text turned sideways by /Rotate: the page reads unrotated.
+        ref = _reference(os.path.join(d, "ref.pdf"))
+        cls.sideways = {deg: _post(ref, os.path.join(d, "s%d.pdf" % deg),
+                                   lambda p, deg=deg: p.set_rotation(deg))
+                        for deg in (90, 180, 270)}
+        # Sideways content and NO /Rotate: a landscape table on a portrait sheet.
+        c = _canvas.Canvas(os.path.join(d, "sheet.pdf"), pagesize=(612, 792))
+        landscape(c)
+        c.save()
+        cls.sheet = os.path.join(d, "sheet.pdf")
 
     @classmethod
     def tearDownClass(cls):
@@ -170,6 +184,51 @@ class Rotation(unittest.TestCase):
                 ir = parse_pdf(path, keep_image_data=False)
                 (rect,) = ir.pages[0].drawings
                 self.assertEqual(tuple(round(v, 1) for v in rect.bbox), want[deg])
+
+    def test_upright_text_turned_sideways_is_read_upright(self):
+        """In the displayed frame every glyph would be vertical, taken out of
+        the flow by inference, and the page's text lost."""
+        for deg, path in self.sideways.items():
+            with self.subTest(rotate=deg):
+                ir = parse_pdf(path, keep_image_data=False)
+                page = ir.pages[0]
+                self.assertEqual((round(page.width), round(page.height)), (612, 792))
+                (line,) = _lines(ir)
+                self.assertEqual(line.text, "Reference line at x100 baseline700")
+                self.assertAlmostEqual(line.baseline, 92.0, places=2)
+                (rect,) = page.drawings
+                self.assertEqual(tuple(round(v, 1) for v in rect.bbox),
+                                 (100.0, 142.0, 300.0, 192.0))
+
+    def test_sideways_sheet_without_rotate_is_turned_to_read(self):
+        ir = parse_pdf(self.sheet, keep_image_data=False)
+        page = ir.pages[0]
+        self.assertEqual((round(page.width), round(page.height)), (792, 612))
+        (line,) = _lines(ir)
+        self.assertEqual(line.text, "Landscape heading reads left to right")
+        self.assertAlmostEqual(line.baseline, 612.0 - 540.0, delta=0.5)
+
+    def test_figure_clips_are_rendered_in_the_reading_frame(self):
+        """render_clip turns the render the way the parse turned the page, so
+        a clip of the text's bbox holds the text's ink."""
+        import io
+        from PIL import Image
+        from exactdoc.backend import PDFiumBackend
+        bk = PDFiumBackend()
+        for path in (self.sideways[90], self.sheet, self.turned):
+            ir = parse_pdf(path, keep_image_data=False)
+            (line,) = _lines(ir)
+            png = bk.render_clip(path, 1, line.bbox, dpi=144)
+            im = Image.open(io.BytesIO(png)).convert("L")
+            with self.subTest(path=os.path.basename(path)):
+                # a horizontal line of text: wider than tall, and inked
+                self.assertGreater(im.width, 3 * im.height)
+                self.assertLess(min(im.getdata()), 100)
+            session = bk.clip_renderer(path)
+            try:
+                self.assertEqual(session.render_clip(1, line.bbox, dpi=144), png)
+            finally:
+                session.close()
 
     def test_frame_matches_pdfium_page_to_device(self):
         """The mapping is PDFium's own: cross-checked against FPDF_PageToDevice."""

@@ -206,6 +206,68 @@ class OcrLayer(unittest.TestCase):
 
 
 @unittest.skipIf(_canvas is None, "reportlab and Pillow are required")
+class IconLettering(unittest.TestCase):
+    """An icon's label is part of the icon, not of the line beside it.
+
+    IRS publications draw TIP / CAUTION badges as small Form XObjects that
+    paint their own shape and letter it. Placed where they are drawn, the
+    label sits on the body line and fused with it ("CAUTIONrect SSN, ...").
+    A callout BOX drawn as a form is text on a fill too, and stays text: the
+    test is the form's size (ICON_MAX_PT).
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        cls._dir = tempfile.TemporaryDirectory()
+        path = os.path.join(cls._dir.name, "icons.pdf")
+        c = _canvas.Canvas(path, pagesize=(612, 792))
+        c.beginForm("tip")
+        c.setFillColorRGB(0, 0, 0)
+        c.roundRect(0, 0, 28, 20, 5, stroke=0, fill=1)
+        c.setFillColorRGB(1, 1, 1)
+        c.setFont("Helvetica-Bold", 8)
+        c.drawString(5, 7, "TIP")
+        c.endForm()
+        c.beginForm("callout")
+        c.setFillColorRGB(0.85, 0.9, 1.0)
+        c.rect(0, 0, 300, 60, stroke=0, fill=1)
+        c.setFillColorRGB(0, 0, 0)
+        c.setFont("Helvetica", 10)
+        c.drawString(10, 25, "Callout text inside a shaded box form")
+        c.endForm()
+        c.saveState()
+        c.translate(72, 600)
+        c.doForm("tip")
+        c.restoreState()
+        c.setFont("Helvetica", 10)
+        c.setFillColorRGB(0, 0, 0)
+        c.drawString(104, 607, "body text that runs beside the tip icon")
+        c.saveState()
+        c.translate(72, 450)
+        c.doForm("callout")
+        c.restoreState()
+        c.save()
+        cls.ir = parse_pdf(path, keep_image_data=False)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._dir.cleanup()
+
+    def test_label_is_not_fused_into_the_body_line(self):
+        texts = _texts(self.ir)
+        self.assertIn("body text that runs beside the tip icon", texts)
+        self.assertFalse(any("TIP" in t for t in texts), texts)
+        self.assertEqual(self.ir.pages[0].hidden_chars.get("icon"), 3)
+
+    def test_callout_box_form_is_still_text(self):
+        self.assertIn("Callout text inside a shaded box form", _texts(self.ir))
+
+    def test_the_icon_shape_is_where_it_was_drawn(self):
+        boxes = [tuple(round(v) for v in d.bbox) for d in self.ir.pages[0].drawings]
+        self.assertIn((72, 172, 100, 192), boxes)
+
+
+@unittest.skipIf(_canvas is None, "reportlab and Pillow are required")
 class InvisibleTextIsNotAnOcrLayerWithoutAScan(unittest.TestCase):
     """Invisible text on a page whose image is a small logo stays hidden."""
 
