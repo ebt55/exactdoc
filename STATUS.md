@@ -1,6 +1,7 @@
 # exactdoc status
 
-**RELEASED: 1.0.0, 2026-08-06.** Apache-2.0, PDFium core, live-validated against
+**Current version: 0.2.0a1 (alpha)** — renumbered from 1.0.1 on 2026-10-04; see
+CHANGELOG. **Historical release record: 1.0.0, 2026-08-06.** Apache-2.0, PDFium core, live-validated against
 Google Docs. Artifact and the four proofs it rests on:
 [docs/evidence/release-1.0.0-2026-08-06.json](docs/evidence/release-1.0.0-2026-08-06.json).
 Wheel `exactdoc-1.0.0-py3-none-any.whl`, sha256

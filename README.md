@@ -10,8 +10,10 @@ headings, lists, tables, multi-column sections, headers/footers, hyperlinks —
 and writes real flowing Word constructs whose rendered geometry matches the
 source page to within points, verified by measurement.
 
-Version 1.0.0, Apache-2.0. Every claim below is measured against a frozen
-16-document corpus and validated live in Google Docs itself; use those
+**Version 0.2.0a1 — alpha.** The 1.0.0 / 1.0.1 tags were renumbered back into the 0.x
+line on 2026-10-04: the converter is changing fast and is not yet stable enough to
+carry a 1.x number (see CHANGELOG). Apache-2.0. Every claim below is measured against
+a frozen 16-document corpus and validated live in Google Docs itself; use those
 measurements rather than assuming every PDF dialect works. The classes it does
 *not* handle are listed as plainly as the ones it does.
 
