@@ -156,6 +156,28 @@ Word→PostScript→Distiller — and closing LaTeX-light 1→6, other real-worl
   53, y12 83, y02 128, y21 60, everything else unchanged — the matrix
   and README carry these numbers, and the booklet class stands at
   1.41–1.71×.
+- **drawings count as structure only when a reader can see them.** Three
+  false-structure defects from weak drawing evidence, fixed in `dialect`
+  (visibility) and at two `infer` decision sites:
+  Word's per-line `#ffffff` paragraph shading no longer becomes one box
+  table per line — a page-coloured, unstroked area fill is dropped unless it
+  is visible by contrast with something it touches (a knockout, a zebra row,
+  a panel under artwork, part of an image); y01 p21's 7-line paragraph is one
+  paragraph again and y01's 111 white boxes are gone. Word's table-border
+  joint squares (0.48/1.5pt, flush with the rules they join) are no longer
+  promoted to "•": a drawn marker must be ≥ max(2pt, 0.25em) of its line and
+  must not touch a rule end — y02 1,286 → 24 bullets (its 24 real ones),
+  y11 3,612 → 36, x11's dotted TOC leaders no longer bullet the page numbers;
+  Chromium discs (3pt, 0.27–0.29em) are untouched. Paths with zero alpha or
+  no paint are dropped before inference reads them. And a vertical rule is a
+  quote bar only within 2em of its text, without overhanging it by more than
+  1.5em, and not as one side of a drawn frame: y09's page-height margin rule
+  had wrapped 56 of 59 pages in a quote table. Raw lane, canonical sweep:
+  y09 72 → 67 pages, y01 107 → 103 (word recall 0.184 → 0.199), y02 142 →
+  140 (doc recall 0.903 → 0.922), y03 71 → 70, x11 4 → 3; y10 within-2pt
+  0.273 → 0.272, everything else identical. Gated 16: raw DOCX
+  byte-identical to before, gate PASS both lanes at the recorded numbers.
+  30 new tests.
 
 ## 1.0.1 — 2026-08-07
 
