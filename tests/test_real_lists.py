@@ -204,6 +204,25 @@ class MarkerStripping(unittest.TestCase):
                                        ListItem(0, 0, "decimal", "1.", "space", 1)))
 
 
+class LevelSerialisation(unittest.TestCase):
+    def test_the_label_keeps_its_markers_spacing_and_scale(self):
+        # x17: without the marker's letter-spacing the item text sat 0.58pt left
+        from docx.oxml.ns import qn
+        from exactdoc.layout import ListLevel
+        from exactdoc.structures import _lvl
+        marker = _run("•", tracking=0.3, width_scale=0.97)
+        el = _lvl(0, ListLevel(fmt="bullet", text="•", sep="space", left=12.2,
+                               hanging=11.5, marker_run=marker), "standard")
+        rpr = el.find(qn("w:rPr"))
+        self.assertEqual(rpr.find(qn("w:spacing")).get(qn("w:val")), "6")
+        self.assertEqual(rpr.find(qn("w:w")).get(qn("w:val")), "97")
+        self.assertEqual(el.find(qn("w:suff")).get(qn("w:val")), "space")
+        ind = el.find(qn("w:pPr")).find(qn("w:ind"))
+        self.assertEqual((ind.get(qn("w:left")), ind.get(qn("w:hanging"))), ("244", "230"))
+        # no tab stop for a space-separated level
+        self.assertIsNone(el.find(qn("w:pPr")).find(qn("w:tabs")))
+
+
 def _list_pdf(path):
     W, H = 612, 792
     c = _canvas.Canvas(path, pagesize=(W, H))
