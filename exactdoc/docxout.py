@@ -27,6 +27,9 @@ from .layout import (DocLayout, Para, Run, Cell, TableEl, FigureEl, ImageEl,
                      RuleEl, ColBreak, HFPart, Chunk, PageLayout)
 from .fonts import east_asian_family, font_table_desc, map_font
 from .metrics import source_line_width
+from .structures import (add_footnote_ref_mark, add_footnote_reference,
+                         apply_numpr, level_carries_indent, num_tab_override,
+                         strip_marker)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -65,6 +68,31 @@ class WriteCtx:
     #: degradation.  Defaults to None -- the writer keeps no global ledger, so
     #: two concurrent conversions cannot accumulate into each other's counts.
     image_report: Optional[dict] = None
+    # Real-structure plumbing, filled in by _write_docx: {list_id: ListDef}
+    # for the lists written as w:numPr, and {fid: (w:id, custom_mark)} for
+    # the footnotes written as notes. Empty means "write the typed form".
+    list_defs: Dict[int, Any] = dataclasses.field(default_factory=dict)
+    num_base: int = 1                # w:numId of list_id 0 (structures.numbering_base)
+    note_ids: Dict[int, Any] = dataclasses.field(default_factory=dict)
+    # Set while a footnote's own paragraphs are written: False for a note the
+    # renderer numbers (its mark run becomes w:footnoteRef), True for a note
+    # that keeps the source's custom mark. None in the body.
+    note_mark_custom: Optional[bool] = None
+    # Set when a write found a reference missing and fell back to typed notes
+    # (see the check before write_footnotes in _write_docx).
+    notes_vetoed: bool = False
+
+    @property
+    def numbering(self) -> bool:
+        """Does this profile write lists as real numbering? (options.py)"""
+        from .options import capabilities
+        return "numbering" in capabilities(self.output_profile)
+
+    @property
+    def footnotes(self) -> bool:
+        """Does this profile write footnotes as real notes? (options.py)"""
+        from .options import capabilities
+        return "footnotes" in capabilities(self.output_profile)
 
 
 _DEFAULT_CTX = WriteCtx()
@@ -615,6 +643,17 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None,
     # layout more than once, and mutating it here would compound the
     # correction on every pass.
     gdocs_rows = p.gdocs_rows if ctx.output_profile == "gdocs" else []
+    # A real list item: the level draws the marker, so the typed marker and
+    # its separator leave the runs (structures.py). `ctx.list_defs` holds only
+    # the lists whose every item strips cleanly (structures.numbering_plan).
+    num, num_runs, lvl = None, None, None
+    if p.numbering is not None and p.numbering.list_id in ctx.list_defs \
+            and not gdocs_rows:
+        num_runs = strip_marker(p.runs, p.numbering)
+        if num_runs is not None:
+            num = p.numbering
+            lvl = ctx.list_defs[num.list_id].levels.get(num.level)
+    ind_from_level = lvl is not None and level_carries_indent(p, lvl)
     right_indent = 0.0 if gdocs_rows else p.right_indent + _wrap_correction(p, content_w)
     pf = par.paragraph_format
     par.alignment = ALIGN.get("left" if gdocs_rows else p.align, WD_ALIGN_PARAGRAPH.LEFT)
@@ -647,14 +686,22 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None,
                 and not p.line_breaks and lead > 0:
             lead = max(dom * 1.0 if dom else 4.0, lead - 0.38)
         _apply_leading(pf, lead, dom, mode=ctx.line_mode, family=fam)
-    if p.left_indent > 0.05:
+    if num is not None and not ind_from_level:
+        # A numbered paragraph inherits its level's indents unless it says
+        # otherwise, so a paragraph that differs must say so -- zeros included.
         pf.left_indent = Pt(round(p.left_indent, 1))
-    if abs(p.first_indent) > 0.05:
         pf.first_line_indent = Pt(round(p.first_indent, 1))
+    elif num is None:
+        if p.left_indent > 0.05:
+            pf.left_indent = Pt(round(p.left_indent, 1))
+        if abs(p.first_indent) > 0.05:
+            pf.first_line_indent = Pt(round(p.first_indent, 1))
     if right_indent > 0.05:
         pf.right_indent = Pt(round(right_indent, 1))
     for ts in p.tab_stops:
         pos, al = ts[0], ts[1]
+        if lvl is not None and lvl.sep == "tab" and al == "left" and                 abs(pos - p.left_indent) < 0.05:
+            continue                # the item's own text stop: see below
         leader = TABLEADER.get(ts[2]) if len(ts) > 2 else None
         if leader is None:
             pf.tab_stops.add_tab_stop(Pt(round(pos, 1)),
@@ -662,6 +709,18 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None,
         else:
             pf.tab_stops.add_tab_stop(Pt(round(pos, 1)),
                                       TABAL.get(al, WD_TAB_ALIGNMENT.LEFT), leader)
+    if num is not None:
+        apply_numpr(par, num, ctx.num_base)
+        if not ind_from_level and lvl is not None and lvl.sep == "tab":
+            # The level's num tab is a tab stop the paragraph inherits, and the
+            # marker's tab goes to the first stop past it, so an item whose
+            # text sits off its level's stop must move the stop with its
+            # indent -- the way Word itself writes a re-indented list item.
+            # LibreOffice ignores the override and always uses the level's
+            # stop (y28 p36: text at 38.7pt landed at 36.0), which is why
+            # `lists._accepts` keeps such an item out of the level; this
+            # covers the sub-0.5pt remainder for Word.
+            num_tab_override(par, lvl.left, p.left_indent)
     # keep heading with following content
     if p.heading:
         pf.keep_with_next = True
@@ -713,19 +772,38 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None,
                                 color=style.color, bold=style.bold, italic=style.italic,
                                 mono=style.mono, serif=style.serif))
     else:
-        runs = p.runs
+        runs = num_runs if num is not None else p.runs
     while i < len(runs):
         run = runs[i]
+        if run.footnote is not None and run.footnote in ctx.note_ids:
+            wid, custom = ctx.note_ids[run.footnote]
+            add_footnote_reference(
+                par, run, wid, custom,
+                lambda r, src: _style_run(r, src, ctx.output_profile))
+            i += 1
+            continue
+        if run.footnote_mark and ctx.note_mark_custom is not None:
+            add_footnote_ref_mark(
+                par, run, ctx.note_mark_custom,
+                lambda r, src: _style_run(r, src, ctx.output_profile))
+            i += 1
+            continue
+        # A link group ends at a footnote reference: EUR-Lex links "(¹)" to
+        # its note, and a reference swallowed into the hyperlink was written
+        # as plain text -- 30 of its 58 notes lost their anchors.
+        def _grouped(k, key):
+            return k < len(runs) and key(runs[k]) and not (
+                runs[k].footnote is not None and runs[k].footnote in ctx.note_ids)
         if run.link:
             grp = []
-            while i < len(runs) and runs[i].link == run.link:
+            while _grouped(i, lambda r: r.link == run.link):
                 grp.append((runs[i].text, runs[i]))
                 i += 1
             _add_hyperlink(par, run.link, grp, ctx.output_profile)
             continue
         if run.dest is not None:
             grp = []
-            while i < len(runs) and runs[i].dest == run.dest:
+            while _grouped(i, lambda r: r.dest == run.dest):
                 grp.append((runs[i].text, runs[i]))
                 i += 1
             anchor = ctx.dest_anchors.get(run.dest)
@@ -1186,6 +1264,13 @@ def _hf_height(part) -> float:
     return h
 
 
+def _body_foot(lay: DocLayout) -> float:
+    """The y where the body box ends: the footnote area's foot. Same model of
+    the bottom margin and footer as `_body_capacity`."""
+    fd = lay.footer_default.distance if lay.footer_default else 0.0
+    return lay.page_h - max(lay.margin_b, fd + _hf_height(lay.footer_default))
+
+
 def _body_capacity(lay: DocLayout) -> float:
     """The flow height a page really offers, footer and header included.
 
@@ -1257,8 +1342,13 @@ def _stack_fits(pg, lay: DocLayout) -> bool:
     return used <= _body_capacity(lay)
 
 
-def _page_spill(pg, content_w: float, lay: DocLayout):
+def _page_spill(pg, content_w: float, lay: DocLayout, notes_h: float = 0.0):
     """-> (overflow_pt, stranded_lines) for one source page, or None.
+
+    `notes_h` is the footnote area this page carries when its notes are
+    written as real notes (`notes.footnote_areas`): the renderer stacks it
+    at the bottom of the body, so the body has that much less room, and the
+    page's `role="footnote"` paragraphs are not in the body at all.
 
     `overflow_pt` is how far the whole flow runs past the page box -- what the
     page's gaps would have to give up for nothing to be stranded.
@@ -1280,12 +1370,14 @@ def _page_spill(pg, content_w: float, lay: DocLayout):
     metrics = _text_metrics()
     if metrics is None:
         return None
-    capacity = _body_capacity(lay)
+    capacity = _body_capacity(lay) - notes_h
     bottom = capacity + SPILL_EDGE_SLACK_PT
     used, stranded = 0.0, 0
     for ch in pg.chunks:
         used += max(0.0, ch.pre_gap)
         for el in ch.elements:
+            if notes_h > 0 and getattr(el, "role", "") == "footnote":
+                continue
             if isinstance(el, ColBreak):
                 return None       # a column break on a one-column page: unmodelled
             if not isinstance(el, Para):
@@ -1312,7 +1404,8 @@ def _page_spill(pg, content_w: float, lay: DocLayout):
     return used - capacity, stranded
 
 
-def _absorb_page_spill(pg, content_w: float, lay: DocLayout) -> dict:
+def _absorb_page_spill(pg, content_w: float, lay: DocLayout,
+                       notes_h: float = 0.0) -> dict:
     """Plan the gap reductions that keep a small spill on its own page.
 
     Returns `{id(element): new_space_before}`, empty when the page is to be
@@ -1327,14 +1420,15 @@ def _absorb_page_spill(pg, content_w: float, lay: DocLayout) -> dict:
     paragraph gaps cannot cover the overflow in full is left alone: a partial
     payment spends the spacing and still loses the page.
     """
-    got = _page_spill(pg, content_w, lay)
+    got = _page_spill(pg, content_w, lay, notes_h)
     if got is None:
         return {}
     overflow, stranded = got
     if stranded <= 0 or stranded > SPILL_MAX_LINES or overflow <= 0.0:
         return {}
     paras = [el for ch in pg.chunks for el in ch.elements
-             if isinstance(el, Para)]
+             if isinstance(el, Para)
+             and not (notes_h > 0 and el.role == "footnote")]
     if not paras:
         return {}
     want = overflow + SPILL_SAFETY_PT
@@ -2943,6 +3037,7 @@ def _paper(pg: PageLayout):
 
 
 def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
+    src_lay = lay
     lay = copy.deepcopy(lay)
     lay.pages = _merge_grid_page_runs(lay.pages)
     # After the deepcopy: the plan marks the elements this function will write.
@@ -2963,7 +3058,36 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
         # gdocs profile -- Google Docs' own superscript ratio is unmeasured,
         # and that profile changes only on live evidence.
         _script_base_sizes(lay)
+    # Real lists and real notes, where the profile writes them (options.py).
+    # Planned before anything is written: a list or a note that cannot be
+    # written whole is written typed, never half-converted.
+    from .structures import footnote_plan, numbering_plan
+    if ctx.numbering and lay.lists:
+        ctx = dataclasses.replace(ctx, list_defs=numbering_plan(lay))
+    note_ids = footnote_plan(lay) if ctx.footnotes and not ctx.notes_vetoed \
+        else {}
+    if note_ids:
+        ctx = dataclasses.replace(ctx, note_ids=note_ids)
+        # A link whose destination was the note text at the page foot (EUR-Lex
+        # links every "(¹)" to its note) would point at a bookmark on a
+        # paragraph no longer in the body; its text is written plain, beside
+        # the footnote reference that now does that job.
+        gone = {getattr(el, "_bookmark", None) for pg in lay.pages
+                for ch in pg.chunks for el in ch.elements
+                if getattr(el, "role", "") == "footnote"} - {None}
+        if gone:
+            ctx = dataclasses.replace(ctx, dest_anchors={
+                d: n for d, n in ctx.dest_anchors.items() if n not in gone})
+    # {source page: height of the footnote area its notes occupy}
+    notes_h = {}
+    if note_ids:
+        from .notes import footnote_areas
+        notes_h = footnote_areas(
+            lay, lambda pl: _body_foot(_page_geometry(lay, pl)))
     doc = Document()
+    if ctx.list_defs:
+        from .structures import numbering_base
+        ctx = dataclasses.replace(ctx, num_base=numbering_base(doc))
     dpi = ctx.dpi
     content_w = lay.content_w
 
@@ -3179,7 +3303,8 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
         # compound on every pass. The cover page keeps its own bleed geometry
         # and is never asked. See `_absorb_page_spill`.
         spill_plan = {} if (has_cover and pi == 0) \
-            else _absorb_page_spill(pg, cw_ctx, glay)
+            else _absorb_page_spill(pg, cw_ctx, glay,
+                                    notes_h.get(pg.number, 0.0))
         for ci, ch in enumerate(pg.chunks):
             if ch.n_cols != cur_cols:
                 if ch.pre_gap > 0.5:
@@ -3187,6 +3312,8 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                 new_section(WD_SECTION.CONTINUOUS, ch.n_cols, ch.col_gap)
             drop_col_break = _column_one_overflows(ch, cw_ctx, glay)
             for el in ch.elements:
+                if ctx.note_ids and getattr(el, "role", "") == "footnote":
+                    continue        # carried by footnotes.xml instead
                 if isinstance(el, ColBreak):
                     if drop_col_break:
                         # Column one is predicted to overflow. Forcing the
@@ -3296,6 +3423,23 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
         if not has_content and not has_sectpr and len(list(body)) > 2:
             body.remove(p0)
 
+    if ctx.list_defs:
+        from .structures import write_numbering
+        write_numbering(doc, ctx.list_defs, ctx.output_profile, ctx.num_base)
+    if ctx.note_ids:
+        # Every note's reference must have reached the body: its text has
+        # already been left out of it, and a note with no reference is text
+        # no reader will ever see. If one is missing the document is written
+        # again with its notes typed -- never with a note dropped.
+        written = {int(r.get(qn("w:id")))
+                   for r in body.iter(qn("w:footnoteReference"))}
+        if written != {wid for wid, _custom in ctx.note_ids.values()}:
+            if ctx.image_report is not None:
+                ctx.image_report.clear()     # the rewrite counts afresh
+            return _write_docx(src_lay, out_path, dataclasses.replace(
+                ctx, note_ids={}, notes_vetoed=True))
+        from .structures import write_footnotes
+        write_footnotes(doc, lay, ctx, write_para)
     _release_keeps_before_seams(body)
     _declare_fonts(doc)
     doc.save(out_path)

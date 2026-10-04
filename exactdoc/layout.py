@@ -34,6 +34,56 @@ class Run:
     # the writer emits their sum. It ADDS space after each glyph, where
     # width_scale scales the glyphs themselves; the two compose.
     tracking: float = 0.0
+    # A body run that IS a footnote reference mark: the index of its note in
+    # DocLayout.footnotes. The text stays the source's mark, so a writer without
+    # the footnotes capability prints exactly what it always printed.
+    footnote: Optional[int] = None
+    # Inside a footnote's own paragraphs: the run that is the note's mark at
+    # the head of the note text (w:footnoteRef, or the literal custom mark).
+    footnote_mark: bool = False
+
+
+# Number formats a list level can carry, named as OOXML's ST_NumberFormat does.
+LIST_FORMATS = ("bullet", "decimal", "lowerLetter", "upperLetter",
+                "lowerRoman", "upperRoman")
+
+
+@dataclass
+class ListItem:
+    """A paragraph's place in a real list (w:numPr), as inference read it.
+
+    The paragraph's runs keep the TYPED marker ("•", tab, text / "1. text"), so
+    a profile without the numbering capability writes what it always wrote.
+    `marker` is the marker's text exactly as typed and `sep` what separated it
+    from the item text ("tab": a tab run; "space": a typed space); a numbering
+    writer removes both and lets the list level draw them -- except under
+    "nothing", where the typed space stays text (lists.assign_lists says why).
+    """
+    list_id: int                 # index into DocLayout.lists
+    level: int                   # 0-based ilvl
+    fmt: str                     # one of LIST_FORMATS
+    marker: str                  # typed marker text: "•", "1.", "(a)", "iv)"
+    sep: str = "tab"             # 'tab' | 'space' | 'nothing' (space kept as text)
+    value: int = 0               # the ordinal this item shows; 0 for bullets
+
+
+@dataclass
+class ListLevel:
+    """One level of a list: what Word's w:lvl says, from measured items."""
+    fmt: str
+    start: int = 1
+    text: str = ""               # w:lvlText: "%1." / "(%2)" / the bullet glyph
+    sep: str = "tab"             # w:suff
+    left: float = 0.0            # w:ind left, container-relative pt
+    hanging: float = 0.0         # w:ind hanging, pt (marker sits at left - hanging)
+    marker_run: Optional[Run] = None   # the marker's typography (w:lvl/w:rPr)
+
+
+@dataclass
+class ListDef:
+    """One list instance: one w:num over its own w:abstractNum."""
+    list_id: int
+    levels: Dict[int, ListLevel] = field(default_factory=dict)
 
 
 @dataclass
@@ -64,6 +114,12 @@ class Para:
     # rows as an alternate, target-specific serialization; standard DOCX keeps
     # its existing flow form while the Google Docs profile can preserve them.
     gdocs_rows: List[List[Run]] = field(default_factory=list)
+    # Membership of a real list; None for every other paragraph. See ListItem.
+    numbering: Optional[ListItem] = None
+    # "" for ordinary flow. "footnote": this paragraph is the source's footnote
+    # text at the page bottom, carried by DocLayout.footnotes as a real note --
+    # a writer with the footnotes capability leaves it out of the body flow.
+    role: str = ""
 
     @property
     def text(self) -> str:
@@ -145,6 +201,44 @@ class RuleEl:
     left_indent: float = 0.0
     space_before: float = 0.0
     space_after: float = 0.0
+    role: str = ""               # "footnote": the note separator (see Para.role)
+
+
+@dataclass
+class Footnote:
+    """A source footnote: its mark and its text, moved out of the body flow.
+
+    `paras` are built from the note's own lines; the one run with
+    `footnote_mark` set is the mark at the head of the note. `auto` says the
+    renderer's own footnote counter reproduces `mark` at this note's position
+    in the document (see notes.number_footnotes); a note it would misnumber
+    keeps the source's mark verbatim as a custom mark.
+    """
+    fid: int                     # index in DocLayout.footnotes
+    page: int                    # 1-based source page
+    mark: str                    # "1", "12", "*", "†"
+    value: int = 0               # numeric value of a digit mark, else 0
+    auto: bool = True
+    paras: List["Para"] = field(default_factory=list)
+    # True when the note runs on into the next page's note area in the
+    # source, and its paragraphs carry that page's lines too.
+    continued: bool = False
+
+
+@dataclass
+class NoteArea:
+    """Where a page's footnotes stood in the source, for the page-fit model.
+
+    `top` is the zone's top (its separator, or its first note); `bottom` the
+    baseline-model bottom of its last note line (baseline + 0.21 x size, the
+    box model of THEORY §3.1); `height` the exact-leading height of every
+    note line the page carries, continuation lines included. `runs_on`: the
+    page's last note continues on the next page.
+    """
+    top: float
+    bottom: float
+    height: float
+    runs_on: bool = False
 
 
 class ColBreak:
@@ -179,6 +273,8 @@ class PageLayout:
     page_w: Optional[float] = None
     page_h: Optional[float] = None
     margins: Optional[Tuple[float, float, float, float]] = None
+    # This page's footnotes, when they were read as real notes (notes.py).
+    note_area: Optional["NoteArea"] = None
     # True: the seam in front of this page may carry its page break on the
     # first element itself, which keeps a non-paragraph first element's
     # page-top gap in LibreOffice (B23; see the seam in docxout._write_docx).
@@ -217,6 +313,15 @@ class DocLayout:
     # The source's own glyph advances, {font: {char: em}}, carried from
     # DocIR.font_advances for metrics.apply_width_scale.
     font_advances: Dict[str, Dict[str, float]] = field(default_factory=dict)
+    # Real lists (Para.numbering points here by list_id) and real footnotes
+    # (Run.footnote points here by fid). Both are inference's reading of the
+    # source; whether a profile serialises them is the writer's capability.
+    lists: List[ListDef] = field(default_factory=list)
+    footnotes: List[Footnote] = field(default_factory=list)
+    # How the source numbers its notes: "continuous" from footnote_start, or
+    # "eachPage" (every page restarts at 1). Custom marks are outside both.
+    footnote_restart: str = "continuous"
+    footnote_start: int = 1
 
     @property
     def content_w(self) -> float:
@@ -246,3 +351,7 @@ def iter_paras(lay: DocLayout):
         if part is not None:
             for el in part.elements:
                 yield from walk(el)
+    # A footnote's own paragraphs, written into footnotes.xml by a profile with
+    # the footnotes capability (their typed twins are in the body above).
+    for note in lay.footnotes:
+        yield from note.paras
