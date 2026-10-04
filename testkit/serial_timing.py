@@ -29,6 +29,7 @@ import zipfile
 import corpus_manifest
 
 SCHEMA = "exactdoc.serial-timing.v1"
+REPEAT = [1]
 
 
 def _profile(name):
@@ -78,6 +79,9 @@ def main(argv=None):
     ap.add_argument("--from-sweep", help="take documents from this sweep ...")
     ap.add_argument("--over-s", type=float, default=40.0,
                     help="... whose convert_s there exceeds this (default 40)")
+    ap.add_argument("--repeat", type=int, default=1,
+                    help="convert each document this many times and keep the fastest "
+                         "(other load on the machine only ever adds time)")
     ap.add_argument("--json", help="write the payload here (<name>.timing.json)")
     a = ap.parse_args(argv)
 
@@ -92,6 +96,7 @@ def main(argv=None):
     if not docs:
         print("no documents selected")
         return 1
+    REPEAT[0] = max(1, a.repeat)
     opts = _profile(a.profile)
     print("SERIAL TIMING -- one conversion at a time, profile %s" % opts.profile_id())
     rows = []
@@ -99,7 +104,14 @@ def main(argv=None):
     for doc in docs:
         path, pages = paths[doc]
         r = {"document": doc, "src_pages": pages}
-        r.update(time_one(path, opts))
+        runs = [time_one(path, opts) for _ in range(max(1, a.repeat))]
+        timed = [x for x in runs if "convert_s" in x]
+        best = min(timed, key=lambda x: x["convert_s"]) if timed else runs[0]
+        r.update(best)
+        if len(runs) > 1:
+            r["all_s"] = [x.get("convert_s") for x in runs]
+            r["outputs_agree"] = len({json.dumps(x.get("parts"), sort_keys=True)
+                                       for x in runs}) == 1
         rows.append(r)
         print("  %-34s %4sp  %s" % (doc, pages, r.get("convert_s", r.get("refused"))), flush=True)
         if a.json:
@@ -109,7 +121,7 @@ def main(argv=None):
 
 def _write(path, opts, rows, t0):
     payload = {"schema": SCHEMA, "gating": False, "profile": opts.profile_id(),
-               "jobs": 1, "elapsed_s": round(time.time() - t0, 1),
+               "jobs": 1, "repeat": REPEAT[0], "elapsed_s": round(time.time() - t0, 1),
                "machine": {"cpus": os.cpu_count(), "platform": sys.platform},
                "documents": rows}
     tmp = path + ".tmp"

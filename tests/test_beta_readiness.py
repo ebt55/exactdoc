@@ -239,6 +239,8 @@ class Reading(unittest.TestCase):
                          "product")
         self.assertEqual(B._profile_kind("pdfium/gdocs/none/refine0@240dpi"), "gdocs-lo")
         self.assertIsNone(B._profile_kind("nonsense"))
+        # a capped refine loop is a measurement, not the product
+        self.assertIsNone(B._profile_kind("pdfium/standard/libreoffice/refine1@240dpi"))
 
 
 if __name__ == "__main__":

@@ -203,8 +203,28 @@ def _when(path):
     return datetime.datetime.fromtimestamp(os.path.getmtime(path))
 
 
+def _shipped_profiles():
+    """{profile_id: kind} of the profiles exactdoc ships, or None."""
+    try:
+        if PROJECT not in sys.path:
+            sys.path.insert(0, PROJECT)
+        from exactdoc.options import PDFIUM_GDOCS_CANDIDATE, PRODUCT, RAW
+    except Exception:                                   # pragma: no cover
+        return None
+    return {PRODUCT.profile_id(): "product", RAW.profile_id(): "raw",
+            PDFIUM_GDOCS_CANDIDATE.profile_id(): "gdocs-lo"}
+
+
 def _profile_kind(profile):
-    """'pdfium/standard/none/refine0@240dpi' -> 'raw', etc. None if unknown."""
+    """'pdfium/standard/none/refine0@240dpi' -> 'raw', etc. None if unknown.
+
+    Exactly the shipped profiles when exactdoc is importable: a measurement
+    with the refine loop capped (`refine1`) is not a reading of the product,
+    and must not be picked up as one.
+    """
+    shipped = _shipped_profiles()
+    if shipped is not None:
+        return shipped.get(profile)
     parts = (profile or "").split("/")
     if len(parts) < 4:
         return None
