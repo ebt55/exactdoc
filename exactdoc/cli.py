@@ -409,9 +409,27 @@ def _check_jobs(args):
     return jobs
 
 
+def _quiet_reader_logs(verbose):
+    """Keep the PDF reader's housekeeping warnings off a user's terminal.
+
+    pypdfium2 5.13+ logs a WARNING ("Explicitly closing <PdfBitmap ...>. This
+    is a potentially unsafe operation!") each time a rendered bitmap is
+    closed, and with no logging configured Python prints it to stderr: a
+    scanned page produced two such lines above the one-line error in the
+    WP20 clean-install check (python:3.12-slim, pypdfium2 5.14.0). They are
+    about the library's memory model, not the user's document. -v keeps them.
+    Set here, in the console entry point only: a library must not configure
+    its caller's logging.
+    """
+    if not verbose:
+        import logging
+        logging.getLogger("pypdfium2").setLevel(logging.ERROR)
+
+
 # --------------------------------------------------------------------- run
 def _run(ap, argv):
     args = ap.parse_args(argv)
+    _quiet_reader_logs(args.verbose)
     if args.diagnose:
         if len(args.pdf) != 1 or args.input_dir:
             ap.error("--diagnose takes exactly one PDF")
