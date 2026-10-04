@@ -925,6 +925,11 @@ def _tag_char_links(chars: List[_Char], links) -> None:
                 break
 
 
+def _wide_space(c: _Char) -> bool:
+    """A space whose box spans a gap the line splitter would have split at."""
+    return (c.x1 - c.x0) > LINE_SPLIT_EM * max(c.size, 1.0)
+
+
 def _build_lines(chars: List[_Char]) -> List[Line]:
     """chars -> spans -> lines, by baseline then x.
 
@@ -1065,7 +1070,33 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
                     n_sp = n_sp if cur[-1].mono_hint else 0
                 if n_sp >= 1:
                     cur[-1].u += " " * min(n_sp, 24)
+                # A gap the LINE splitter forgave (an explicit space before it,
+                # see _wide_gap_starts_visual_line) still ends the SPAN. The
+                # exemption keeps a justified line one line, which is right;
+                # but when the gap is a table's cell boundary the span then
+                # carried two cells' text under one bbox, and the grid builder
+                # could only guess where inside it the boundary fell. Measured
+                # on y02 (Word, every cell line ends in an explicit space):
+                # 'authorized users, processes de-registration' arrived as one
+                # 369pt span over three drawn columns with a 204pt hole in it,
+                # and the even-advance estimate put 'users,' in the AC-2
+                # column. Splitting here changes no text and no line -- runs
+                # of one style re-merge in infer.runs_from_spans -- it only
+                # lets every piece keep its own box.
+                if gap > LINE_SPLIT_EM * max(cur[-1].size, c.size, 1.0):
+                    spans.append((cur, cur_key))
+                    cur = []
             cur.append(c)
+            # The same gap can arrive INSIDE a space: where PDFium synthesises
+            # a space it reports it degenerate at the next word, and _page_chars
+            # then boxes it from the previous ink to there. XPP's tables (y64,
+            # BLS) set every cell this way -- 'occupations....... 70,548 72,168
+            # 1,399 1,596 1.9' was one span 442pt wide with five 19-31pt holes
+            # each filled by a space. The line stays one line, as before; the
+            # span ends after the wide space, whose width stays out of the box.
+            if c.u.isspace() and _wide_space(c):
+                spans.append((cur, cur_key))
+                cur = []
         if cur:
             spans.append((cur, cur_key))
 
@@ -1082,8 +1113,10 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
             text = xml_safe_text("".join(c.u for c in cs))
             if not text.strip() and not sp_objs:
                 continue
+            ink = cs[:-1] if len(cs) > 1 and cs[-1].u.isspace() \
+                and _wide_space(cs[-1]) else cs
             bb = (min(c.x0 for c in cs), min(c.y0 for c in cs),
-                  max(c.x1 for c in cs), max(c.y1 for c in cs))
+                  max(max(c.x1 for c in ink), cs[-1].x0), max(c.y1 for c in cs))
             # Both link fields ride the style key, so every character in this
             # span agreed on them by construction; there is nothing to re-derive
             # from cs[0].
