@@ -125,17 +125,32 @@ class ApplyTracking(unittest.TestCase):
 
 
 class LadderSeesTracking(unittest.TestCase):
-    def test_prediction_includes_char_spacing(self):
+    def _para(self):
         text = " ".join([WORDS] * 3)
         run = Run(text=text, font="LiberationSerif", size=11.0,
                   color="#000000", serif=True)
-        p = Para(runs=[run])
         nat = M.text_width(WORDS, "Times New Roman", 11.0)
+        return Para(runs=[run]), run, nat
+
+    def test_prediction_includes_the_source_advance_tracking(self):
+        p, run, nat = self._para()
         avail = nat * 1.03          # one source line's worth at natural width
         before = predict_lines(p, avail, M)
-        run.char_spacing = 0.064 * nat / len(WORDS)
+        lay, _ = _layout([run])
+        tracking.apply_advance_tracking(lay, {("liberationserif", 11.0): 1.064}, M)
+        self.assertGreater(run.advance_track, 0.0)
+        self.assertEqual(run.advance_track, run.char_spacing)
         after = predict_lines(p, avail, M)
         self.assertGreater(after, before)
+
+    def test_a_locked_lines_compression_is_not_the_sources_tracking(self):
+        # the ladder's own char_spacing (negative, from `_lock`) leaves its
+        # open-loop predictions as they were before tracking.py existed
+        p, run, nat = self._para()
+        avail = nat * 1.03
+        before = predict_lines(p, avail, M)
+        run.char_spacing = -0.3
+        self.assertEqual(predict_lines(p, avail, M), before)
 
 
 def _tracked_pdf(path, char_space):

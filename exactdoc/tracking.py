@@ -222,6 +222,10 @@ def apply_advance_tracking(lay: DocLayout, scales: Dict[Key, float],
         w = metrics.text_width(meas, fam, r.size, bold=r.bold, italic=r.italic)
         if not w:
             continue
-        r.char_spacing = round(r.char_spacing + (sc - 1.0) * w / len(meas), 3)
+        add = (sc - 1.0) * w / len(meas)
+        r.char_spacing = round(r.char_spacing + add, 3)
+        # Kept apart as well: the ladder counts this, and only this, in its
+        # width predictions, and adds its own compression to it.
+        r.advance_track = round(r.advance_track + add, 3)
         n += 1
     return n

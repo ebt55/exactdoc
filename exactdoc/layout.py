@@ -25,6 +25,10 @@ class Run:
     # values compress a line that TeX fitted by shrinking inter-word glue --
     # something Word's line breaker cannot do on its own.
     char_spacing: float = 0.0
+    # The part of char_spacing that restores the source's own glyph advances
+    # (tracking.py), as against the ladder's compression of a locked line.
+    # The ladder predicts widths with this part only, and adds to it.
+    advance_track: float = 0.0
     # Horizontal scale the writer emits as w:w (1.0 = none; 0.0 = not set) so
     # the run occupies the width the source drew it at -- see
     # metrics.apply_width_scale. The ladder shapes with it too.

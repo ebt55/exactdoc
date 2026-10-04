@@ -229,11 +229,16 @@ def predict_lines(p: Para, avail: float, metrics=None) -> Optional[int]:
         fn = _face(fam, r.bold, r.italic)
         if fn is None:
             return None
-        # A run's tracking is part of its width: the renderer adds it after
-        # every character, spaces included. Without it a run carrying the
-        # source's own advance scale (tracking.py) is predicted ~6% narrow and
-        # every such paragraph reads as "the renderer will need fewer lines".
-        cs = getattr(r, "char_spacing", 0.0) or 0.0
+        # The source's own advance scale (tracking.py) is part of a run's
+        # width: the renderer adds it after every character, spaces included.
+        # Without it such a run is predicted ~6% narrow and every such
+        # paragraph reads as "the renderer will need fewer lines". Only THAT
+        # tracking is counted (`advance_track`): counting a locked line's own
+        # compression too changed the open-loop page-height estimate of every
+        # line-locked document (y43's page 1 kept gaps the old estimate had
+        # spent: raw within-2pt 0.016 -> 0.011), which is not this rule's to
+        # change.
+        cs = advance_track(r)
         for w in r.text.replace("\n", " ").split(" "):
             if w:
                 words.append((w, fam, shaped_size(r), r.bold, r.italic, cs))
@@ -303,8 +308,13 @@ def _seg_width(seg_runs, cache, metrics) -> float:
             if got is None:
                 return -1.0
             cache[key] = got
-        w += cache[key] + (getattr(r, "char_spacing", 0.0) or 0.0) * len(r.text)
+        w += cache[key] + advance_track(r) * len(r.text)
     return w
+
+
+def advance_track(r: Run) -> float:
+    """The part of a run's tracking that restores the source's advances."""
+    return r.advance_track or 0.0
 
 
 def _slice_runs(runs: List[Run], a: int, b: int) -> List[Run]:
@@ -320,8 +330,7 @@ def _slice_runs(runs: List[Run], a: int, b: int) -> List[Run]:
                     color=r.color, bold=r.bold, italic=r.italic, mono=r.mono,
                     serif=r.serif, link=r.link, underline=r.underline,
                     superscript=r.superscript, field=r.field,
-                    width_scale=r.width_scale,
-                    char_spacing=getattr(r, "char_spacing", 0.0) or 0.0)
+                    width_scale=r.width_scale, advance_track=r.advance_track)
             out.append(c)
         pos += n
     return out
@@ -394,10 +403,9 @@ def _lock(p: Para, avail: float, metrics) -> bool:
     new_runs = []
     for i, (seg, track) in enumerate(segments):
         for r in seg:
-            # Compression ADDS to whatever tracking the run already carries
-            # (the source's advance scale, tracking.py); `_seg_width` measured
-            # the line with it included.
-            r.char_spacing = round((r.char_spacing or 0.0) + track, 3)
+            # Compression ADDS to the source's advance scale (tracking.py);
+            # `_seg_width` measured the line with it included.
+            r.char_spacing = round(advance_track(r) + track, 3)
         if i < len(segments) - 1 and seg:
             seg[-1].text += "\n"
         new_runs.extend(seg)
