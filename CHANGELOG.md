@@ -20,6 +20,78 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **tables: an indented table no longer grows into the margin; a label too
+  wide for its column spans the blank cells beside it.** x14's totals block
+  (an indented table, 322pt in) put its amounts 48-52pt into the right
+  margin in LibreOffice and Google Docs alike. The width fit funded a
+  too-narrow label column from "free room" counted from the container's
+  left edge -- room that lay LEFT of the table -- and grew the table to the
+  right. The room is now what lies to the table's right
+  (`_fit_col_widths`), and a one-line cell that overflows its column spans
+  the blank cells beside it when they draw nothing of their own and share
+  its top and bottom rules (`_span_into_blank_neighbours`; clustered-edge
+  tables only). x14 in LibreOffice: amounts within 3pt of the source (were
+  52pt off), the label on one line, the content below within 3.4pt (24pt
+  when the label wrapped).
+- **gdocs: the other families' line heights re-measured in Google Docs.** The
+  same live probe, run over every family in `NATURAL_FACTORS`, found each one
+  equal to its font file's own hhea line, with no offset. The table's older
+  values sat 0.006 below that, which was the bias of the original four-line
+  probe. Courier New (1.133), Georgia, Roboto, Noto Serif/Sans, Verdana,
+  Vollkorn and Consolas (1.171) now carry the measured value. Live pass 12b:
+  overall pass, 0 blocking findings; c7 within-2pt 0.132 -> 0.409, l1 0.213 ->
+  0.227, 03 SSIM up (dy_p50 2.03 -> 2.15pt); the private report stays CLEAN
+  32/32 (within-2pt 0.156 -> 0.219). Arial and Times New Roman measure 1.150
+  too but stay at 1.144. Setting them alone helped 02 (0.09 -> 0.59) and c2,
+  but broke 01's SSIM bound (0.704 -> 0.680) and moved c6 0.34 -> 0.20,
+  because the profile's other levers were calibrated against 1.144. They have
+  to be corrected together with those levers
+  ([evidence](docs/evidence/gdocs-2026-10-04-natural-factors-remeasured.json)).
+- **right-to-left and complex scripts (WP14).** Hebrew, Arabic and Persian
+  documents converted to about twice their pages with their text in the wrong
+  order. *Parser*: lines are reordered by an inverse of the Unicode bidi
+  algorithm at each line's base direction (`Line.rtl`), not by reversing RTL
+  letters only, so punctuation, numbers (`114، 2026`), Latin islands and
+  brackets land where they belong; Word's RTL word spaces (font-less, 1pt,
+  not flagged generated: 1,708 in the five RTL documents, none elsewhere) are
+  spaces; a space inside a joined Arabic word is dropped (`وتكي يف`); marks
+  snap to their letter; Indic spaces PDFium inserts inside a cluster are
+  dropped (`डेट ा`). *Inference*: no undecoded-glyph bullets on RTL lines
+  (y49: 121, each splitting off a paragraph's last line); RTL paragraphs are
+  measured in mirror image, so alignment and indents come out start/end; RTL
+  list markers, notes and line joins work from the right edge. *Writer*
+  (standard profile, new `bidi` capability): `w:bidi` with start/end
+  `jc`/`ind` (probed in the pinned LibreOffice), `w:rtl`,
+  `szCs`/`bCs`/`iCs`, `lang/@bidi` and the source's complex-script face in
+  `w:cs`; gdocs keeps a visually equivalent left-to-right paragraph until
+  `testkit/gdocs_probe_rtl.py` is flown live. Raw lane, all 90 documents
+  against a4fca48: only the 7 targets move — pages y47 100 → 89, y48 11 → 10,
+  y49 56 → 54, y50 25 → 19, y54 5 → 4; word recall y54 0.06 → 0.66 and y55
+  (Thai) 0.06 → 0.84; page-exact 39 → 40, mean |page ratio−1| 0.2867 →
+  0.2749. Product lane against 50f7436: y49 49 → 29 pages (char recall
+  0.52 → 0.92), y47 73 → 66, y48 9 → 9, y50 15 → 15 (the base's own run
+  times out in LibreOffice in refine round 2, twice); CJK y51–y53 identical.
+  Gated c4_i18n within-2pt 0.621 → 0.872 in both lanes (better than its
+  record; not re-recorded), live text 0.909 → 0.901 (inside tolerance:
+  PyMuPDF reads c4's Arabic words in visual order). Worse: y54 product
+  within-2pt 0.219 → 0.159, over six times as many matched words. Still
+  open: the pinned renderer sets Arabic 27–45% wider than Arial or Noto
+  Naskh, raw y49 spills a few lines per page (David → FreeSerif, +2.6%), no
+  `w:bidiVisual` tables. 41 new tests.
+- **gdocs: Calibri-family line heights measured in Google Docs; Word documents
+  stop growing there (live, 2026-10-04).** The gdocs profile writes line
+  height as a multiple of each family's natural line in Docs
+  (`docxout.NATURAL_FACTORS`), and Calibri -- the commonest Word font, which
+  the profile writes as Carlito -- was missing: it took the 1.144 default and
+  every line rendered 6.7% tall. A live probe (one paragraph per page, 9-12
+  lines at 11pt and 9pt) measured Carlito and Calibri at 1.2207, Cambria 1.1724
+  and Caladea 1.1500, each its font file's own hhea line
+  ([evidence](docs/evidence/gdocs-2026-10-04-natural-factors.json)). With them,
+  live A/B: y30 43 -> 32 pages (33 in the source; char recall 0.58 -> 0.80),
+  y33 104 -> 78 (60; LibreOffice 74), y02 135 -> 125 (114), y34 95 -> 94; y30's
+  and y02's page growth after the WP2 footers came from this, not from the
+  footers. Worse: y34 within-2pt 0.185 -> 0.065, y46 0.010 -> 0.000. No gated
+  document uses these families.
 - **gdocs: the ladder no longer fits locked lines with tracking Google Docs
   discards (live, 2026-10-04).** The ladder pins a re-wrapping paragraph to
   its source lines and makes each pinned line fit by compressing it with
@@ -49,6 +121,19 @@ one verified fix at a time, each gated against the frozen 16.
   to a copy). Standard keeps the real leader tab. Flown on all twelve
   expansion documents with leaders, about 516 entries: no page number wrapped,
   and x02's char recall in Docs went 0.766 -> 0.997.
+- **The README is written for a first-time reader; the depth moved to
+  `docs/`.** The front page is now a pitch, install, a quick start, what
+  "editable" means, and what works and what does not yet, shown with real
+  before/after images (`docs/images/`, built by `scripts/readme_images.py`
+  from the canonical product run recorded in
+  `docs/evidence/readme-examples-2026-10-04.json`). THEORY.md, STATUS.md,
+  ROADMAP.md, ESCALATION_RULING_LINEBOX.md and the support-matrix SVG moved
+  to `docs/deep-dive/` (lower-case names; history follows the renames), and
+  the old README's long sections moved, unrewritten, to
+  `docs/deep-dive/{limitations,measured-state,how-it-works,licensing}.md` and
+  `docs/usage.md`. `docs/README.md` indexes all of it. Converter behaviour is
+  unchanged; only comments and one gate message that named a moved file by
+  path were edited.
 - **Google Docs round trips survive large documents.** y06 (IRS 1040
   instructions, a 9.9 MB DOCX of page images) could not be measured live at
   all: Drive's simple upload carries at most 5 MB, the create call then
@@ -316,7 +401,7 @@ Non-gating; the expansion parity policy re-pins its corpus hash only.
   restarted container (environment drift, not a code effect). 11 new
   tests.
 - **the support matrix is now by producing engine.** One diagram
-  (`docs/diagrams/support-by-engine.svg`, replacing the two per-renderer
+  (`docs/deep-dive/support-by-engine.svg`, replacing the two per-renderer
   matrices) answers the question a user actually asks — *my PDF came from
   LaTeX / Word / the browser: how will it convert?* Rows are producer
   engines, columns the two output profiles, and the Google Docs column

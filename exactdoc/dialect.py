@@ -197,6 +197,15 @@ def _labelled_line(bbox, lines: List[Line]) -> Optional[Line]:
         lb = ln.bbox
         if lb[0] < x1 - 0.5:                       # text must start to the right
             continue
+        # A right-to-left line STARTS on the right: whatever stands to its left
+        # stands at its end, where no list puts a marker. Word draws the word
+        # spaces of Hebrew and Arabic text as separate glyph objects that the
+        # text page reports as synthesised spaces, so their objects look
+        # undecoded; every paragraph's last line has one at its left end, and
+        # measured on y49 121 of them became bullets (`•אלה מתבצעות...`),
+        # each splitting a paragraph's last line off as a list item.
+        if getattr(ln, "rtl", False):
+            continue
         if lb[0] - x1 > BULLET_GAP:
             continue
         if lb[1] - BULLET_VTOL * h <= cy <= lb[3] + BULLET_VTOL * h:
@@ -723,6 +732,17 @@ def _undecoded_markers_to_text(page: PageIR) -> int:
         return 0
     lines = [l for b in page.blocks for l in b.lines if l.horizontal]
     if not lines:
+        return 0
+    # On a page that reads right to left this detector, which looks for a
+    # marker LEFT of its item, has nothing to find: an RTL list puts its
+    # marker on the right, and what Word leaves left of a line on such a page
+    # is the empty object of a paragraph end. Measured on y47, y49 and y50
+    # (RTL share 0.76-0.92 on every affected page), all 48 promotions left
+    # after _labelled_line's RTL-host rule landed on Latin lines inside RTL
+    # paragraphs -- citations, `.)2014(`, the page number -- and none on a list.
+    n_all = sum(len(l.text.strip()) for l in lines)
+    n_rtl = sum(len(l.text.strip()) for l in lines if getattr(l, "rtl", False))
+    if n_all and n_rtl * 2 > n_all:
         return 0
     hits = []
     for m in marks:

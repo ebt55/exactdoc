@@ -78,6 +78,10 @@ OUTPUT_PROFILES = ("standard", "gdocs")
 #               text and marker where the typed form put them.
 #   footnotes   source footnotes as word/footnotes.xml notes referenced from
 #               the text, instead of body paragraphs at the page bottom.
+#   bidi        right-to-left paragraphs as w:bidi with start/end alignment
+#               and indents, and their runs as w:rtl with complex-script
+#               size, weight and language, instead of left-to-right
+#               paragraphs whose geometry is mirrored to look the same.
 #
 # Google Docs gets each structure only once a live pass shows its importer
 # places it correctly, because LibreOffice does not predict Docs: a list-indent
@@ -97,8 +101,10 @@ OUTPUT_PROFILES = ("standard", "gdocs")
 #               renumbers custom marks: a "*" note and a numbering restart at
 #               1 print as continuing automatic numbers ("3" where the source
 #               says "1"), which is wrong text, not wrong placement.
+#   bidi        withheld until its probe set (testkit/gdocs_probe_rtl.py) is
+#               flown live.
 PROFILE_CAPABILITIES = {
-    "standard": frozenset({"numbering", "footnotes"}),
+    "standard": frozenset({"numbering", "footnotes", "bidi"}),
     "gdocs": frozenset({"numbering"}),
 }
 

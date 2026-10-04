@@ -134,12 +134,20 @@ def _frag_host(frag: Line, lines: List[Line]) -> Optional[Line]:
         rise = ln.baseline - frag.baseline
         if not (0.05 * hs < rise < 0.75 * hs):
             continue
-        gap = ln.bbox[0] - frag.bbox[2]
+        gap = _frag_gap(frag, ln)
         if not (-0.5 <= gap <= MARK_GAP_MAX_EM * hs):
             continue
-        if best is None or abs(gap) < abs(best.bbox[0] - frag.bbox[2]):
+        if best is None or abs(gap) < abs(_frag_gap(frag, best)):
             best = ln
     return best
+
+
+def _frag_gap(frag: Line, ln: Line) -> float:
+    """Gap between a mark fragment and the START of `ln`: its left edge, or
+    for a right-to-left line its right edge, where an RTL note's mark stands."""
+    if getattr(ln, "rtl", False):
+        return frag.bbox[0] - ln.bbox[2]
+    return ln.bbox[0] - frag.bbox[2]
 
 
 def _merge_frag(frag: Line, host: Line) -> Line:
@@ -154,7 +162,7 @@ def _merge_frag(frag: Line, host: Line) -> Line:
                              origin=(f0.origin[0], host.baseline))
     spans = [ms] + [dataclasses.replace(s) for s in host.spans]
     return Line(spans=spans, bbox=bbox_union(frag.bbox, host.bbox),
-                dir=host.dir)
+                dir=host.dir, rtl=getattr(host, "rtl", False))
 
 
 def find_page_notes(flow_lines: List[Line], drawings, body_size: float,
@@ -225,11 +233,14 @@ def find_page_notes(flow_lines: List[Line], drawings, body_size: float,
             break
     sep_rule = None
     zone_first_top = run[first_i].bbox[1] if sep_i is None else run[sep_i].bbox[3]
+    # A right-to-left document starts its separator at the RIGHT edge (y49).
+    rtl_zone = sum(1 for l in run if getattr(l, "rtl", False)) * 2 > len(run)
     for d in drawings or ():
         w = d.bbox[2] - d.bbox[0]
         if d.shape in ("hline", "rect") and (d.bbox[3] - d.bbox[1]) <= 1.5 \
                 and SEP_RULE_MIN_W <= w <= SEP_RULE_MAX_FRAC * (col_r - col_l) \
-                and abs(d.bbox[0] - col_l) <= SEP_RULE_X_TOL \
+                and (abs(d.bbox[0] - col_l) <= SEP_RULE_X_TOL or
+                     (rtl_zone and abs(d.bbox[2] - col_r) <= SEP_RULE_X_TOL)) \
                 and body_bottom - 1.0 <= d.bbox[1] <= zone_first_top + 1.0:
             sep_rule = d.bbox
             break

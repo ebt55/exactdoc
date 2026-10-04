@@ -16,7 +16,9 @@ flipped on the way in. Sizes are in points throughout.
 """
 import bisect
 import ctypes
+import dataclasses
 import re
+import unicodedata
 from collections import namedtuple
 from typing import List, Optional
 
@@ -341,17 +343,20 @@ def _meet(a, b):
 
 class _Char:
     __slots__ = ("u", "x0", "y0", "x1", "y1", "ox", "oy", "size", "font",
-                 "flags", "color", "gen", "sup", "link", "dest", "tracked")
+                 "flags", "color", "gen", "sup", "link", "dest", "tracked", "vi",
+                 "ix0", "ix1")
 
     def __init__(self):
         # Only the flags that _absorb_script_rows, _tag_char_links and
         # _drop_tracking_spaces set need defaults; every other slot is assigned
         # by _page_chars before the character is used, and leaving them unset
-        # keeps construction as cheap as it was.
+        # keeps construction as cheap as it was. `vi` (visual index) is set
+        # only on a reordered right-to-left line (_visual_to_logical).
         self.sup = False
         self.link = None
         self.dest = None
         self.tracked = False
+        self.vi = -1
 
     @property
     def mono_hint(self) -> bool:
@@ -508,6 +513,13 @@ def _page_chars(textpage, frame, vis=None, objs=None) -> List[_Char]:
         # top-left points on the page as displayed (see _Frame)
         c.x0, c.y0, c.x1, c.y1 = frame.rect(lx0, min(ly0, bv),
                                             max(lx1, lx0), max(ly1, tv))
+        if 0x0590 <= u <= 0x08FF or 0xFB1D <= u <= 0xFEFF:
+            # Hebrew/Arabic letters also keep their INK extent: Arabic is
+            # cursive, so whether two letters' ink touches is what says
+            # whether a space between them is a word break (see
+            # _visual_gap_spaces). Only these scripts pay for it.
+            ib = frame.rect(float(l.value), bv, float(r_.value), tv)
+            c.ix0, c.ix1 = ib[0], ib[2]
         c.ox, c.oy = frame.pt(float(ox.value), float(oy.value))
         # FPDFText_GetFontSize reports the size BEFORE the text matrix. Chromium
         # lays out in CSS pixels and applies a 0.75 matrix, so every size came
@@ -524,6 +536,16 @@ def _page_chars(textpage, frame, vis=None, objs=None) -> List[_Char]:
                         size *= vs
             except Exception:
                 pass
+        # PDFium's right-to-left path synthesises its word spaces without
+        # flagging them: FPDFText_IsGenerated answers 0, yet the space has no
+        # font (GetFontInfo returns nothing) and the dummy 1.0pt size every
+        # generated character carries. Censused over all 95 documents: 1,708
+        # such characters, every one a space, all in the five documents with
+        # Hebrew or Arabic (y47-y50, c4) and 94% of them beside an RTL letter;
+        # zero in the other 90. Left as they were, each became its own 1pt
+        # run with no font, splitting every RTL line into one span per word.
+        if not generated and size <= 1.0 and not font and chr(u).isspace():
+            generated = True
         c.gen = generated
         # a generated space has no font of its own; inherit the run it joins
         if generated and out:
@@ -568,12 +590,28 @@ def _page_chars(textpage, frame, vis=None, objs=None) -> List[_Char]:
         if not c.gen:
             continue
         nxt = out[i + 1]
+        prev = out[i - 1] if i else None
+        if prev is not None and abs(c.oy - prev.oy) < 0.5 and \
+                (_is_rtl(prev.u[:1] or " ") or _is_rtl(nxt.u[:1] or " ")):
+            # Right-to-left text. The Latin box above runs from the previous
+            # glyph IN THE STREAM to here, and in RTL text the stream does not
+            # walk the line left to right: Word 2016 draws Hebrew words right
+            # to left (the previous glyph is to the space's RIGHT -- y49 boxed
+            # the gap [441.4, 444.6] as [447.6, 447.6], on top of the previous
+            # word), and Word 365 starts an Arabic word's object at its
+            # leftmost glyph (y47 p3 boxed a space [133.3, 147.1], straight
+            # across `تعديلاً`, whose origin 147.1 is the gap after it). The
+            # space's own origin is where PDFium found the gap, and the visual
+            # sort only needs the space to stand there.
+            c.x0 = c.x1 = c.ox
+            continue
         if abs(nxt.oy - c.oy) >= 0.5 or nxt.x0 <= c.x1:
             continue
         adv = (MONO_ADV_EM if c.mono_hint else SPACE_ADV_EM) * max(c.size, 1.0)
         c.x1 = min(nxt.x0, max(c.x1, c.x0 + adv))
     if objs is not None:
         _restore_dropped_spaces(out, _dropped_space_points(objs, textpage, frame))
+    out = _drop_inked_spaces(out)
     out = _drop_tracking_spaces(out)
     _restore_soft_hyphens(out)
     return out
@@ -874,6 +912,60 @@ def _restore_dropped_spaces(chars: List[_Char], points) -> int:
     return len(inserts)
 
 
+def _is_indic_like(ch: str) -> bool:
+    """The Brahmic scripts of India and Sri Lanka (Devanagari to Sinhala),
+    whose clusters reorder and stack marks around a base glyph. Not Thai:
+    Apple's Quartz reports Thai word spaces at origins the rule below reads
+    as steps back (y55: 19 of 29 lines lost real spaces when Thai was in)."""
+    o = ord(ch) if ch else 0
+    return 0x0900 <= o <= 0x0DFF
+
+
+def _drop_inked_spaces(chars: List[_Char]) -> List[_Char]:
+    """Generated spaces PDFium put on top of ink inside a complex-script word.
+
+    A Devanagari cluster is not drawn in reading order, and PDFium
+    synthesises a space wherever the stream steps backwards. Measured on y54
+    (Google Docs, Hindi), two shapes, 1 in 3 of its generated spaces:
+      * the e-matra of `डे` is emitted after the `ट` that follows it, so
+        `डेटा` arrived as `डेट ा`: a space whose own origin lies inside a glyph
+        of the same word (348.2 inside `ट` at 342.5-350.2);
+      * a cluster set as one /ActualText span (`खि`, `ड़`, `क्ति`) is followed
+        by a space at the span's own origin, BEHIND the glyph it follows:
+        `खिलवाड़` arrived as `खि लवाड़`.
+    A real word space does neither: it is where the ink stops. Dropping one
+    is not deciding there is no space -- the gap test in _build_lines still
+    measures the gap it stood in (`करोड़ जनता` keeps its 3.1pt gap's space).
+    Only beside a left-to-right complex script: Arabic and Hebrew producers
+    draw glyph boxes that overlap their word gaps (y47's advance boxes run 2-3x
+    the glyph pitch), and Latin text is untouched.
+    """
+    cand = [i for i, c in enumerate(chars)
+            if c.gen and c.u == " " and (
+                (i > 0 and _is_indic_like(chars[i - 1].u[:1])) or
+                (i + 1 < len(chars) and _is_indic_like(chars[i + 1].u[:1])))]
+    if not cand:
+        return chars
+    rows = {}
+    for c in chars:
+        if not c.gen and c.u.strip() and _is_indic_like(c.u[:1]):
+            rows.setdefault(round(c.oy), []).append((c.x0, c.x1, c.oy))
+    drop = set()
+    for i in cand:
+        c = chars[i]
+        prev = chars[i - 1] if i else None
+        if prev is not None and not prev.u.isspace() and \
+                abs(prev.oy - c.oy) < 0.5 and c.ox < prev.x0 - 0.01:
+            drop.add(i)
+            continue
+        for key in (round(c.oy) - 1, round(c.oy), round(c.oy) + 1):
+            if any(abs(oy - c.oy) < 0.5 and x0 + 0.5 < c.ox < x1 - 0.5
+                   for x0, x1, oy in rows.get(key, ())):
+                drop.add(i)
+                break
+    return [c for i, c in enumerate(chars) if i not in drop]
+
+
 def _is_rtl(ch: str) -> bool:
     o = ord(ch)
     return (0x0590 <= o <= 0x05FF or 0x0600 <= o <= 0x06FF or
@@ -882,34 +974,373 @@ def _is_rtl(ch: str) -> bool:
             0xFB50 <= o <= 0xFDFF or 0xFE70 <= o <= 0xFEFF)
 
 
-def _reorder_rtl(row):
-    """Visual order -> logical order for right-to-left runs.
+# Visual -> logical order, the inverse of the Unicode Bidirectional Algorithm
+# (UAX #9) for the two-level lines real documents carry.
+#
+# A line sorted by x is VISUAL order. For Latin that is also the reading order;
+# for Hebrew and Arabic it is the reverse, and for a line that mixes them -- a
+# Hebrew sentence with a citation, a year, a parenthesis -- neither. The first
+# version of this reversed each maximal run of RTL LETTERS and left everything
+# else where it stood. Measured on the tranche-4 documents (y47-y50, Word and
+# WeasyPrint) that put every comma, full stop, semicolon and bracket at the
+# wrong end of its clause: y49 p2 read `פעולות .בניית ... ,שופטים` with the
+# punctuation on the far side of each word, every `(` closed the wrong way, and
+# `2026 ،114` (the ILO's `114، 2026`) kept its numbers in visual order. Each
+# misplaced full stop then started its line, and inference took `.` at a
+# paragraph's left edge for a list marker.
+#
+# The inverse is computed at the line's BASE direction (_bidi_base), because
+# that is the direction the writer declares on the paragraph (w:bidi) and the
+# renderer re-applies the algorithm at that direction: text reordered under one
+# base and rendered under the other comes out scrambled. Within it:
+#
+#   * an RTL base reverses the line by UNITS. A unit is a character, or an
+#     island of left-to-right text -- Latin letters and numbers, with the
+#     spaces and separators between them -- which keeps its own order (UAX #9
+#     levels 1 and 2; rule W7 is what glues `Volume 1, Issue 3` into one
+#     island, while two numbers with only neutrals between them stay two
+#     units, as the algorithm keeps them).
+#   * an LTR base reverses only the runs of RTL text inside it, numbers
+#     enclosed by RTL letters riding along as islands.
+#   * a mirrored character (UAX #9 L4: brackets, guillemets, < >) that ends up
+#     at an odd level is swapped for its pair. The glyph a producer draws for
+#     a logical `(` at the right of a Hebrew parenthetical IS `)` -- and its
+#     ToUnicode says `)` -- so reading it back without the swap closes every
+#     parenthesis the wrong way after reordering.
+#   * combining marks travel with the glyph they sit on, whichever side of it
+#     their box starts.
+#
+# It is an inverse for the levels the algorithm assigns without explicit
+# embeddings, which is all a PDF's drawn glyphs can show; where two logical
+# strings render identically, it returns one of them.
+_MIRROR = dict(zip("()[]{}<>«»‹›⁅⁆⁽⁾₍₎≤≥",
+                   ")(][}{><»«›‹⁆⁅⁾⁽₎₍≥≤"))
 
-    PDFium reports glyphs in visual order, so sorting a line by x -- which is
-    what every other script needs -- lays each Arabic or Hebrew word out
-    backwards: 'Ù†ÙŠÙ…Ø¶ØªÙ„Ø§' where the text reads 'Ø§Ù„ØªØ¶Ù…ÙŠÙ†'. The characters are all
-    present and correctly shaped; only their sequence is mirrored. Reversing
-    each maximal run of RTL characters restores logical order, which is what
-    the writer must emit and what PyMuPDF already returns.
 
-    This is not a full bidi implementation -- no embedding levels, no bracket
-    pairing -- and it does not need to be: the IR only has to carry the same
-    order the other backend does.
+def _bidi_class(ch: str) -> str:
+    """UAX #9 class, folded to what the inverse needs: R, L, N(umber),
+    S(eparator: ES/CS), T(erminator: ET), M(ark) or O(ther neutral)."""
+    if not ch:
+        return "O"
+    b = unicodedata.bidirectional(ch[0])
+    if b in ("R", "AL"):
+        return "R"
+    if b == "L":
+        return "L"
+    if b in ("EN", "AN"):
+        return "N"
+    if b in ("ES", "CS"):
+        return "S"
+    if b == "ET":
+        return "T"
+    if b == "NSM":
+        return "M"
+    return "O"
+
+
+def _bidi_base(classes) -> bool:
+    """True when a line's base direction is right-to-left.
+
+    The majority of its strong characters, ties going to the side the line
+    STARTS on -- an RTL line's first word is its rightmost. A line with no
+    RTL letter at all is left-to-right whatever else it holds.
     """
-    out, i, n = [], 0, len(row)
-    while i < n:
-        if _is_rtl(row[i].u[:1] or " "):
+    n_r = classes.count("R")
+    if not n_r:
+        return False
+    n_l = classes.count("L")
+    if n_r != n_l:
+        return n_r > n_l
+    return next(k for k in reversed(classes) if k in "RL") == "R"
+
+
+def _visual_to_logical(row, force: Optional[bool] = None):
+    """(logical-order row, rtl base) for one visual line sorted by x.
+
+    See the note above for the algorithm. Characters are not copied: the row's
+    own objects come back reordered, with `u` swapped for a mirrored pair where
+    the level calls for it, and `vi` set to each character's visual index so
+    the span builder can still tell which logical neighbours touch on the page.
+    `force` sets the base direction instead of reading it off the line
+    (relogical_spans: the paragraph's direction overrules a line's).
+    """
+    n = len(row)
+    for i, c in enumerate(row):
+        c.vi = i
+    cls = [_bidi_class(c.u) for c in row]
+    # Combining marks: bound to the glyph they sit on (the neighbour whose box
+    # holds the mark's centre, else the nearer centre), and classed as it.
+    base_of = list(range(n))
+    for i in range(n):
+        if cls[i] != "M":
+            continue
+        cands = []
+        for step in (-1, 1):
+            j = i + step
+            while 0 <= j < n and cls[j] == "M":
+                j += step
+            if 0 <= j < n:
+                cands.append(j)
+        if not cands:
+            continue
+        mc = (row[i].x0 + row[i].x1) / 2
+        inside = [j for j in cands if row[j].x0 - 0.01 <= mc <= row[j].x1 + 0.01]
+        pick = inside[0] if inside else min(
+            cands, key=lambda j: abs((row[j].x0 + row[j].x1) / 2 - mc))
+        base_of[i] = pick
+    for i in range(n):
+        if base_of[i] != i:
+            cls[i] = cls[base_of[i]] if cls[base_of[i]] != "M" else "O"
+    rtl = _bidi_base(cls) if force is None else force
+    # W4/W5: one separator between two digits is part of the number (`1,000`,
+    # `3.14`, `10/20`); terminators (`%`, `$`) beside a number join it.
+    for i in range(1, n - 1):
+        if cls[i] == "S" and cls[i - 1] == "N" and cls[i + 1] == "N":
+            cls[i] = "N"
+    for i in range(n):
+        if cls[i] == "T":
             j = i
-            while j < n and (_is_rtl(row[j].u[:1] or " ") or
-                             (row[j].u.isspace() and j + 1 < n and
-                              _is_rtl(row[j + 1].u[:1] or " "))):
+            while j < n and cls[j] == "T":
                 j += 1
-            out.extend(reversed(row[i:j]))
-            i = j
+            if (i > 0 and cls[i - 1] == "N") or (j < n and cls[j] == "N"):
+                for k in range(i, j):
+                    cls[k] = "N"
+    cls = ["O" if k in "ST" else k for k in cls]
+    # Clusters in visual order: a base and the marks bound to it.
+    marks = {}
+    for i in range(n):
+        if base_of[i] != i:
+            marks.setdefault(base_of[i], []).append(i)
+    order = [i for i in range(n) if base_of[i] == i]
+
+    def emit(i, odd):
+        c = row[i]
+        if odd and len(c.u) == 1 and c.u in _MIRROR:
+            c.u = _MIRROR[c.u]
+        out.append(c)
+        for m in sorted(marks.get(i, ()),
+                        key=lambda k: unicodedata.combining(row[k].u[:1] or " ")):
+            out.append(row[m])
+
+    # Units: ("ltr", [cluster indices]) kept in order, or ("rtl", [i]) single.
+    units = []
+    m = len(order)
+    if rtl:
+        k = 0
+        while k < m:
+            i = order[k]
+            if cls[i] not in "LN":
+                units.append((False, [i]))
+                k += 1
+                continue
+            isl, seen_l = [i], cls[i] == "L"
+            k += 1
+            while k < m:
+                j = order[k]
+                if cls[j] in "LN":
+                    seen_l = seen_l or cls[j] == "L"
+                    isl.append(j)
+                    k += 1
+                    continue
+                # Neutrals join the island only between two of its members,
+                # and only once it holds a letter (W7: a number after Latin
+                # text is Latin; a number alone keeps its neighbours RTL).
+                e = k
+                while e < m and cls[order[e]] not in "LNR":
+                    e += 1
+                if e < m and seen_l and cls[order[e]] in "LN":
+                    isl.extend(order[k:e])
+                    k = e
+                    continue
+                break
+            units.append((True, isl))
+        out = []
+        for keep, idx in reversed(units):
+            for i in idx:
+                emit(i, odd=not keep)
+        return out, True
+    # LTR base: reverse each run that starts and ends with an RTL letter.
+    out = []
+    k = 0
+    while k < m:
+        i = order[k]
+        if cls[i] != "R":
+            emit(i, odd=False)
+            k += 1
+            continue
+        e, last_r = k, k
+        while e < m and cls[order[e]] != "L":
+            if cls[order[e]] == "R":
+                last_r = e
+            e += 1
+        run = order[k:last_r + 1]
+        units = []
+        q = 0
+        while q < len(run):
+            if cls[run[q]] == "N":
+                r0 = q
+                while q < len(run) and cls[run[q]] == "N":
+                    q += 1
+                units.append((True, run[r0:q]))
+            else:
+                units.append((False, [run[q]]))
+                q += 1
+        for keep, idx in reversed(units):
+            for i in idx:
+                emit(i, odd=not keep)
+        k = last_r + 1
+    return out, False
+
+
+def relogical_spans(spans, was_rtl: bool, want_rtl: bool):
+    """A line's spans re-read at another base direction, as new Span copies.
+
+    A line's direction is decided on the line alone (_bidi_base), and a short
+    line can decide wrong: the last line of a Persian paragraph that reads
+    `.(Basiri, et al., 2014)` has more Latin letters than Persian, so it was
+    read left to right -- full stop first, parenthesis reversed -- inside a
+    paragraph that renders right to left (y50 p3). Inference knows the
+    paragraph's direction and asks for the line again. The visual order is
+    recovered by applying the line's own transform once more (for these two
+    levels each transform is its own inverse), then read at `want_rtl`.
+    Bounding boxes are the original spans'; text is redistributed by span.
+    """
+    if was_rtl == want_rtl or not spans:
+        return spans
+    chars, owner = [], {}
+    x = 0.0
+    for si, s in enumerate(spans):
+        for ch in s.text:
+            c = _Char()
+            c.u = ch
+            if _bidi_class(ch) == "M" and chars:
+                c.x0, c.x1 = chars[-1].x0, chars[-1].x1
+            else:
+                c.x0, c.x1 = x, x + 1.0
+                x += 1.0
+            owner[id(c)] = si
+            chars.append(c)
+    visual, _ = _visual_to_logical(chars, force=was_rtl)
+    # The forward transform yields visual order left to right; a char's box is
+    # its position there, a mark sharing the box of the glyph it follows.
+    x = 0.0
+    for c in visual:
+        if _bidi_class(c.u) == "M" and x > 0:
+            c.x0, c.x1 = x - 1.0, x
         else:
-            out.append(row[i])
-            i += 1
+            c.x0, c.x1 = x, x + 1.0
+            x += 1.0
+    logical, _ = _visual_to_logical(visual, force=want_rtl)
+    out, cur, cur_si = [], [], None
+    for c in logical:
+        si = owner[id(c)]
+        if cur and si != cur_si:
+            out.append(dataclasses.replace(spans[cur_si], text="".join(cur)))
+            cur = []
+        cur_si = si
+        cur.append(c.u)
+    if cur:
+        out.append(dataclasses.replace(spans[cur_si], text="".join(cur)))
     return out
+
+
+def _visual_gap_spaces(row):
+    """A visual row with the spaces drawn by positioning put in as characters.
+
+    _build_lines asks _gap_spaces of each LOGICAL neighbour pair, which on a
+    left-to-right line are the glyphs that touch on the page. After reordering
+    they are not: a logical neighbour can sit at the far end of an island, and
+    inside an RTL word every gap measured as `next.x0 - prev.x1` is negative,
+    so a word set apart by positioning alone was welded to the next. So on a
+    line that will be reordered the same test runs here, in visual order and
+    against the right edge of all the ink so far (a combining mark's box lies
+    inside its base and must not open a gap of its own), and inserts the space
+    as a neutral character that reordering then carries to its logical place.
+    """
+    out = []
+    edge = None
+    for k, c in enumerate(row):
+        blank = c.u.isspace()
+        if blank and _inside_cursive_word(row, k):
+            continue
+        if blank and out and out[-1].u.isspace() and \
+                c.x0 <= out[-1].x1 + 0.5 and (c.gen or out[-1].gen):
+            # One gap, two spaces: PDFium synthesises a space at every
+            # right-to-left jump of the content stream, including the jump
+            # over a space the producer drew (y49 p2: `ERC` then a generated
+            # space at the drawn one's position). Keep the drawn one.
+            if not c.gen:
+                out[-1] = c
+            continue
+        if edge is not None and not blank and out and not out[-1].u.isspace() \
+                and _bidi_class(c.u) != "M":
+            n = _gap_spaces(edge, c, boundary=_style(edge) != _style(c))
+            if n:
+                s = _Char()
+                s.u = " " * n
+                s.gen = True
+                s.size, s.font, s.flags, s.color = edge.size, edge.font, \
+                    edge.flags, edge.color
+                s.x0, s.x1 = edge.x1, max(edge.x1, c.x0)
+                s.y0, s.y1 = edge.y0, edge.y1
+                s.ox, s.oy = edge.x1, edge.oy
+                s.sup, s.link, s.dest, s.tracked = edge.sup, edge.link, \
+                    edge.dest, edge.tracked
+                out.append(s)
+        out.append(c)
+        if not blank and (edge is None or c.x1 >= edge.x1):
+            edge = c
+    return out
+
+
+# A space drawn between two Arabic letters whose INK meets is not a word break:
+# the letters join across it. Word for Microsoft 365 emits such spaces inside
+# justified Arabic words -- y47 p3 `وتكي يف` for `وتكييف`, `عل ى` for `على`, a
+# space under the kashida of `مؤتمـر` -- and each one split the word in the
+# DOCX, where the renderer then shapes both halves as separate words. Censused
+# over every space between two RTL letters on the first 8 pages of y47-y50 and
+# c4 (6,400 spaces): ink gaps are bimodal, word spaces at 0.45pt and up (most
+# 2-4pt; Word compresses justified Arabic word spaces to 0.45pt at the
+# tightest), and 85 spaces at -0.84..+0.3pt, all inside words where sampled.
+# y49 (Hebrew, not cursive) has none.
+CURSIVE_JOIN_PT = 0.3
+
+
+def _inside_cursive_word(row, k) -> bool:
+    """Is row[k] a space whose visual neighbours are RTL letters with touching ink?"""
+    a = next((row[j] for j in range(k - 1, -1, -1) if not row[j].u.isspace()),
+             None)
+    b = next((row[j] for j in range(k + 1, len(row)) if not row[j].u.isspace()),
+             None)
+    if a is None or b is None:
+        return False
+    a1 = getattr(a, "ix1", None)
+    b0 = getattr(b, "ix0", None)
+    if a1 is None or b0 is None or abs(a.oy - b.oy) > 0.5:
+        return False
+    if not (_is_arabic(a.u[:1]) and _is_arabic(b.u[:1])):
+        return False
+    return b0 - a1 <= CURSIVE_JOIN_PT
+
+
+def _is_arabic(ch: str) -> bool:
+    o = ord(ch) if ch else 0
+    return 0x0600 <= o <= 0x08FF or 0xFB50 <= o <= 0xFEFF
+
+
+def _visual_gap(a, b, reordered: bool) -> float:
+    """The page gap between consecutive characters `a`, `b` of a line.
+
+    On a reordered (right-to-left) line consecutive LOGICAL characters touch on
+    the page only when their visual indices do, and the gap then runs from the
+    left one's end to the right one's start, whichever came first.
+    """
+    if not reordered:
+        return b.x0 - a.x1
+    if abs(b.vi - a.vi) != 1:
+        return 0.0
+    left, right = (a, b) if a.vi < b.vi else (b, a)
+    return right.x0 - left.x1
 
 
 def _is_cjk(ch: str) -> bool:
@@ -1222,6 +1653,15 @@ def _absorb_script_rows(vis_rows):
         whole line report the script's baseline as its own.
     """
     rows = [(ri, row) for ri, row in vis_rows if row]
+    # A right-to-left row ENDS on the left, so a note reference closing it
+    # stands left of its first glyph -- where the Latin guard below refuses a
+    # fragment. Measured on y47: every `8`-style reference at the end of an
+    # Arabic paragraph became a line of its own, polluted the page's 12pt pitch
+    # sample (9.6pt), and split the page's body into one block per line. The
+    # guard's reason does not hold there: an RTL row's baseline is read from its
+    # rightmost (logically first) glyph, never from one on its left.
+    rtl_row = [any(_is_rtl(c.u[:1] or " ") for c in row) and
+               _bidi_base([_bidi_class(c.u) for c in row]) for _, row in rows]
     # Every fragment used to be tested against every row, recomputing the
     # host's max size and span from its characters on each pair -- O(rows^2 x
     # chars), measured at 27.6M generator steps and ~45% of `page_lines` on
@@ -1238,6 +1678,13 @@ def _absorb_script_rows(vis_rows):
     #     admit extra rows, which the exact test below then rejects) and are
     #     visited in their original index order -- the tie-break of `score <`.
     sz = [max(c.size for c in row) for _, row in rows]
+    # The fragment's INK size, for right-to-left hosts: the Word RTL space
+    # synthesis gives a space the size of whatever preceded it in the stream,
+    # so y50's row of 9pt note references `10 ... 11 ... 12` carried 14pt
+    # spaces between them, read as full-size, and stayed a line of its own above
+    # its paragraph -- one extra line per paragraph with references.
+    ink_sz = [max((c.size for c in row if c.u.strip()), default=s)
+              for (_, row), s in zip(rows, sz)]
     x0s = [min(c.x0 for c in row) for _, row in rows]
     x1s = [max(c.x1 for c in row) for _, row in rows]
     by_base = sorted((row[0].oy, j) for j, (_, row) in enumerate(rows))
@@ -1245,7 +1692,6 @@ def _absorb_script_rows(vis_rows):
     reach = SCRIPT_BASE_EM * max(sz, default=0.0) + 1e-6
     absorbed = set()
     for i, (frag_ri, frag) in enumerate(rows):
-        fsz = sz[i]
         fx0 = x0s[i]
         fb = frag[0].oy
         best = None
@@ -1255,33 +1701,44 @@ def _absorb_script_rows(vis_rows):
             host_ri, host = rows[j]
             if j == i or j in absorbed or host_ri == frag_ri:
                 continue
+            fsz = ink_sz[i] if rtl_row[j] else sz[i]
             hsz = sz[j]
             dy = fb - host[0].oy
             if abs(dy) > SCRIPT_BASE_EM * hsz:
                 continue                      # outside the em box
             hx0, hx1 = x0s[j], x1s[j]
-            if fx0 <= hx0 or fx0 > hx1 + SCRIPT_REACH_EM * hsz:
+            rtl_end = rtl_row[j] and fx0 <= hx0 and \
+                x1s[i] >= hx0 - SCRIPT_REACH_EM * hsz and \
+                fsz < SCRIPT_SIZE_FRAC * hsz
+            if not rtl_end and (fx0 <= hx0 or fx0 > hx1 + SCRIPT_REACH_EM * hsz):
                 continue                      # not adjacent, or would lead
             # (the row's max bounds the attach size, so the scan is skipped
             # whenever the row alone already says "same size")
-            inset = fsz >= SCRIPT_SIZE_FRAC * hsz or \
-                fsz >= SCRIPT_SIZE_FRAC * _attach_size(host, fx0, hsz)
+            inset = not rtl_end and (
+                fsz >= SCRIPT_SIZE_FRAC * hsz or
+                fsz >= SCRIPT_SIZE_FRAC * _attach_size(host, fx0, hsz))
             if inset and not _set_into(frag, host, hsz):
                 continue                      # same size: a real line
             if inset and abs(dy) > INSET_DY_EM * hsz:
                 continue
-            score = (max(0.0, fx0 - hx1), abs(dy))
+            score = (max(0.0, hx0 - x1s[i]) if rtl_end else
+                     max(0.0, fx0 - hx1), abs(dy))
             if best is None or score < best[0]:
                 best = (score, j, hsz, inset)
         if best is None:
             continue
         _, j, hsz, inset = best
         host = rows[j][1]
+        fsz = ink_sz[i] if rtl_row[j] else sz[i]
         # A full-size glyph set off the baseline is a letter of the word (the
         # logo's `E`), not a script: the writer must not shrink it.
         if not inset and fb < host[0].oy - SCRIPT_RAISE_EM * hsz:
             for c in frag:
                 c.sup = True
+        if rtl_row[j]:
+            # ...and those spaces stay behind: boxed from the stream's previous
+            # glyph, they span the host's words between the references.
+            frag = [c for c in frag if c.u.strip()]
         host.extend(frag)
         host.sort(key=lambda c: c.x0)
         sz[j] = max(sz[j], fsz)
@@ -1601,6 +2058,46 @@ def _span_tracking(cs) -> tuple:
     return round(mean, 3), False
 
 
+# How far off its base glyph's baseline a combining mark's own origin may sit
+# and still be snapped to it, in ems: y47 (Word 365, Arabic) reports its
+# tanween marks 1.2-1.4pt above the 12pt letters they sit on -- just past the
+# 0.12em row tolerance, so each became a one-glyph line between two text lines.
+MARK_SNAP_EM = 0.5
+
+
+def _snap_marks(chars: List[_Char]) -> None:
+    """Give each complex-script combining mark its base glyph's baseline.
+
+    A mark is drawn ON a letter, not on a line of its own; with its own origin
+    it formed a row (`ً` alone), the row a Line, and the Line a 1.4pt "line
+    pitch" in the page's sample -- y47 p9's 12pt reference fell to 9.6pt and
+    every 13.9pt body line became a block of its own. Only marks of the
+    scripts that stack them (Hebrew points, Arabic harakat, Indic signs); a
+    Latin accent drawn as a separate glyph keeps today's behaviour.
+    """
+    marks = [c for c in chars if c.u and ord(c.u[0]) >= 0x0590
+             and unicodedata.category(c.u[0]) == "Mn"]
+    if not marks:
+        return
+    bases = {}
+    for c in chars:
+        if c.u.strip() and not (ord(c.u[0]) >= 0x0590 and
+                                unicodedata.category(c.u[0]) == "Mn"):
+            bases.setdefault(int(c.oy), []).append(c)
+    for m in marks:
+        reach = MARK_SNAP_EM * max(m.size, 1.0)
+        mc = (m.x0 + m.x1) / 2
+        best = None
+        for key in range(int(m.oy - reach) - 1, int(m.oy + reach) + 2):
+            for c in bases.get(key, ()):
+                dy = abs(c.oy - m.oy)
+                if dy <= reach and c.x0 - 0.5 <= mc <= c.x1 + 0.5 and \
+                        (best is None or dy < abs(best.oy - m.oy)):
+                    best = c
+        if best is not None:
+            m.oy = best.oy
+
+
 def _baseline_rows(chars: List[_Char]) -> List[List[_Char]]:
     """Characters grouped into rows that share a baseline, in reading order.
 
@@ -1654,6 +2151,7 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
                 (c.x1 - c.x0) / c.size)
     mono_cells = {k: _mono_pitch_em(sorted(v)[len(v) // 2], 1, 1.0)
                   for k, v in cells.items()}
+    _snap_marks(chars)
     rows = _baseline_rows(chars)
     # Sharing a baseline is not sharing a line when the two collide: see
     # _separate_overprints for the page where a heading overprinted a footer.
@@ -1700,8 +2198,13 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
 
     lines = []
     for row in vis_rows:
+        rtl = reordered = False
         if any(_is_rtl(c.u[:1] or " ") for c in row):
-            row = _reorder_rtl(row)
+            # The gap test is a question about two glyphs that touch on the
+            # PAGE, so on a line that is about to be reordered it is asked
+            # first, in visual order, and its answer travels as a character.
+            row, rtl = _visual_to_logical(_visual_gap_spaces(row))
+            reordered = True
         # PDFium synthesises a space at the end of a line, where the producer
         # merely stopped drawing. It is line-break decoration, not content, and
         # PyMuPDF does not report it: measured on 01_whitepaper_market, 25% of
@@ -1729,7 +2232,7 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
             # the 9pt keyword, under the in-span 0.24. Within a span both sizes
             # are equal and the bar is unchanged, so nothing that was already
             # decided there moves.
-            if last is not None:
+            if last is not None and not reordered:
                 # A monospace gap is counted in the face's own cell, measured
                 # from the last glyph it actually drew (see MONO_PITCH_TOL).
                 cell = MONO_ADV_EM
@@ -1762,7 +2265,8 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
                 cur, cur_key = [], None
             if not cur:
                 cur_key = k
-            elif c.x0 - last.x1 > LINE_SPLIT_EM * max(last.size, c.size, 1.0):
+            elif _visual_gap(last, c, reordered) > \
+                    LINE_SPLIT_EM * max(last.size, c.size, 1.0):
                 # A gap the LINE splitter forgave (an explicit space before it,
                 # see _wide_gap_starts_visual_line) still ends the SPAN. The
                 # exemption keeps a justified line one line, which is right;
@@ -1830,7 +2334,7 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
             continue
         lb = (min(b[0] for b in full), min(b[1] for b in full),
               max(b[2] for b in full), max(b[3] for b in full))
-        lines.append(Line(spans=sp_objs, bbox=lb))
+        lines.append(Line(spans=sp_objs, bbox=lb, rtl=rtl))
     lines.sort(key=lambda l: (round(l.bbox[1], 1), l.bbox[0]))
     _reconstruct_indents(lines, mono_cells)
     return lines

@@ -178,6 +178,11 @@ class Line:
     spans: List[Span]
     bbox: BBox
     dir: Tuple[float, float] = (1.0, 0.0)   # writing direction (cos, sin)
+    # The line's base direction is right-to-left: its spans are in LOGICAL
+    # order (the first span is the rightmost) and its text was reordered at an
+    # RTL base, which is the direction a writer must declare for it to render
+    # back as drawn (parse_pdfium._visual_to_logical).
+    rtl: bool = False
 
     @property
     def horizontal(self) -> bool:
