@@ -221,10 +221,10 @@ def _two_column_gutter(lines, content_l: float, content_r: float):
     lw, rw = gl - content_l, content_r - gr
     left = [b for b in boxes if b[2] <= gl + 2.0]
     right = [b for b in boxes if b[0] >= gr - 2.0]
-    if sum(1 for b in left if b[2] - b[0] >= TWO_COL_FULL_LINE_FRAC * lw) < \
-            TWO_COL_MIN_FULL_LINES or \
-            sum(1 for b in right if b[2] - b[0] >= TWO_COL_FULL_LINE_FRAC * rw) < \
-            TWO_COL_MIN_FULL_LINES:
+    full_l = [b for b in left if b[2] - b[0] >= TWO_COL_FULL_LINE_FRAC * lw]
+    full_r = [b for b in right if b[2] - b[0] >= TWO_COL_FULL_LINE_FRAC * rw]
+    if len(full_l) < TWO_COL_MIN_FULL_LINES or \
+            len(full_r) < TWO_COL_MIN_FULL_LINES:
         return None
     y0 = min(b[1] for b in left + right)
     y1 = max(b[3] for b in left + right)
@@ -5677,6 +5677,7 @@ def _display_rows(items, col_l: float, col_r: float):
 FRAG_REACH_EM = 0.75       # the host's em box, as `_merge_row_lines` uses
 FRAG_MAX_SHARE = 0.25      # of the host's width: a few glyphs, not a line
 FRAG_SCRIPT_SIZE = 0.85    # smaller than this share of the host: a script
+FRAG_MAX_GLYPHS = 3        # longer non-maths text is a line, not a fragment
 # The same line's own continuation, cut off where a script was lifted out of
 # it: y43 p4's "...diagonal matrices {diag(e" / ", . . . , e" / ") : θk ∈
 # [0, 2π)}." share baseline 595.8 in three blocks, 11.0 and 12.0pt apart --
@@ -5755,6 +5756,11 @@ def _absorb_fragments(items):
                     best = (gap, h)
                 continue
             if fw > FRAG_MAX_SHARE * hw or d > FRAG_REACH_EM * hsz:
+                continue
+            # a glyph or three, or maths: a short line of WORDS set close
+            # above another is a heading or a running head (x07's "Network
+            # Planning", 9.3pt over its body line), not a script of it
+            if len(fr.text.strip()) > FRAG_MAX_GLYPHS and not _mathy([fr]):
                 continue
             em = 0.5 * hsz
             if fr.bbox[0] < h.bbox[0] - em or fr.bbox[2] > h.bbox[2] + em:
@@ -6400,6 +6406,23 @@ GUTTER_SIDE_TOL = 2.0
 GUTTER_SPLIT_SLACK = 8.0
 
 
+def _lead_bottom(lines, content_l: float, content_r: float) -> Optional[float]:
+    """The bottom of the page's lowest page-wide line with a column's worth of
+    narrower text under it, or None.
+
+    Page-wide is the column scan's own bar (COL_SCAN_W_FRAC); "a column's
+    worth" is what `_two_column_gutter` needs to read two columns at all."""
+    w = content_r - content_l
+    wide = sorted((l.bbox[3] for l in lines if l.horizontal and
+                   (l.bbox[2] - l.bbox[0]) > COL_SCAN_W_FRAC * w), reverse=True)
+    for y in wide:
+        under = sum(1 for l in lines if l.bbox[1] >= y and l.horizontal and
+                    (l.bbox[2] - l.bbox[0]) <= COL_SCAN_W_FRAC * w)
+        if under >= 2 * TWO_COL_MIN_FULL_LINES:
+            return y
+    return None
+
+
 def _split_crossed(lines, col_split: float, content_l: float,
                    content_r: float) -> bool:
     """Is a block-cluster split refuted by the lines that run across it?
@@ -6472,7 +6495,8 @@ def _split_at_gutter(ln: Line, gutter) -> List[Line]:
 
 
 def _gutter_chunks(elements, flow_blocks, lay: DocLayout, gutter,
-                   col_split: float, page_top: Optional[float]) -> List[Chunk]:
+                   col_split: float, page_top: Optional[float],
+                   lead_y: Optional[float] = None) -> List[Chunk]:
     """Lay a two-column page out in reading order, cut at what spans it.
 
     Every LINE, not every block, is placed: left of the gutter, right of it,
@@ -6497,6 +6521,8 @@ def _gutter_chunks(elements, flow_blocks, lay: DocLayout, gutter,
     def side(bb):
         if bb[0] < mid - GUTTER_SIDE_TOL and bb[2] > mid + GUTTER_SIDE_TOL:
             return 2
+        if lead_y is not None and bb[3] <= lead_y + GUTTER_SIDE_TOL:
+            return 2                # the page's lead: one column above them
         return 0 if (bb[0] + bb[2]) / 2.0 < mid else 1
 
     placed = []                     # (side, item)
@@ -6657,6 +6683,21 @@ def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
 
     flow_lines = [l for b in flow_blocks for l in b.lines]
     gutter = _two_column_gutter(flow_lines, content_l, content_r)
+    lead_y = None
+    if gutter is None and not twocol:
+        # Below a page's lead. A title block's centred author, affiliation
+        # and date lines are narrower than the column-scan bar and cross the
+        # gutter, and its corner header stretches the crossing test over the
+        # title and abstract: y39 p1's introduction, two columns under a
+        # full-width abstract, was read by neither test and laid out as one
+        # column -- its first page took two. Read again from below the page's
+        # lowest wide line that still has a column's worth of text under it;
+        # what is above stays a one-column lead, as the block path keeps it.
+        lead_y = _lead_bottom(flow_lines, content_l, content_r)
+        if lead_y is not None:
+            gutter = _two_column_gutter(
+                [l for l in flow_lines if l.bbox[1] >= lead_y],
+                content_l, content_r)
     if gutter is not None and not twocol and \
             gutter[2] < TWO_COL_MIN_EXTENT_FRAC * max(1.0, body_h):
         gutter = None                    # an inset beside the text, not a column
@@ -6668,7 +6709,7 @@ def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
         if not (twocol and abs(col_split - gutter[1]) <= TWO_COL_SPLIT_AGREE):
             col_split = float(round(gutter[1]))
         return _gutter_chunks(elements, flow_blocks, lay, gutter, col_split,
-                              page_top)
+                              page_top, lead_y=lead_y)
     if twocol and _split_crossed(flow_lines, col_split, content_l, content_r):
         twocol = False
 

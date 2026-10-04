@@ -186,6 +186,24 @@ class MidPageSpanningFloat(unittest.TestCase):
         self.assertTrue(any("caption ends here" in t
                             for t in _texts(caption.elements)))
 
+    def test_columns_under_a_title_block_of_centred_lines(self):
+        # y39 p1: a corner header, centred author/affiliation lines that
+        # cross the gutter, a full-width abstract, then the two columns --
+        # each column a single block, which the block clusters refuse
+        blocks = [_block([_line(L0, 240, 40, "Journal, 30, 37-47, 2023")]),
+                  _block([_line(170, 440, 100, "A Title Of The Paper", size=14)])]
+        for i, t in enumerate(("First Author and Second Author",
+                               "Institute of Things, City, Country",
+                               "Received: 1 June -- Accepted: 2 July")):
+            blocks.append(_block([_line(200, 410, 130 + 14 * i, t)]))
+        blocks.append(_block([_line(L0, R1, 190 + 12 * i, PROSE + " " + PROSE)
+                              for i in range(8)]))
+        blocks.append(_block([_line(L0, L1, 310 + 12 * i) for i in range(20)]))
+        blocks.append(_block([_line(R0, R1, 310 + 12 * i) for i in range(20)]))
+        lay = infer(_doc(blocks))
+        shape = [ch.n_cols for ch in _chunks(lay)]
+        self.assertEqual(shape, [1, 2])
+
     def test_a_title_line_above_the_first_heading_is_not_a_column_section(self):
         # y26's index pages: "Appendix D Indexes" sits in the left column's
         # x-range above the spanning "D.1 ..." heading
@@ -371,6 +389,14 @@ class StackedFragments(unittest.TestCase):
         out = _absorb_fragments(items)
         self.assertEqual(len(out), 1)
         self.assertTrue(out[0][2].lines[0].text.endswith(", . . . , e"))
+
+    def test_a_short_heading_set_close_above_a_line_stays_a_line(self):
+        # x07: a 9pt running head 7pt above the body line under it
+        body = _line(108, 504, 300, PROSE)
+        head = _line(108, 190, 293, "Network Planning", size=9.0)
+        items = [("blk", body.bbox, _block([body])),
+                 ("blk", head.bbox, _block([head]))]
+        self.assertEqual(len(_absorb_fragments(items)), 2)
 
     def test_two_column_lines_on_one_baseline_stay_apart(self):
         a = _line(L0, L1, 200)
