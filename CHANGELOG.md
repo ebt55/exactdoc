@@ -156,6 +156,33 @@ Word→PostScript→Distiller — and closing LaTeX-light 1→6, other real-worl
   53, y12 83, y02 128, y21 60, everything else unchanged — the matrix
   and README carry these numbers, and the booklet class stands at
   1.41–1.71×.
+- **résumés: the structure the release bar names.** Five defects on the
+  owner's résumé and x17/x18 (defect catalogue #7, #8, #22; design audit
+  B16), each a general rule. *Typed list markers* ("• text" in one span,
+  "1." "(a)") now open a list item when the flow shows list evidence — a
+  second marker at the same x, a hanging indent, or a numbering sequence
+  ("5. Section heading" alone stays a heading) — and the item keeps its
+  measured hang; x17's fused bullets and RFC 9110's four glued items split.
+  *A rule between two lines of one block* cuts the block, so the rule under
+  "SUMMARY" is drawn under SUMMARY, not under the summary text. *A lone
+  role/date row* takes its tab stop from the document's column of rows
+  (same edge, same styles, a label/field style contrast), not the page's.
+  *The content edge* may reach the document's rules when two label/field
+  rows end there (x17: 486pt column → 509pt). *Body-size section headings*
+  — bold caps, one line, at the column edge, tracked or ruled — carry
+  Heading styles, so Docs' outline of a résumé exists. x17's 8.92pt dy_p90
+  was one paragraph re-wrapping (Chrome's advances run ~4% wide); with the
+  column right and a typed item's hang counted as first-line room, the
+  ladder locks it. Measured in the canonical container: gate PASS both
+  lanes at the recorded numbers, no gated layout changes; x17/x18 product
+  dy_p90 8.92 → **2.41/2.42pt**, within2pt 0.102/0.140 → 0.160/0.167;
+  expansion+gated product sweep mean within2pt 0.2892 → 0.2935, SSIM
+  0.7488 → 0.7503, y17 228 → 224 pages, no product document worse than
+  −0.001 within2pt. Worse, honestly: the open-loop raw lane's x17/x18
+  within2pt 0.08 → 0.05 (dy_p90 8.92 → 5.9, under that lane's constant
+  ~4pt offset), y18 raw 279 → 280 pages, and two lexical hyphens now
+  dehyphenated in justified list items (y24, y26) beside nine
+  discretionary ones correctly removed.
 
 ## 1.0.1 — 2026-08-07
 
