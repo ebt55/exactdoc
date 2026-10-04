@@ -1210,7 +1210,16 @@ def _opens_note(ln: Line) -> bool:
     return first is not None and getattr(first, "_note_mark", False)
 
 
-def _author_break(a: Line, b: Line, right: float, lead: float) -> bool:
+# A line pitch at least this many times the type size is double-ish spacing
+# (Word's "double" at 12pt is 27.6pt = 2.3em; y63 sets 14.04pt type at
+# 24.1pt = 1.72em). Single spacing runs 1.15-1.25em.
+DOUBLE_SPACED_PITCH = 1.6
+# The fewest lines whose median pitch says how a block is spaced.
+DOUBLE_SPACED_MIN_LINES = 3
+
+
+def _author_break(a: Line, b: Line, right: float, pitch: float,
+                  n_lines: int = DOUBLE_SPACED_MIN_LINES) -> bool:
     """Did the author end the paragraph at `a`? The next line's first word
     would have fitted on it.
 
@@ -1226,10 +1235,16 @@ def _author_break(a: Line, b: Line, right: float, lead: float) -> bool:
     errs towards joining. Only where the pitch leaves no room for paragraph
     spacing to say it (DOUBLE_SPACED_PITCH): a single-spaced document states
     its paragraphs in its gaps, and the fit test, whose word width is an
-    estimate, has no business second-guessing those.
+    estimate, has no business second-guessing those. `pitch` is the block's
+    TIGHTEST baseline step, so every line of it must be double-spaced: a
+    heading's space below it is not double spacing (y39's "3 Extending
+    ensemble Kalman filters" over 12pt-pitch text, recall 0.735 -> 0.711 when
+    the median was asked), and a block of fewer than DOUBLE_SPACED_MIN_LINES
+    has no pitch worth the name (x02's two-line cover block).
     """
     size = max((s.size for s in a.spans if s.text.strip()), default=0.0)
-    if size <= 0 or lead < DOUBLE_SPACED_PITCH * size:
+    if size <= 0 or pitch < DOUBLE_SPACED_PITCH * size or \
+            n_lines < DOUBLE_SPACED_MIN_LINES:
         return False
     if b.baseline - a.baseline < 0.5 * size:
         return False                    # the same row: a marker and its text
@@ -1253,10 +1268,6 @@ def _author_break(a: Line, b: Line, right: float, lead: float) -> bool:
     return a.bbox[2] + SPACE_EM * size + first_w < right - 1.0
 
 
-# A line pitch at least this many times the type size is double-ish spacing
-# (Word's "double" at 12pt is 27.6pt = 2.3em; y63 sets 14.04pt type at
-# 24.1pt = 1.72em). Single spacing runs 1.15-1.25em.
-DOUBLE_SPACED_PITCH = 1.6
 
 
 # A justified paragraph's lines all reach both column edges except its last,
@@ -1325,6 +1336,9 @@ def _split_lines_to_paras(lines: List[Line],
         return best
 
     right = max(l.bbox[2] for l in lines)
+    # The block's tightest pitch: double-spaced text is double-spaced on
+    # EVERY line (_author_break).
+    pitch = min(pos) if pos else 0.0
     groups, cur = [], [lines[0]]
     for i, ln in enumerate(lines[1:]):
         sz_prev = dom_size(cur[-1])
@@ -1357,7 +1371,7 @@ def _split_lines_to_paras(lines: List[Line],
         if deltas[i] > max(lead * 1.55, lead + 4.0) or size_jump or track_jump \
                 or _line_starts_with_marker(ln) or _line_key(ln) in list_starts \
                 or _opens_note(ln) or short_end or \
-                _author_break(cur[-1], ln, right, lead):
+                _author_break(cur[-1], ln, right, pitch, len(lines)):
             groups.append(cur)
             cur = [ln]
         else:
@@ -7144,7 +7158,14 @@ def _is_marker_line(ln: Line, rtl_form: bool = False) -> bool:
 
 def _has_item_beside(ln: Line, own, flow_blocks) -> bool:
     """Does another block hold text on `ln`'s baseline, a marker's gap to its
-    right (the test `_merge_list_markers` glues by)?"""
+    right (the test `_merge_list_markers` glues by)? Only for a marker that
+    STARTS its line at the block's own left edge, where a heading's number
+    stands: on a two-column page a block's last line can be a lone "S." at
+    the column's right end, with the other column's text a gutter away
+    (y41, IEEEtran: glued across the gutter, within-2pt 0.063 -> 0.031)."""
+    left = min(l.bbox[0] for l in own.lines)
+    if ln.bbox[0] - left > MARKER_LEFT_TOL_EM * max(_line_size(ln), 1.0):
+        return False
     for c in flow_blocks:
         if c is own:
             continue
@@ -7154,6 +7175,10 @@ def _has_item_beside(ln: Line, own, flow_blocks) -> bool:
                     -1.0 < gap < 60:
                 return True
     return False
+
+
+# How far a block-ending marker may start from its block's left edge, in em.
+MARKER_LEFT_TOL_EM = 1.0
 
 
 def _merge_list_markers(flow_blocks):
