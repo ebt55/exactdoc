@@ -1,0 +1,186 @@
+# Publish exactdoc to PyPI -- only from a pushed version tag, and TestPyPI first.
+#
+# Inert until the owner does the one-time setup in docs/releasing.md: a
+# "trusted publisher" on test.pypi.org and pypi.org naming this repository,
+# this file and the environment, plus the two GitHub environments below. With
+# that in place there are NO API tokens anywhere: each publish job asks GitHub
+# for a short-lived OIDC identity token (`id-token: write`, granted to those two
+# jobs only) and PyPI exchanges it for an upload credential that lasts minutes.
+#
+# The order is the point:
+#
+#   build            the tag must equal pyproject's version; build once; check
+#                    metadata (twine) and contents (scripts/check_dist.py)
+#   testpypi         upload the exact files built above
+#   verify-testpypi  download them back from TestPyPI on Linux and Windows,
+#                    check the bytes are the ones built, install into a clean
+#                    venv (dependencies from PyPI) and convert two fixtures
+#   pypi             the same files, after the `pypi` environment's approval
+#
+# Nothing here runs on a branch push, a pull request or a schedule. The tags
+# that already exist (v0.1.0a1, v1.0.0, v1.0.1) predate this file and do not
+# trigger it; pushing them again would fail the version check.
+#
+# Actions are pinned by tag, as in gate.yml; TODO(CI-01) pins every workflow by
+# commit SHA together. pypa/gh-action-pypi-publish documents `release/v1` as
+# the supported moving reference.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: The tag must name the version being built
+        id: version
+        run: |
+          VER=$(python - <<'EOF'
+          import re
+          text = open("pyproject.toml", encoding="utf-8").read()
+          print(re.search(r'^version\s*=\s*"([^"]+)"', text, re.M).group(1))
+          EOF
+          )
+          if [ "${GITHUB_REF_NAME}" != "v${VER}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match pyproject.toml version ${VER} (expected v${VER})"
+            exit 1
+          fi
+          echo "version=${VER}" >> "$GITHUB_OUTPUT"
+
+      # PyPI renders README.md as the project page and resolves none of its
+      # relative links; point them at the files as of this tag.
+      - name: Build
+        run: |
+          python -m pip install --upgrade pip build twine
+          python scripts/pypi_readme.py --ref "$GITHUB_REF_NAME"
+          python -m build
+
+      - name: Check metadata and contents
+        run: |
+          python -m twine check --strict dist/*
+          python scripts/check_dist.py dist
+          sha256sum dist/* | tee dist-sha256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  testpypi:
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/exactdoc
+    permissions:
+      id-token: write      # OIDC for Trusted Publishing; nothing else
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+  verify-testpypi:
+    needs: [build, testpypi]
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      # The wheel comes from TestPyPI with --no-deps, and its dependencies from
+      # PyPI. Resolving dependencies against TestPyPI (`--extra-index-url`)
+      # would let anyone's same-named upload there stand in for numpy or lxml.
+      - name: Download the wheel back from TestPyPI
+        run: |
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            if python -m pip download --no-deps --only-binary :all: \
+                 --index-url https://test.pypi.org/simple/ \
+                 "exactdoc==${VERSION}" -d fromtest; then
+              break
+            fi
+            echo "not visible on TestPyPI yet (attempt ${attempt}); waiting"
+            sleep 30
+          done
+          ls -la fromtest
+          python - <<'EOF'
+          import glob, hashlib, os, sys
+          def h(p): return hashlib.sha256(open(p, "rb").read()).hexdigest()
+          got = glob.glob("fromtest/*.whl")
+          built = glob.glob("dist/*.whl")
+          assert len(got) == 1 and len(built) == 1, (got, built)
+          if h(got[0]) != h(built[0]):
+              sys.exit("TestPyPI serves different bytes from the ones built")
+          print("TestPyPI wheel is byte-identical to the build:", os.path.basename(got[0]))
+          EOF
+
+      - name: Install it into a clean venv and convert
+        run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          if [ -x "$RUNNER_TEMP/venv/bin/python" ]; then BIN="$RUNNER_TEMP/venv/bin"; else BIN="$RUNNER_TEMP/venv/Scripts"; fi
+          "$BIN/python" -m pip install --upgrade pip
+          "$BIN/python" -m pip install fromtest/*.whl
+          "$BIN/python" -m pip check
+          W="$RUNNER_TEMP/smoke"; mkdir -p "$W"; cd "$W"
+          cp "$GITHUB_WORKSPACE/testkit/fixtures/01_whitepaper_market.pdf" \
+             "$GITHUB_WORKSPACE/testkit/fixtures/c3_tables.pdf" .
+          test "$("$BIN/exactdoc" --version)" = "exactdoc ${VERSION}"
+          "$BIN/exactdoc" 01_whitepaper_market.pdf
+          "$BIN/exactdoc" c3_tables.pdf --output-profile gdocs --refine 0
+          test -s 01_whitepaper_market.docx && test -s c3_tables.docx
+
+  pypi:
+    needs: [build, verify-testpypi]
+    runs-on: ubuntu-24.04
+    environment:
+      name: pypi
+      url: https://pypi.org/p/exactdoc
+    permissions:
+      id-token: write      # OIDC for Trusted Publishing; nothing else
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
