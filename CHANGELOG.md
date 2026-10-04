@@ -207,6 +207,55 @@ Non-gating; the expansion parity policy re-pins its corpus hash only.
   53, y12 83, y02 128, y21 60, everything else unchanged — the matrix
   and README carry these numbers, and the booklet class stands at
   1.41–1.71×.
+- **text fidelity: the characters a reader searches for.** Six defects of
+  the real-document catalogue, each traced to where the text is assembled.
+  *Line-end hyphens* are decided by the document's own vocabulary
+  (`exactdoc/hyphen.py`): the joined form spelled out elsewhere means a break,
+  the hyphenated form means a compound, and the document's balance of the two
+  is the prior — PDFium returns every line-end hyphen as U+0002 whatever the
+  producer drew, so the code point cannot decide. `Con-gress`/`re-turn`
+  kept mid-word (pub501 464, SCOTUS 204, 1040i 176, WDR 70 on the 30-page
+  cuts) and `singlecorpus`/`middleincome` deleted all go to zero; against the
+  opinion's own U+00AD readings 881 of 885 breaks join. `autoHyphenation` now
+  follows the same evidence instead of a raw count of 6 (SP 800-63B and
+  SP 800-207 lose it, lshort and LuaTeX gain it), sits where CT_Settings puts
+  it, adds `doNotHyphenateCaps`, and headings, centred lines and one-line
+  paragraphs opt out. *Word spaces*: a style boundary is now tested for a
+  space at all (RFC 9110's 26 `MUST NOTgenerate` fusions), and space glyphs
+  PDFium drops because each is its own zero-width object are restored where
+  they left a gap (`A smaller`, `Cobalt Analytics` on the résumés; README
+  #48 closed — the cause was never ink-vs-advance). *Letter-spacing* is
+  measured per run and written as `w:spacing` (résumé headings 1.3-1.6pt,
+  Chromium body text's 5-7% wider setting, WDR's `O V E R V I E W` closed up
+  to `OVERVIEW` when the document spells the word). *Superscripts* take
+  their line's size under `vertAlign` (EUR-Lex markers rendered ~3pt;
+  standard profile only). *Symbol, Wingdings, ZapfDingbats, MT Extra* PUA
+  code points map to their published Unicode (FIPS 180: 398 of 450).
+  *Line assembly*: overprinted lines of different sizes stay apart (x07's
+  interleaved `4Tr.anCsiti`), a script must be smaller than the glyph it
+  attaches to rather than the row's largest (Pub 501's index columns), TeX's
+  lowered logo `E` and `2ε` stay in their word (132 broken logos per 30
+  pages of lshort), and a one-line paragraph past the inferred column keeps
+  room for itself (RFC's `Page N`, one character per line on every page).
+  Measured in the canonical container, raw lane, against HEAD: gate PASS
+  both lanes with every gated document's line unchanged; expansion
+  within-2pt x07 +0.43, x08 +0.41, x09 +0.45, x12 +0.50 (product lane
+  +0.49 to +0.75), x17/x18 word recall +0.08, RFC 9110 228 → 221 pages,
+  lshort 222 → 216 (product 167 → 163, word recall +0.12). Worse, and why:
+  x10 raw 2 → 3 pages (its Table 3 is emitted as stacked one-cell
+  paragraphs at HEAD; text set at its true width no longer hides that; the
+  product lane keeps 2) and x11 product 2 → 3 (already 4 pages raw at HEAD);
+  Pub 501 raw 59 → 60 and small live-text/doc-recall dips on the IRS
+  booklets, which the harness charges for removing the discretionary
+  hyphens its reference text contains (geometry-only hyphenation restores
+  both, measured). 53 new tests. Re-measured after merging WP1/3/4/6/11 and
+  tranche 4 (90 documents, raw lane, against the integration head 5ef641a):
+  pages −2, summed word recall +0.17, doc recall +0.45, within-2pt +2.63,
+  char recall −0.07; worse pages on x10, the IRS booklets (+1 to +3), y37,
+  y41 and the y56 scan (+1 each). Two rules were narrowed on that corpus: a
+  logo glyph must sit between its neighbours, not under one (fraction
+  denominators, y40 15 → 18 pages otherwise), and only short one-line
+  paragraphs are pulled back into the column.
 - **drawings count as structure only when a reader can see them.** Three
   false-structure defects from weak drawing evidence, fixed in `dialect`
   (visibility) and at two `infer` decision sites:
@@ -347,6 +396,40 @@ Non-gating; the expansion parity policy re-pins its corpus hash only.
   pass costs 15–20% of character extraction; DOCX size rises where black boxes became
   real RGBA images (y01 0.79 → 0.98 MB) and falls where JPEGs pass through
   (y28 1.96 → 1.53 MB, y50 1.55 → 0.84 MB).
+- **tables: a cell exists where the author drew one (design audit finding 8,
+  B24; defect catalogue #13).** The grid builder made every lattice cell a
+  cell with four borders in one style. Missing internal edges are now merges
+  (`w:gridSpan`/`w:vMerge`; text on both sides of a missing line and none
+  across it vetoes a column merge), text is assigned by merged region, and
+  each cell side carries the rule drawn there. The lattice grows over
+  text-bearing fill tiles (FIPS 180 Fig. 1 kept 3 of its 5 columns), ignores
+  a link underline, keeps only lines some cell ends on, and refuses a framed
+  bar chart. Fill-tiled tables are joined across their unshaded rows (c3's
+  merged-header table was rasterised and its nested table flattened); a
+  shaded header over unruled rows is one table, continued onto the next page
+  (x04/x10 "Table 3" was four paragraphs a row); rules tables cut
+  parser-joined rows at their gaps (BLS); figure columns are set flush right,
+  one value per paragraph (IRS EIC tables broke '1,205' mid-token); striped
+  tables carry their own rules, not c3's colour. The parser ends a span (not
+  the line) at a forgiven cell gap or a space boxed across one. Row heights:
+  LibreOffice 24.2 applies the largest bottom pad of a row to every cell and
+  adds the border on top, so each row is written with one top and one bottom
+  pad, the offsets moved into space-before and the border width off the
+  bottom pad — NIST SP 800-171's tables had grown ~12pt a row. `trHeight
+  atLeast` on text rows measured neutral and is not used (THEORY §3.2).
+  Raw lane, canonical, all 90 swept documents against the integration head
+  5ef641a: pages 3453 → 3374, word recall 0.5620 → 0.5686, doc recall
+  0.9106 → 0.9122, within-2pt 0.1413 → 0.1513, SSIM 0.604 → 0.612, edit
+  score 0.5823 → 0.5851. y02 140 → 127 pages, y08 83 → 67 (recall 0.247 →
+  0.361), y01 103 → 95, y30 37 → 33 (page-exact, recall 0.424 → 0.731), y06
+  198 → 183 (doc recall 0.863 → 0.932), y12 88 → 84, y17 223 → 216. Gated:
+  both lanes PASS but for c3 *stale* records (doc recall 0.936 → 1.000, live
+  text 0.923 → 0.998, raw word recall 0.865 → 1.000); raw within-2pt c1
+  0.678 → 0.869, c7 0.557 → 0.892, r1 0.321 → 0.477, 01 0.207 → 0.314.
+  Losses: y03 word recall 0.285 → 0.276 (one page shorter; dy50 down, edit
+  score up), x10 within-2pt 0.019 → 0.015 (edit 0.685 → 0.677), y42 word
+  recall 0.317 → 0.311. 28 new tests (`tests/test_table_merges.py`, one in
+  `tests/test_bottom_margin_relief.py`).
 - **ordinary browser- and word-processor-printed documents (WP9).** The
   expansion's Chromium, LibreOffice and ReportLab fixtures kept their page
   counts and still landed 15–74pt off. Each root cause was found with the

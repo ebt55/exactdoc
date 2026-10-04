@@ -6,7 +6,8 @@ own AFM advances, with an interquartile range under 0.6%. A renderer given
 natural advances fits ~6% more on a line, every 4-line paragraph re-wraps into
 3, and x08_chrome_print_default drifted 27.7pt at the median. `tracking.py`
 measures the scale on the regular face of metric-clone fonts and restores it
-as character spacing; these tests pin both halves and the refusals.
+as the run's letter-spacing (`Run.tracking`) wherever the parser measured none
+for the run itself; these tests pin both halves and the refusals.
 """
 import unittest
 
@@ -111,9 +112,23 @@ class ApplyTracking(unittest.TestCase):
         self.assertEqual(n, 2)
         for r in runs[:2]:
             nat = M.text_width(r.text, "Times New Roman", 11.0, italic=r.italic)
-            self.assertAlmostEqual(r.char_spacing * len(r.text), 0.064 * nat,
+            self.assertAlmostEqual(r.tracking * len(r.text), 0.064 * nat,
                                    delta=0.01)
-        self.assertEqual(runs[2].char_spacing, 0.0)     # a tab has no glyphs
+            self.assertEqual(r.char_spacing, 0.0)       # the ladder's, not ours
+        self.assertEqual(runs[2].tracking, 0.0)         # a tab has no glyphs
+
+    def test_a_run_the_parser_measured_keeps_its_own_tracking(self):
+        # parse_pdfium measures the same extra advance per span (x07: 0.291pt
+        # against this module's 0.286pt); restored twice it would be 6% wide
+        runs = [Run(text="Plain words here", font="LiberationSerif", size=11.0,
+                    color="#000000", serif=True, tracking=0.29),
+                Run(text="a link", font="LiberationSerif", size=11.0,
+                    color="#000000", serif=True)]
+        lay, _ = _layout(runs)
+        self.assertEqual(tracking.apply_advance_tracking(
+            lay, {("liberationserif", 11.0): 1.064}, M), 1)
+        self.assertEqual(runs[0].tracking, 0.29)
+        self.assertGreater(runs[1].tracking, 0.2)
 
     def test_other_sizes_are_untouched(self):
         runs = [Run(text="A heading", font="LiberationSerif", size=13.5,
@@ -121,7 +136,7 @@ class ApplyTracking(unittest.TestCase):
         lay, _ = _layout(runs)
         self.assertEqual(tracking.apply_advance_tracking(
             lay, {("liberationserif", 11.0): 1.064}, M), 0)
-        self.assertEqual(runs[0].char_spacing, 0.0)
+        self.assertEqual(runs[0].tracking, 0.0)
 
 
 class LadderSeesTracking(unittest.TestCase):
@@ -138,8 +153,7 @@ class LadderSeesTracking(unittest.TestCase):
         before = predict_lines(p, avail, M)
         lay, _ = _layout([run])
         tracking.apply_advance_tracking(lay, {("liberationserif", 11.0): 1.064}, M)
-        self.assertGreater(run.advance_track, 0.0)
-        self.assertEqual(run.advance_track, run.char_spacing)
+        self.assertGreater(run.tracking, 0.0)
         after = predict_lines(p, avail, M)
         self.assertGreater(after, before)
 
@@ -178,23 +192,36 @@ class EndToEnd(unittest.TestCase):
         xml = zipfile.ZipFile(docx).read("word/document.xml").decode("utf-8")
         return re.findall(r'<w:rPr>(?:(?!</w:rPr>).)*<w:spacing w:val="(-?\d+)"', xml)
 
-    def test_standard_profile_restores_the_width_and_gdocs_does_not(self):
+    def test_standard_profile_restores_the_width_once(self):
         import os
         import tempfile
         from exactdoc.convert import convert
-        from exactdoc.options import RAW, PDFIUM_GDOCS_CANDIDATE
+        from exactdoc.options import RAW
         with tempfile.TemporaryDirectory() as d:
             src = os.path.join(d, "t.pdf")
-            # 0.3pt per glyph on ~4.7pt Times glyphs is the ~6% Chromium bias
+            # 0.3pt per glyph on ~4.7pt Times glyphs is the ~6% Chromium bias;
+            # the parser and this module both see it, and it is written ONCE
             _tracked_pdf(src, 0.3)
             std = os.path.join(d, "std.docx")
             convert(src, std, options=RAW, max_pages=0)
             vals = self._rpr_spacing(std)
             self.assertTrue(vals, "no tracking emitted in the standard profile")
             self.assertTrue(all(5 <= int(v) <= 7 for v in vals), vals)  # ~0.3pt
-            gd = os.path.join(d, "gd.docx")
-            convert(src, gd, options=PDFIUM_GDOCS_CANDIDATE, max_pages=0)
-            self.assertEqual(self._rpr_spacing(gd), [])
+
+    def test_the_gdocs_profile_does_not_measure(self):
+        # Docs discards run tracking (fonts.GDOCS_HONOURS_RUN_TRACKING)
+        import os
+        import tempfile
+        from unittest import mock
+        from exactdoc.convert import convert
+        from exactdoc.options import PDFIUM_GDOCS_CANDIDATE
+        with tempfile.TemporaryDirectory() as d:
+            src = os.path.join(d, "t.pdf")
+            _tracked_pdf(src, 0.3)
+            with mock.patch.object(tracking, "measure_advance_scales",
+                                   side_effect=AssertionError("measured")):
+                convert(src, os.path.join(d, "gd.docx"),
+                        options=PDFIUM_GDOCS_CANDIDATE, max_pages=0)
 
     def test_untracked_source_gets_no_tracking(self):
         import os

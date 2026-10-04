@@ -229,25 +229,18 @@ def predict_lines(p: Para, avail: float, metrics=None) -> Optional[int]:
         fn = _face(fam, r.bold, r.italic)
         if fn is None:
             return None
-        # The source's own advance scale (tracking.py) is part of a run's
-        # width: the renderer adds it after every character, spaces included.
-        # Without it such a run is predicted ~6% narrow and every such
-        # paragraph reads as "the renderer will need fewer lines". Only THAT
-        # tracking is counted (`advance_track`): counting a locked line's own
-        # compression too changed the open-loop page-height estimate of every
-        # line-locked document (y43's page 1 kept gaps the old estimate had
-        # spent: raw within-2pt 0.016 -> 0.011), which is not this rule's to
-        # change.
-        cs = advance_track(r)
+        # The source's letter-spacing widens every character the renderer
+        # sets, the space included (see Run.tracking).
+        tr = getattr(r, "tracking", 0.0)
         for w in r.text.replace("\n", " ").split(" "):
             if w:
-                words.append((w, fam, shaped_size(r), r.bold, r.italic, cs))
+                words.append((w, fam, shaped_size(r), r.bold, r.italic, tr))
     if not words:
         return 1
     cache = {}
     unmeasurable = []
 
-    def wid(t, fam, sz, bold, italic, cs=0.0):
+    def wid(t, fam, sz, bold, italic, tr=0.0):
         key = (t, fam, sz, bold, italic)
         if key not in cache:
             w = metrics.text_width(t, fam, sz, bold=bold, italic=italic)
@@ -255,7 +248,7 @@ def predict_lines(p: Para, avail: float, metrics=None) -> Optional[int]:
                 unmeasurable.append(key)
                 w = 0.0
             cache[key] = w
-        return cache[key] + cs * len(t)
+        return cache[key] + tr * len(t)
 
     n, cur, first = 1, 0.0, True
     room0 = avail - max(0.0, p.first_indent)
@@ -269,14 +262,14 @@ def predict_lines(p: Para, avail: float, metrics=None) -> Optional[int]:
         # of real room; predicted as a faithful two-line flow, it rendered
         # on one line and lifted everything beneath it a line.
         room0 = avail - p.first_indent
-    for w, fam, sz, bold, italic, cs in words:
-        ww = wid(w, fam, sz, bold, italic, cs)
+    for w, fam, sz, bold, italic, tr in words:
+        ww = wid(w, fam, sz, bold, italic, tr)
         room = room0 if n == 1 else avail
         if first:
             cur = ww
             first = False
             continue
-        add = wid(" ", fam, sz, bold, italic, cs) + ww
+        add = wid(" ", fam, sz, bold, italic, tr) + ww
         if cur + add > room + SLACK_PT:
             n += 1
             cur = ww
@@ -308,13 +301,8 @@ def _seg_width(seg_runs, cache, metrics) -> float:
             if got is None:
                 return -1.0
             cache[key] = got
-        w += cache[key] + advance_track(r) * len(r.text)
+        w += cache[key] + getattr(r, "tracking", 0.0) * len(r.text)
     return w
-
-
-def advance_track(r: Run) -> float:
-    """The part of a run's tracking that restores the source's advances."""
-    return r.advance_track or 0.0
 
 
 def _slice_runs(runs: List[Run], a: int, b: int) -> List[Run]:
@@ -330,7 +318,8 @@ def _slice_runs(runs: List[Run], a: int, b: int) -> List[Run]:
                     color=r.color, bold=r.bold, italic=r.italic, mono=r.mono,
                     serif=r.serif, link=r.link, underline=r.underline,
                     superscript=r.superscript, field=r.field,
-                    width_scale=r.width_scale, advance_track=r.advance_track)
+                    width_scale=r.width_scale,
+                    tracking=getattr(r, "tracking", 0.0))
             out.append(c)
         pos += n
     return out
@@ -403,9 +392,9 @@ def _lock(p: Para, avail: float, metrics) -> bool:
     new_runs = []
     for i, (seg, track) in enumerate(segments):
         for r in seg:
-            # Compression ADDS to the source's advance scale (tracking.py);
-            # `_seg_width` measured the line with it included.
-            r.char_spacing = round(advance_track(r) + track, 3)
+            # The compression only: the source's own letter-spacing is
+            # `Run.tracking`, which the writer adds (and `_seg_width` counted).
+            r.char_spacing = round(track, 3)
         if i < len(segments) - 1 and seg:
             seg[-1].text += "\n"
         new_runs.extend(seg)
@@ -576,7 +565,10 @@ def apply_ladder(lay: DocLayout, enabled: bool = True, metrics=None) -> dict:
                         for ci, cell in enumerate(row):
                             if cell is None:
                                 continue
-                            cw = el.col_widths[ci] if ci < len(el.col_widths) else 100.0
+                            # a merged cell is as wide as the columns it spans
+                            span = max(1, getattr(cell, "col_span", 1))
+                            cw = sum(el.col_widths[ci:ci + span]) \
+                                if ci < len(el.col_widths) else 100.0
                             for cp in cell.paras:
                                 # A cell's height is declared by the source; the
                                 # lock restores it rather than inventing it.

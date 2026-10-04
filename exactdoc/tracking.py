@@ -17,9 +17,17 @@ drifts up by a line per paragraph. That one effect was the whole of
 x08_chrome_print_default's dy_p50 of 27.7pt.
 
 The source's own measurement is the remedy: the extra advance is reproduced as
-character spacing (`Run.char_spacing`, `w:spacing` on rPr), sized per run from
-the scale measured for its family and size. The text stays live and editable;
-it is simply set at the width the source set it.
+the run's letter-spacing (`Run.tracking`, which the writer emits as `w:spacing`
+on rPr), sized per run from the scale measured for its family and size. The
+text stays live and editable; it is simply set at the width the source set it.
+
+The parser measures letter-spacing too, per span, from the gaps between its
+glyphs (`parse_pdfium._span_tracking`), and on these documents it finds the
+same thing -- 0.291pt against this module's 0.286pt on x07's body. It needs six
+gaps in one span, so a short run (a link, a word in another style, a cell) of
+the same face goes without. This module works per face and size over the whole
+document, and fills exactly those runs: a run that already carries the
+source's measured letter-spacing is left as the parser measured it.
 
 What this deliberately does NOT do:
 
@@ -200,14 +208,17 @@ def apply_advance_tracking(lay: DocLayout, scales: Dict[Key, float],
     `metrics.apply_width_scale`'s, which states it as the run's w:w; the w:w
     brings the glyphs back to the font's natural width at the source size, and
     this tracking adds the source's own extra advance on top. The ladder sees
-    both (`metrics.shaped_size` plus `Run.char_spacing`).
+    both (`metrics.shaped_size` plus `Run.tracking`).
+
+    A run whose `tracking` the parser already measured is skipped: the same
+    extra advance, restored twice, would set it 6% too WIDE.
     """
     if not scales:
         return 0
     n = 0
     seen = set()
     for r in _runs(lay):
-        if id(r) in seen or r.is_tab or r.field or not r.text:
+        if id(r) in seen or r.is_tab or r.field or not r.text or r.tracking:
             continue
         seen.add(id(r))
         sc = scales.get(_key(r.font, r.size))
@@ -222,10 +233,6 @@ def apply_advance_tracking(lay: DocLayout, scales: Dict[Key, float],
         w = metrics.text_width(meas, fam, r.size, bold=r.bold, italic=r.italic)
         if not w:
             continue
-        add = (sc - 1.0) * w / len(meas)
-        r.char_spacing = round(r.char_spacing + add, 3)
-        # Kept apart as well: the ladder counts this, and only this, in its
-        # width predictions, and adds its own compression to it.
-        r.advance_track = round(r.advance_track + add, 3)
+        r.tracking = round((sc - 1.0) * w / len(meas), 3)
         n += 1
     return n

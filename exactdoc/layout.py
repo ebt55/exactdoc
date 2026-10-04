@@ -25,14 +25,15 @@ class Run:
     # values compress a line that TeX fitted by shrinking inter-word glue --
     # something Word's line breaker cannot do on its own.
     char_spacing: float = 0.0
-    # The part of char_spacing that restores the source's own glyph advances
-    # (tracking.py), as against the ladder's compression of a locked line.
-    # The ladder predicts widths with this part only, and adds to it.
-    advance_track: float = 0.0
     # Horizontal scale the writer emits as w:w (1.0 = none; 0.0 = not set) so
     # the run occupies the width the source drew it at -- see
     # metrics.apply_width_scale. The ladder shapes with it too.
     width_scale: float = 0.0
+    # The SOURCE's letter-spacing in points (model.Span.tracking), kept apart
+    # from the ladder's compression above so that neither overwrites the other;
+    # the writer emits their sum. It ADDS space after each glyph, where
+    # width_scale scales the glyphs themselves; the two compose.
+    tracking: float = 0.0
 
 
 @dataclass
@@ -77,12 +78,19 @@ class Cell:
     # borders keys: top/bottom/left/right -> (width_pt, color) or None
     pad: Tuple[float, float, float, float] = (2, 4, 2, 4)  # top,left,bottom,right? see writer
     valign: str = "top"
+    # A merged cell: the grid columns and rows it covers from its own
+    # position (TableEl.rows is always full-width, one entry per grid column;
+    # the positions a span covers hold None). Written as w:gridSpan and
+    # w:vMerge.
     col_span: int = 1
+    row_span: int = 1
 
 
 @dataclass
 class TableEl:
-    rows: List[List[Optional[Cell]]] = field(default_factory=list)  # None = covered by span
+    # Full-width rows: rows[r][c] is the cell whose top-left grid position is
+    # (r, c), or None where a merged cell (col_span/row_span) covers it.
+    rows: List[List[Optional[Cell]]] = field(default_factory=list)
     col_widths: List[float] = field(default_factory=list)
     row_heights: List[Optional[float]] = field(default_factory=list)
     left_indent: float = 0.0     # from container left edge
@@ -213,3 +221,28 @@ class DocLayout:
     @property
     def content_w(self) -> float:
         return self.page_w - self.margin_l - self.margin_r
+
+
+def iter_paras(lay: DocLayout):
+    """Every Para a written document will contain: body, table cells, the
+    cover band, headers and footers. `gdocs_rows` are alternate serialisations
+    of a Para's own runs, not paragraphs, and are not yielded."""
+    def walk(el):
+        if isinstance(el, Para):
+            yield el
+        elif isinstance(el, TableEl):
+            for row in el.rows:
+                for cell in row:
+                    if isinstance(cell, Cell):
+                        yield from cell.paras
+    for page in lay.pages:
+        for chunk in page.chunks:
+            for el in chunk.elements:
+                yield from walk(el)
+    if lay.cover_band is not None:
+        yield from walk(lay.cover_band)
+    for part in (lay.header_default, lay.header_first,
+                 lay.footer_default, lay.footer_first):
+        if part is not None:
+            for el in part.elements:
+                yield from walk(el)
