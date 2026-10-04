@@ -5379,6 +5379,7 @@ def _leader_para(ln: Line, edge: float, col_l: float, col_r: float) -> Para:
     p.right_indent = 0.0
     p.first_indent = 0.0
     p.tab_stops = [(round(edge - col_l, 1), "right", "dot")]
+    p.leader_text = m.group("dots")
     return p
 
 
