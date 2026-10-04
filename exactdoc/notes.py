@@ -324,6 +324,8 @@ def _split_run(runs: List[Run], i: int, mark: str) -> int:
     r = runs[i]
     t = r.text
     k = t.find(mark)
+    if k < 0:
+        raise ValueError("run %r does not hold mark %r" % (t, mark))
     pre, post = t[:k], t[k + len(mark):]
     parts = []
     if pre:
@@ -336,17 +338,22 @@ def _split_run(runs: List[Run], i: int, mark: str) -> int:
 
 
 def _tag_refs(pl: PageLayout, zone_ids: set, marks: List[str]):
-    """{mark: (para, run index)} for each mark's unique reference run, or
-    None when any mark has no reference run or more than one."""
+    """{mark: (para, run)} for each mark's unique reference run, or None when
+    any mark has no reference run or more than one.
+
+    The RUN, not its index: two references in one paragraph are split one
+    after the other, and the first split shifts every index after it -- an
+    index kept from here pointed the second split at the wrong run, which
+    duplicated text on y28 ("payment2payments2")."""
     found = {m: [] for m in marks}
     for ch in pl.chunks:
         for el in ch.elements:
             if not isinstance(el, Para) or id(el) in zone_ids:
                 continue
-            for i, r in enumerate(el.runs):
+            for r in el.runs:
                 t = r.text.strip()
                 if r.superscript and t in found and r.footnote is None:
-                    found[t].append((el, i))
+                    found[t].append((el, r))
     if any(len(v) != 1 for v in found.values()):
         return None
     return {m: v[0] for m, v in found.items()}
@@ -484,7 +491,8 @@ def bind_page_notes(lay: DocLayout, pl: PageLayout, pn: PageNotes,
         all_paras[0].space_before = 0.0     # first under the rule
     for n, paras in zip(pn.notes, built):
         fid = len(lay.footnotes)
-        el, i = refs[n.mark]
+        el, run = refs[n.mark]
+        i = next(k for k, r in enumerate(el.runs) if r is run)
         j = _split_run(el.runs, i, n.mark)
         el.runs[j].footnote = fid
         value = int(n.mark) if n.mark.isdigit() else 0

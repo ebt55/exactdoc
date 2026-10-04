@@ -446,6 +446,14 @@ verification loop measures the wrong renderer.
 3. **Real Word footnotes** — superscript markers currently stay inline text;
    mapping detected footnote regions to `w:footnote` parts would survive
    editing better.
+   > **Built (2026-10-04),** with real list numbering beside it: `notes.py`,
+   > `lists.py`, `structures.py`, behind `options.PROFILE_CAPABILITIES`. The
+   > law it rests on is the one this document keeps relearning: a note is
+   > bound only when its mark has exactly one reference on the page, and a
+   > list only where the renderer's own counter prints the source's number.
+   > Two LibreOffice facts shape it: the tab after a list label goes to the
+   > level's stop whatever the paragraph says, and one footnote anywhere
+   > stops LibreOffice balancing every column section of the document.
 4. Nested tables, rotated text, gradients→DrawingML, TOC field
    reconstruction, RTL/CJK shaping, OCR pass for scanned PDFs, forms.
 5. **More dialects** — LaTeX (pdfTeX ligatures/kerning quirks), Chromium

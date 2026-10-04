@@ -35,7 +35,7 @@ BODY = ("The committee reviewed the proposal in detail and agreed the timetable 
 
 
 def _footnote_pdf(path, refs=("1", "2"), notes=("1", "2"), extra_ref=None,
-                  separator="rule", fragment=False, pages=1):
+                  separator="rule", fragment=False, pages=1, ref_pad=""):
     """Body text with superscript references and notes at the page foot.
 
     `fragment`: draw each note's mark as its own raised text object left of
@@ -52,7 +52,7 @@ def _footnote_pdf(path, refs=("1", "2"), notes=("1", "2"), extra_ref=None,
             if i % 4 == 2 and k < len(refs) and refs[k]:
                 x = 72 + c.stringWidth(text, "Times-Roman", 11)
                 c.setFont("Times-Roman", 7)
-                c.drawString(x, H - y + 4, refs[k])
+                c.drawString(x, H - y + 4, refs[k] + ref_pad)
             if extra_ref and i == 9:
                 x = 72 + c.stringWidth(text, "Times-Roman", 11)
                 c.setFont("Times-Roman", 7)
@@ -130,6 +130,24 @@ class FootnoteDetection(unittest.TestCase):
                  if hasattr(el, "role")]
         self.assertIn("footnote", roles)
         self.assertIsNotNone(lay.pages[0].note_area)
+
+    def test_two_padded_references_in_one_paragraph_keep_its_text(self):
+        # y28: splitting "1 " into "1" + " " shifted the second reference's
+        # run index, and the second split duplicated text
+        pdf = self._pdf(ref_pad=" ")
+        plain = _layout(_footnote_pdf(os.path.join(self._dir.name, "p.pdf"),
+                                      refs=(), notes=(), ref_pad=" "))
+        lay = _layout(pdf)
+        self.assertEqual([f.mark for f in lay.footnotes], ["1", "2"])
+        body = [el.text for ch in lay.pages[0].chunks for el in ch.elements
+                if hasattr(el, "runs") and el.role != "footnote"]
+        typed = [el.text for ch in plain.pages[0].chunks for el in ch.elements
+                 if hasattr(el, "runs")]
+        squash = lambda ts: re.sub(r"[\s12]", "", "".join(ts))
+        self.assertEqual(squash(body), squash(typed))
+        refs = [r.text for ch in lay.pages[0].chunks for el in ch.elements
+                for r in getattr(el, "runs", []) if r.footnote is not None]
+        self.assertEqual(refs, ["1", "2"])
 
     def test_mark_fragments_and_a_typed_separator(self):
         lay = _layout(self._pdf(separator="text", fragment=True))
