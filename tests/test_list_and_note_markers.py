@@ -7,7 +7,8 @@ Four small defects, each measured on an expansion fixture:
   x09_chrome_lists_nested lost its marker.
 * A nested numbered item whose number is in the same span as its text
   ("1. Mark the bay positions") was welded to the line above it, three levels
-  into one paragraph that re-wrapped as prose (-15pt per weld on x09).
+  into one paragraph that re-wrapped as prose (-15pt per weld on x09); the
+  typed-marker sequence evidence now splits them.
 * A footnote's own number (x05_lo_quotes_notes: 4.6pt, raised 3.1pt against
   its 8.5pt note) became a 5pt paragraph after its note.
 * An undecodable glyph INSIDE a line (the space between "2." and "Method") was
@@ -16,7 +17,7 @@ Four small defects, each measured on an expansion fixture:
 import unittest
 
 from exactdoc.dialect import _markers_to_text, _undecoded_markers_to_text
-from exactdoc.infer import infer, _split_lines_to_paras
+from exactdoc.infer import infer, _inline_list_starts, _split_lines_to_paras
 from exactdoc.layout import Para
 from exactdoc.model import (DocIR, DrawCmd, Line, PageIR, Span, TextBlock,
                             UndecodedGlyph)
@@ -63,19 +64,29 @@ class HollowMarkers(unittest.TestCase):
 
 
 class NestedNumberedItems(unittest.TestCase):
+    """x09's three numbered levels, the number in each item's own span.
+
+    The typed-marker evidence (`_inline_list_starts`: a neighbour in sequence
+    at the same x) is what splits them; this pins x09's shape against it.
+    """
+
     def test_each_level_is_its_own_paragraph(self):
         lines = [_line("1. Establish the temporary layover", 67.7, 228.2, 458.2),
                  _line("1. Mark the bay positions", 89.7, 208.8, 474.0),
-                 _line("1. Set the stop lines two metres back", 111.7, 346.9, 489.8)]
-        groups = _split_lines_to_paras(lines)
-        self.assertEqual(len(groups), 3)
+                 _line("1. Set the stop lines two metres back", 111.7, 346.9, 489.8),
+                 _line("2. Check the swept path with a vehicle", 111.7, 343.9, 508.5),
+                 _line("2. Install the driver information board", 89.7, 265.5, 531.8),
+                 _line("2. Revise the running board", 67.7, 197.7, 555.8)]
+        starts = _inline_list_starts([lines])
+        self.assertEqual(len(_split_lines_to_paras(lines, starts)), 6)
 
     def test_prose_wrapping_onto_a_number_is_not_split(self):
         # same left edge: a wrapped line that happens to start "1."
         lines = [_line("the figures in table", 58.0, 540.0, 100.0),
                  _line("1. are reported as drawn from the counters", 58.0, 400.0,
                        115.8)]
-        self.assertEqual(len(_split_lines_to_paras(lines)), 1)
+        starts = _inline_list_starts([lines])
+        self.assertEqual(len(_split_lines_to_paras(lines, starts)), 1)
 
 
 class FootnoteNumbers(unittest.TestCase):

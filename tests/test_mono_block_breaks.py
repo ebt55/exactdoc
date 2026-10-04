@@ -43,6 +43,29 @@ class MonoBlockBreaks(unittest.TestCase):
         self.assertIn("json.loads(text)\n", joined)
         self.assertEqual(joined.count("\n"), 2)
 
+    def test_equal_length_code_lines_are_not_a_justified_edge(self):
+        """y26: `if test-commands; then` / `  consequent-commands;` are both 22
+        characters, so in a monospace face they END at the same x, and the
+        justify test pinned a 219.6pt right indent that left the block exactly
+        its widest line -- the third line wrapped and spilled the page."""
+        lines = [_line("if test-commands; then", 176, 302, 678.0, font="CMTT10"),
+                 _line("  consequent-commands;", 176, 302, 692.0, font="CMTT10"),
+                 _line("[elif more-test-commands; then", 176, 348, 705.0,
+                       font="CMTT10")]
+        p = para_from_lines(lines, COL_L, COL_R)
+        self.assertTrue(p.line_breaks)
+        self.assertEqual(p.align, "left")
+        self.assertEqual(p.right_indent, 0.0)
+        # a prose paragraph with the same geometry still pins its edge
+        prose = [_line(t, 176, 302 if i < 2 else 348, y, mono=False,
+                       font="Georgia")
+                 for i, (t, y) in enumerate((("aaaa bbbb", 678.0),
+                                             ("cccc dddd", 692.0),
+                                             ("eeee ffff gg", 705.0)))]
+        q = para_from_lines(prose, COL_L, COL_R)
+        self.assertEqual(q.align, "justify")
+        self.assertGreater(q.right_indent, 0.0)
+
     def test_prose_paragraph_still_joins_with_spaces(self):
         lines = [_line("first prose line here", 57, 300, 100.0, mono=False,
                        font="Georgia"),

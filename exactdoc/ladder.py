@@ -23,8 +23,12 @@ that is 2% line-locked, and the user is entitled to know which they received.
 
 Prediction uses base-14 metrics, which are exact for the metric-compatible
 families the writer maps onto (Helvetica->Arial, Times->Times New Roman,
-Courier->Courier New). Paragraphs whose font has no such equivalent are left
-in flow: a prediction we cannot trust is not a reason to spend editability.
+Courier->Courier New), and the Carlito/Caladea tables for Calibri and Cambria
+(exactdoc/_clone_widths.py). Text is shaped at the width the writer emits --
+the half-point size times the run's w:w scale (metrics.shaped_size) -- so the
+prediction is of what the renderer draws. Paragraphs whose font has no such
+equivalent are left in flow: a prediction we cannot trust is not a reason to
+spend editability.
 
 STATUS: built, measured, and OFF by default (convert(ladder=False)).
 
@@ -52,31 +56,58 @@ from typing import List, Optional
 
 from .layout import DocLayout, Para, Run, TableEl
 from .fonts import map_font
+from .metrics import shaped_size
 
 # Base-14 metric equivalents. Anything absent is "not predictable" -- see below.
 _B14 = {
     "arial": ("helv", "hebo", "heit", "hebi"),
-    "carlito": ("helv", "hebo", "heit", "hebi"),
     "times new roman": ("tiro", "tibo", "tiit", "tibi"),
     "courier new": ("cour", "cobo", "cour", "cobo"),
+}
+# Families shaped from exactdoc/_clone_widths.py: Carlito's and Caladea's own
+# advances, which are Calibri's and Cambria's (metric clones by design).
+#
+# "carlito" used to sit in _B14 on the Helvetica faces. Measured over
+# METRIC_REFERENCE from the font files, Calibri is 0.415097em per character
+# against Helvetica/Arial's 0.450660 (+8.6%), and Calibri Bold 0.424772 against
+# Helvetica-Bold's 0.487401 (+14.7%): every predict_lines on a Calibri document
+# -- NIST SP 800-171r2 is 82% Calibri -- predicted lines that would not occur,
+# and the ladder, the column-break test and the spill absorber acted on them.
+# Calibri Light (0.409798, -1.3% against Calibri) is NOT here: no table
+# measures it, and an approximation is not a prediction (THEORY 6).
+_CLONE = {
+    "calibri": ("carlito", "carlito-b", "carlito-i", "carlito-bi"),
+    "carlito": ("carlito", "carlito-b", "carlito-i", "carlito-bi"),
+    "cambria": ("caladea", "caladea-b", "caladea-i", "caladea-bi"),
+    "caladea": ("caladea", "caladea-b", "caladea-i", "caladea-bi"),
 }
 MIN_LINES = 2          # single-line paragraphs have no wrap to preserve
 SLACK_PT = 0.5         # tolerance when fitting, in points
 MAX_TRACK = 0.28       # pt/char; beyond this compression is visible as mangling
 
 
-def _b14(family: str, bold: bool, italic: bool) -> Optional[str]:
-    ent = _B14.get((family or "").lower())
-    if ent is None:
-        return None
+def _pick(ent, bold: bool, italic: bool) -> str:
     return ent[3] if (bold and italic) else ent[1] if bold else ent[2] if italic else ent[0]
+
+
+def _b14(family: str, bold: bool, italic: bool) -> Optional[str]:
+    """The base-14 face for a family, or None. MuPDF's shorthand names."""
+    ent = _B14.get((family or "").lower())
+    return None if ent is None else _pick(ent, bold, italic)
+
+
+def _face(family: str, bold: bool, italic: bool) -> Optional[str]:
+    """The measured face for a family -- base-14 or a clone table -- or None."""
+    key = (family or "").lower()
+    ent = _B14.get(key) or _CLONE.get(key)
+    return None if ent is None else _pick(ent, bold, italic)
 
 
 def _predictable(p: Para) -> bool:
     for r in p.runs:
         if r.text and not r.is_tab:
             fam = map_font(r.font, mono=r.mono, serif=r.serif)
-            if _b14(fam, r.bold, r.italic) is None:
+            if _face(fam, r.bold, r.italic) is None:
                 return False
     return True
 
@@ -195,7 +226,7 @@ def predict_lines(p: Para, avail: float, metrics=None) -> Optional[int]:
         if r.is_tab or not r.text:
             continue
         fam = map_font(r.font, mono=r.mono, serif=r.serif)
-        fn = _b14(fam, r.bold, r.italic)
+        fn = _face(fam, r.bold, r.italic)
         if fn is None:
             return None
         # A run's tracking is part of its width: the renderer adds it after
@@ -205,7 +236,7 @@ def predict_lines(p: Para, avail: float, metrics=None) -> Optional[int]:
         cs = getattr(r, "char_spacing", 0.0) or 0.0
         for w in r.text.replace("\n", " ").split(" "):
             if w:
-                words.append((w, fam, r.size, r.bold, r.italic, cs))
+                words.append((w, fam, shaped_size(r), r.bold, r.italic, cs))
     if not words:
         return 1
     cache = {}
@@ -223,6 +254,16 @@ def predict_lines(p: Para, avail: float, metrics=None) -> Optional[int]:
 
     n, cur, first = 1, 0.0, True
     room0 = avail - max(0.0, p.first_indent)
+    if p.first_indent < 0 and getattr(p, "_list_item", False) \
+            and not any(r.is_tab for r in p.runs):
+        # A typed-marker item ("• text", no tab) starts its first line out
+        # in the hang, so that line has the hang's width MORE room, not
+        # less. (A tabbed marker's text starts at the stop, which is why
+        # this is confined to the typed form.) Measured on x17: the first
+        # bullet's line 1 is 506.5pt against 496.8pt of avail but 508.3pt
+        # of real room; predicted as a faithful two-line flow, it rendered
+        # on one line and lifted everything beneath it a line.
+        room0 = avail - p.first_indent
     for w, fam, sz, bold, italic, cs in words:
         ww = wid(w, fam, sz, bold, italic, cs)
         room = room0 if n == 1 else avail
@@ -252,11 +293,12 @@ def _seg_width(seg_runs, cache, metrics) -> float:
         if r.is_tab or not r.text:
             continue
         fam = map_font(r.font, mono=r.mono, serif=r.serif)
-        if _b14(fam, r.bold, r.italic) is None:
+        if _face(fam, r.bold, r.italic) is None:
             return -1.0
-        key = (r.text, fam, r.size, r.bold, r.italic)
+        sz = shaped_size(r)
+        key = (r.text, fam, sz, r.bold, r.italic)
         if key not in cache:
-            got = metrics.text_width(r.text, fam, r.size, bold=r.bold,
+            got = metrics.text_width(r.text, fam, sz, bold=r.bold,
                                      italic=r.italic)
             if got is None:
                 return -1.0
@@ -278,6 +320,7 @@ def _slice_runs(runs: List[Run], a: int, b: int) -> List[Run]:
                     color=r.color, bold=r.bold, italic=r.italic, mono=r.mono,
                     serif=r.serif, link=r.link, underline=r.underline,
                     superscript=r.superscript, field=r.field,
+                    width_scale=r.width_scale,
                     char_spacing=getattr(r, "char_spacing", 0.0) or 0.0)
             out.append(c)
         pos += n

@@ -24,7 +24,7 @@ from docx.opc.constants import RELATIONSHIP_TYPE as RT
 
 from .layout import (DocLayout, Para, Run, Cell, TableEl, FigureEl, ImageEl,
                      RuleEl, ColBreak, HFPart, Chunk, PageLayout)
-from .fonts import map_font
+from .fonts import east_asian_family, font_table_desc, map_font
 from .metrics import source_line_width
 
 
@@ -108,9 +108,9 @@ def _set_borders(el_pr, borders: dict, tag: str):
     el_pr.append(bel)
 
 
-def _style_run(r, run: Run):
+def _style_run(r, run: Run, profile: str = "standard"):
     f = r.font
-    fam = map_font(run.font, mono=run.mono, serif=run.serif)
+    fam = map_font(run.font, mono=run.mono, serif=run.serif, profile=profile)
     f.name = fam
     rpr = r._element.get_or_add_rPr()
     rf = rpr.find(qn("w:rFonts"))
@@ -119,6 +119,11 @@ def _style_run(r, run: Run):
         rpr.append(rf)
     for attr in ("w:ascii", "w:hAnsi", "w:cs", "w:eastAsia"):
         rf.set(qn(attr), fam)
+    # A CJK run names its own face in the East Asian slot (fonts.east_asian_family
+    # has the measurement); every other run keeps the Latin family in all four.
+    ea = east_asian_family(run.font, run.text, profile)
+    if ea:
+        rf.set(qn("w:eastAsia"), ea)
     f.size = Pt(round(run.size * 2) / 2)
     f.bold = run.bold
     f.italic = run.italic
@@ -133,13 +138,25 @@ def _style_run(r, run: Run):
         sp = OxmlElement("w:spacing")
         sp.set(qn("w:val"), str(int(round(run.char_spacing * 20))))
         rpr.append(sp)
+    ws = getattr(run, "width_scale", 0.0) or 0.0
+    if ws > 0 and abs(ws - 1.0) > 0.004 and profile == "standard":
+        # Horizontal scale, an integer percent, so the run draws at its source
+        # width (metrics.run_width_scale). Schema order puts w:w before w:sz.
+        wel = OxmlElement("w:w")
+        wel.set(qn("w:val"), str(int(round(ws * 100))))
+        sz = rpr.find(qn("w:sz"))
+        if sz is not None:
+            sz.addprevious(wel)
+        else:
+            rpr.append(wel)
     try:
         f.color.rgb = RGBColor.from_string(_hex(run.color))
     except Exception:
         pass
 
 
-def _add_field(par, instr: str, sample: str, style_from: Run):
+def _add_field(par, instr: str, sample: str, style_from: Run,
+               profile: str = "standard"):
     fld = OxmlElement("w:fldSimple")
     fld.set(qn("w:instr"), " %s " % instr)
     r = OxmlElement("w:r")
@@ -151,10 +168,10 @@ def _add_field(par, instr: str, sample: str, style_from: Run):
     # style the inner run
     from docx.text.run import Run as DRun
     dr = DRun(r, par)
-    _style_run(dr, style_from)
+    _style_run(dr, style_from, profile)
 
 
-def _add_hyperlink(par, url: str, runs_and_styles):
+def _add_hyperlink(par, url: str, runs_and_styles, profile: str = "standard"):
     part = par.part
     r_id = part.relate_to(url, RT.HYPERLINK, is_external=True)
     h = OxmlElement("w:hyperlink")
@@ -168,10 +185,11 @@ def _add_hyperlink(par, url: str, runs_and_styles):
         t.text = text
         r.append(t)
         h.append(r)
-        _style_run(DRun(r, par), style)
+        _style_run(DRun(r, par), style, profile)
 
 
-def _add_internal_hyperlink(par, anchor: str, runs_and_styles):
+def _add_internal_hyperlink(par, anchor: str, runs_and_styles,
+                            profile: str = "standard"):
     """A link to a bookmark in this document: w:hyperlink w:anchor.
 
     Deliberately built the same way as _add_hyperlink rather than through
@@ -193,7 +211,7 @@ def _add_internal_hyperlink(par, anchor: str, runs_and_styles):
         t.text = text
         r.append(t)
         h.append(r)
-        _style_run(DRun(r, par), style)
+        _style_run(DRun(r, par), style, profile)
 
 
 def _bookmark_pair(name: str, bid: int):
@@ -601,7 +619,8 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None,
             w = {}
             for r in p.runs:
                 if r.text and not r.is_tab:
-                    key = (r.size, map_font(r.font, mono=r.mono, serif=r.serif))
+                    key = (r.size, map_font(r.font, mono=r.mono, serif=r.serif,
+                                            profile=ctx.output_profile))
                     w[key] = w.get(key, 0) + len(r.text)
             if w:
                 dom, fam = max(w, key=w.get)
@@ -683,7 +702,7 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None,
             while i < len(runs) and runs[i].link == run.link:
                 grp.append((runs[i].text, runs[i]))
                 i += 1
-            _add_hyperlink(par, run.link, grp)
+            _add_hyperlink(par, run.link, grp, ctx.output_profile)
             continue
         if run.dest is not None:
             grp = []
@@ -692,22 +711,22 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None,
                 i += 1
             anchor = ctx.dest_anchors.get(run.dest)
             if anchor:
-                _add_internal_hyperlink(par, anchor, grp)
+                _add_internal_hyperlink(par, anchor, grp, ctx.output_profile)
             else:
                 # A destination whose page holds no flow element to anchor to
                 # (an all-figure page, say). Write the text plainly rather than
                 # a hyperlink pointing at a bookmark that was never emitted.
                 for text, style in grp:
-                    _style_run(par.add_run(text), style)
+                    _style_run(par.add_run(text), style, ctx.output_profile)
             continue
         if run.field:
-            _add_field(par, run.field, "1", run)
+            _add_field(par, run.field, "1", run, ctx.output_profile)
             i += 1
             continue
         if run.is_tab:
             r = par.add_run()
             r.add_tab()
-            _style_run(r, run)
+            _style_run(r, run, ctx.output_profile)
             i += 1
             continue
         # split on newlines -> soft breaks
@@ -715,11 +734,11 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None,
         for j, chunk in enumerate(parts):
             if chunk:
                 r = par.add_run(chunk)
-                _style_run(r, run)
+                _style_run(r, run, ctx.output_profile)
             if j < len(parts) - 1:
                 br = par.add_run()
                 br.add_break(WD_BREAK.LINE)
-                _style_run(br, run)
+                _style_run(br, run, ctx.output_profile)
         i += 1
     bookmark = getattr(p, "_bookmark", None)
     if bookmark and bookmark in ctx.anchor_ids:
@@ -2135,8 +2154,10 @@ def write_docx(lay: DocLayout, out_path: str, dpi: int = 240,
 
 
 # Families that need something other than the default proportional-serif
-# description in the font table. Everything else gets `auto`/`variable`, which is
-# what Word itself writes for a family it has no metrics opinion about.
+# description in the font table. Everything else is described by its class in
+# the family table (`fonts.font_table_desc`), and a family the table does not
+# know gets `auto`/`variable`, which is what Word itself writes for a family it
+# has no metrics opinion about.
 _FONT_DESC = {
     "Courier New": ("modern", "fixed"),
     "Consolas": ("modern", "fixed"),
@@ -2227,10 +2248,14 @@ def _declare_fonts(doc):
 
     body = doc.element.body
     used = {}
+    east = set()
     for rf in body.iter(qn("w:rFonts")):
         name = rf.get(qn("w:ascii")) or rf.get(qn("w:hAnsi"))
         if name:
             used[name] = used.get(name, 0) + 1
+        ea = rf.get(qn("w:eastAsia"))
+        if ea and ea != name:
+            east.add(ea)
     if not used:
         return
     dominant = max(sorted(used), key=lambda k: used[k])
@@ -2249,11 +2274,18 @@ def _declare_fonts(doc):
         try:
             root = etree.fromstring(ft.blob)
             have = {f.get(qn("w:name")) for f in root.findall(qn("w:font"))}
-            for name in sorted(set(used) - {None} - have):
-                fam, pitch = _FONT_DESC.get(name, ("auto", "variable"))
+            for name in sorted((set(used) | east) - {None} - have):
+                # The explicit table first (its entries predate the family
+                # table and are byte-stable); otherwise the family's class --
+                # a Word reader without the face substitutes by family and
+                # pitch, so a missing monospace face is at least replaced by
+                # a monospace one.
+                fam, pitch, charset = font_table_desc(name)
+                if name in _FONT_DESC:
+                    fam, pitch = _FONT_DESC[name]
                 el = etree.SubElement(root, qn("w:font"))
                 el.set(qn("w:name"), name)
-                for tag, val in (("w:charset", "00"), ("w:family", fam),
+                for tag, val in (("w:charset", charset), ("w:family", fam),
                                  ("w:pitch", pitch)):
                     etree.SubElement(el, qn(tag)).set(qn("w:val"), val)
             ft._blob = etree.tostring(root, xml_declaration=True,

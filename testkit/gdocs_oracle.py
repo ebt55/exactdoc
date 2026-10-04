@@ -32,8 +32,13 @@ import harness
 PROJECT = _paths.PROJECT
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_MANIFEST = os.path.join(HERE, "corpus_manifest.json")
-CREDS = os.path.join(PROJECT, "credentials.json")
-TOKEN = os.path.join(PROJECT, "token.json")
+# The same overrides the packaged surface (`exactdoc.gdocs.credential_paths`)
+# honours. Without them the oracle only worked from the one checkout that holds
+# the credentials, so a qualification of a worktree's candidate had to borrow
+# another checkout's copy of this script -- measuring one tree with another's
+# code.
+CREDS = os.environ.get("EXACTDOC_GDOCS_CREDENTIALS") or os.path.join(PROJECT, "credentials.json")
+TOKEN = os.environ.get("EXACTDOC_GDOCS_TOKEN") or os.path.join(PROJECT, "token.json")
 SCOPES = ["https://www.googleapis.com/auth/drive.file"]
 GDOC_MIME = "application/vnd.google-apps.document"
 DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -322,9 +327,22 @@ def _service(interactive=True):
     if os.path.exists(TOKEN):
         creds = Credentials.from_authorized_user_file(TOKEN, SCOPES)
     if not creds or not creds.valid:
+        refreshed = False
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
+            try:
+                creds.refresh(Request())
+                refreshed = True
+            except Exception as exc:
+                # The OAuth app is in testing status, so its refresh token dies
+                # after about seven days and refresh() raises invalid_grant. That
+                # is precisely the case a fresh browser consent repairs, and it
+                # used to crash `auth` itself before the browser was reached --
+                # the only remedy was moving token.json aside by hand.
+                if not interactive:
+                    raise RuntimeError(
+                        "the saved token could not be refreshed (%s); run: "
+                        "gdocs_oracle.py auth" % type(exc).__name__) from exc
+        if not refreshed:
             if not interactive:
                 raise RuntimeError("no valid token; run: gdocs_oracle.py auth")
             if not os.path.exists(CREDS):

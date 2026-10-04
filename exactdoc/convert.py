@@ -130,6 +130,14 @@ def convert(pdf_path: str, out_path: Optional[str] = None,
             print("  advance tracking: %d runs (%s)" % (n, ", ".join(
                 "%s %.2fpt x%.4f" % (k[0], k[1], v) for k, v in
                 sorted(scales.items()))))
+    if opts.output_profile == "standard":
+        # Before the ladder, which must shape the widths the writer will emit.
+        # Independent of the tracking above: w:w restores the half-point size
+        # quantisation (and a monospace family residual) to the font's natural
+        # width at the source size, and the tracking adds the source's own
+        # advance bias on top; together the run draws at its source width.
+        from .metrics import apply_width_scale, get_metrics
+        apply_width_scale(lay, get_metrics())
     if opts.ladder:
         from .ladder import apply_ladder, summarise
         from .metrics import get_metrics

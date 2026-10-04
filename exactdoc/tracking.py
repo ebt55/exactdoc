@@ -195,13 +195,12 @@ def apply_advance_tracking(lay: DocLayout, scales: Dict[Key, float],
     the per-glyph average of the characters that can be measured. Returns the
     number of runs changed.
 
-    The target is the SOURCE width, and the writer does not emit the source
-    size: OOXML stores half-points, so x17's 9.7pt body is written at 9.5pt and
-    its glyphs run 2.1% narrow on top of the 4.4% bias. The tracking is
-    therefore sized against the size that will actually be rendered, and the
-    run is given that size -- which the writer would have emitted anyway -- so
-    that the ladder, which predicts wraps from `Run.size`, measures the run the
-    renderer will set rather than one 2% wider.
+    Only the BIAS is restored here. The half-point quantisation of the size
+    (x17's 9.7pt body is written at 9.5pt, 2.1% narrow) is
+    `metrics.apply_width_scale`'s, which states it as the run's w:w; the w:w
+    brings the glyphs back to the font's natural width at the source size, and
+    this tracking adds the source's own extra advance on top. The ladder sees
+    both (`metrics.shaped_size` plus `Run.char_spacing`).
     """
     if not scales:
         return 0
@@ -220,15 +219,9 @@ def apply_advance_tracking(lay: DocLayout, scales: Dict[Key, float],
         meas = "".join(c for c in r.text if c != "\n" and _measurable(c))
         if not meas:
             continue
-        emitted = round(r.size * 2) / 2          # docxout._quantised_size
-        w_src = metrics.text_width(meas, fam, r.size, bold=r.bold,
-                                   italic=r.italic)
-        w_out = metrics.text_width(meas, fam, emitted, bold=r.bold,
-                                   italic=r.italic)
-        if not w_src or not w_out:
+        w = metrics.text_width(meas, fam, r.size, bold=r.bold, italic=r.italic)
+        if not w:
             continue
-        r.char_spacing = round(r.char_spacing +
-                               (sc * w_src - w_out) / len(meas), 3)
-        r.size = emitted
+        r.char_spacing = round(r.char_spacing + (sc - 1.0) * w / len(meas), 3)
         n += 1
     return n

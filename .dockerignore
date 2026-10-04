@@ -39,6 +39,7 @@ testkit/real/
 testkit/batch/
 testkit/edge/
 testkit/sweep/
+testkit/canon_runs/
 testkit/chromefix_off/
 testkit/chromefix_on/
 testkit/quirks/

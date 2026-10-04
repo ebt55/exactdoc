@@ -113,21 +113,21 @@ class RuleEdgeFields(unittest.TestCase):
                   (1, (505.5, 256.0, 552.3, 264.0)),
                   (2, (505.5, 250.0, 552.3, 258.0))]
         edge = _rule_right_edge(self._ir(2), _hf(2), 595.0, self.WIDE,
-                                self._prose((1, 2)) + fields)
+                                body_boxes=self._prose((1, 2)) + fields)
         self.assertAlmostEqual(edge, 552.8, delta=0.5)
 
     def test_one_cover_page_masthead_is_not_evidence(self):
         masthead = [(1, (513.6, 150.0, 552.6, 158.0))] * 3
         self.assertIsNone(_rule_right_edge(self._ir(3), _hf(3), 595.0,
                                            self.WIDE,
-                                           self._prose((1, 2, 3)) + masthead))
+                                           body_boxes=self._prose((1, 2, 3)) + masthead))
 
     def test_page_furniture_below_the_prose_is_not_evidence(self):
         # an RFC's "Page N", at the foot of every page, outside its prose
         footers = [(pg, (511.5, 760.0, 552.6, 768.0)) for pg in (1, 2, 3)]
         self.assertIsNone(_rule_right_edge(self._ir(3), _hf(3), 595.0,
                                            self.WIDE,
-                                           self._prose((1, 2, 3)) + footers))
+                                           body_boxes=self._prose((1, 2, 3)) + footers))
 
 
 if __name__ == "__main__":
