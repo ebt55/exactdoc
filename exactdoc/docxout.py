@@ -1406,15 +1406,17 @@ def _text_metrics(output_profile: str = "standard"):
 
 
 def _column_one_overflows(ch, content_w: float, lay: DocLayout,
-                          output_profile: str = "standard") -> bool:
-    """Is the first column's content predicted to outgrow its column?"""
+                          output_profile: str = "standard",
+                          widths=None) -> bool:
+    """Is the first column's content predicted to outgrow its column?
+    `widths`: the section's unequal column widths (`_section_widths`)."""
     if ch.n_cols < 2:
         return False
     metrics = _text_metrics(output_profile)
     if metrics is None:
         return False
     gap = ch.col_gap or 0.0
-    col_w = (content_w - gap * (ch.n_cols - 1)) / ch.n_cols
+    col_w = widths[0] if widths else         (content_w - gap * (ch.n_cols - 1)) / ch.n_cols
     if col_w <= 1.0:
         return False
     capacity = lay.page_h - lay.margin_t - lay.margin_b - max(0.0, ch.pre_gap)
@@ -2728,8 +2730,26 @@ def _part_distance(lay: DocLayout, side: str) -> float:
     return next((p.distance for p in parts if p is not None), 36.0)
 
 
+def _section_widths(ch, ctx) -> Optional[tuple]:
+    """A chunk's unequal column widths as the section states them, or None.
+
+    `Chunk.col_widths` is inference's measurement of a page whose columns are
+    not the same width -- a journal title page's metadata sidebar beside its
+    main column (y40, Frontiers: 0.2 and 0.67 of the measure). Written as
+    equal columns, both halves set at the average width: every sidebar line
+    wrapped and every main-column line ran twice as long, and the title page
+    took three rendered pages. Under the gdocs profile the section stays
+    equal-width, as it always has been: Google Docs' handling of unequal
+    columns is unmeasured.
+    """
+    w = getattr(ch, "col_widths", None)
+    if not w or ch.n_cols < 2 or ctx.output_profile == "gdocs":
+        return None
+    return tuple(round(x, 1) for x in w)
+
+
 def _config_section(sec, lay: DocLayout, margin_t=None, cols: int = 1,
-                    col_gap: float = 24.0, margin_lr=None):
+                    col_gap: float = 24.0, margin_lr=None, col_widths=None):
     sec.page_width = Emu(int(lay.page_w * 12700))
     sec.page_height = Emu(int(lay.page_h * 12700))
     # Stated, not inferred from the size: Word prints by w:orient, and a new
@@ -2752,7 +2772,20 @@ def _config_section(sec, lay: DocLayout, margin_t=None, cols: int = 1,
     if cols_el is None:
         cols_el = OxmlElement("w:cols")
         sectPr.append(cols_el)
-    if cols > 1:
+    # A clone of the previous section's sectPr may carry its w:col children.
+    for c in cols_el.findall(qn("w:col")):
+        cols_el.remove(c)
+    if cols > 1 and col_widths and len(col_widths) == cols:
+        cols_el.set(qn("w:num"), str(cols))
+        cols_el.set(qn("w:space"), str(int(round(col_gap * 20))))
+        cols_el.set(qn("w:equalWidth"), "0")
+        for i, w in enumerate(col_widths):
+            c = OxmlElement("w:col")
+            c.set(qn("w:w"), str(int(round(w * 20))))
+            if i < cols - 1:
+                c.set(qn("w:space"), str(int(round(col_gap * 20))))
+            cols_el.append(c)
+    elif cols > 1:
         cols_el.set(qn("w:num"), str(cols))
         cols_el.set(qn("w:space"), str(int(round(col_gap * 20))))
         cols_el.set(qn("w:equalWidth"), "1")
@@ -3642,10 +3675,10 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
     # previously-applied properties between sections
     cur_cfg = {"margin_t": (lay.cover_top if has_cover else None), "cols": 1,
                "gap": 24.0, "margin_lr": (band_bleed if has_cover else None),
-               "hdr0": has_cover, "geo": lay}
+               "hdr0": has_cover, "geo": lay, "widths": None}
 
     def new_section(kind, cols, gap=24.0, margin_t=None, margin_lr=None,
-                    geo=None):
+                    geo=None, widths=None):
         # `geo` is the new section's paper and margins (a DocLayout); a
         # section opened without one keeps the current page's.
         nonlocal sec, cur_cols, cur_cfg
@@ -3656,12 +3689,13 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
         fin = doc.sections[-2]
         _config_section(fin, cur_cfg["geo"], margin_t=cur_cfg["margin_t"],
                         cols=cur_cfg["cols"], col_gap=cur_cfg["gap"],
-                        margin_lr=cur_cfg["margin_lr"])
+                        margin_lr=cur_cfg["margin_lr"],
+                        col_widths=cur_cfg.get("widths"))
         if cur_cfg.get("hdr0"):
             fin.header_distance = Emu(0)
         sec = doc.sections[-1]
         _config_section(sec, geo, margin_t=margin_t, cols=cols, col_gap=gap,
-                        margin_lr=margin_lr)
+                        margin_lr=margin_lr, col_widths=widths)
         # `add_section` hands the new section a clone of the last sectPr. A
         # distinct first page belongs to the document's first page only, and a
         # numbering restart to the section that states it: neither may ride
@@ -3671,7 +3705,8 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
             sec.different_first_page_header_footer = False
         _continue_numbering(sec)
         cur_cfg = {"margin_t": margin_t, "cols": cols, "gap": gap,
-                   "margin_lr": margin_lr, "hdr0": False, "geo": geo}
+                   "margin_lr": margin_lr, "hdr0": False, "geo": geo,
+                   "widths": widths}
         cur_cols = cols
         # Shrink section-break paragraphs to the least height a renderer will
         # give them. That is SECT_BREAK_PARA_PT, not zero -- see the constant.
@@ -3746,6 +3781,7 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
             # page boundary
             after_cover = has_cover and pi == 1
             next_cols = pg.chunks[0].n_cols if pg.chunks else 1
+            next_w = _section_widths(pg.chunks[0], ctx) if pg.chunks else None
             num = None
             while pending_secs and pending_secs[0].start_page <= pg.number:
                 num = pending_secs.pop(0)
@@ -3759,7 +3795,7 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                 pre = pg.chunks[0].pre_gap if pg.chunks else 0.0
                 mt = (glay.margin_t + pre) if (next_cols > 1 and pre > 0.5) else None
                 s = new_section(WD_SECTION.NEW_PAGE, next_cols, gap, margin_t=mt,
-                                geo=glay)
+                                geo=glay, widths=next_w)
                 if after_cover:
                     spec = num if (num is not None and num.parts is not None) \
                         else (num_secs[0] if num_secs and
@@ -3787,12 +3823,12 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                 # under the same cap as every other joined-page gap.
                 if pg.chunks and pg.chunks[0].pre_gap > _JOIN_GAP_CAP_PT:
                     pg.chunks[0].pre_gap = _JOIN_GAP_CAP_PT
-            elif cur_cols != next_cols:
+            elif cur_cols != next_cols or next_w != cur_cfg.get("widths"):
                 gap = pg.chunks[0].col_gap if pg.chunks else 24.0
                 pre = pg.chunks[0].pre_gap if pg.chunks else 0.0
                 mt = (glay.margin_t + pre) if (next_cols > 1 and pre > 0.5) else None
                 new_section(WD_SECTION.NEW_PAGE, next_cols, gap, margin_t=mt,
-                            geo=glay)
+                            geo=glay, widths=next_w)
             else:
                 # Defect catalogue #1: a carrier paragraph spills to the
                 # next page exactly when the page before it fills exactly,
@@ -3819,12 +3855,15 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                                     notes_h.get(pg.number, 0.0),
                                     ctx.output_profile)
         for ci, ch in enumerate(pg.chunks):
-            if ch.n_cols != cur_cols:
+            ch_w = _section_widths(ch, ctx)
+            if ch.n_cols != cur_cols or ch_w != cur_cfg.get("widths"):
                 if ch.pre_gap > 0.5:
                     _spacer(doc, ch.pre_gap - _sect_break_comp(ctx))
-                new_section(WD_SECTION.CONTINUOUS, ch.n_cols, ch.col_gap)
+                new_section(WD_SECTION.CONTINUOUS, ch.n_cols, ch.col_gap,
+                            widths=ch_w)
             drop_col_break = _column_one_overflows(ch, cw_ctx, glay,
-                                                   ctx.output_profile)
+                                                   ctx.output_profile,
+                                                   widths=ch_w)
             for el in ch.elements:
                 if ctx.note_ids and getattr(el, "role", "") == "footnote":
                     continue        # carried by footnotes.xml instead
