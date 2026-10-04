@@ -7785,6 +7785,19 @@ def _to_flow(items, col_l, col_r, doc_rows=None, forced=None):
             el = o
             if isinstance(el, TableEl):
                 el.left_indent = max(0.0, round((el.bbox[0] if el.bbox else col_l) - col_l, 1))
+                # A table whose borders hang left of the column by no more
+                # than its first column's left pad -- its text on the column,
+                # the way Word draws every table -- records the hang. c3's
+                # tables stand 7.5pt left of their text column; clamped at
+                # the column, LibreOffice drew them 7.7pt right of the source
+                # (within2pt 0.000) while Word 2010 layout, which hangs the
+                # border by the cell margin, drew them right.
+                hang = round(col_l - el.bbox[0], 1) if el.bbox else 0.0
+                lead = [r[0].pad[1] for r in el.rows
+                        if r and r[0] is not None and len(r[0].pad) >= 4]
+                if el.role not in ("box", "cards") and hang > 0.5 and lead \
+                        and hang <= min(lead) + 1.0:
+                    el.hang_left = hang
                 # A panel wider than its column bleeds where the source drew
                 # it: y46's full-bleed summary band (0-595 on a 28pt margin)
                 # started at the margin and ran 28pt off the paper.

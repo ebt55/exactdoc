@@ -173,6 +173,12 @@ class TableEl:
     space_after: float = 0.0
     bbox: Optional[BBox] = None
     role: str = "table"          # table|box|code|band|cards|quote
+    # How far the table's drawn left edge stands LEFT of its column while its
+    # text starts at the column: the hanging border Word itself draws, by the
+    # first cell's left margin (5.4pt by default). `left_indent` stays clamped
+    # at the column; the standard profile's writer places the edge here
+    # (`write_table`), the gdocs profile does not read it.
+    hang_left: float = 0.0
     # True when the column boundaries were READ FROM DRAWN EDGES (grid
     # lines), rather than inferred from text clustering. A drawn edge is
     # the author's own statement of where the column is; text clustering is

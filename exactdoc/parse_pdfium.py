@@ -26,7 +26,7 @@ from typing import List, Optional
 import pypdfium2 as pdfium
 import pypdfium2.raw as raw
 
-from .fonts import font_traits
+from .fonts import decode_font_name, font_traits
 from .model import (DocIR, PageIR, TextBlock, Line, Span, DrawCmd, ImageObj,
                     LinkDest, UndecodedGlyph, rounded_rect_bbox, xml_safe_text,
                     xml_safe_uri)
@@ -493,8 +493,10 @@ def _page_chars(textpage, frame, vis=None, objs=None) -> List[_Char]:
         key = buf.raw[:max(0, ln - 1)] if ln else b""
         font = font_names.get(key)
         if font is None:
-            font = font_names[key] = _SUBSET_RE.sub(
-                "", key.decode("utf-8", "replace"))
+            # decode_font_name: UTF-8, else a CJK locale's legacy encoding
+            # when that yields a face the family table knows (y51 names MS
+            # Gothic in Shift-JIS).
+            font = font_names[key] = _SUBSET_RE.sub("", decode_font_name(key))
         cr.value = cg.value = cb.value = ca.value = 0
         get_fill(tp, i, p_cr, p_cg, p_cb, p_ca)
         # The LOOSE box is derived from the font's metrics; the tight box is
