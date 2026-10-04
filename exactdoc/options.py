@@ -78,6 +78,11 @@ OUTPUT_PROFILES = ("standard", "gdocs")
 #               text and marker where the typed form put them.
 #   footnotes   source footnotes as word/footnotes.xml notes referenced from
 #               the text, instead of body paragraphs at the page bottom.
+#   anchored    a slide's pictures and drawn figures anchored to the page at
+#               their source position (wp:anchor, no wrap) instead of stacked
+#               in the flow; inference reads a slide only for a profile that
+#               has it (infer._deck_pages). Docs' handling of page-anchored
+#               pictures is unmeasured, so the gdocs profile keeps the flow.
 #
 # Google Docs keeps the typed forms until a live pass shows its importer
 # places them correctly. That is not caution for its own sake: a list-indent
@@ -86,7 +91,7 @@ OUTPUT_PROFILES = ("standard", "gdocs")
 # capability ships with, testkit/gdocs_probe_lists_notes.py). Flipping either
 # entry below is the whole change once that evidence exists.
 PROFILE_CAPABILITIES = {
-    "standard": frozenset({"numbering", "footnotes"}),
+    "standard": frozenset({"numbering", "footnotes", "anchored"}),
     "gdocs": frozenset(),
 }
 

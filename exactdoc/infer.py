@@ -11,13 +11,14 @@ from .model import (DocIR, PageIR, TextBlock, Line, Span, DrawCmd, ImageObj,
                     BBox, bbox_union, bbox_overlap, bbox_area, contains,
                     ink_extent)
 from .layout import (Run, Para, Cell, TableEl, FigureEl, ImageEl, RuleEl,
-                     ColBreak, Chunk, PageLayout, HFPart, DocLayout)
+                     ColBreak, Chunk, PageLayout, HFPart, DocLayout, FloatEl)
 from . import hyphen
 from .lists import assign_lists
 from .notes import bind_page_notes, find_page_notes, number_footnotes
 
 BULLET_CHARS = set("•◦▪‣·-–—*➤►○●♦")
 NUM_RE = re.compile(r"^\(?(\d{1,3}|[a-zA-Z]|[ivxlIVXL]{1,5})[\.\)\:]$")
+SECTION_NUM_RE = re.compile(r"^\d{1,3}(\.\d{1,3}){1,4}\.?$")   # "2.5", "2.5.1."
 
 # --- figure-detection budget ----------------------------------------------
 # A figure region is rasterised, so anything it swallows stops being editable
@@ -154,6 +155,9 @@ HEADED_ROW_GAP = 2.0
 RULES_CELL_GAP_EM = 1.10
 RULES_MIN_GUTTER = 3.0
 SPACE_EM = 0.28             # a word space in a proportional face, in em
+# An hline wider than 0.6 of the column is still an underline when it runs
+# under (nearly) the whole of one span -- see the underline pre-pass.
+UNDERLINE_SPAN_SHARE = 0.9
 
 
 def _thin(d: DrawCmd) -> bool:
@@ -970,6 +974,46 @@ def _opens_note(ln: Line) -> bool:
     return first is not None and getattr(first, "_note_mark", False)
 
 
+def _author_break(a: Line, b: Line, right: float, lead: float) -> bool:
+    """Did the author end the paragraph at `a`? The next line's first word
+    would have fitted on it.
+
+    A paragraph is a line run that the line breaker filled: it moves a word
+    down only when the word does not fit. Where `a` plus the space plus `b`'s
+    first word stays inside the block's right edge, the break was the
+    author's. It is the only paragraph evidence in text set with no space
+    between paragraphs -- double-spaced pleadings mark a new paragraph by the
+    short line before its indent alone, and on y63_court_pleading_word365
+    (24.1pt pitch throughout) every page was otherwise one paragraph with its
+    headings and sub-paragraphs fused into it. `right` is the furthest line end
+    in the block, which can only sit inside the true column edge, so the test
+    errs towards joining. Only where the pitch leaves no room for paragraph
+    spacing to say it (DOUBLE_SPACED_PITCH): a single-spaced document states
+    its paragraphs in its gaps, and the fit test, whose word width is an
+    estimate, has no business second-guessing those.
+    """
+    size = max((s.size for s in a.spans if s.text.strip()), default=0.0)
+    if size <= 0 or lead < DOUBLE_SPACED_PITCH * size:
+        return False
+    if b.baseline - a.baseline < 0.5 * size:
+        return False                    # the same row: a marker and its text
+    at = a.text.rstrip()
+    if not at or at.endswith(("-", "­")):
+        return False                    # a hyphenated word runs on
+    words = b.text.split()
+    if not words:
+        return False
+    bt = b.text.strip()
+    first_w = (b.bbox[2] - b.bbox[0]) * len(words[0]) / max(1, len(bt))
+    return a.bbox[2] + SPACE_EM * size + first_w < right - 1.0
+
+
+# A line pitch at least this many times the type size is double-ish spacing
+# (Word's "double" at 12pt is 27.6pt = 2.3em; y63 sets 14.04pt type at
+# 24.1pt = 1.72em). Single spacing runs 1.15-1.25em.
+DOUBLE_SPACED_PITCH = 1.6
+
+
 def _split_lines_to_paras(lines: List[Line],
                           list_starts: Optional[set] = None) -> List[List[Line]]:
     """Group a flat list of lines into paragraphs on large baseline gaps,
@@ -1003,6 +1047,7 @@ def _split_lines_to_paras(lines: List[Line],
                 best, n = s.size, len(s.text)
         return best
 
+    right = max(l.bbox[2] for l in lines)
     groups, cur = [], [lines[0]]
     for i, ln in enumerate(lines[1:]):
         sz_prev = dom_size(cur[-1])
@@ -1029,7 +1074,7 @@ def _split_lines_to_paras(lines: List[Line],
                       and track_prev != track_new)
         if deltas[i] > max(lead * 1.55, lead + 4.0) or size_jump or track_jump \
                 or _line_starts_with_marker(ln) or _line_key(ln) in list_starts \
-                or _opens_note(ln):
+                or _opens_note(ln) or _author_break(cur[-1], ln, right, lead):
             groups.append(cur)
             cur = [ln]
         else:
@@ -1287,15 +1332,20 @@ def _norm_text(t: str) -> str:
     return re.sub(r"\d+", "#", t.strip())
 
 
+def _no_furniture() -> dict:
+    """detect_hf's result for a document read as having no furniture."""
+    return {
+        "consumed_text": defaultdict(set), "consumed_draw": defaultdict(set),
+        "band_first": None, "band_def": None, "rep_lines": defaultdict(list),
+        "rep_draws": defaultdict(list), "line_roles": {}, "gutter": {},
+    }
+
+
 def detect_hf(ir: DocIR):
     n = len(ir.pages)
     H = ir.pages[0].height if ir.pages else 792
     W = ir.pages[0].width if ir.pages else 612
-    res = {
-        "consumed_text": defaultdict(set), "consumed_draw": defaultdict(set),
-        "band_first": None, "band_def": None, "rep_lines": defaultdict(list),
-        "rep_draws": defaultdict(list), "line_roles": {},
-    }
+    res = _no_furniture()
     if n == 0:
         return res
 
@@ -1440,6 +1490,20 @@ def detect_hf(ir: DocIR):
                 bi, ln = per_page[pg][0]
                 res["consumed_text"][pg].add((bi, id(ln)))
 
+    _mirrored_furniture(ir, res, TOPZ, BOTZ)
+    _line_number_gutters(ir, res)
+    # A thin rule running the page's whole height is page furniture: pleading
+    # paper's margin rules (y63: x 64.8, 68.4 and 581.2, y 0 to 792 on every
+    # page). Left in, each one met the body's own rules and closed a lattice:
+    # the left rule, the caption's bracket and an underline 133pt lower made
+    # a "grid table" of the text between them.
+    for p in ir.pages:
+        for di, d in enumerate(p.drawings):
+            if d.shape in ("vline", "line") and \
+                    (d.bbox[3] - d.bbox[1]) >= PAGE_RULE_FRAC * p.height and \
+                    (d.bbox[2] - d.bbox[0]) <= 2.0:
+                res["consumed_draw"][p.number].add(di)
+
     # page-1 band text
     if band1_bb is not None:
         for bi, blk in enumerate(ir.pages[0].blocks):
@@ -1491,6 +1555,304 @@ def detect_hf(ir: DocIR):
     # the source's own per-page furniture rules. Reverted; the +2% class
     # is bounded and recorded as such.
     return res
+
+
+# Running heads and feet are set further into the page than the signature pass's
+# zones reach, and books and manuals set them MIRRORED -- the verso's text on
+# even pages, the recto's on odd ones, each on half the pages and so under the
+# 60% bar. Measured on y36_lo_writer_guide (LibreOffice, A4): "12 | Chapter 1
+# Introducing Writer" on even pages and "Parts of the main Writer window | 11"
+# on odd, both at y 772.0 -- 70pt above the paper's edge, outside BOTZ (64) --
+# and in the flow each closed its page with a line the body had no room for:
+# 25 pages rendered 42, nearly every one with its footer alone on a page of
+# its own. Within FURNITURE_BAND_PT of an edge a line whose text (digits
+# aside) repeats at the same place on most pages of either parity is
+# furniture. Text identity is what makes the wider band safe: the geometry-
+# only pass stays in the narrow zones, where a body text grid's last line
+# cannot reach.
+FURNITURE_BAND_PT = 100.0
+
+
+def _mirrored_furniture(ir: DocIR, res: dict, topz: float, botz: float) -> None:
+    """Consume (without emitting) running heads and feet the signature pass
+    could not see: further in than its zones, or on one page parity only.
+    Emitting them would need an even/odd header pair; a source page number
+    printed in a flow that no longer paginates like the source is wrong
+    anyway (see the VARYING pass)."""
+    n = len(ir.pages)
+    if n < 4:
+        return
+    sigs = defaultdict(list)
+    taken = defaultdict(list)          # {page: lines this pass consumed}
+    for p in ir.pages:
+        ct = res["consumed_text"][p.number]
+        lines = [ln for blk in p.blocks for ln in blk.lines]
+        for bi, blk in enumerate(p.blocks):
+            for ln in blk.lines:
+                if (bi, id(ln)) in ct or not ln.text.strip():
+                    continue
+                # A running line stands alone on its baseline; a repeated
+                # table header row (a spreadsheet's, on every page) does not.
+                if any(o is not ln and abs(o.baseline - ln.baseline) < 2.0
+                       for o in lines):
+                    continue
+                y0, y1 = ln.bbox[1], ln.bbox[3]
+                if y1 <= FURNITURE_BAND_PT:
+                    zone = "top"
+                elif y0 >= p.height - FURNITURE_BAND_PT:
+                    zone = "bot"
+                else:
+                    continue
+                sig = (zone, round(y0 / 3), _norm_text(ln.text)[:40])
+                sigs[sig].append((p.number, bi, ln))
+    by_parity = [sum(1 for p in ir.pages if p.number % 2 == k) for k in (0, 1)]
+    _front_matter_folios(ir, res, taken)
+    # Folio lines whose TEXT varies -- the recto's running head is the
+    # section's name ("Parts of the main Writer window | 11", "Creating a new
+    # document | 15") -- still carry the page's own number, at one place on
+    # the page. That number is the evidence the text cannot give: the same
+    # place and size on most pages, each line printing its page's number (or
+    # the number at a fixed offset, front matter counted apart).
+    geo = defaultdict(list)
+    for (zone, ybin, _t), occ in sigs.items():
+        for pg, bi, ln in occ:
+            size = max((s.size for s in ln.spans if s.text.strip()), default=0)
+            nums = {int(v) for v in re.findall(r"\d+", ln.text) if len(v) <= 4}
+            geo[(zone, ybin, round(size))].append((pg, bi, ln, nums))
+    need = max(3, int(round(0.6 * n)))
+    for key, occ in geo.items():
+        per_page = defaultdict(list)
+        for o in occ:
+            per_page[o[0]].append(o)
+        single = [v[0] for v in per_page.values() if len(v) == 1]
+        if len(single) < need:
+            continue
+        offsets = Counter(off for pg, _bi, _ln, nums in single
+                          for off in {pg - v for v in nums})
+        if not offsets:
+            continue
+        off, cnt = offsets.most_common(1)[0]
+        if cnt < need:
+            continue
+        for pg, bi, ln, nums in single:
+            if (pg - off) in nums:
+                res["consumed_text"][pg].add((bi, id(ln)))
+                taken[pg].append(ln)
+    for sig, occ in sigs.items():
+        pages = {o[0] for o in occ}
+        if len(pages) != len(occ):
+            continue            # twice on one page: content, not a running line
+        hit = len(pages) >= max(2, int(round(0.6 * n)))
+        for k in (0, 1):
+            on = sum(1 for pg in pages if pg % 2 == k)
+            if on >= max(2, int(round(0.6 * by_parity[k]))) and \
+                    on == len(pages):
+                hit = True
+        if hit:
+            for pg, bi, ln in occ:
+                res["consumed_text"][pg].add((bi, id(ln)))
+                taken[pg].append(ln)
+    # The rule a running line is set against goes with it: y36's footers sit
+    # 1.4pt under a column-wide hline, which left alone in the flow closed
+    # each page on a ruled line the body had no room for. Only the rules
+    # touching a line THIS pass took: the narrow zones' mirrored rules are a
+    # measured dead end (see the NOTE at the end of detect_hf).
+    for p in ir.pages:
+        if not taken.get(p.number):
+            continue
+        for di, d in enumerate(p.drawings):
+            if d.shape != "hline" or di in res["consumed_draw"][p.number]:
+                continue
+            for ln in taken[p.number]:
+                if min(abs(d.bbox[1] - ln.bbox[3]), abs(ln.bbox[1] - d.bbox[3])) \
+                        <= RUNNING_RULE_GAP_PT and d.bbox[0] < ln.bbox[2] and \
+                        d.bbox[2] > ln.bbox[0]:
+                    res["consumed_draw"][p.number].add(di)
+                    break
+
+
+_BARE_FOLIO = re.compile(r"^(\d{1,4}|[ivxlcdm]{1,7}|[IVXLCDM]{1,7})$")
+
+
+def _front_matter_folios(ir: DocIR, res: dict, taken) -> None:
+    """The folios the other passes leave behind: a front matter's roman
+    numbers, set where the body's arabic ones are.
+
+    The body's folios are consumed by signature -- "1".."170" normalise to one
+    signature on most pages -- and the front matter's "iii", "iv" are too few
+    to reach any bar of their own. Measured on y24_pandoc_manual: its
+    contents pages' "iii".."viii" at y 744.5, the place every body folio
+    sits; left in the flow, "iii" went over its page and pushed the whole
+    manual one page late. A bare number (arabic or roman) at a place whose
+    other occupants, one per page on most pages, are already furniture, is
+    furniture too.
+    """
+    n = len(ir.pages)
+    need = max(3, int(round(0.6 * n)))
+    geo = defaultdict(list)
+    for p in ir.pages:
+        ct = res["consumed_text"][p.number]
+        for bi, blk in enumerate(p.blocks):
+            for ln in blk.lines:
+                if not ln.text.strip():
+                    continue
+                y0, y1 = ln.bbox[1], ln.bbox[3]
+                if y1 <= FURNITURE_BAND_PT:
+                    zone = "top"
+                elif y0 >= p.height - FURNITURE_BAND_PT:
+                    zone = "bot"
+                else:
+                    continue
+                size = max((s.size for s in ln.spans if s.text.strip()), default=0)
+                geo[(zone, round(y0 / 3), round(size))].append(
+                    (p.number, bi, ln, (bi, id(ln)) in ct))
+    for occ in geo.values():
+        per_page = Counter(o[0] for o in occ)
+        single = [o for o in occ if per_page[o[0]] == 1]
+        if len(single) < need or \
+                sum(1 for o in single if o[3]) < 0.5 * len(single):
+            continue
+        for pg, bi, ln, done in single:
+            if not done and _BARE_FOLIO.match(ln.text.strip()):
+                res["consumed_text"][pg].add((bi, id(ln)))
+                taken[pg].append(ln)
+
+
+# A rule within this distance of a running line belongs to it (y36: 1.4pt).
+RUNNING_RULE_GAP_PT = 6.0
+
+
+# A line-number gutter (pleading paper, bills; parse_pdfium splits each number
+# off the line it numbers): bare integers sharing a right edge, counting up by
+# one down the page. Measured on y63_court_pleading_word365: 1-28 at a 24.1pt
+# pitch, right edge 57.8, on all five pages, left of a 72pt body margin. In the
+# body flow they were 28 one-word paragraphs a page and the margin cluster's
+# competition; they are page furniture, and the header carries them where the
+# profile can position a frame (see build_gutter_part).
+GUTTER_MIN_ROWS = 8          # parse_pdfium.LINE_NUMBER_MIN_ROWS
+GUTTER_X_TOL = 1.0           # pt, shared right edge
+GUTTER_RUN_SHARE = 0.8       # adjacent rows counting up by exactly one
+GUTTER_CLEAR_PT = 3.0        # parse_pdfium.LINE_NUMBER_CLEAR_PT
+
+
+def _page_number_gutter(p: PageIR):
+    """[(block index, line, value)] of `p`'s line-number gutter, or []."""
+    cands = []
+    for bi, blk in enumerate(p.blocks):
+        for ln in blk.lines:
+            t = ln.text.strip()
+            if 1 <= len(t) <= 3 and t.isdigit() and ln.horizontal:
+                cands.append((bi, ln, int(t)))
+    if len(cands) < GUTTER_MIN_ROWS:
+        return []
+    cands.sort(key=lambda c: c[1].bbox[2])
+    best, cur = [], [cands[0]]
+    for c in cands[1:]:
+        if c[1].bbox[2] - cur[-1][1].bbox[2] <= GUTTER_X_TOL:
+            cur.append(c)
+        else:
+            best = max(best, cur, key=len)
+            cur = [c]
+    best = max(best, cur, key=len)
+    if len(best) < GUTTER_MIN_ROWS:
+        return []
+    best.sort(key=lambda c: c[1].baseline)
+    seq = [v for _, _, v in best]
+    if sum(1 for a, b in zip(seq, seq[1:]) if b == a + 1) < \
+            GUTTER_RUN_SHARE * (len(seq) - 1):
+        return []
+    # A gutter numbers the page: it starts again at 1, and it stands in the
+    # margin, clear of every other line on the page. A table's index column
+    # counts up too -- but on from the page before (c3_tables: 1-9, 10-38,
+    # 39-46) and beside the paragraphs above the table.
+    if seq[0] != 1:
+        return []
+    x1 = max(c[1].bbox[2] for c in best)
+    ids = {id(c[1]) for c in best}
+    if any(ln.bbox[0] < x1 + GUTTER_CLEAR_PT
+           for blk in p.blocks for ln in blk.lines if id(ln) not in ids):
+        return []
+    return best
+
+
+# Two pages' gutters are the same gutter when every number sits within this
+# of the other's (pt) -- pleading paper prints one, identical, on every page.
+GUTTER_SAME_PT = 1.5
+
+
+def _header_gutter(lay: DocLayout, gutter: dict, n_pages: int) -> None:
+    """Put a page-locked line-number gutter back as header furniture.
+
+    The gutter left the body (`_line_number_gutters`); where every page
+    carries the same one -- pleading paper's 1-28, at the same places -- it is
+    one framed paragraph in the header (w:framePr at its page position, one
+    line per number at the gutter's own pitch), which is how a word processor's
+    pleading template draws it: on every page, outside the text. Measured in
+    LibreOffice 24 (probe frametest4): drawn on every page within 1.8pt of
+    the source's numbers, the body unmoved. A gutter that differs between
+    pages stays consumed and unprinted, as before.
+    """
+    if not gutter or len(gutter) < max(1, int(round(0.6 * n_pages))):
+        return
+    seqs = list(gutter.values())
+    ref = seqs[0]
+    for other in seqs[1:]:
+        if len(other) != len(ref) or any(
+                a[1] != b[1] or abs(a[0].baseline - b[0].baseline) > GUTTER_SAME_PT
+                for a, b in zip(ref, other)):
+            return
+    lines = [ln for ln, _v in ref]
+    bases = [ln.baseline for ln in lines]
+    pitches = [b - a for a, b in zip(bases, bases[1:])]
+    if not pitches:
+        return
+    pitch = round(median(pitches), 2)
+    if max(abs(p - pitch) for p in pitches) > GUTTER_SAME_PT:
+        return                  # numbers off the one grid: not drawable as lines
+    first = lines[0].spans[0]
+    size = first.size
+    runs = []
+    for i, ln in enumerate(lines):
+        if i:
+            runs.append(Run(text="\n", font=first.font, size=size,
+                            color=first.color))
+        runs.extend(runs_from_spans(ln.spans))
+    x0 = min(ln.bbox[0] for ln in lines)
+    x1 = max(ln.bbox[2] for ln in lines)
+    para = Para(runs=runs, align="right", leading=pitch, line_breaks=True,
+                src_lines=len(lines))
+    para._vis_lines = len(lines)
+    para._b1, para._size1 = bases[0], size
+    top, _h = _para_box(para)
+    # the frame's width is the numbers' own, plus a digit of slack on the left
+    para.frame = (round(x0 - 0.6 * size, 1), round(top, 1),
+                  round(x1 - x0 + 0.6 * size, 1))
+    tail = Para(runs=[Run(text="", font=first.font, size=1.0,
+                          color=first.color)], leading=1.0)
+    parts = [lay.header_default]
+    if lay.different_first:
+        parts.append(lay.header_first)
+    for i, part in enumerate(parts):
+        if part is None:
+            part = HFPart(elements=[], distance=min(36.0, round(top, 1)))
+            if i == 0:
+                lay.header_default = part
+            else:
+                lay.header_first = part
+        # A frame is drawn on the page of the paragraph after it: the tail.
+        part.elements.extend([copy.deepcopy(para), copy.deepcopy(tail)])
+
+
+def _line_number_gutters(ir: DocIR, res: dict) -> None:
+    """Consume every page's line-number gutter as furniture (res['gutter'])."""
+    res["gutter"] = {}
+    for p in ir.pages:
+        g = _page_number_gutter(p)
+        if not g:
+            continue
+        res["gutter"][p.number] = [(ln, v) for _, ln, v in g]
+        for bi, ln, _ in g:
+            res["consumed_text"][p.number].add((bi, id(ln)))
 
 
 def _pagefields(runs: List[Run], roles_for_line: Optional[List[str]],
@@ -1899,7 +2261,12 @@ def _classify_cluster(cl) -> str:
         x1s = _cluster([f.bbox[2] for f in fills], 3.0)
         if len(x0s) == 1 and len(x1s) == 1:
             return "stripes"
-    if len(fills) == 1:
+    if len(fills) == 1 and not (_is_glyphlike(fills[0]) and len(ds) > 1):
+        # ...but not when that one "box" is the joint square where the
+        # cluster's rules meet: Word paints a 0.5pt square at the corner of a
+        # pleading caption's bracket (y63: an hline and a vline meeting at
+        # 319.0, 480.8), and as the box it took the text BELOW the bracket
+        # into a 254pt-wide cell.
         return "boxlike"
     # "lots of primitives" only implies artwork when the primitives are
     # substantial. Four hairline rules are a ruled table, not a chart.
@@ -3495,24 +3862,29 @@ def _figure_in_budget(cl_ds, blocks, images, consumed, page, text_area):
 
 
 # ------------------------------------------------------------------ main
-def infer(ir: DocIR) -> DocLayout:
+def infer(ir: DocIR, anchored: bool = True) -> DocLayout:
     """DocIR -> DocLayout.
 
     The document's hyphenation evidence is built first and made current for
     the whole inference, so every line join -- paragraphs, cells, headers,
     merged flow -- resolves its line-end hyphen against the same vocabulary
     (see exactdoc.hyphen and _soft_join).
+
+    `anchored`: the output profile positions graphics on the page (options
+    capability "anchored"), so a slide's pictures leave the flow
+    (`_deck_pages`). False keeps every graphic in the flow, as the Google Docs
+    profile always has.
     """
     token = hyphen.activate(hyphen.HyphenEvidence.from_ir(ir) if ir.pages else None)
     try:
-        lay = _infer(ir)
+        lay = _infer(ir, anchored)
     finally:
         hyphen.deactivate(token)
     hyphen.mark_unhyphenated(lay)
     return lay
 
 
-def _infer(ir: DocIR) -> DocLayout:
+def _infer(ir: DocIR, anchored: bool = True) -> DocLayout:
     lay = DocLayout(src_path=ir.path)
     lay.font_advances = getattr(ir, "font_advances", None) or {}
     if not ir.pages:
@@ -3521,6 +3893,15 @@ def _infer(ir: DocIR) -> DocLayout:
     lay.page_w, lay.page_h = p0.width, p0.height
     n_pages = len(ir.pages)
     hf = detect_hf(ir)
+    deck = _deck_pages(ir, hf) if anchored else frozenset()
+    if deck and len(deck) == n_pages:
+        # A deck has no running furniture to speak of: what repeats is each
+        # slide's own text box (y34's deck title at 26-54pt, beside the slide
+        # title at 62pt; its slide number beside a footer URL). As a header
+        # part the 28pt title reached 66pt down a page whose body starts at
+        # 62, every renderer pushed the slide's body below it, and each
+        # slide's last line went over the page. Every slide keeps its own.
+        hf = _no_furniture()
     groups = _size_groups(ir.pages)
     _measure_margins(lay, ir, hf, groups[0])
     # Pages of another size or orientation are measured on their own: a
@@ -3532,7 +3913,14 @@ def _infer(ir: DocIR) -> DocLayout:
         _measure_margins(g, ir, hf, grp)
         for p in grp:
             own_geometry[p.number] = g
-    _infer_body(lay, ir, hf, n_pages, own_geometry)
+    if deck and len(deck) == n_pages:
+        # A slide's flow has no footer part to protect (above), and its own
+        # footer row sits where the source put it: y34's slide numbers end
+        # 14.6pt above the paper's edge, under a 14pt reserve, so half a
+        # point of flow drift sent one slide in two onto a page of its own.
+        for g in [lay] + list(own_geometry.values()):
+            g.margin_b = min(g.margin_b, DECK_MARGIN_B)
+    _infer_body(lay, ir, hf, n_pages, own_geometry, deck, anchored)
     return lay
 
 
@@ -3561,6 +3949,48 @@ def _size_groups(pages: List[PageIR]) -> List[List[PageIR]]:
     if len(groups) == 1:
         return [pages]
     return groups
+
+
+_NUMERIC_CELL = re.compile(r"^[£$€¥(]?[-−]?[\d,]+(\.\d+)?%?\)?$")
+NUMERIC_EDGE_MIN = 20            # values in one right-aligned column
+FIGURE_COLUMN_SHARE = 0.8        # blocks of figures that make a "column" a value column
+NUMERIC_EDGE_TOL = 1.5           # pt; right-aligned values share their edge
+
+
+def _numeric_column_edge(body_lines, n_wide: int, page_w: float):
+    """The right edge of a right-aligned column of figures that the wide-line
+    estimate never sees, or None.
+
+    A spreadsheet export has no prose to measure: y35 (Excel for Microsoft
+    365, A4) prints a label column and two columns of rates, 2025/26 ending
+    at x 387 and 2026/27 at 465, on all 14 pages. Its wide lines are labels
+    welded to the first rate, so the content edge came out at 387 and the
+    second column -- 348 figures -- fell outside the text column; the page
+    was then read as two text columns, and 14 pages rendered as 15 with the
+    figures stacked apart from their labels. A column of figures counts only
+    where it outnumbers the wide lines, so a report's table hanging past its
+    prose column cannot widen the prose.
+    """
+    xs = sorted(l.bbox[2] for _pg, l in body_lines
+                if _NUMERIC_CELL.match(l.text.strip()))
+    if len(xs) < NUMERIC_EDGE_MIN:
+        return None
+    clusters, cur = [], [xs[0]]
+    for x in xs[1:]:
+        if x - cur[-1] <= NUMERIC_EDGE_TOL:
+            cur.append(x)
+        else:
+            clusters.append(cur)
+            cur = [x]
+    clusters.append(cur)
+    edges = [max(c) for c in clusters if len(c) >= max(NUMERIC_EDGE_MIN, n_wide)]
+    edges = [e for e in edges if page_w - e >= 14.0]
+    return max(edges) if edges else None
+
+
+# A drawing at least this tall a share of its page spans it: page furniture
+# (a margin rule, a frame edge), never the edge of the body.
+PAGE_RULE_FRAC = 0.9
 
 
 def _measure_margins(lay: DocLayout, ir: DocIR, hf: dict,
@@ -3639,6 +4069,12 @@ def _measure_margins(lay: DocLayout, ir: DocIR, hf: dict,
         mirror = lay.page_w - lay.margin_l
         mr = mirror if wrap_edge <= mirror <= wrap_edge + WRAP_EDGE_MIRROR_PT \
             else wrap_edge + 0.5
+    # And once more from the figures: a spreadsheet's right-aligned value
+    # column is the content's edge even where no line is wide.
+    base_edge = mr if mr is not None else lay.page_w - lay.margin_l
+    num_edge = _numeric_column_edge(body_lines, len(wide_x1), lay.page_w)
+    if num_edge is not None and num_edge > base_edge + WRAP_EDGE_MIN_GAIN:
+        mr = num_edge + 0.5
     lay.margin_r = round(lay.page_w - mr, 1) if mr is not None else lay.margin_l
     lay.margin_r = max(14.0, lay.margin_r)
     # Every row candidate in the document, for `_row_pairs`' cross-page
@@ -3657,8 +4093,15 @@ def _measure_margins(lay: DocLayout, ir: DocIR, hf: dict,
               if (bi, id(l)) not in ct]
         ye = [l.bbox[3] for bi, b in enumerate(p.blocks) for l in b.lines
               if (bi, id(l)) not in ct]
-        ys += [d.bbox[1] for di, d in enumerate(p.drawings) if di not in cd]
-        ye += [d.bbox[3] for di, d in enumerate(p.drawings) if di not in cd]
+        # A rule running the page's full height (pleading paper's margin
+        # rules: y63 draws three, y 0 to 792, on every page) bounds nothing:
+        # it set the top margin to 10pt and the bottom to 14, under a
+        # two-line running head and a two-line footer, and each page's body
+        # was pushed past its foot (5 pages rendered 9).
+        drawn = [d for di, d in enumerate(p.drawings) if di not in cd and
+                 (d.bbox[3] - d.bbox[1]) < PAGE_RULE_FRAC * p.height]
+        ys += [d.bbox[1] for d in drawn]
+        ye += [d.bbox[3] for d in drawn]
         if ys and not (p.number == 1 and band1_h > 45):
             tops.append(min(ys))
         if ye:
@@ -3682,7 +4125,9 @@ def _geometry(lay: DocLayout, own: Optional[DocLayout]) -> DocLayout:
 
 
 def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
-                own_geometry: Dict[int, DocLayout]) -> None:
+                own_geometry: Dict[int, DocLayout],
+                deck: frozenset = frozenset(),
+                anchored: bool = True) -> None:
     # Was the source set with hyphenation? This was `>= 6` hyphenated line
     # pairs anywhere, a count that cannot tell a hyphenating document from a
     # long one full of compounds: SP 800-63B reached it on `Out-of-/Band` and
@@ -3747,6 +4192,8 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
     else:
         lay.header_default = hdr1
         lay.footer_default = ftr1
+    if anchored:
+        _header_gutter(lay, hf.get("gutter") or {}, n_pages)
 
     # ---------- per-page content
     body_size = _body_font_size(ir, hf)
@@ -3779,13 +4226,22 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
         for di, d in enumerate(p.drawings):
             if di in cd or d.shape != "hline":
                 continue
-            if (d.bbox[3] - d.bbox[1]) > 2.2 or (d.bbox[2] - d.bbox[0]) > 0.6 * content_w:
+            if (d.bbox[3] - d.bbox[1]) > 2.2:
                 continue
+            dw = d.bbox[2] - d.bbox[0]
             hit = False
             for ln in _all_lines(blocks):
                 for s in ln.spans:
                     if s.bbox[0] - 2.5 <= d.bbox[0] and d.bbox[2] <= s.bbox[2] + 2.5 \
-                            and -1.0 <= d.bbox[1] - s.origin[1] <= 3.5:
+                            and -1.0 <= d.bbox[1] - s.origin[1] <= 3.5 and (
+                                dw <= 0.6 * content_w or
+                                dw >= UNDERLINE_SPAN_SHARE * (s.bbox[2] - s.bbox[0])):
+                        # Past 0.6 of the column only as the span's own
+                        # underline: y63's underlined heading "Whether the
+                        # Amount Sought is Reasonable" draws a 309.8pt rule
+                        # under a 310pt span in a 504pt column. As a rule
+                        # element it went into the flow out of order and the
+                        # heading behind it took a 539pt space_before.
                         s._ul = True
                         hit = True
             if hit:
@@ -4007,14 +4463,23 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
         for im in p.images:
             if getattr(im, "_consumed", False) or im.data is None:
                 continue
-            if in_side_margin(im.bbox, lay.margin_l, lay.margin_r, p.width):
-                continue        # marginal logo/icon: furniture, not flow
+            if in_side_margin(im.bbox, lay.margin_l, lay.margin_r, p.width)                     and p.number not in deck:
+                # Marginal logo/icon: furniture, not flow. A slide anchors
+                # it where it is instead, which costs the flow nothing.
+                continue
             el = ImageEl(data=im.data, ext=im.ext,
                          width=im.bbox[2] - im.bbox[0], height=im.bbox[3] - im.bbox[1])
             el._bbox = im.bbox
             elements.append(el)
 
         elements = _merge_figures(elements)
+        if p.number in deck:
+            elements, pl.floats = _float_graphics(elements, blocks)
+        else:
+            if anchored:
+                elements, pl.floats = _float_backgrounds(elements, blocks,
+                                                         lay, p.height)
+            elements = _merge_graphic_rows(elements, blocks, p.number)
 
         # rebuild flow blocks from unconsumed lines (contiguous runs)
         flow_blocks = []
@@ -4050,6 +4515,8 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
                              body_size, col_l, col_r,
                              can_continue=prev_notes)
         pl.chunks = _assemble_chunks(elements, flow_blocks, lay, p, page_top)
+        if p.number in deck:
+            _lock_slide(pl, lay)
         prev_notes = bool(pn is not None and
                           bind_page_notes(doc_lay, pl, pn, col_l, col_r))
         doc_lay.pages.append(pl)
@@ -4144,6 +4611,292 @@ def _can_relax_bottom_margin(lay: DocLayout) -> bool:
 # genuinely separate figures a source spaced normally do not collide. Measured
 # over the gated sixteen: no document's figure count changes except c1's.
 FIG_MERGE_GAP = 6.0
+
+
+# A slide deck is landscape pages set in presentation type. Measured over both
+# corpora (95 documents): two have landscape pages at all -- the PowerPoint
+# deck y34 (960x540) sets its text at a character-weighted median of 18.0pt,
+# and the InDesign tri-fold y59 at 6.7pt. Body text in a document runs
+# 8-12pt; a slide's body is 18-28pt by PowerPoint's own defaults. 14pt sits
+# in the empty gap between. The landscape bar admits 4:3 (1.33) and 16:9
+# (1.78) slides and US Letter turned sideways (1.29).
+DECK_MIN_TEXT_PT = 14.0
+DECK_LANDSCAPE = 1.2
+# The bottom reserve of a deck's pages (see _infer): enough that no renderer
+# refuses it, and no more.
+DECK_MARGIN_B = 4.0
+
+
+def _deck_pages(ir: DocIR, hf: dict) -> frozenset:
+    """Page numbers of the document's slides, or an empty set.
+
+    Why a slide is laid out differently at all: it is positioned graphics --
+    a logo in the corner beside the footer text, screenshots with callouts
+    drawn over them, pictures beside bullet points -- and a flow stacks every
+    one of them under the text it sat beside. Measured on y34 (40 slides): the
+    16:9 logo alone stood 81pt in the flow below each slide's last line and
+    pushed the slide's footer onto a page of its own, and the screenshot
+    slides stacked 700pt of pictures into a 512pt page; 40 slides rendered as
+    98 pages.
+
+    The test is the document's, not the page's: the median size of the text
+    the landscape pages carry (headers and footers excluded). A dense table
+    slide is still a slide of its deck.
+    """
+    land = [p for p in ir.pages if p.width >= DECK_LANDSCAPE * p.height]
+    if not land:
+        return frozenset()
+    sizes = Counter()
+    for p in land:
+        ct = hf["consumed_text"][p.number]
+        for bi, b in enumerate(p.blocks):
+            for ln in b.lines:
+                if (bi, id(ln)) in ct:
+                    continue
+                for s in ln.spans:
+                    n = len(s.text.strip())
+                    if n:
+                        sizes[round(s.size, 1)] += n
+    total = sum(sizes.values())
+    if not total:
+        return frozenset()
+    acc = 0
+    for size in sorted(sizes):
+        acc += sizes[size]
+        if 2 * acc >= total:
+            break
+    if size < DECK_MIN_TEXT_PT:
+        return frozenset()
+    return frozenset(p.number for p in land)
+
+
+def _float_graphics(elements, blocks):
+    """(flow elements, [FloatEl]): a slide's pictures and drawn figures leave
+    the flow for their own positions (see `_deck_pages`). A graphic under the
+    page's text goes behind it: slide text is set over its pictures."""
+    text = [l.bbox for l in _all_lines(blocks)]
+    keep, floats = [], []
+    for e in elements:
+        if isinstance(e, ImageEl):
+            bb = getattr(e, "_bbox", None)
+        elif isinstance(e, FigureEl):
+            bb = e.clip
+        else:
+            keep.append(e)
+            continue
+        if bb is None or bb[2] - bb[0] <= 0 or bb[3] - bb[1] <= 0:
+            keep.append(e)
+            continue
+        behind = any(bbox_overlap(bb, t) > 0.0 for t in text)
+        floats.append(FloatEl(el=e, bbox=tuple(bb), behind=behind))
+    return keep, floats
+
+
+# Text lines a picture must hold, whole, to be the page's background.
+BACKGROUND_MIN_LINES = 1
+
+
+def _float_backgrounds(elements, blocks, lay: DocLayout, page_h: float):
+    """(flow elements, [FloatEl]): a picture the page's text is set ON leaves
+    the flow for its own position, behind the text.
+
+    A flow stacks a picture and the text drawn over it: y33 (Kofax Power PDF)
+    sets its "How to have your say" pages on a full-page tinted panel, a
+    594x654pt image, and in the flow it stood a page of blue before the text
+    it was behind -- every such page rendered as three. Anchored behind the
+    text it spends no flow height, and the page reads as the source does.
+    Only raster images: a drawn figure rasterises the text inside its clip
+    with it, so it never has live text on it. Not under the Google Docs
+    profile (the `anchored` capability), which keeps the flow.
+
+    A picture printed into the page's top or bottom margin goes the same
+    way, in front: the flow cannot put it there at all. y33's cover bleeds
+    its artwork off the paper's foot (y 530-842 of 842); in the flow it went
+    over the page and took a page of its own.
+    """
+    lines = [l.bbox for l in _all_lines(blocks)]
+    keep, floats = [], []
+    for e in elements:
+        bb = getattr(e, "_bbox", None) if isinstance(e, ImageEl) else None
+        if bb is None:
+            keep.append(e)
+            continue
+        under = sum(1 for t in lines if contains(bb, t, pad=0.5)) >= \
+            BACKGROUND_MIN_LINES
+        bleeds = bb[1] < lay.margin_t - MARGIN_BLEED_PT or \
+            bb[3] > page_h - lay.margin_b + MARGIN_BLEED_PT
+        if under or bleeds:
+            floats.append(FloatEl(el=e, bbox=tuple(bb), behind=under))
+        else:
+            keep.append(e)
+    return keep, floats
+
+
+# A picture this far into the top or bottom margin is set in it (pt).
+MARGIN_BLEED_PT = 2.0
+
+
+# A one-line framed paragraph keeps its own width plus this much (fraction of
+# the line, and at least DECK_FRAME_SLACK_PT): enough that a substitute face a
+# little wider than the source's does not wrap the line, narrow enough that
+# the frame stops short of a neighbour on its row -- LibreOffice moves a frame
+# that collides with another down below it.
+DECK_FRAME_SLACK = 0.08
+DECK_FRAME_SLACK_PT = 6.0
+# Height, in points, of each of the two 1pt paragraphs the writer puts on a
+# locked slide's page (the seam holder before its frames, the anchor after).
+DECK_HOLDER_PT = 1.0
+
+
+def _frame_para(p: Para, col_l: float, col_r: float) -> None:
+    """Lock `p` to its source position: Para.frame, in the coordinates its
+    indents were measured in (`col_l`/`col_r`), with indents and tab stops
+    made relative to the frame."""
+    hang = min(0.0, p.first_indent or 0.0)
+    left = col_l + (p.left_indent or 0.0) + hang
+    right = col_r - (p.right_indent or 0.0)
+    one_line = (getattr(p, "_vis_lines", None) or p.src_lines or 1) <= 1 \
+        and not p.line_breaks
+    if one_line and p.bbox is not None:
+        ink = p.bbox[2] - p.bbox[0]
+        room = ink + max(DECK_FRAME_SLACK_PT, DECK_FRAME_SLACK * ink)
+        if p.align == "center":
+            mid = (p.bbox[0] + p.bbox[2]) / 2
+            left, right = mid - room / 2, mid + room / 2
+            p.left_indent = p.first_indent = 0.0
+        elif p.align == "right":
+            left = max(left, p.bbox[2] - room)
+            right = p.bbox[2]
+        else:
+            right = min(right, left - hang + room)
+    width = max(4.0, right - left)
+    shift = left - col_l
+    if p.align != "center" or not one_line:
+        # left + hang is the frame's edge, so this is -hang for a hanging
+        # item and 0 otherwise; a right-aligned line's frame may start right
+        # of its old indent.
+        p.left_indent = max(0.0, round((p.left_indent or 0.0) - shift, 1))
+    p.right_indent = 0.0
+    if p.tab_stops:
+        p.tab_stops = [(round(t[0] - shift, 1),) + tuple(t[1:])
+                       for t in p.tab_stops]
+    top, _h = _para_box(p)
+    p.frame = (round(left, 1), round(top, 1), round(width, 1))
+    p.space_before = 0.0
+
+
+def _lock_slide(pl: PageLayout, lay: DocLayout) -> None:
+    """A slide's text page-locked where the source set it (Para.frame), its
+    pictures already anchored (`_float_graphics`); what stays in the flow --
+    tables -- re-spaced against the flow that remains.
+
+    Why frames, on a slide and nowhere else (THEORY §6 rejects positioned
+    text as the default, and Google Docs breaks it). A slide is not a flow:
+    it is text boxes placed on a fixed canvas, side by side and over
+    pictures, and a flow reproduces it only while every gap it stacks is
+    exactly right. Measured on y34, with the pictures anchored and the text
+    flowing: 40 slides rendered 49 pages, every extra one a slide whose last
+    line -- its slide number, 15pt above the paper's edge -- went over by
+    the few points a re-wrapped bullet or a table row had drifted. A text box
+    at its own position cannot drift into the next page, and stays text: a
+    paragraph in a frame is edited, styled and copied like any other.
+    """
+    content_l, content_r = lay.margin_l, lay.page_w - lay.margin_r
+    elements = []
+    for ch in pl.chunks:
+        for el in ch.elements:
+            if isinstance(el, ColBreak):
+                continue
+            if isinstance(el, Para) and el.runs and \
+                    getattr(el, "_b1", None) is not None:
+                cl, cr = getattr(el, "_col", (content_l, content_r))
+                _frame_para(el, cl, cr)
+            elif isinstance(el, RuleEl) and getattr(el, "_bbox", None):
+                bb = el._bbox
+                el.frame = (round(bb[0], 1), round(bb[1] - 1.0, 1),
+                            round(max(1.0, bb[2] - bb[0]), 1))
+                el.left_indent = 0.0
+                el.space_before = 0.0
+            elif isinstance(el, TableEl) and el.bbox is not None:
+                # A floating table (w:tblpPr) at its top-left: y34's content
+                # slide sets two tables side by side, which a flow stacks.
+                bb = el.bbox
+                el.frame = (round(bb[0], 1), round(bb[1], 1),
+                            round(bb[2] - bb[0], 1))
+                el.space_before = 0.0
+            elements.append(el)
+    # What flows (tables) starts below the writer's two holder paragraphs.
+    cursor = lay.margin_t + 2 * DECK_HOLDER_PT
+    for el in elements:
+        if getattr(el, "frame", None) is not None:
+            continue
+        bb = _el_bbox(el)
+        if bb is None:
+            continue
+        if isinstance(el, Para):
+            t, h = _para_box(el)
+            el.space_before = max(0.0, round(t - cursor, 1))
+            cursor = t + h
+        else:
+            el.space_before = max(0.0, round(bb[1] - cursor, 1))
+            cursor = bb[3]
+    pl.chunks = [Chunk(n_cols=1, elements=elements)]
+
+
+# Two graphics are in one row when their vertical extents overlap by this
+# share of the shorter one.
+GRAPHIC_ROW_OVERLAP = 0.5
+
+
+def _merge_graphic_rows(elements, blocks, page_no: int):
+    """Graphics set side by side -- a row of logos -- become ONE figure.
+
+    The flow can only stack them, so a row of two pictures spent the height of
+    both: y30's cover sets the ministry's crest (a drawn figure at x 0-142)
+    and the government logo (an image at x 282-463) on one band 42pt tall at
+    the paper's foot, and stacked they were 85pt, which went over the page.
+    The page's blank verso then became two pages, and every page after it
+    sat one place late. One figure, rasterised over both, spends the row's
+    height once. Never across text: the region is rendered from the page, and
+    a line inside it would be printed twice, once live and once as pixels.
+    """
+    gr = [e for e in elements if isinstance(e, (ImageEl, FigureEl))
+          and _el_bbox(e) is not None]
+    if len(gr) < 2:
+        return elements
+    text = [l.bbox for l in _all_lines(blocks)]
+    gr.sort(key=lambda e: _el_bbox(e)[1])
+    groups = []
+    for e in gr:
+        bb = _el_bbox(e)
+        for g in groups:
+            ub = g[1]
+            ov = min(ub[3], bb[3]) - max(ub[1], bb[1])
+            short = min(ub[3] - ub[1], bb[3] - bb[1])
+            if short > 0 and ov >= GRAPHIC_ROW_OVERLAP * short and \
+                    all(bbox_overlap(_el_bbox(m), bb) <= 0 for m in g[0]):
+                g[0].append(e)
+                g[1] = bbox_union(ub, bb)
+                break
+        else:
+            groups.append([[e], tuple(bb)])
+    drop, add = set(), []
+    for members, ub in groups:
+        if len(members) < 2:
+            continue
+        # (a line inside a member FIGURE is already its pixels: y30's
+        # "EDITION 3.1" box was rasterised with its text)
+        clips = [m.clip for m in members if isinstance(m, FigureEl)]
+        if any(bbox_overlap(ub, t) > 0 and
+               not any(contains(c, t) for c in clips) for t in text):
+            continue
+        fig = FigureEl(page_no=page_no, clip=tuple(ub),
+                       width=ub[2] - ub[0], height=ub[3] - ub[1])
+        drop.update(id(m) for m in members)
+        add.append(fig)
+    if not add:
+        return elements
+    return [e for e in elements if id(e) not in drop] + add
 
 
 def _merge_figures(elements):
@@ -5005,9 +5758,29 @@ def _is_marker_line(ln: Line) -> bool:
     # marker as its own block. Only the separated-marker merge uses this
     # (it still demands a shared baseline with adjacent item text); the
     # inline marker split keeps the stricter NUM_RE.
+    #
+    # So do a numbered heading's section numbers, "2.5" and "2.5.1": Word
+    # sets them a tab ahead of the heading text, and they arrive as a block
+    # of their own (y30: "2.5" at x 70.9-88.9, "Licence holder and contact
+    # person details" at 113.5 on the same baseline). Unglued, every heading
+    # stood a line taller than its source and the page went over.
     return (ln.bbox[2] - ln.bbox[0]) < 44 and bool(
         t in BULLET_CHARS or NUM_RE.match(t) or
-        (t.isdigit() and len(t) <= 3))
+        (t.isdigit() and len(t) <= 3) or SECTION_NUM_RE.match(t))
+
+
+def _has_item_beside(ln: Line, own, flow_blocks) -> bool:
+    """Does another block hold text on `ln`'s baseline, a marker's gap to its
+    right (the test `_merge_list_markers` glues by)?"""
+    for c in flow_blocks:
+        if c is own:
+            continue
+        for fl in c.lines:
+            gap = fl.bbox[0] - ln.bbox[2]
+            if fl.spans and abs(fl.baseline - ln.baseline) < 2.5 and \
+                    -1.0 < gap < 60:
+                return True
+    return False
 
 
 def _merge_list_markers(flow_blocks):
@@ -5018,6 +5791,16 @@ def _merge_list_markers(flow_blocks):
     for b in flow_blocks:
         if all(_is_marker_line(l) or not l.text.strip() for l in b.lines):
             marker_lines.extend((l, b) for l in b.lines if _is_marker_line(l))
+        elif len(b.lines) > 1 and _is_marker_line(b.lines[-1]) and \
+                _has_item_beside(b.lines[-1], b, flow_blocks):
+            # A marker that ENDS a block of prose: in text set at one pitch
+            # throughout, a heading's "B." sits a line below the paragraph
+            # above it and overlaps its column, so the block builder took it
+            # into that block while its item text, a marker's gap to the
+            # right, began the next (y63's "B.  Prevailing Party", "I.
+            # DISCUSSION"). Left there, the marker closed the paragraph above
+            # and its item stood a line lower, alone.
+            marker_lines.append((b.lines[-1], b))
     marker_ids = {id(l) for l, _ in marker_lines}
     consumed = set()
     for ln, b in marker_lines:
@@ -5269,6 +6052,8 @@ def _grid_chunks(elements, flow_blocks, bands, lay: DocLayout,
                        key=lambda t: (t[1][1], t[1][0]))
         flows.append(_merge_flow_paras(
             _to_flow(items, a, b, doc_rows=lay_rows), b))
+        for el in flows[-1]:
+            el._col = (a, b)          # see _assemble_chunks
     ch.elements = flows[0]
     for f in flows[1:]:
         ch.elements = ch.elements + [ColBreak()] + f
@@ -5328,7 +6113,15 @@ def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
             # ones, so it is accepted too, and a stray 100pt inset still is
             # not.
             tall_single = h2 >= COL_SINGLE_BLOCK_FRAC * max(1.0, body_h)
-            if h1 > 60 and h2 > 60 and (len(c2) >= 2 or tall_single):
+            # A "column" of figures is a spreadsheet's value column, not a
+            # second column of text: y35's 2026/27 rates (x 440-465) cleared
+            # every bar here and the page was set as two text columns, its
+            # labels in one and their values a column-break away.
+            figures = sum(1 for b in c2 if all(
+                _NUMERIC_CELL.match(l.text.strip()) for l in b.lines))
+            if c2 and figures >= FIGURE_COLUMN_SHARE * len(c2):
+                c2 = []
+            if c2 and h1 > 60 and h2 > 60 and (len(c2) >= 2 or tall_single):
                 col_split = float(_mode([b.bbox[0] for b in c2], 0))
                 ys1 = sorted(b.bbox[1] for b in c1)
                 ys2 = sorted(b.bbox[1] for b in c2)
@@ -5407,6 +6200,12 @@ def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
             _to_flow(colL, content_l, colr_edge, doc_rows=lay_rows), colr_edge)
         right_flow = _merge_flow_paras(
             _to_flow(colR, col_split, content_r, doc_rows=lay_rows), content_r)
+        # The column each paragraph's indents are measured from, for a pass
+        # that takes it out of the column (_lock_slide).
+        for el in left_flow:
+            el._col = (content_l, colr_edge)
+        for el in right_flow:
+            el._col = (col_split, content_r)
         ch.elements = left_flow + [ColBreak()] + right_flow
         chunks.append(ch)
         if wide_tail:

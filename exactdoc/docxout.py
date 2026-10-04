@@ -616,6 +616,26 @@ def _page_break_carrier(doc):
     return par
 
 
+def _blank_page_holder(doc, break_before: bool):
+    """The 1pt empty paragraph that occupies a blank source page.
+
+    It takes the page's seam as pageBreakBefore when one is pending (a
+    section break already opened the page otherwise), and carries an empty
+    run so the clean-up that drops python-docx's initial empty paragraph
+    cannot mistake it for that paragraph when page 1 is the blank one.
+    """
+    par = doc.add_paragraph()
+    pf = par.paragraph_format
+    pf.space_before = Pt(0)
+    pf.space_after = Pt(0)
+    pf.line_spacing_rule = WD_LINE_SPACING.EXACTLY
+    pf.line_spacing = Pt(1)
+    if break_before:
+        pf.page_break_before = True
+    par.add_run("")
+    return par
+
+
 # CT_PPrBase's sequence after w:suppressAutoHyphens (ECMA-376 Part 1, 17.3.1.26).
 _PPR_AFTER_SUPPRESS_HYPHENS = (
     "kinsoku", "wordWrap", "overflowPunct", "topLinePunct", "autoSpaceDE",
@@ -840,7 +860,43 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None,
     bookmark = getattr(p, "_bookmark", None)
     if bookmark and bookmark in ctx.anchor_ids:
         _wrap_paragraph_bookmark(par, bookmark, ctx.anchor_ids[bookmark])
+    if getattr(p, "frame", None) is not None:
+        _set_frame(par, p.frame)
     return par
+
+
+# CT_PPrBase's sequence after w:framePr (ECMA-376 Part 1, 17.3.1.26).
+_PPR_AFTER_FRAMEPR = ("widowControl", "numPr", "suppressLineNumbers", "pBdr",
+                      "shd", "tabs", "suppressAutoHyphens") + \
+    _PPR_AFTER_SUPPRESS_HYPHENS
+
+
+def _set_frame(par, frame):
+    """Page-lock `par` at frame = (x, y, width) points (w:framePr).
+
+    Anchored to the page on both axes, its height left to its text, and
+    wrap="through": nothing in the flow moves aside for it -- the flow it
+    leaves behind on a slide is placed by its own source positions
+    (infer._lock_slide). Measured in LibreOffice 24 (frametest probe): a
+    framed paragraph lands at its x/y to 0.1pt and the flow ignores it; a
+    frame is drawn on the page of the FOLLOWING paragraph, which is why the
+    writer closes a slide's frames with an anchor paragraph of its own.
+    """
+    x, y, w = frame
+    ppr = par._p.get_or_add_pPr()
+    for old in ppr.findall(qn("w:framePr")):
+        ppr.remove(old)
+    fp = OxmlElement("w:framePr")
+    fp.set(qn("w:w"), str(int(round(max(1.0, w) * 20))))
+    fp.set(qn("w:wrap"), "through")
+    fp.set(qn("w:vAnchor"), "page")
+    fp.set(qn("w:hAnchor"), "page")
+    fp.set(qn("w:x"), str(int(round(x * 20))))
+    fp.set(qn("w:y"), str(int(round(y * 20))))
+    ppr.insert_element_before(fp, *("w:" + t for t in _PPR_AFTER_FRAMEPR))
+    pbb = ppr.find(qn("w:pageBreakBefore"))
+    if pbb is not None:
+        ppr.remove(pbb)
 
 
 def _spacer(container, height_pt: float):
@@ -1252,6 +1308,8 @@ def _hf_height(part) -> float:
         return 0.0
     h = 0.0
     for el in part.elements:
+        if getattr(el, "frame", None) is not None:
+            continue            # page-locked (a pleading gutter): no flow height
         if isinstance(el, Para):
             n = max(1, el.src_lines or 1)
             h += (el.space_before or 0.0) + n * _line_height(el) \
@@ -1643,7 +1701,26 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
     tw.set(qn("w:w"), str(int(round(sum(t.col_widths) * 20))))
     tw.set(qn("w:type"), "dxa")
     tblPr.append(tw)
-    if t.left_indent > 0.5:
+    frame = getattr(t, "frame", None)
+    if frame is not None:
+        # A slide's table, page-locked like its text (infer._lock_slide): a
+        # floating table at its source top-left. LibreOffice 24 (probe
+        # frametest3) places it to 0.5pt and, like a frame, on the page of
+        # the paragraph that follows it.
+        pp = OxmlElement("w:tblpPr")
+        for k, v in (("leftFromText", "0"), ("rightFromText", "0"),
+                     ("topFromText", "0"), ("bottomFromText", "0"),
+                     ("vertAnchor", "page"), ("horzAnchor", "page"),
+                     ("tblpX", str(int(round(frame[0] * 20)))),
+                     ("tblpY", str(int(round(frame[1] * 20))))):
+            pp.set(qn("w:" + k), v)
+        ov = OxmlElement("w:tblOverlap")
+        ov.set(qn("w:val"), "overlap")
+        st = tblPr.find(qn("w:tblStyle"))
+        at = list(tblPr).index(st) + 1 if st is not None else 0
+        tblPr.insert(at, pp)
+        tblPr.insert(at + 1, ov)
+    elif t.left_indent > 0.5:
         ind = OxmlElement("w:tblInd")
         ind.set(qn("w:w"), str(int(round(t.left_indent * 20))))
         ind.set(qn("w:type"), "dxa")
@@ -2386,6 +2463,81 @@ def write_image(container, im: ImageEl, ctx=None,
     return par
 
 
+def _float_bytes(el, ctx):
+    """The picture a FloatEl's graphic shows, or None (counted, as
+    `write_image` and `write_figure` count theirs)."""
+    if isinstance(el, ImageEl):
+        return _embeddable(el.data, ctx.image_report)
+    if isinstance(el, FigureEl):
+        if ctx.render_clip is None:
+            return None
+        data = ctx.render_clip(el.page_no, el.clip, ctx.dpi)
+        if not data and ctx.image_report is not None:
+            ctx.image_report["dropped"] = ctx.image_report.get("dropped", 0) + 1
+        return data or None
+    return None
+
+
+def anchor_floats(par, floats, ctx=None) -> int:
+    """Anchor each FloatEl in `floats` to the page `par` lands on, at its
+    source position (wp:anchor, page-relative, no wrap). Returns how many
+    were placed.
+
+    The picture is inserted inline first, through python-docx, and its
+    wp:inline rewritten as the wp:anchor carrying the same extent, docPr and
+    graphic -- the relationship python-docx made for it stays valid. No wrap
+    (wrapNone): the text flows exactly as if the graphic were not there,
+    which is what makes a slide's text land where the source set it; a
+    graphic the text sits on goes behind it (behindDoc).
+    """
+    ctx = ctx or _DEFAULT_CTX
+    placed = 0
+    for i, fl in enumerate(floats):
+        data = _float_bytes(fl.el, ctx)
+        if data is None:
+            continue
+        x0, y0, x1, y1 = fl.bbox
+        run = par.add_run()
+        run.add_picture(io.BytesIO(data), width=Emu(int((x1 - x0) * 12700)),
+                        height=Emu(int((y1 - y0) * 12700)))
+        inline = run._r.find(".//" + qn("wp:inline"))
+        if inline is None:
+            continue
+        anchor = OxmlElement("wp:anchor")
+        for k, v in (("distT", "0"), ("distB", "0"), ("distL", "0"),
+                     ("distR", "0"), ("simplePos", "0"),
+                     # z-order among the page's graphics: source order
+                     ("relativeHeight", str(251658240 + i)),
+                     ("behindDoc", "1" if fl.behind else "0"),
+                     ("locked", "0"), ("layoutInCell", "1"),
+                     ("allowOverlap", "1")):
+            anchor.set(k, v)
+        sp = OxmlElement("wp:simplePos")
+        sp.set("x", "0")
+        sp.set("y", "0")
+        anchor.append(sp)
+        for tag, off in (("wp:positionH", x0), ("wp:positionV", y0)):
+            pos = OxmlElement(tag)
+            pos.set("relativeFrom", "page")
+            o = OxmlElement("wp:posOffset")
+            o.text = str(int(round(off * 12700)))
+            pos.append(o)
+            anchor.append(pos)
+        anchor.append(inline.find(qn("wp:extent")))
+        ee = OxmlElement("wp:effectExtent")
+        for k in ("l", "t", "r", "b"):
+            ee.set(k, "0")
+        anchor.append(ee)
+        anchor.append(OxmlElement("wp:wrapNone"))
+        for tag in ("wp:docPr", "wp:cNvGraphicFramePr", "a:graphic"):
+            child = inline.find(qn(tag))
+            if child is not None:
+                anchor.append(child)
+        inline.getparent().replace(inline, anchor)
+        placed += 1
+    return placed
+
+
 def write_rule(container, rule: RuleEl, content_w: float,
                page_break_before: bool = False):
     par = container.add_paragraph()
@@ -2406,6 +2558,9 @@ def write_rule(container, rule: RuleEl, content_w: float,
     r.font.size = Pt(1)
     ppr = par._p.get_or_add_pPr()
     _set_borders(ppr, {"bottom": (rule.thickness, rule.color)}, "w:pBdr")
+    if getattr(rule, "frame", None) is not None:
+        pf.right_indent = None
+        _set_frame(par, rule.frame)
     return par
 
 
@@ -3235,6 +3390,12 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
 
     last_el_par = None
     pending_break = [False]
+    # Did the current source page write anything? The cover band was written
+    # above, so a cover page is never blank.
+    page_written = [has_cover]
+    # (page, geometry) of the last page that wrote something, for the blank
+    # page test below.
+    last_content = [None]
     # A booklet document is ONE flow: the run boundaries the merge left
     # behind cost a NEW_PAGE section each, and a section that starts a page
     # strands the previous page's leftover -- measured at roughly half a
@@ -3257,6 +3418,31 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
             _geometry_key(glay) != _geometry_key(cur_cfg["geo"])
         if pi > 0 and (not pg.continuation_only or geo_change):
             # page boundary
+            if not page_written[0] and not booklet:
+                # The page before wrote nothing: a blank source page. Its
+                # seam is still pending (or was a section break), and folding
+                # it into this page's deletes the page -- and shifts every
+                # later page one place. Google Docs exports a document's empty
+                # pages (y32: one behind the title page, one before the back
+                # cover), and every word after the first scored on the wrong
+                # page: word recall 0.257. The page is held by an empty
+                # paragraph that takes the pending seam as pageBreakBefore. A
+                # carrier paragraph cannot do it: LibreOffice folds a carrier
+                # into a following pageBreakBefore (one page instead of two)
+                # and drops that paragraph's page-top space_before with it
+                # (y32's back cover, ISBN set 630pt down the page).
+                #
+                # Only behind a page that fits. A page whose own stack runs
+                # past its box spills onto the next page whatever the writer
+                # does, and the blank page is where it lands: y30's cover
+                # overflows by a logo row, and holding its blank verso as
+                # well made two pages of one (35 rendered for 33, recall
+                # 0.72 -> 0.25).
+                prev = last_content[0]
+                if prev is None or _stack_fits(*prev):
+                    _blank_page_holder(doc, pending_break[0])
+                pending_break[0] = False
+            page_written[0] = False
             after_cover = has_cover and pi == 1
             next_cols = pg.chunks[0].n_cols if pg.chunks else 1
             if after_cover or geo_change:
@@ -3305,6 +3491,34 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
         spill_plan = {} if (has_cover and pi == 0) \
             else _absorb_page_spill(pg, cw_ctx, glay,
                                     notes_h.get(pg.number, 0.0))
+        # A slide's graphics ride in the page's first paragraph, anchored to
+        # the page (see anchor_floats); a page with no paragraph gets a host.
+        page_floats = list(getattr(pg, "floats", None) or ())
+        framed = [el for ch in pg.chunks for el in ch.elements
+                  if getattr(el, "frame", None) is not None]
+        if framed:
+            # A page-locked slide (infer._lock_slide): a holder paragraph
+            # takes the seam and the anchored graphics, the frames follow,
+            # and an anchor paragraph closes them -- LibreOffice draws a
+            # frame on the page of the paragraph AFTER it, which without one
+            # is the next slide's seam. What still flows (tables) comes
+            # after, spaced from the two 1pt holders (DECK_HOLDER_PT).
+            spill_plan = {}
+            host = _blank_page_holder(doc, pending_break[0])
+            pending_break[0] = False
+            page_written[0] = True
+            if page_floats:
+                anchor_floats(host, page_floats, ctx)
+                page_floats = []
+            for el in framed:
+                if isinstance(el, Para):
+                    write_para(doc, el, cw_ctx, ctx=ctx)
+                elif isinstance(el, RuleEl):
+                    write_rule(doc, el, cw_ctx)
+                elif isinstance(el, TableEl):
+                    write_table(doc, el, cw_ctx, ctx=ctx)
+            _blank_page_holder(doc, False)
+        framed_ids = {id(el) for el in framed}
         for ci, ch in enumerate(pg.chunks):
             if ch.n_cols != cur_cols:
                 if ch.pre_gap > 0.5:
@@ -3314,6 +3528,9 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
             for el in ch.elements:
                 if ctx.note_ids and getattr(el, "role", "") == "footnote":
                     continue        # carried by footnotes.xml instead
+                if id(el) in framed_ids:
+                    continue        # written page-locked above
+                page_written[0] = True
                 if isinstance(el, ColBreak):
                     if drop_col_break:
                         # Column one is predicted to overflow. Forcing the
@@ -3333,9 +3550,12 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                 if isinstance(el, Para):
                     brk = pending_break[0]
                     pending_break[0] = False
-                    write_para(doc, el, cw_ctx, ctx=ctx,
-                               space_before=spill_plan.get(id(el)),
-                               page_break_before=brk)
+                    par = write_para(doc, el, cw_ctx, ctx=ctx,
+                                     space_before=spill_plan.get(id(el)),
+                                     page_break_before=brk)
+                    if page_floats and par is not None:
+                        anchor_floats(par, page_floats, ctx)
+                        page_floats = []
                     continue
                 bookmark = getattr(el, "_bookmark", None)
                 if bookmark and bookmark in ctx.anchor_ids:
@@ -3409,6 +3629,17 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                         pending_break[0] = carry
                 elif isinstance(el, RuleEl):
                     write_rule(doc, el, cw_ctx, page_break_before=carry)
+        if page_floats:
+            # No paragraph on the page to carry them: a holder takes the
+            # page's seam (as a blank page's does) and the graphics with it.
+            host = _blank_page_holder(doc, pending_break[0])
+            pending_break[0] = False
+            anchor_floats(host, page_floats, ctx)
+            page_written[0] = True
+        if page_written[0]:
+            last_content[0] = (pg, glay)
+    if len(lay.pages) > 1 and not page_written[0] and not booklet:
+        _blank_page_holder(doc, pending_break[0])    # a blank last page
 
     # drop the initial empty paragraph python-docx puts in a fresh document
     # (never touch section-break paragraphs: removing one deletes a section)
