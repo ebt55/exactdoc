@@ -203,12 +203,29 @@ The short version, for anyone testing the beta:
   for up to six more pages in our measurements
   ([measurement](docs/evidence/refine-speed-2026-10-05.json)).
 - **Equations, slides, brochures and posters** do not convert well yet.
-- **Word itself has not been measured.** Every number here comes from
-  LibreOffice and Google Docs. If Word shows something different, please
+- **Word is measured too, and mostly agrees with LibreOffice.** The same DOCX
+  files rendered by Word 16 (Office 2024): with the default settings 59 of 93
+  test documents come back with exactly the right number of pages in Word,
+  against 62 in LibreOffice. Word differs most on long reports, where a page it
+  sets slightly taller spills onto the next, and on Japanese and Chinese text.
+  The files open in Word's Compatibility Mode on purpose: Word's newer layout
+  rules re-wrap justified paragraphs away from the PDF's own line breaks. If
+  Word shows something wrong, please
   [report it](https://github.com/ebt55/exactdoc/issues/new?template=bad-conversion.yml).
 - **Reporting a bad conversion:** `exactdoc --diagnose your.pdf` prints a
   summary with none of the document's text, which you can paste into the
   report instead of attaching a private PDF.
+
+### Fonts
+
+The DOCX names only fonts that a standard Windows 10 or 11 computer with
+Microsoft Office has, with one exception. Chinese, Japanese, Korean, Arabic,
+Hebrew, Persian and Thai text keeps the PDF's own font name in Word's East
+Asian and complex-script font settings, so that a reader who has the font sees
+it. A reader who does not gets Word's default font for that script instead.
+The fonts the test documents name this way are `Noto Sans CJK JP`,
+`IPAPGothic`, `WenQuanYi Zen Hei`, `DFKai-SB`, `DejaVu Sans`,
+`Noto Naskh Arabic`, `David`, `Narkisim`, `BNazanin` and `Thonburi`.
 
 ## How good is it, and how do we know?
 

@@ -25,7 +25,7 @@ from typing import Dict, List, Optional
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn, nsdecls
 
-from .fonts import map_font
+from .fonts import writer_family
 from .layout import DocLayout, ListDef, ListItem, ListLevel, Para, Run, page_sequences
 
 _SPACES = "  "
@@ -106,7 +106,7 @@ def _marker_rpr(run: Optional[Run], profile: str):
     rpr = OxmlElement("w:rPr")
     if run is None:
         return rpr
-    fam = map_font(run.font, mono=run.mono, serif=run.serif, profile=profile)
+    fam = writer_family(run.font, mono=run.mono, serif=run.serif, profile=profile)
     rf = OxmlElement("w:rFonts")
     for attr in ("w:ascii", "w:hAnsi", "w:cs", "w:eastAsia"):
         rf.set(qn(attr), fam)

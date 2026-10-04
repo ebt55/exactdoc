@@ -20,6 +20,42 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **Microsoft Word is measured, and four Word-only differences are fixed
+  (WP21).** `testkit/word_oracle.py` renders DOCX through desktop Word
+  (16.0.20430, Office 2024) over COM and scores the render like the live
+  Docs sweep; Windows only, never gating, and careful with the owner's Word
+  (its own proven instance only, read-only, alerts and macros off, hard
+  timeouts, a dialog stops the sweep). Rendering the canonical lanes' own
+  DOCX, Word was close to LibreOffice from the start -- raw page-exact 49
+  against 51 of 93, product 58 against 62 -- and differed in four places,
+  each now written in markup both read alike. *Table edges*: Word 2010
+  layout hangs a row left of `tblInd` by its first cell's margin,
+  LibreOffice by the table default; the first column's pad is now the
+  default and part of the indent (`_lead_pad`), and a border hanging left of
+  its text column is kept (`TableEl.hang_left`). Word within-2pt c1 0.612 ->
+  0.873, c7 0.443 -> 0.892; LibreOffice c3 0.000 -> 0.797. *Restarts under
+  odd/even headers*: Word inserts a blank page before a section restarting
+  at its predecessor's parity (y19 115 pages, char recall 0.906);
+  `_avoid_parity_blanks` re-bases a one-page or numberless lead, else lets
+  the count run on -- y19 114 in Word (0.982). A measured conflict: Word and
+  LibreOffice pick header variants by different rules, and LibreOffice pays
+  (y19 char recall 0.991 -> 0.982, y25 within-2pt 0.027 -> 0.003). *CJK
+  font names in a legacy encoding* (y51's Shift-JIS "ＭＳ ゴシック") are
+  decoded (`fonts.decode_font_name`). *Fonts a tester lacks*: the standard
+  profile wrote Google-native families (Noto Serif, Roboto Mono, Figtree ...
+  on 8 DOCX) and the template's Courier and MS Mincho on all 93; it now
+  writes Cambria / Calibri / Courier New for those (`writer_family`) --
+  measured equal to Word's own substitution on a stock machine, code kept
+  monospaced -- and declares no Courier or Mincho. Non-stock declarations
+  across the corpus 19 -> 10, all CJK or complex-script source faces, now
+  listed in the README. Word after, raw: page-exact 50, char recall >= 0.95
+  on 47 (46), within-2pt 0.239 -> 0.254; product: 59 (58), 55 (54), 0.326 ->
+  0.349. LibreOffice raw page-exact 51 = 51, within-2pt 0.228 -> 0.239.
+  Not fixed, reported: overflow cascades (y06 +23, y13 +14, y18 +10 pages in
+  Word over LibreOffice), CJK line packing (y51 22/12, y52), and
+  `compatibilityMode` 15, which drops the "Compatibility Mode" banner but
+  re-wraps justified paragraphs (Word within-2pt 0.239 -> 0.193).
+
 - **Faster, byte for byte (WP20b).** The writer spent most of its time inside
   python-docx, and the product profile writes once per refine round.
   `exactdoc/_docx_speed.py` replaces three python-docx internals with
