@@ -10,8 +10,9 @@ gated 16 get worse?"; `parity_expansion.py` answers "do the two parsers agree?".
 Neither answers the question a user asks -- *how good is the output on a real
 document?* -- over the documents that actually embarrass the product: long
 Word exports, LaTeX books, Antenna House booklets, RFCs. The 2026-09-11 engine
-sweeps that fed the README support matrix were ad-hoc scripts; this is that
-measurement made repeatable, so an improvement loop can be judged on it.
+sweeps that fed the support matrix (docs/deep-dive/support-by-engine.svg) were
+ad-hoc scripts; this is that measurement made repeatable, so an improvement
+loop can be judged on it.
 
 Every document is converted once at the selected profile and scored by the
 independent harness (`harness.evaluate`, which shares no code with the

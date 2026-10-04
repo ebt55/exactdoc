@@ -107,7 +107,7 @@ stretching `ACCEPTED_SHORTFALL` into a second admission type.
 If gate 3 or 4 fails and the revert lands: M2.f's acceptance line becomes
 *"0 regressions, except `01_whitepaper_market` and `02_research_paper`,
 attributed to a font-metric convention difference that no permissive parser
-can reproduce — evidence: the M2.d escalation packet, linked from STATUS.md D2
+can reproduce — evidence: the M2.d escalation packet, linked from status.md D2
 and the release notes."* The packet is strong enough to carry that sentence.
 No cap-stretching, no new mechanism — a named, evidenced, bounded divergence.
 
@@ -130,11 +130,11 @@ shared-pipeline change in the same session.
   is falsified and withdrawn — PyMuPDF fragments one justified line into four
   at stretched word gaps and pdfium is the more faithful side. Since the
   downstream tolerates both (score flat), no `EXPECTED_DIVERGENCE` entry is
-  needed; record the finding in STATUS.md D2's narrative so nobody re-chases
+  needed; record the finding in status.md D2's narrative so nobody re-chases
   it.
 - **The renderer-normalisation insight** (justified text redistributes
   inter-word space, so text/span-level differences cannot reach `within2pt`)
-  belongs in THEORY.md as a dated addition — it explains three flat results
+  belongs in theory.md as a dated addition — it explains three flat results
   and will save a future session from re-learning it.
 - `residual.py` docstring: thanks. **M2.e superscript** stays pre-M2.f.
   **requires-python** stays deferred to M2.f. Both unchanged.
@@ -152,7 +152,7 @@ shared-pipeline change in the same session.
 > not-worse test by comparator bands — zero pymupdf REGRESSION verdicts;
 > (6) renders for 2–3 default-backend documents + holdout before/after;
 > (7) law-14 re-record commit for any stale records with their defect IDs;
-> (8) THEORY.md dated correction: the page origin now completes §3.1's
+> (8) theory.md dated correction: the page origin now completes §3.1's
 > baseline principle. If gates 3–4 fail twice: revert, fallback (c) wording
 > into M2.f, and stop. Laws 14–18 in force.
 

@@ -563,6 +563,15 @@ NATURAL_FACTORS = {
     # Times New Roman at 1.150 and Georgia at 1.136 against the 1.360/1.144/
     # 1.130 in this table, so a pitch read this way is good to about 0.006.
     "libre baskerville": 1.240,
+    # Calibri and its metric clone Carlito -- the most common family in Word
+    # documents -- were missing, so they took the 1.144 default and every line
+    # rendered 6.7% tall in Docs (y30 drifted ~1 line per page and spilled).
+    # Measured live 2026-10-04: one paragraph per page at 11pt and 9pt, single
+    # spacing, pitch = (last - first baseline) / (lines - 1) over 9-12 lines,
+    # consistent to four decimals across sizes. The same probe recovered Arial,
+    # Times New Roman and Caladea at 1.1500 and Cambria at 1.1724 -- each the
+    # font file's own hhea line, with no offset.
+    "carlito": 1.221, "calibri": 1.221, "cambria": 1.172, "caladea": 1.150,
 }
 NATURAL_DEFAULT = 1.144
 # The two encodings. Which one is used is a per-write decision carried in
