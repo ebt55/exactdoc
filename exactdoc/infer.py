@@ -4100,60 +4100,64 @@ def infer(ir: DocIR) -> DocLayout:
 
 
 # Brackets in right-to-left text, and why a paragraph pass follows the parser's
-# per-line mirroring (parse_pdfium._visual_to_logical). A producer draws the
-# bracket at an RTL level with its mirrored glyph, and what the PDF's
-# ToUnicode then says for that glyph is the producer's choice: the same Word
-# 2016 maps it to the glyph's own shape in y49 p2 (`)` for a logical `(`) and
-# to the logical character in y50 p1 (`(Liu, 2012(`, both parentheses `(`) and
-# y49 p1 (`(להלן:` read `)להלן:`). No per-line rule recovers both, but the
-# paragraph's own balance does: a closer with nothing open before it, while the
-# paragraph holds two or more closers in excess, opened something; an opener
-# with nothing to close it after it, while openers are two or more in excess,
-# closed something. Requiring an excess of two leaves a lone `1)` marker or a
-# parenthetical that continues from the previous page alone.
+# per-line mirroring (parse_pdfium._visual_to_logical). A producer draws a
+# bracket at an RTL level with its mirrored glyph; what the PDF's ToUnicode
+# says for that glyph is the producer's choice (Word maps it to the logical
+# character, a visual-order producer to the shape), and PDFium mirrors again
+# inside a text object it judges right-to-left (probed: `ואר)` drawn as one
+# string reads back `(ראו`) but not in a bracket's own object. So the
+# character that arrives can be either, and no per-character rule recovers
+# it: measured, y50 p1 read `)Pang, et al., 2002)` and `(Wang & Manning,
+# 2012(`, y49 p1 `)להלן: "מחקר הבסיס")`, a synthetic Hebrew page `)ראו להלן(`.
+#
+# The paragraph does recover it. A bracket left unmatched by a depth scan is
+# re-read by its SHAPE in the text: an opener has a space (or nothing, or an
+# opening quote) before it and text after it; a closer has text before it and
+# a space, punctuation or the end after it. An unmatched closer shaped like an
+# opener opened something, and vice versa. A matched bracket is never touched,
+# and neither is an unmatched one whose shape agrees with it -- a `1)` list
+# marker, a parenthetical continuing from the previous page.
 _BRACKET_PAIRS = (("(", ")"), ("[", "]"), ("{", "}"))
+_OPEN_BEFORE = frozenset("([{\"'«“‘")
+_CLOSE_AFTER = frozenset(".,;:!?)]}\"'»”’،؛")
 
 
 def _balance_brackets(runs) -> int:
     """Flip mis-oriented brackets in one paragraph's runs; returns the count."""
-    pos = [(i, k, ch) for i, r in enumerate(runs) if not r.is_tab
-           for k, ch in enumerate(r.text) if ch in "()[]{}"]
-    if not pos:
+    flat = [(i, k, ch) for i, r in enumerate(runs) if not r.is_tab
+            for k, ch in enumerate(r.text)]
+    if not any(ch in "()[]{}" for _, _, ch in flat):
         return 0
+    text = "".join(ch for _, _, ch in flat)
     flips = 0
     for op, cl in _BRACKET_PAIRS:
-        seq = [(i, k, ch) for i, k, ch in pos if ch in (op, cl)]
-        excess = sum(1 for *_, ch in seq if ch == cl) - \
-            sum(1 for *_, ch in seq if ch == op)
-        fix = []
-        if excess >= 2:
-            depth = 0
-            for i, k, ch in seq:
-                if ch == op:
-                    depth += 1
-                elif depth:
-                    depth -= 1
-                elif excess >= 2:
-                    fix.append((i, k, op))
-                    excess -= 2
-                    depth += 1
-        elif excess <= -2:
-            depth = 0
-            for i, k, ch in reversed(seq):
-                if ch == cl:
-                    depth += 1
-                elif depth:
-                    depth -= 1
-                elif excess <= -2:
-                    fix.append((i, k, cl))
-                    excess += 2
-                    depth += 1
-        for i, k, ch in fix:
-            t = runs[i].text
-            runs[i].text = t[:k] + ch + t[k + 1:]
-            flips += 1
+        stack, stray = [], []
+        for n, ch in enumerate(text):
+            if ch == op:
+                stack.append(n)
+            elif ch == cl:
+                if stack:
+                    stack.pop()
+                else:
+                    stray.append(n)
+        stray += stack
+        for n in stray:
+            prev = text[n - 1] if n else None
+            nxt = text[n + 1] if n + 1 < len(text) else None
+            opener = (prev is None or prev.isspace() or prev in _OPEN_BEFORE) \
+                and nxt is not None and not nxt.isspace() and nxt not in _CLOSE_AFTER
+            closer = prev is not None and not prev.isspace() \
+                and prev not in _OPEN_BEFORE \
+                and (nxt is None or nxt.isspace() or nxt in _CLOSE_AFTER)
+            want = op if opener and not closer else cl if closer and not opener \
+                else text[n]
+            if want != text[n]:
+                i, k, _ = flat[n]
+                t = runs[i].text
+                runs[i].text = t[:k] + want + t[k + 1:]
+                text = text[:n] + want + text[n + 1:]
+                flips += 1
     return flips
-
 
 def _infer(ir: DocIR) -> DocLayout:
     lay = DocLayout(src_path=ir.path)

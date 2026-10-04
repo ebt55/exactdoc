@@ -744,8 +744,12 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None,
     # its separator leave the runs (structures.py). `ctx.list_defs` holds only
     # the lists whose every item strips cleanly (structures.numbering_plan).
     num, num_runs, lvl = None, None, None
+    # A right-to-left item in a profile that does not declare direction stays
+    # typed: in a left-to-right paragraph the list level would draw its
+    # number at the left of right-aligned Hebrew.
+    rtl_undeclared = getattr(p, "rtl", False) and not ctx.bidi
     if p.numbering is not None and p.numbering.list_id in ctx.list_defs \
-            and not gdocs_rows:
+            and not gdocs_rows and not rtl_undeclared:
         num_runs = strip_marker(p.runs, p.numbering)
         if num_runs is not None:
             num = p.numbering

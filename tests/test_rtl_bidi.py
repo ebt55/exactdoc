@@ -267,6 +267,10 @@ class RtlInferenceHelpers(unittest.TestCase):
         _balance_brackets(r)
         self.assertEqual("".join(x.text for x in r),
                          "CR-ERC. (להלן: \"מחקר הבסיס\").")
+        # a pair read back the wrong way round: counts balance, shapes do not
+        r = runs("ההטמעה )ראו להלן(, והצוות")
+        self.assertEqual(_balance_brackets(r), 2)
+        self.assertEqual(r[0].text, "ההטמעה (ראו להלן), והצוות")
         # balanced text and a lone list marker are left alone
         for t in ("רלוונטיים (בישראל: ועוד);", "1) פריט ראשון", "x (a) b)"):
             r = runs(t)
