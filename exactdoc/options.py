@@ -72,6 +72,10 @@ OUTPUT_PROFILES = ("standard", "gdocs")
 # external process at all -- the fastest, most deterministic, most private
 # option, used by RAW and the explicit PDFium candidate.
 ORACLES = ("none", "libreoffice", "gdocs")
+#: What an OCR layer (invisible text over a scanned page image) becomes: the
+#: page's editable text, with the scan it duplicates left out ("text"), or
+#: nothing, leaving the scan as a picture ("image").
+OCR_LAYERS = ("text", "image")
 
 # Retained so `TARGETS` importers keep working during the deprecation window.
 TARGETS = ("none", "libreoffice", "gdocs")
@@ -188,6 +192,10 @@ class ConversionOptions:
     #: absent because "convert whatever you are given" is a decision, and a
     #: 492-page document is a decision worth having made on purpose.
     max_pages: Optional[int] = None
+    #: See OCR_LAYERS. "text" because a scan with an OCR layer is a document
+    #: whose words are known, and the converter's job is an editable one; the
+    #: picture is one flag away for a caller who distrusts the OCR.
+    ocr_layer: str = "text"
 
     def __post_init__(self):
         object.__setattr__(self, "backend", canonical_backend(self.backend))
@@ -201,6 +209,10 @@ class ConversionOptions:
         if not isinstance(self.dpi, int) or not (36 <= self.dpi <= 1200):
             raise ConfigurationError(
                 "dpi must be an int in 36..1200, got %r" % (self.dpi,))
+        if self.ocr_layer not in OCR_LAYERS:
+            raise ConfigurationError(
+                "ocr_layer must be one of %s, got %r"
+                % (", ".join(OCR_LAYERS), self.ocr_layer))
         if self.max_pages is not None and (
                 not isinstance(self.max_pages, int) or
                 isinstance(self.max_pages, bool) or self.max_pages < 0):

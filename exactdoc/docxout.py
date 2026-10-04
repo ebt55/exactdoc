@@ -16,7 +16,7 @@ from docx import Document
 from docx.shared import Pt, Emu, RGBColor, Twips
 from docx.enum.text import (WD_ALIGN_PARAGRAPH, WD_LINE_SPACING, WD_TAB_ALIGNMENT,
                             WD_TAB_LEADER, WD_BREAK)
-from docx.enum.section import WD_SECTION
+from docx.enum.section import WD_ORIENT, WD_SECTION
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
@@ -1197,6 +1197,51 @@ def _body_capacity(lay: DocLayout) -> float:
     return lay.page_h - top - bottom - PAGE_BREAK_PARA_PT
 
 
+def _stack_fits(pg, lay: DocLayout) -> bool:
+    """Does this page, stacked the way the flow stacks it, fit its own box?
+
+    Every gap plus every element's own height -- the source's line budget for
+    a paragraph (`src_lines` x leading), the source box for anything else --
+    against `_body_capacity`. No re-wrap prediction: this asks whether the
+    LAYOUT is self-consistent, not how a renderer will wrap it.
+
+    It decides, for the refine loop, which pages may keep a page-top gap at
+    their seam (`PageLayout.top_gap_fits`, see `_write_docx`). Honouring that
+    gap is only right when the page has room for it. Where the inferred
+    elements overlap in the source -- a figure whose box spans the text drawn
+    over it, a diagram whose pieces landed in form space (B7) -- the stack is
+    taller than the page, and the gap LibreOffice silently dropped after a
+    carrier was the only thing keeping such a page on one page: measured on
+    y03, keeping those gaps took its render from 71 pages to 74. A
+    multi-column page is not additive and answers False.
+    """
+    used = 0.0
+    for ch in pg.chunks:
+        if ch.n_cols > 1:
+            return False
+        used += max(0.0, ch.pre_gap)
+        for el in ch.elements:
+            if isinstance(el, ColBreak):
+                return False
+            if isinstance(el, Para):
+                used += (el.space_before or 0.0) \
+                    + max(1, el.src_lines or 1) * _line_height(el) \
+                    + (el.space_after or 0.0)
+                continue
+            if isinstance(el, RuleEl):
+                h = 2.0                   # write_rule's exact line
+            else:
+                bb = getattr(el, "bbox", None) or getattr(el, "clip", None)
+                h = getattr(el, "height", None)
+                if h is None and bb is not None:
+                    h = bb[3] - bb[1]
+                if h is None:
+                    return False
+            used += (el.space_before or 0.0) + max(0.0, h) \
+                + (getattr(el, "space_after", 0.0) or 0.0)
+    return used <= _body_capacity(lay)
+
+
 def _page_spill(pg, content_w: float, lay: DocLayout):
     """-> (overflow_pt, stranded_lines) for one source page, or None.
 
@@ -1407,8 +1452,27 @@ def _gdocs_min_col_widths(widths: List[float], t: TableEl = None,
     return ws
 
 
+def _gdocs_paragraph_form(t: TableEl, ctx) -> bool:
+    """True when the gdocs profile writes this table as bordered paragraphs."""
+    return getattr(t, "role", "") in ("quote", "box") \
+        and ctx.output_profile == "gdocs" \
+        and bool(t.rows and t.rows[0] and t.rows[0][0] is not None)
+
+
+def table_opens_with_spacer(t: TableEl, ctx=None) -> bool:
+    """Whether `write_table` starts this table with its `_spacer` paragraph.
+
+    The page-seam code asks, because a spacer is a paragraph and can carry the
+    page break itself (see `_write_docx`). One predicate for both, so the seam
+    can never put the break on a spacer the writer then declines to emit.
+    """
+    ctx = ctx or _DEFAULT_CTX
+    return bool(t.rows) and bool(t.col_widths) and t.space_before > 0.5 \
+        and not _gdocs_paragraph_form(t, ctx)
+
+
 def write_table(container, t: TableEl, content_w: float, ctx=None,
-                cover_band: bool = False):
+                cover_band: bool = False, page_break_before: bool = False):
     ctx = ctx or _DEFAULT_CTX
     # A coloured page-one cover band is the one table Google Docs treats
     # differently.  Do not infer this from ``role == 'band'``: header bands
@@ -1426,8 +1490,7 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
     # val=single sz=12 space=7 colour=BBBBBB is the exact form the live
     # campaign verified (Docs draws it 2.0pt wide, quantised, colour
     # exact).  The standard profile keeps its measured table form.
-    if getattr(t, "role", "") == "quote" and ctx.output_profile == "gdocs" \
-            and t.rows and t.rows[0] and t.rows[0][0] is not None:
+    if _gdocs_paragraph_form(t, ctx) and t.role == "quote":
         return _write_quote_paragraphs(container, t, content_w, ctx)
     # A callout box likewise: one cell whose four borders belong on the
     # paragraphs it contains -- the table form's cell line inflation is the
@@ -1436,8 +1499,7 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
     # (a continuous rail), top on the first, bottom on the last. This is
     # the live-verified hand-campaign round-6 form (sz=6 #333333, the
     # source's own 0.75pt stroke).
-    if getattr(t, "role", "") == "box" and ctx.output_profile == "gdocs" \
-            and t.rows and t.rows[0] and t.rows[0][0] is not None:
+    if _gdocs_paragraph_form(t, ctx) and t.role == "box":
         return _write_box_paragraphs(container, t, content_w, ctx)
     n_rows = len(t.rows)
     n_cols = len(t.col_widths)
@@ -1450,7 +1512,9 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
     if ctx.output_profile == "gdocs":
         t.col_widths = _gdocs_min_col_widths(t.col_widths, t)
     if t.space_before > 0.5:
-        _spacer(container, t.space_before)
+        sp = _spacer(container, t.space_before)
+        if page_break_before:
+            sp.paragraph_format.page_break_before = True
     try:
         tbl = container.add_table(rows=n_rows, cols=n_cols)
     except TypeError:  # header/footer/cell containers require a width argument
@@ -1857,7 +1921,8 @@ def _size_mark_to_content(par, p):
         el.set(qn("w:val"), str(half))
 
 
-def write_figure(container, fig: FigureEl, ctx=None, dpi: int = None):
+def write_figure(container, fig: FigureEl, ctx=None, dpi: int = None,
+                 page_break_before: bool = False):
     """Rasterise a figure region through the conversion's backend.
 
     `ctx.render_clip` replaces an open MuPDF document that used to be threaded
@@ -1874,9 +1939,20 @@ def write_figure(container, fig: FigureEl, ctx=None, dpi: int = None):
         return None
     data = ctx.render_clip(fig.page_no, fig.clip, dpi)
     if not data:
+        # The renderer was there and produced nothing: a figure the caller
+        # asked for and will not get. Tallied with the extracted rasters so
+        # the conversion says so (design audit B28) -- it used to vanish. A
+        # clip with no area is not one: it is a region built from ink beyond
+        # the page (the PyMuPDF arm still reports a printer's slug, and its
+        # figures come out inverted, y 0 to -74), and there is nothing to lose.
+        x0, y0, x1, y1 = fig.clip
+        if ctx.image_report is not None and x1 > x0 and y1 > y0:
+            ctx.image_report["dropped"] = ctx.image_report.get("dropped", 0) + 1
         return None
     par = container.add_paragraph()
     pf = par.paragraph_format
+    if page_break_before:
+        pf.page_break_before = True
     pf.space_before = Pt(round(max(0.0, fig.space_before), 1))
     pf.space_after = Pt(0)
     if ctx.output_profile != "gdocs":
@@ -1971,7 +2047,8 @@ def _embeddable(data: bytes, report):
     return out
 
 
-def write_image(container, im: ImageEl, ctx=None):
+def write_image(container, im: ImageEl, ctx=None,
+                page_break_before: bool = False):
     """Place an extracted raster. Returns None when the image had to be dropped.
 
     Returning None so the caller omits the element is `write_figure`'s contract
@@ -1984,6 +2061,8 @@ def write_image(container, im: ImageEl, ctx=None):
         return None
     par = container.add_paragraph()
     pf = par.paragraph_format
+    if page_break_before:
+        pf.page_break_before = True
     pf.space_before = Pt(round(max(0.0, im.space_before), 1))
     pf.space_after = Pt(0)
     if ctx.output_profile != "gdocs":
@@ -1998,9 +2077,12 @@ def write_image(container, im: ImageEl, ctx=None):
     return par
 
 
-def write_rule(container, rule: RuleEl, content_w: float):
+def write_rule(container, rule: RuleEl, content_w: float,
+               page_break_before: bool = False):
     par = container.add_paragraph()
     pf = par.paragraph_format
+    if page_break_before:
+        pf.page_break_before = True
     pf.space_before = Pt(round(max(0.0, rule.space_before), 1))
     pf.space_after = Pt(0)
     pf.line_spacing_rule = WD_LINE_SPACING.EXACTLY
@@ -2023,6 +2105,11 @@ def _config_section(sec, lay: DocLayout, margin_t=None, cols: int = 1,
                     col_gap: float = 24.0, margin_lr=None):
     sec.page_width = Emu(int(lay.page_w * 12700))
     sec.page_height = Emu(int(lay.page_h * 12700))
+    # Stated, not inferred from the size: Word prints by w:orient, and a new
+    # section inherits the previous one's. Portrait is the schema default and
+    # writes no attribute, so a portrait document's sections are unchanged.
+    sec.orientation = WD_ORIENT.LANDSCAPE if lay.page_w > lay.page_h \
+        else WD_ORIENT.PORTRAIT
     ml = lay.margin_l if margin_lr is None else margin_lr
     mr = lay.margin_r if margin_lr is None else margin_lr
     sec.left_margin = Emu(int(ml * 12700))
@@ -2047,6 +2134,26 @@ def _config_section(sec, lay: DocLayout, margin_t=None, cols: int = 1,
         for a in ("w:space", "w:equalWidth"):
             if cols_el.get(qn(a)):
                 cols_el.attrib.pop(qn(a))
+
+
+def _page_geometry(lay: DocLayout, pg: PageLayout) -> DocLayout:
+    """`lay` with a page's own paper and margins, or `lay` itself.
+
+    Inference gives a page whose size differs from page 1's its own geometry
+    (PageLayout.page_w/page_h/margins); every page of the document's size
+    answers with `lay` itself, so a uniform document writes exactly as before.
+    """
+    if pg.page_w is None or pg.page_h is None:
+        return lay
+    out = dataclasses.replace(lay, page_w=pg.page_w, page_h=pg.page_h)
+    if pg.margins is not None:
+        out.margin_l, out.margin_r, out.margin_t, out.margin_b = pg.margins
+    return out
+
+
+def _geometry_key(lay: DocLayout):
+    return tuple(round(v, 1) for v in (lay.page_w, lay.page_h, lay.margin_l,
+                                        lay.margin_r, lay.margin_t, lay.margin_b))
 
 
 def _shifted_part(part: Optional[HFPart], dl: float, dr: float) -> Optional[HFPart]:
@@ -2103,7 +2210,7 @@ def _fill_hf(hf_obj, part: Optional[HFPart], lay: DocLayout, ctx=None):
 # ------------------------------------------------------------------ main
 def write_docx(lay: DocLayout, out_path: str, dpi: int = 240,
                output_profile: str = "standard", backend=None, ctx=None,
-               image_report=None) -> str:
+               image_report=None, clip_cache=None) -> str:
     """Render a DocLayout to a .docx. Pure: `lay` is never modified.
 
     `output_profile` selects the line-height encoding: Word and LibreOffice
@@ -2136,21 +2243,52 @@ def write_docx(lay: DocLayout, out_path: str, dpi: int = 240,
     tally (`embedded`/`reencoded`/`dropped`). Cleared rather than accumulated
     because the refine loop writes the same layout once per round, and a ledger
     that summed over rounds would report four dropped images for one.
+
+    `clip_cache`, when given, is a dict that keeps rasterised figure clips
+    between writes. The refine loop writes one layout up to four times and its
+    corrections never move a clip, so each figure is rasterised once rather
+    than once per round. The bytes are the backend's own output either way.
     """
     if image_report is not None:
         image_report.clear()
-    if ctx is None:
-        render_clip = None
-        if backend is not None and lay.src_path:
-            def render_clip(page_no, clip, at_dpi, _bk=backend, _p=lay.src_path):
-                try:
-                    return _bk.render_clip(_p, page_no, clip, dpi=at_dpi)
-                except Exception:
-                    return None
-        ctx = WriteCtx(output_profile=output_profile,
-                       line_mode=line_mode_for(output_profile), dpi=dpi,
-                       render_clip=render_clip, image_report=image_report)
-    return _write_docx(lay, out_path, ctx)
+    if ctx is not None:
+        return _write_docx(lay, out_path, ctx)
+    render_clip, session = None, None
+    if backend is not None and lay.src_path:
+        # One open document for the whole write when the backend offers it
+        # (design audit B28: y06 opened its PDF 117 times, once per clip).
+        opener = getattr(backend, "clip_renderer", None)
+        if opener is not None:
+            try:
+                session = opener(lay.src_path)
+            except Exception:
+                session = None
+
+        def render_clip(page_no, clip, at_dpi, _bk=backend, _p=lay.src_path,
+                        _s=session):
+            # Across refine rounds the same clips are asked for again; the
+            # caller's cache answers them without rasterising twice.
+            key = (page_no, tuple(clip), at_dpi)
+            if clip_cache is not None and key in clip_cache:
+                return clip_cache[key]
+            try:
+                if _s is not None:
+                    data = _s.render_clip(page_no, clip, dpi=at_dpi)
+                else:
+                    data = _bk.render_clip(_p, page_no, clip, dpi=at_dpi)
+            except Exception:
+                data = None
+            if clip_cache is not None:
+                clip_cache[key] = data
+            return data
+    ctx = WriteCtx(output_profile=output_profile,
+                   line_mode=line_mode_for(output_profile), dpi=dpi,
+                   render_clip=render_clip, image_report=image_report)
+    try:
+        return _write_docx(lay, out_path, ctx)
+    finally:
+        if session is not None:
+            session.close()
 
 
 # Families that need something other than the default proportional-serif
@@ -2486,7 +2624,9 @@ def _merge_grid_page_runs(pages):
             continue
         run = [pg]
         j = i + 1
-        while j < n and shape_of(pages[j]) == key:
+        # A run never crosses a change of paper: the writer must open a
+        # NEW_PAGE section there (see _page_geometry).
+        while j < n and shape_of(pages[j]) == key and                 _paper(pages[j]) == _paper(pg):
             run.append(pages[j])
             j += 1
         if len(run) == 1:
@@ -2499,7 +2639,9 @@ def _merge_grid_page_runs(pages):
             for rp in run[1:]:
                 cap_join_gaps([c.elements for c in rp.chunks])
             merged = PageLayout(number=pg.number,
-                                chunks=[c for rp in run for c in rp.chunks])
+                                chunks=[c for rp in run for c in rp.chunks],
+                                page_w=pg.page_w, page_h=pg.page_h,
+                                margins=pg.margins)
             out.append(merged)
             i = j
             continue
@@ -2534,9 +2676,16 @@ def _merge_grid_page_runs(pages):
         cap_join_gaps([c.elements for c in tail_prev])
         merged_grid.elements.extend(el for c in tail_prev for el in c.elements)
         new_chunks = list(first_chunks) + [merged_grid]
-        out.append(PageLayout(number=run[0].number, chunks=new_chunks))
+        out.append(PageLayout(number=run[0].number, chunks=new_chunks,
+                              page_w=pg.page_w, page_h=pg.page_h,
+                              margins=pg.margins))
         i = j
     return out
+
+
+def _paper(pg: PageLayout):
+    """A page's own geometry, as inference recorded it (None: the document's)."""
+    return (pg.page_w, pg.page_h, pg.margins)
 
 
 def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
@@ -2623,23 +2772,28 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
     # previously-applied properties between sections
     cur_cfg = {"margin_t": (lay.cover_top if has_cover else None), "cols": 1,
                "gap": 24.0, "margin_lr": (band_bleed if has_cover else None),
-               "hdr0": has_cover}
+               "hdr0": has_cover, "geo": lay}
 
-    def new_section(kind, cols, gap=24.0, margin_t=None, margin_lr=None):
+    def new_section(kind, cols, gap=24.0, margin_t=None, margin_lr=None,
+                    geo=None):
+        # `geo` is the new section's paper and margins (a DocLayout); a
+        # section opened without one keeps the current page's.
         nonlocal sec, cur_cols, cur_cfg
+        geo = geo if geo is not None else cur_cfg["geo"]
         doc.add_section(kind)
         # re-apply the finished section's geometry to whatever element now
         # represents it
         fin = doc.sections[-2]
-        _config_section(fin, lay, margin_t=cur_cfg["margin_t"], cols=cur_cfg["cols"],
-                        col_gap=cur_cfg["gap"], margin_lr=cur_cfg["margin_lr"])
+        _config_section(fin, cur_cfg["geo"], margin_t=cur_cfg["margin_t"],
+                        cols=cur_cfg["cols"], col_gap=cur_cfg["gap"],
+                        margin_lr=cur_cfg["margin_lr"])
         if cur_cfg.get("hdr0"):
             fin.header_distance = Emu(0)
         sec = doc.sections[-1]
-        _config_section(sec, lay, margin_t=margin_t, cols=cols, col_gap=gap,
+        _config_section(sec, geo, margin_t=margin_t, cols=cols, col_gap=gap,
                         margin_lr=margin_lr)
         cur_cfg = {"margin_t": margin_t, "cols": cols, "gap": gap,
-                   "margin_lr": margin_lr, "hdr0": False}
+                   "margin_lr": margin_lr, "hdr0": False, "geo": geo}
         cur_cols = cols
         # Shrink section-break paragraphs to the least height a renderer will
         # give them. That is SECT_BREAK_PARA_PT, not zero -- see the constant.
@@ -2697,17 +2851,27 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
     # they ARE the page-exact reconstruction the gate certifies.
     booklet = _is_booklet(lay.pages)
     for pi, pg in enumerate(lay.pages):
-        if pi > 0 and not pg.continuation_only:
+        # This page's paper and margins: `lay` itself unless the page is of
+        # another size than page 1 (design audit B9), and then a page break
+        # is a NEW_PAGE section carrying the new pgSz/orient/pgMar whatever
+        # else the branches below would have done -- a booklet's flow and a
+        # coalesced table cannot cross a change of paper.
+        glay = _page_geometry(lay, pg)
+        geo_change = pi > 0 and \
+            _geometry_key(glay) != _geometry_key(cur_cfg["geo"])
+        if pi > 0 and (not pg.continuation_only or geo_change):
             # page boundary
             after_cover = has_cover and pi == 1
             next_cols = pg.chunks[0].n_cols if pg.chunks else 1
-            if after_cover:
+            if after_cover or geo_change:
                 gap = pg.chunks[0].col_gap if pg.chunks else 24.0
                 pre = pg.chunks[0].pre_gap if pg.chunks else 0.0
-                mt = (lay.margin_t + pre) if (next_cols > 1 and pre > 0.5) else None
-                s = new_section(WD_SECTION.NEW_PAGE, next_cols, gap, margin_t=mt)
-                _fill_hf(s.header, lay.header_default, lay, ctx=ctx)
-                _fill_hf(s.footer, lay.footer_default, lay, ctx=ctx)
+                mt = (glay.margin_t + pre) if (next_cols > 1 and pre > 0.5) else None
+                s = new_section(WD_SECTION.NEW_PAGE, next_cols, gap, margin_t=mt,
+                                geo=glay)
+                if after_cover:
+                    _fill_hf(s.header, lay.header_default, lay, ctx=ctx)
+                    _fill_hf(s.footer, lay.footer_default, lay, ctx=ctx)
             elif booklet:
                 # the flow continues; a shape difference is handled by the
                 # chunk loop as a CONTINUOUS break. The first chunk's
@@ -2718,8 +2882,9 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
             elif cur_cols != next_cols:
                 gap = pg.chunks[0].col_gap if pg.chunks else 24.0
                 pre = pg.chunks[0].pre_gap if pg.chunks else 0.0
-                mt = (lay.margin_t + pre) if (next_cols > 1 and pre > 0.5) else None
-                new_section(WD_SECTION.NEW_PAGE, next_cols, gap, margin_t=mt)
+                mt = (glay.margin_t + pre) if (next_cols > 1 and pre > 0.5) else None
+                new_section(WD_SECTION.NEW_PAGE, next_cols, gap, margin_t=mt,
+                            geo=glay)
             else:
                 # Defect catalogue #1: a carrier paragraph spills to the
                 # next page exactly when the page before it fills exactly,
@@ -2733,7 +2898,8 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                 # followers cannot carry the property and fall back to a
                 # carrier before them.
                 pending_break[0] = True
-        cw_ctx = (lay.page_w - 2 * band_bleed) if (has_cover and pi == 0) else content_w
+        cw_ctx = (lay.page_w - 2 * band_bleed) if (has_cover and pi == 0) \
+            else glay.content_w
         # A one- or two-line spill is absorbed into this page rather than
         # stranded on one of its own by the break that follows. The plan is
         # `{id(element): gap}` and is applied at write time only: `lay` is
@@ -2741,13 +2907,13 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
         # compound on every pass. The cover page keeps its own bleed geometry
         # and is never asked. See `_absorb_page_spill`.
         spill_plan = {} if (has_cover and pi == 0) \
-            else _absorb_page_spill(pg, cw_ctx, lay)
+            else _absorb_page_spill(pg, cw_ctx, glay)
         for ci, ch in enumerate(pg.chunks):
             if ch.n_cols != cur_cols:
                 if ch.pre_gap > 0.5:
                     _spacer(doc, ch.pre_gap - _sect_break_comp(ctx))
                 new_section(WD_SECTION.CONTINUOUS, ch.n_cols, ch.col_gap)
-            drop_col_break = _column_one_overflows(ch, cw_ctx, lay)
+            drop_col_break = _column_one_overflows(ch, cw_ctx, glay)
             for el in ch.elements:
                 if isinstance(el, ColBreak):
                     if drop_col_break:
@@ -2776,8 +2942,45 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                 if bookmark and bookmark in ctx.anchor_ids:
                     # Not a paragraph: mark the spot between block elements.
                     _add_block_bookmark(doc, bookmark, ctx.anchor_ids[bookmark])
+                # Where a page seam goes in front of a non-paragraph element.
+                # A `w:br type=page` carrier before it makes LibreOffice drop
+                # the element's page-top space_before; pageBreakBefore on the
+                # element's own first paragraph keeps it -- figures, images
+                # and rules ARE paragraphs, and a table with a page-top gap
+                # opens with a spacer paragraph. probe_pagetop: a marker at
+                # 83.2pt after a carrier against 183.2 under pageBreakBefore
+                # (100pt asked; B23 / issue #42), reproduced through this
+                # writer in the canonical container (84.6 -> 184.6).
+                #
+                # The page then sits where the source put it -- but whether
+                # that is better depends on what else the page carries, and
+                # only a render can say. Measured open-loop, the dropped gap
+                # was slack covering inflation elsewhere: keeping it took the
+                # raw renders of y17 228 -> 231 pages, y27 159 -> 161 and y03
+                # 71 -> 74. Measured closed-loop, the kept gap is a lever the
+                # refine loop can finally correct -- same page counts, and the
+                # per-page offsets it leaves fall 2429 -> 2139pt on y17 and
+                # 694 -> 377 on y27. So the form is chosen by
+                # `top_gap_fits`, which only the refine loop sets (from
+                # `_stack_fits`, once, before it moves any gap): an open-loop
+                # write keeps the shipped carrier, page for page.
+                #
+                # Never where there is no page-top gap to keep (the table
+                # spacer's 0.5pt bar): moving the break changes nothing there
+                # except what LibreOffice treats as "the top of the page", and
+                # on x11 that un-hid a run of degenerate negative-height
+                # figures whose compensating 330-450pt gaps it had been
+                # suppressing (4 rendered pages -> 5).
+                carry = False
                 if pending_break[0]:
-                    _page_break_carrier(doc)
+                    if ((isinstance(el, (FigureEl, ImageEl, RuleEl))
+                            and (el.space_before or 0.0) > 0.5) or (
+                            isinstance(el, TableEl)
+                            and table_opens_with_spacer(el, ctx))) and \
+                            getattr(pg, "top_gap_fits", None) is True:
+                        carry = True
+                    else:
+                        _page_break_carrier(doc)
                     pending_break[0] = False
                 if isinstance(el, TableEl):
                     # A table in a column flow must be sized to its COLUMN.
@@ -2793,13 +2996,20 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                     if booklet and ch.n_cols > 1:
                         gap = ch.col_gap or 0.0
                         tw = (cw_ctx - gap * (ch.n_cols - 1)) / ch.n_cols
-                    write_table(doc, el, tw, ctx=ctx)
+                    write_table(doc, el, tw, ctx=ctx, page_break_before=carry)
                 elif isinstance(el, FigureEl):
-                    write_figure(doc, el, ctx=ctx)
+                    if write_figure(doc, el, ctx=ctx,
+                                    page_break_before=carry) is None:
+                        # Nothing was written (no renderer, or the clip
+                        # rendered empty): the break waits for the next
+                        # element rather than vanishing with this one.
+                        pending_break[0] = carry
                 elif isinstance(el, ImageEl):
-                    write_image(doc, el, ctx=ctx)
+                    if write_image(doc, el, ctx=ctx,
+                                   page_break_before=carry) is None:
+                        pending_break[0] = carry
                 elif isinstance(el, RuleEl):
-                    write_rule(doc, el, cw_ctx)
+                    write_rule(doc, el, cw_ctx, page_break_before=carry)
 
     # drop the initial empty paragraph python-docx puts in a fresh document
     # (never touch section-break paragraphs: removing one deletes a section)

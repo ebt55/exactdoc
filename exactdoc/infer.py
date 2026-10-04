@@ -1129,7 +1129,7 @@ def detect_hf(ir: DocIR):
         cands = []
         for i, d in enumerate(p.drawings):
             x0, y0, x1, y1 = d.bbox
-            if d.fill and (x1 - x0) >= 0.95 * W and (y1 - y0) >= 2.5 and y0 <= 220:
+            if d.fill and (x1 - x0) >= 0.95 * p.width and (y1 - y0) >= 2.5 and y0 <= 220:
                 cands.append((i, d))
         cands.sort(key=lambda t: t[1].bbox[1])
         grp, last_y1 = [], None
@@ -2463,10 +2463,56 @@ def infer(ir: DocIR) -> DocLayout:
     lay.page_w, lay.page_h = p0.width, p0.height
     n_pages = len(ir.pages)
     hf = detect_hf(ir)
+    groups = _size_groups(ir.pages)
+    _measure_margins(lay, ir, hf, groups[0])
+    # Pages of another size or orientation are measured on their own: a
+    # landscape table page's 650pt lines must neither set a portrait page's
+    # right margin nor be wrapped into its 468pt column (design audit B9).
+    own_geometry = {}
+    for grp in groups[1:]:
+        g = DocLayout(page_w=grp[0].width, page_h=grp[0].height)
+        _measure_margins(g, ir, hf, grp)
+        for p in grp:
+            own_geometry[p.number] = g
+    _infer_body(lay, ir, hf, n_pages, own_geometry)
+    return lay
 
+
+# Two page sizes closer than this in both dimensions are the same size. The
+# nearest distinct sizes in common use, A4 and US Letter, differ by 16.7pt in
+# width and 49.9pt in height; scanners and imposition software jitter a page
+# by a point or two.
+PAGE_SIZE_TOL = 3.0
+
+
+def _size_groups(pages: List[PageIR]) -> List[List[PageIR]]:
+    """Pages grouped by size, page 1's group first.
+
+    A document of one size is one group holding `pages` itself, so everything
+    measured over it is measured exactly as before.
+    """
+    groups: List[List[PageIR]] = []
+    for p in pages:
+        for g in groups:
+            if abs(g[0].width - p.width) <= PAGE_SIZE_TOL and \
+                    abs(g[0].height - p.height) <= PAGE_SIZE_TOL:
+                g.append(p)
+                break
+        else:
+            groups.append([p])
+    if len(groups) == 1:
+        return [pages]
+    return groups
+
+
+def _measure_margins(lay: DocLayout, ir: DocIR, hf: dict,
+                     pages: List[PageIR]) -> None:
+    """Set `lay`'s four margins from `pages`, which share `lay`'s page size."""
+    sub_ir = ir if pages is ir.pages else DocIR(path=ir.path, pages=pages,
+                                                    meta=ir.meta)
     # ---------- margins
     body_lines = []
-    for p in ir.pages:
+    for p in pages:
         ct = hf["consumed_text"][p.number]
         for bi, b in enumerate(p.blocks):
             for l in b.lines:
@@ -2517,11 +2563,11 @@ def infer(ir: DocIR) -> DocLayout:
     # widens content, the same one-way door as `_two_column_right_edge`.
     base_edge = mr if mr is not None else lay.page_w - lay.margin_l
     pages_lines = []
-    for p in ir.pages:
+    for p in pages:
         ct = hf["consumed_text"][p.number]
         pages_lines.append([l for bi, b in enumerate(p.blocks) for l in b.lines
                             if (bi, id(l)) not in ct])
-    rule_edge = _rule_right_edge(ir, hf, lay.page_w, wide_x1,
+    rule_edge = _rule_right_edge(sub_ir, hf, lay.page_w, wide_x1,
                                  row_x1=_field_row_ends(pages_lines, lay.margin_l,
                                                         lay.page_w),
                                  body_boxes=[(pg, l.bbox) for pg, l in body_lines])
@@ -2546,7 +2592,7 @@ def infer(ir: DocIR) -> DocLayout:
     band1_h = max((d.bbox[3] for _, d in hf["band_first"]), default=0) \
         if hf["band_first"] else 0
     tops, bots = [], []
-    for p in ir.pages:
+    for p in pages:
         ct = hf["consumed_text"][p.number]
         cd = hf["consumed_draw"][p.number]
         ys = [l.bbox[1] for bi, b in enumerate(p.blocks) for l in b.lines
@@ -2563,6 +2609,22 @@ def infer(ir: DocIR) -> DocLayout:
     max_bot = max(bots) if bots else lay.page_h - 54
     lay.margin_b = round(max(14.0, min(72.0, lay.page_h - max_bot - 16.0)), 1)
 
+
+def _geometry(lay: DocLayout, own: Optional[DocLayout]) -> DocLayout:
+    """`lay` with a page's own size and margins, or `lay` itself."""
+    if own is None:
+        return lay
+    out = replace(lay, page_w=own.page_w, page_h=own.page_h,
+                  margin_l=own.margin_l, margin_r=own.margin_r,
+                  margin_t=own.margin_t, margin_b=own.margin_b)
+    # Row evidence is measured against a geometry's content edges, so a page
+    # of another size reads its own group's (see _measure_margins).
+    out._row_evidence = getattr(own, "_row_evidence", None)
+    return out
+
+
+def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
+                own_geometry: Dict[int, DocLayout]) -> None:
     # hyphenated justification? (line ends with letter-hyphen, next starts lower)
     hyph = 0
     for p in ir.pages:
@@ -2632,9 +2694,15 @@ def infer(ir: DocIR) -> DocLayout:
 
     # ---------- per-page content
     body_size = _body_font_size(ir, hf)
-    content_w = lay.content_w
+    doc_lay = lay
     for p in ir.pages:
+        own = own_geometry.get(p.number)
+        lay = _geometry(doc_lay, own)
+        content_w = lay.content_w
         pl = PageLayout(number=p.number)
+        if own is not None:
+            pl.page_w, pl.page_h = own.page_w, own.page_h
+            pl.margins = (own.margin_l, own.margin_r, own.margin_t, own.margin_b)
         ct = hf["consumed_text"][p.number]
         cd = set(hf["consumed_draw"][p.number])
 
@@ -2885,8 +2953,9 @@ def infer(ir: DocIR) -> DocLayout:
         if p.number == 1 and lay.cover_band is not None and lay.cover_band.bbox:
             page_top = lay.cover_band.bbox[3]
         pl.chunks = _assemble_chunks(elements, flow_blocks, lay, p, page_top)
-        lay.pages.append(pl)
+        doc_lay.pages.append(pl)
 
+    lay = doc_lay
     _coalesce_striped_table_segments(lay)
     _propagate_list_hangs([el for pg in lay.pages for ch in pg.chunks
                            for el in ch.elements if isinstance(el, Para)])
@@ -2899,7 +2968,10 @@ def infer(ir: DocIR) -> DocLayout:
         # is deliberately withheld when a header/footer, cover section, or a
         # figure-flow overlay could occupy the same physical bottom area.
         lay.margin_b = min(lay.margin_b, 14.0)
-    return lay
+        for pl in lay.pages:
+            if pl.margins is not None:
+                ml, mr, mt, mb = pl.margins
+                pl.margins = (ml, mr, mt, min(mb, 14.0))
 
 
 def _mk_block(lines):

@@ -35,8 +35,37 @@ def convert(pdf_path: str, out_path: Optional[str] = None,
             oracle: Optional[str] = None,
             allow_cloud_upload: Optional[bool] = None,
             max_pages: Optional[int] = None,
+            ocr_layer: Optional[str] = None,
             options: Optional[ConversionOptions] = None) -> str:
     """Convert a PDF to DOCX. Returns the output path.
+
+    `convert_result` takes the same arguments and returns the
+    `ConversionResult` -- requested and resolved options side by side, the
+    refine rounds, and every warning -- for a caller that needs to know
+    whether what ran is what it asked for.
+    """
+    return convert_result(
+        pdf_path, out_path, dpi=dpi, refine_rounds=refine_rounds,
+        target=target, backend=backend, ladder=ladder, verbose=verbose,
+        output_profile=output_profile, oracle=oracle,
+        allow_cloud_upload=allow_cloud_upload, max_pages=max_pages,
+        ocr_layer=ocr_layer, options=options).output_path
+
+
+def convert_result(pdf_path: str, out_path: Optional[str] = None,
+                   dpi: Optional[int] = None,
+                   refine_rounds: Optional[int] = None,
+                   target: Optional[str] = None,
+                   backend: Optional[str] = None,
+                   ladder: Optional[bool] = None,
+                   verbose: Optional[bool] = None,
+                   output_profile: Optional[str] = None,
+                   oracle: Optional[str] = None,
+                   allow_cloud_upload: Optional[bool] = None,
+                   max_pages: Optional[int] = None,
+                   ocr_layer: Optional[str] = None,
+                   options: Optional[ConversionOptions] = None):
+    """Convert a PDF to DOCX. Returns a `ConversionResult`.
 
     Defaults come from `options.PRODUCT`: its PDFium backend, standard output
     profile, and three-round LibreOffice refinement loop. Pass
@@ -76,7 +105,20 @@ def convert(pdf_path: str, out_path: Optional[str] = None,
     documents longer than `max_pages` (`PageLimitError`, the only one of the
     three the caller can lift). The form and page checks run before the parse, so
     a refusal costs an annotation walk rather than a full extraction.
+
+    **An oracle that fails mid-run degrades the conversion; it does not fail
+    it.** The best DOCX produced so far is published, `OracleDegradedWarning`
+    is raised (escalate it to make the failure fatal and leave the destination
+    untouched), and the result says so twice: an `oracle-degraded` entry in
+    `warnings`, and `resolved_options` carrying the rounds that actually ran,
+    so `degraded` is True. An oracle that is not installed at all is still
+    `OracleUnavailableError` -- see `exactdoc.errors.OracleDegradedWarning`
+    for where that line is drawn, and why.
     """
+    import time
+    from .result import ConversionResult, ConversionWarning, OracleRun, \
+        sha256_file
+    started = time.monotonic()
     if backend is None and options is None:
         backend = os.environ.get("EXACTDOC_BACKEND", "").strip() or None
     # Consent is never read from the environment. An exported variable must not
@@ -84,7 +126,8 @@ def convert(pdf_path: str, out_path: Optional[str] = None,
     opts = resolve(options, backend=backend, target=target, dpi=dpi,
                    refine_rounds=refine_rounds, ladder=ladder, verbose=verbose,
                    output_profile=output_profile, oracle=oracle,
-                   allow_cloud_upload=allow_cloud_upload, max_pages=max_pages)
+                   allow_cloud_upload=allow_cloud_upload, max_pages=max_pages,
+                   ocr_layer=ocr_layer)
     if out_path is None:
         out_path = os.path.splitext(pdf_path)[0] + ".docx"
 
@@ -96,7 +139,11 @@ def convert(pdf_path: str, out_path: Optional[str] = None,
     # Keep the backend-native reader boundary here.  Known password and format
     # statuses become stable public errors before any output can be published;
     # unrelated exceptions deliberately propagate as bugs.
-    ir = parse_input(bk, pdf_path)
+    ir = parse_input(bk, pdf_path, ocr_layer=opts.ocr_layer)
+    # Images the parser could not extract never reach the writer, so the
+    # writer's ledger cannot see them; they are added to it after the write.
+    parse_drops = sum(getattr(p, "images_dropped", 0)
+                      for p in getattr(ir, "pages", ()))
     # ``parse_input`` always returns a DocIR in production.  The attribute
     # guard keeps the historical lightweight writer-test seam usable: those
     # tests deliberately substitute an opaque layout sentinel, not a parser IR.
@@ -155,6 +202,8 @@ def convert(pdf_path: str, out_path: Optional[str] = None,
     # all.  An image exactdoc cannot embed never fails the document -- but a
     # silent drop would be a lie, so the write counts them and this reports them.
     image_report = {}
+    refine_report = {}
+    resolved_opts = opts
     if opts.refine_rounds > 0:
         from .refine import refine
         from .targets import get_renderer
@@ -165,25 +214,76 @@ def convert(pdf_path: str, out_path: Optional[str] = None,
         render, resolved = get_renderer(opts.oracle)
         if opts.verbose:
             print("  refining against: %s" % resolved)
-        out = refine(lay, pdf_path, out_path, dpi=opts.dpi,
-                     rounds=opts.refine_rounds, verbose=opts.verbose,
-                     render=render, output_profile=opts.output_profile,
-                     backend=bk, image_report=image_report)
-        _report_images(image_report, opts.verbose)
-        return out
-    from .docxout import write_docx
-    # The writer serialises a ZIP incrementally.  Never point it at the public
-    # destination: if an image, disk, or Python failure interrupts it, preserve
-    # the caller's existing document byte-for-byte and publish only a validated
-    # complete result.  ``publish`` deliberately writes beside ``out_path`` so
-    # its final replacement is an atomic same-filesystem operation.
-    from .io import publish
-    publish(lambda tmp: write_docx(lay, tmp, dpi=opts.dpi,
-                                   output_profile=opts.output_profile,
-                                   backend=bk, image_report=image_report),
-            out_path)
+        refine(lay, pdf_path, out_path, dpi=opts.dpi,
+               rounds=opts.refine_rounds, verbose=opts.verbose,
+               render=render, output_profile=opts.output_profile,
+               backend=bk, image_report=image_report, report=refine_report)
+        failure = refine_report.get("oracle_failure")
+        if failure is not None:
+            # What actually ran: the correction rounds measured before the
+            # failure, and no oracle at all if not even round 0 was measured.
+            done = refine_report.get("published_round")
+            resolved_opts = opts.replace(refine_rounds=done or 0) \
+                if done is not None else \
+                opts.replace(refine_rounds=0, oracle="none",
+                             allow_cloud_upload=False)
+    else:
+        from .docxout import write_docx
+        # The writer serialises a ZIP incrementally.  Never point it at the
+        # public destination: if an image, disk, or Python failure interrupts
+        # it, preserve the caller's existing document byte-for-byte and
+        # publish only a validated complete result.  ``publish`` deliberately
+        # writes beside ``out_path`` so its final replacement is an atomic
+        # same-filesystem operation.
+        from .io import publish
+        publish(lambda tmp: write_docx(lay, tmp, dpi=opts.dpi,
+                                       output_profile=opts.output_profile,
+                                       backend=bk, image_report=image_report),
+                out_path)
+    # Parser-side drops (WP4) are counted for both paths, refined or not.
+    _add_parse_drops(image_report, parse_drops)
     _report_images(image_report, opts.verbose)
-    return out_path
+
+    found = []
+    failure = refine_report.get("oracle_failure")
+    if failure is not None:
+        found.append(ConversionWarning(
+            code="oracle-degraded", stage="refine",
+            message="the %s oracle failed in refine round %d; the published "
+                    "DOCX is %s" % (
+                        opts.oracle, failure["round"],
+                        ("refine round %d, the best measured before the "
+                         "failure" % refine_report["published_round"])
+                        if refine_report.get("published_round") is not None
+                        else "the open-loop conversion, unrefined"),
+            detail=failure.get("reason")))
+    if image_report.get("dropped"):
+        found.append(ConversionWarning(
+            code="image-dropped", stage="write",
+            message="%d image(s) could not be embedded and were omitted"
+                    % image_report["dropped"]))
+    runs = tuple(
+        OracleRun(oracle=opts.oracle, ok="measure_ms" in row,
+                  round_index=row["round"],
+                  duration_ms=int(row.get("render_ms", 0)),
+                  stage_failed=None if "measure_ms" in row else "render")
+        for row in refine_report.get("rounds", ()))
+    timings = {"total": int((time.monotonic() - started) * 1000)}
+    for key in ("write_ms", "render_ms", "measure_ms"):
+        tot = sum(r.get(key, 0) for r in refine_report.get("rounds", ()))
+        if tot:
+            timings["refine_" + key[:-3]] = tot
+    return ConversionResult(
+        output_path=out_path, output_sha256=sha256_file(out_path),
+        requested_options=opts, resolved_options=resolved_opts,
+        refine_rounds_completed=max(0, sum(1 for r in runs if r.ok) - 1),
+        oracle_runs=runs, warnings=tuple(found), timings_ms=timings,
+        refine=dict(refine_report))
+
+
+def _add_parse_drops(report, n):
+    if n:
+        report["dropped"] = report.get("dropped", 0) + n
 
 
 def _report_images(report, verbose):
