@@ -14,7 +14,8 @@ from typing import Any, Callable, Dict, Optional, List
 
 from docx import Document
 from docx.shared import Pt, Emu, RGBColor, Twips
-from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING, WD_TAB_ALIGNMENT, WD_BREAK
+from docx.enum.text import (WD_ALIGN_PARAGRAPH, WD_LINE_SPACING, WD_TAB_ALIGNMENT,
+                            WD_TAB_LEADER, WD_BREAK)
 from docx.enum.section import WD_SECTION
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml import OxmlElement
@@ -73,6 +74,15 @@ ALIGN = {
 }
 TABAL = {"left": WD_TAB_ALIGNMENT.LEFT, "center": WD_TAB_ALIGNMENT.CENTER,
          "right": WD_TAB_ALIGNMENT.RIGHT}
+# A tab stop is (position, alignment) or (position, alignment, leader); the
+# leader is how a contents line's dots are drawn by the word processor itself.
+TABLEADER = {"dot": WD_TAB_LEADER.DOTS, "hyphen": WD_TAB_LEADER.DASHES,
+             "underscore": WD_TAB_LEADER.LINES}
+
+
+def _shift_tabs(stops, dl: float):
+    """Tab stops moved by `dl`, keeping any leader."""
+    return [(round(ts[0] + dl, 1),) + tuple(ts[1:]) for ts in stops]
 
 
 def _hex(c: str) -> str:
@@ -613,8 +623,15 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None,
         pf.first_line_indent = Pt(round(p.first_indent, 1))
     if right_indent > 0.05:
         pf.right_indent = Pt(round(right_indent, 1))
-    for pos, al in p.tab_stops:
-        pf.tab_stops.add_tab_stop(Pt(round(pos, 1)), TABAL.get(al, WD_TAB_ALIGNMENT.LEFT))
+    for ts in p.tab_stops:
+        pos, al = ts[0], ts[1]
+        leader = TABLEADER.get(ts[2]) if len(ts) > 2 else None
+        if leader is None:
+            pf.tab_stops.add_tab_stop(Pt(round(pos, 1)),
+                                      TABAL.get(al, WD_TAB_ALIGNMENT.LEFT))
+        else:
+            pf.tab_stops.add_tab_stop(Pt(round(pos, 1)),
+                                      TABAL.get(al, WD_TAB_ALIGNMENT.LEFT), leader)
     # keep heading with following content
     if p.heading:
         pf.keep_with_next = True
@@ -2023,7 +2040,7 @@ def _shifted_part(part: Optional[HFPart], dl: float, dr: float) -> Optional[HFPa
         if isinstance(el, Para):
             el.left_indent = round(el.left_indent + dl, 1)
             el.right_indent = round((el.right_indent or 0.0) + dr, 1)
-            el.tab_stops = [(round(p + dl, 1), a) for p, a in el.tab_stops]
+            el.tab_stops = _shift_tabs(el.tab_stops, dl)
         elif isinstance(el, TableEl):
             el.left_indent = round(el.left_indent + dl, 1)
     return np
@@ -2623,7 +2640,7 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                 if isinstance(el, Para):
                     el.left_indent = round(el.left_indent + delta_l, 1)
                     el.right_indent = round((el.right_indent or 0.0) + delta_r, 1)
-                    el.tab_stops = [(round(p + delta_l, 1), a) for p, a in el.tab_stops]
+                    el.tab_stops = _shift_tabs(el.tab_stops, delta_l)
                 elif isinstance(el, TableEl):
                     el.left_indent = round(el.left_indent + delta_l, 1)
                 elif isinstance(el, (FigureEl, ImageEl)):

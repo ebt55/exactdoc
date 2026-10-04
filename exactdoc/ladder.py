@@ -198,15 +198,20 @@ def predict_lines(p: Para, avail: float, metrics=None) -> Optional[int]:
         fn = _b14(fam, r.bold, r.italic)
         if fn is None:
             return None
+        # A run's tracking is part of its width: the renderer adds it after
+        # every character, spaces included. Without it a run carrying the
+        # source's own advance scale (tracking.py) is predicted ~6% narrow and
+        # every such paragraph reads as "the renderer will need fewer lines".
+        cs = getattr(r, "char_spacing", 0.0) or 0.0
         for w in r.text.replace("\n", " ").split(" "):
             if w:
-                words.append((w, fam, r.size, r.bold, r.italic))
+                words.append((w, fam, r.size, r.bold, r.italic, cs))
     if not words:
         return 1
     cache = {}
     unmeasurable = []
 
-    def wid(t, fam, sz, bold, italic):
+    def wid(t, fam, sz, bold, italic, cs=0.0):
         key = (t, fam, sz, bold, italic)
         if key not in cache:
             w = metrics.text_width(t, fam, sz, bold=bold, italic=italic)
@@ -214,18 +219,18 @@ def predict_lines(p: Para, avail: float, metrics=None) -> Optional[int]:
                 unmeasurable.append(key)
                 w = 0.0
             cache[key] = w
-        return cache[key]
+        return cache[key] + cs * len(t)
 
     n, cur, first = 1, 0.0, True
     room0 = avail - max(0.0, p.first_indent)
-    for w, fam, sz, bold, italic in words:
-        ww = wid(w, fam, sz, bold, italic)
+    for w, fam, sz, bold, italic, cs in words:
+        ww = wid(w, fam, sz, bold, italic, cs)
         room = room0 if n == 1 else avail
         if first:
             cur = ww
             first = False
             continue
-        add = wid(" ", fam, sz, bold, italic) + ww
+        add = wid(" ", fam, sz, bold, italic, cs) + ww
         if cur + add > room + SLACK_PT:
             n += 1
             cur = ww
@@ -256,7 +261,7 @@ def _seg_width(seg_runs, cache, metrics) -> float:
             if got is None:
                 return -1.0
             cache[key] = got
-        w += cache[key]
+        w += cache[key] + (getattr(r, "char_spacing", 0.0) or 0.0) * len(r.text)
     return w
 
 
@@ -272,7 +277,8 @@ def _slice_runs(runs: List[Run], a: int, b: int) -> List[Run]:
             c = Run(text=r.text[s - pos:e - pos], font=r.font, size=r.size,
                     color=r.color, bold=r.bold, italic=r.italic, mono=r.mono,
                     serif=r.serif, link=r.link, underline=r.underline,
-                    superscript=r.superscript, field=r.field)
+                    superscript=r.superscript, field=r.field,
+                    char_spacing=getattr(r, "char_spacing", 0.0) or 0.0)
             out.append(c)
         pos += n
     return out
@@ -345,7 +351,10 @@ def _lock(p: Para, avail: float, metrics) -> bool:
     new_runs = []
     for i, (seg, track) in enumerate(segments):
         for r in seg:
-            r.char_spacing = round(track, 3)
+            # Compression ADDS to whatever tracking the run already carries
+            # (the source's advance scale, tracking.py); `_seg_width` measured
+            # the line with it included.
+            r.char_spacing = round((r.char_spacing or 0.0) + track, 3)
         if i < len(segments) - 1 and seg:
             seg[-1].text += "\n"
         new_runs.extend(seg)

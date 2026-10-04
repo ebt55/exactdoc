@@ -121,7 +121,9 @@ def _map_pages(src_pages, out_pages):
         for t, _, _ in lines:
             if len(t) < 12 or t not in idx:
                 continue
-            for ri in idx[t]:
+            # One vote per rendered page: a line printed twice on one page
+            # (a repeated paragraph) is not twice the evidence for it.
+            for ri in set(idx[t]):
                 votes[ri] = votes.get(ri, 0) + 1
             used += 1
             if used >= 5:
@@ -131,7 +133,15 @@ def _map_pages(src_pages, out_pages):
             continue
         fwd = {ri: v for ri, v in votes.items() if ri >= prev}
         pool = fwd or votes            # fall back if monotonicity finds nothing
-        best = min(pool, key=lambda ri: (-pool[ri], ri))
+        # A tie means the opening lines occur on several rendered pages --
+        # a document that repeats its paragraphs (x13_rl_report_running
+        # repeats all of them on page 2). Every source page ends in a page
+        # break, so the next page is where its content belongs; breaking the
+        # tie toward the LOWEST index instead mapped page 2 onto page 1, read
+        # that as a one-page spill, and every round then halved page 2's gaps
+        # (-66pt by the bottom of the page, dy_p90 64pt).
+        expect = prev + 1 if mapping else 0
+        best = min(pool, key=lambda ri: (-pool[ri], ri != expect, ri))
         mapping.append(best)
         prev = best
     return mapping

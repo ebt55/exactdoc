@@ -108,7 +108,28 @@ def convert(pdf_path: str, out_path: Optional[str] = None,
         if error is not None:
             raise error
     ir = normalize(ir)
+    # Measured before `infer`, which consumes the IR's blocks into paragraphs:
+    # the evidence is per source line, and a line's own block is what says
+    # whether it was justified.
+    scales = {}
+    # (`hasattr` for the same writer-test seam the refusal check above honours.)
+    if opts.output_profile != "gdocs" and hasattr(ir, "pages"):
+        # Google Docs discards run tracking on import (fonts.
+        # GDOCS_HONOURS_RUN_TRACKING), so under that profile the correction
+        # would be invisible to the renderer and still steer every width
+        # prediction the writer makes. It is left out there entirely.
+        from .metrics import get_metrics
+        from .tracking import measure_advance_scales
+        scales = measure_advance_scales(ir, get_metrics())
     lay = infer(ir)
+    if scales:
+        from .metrics import get_metrics
+        from .tracking import apply_advance_tracking
+        n = apply_advance_tracking(lay, scales, get_metrics())
+        if opts.verbose:
+            print("  advance tracking: %d runs (%s)" % (n, ", ".join(
+                "%s %.2fpt x%.4f" % (k[0], k[1], v) for k, v in
+                sorted(scales.items()))))
     if opts.ladder:
         from .ladder import apply_ladder, summarise
         from .metrics import get_metrics

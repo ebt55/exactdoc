@@ -130,10 +130,29 @@ def _is_backdrop(d: DrawCmd, pw: float, ph: float) -> bool:
     return _luma_ok(d.fill)
 
 
+def _is_hollow_marker(d: DrawCmd) -> bool:
+    """A stroked, unfilled small CURVE: the `circle` list-style marker.
+
+    Chromium draws a second-level bullet (`list-style: circle`) as an outlined
+    bezier circle -- fill None, a 0.75pt stroke, 4.9pt across on x09 -- so the
+    solid-only test below never saw it, the drawing fell through as a stray
+    ornament, and every second-level item of x09's nested list lost its marker.
+    Restricted to curves on purpose: a stroked small RECTANGLE before a label is
+    a form's checkbox, and calling that a bullet would be a lie about content.
+    """
+    if d.fill or not d.stroke or d.shape not in ("curve", "complex"):
+        return False
+    x0, y0, x1, y1 = d.bbox
+    w, h = x1 - x0, y1 - y0
+    if not (1.5 < w <= BULLET_MAX and 1.5 < h <= BULLET_MAX):
+        return False
+    return abs(w - h) <= 0.25 * max(w, h)
+
+
 def _is_marker_glyph(d: DrawCmd) -> bool:
     """Small, solid, roughly square: the shape of a drawn bullet."""
     if not d.fill:
-        return False
+        return _is_hollow_marker(d)
     x0, y0, x1, y1 = d.bbox
     w, h = x1 - x0, y1 - y0
     if not (0.4 < w <= BULLET_MAX and 0.4 < h <= BULLET_MAX):
@@ -169,10 +188,10 @@ def _labels_a_line(d: DrawCmd, lines: List[Line]) -> bool:
 
 
 def _bullet_block(x0: float, baseline: float, size: float,
-                  color: Optional[str]) -> TextBlock:
+                  color: Optional[str], char: str = "•") -> TextBlock:
     """The canonical form both marker recoveries produce: a one-span block."""
     bb = (x0, baseline - size * 0.94, x0 + size * 0.5, baseline)
-    sp = Span(text="•", font="Arial", size=size,
+    sp = Span(text=char, font="Arial", size=size,
               color=color or "#000000", bold=False, italic=False,
               mono=False, serif=False, superscript=False,
               bbox=bb, origin=(x0, baseline))
@@ -186,7 +205,168 @@ def _drop_backdrops(page: PageIR) -> int:
     return n
 
 
-def _markers_to_text(page: PageIR) -> int:
+# A drawing must reach at least this far onto the paper to be ink.
+OFFPAGE_TOL = 0.5
+
+
+def _drop_offpage(page: PageIR) -> int:
+    """Drop drawings that lie wholly outside the page box.
+
+    They are invisible by construction, and Chromium emits them: it paints a
+    layer once and clips it per page, so the contents dot leaders of
+    x11_chrome_toc_headings page 1 are ALSO in page 2's content stream, at
+    y = -453 .. -335. Kept, they became seven "figures" with negative heights
+    at the top of page 2, and they set its top margin to 10pt.
+    """
+    w, h = page.width, page.height
+    keep = [d for d in page.drawings
+            if d.bbox[2] > OFFPAGE_TOL and d.bbox[3] > OFFPAGE_TOL
+            and d.bbox[0] < w - OFFPAGE_TOL and d.bbox[1] < h - OFFPAGE_TOL]
+    n = len(page.drawings) - len(keep)
+    page.drawings = keep
+    return n
+
+
+# --- drawn dot leaders --------------------------------------------------------
+# A contents line in HTML is "title <span class=dots> page", and the dots are a
+# CSS `border-bottom: dotted` -- which Chromium paints as hundreds of tiny
+# filled squares. On x11_chrome_toc_headings: 0.75pt squares at a 1.5pt pitch,
+# 271-292 of them per entry. Left as drawings they were rasterised as seven
+# 5pt-tall pictures, the 29 squares nearest each page number were promoted to
+# BULLETS by `_markers_to_text` (each sits within 46pt left of the number), and
+# those bullet blocks then read as a right-hand column, which split the page
+# into two columns and reordered the whole report.
+#
+# A leader is unmistakable geometry: many identical marks on one line at one
+# pitch, BETWEEN two pieces of text on that line's baseline. It is rewritten
+# into the canonical form every other producer already uses -- a run of "."
+# characters on the label's baseline -- so `infer` has one leader idiom to
+# recognise, not two.
+LEADER_MARK_MAX = 2.5      # pt; a leader dot, not a bullet (x09's are 3-5pt)
+LEADER_MIN_MARKS = 8       # a short dotted rule is decoration, not a leader
+LEADER_MIN_SPAN = 24.0     # pt
+LEADER_PITCH_MAX = 6.0     # pt between dot origins; dotted leaders are dense
+LEADER_PITCH_TOL = 0.35    # fraction of the pitch the spacing may wander
+LEADER_Y_TOL = 0.4         # pt; the marks of one leader share a centre line
+
+
+def _leader_runs(page: PageIR):
+    """[(marks, (x0, y0, x1, y1))] for regular horizontal runs of tiny marks."""
+    marks = [d for d in page.drawings
+             if (d.fill or d.stroke)
+             and 0.2 < d.bbox[2] - d.bbox[0] <= LEADER_MARK_MAX
+             and 0.2 < d.bbox[3] - d.bbox[1] <= LEADER_MARK_MAX]
+    if len(marks) < LEADER_MIN_MARKS:
+        return []
+    marks.sort(key=lambda d: (round((d.bbox[1] + d.bbox[3]) / 2, 1), d.bbox[0]))
+    rows, cur = [], [marks[0]]
+    for d in marks[1:]:
+        cy = (d.bbox[1] + d.bbox[3]) / 2
+        py = (cur[-1].bbox[1] + cur[-1].bbox[3]) / 2
+        if abs(cy - py) <= LEADER_Y_TOL:
+            cur.append(d)
+        else:
+            rows.append(cur)
+            cur = [d]
+    rows.append(cur)
+    out = []
+    for row in rows:
+        row.sort(key=lambda d: d.bbox[0])
+        # split the row into runs of steady pitch
+        run = [row[0]]
+        for d in row[1:] + [None]:
+            if d is not None:
+                step = d.bbox[0] - run[-1].bbox[0]
+                pitch = (run[-1].bbox[0] - run[0].bbox[0]) / (len(run) - 1) \
+                    if len(run) >= 2 else step
+                if 0 < step <= LEADER_PITCH_MAX and \
+                        abs(step - pitch) <= LEADER_PITCH_TOL * max(pitch, 0.5):
+                    run.append(d)
+                    continue
+            if len(run) >= LEADER_MIN_MARKS and \
+                    run[-1].bbox[2] - run[0].bbox[0] >= LEADER_MIN_SPAN:
+                out.append((run, (run[0].bbox[0],
+                                  min(m.bbox[1] for m in run),
+                                  run[-1].bbox[2],
+                                  max(m.bbox[3] for m in run))))
+            if d is not None:
+                run = [d]
+    return out
+
+
+def _drawn_leaders_to_text(page: PageIR) -> int:
+    """Rewrite drawn dot leaders between a label and its page number as text."""
+    lines = [l for b in page.blocks for l in b.lines if l.horizontal and l.spans]
+    if not lines:
+        return 0
+    done = 0
+    drop = set()
+    for marks, (x0, y0, x1, y1) in _leader_runs(page):
+        cy = (y0 + y1) / 2
+        left = right = None
+        for ln in lines:
+            size = max(s.size for s in ln.spans)
+            # the run sits on the line: between its x-height and just under
+            # its baseline (x11's border is lifted 2pt above the baseline)
+            if not (ln.baseline - 0.6 * size <= cy <= ln.baseline + 1.0):
+                continue
+            if ln.bbox[2] <= x0 + 1.0 and x0 - ln.bbox[2] <= 3.0 * size:
+                if left is None or ln.bbox[2] > left.bbox[2]:
+                    left = ln
+            elif ln.bbox[0] >= x1 - 1.0 and ln.bbox[0] - x1 <= 3.0 * size:
+                if right is None or ln.bbox[0] < right.bbox[0]:
+                    right = ln
+        if left is None or right is None:
+            continue                     # dots with nothing to lead: decoration
+        ref = left.spans[-1]
+        dot_w = 0.25 * ref.size          # a "." in Times; only a fallback width
+        n = max(LEADER_MIN_MARKS // 2, int((x1 - x0) / dot_w))
+        base = left.baseline
+        bb = (x0, base - 0.94 * ref.size, x1, base + 0.21 * ref.size)
+        sp = Span(text="." * n, font=ref.font, size=ref.size,
+                  color=marks[0].fill or marks[0].stroke or ref.color,
+                  bold=False, italic=False, mono=False, serif=ref.serif,
+                  superscript=False, bbox=bb, origin=(x0, base))
+        page.blocks.append(TextBlock(lines=[Line(spans=[sp], bbox=bb)], bbox=bb))
+        drop.update(id(m) for m in marks)
+        done += 1
+    if done:
+        page.drawings = [d for d in page.drawings if id(d) not in drop]
+        page.blocks.sort(key=lambda b: (round(b.bbox[1], 1), b.bbox[0]))
+    return done
+
+
+def _marker_hits(page: PageIR, lines=None) -> List[DrawCmd]:
+    """Drawn marker glyphs on this page that sit in front of a text line."""
+    if lines is None:
+        lines = [l for b in page.blocks for l in b.lines if l.horizontal]
+    if not lines:
+        return []
+    return [d for d in page.drawings
+            if _is_marker_glyph(d) and _labels_a_line(d, lines)]
+
+
+def _marker_sig(d: DrawCmd):
+    """What makes two drawn marks the same marker: shape, size, ink.
+
+    Sizes in half-point buckets: x09's circles measure 4.9 x 4.9 on page 1
+    and 4.9 x 4.8 on page 2 -- the same glyph, rounded differently.
+    """
+    return (d.shape, round((d.bbox[2] - d.bbox[0]) * 2) / 2,
+            round((d.bbox[3] - d.bbox[1]) * 2) / 2, d.fill, d.stroke)
+
+
+def _corroborated_markers(ir: DocIR) -> set:
+    """Marker signatures that some page shows as a list (two or more hits)."""
+    sigs = set()
+    for p in ir.pages:
+        hits = _marker_hits(p)
+        if len(hits) >= 2:
+            sigs.update(_marker_sig(d) for d in hits)
+    return sigs
+
+
+def _markers_to_text(page: PageIR, corroborated=frozenset()) -> int:
     """Rewrite drawn bullet glyphs as one-span text blocks.
 
     This is deliberately a *translation*, not a special case: it converts the
@@ -196,14 +376,16 @@ def _markers_to_text(page: PageIR) -> int:
     lines = [l for b in page.blocks for l in b.lines if l.horizontal]
     if not lines:
         return 0
-    cand = [d for d in page.drawings if _is_marker_glyph(d)]
-    if not cand:
-        return 0
-    hits = [d for d in cand if _labels_a_line(d, lines)]
+    hits = _marker_hits(page, lines)
     # A real list has repetition. A single small square is more likely to be a
-    # decorative dot, so require corroboration before rewriting anything.
+    # decorative dot, so require corroboration before rewriting anything --
+    # from this page, or from the same mark labelling lines elsewhere in the
+    # document: a list that breaks across pages can leave one item behind
+    # (x09 page 2 holds the last sub-item of a list begun on page 1).
     if len(hits) < 2:
-        return 0
+        hits = [d for d in hits if _marker_sig(d) in corroborated]
+        if not hits:
+            return 0
     hitset = {id(d) for d in hits}
     page.drawings = [d for d in page.drawings if id(d) not in hitset]
     for d in hits:
@@ -218,7 +400,10 @@ def _markers_to_text(page: PageIR) -> int:
                     near = ln
         if near is not None and near.spans:
             size = near.spans[0].size
-        page.blocks.append(_bullet_block(x0, cy + size * 0.22, size, d.fill))
+        hollow = not d.fill
+        page.blocks.append(_bullet_block(x0, cy + size * 0.22, size,
+                                         d.stroke if hollow else d.fill,
+                                         char="◦" if hollow else "•"))
     page.blocks.sort(key=lambda b: (round(b.bbox[1], 1), b.bbox[0]))
     return len(hits)
 
@@ -305,8 +490,12 @@ def _undecoded_markers_to_text(page: PageIR) -> int:
                if abs(o.origin[1] - y) <= BULLET_VTOL) > 1:
             continue
         # Text to the left on this baseline: the mark is inside a line, not in
-        # front of one.
-        if any(ln.bbox[2] <= x + 0.5 and
+        # front of one. "To the left" includes a line that SPANS the mark: an
+        # undecoded glyph between "2." and "Method" is the space inside one
+        # line, and it is no less inside it for that line ending further
+        # right. (x11's contents entries promoted exactly that space to a
+        # bullet once their leaders became text 43pt away.)
+        if any(ln.bbox[0] <= x + 0.5 and
                ln.bbox[1] - BULLET_VTOL <= y <= ln.bbox[3] + BULLET_VTOL
                for ln in lines):
             continue
@@ -675,14 +864,22 @@ def normalize(ir: DocIR) -> DocIR:
     """Rewrite producer idioms into canonical form. Mutates and returns `ir`."""
     stats = {"backdrops": 0, "vector_markers": 0, "symbol_markers": 0,
              "undecoded_markers": 0, "rotated": 0, "row_joins": 0,
-             "ruled_rows": 0, "tex_pua": 0}
+             "ruled_rows": 0, "tex_pua": 0, "offpage": 0, "leaders": 0}
     for p in ir.pages:
         if not hasattr(p, "rotated"):
             p.rotated = []
         stats["tex_pua"] += _tex_pua_to_text(p)
         stats["backdrops"] += _drop_backdrops(p)
+        stats["offpage"] += _drop_offpage(p)
         stats["rotated"] += _split_rotated(p)
-        stats["vector_markers"] += _markers_to_text(p)
+        # Before the marker pass: leader dots are small and square, and the
+        # ones nearest the page number sit exactly where a bullet would.
+        stats["leaders"] += _drawn_leaders_to_text(p)
+    # The marker pass needs the whole document in view: a page with ONE item
+    # of a list is corroborated by the pages that show the list.
+    corroborated = _corroborated_markers(ir)
+    for p in ir.pages:
+        stats["vector_markers"] += _markers_to_text(p, corroborated)
         stats["undecoded_markers"] += _undecoded_markers_to_text(p)
         stats["symbol_markers"] += _normalize_symbol_list_markers(p)
         stats["row_joins"] += _coalesce_row_fragments(p)
