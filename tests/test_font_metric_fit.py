@@ -76,9 +76,22 @@ class FamilyMappingTests(unittest.TestCase):
                 ("DejaVuSans-Bold", False, False, "Arial"),
                 ("ArialMT", False, False, "Arial"),
                 ("CourierNewPSMT", True, False, "Courier New"),
-                ("Calibri", False, False, "Carlito"),
                 ("OpenSymbol", False, False, "Arial")):
             self.assertEqual(map_font(name, mono=mono, serif=serif), want, name)
+
+    def test_office_families_keep_their_names_in_the_standard_profile(self):
+        """B14: a Word user has Calibri and Cambria, not their clones.
+
+        The gdocs profile keeps Carlito and Georgia, which is what it wrote
+        before: no live pass has graded a declared Calibri or Cambria in Docs.
+        """
+        for name, std, gd in (("Calibri", "Calibri", "Carlito"),
+                              ("Calibri-BoldItalic", "Calibri", "Carlito"),
+                              ("Carlito-Regular", "Calibri", "Carlito"),
+                              ("Cambria", "Cambria", "Georgia"),
+                              ("Caladea-Bold", "Cambria", "Georgia")):
+            self.assertEqual(map_font(name), std, name)
+            self.assertEqual(map_font(name, profile="gdocs"), gd, name)
 
     def test_a_substituted_family_maps_to_itself(self):
         # apply_metric_fit rewrites Run.font, and the writer maps it again
@@ -147,7 +160,8 @@ class MetricFitTests(unittest.TestCase):
                                   ("LiberationMono", True, False),
                                   ("DejaVuSansMono", True, False)):
             self.assertEqual(metric_fit(name, mono=mono, serif=serif),
-                             map_font(name, mono=mono, serif=serif), name)
+                             map_font(name, mono=mono, serif=serif,
+                                      profile="gdocs"), name)
 
     def test_an_unmeasured_family_is_never_guessed_at(self):
         """Absent measurement is not deviation zero -- it is 'do not act'."""
@@ -155,7 +169,7 @@ class MetricFitTests(unittest.TestCase):
                      "HelveticaNeueLTStd-Roman", "SomeFoundryFont"):
             self.assertIsNone(family_metrics(name), name)
             self.assertEqual(metric_fit(name, serif=True),
-                             map_font(name, serif=True), name)
+                             map_font(name, serif=True, profile="gdocs"), name)
 
     def test_substitution_threshold_is_clear_of_the_working_mappings(self):
         src = FAMILY_METRICS["dejavusans"][0]

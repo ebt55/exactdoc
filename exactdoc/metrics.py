@@ -107,6 +107,12 @@ class Base14Metrics:
     selects. See the module docstring for provenance and for the one place it
     deliberately disagrees with MuPDF.
 
+    It also shapes Calibri and Cambria, from their metric clones' own advance
+    tables (`_clone_widths.py`, generated from the OFL/Apache Carlito and
+    Caladea files). They used to be shaped -- Calibri only -- with Helvetica's
+    widths, 8.6% too wide; see `ladder._CLONE`. The class keeps its name and
+    its `name` because every report and test addresses it that way.
+
     Width of a string = sum of its glyphs' advances, scaled by size/1000. Two
     properties of the base-14 faces make that exact rather than approximate, and
     both were measured rather than assumed (`tests/test_base14_metrics.py`):
@@ -119,13 +125,24 @@ class Base14Metrics:
 
     def text_width(self, text, font, size, bold=False, italic=False):
         from ._base14_widths import COURIER_WIDTH, FALLBACK, WIDTHS
-        from .ladder import _b14
-        fn = _b14(font, bold, italic)
+        from .ladder import _face
+        fn = _face(font, bold, italic)
         if fn is None:
             return None
         table = WIDTHS.get(fn, "absent")
         if table == "absent":
-            return None
+            # Calibri and Cambria, shaped from their metric clones' own files
+            # (exactdoc/_clone_widths.py). Same arithmetic as the base-14 path
+            # -- additive advances, linear in size -- in the face's own units.
+            from . import _clone_widths as C
+            clone = C.WIDTHS.get(fn)
+            if clone is None:
+                return None
+            fb = C.FALLBACK[fn]
+            total = 0
+            for ch in text:
+                total += clone.get(ord(ch), fb)
+            return total * size / float(C.UNITS_PER_EM[fn])
         if table is None:                       # Courier: fixed pitch
             return len(text) * COURIER_WIDTH * size / 1000.0
         fallback = FALLBACK[fn]
@@ -194,6 +211,100 @@ def get_metrics(name: Optional[str] = None) -> TextMetrics:
             return Base14Metrics()
     raise ValueError("unknown text metrics %r (choose 'base14', 'none' or "
                      "'mupdf')" % name)
+
+
+# ------------------------------------------------- matching the source's widths
+# OOXML can only state a font size in half-points and the substitute family is
+# rarely the source's own, so a run written as-is draws at a different width
+# from the one the PDF drew -- and the paragraph re-wraps. Two residuals, both
+# measurable, multiply:
+#
+#   size    10.125pt (13.5px) can only be written as 10.0 or 10.5; 9.6975 as 9.5.
+#           Measured on the owner's resume and paper (defect catalogue #19):
+#           every paragraph re-wraps; c1_whitepaper's 9.33pt body is written 9.5
+#           (+1.8% wide). Font-independent: s / round(2s)/2.
+#   family  the substitute's advances against the source font's own, measured
+#           from the PDF (DocIR.font_advances) and the shaper's tables. CMTT10
+#           and CMU Typewriter draw at 0.525em; Courier New, the only monospace
+#           every renderer has, at 0.600 -- 14% wide, enough to wrap code lines
+#           and spill pages: y26 (Bash manual) lost its page alignment at the
+#           first case-statement listing (word recall on the right page 0.964 ->
+#           0.416) when CMTT10 became Courier New without this.
+#
+# The writer states the product as w:w, the run's horizontal scale, which Word
+# and LibreOffice honour. An integer percent: a residual under half a percent
+# rounds to 100 and nothing is written. Standard profile only -- Google Docs is
+# not known to honour w:w, and it has already been measured discarding w:spacing
+# (fonts.GDOCS_HONOURS_RUN_TRACKING).
+#
+# The family residual is taken only for monospace-to-monospace, where it keeps
+# a character grid that the substitution would break, and is bounded: past
+# MONO_SCALE_MAX the glyphs visibly change shape. Proportional family mismatches
+# (Computer Modern -> Times New Roman, -10%) are NOT compensated here; that is a
+# typeface decision with an editability cost and is left to be measured on its
+# own.
+MONO_SCALE_MAX = 0.20
+# Proportional family residual: 0 = not compensated (see above).
+PROP_SCALE_MAX = 0.0
+
+
+def run_width_scale(run, advances, metrics) -> float:
+    """The w:w factor that makes `run` draw at its source width, or 0.0 for none."""
+    if run.is_tab or not run.text or run.size < 1.0:
+        return 0.0
+    from .fonts import font_traits, map_font
+    s = run.size
+    q = round(s * 2) / 2
+    if q <= 0:
+        return 0.0
+    k = s / q
+    fam = map_font(run.font, mono=run.mono, serif=run.serif)
+    src_mono = run.mono or font_traits(run.font).cls == "mono"
+    tgt_mono = font_traits(fam).cls == "mono"
+    table = (advances or {}).get(run.font)
+    glyphs = "".join(ch for ch in run.text if not ch.isspace())
+    cap = MONO_SCALE_MAX if (src_mono and tgt_mono) else \
+        PROP_SCALE_MAX if (not src_mono and not tgt_mono) else 0.0
+    if cap > 0 and table and glyphs and all(ch in table for ch in glyphs):
+        tgt = metrics.text_width(glyphs, fam, 1.0, bold=run.bold,
+                                 italic=run.italic) if metrics else None
+        src = sum(table[ch] for ch in glyphs)
+        if tgt and tgt > 0 and src > 0 and abs(src / tgt - 1.0) <= cap:
+            k *= src / tgt
+    pct = int(round(100 * k))
+    return 0.0 if pct == 100 else pct / 100.0
+
+
+def apply_width_scale(lay, metrics=None) -> int:
+    """Set `Run.width_scale` on every run of a layout. Returns how many changed.
+
+    Run once, before the ladder: the ladder predicts the re-wrap of exactly the
+    widths the writer will emit, so both must see the same scale.
+    """
+    if metrics is None:
+        metrics = get_metrics()
+    from .gdocs_metrics import iter_runs
+    adv = getattr(lay, "font_advances", None) or {}
+    n = 0
+    for run in iter_runs(lay):
+        k = run_width_scale(run, adv, metrics)
+        if k:
+            run.width_scale = k
+            n += 1
+    return n
+
+
+def shaped_size(run) -> float:
+    """The point size a run's text is shaped at, its width scale included.
+
+    Without a scale it is the source size, as the ladder has always used. With
+    one, it is what the writer emits -- the half-point size times w:w -- and
+    therefore what the renderer draws.
+    """
+    ws = getattr(run, "width_scale", 0.0) or 0.0
+    if ws > 0:
+        return (round(run.size * 2) / 2) * ws
+    return run.size
 
 
 # ------------------------------------------------------------ the IR's own facts

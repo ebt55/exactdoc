@@ -149,6 +149,10 @@ def convert_result(pdf_path: str, out_path: Optional[str] = None,
             raise error
     ir = normalize(ir)
     lay = infer(ir)
+    if opts.output_profile == "standard":
+        # Before the ladder, which must shape the widths the writer will emit.
+        from .metrics import apply_width_scale, get_metrics
+        apply_width_scale(lay, get_metrics())
     if opts.ladder:
         from .ladder import apply_ladder, summarise
         from .metrics import get_metrics
