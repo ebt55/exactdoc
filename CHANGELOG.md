@@ -20,6 +20,38 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **designed pages stay editable: rounded panels, card rows, side-by-side
+  regions, sidebars and CV date gutters (WP13).** A rounded panel is drawn
+  with curves, so the parser called it artwork and inference rasterised the
+  panel with every paragraph in it: y58_ssa_statement's page 1 was one
+  1822x1574px picture (live text 0.119), c1's three KPI cards one picture.
+  Both parsers now report a rectangle with rounded corners as a rectangle
+  (`model.rounded_rect_bbox`: one subpath, axis-aligned straight edges, 90%
+  of its box filled where a disc fills 78.5%). Boxes on one band become one
+  card row (`_merge_box_rows`); a box reads its lines as a flow (lists, rows)
+  and starts a paragraph where the source broke a line by hand
+  (`_forced_break`, one text column only); a line the parser joined across
+  two panels is cut at the panel edge when regions take every piece. Regions
+  set side by side -- panels in two columns, a picture beside a masthead, a
+  column against a drawn rule, a sidebar under the two-column bar's 35% --
+  are laid out as such where the two-column path does not fire: equal widths
+  as a 2-column section, unequal as a borderless layout table whose cells
+  carry the column's own flow (`Cell.blocks`; Google Docs imports only
+  equal-width column sections). A CV's date gutter no longer becomes the
+  left margin: each dated entry is `date TAB role` hanging at the main
+  column (`_gutter_column`); separate items on one baseline at item spacing
+  are one tabbed row; a chart's axis numbers ride with the chart, and an
+  ornament inside a box is left to the box. Measured raw against 536b232
+  over 90 documents: page-exact 40 -> 43, the sum of
+  |page ratio - 1| 24.71 -> 21.71 with no document gaining a page, mean char
+  recall 0.753 -> 0.774, live text 0.932 -> 0.944, within-2pt 0.218 -> 0.223.
+  y58 4 -> 3 pages (product 3 -> 2, page-exact; live text 0.119 -> 0.888),
+  y44 4 -> 3 (char recall 0.59 -> 1.00), y46 2 -> 1, c5 2 -> 1 (within-2pt
+  0.800 -> 0.975, past its recorded shortfall), c1's cards live (char recall
+  0.972 -> 1.000, within-2pt 0.869 -> 0.873); y59 and y60 unchanged at 18 and
+  37, the owner's resume, y45, x17 and x18 unchanged in inferred layout. The mean
+  edit score dips 0.003: panels are one-cell tables. Google Docs renders of
+  the panels and layout tables are not yet flown live.
 - **tables: an indented table no longer grows into the margin; a label too
   wide for its column spans the blank cells beside it.** x14's totals block
   (an indented table, 322pt in) put its amounts 48-52pt into the right

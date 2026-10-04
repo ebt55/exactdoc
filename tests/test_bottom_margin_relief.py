@@ -69,23 +69,37 @@ def test_cover_band_documents_keep_inferred_margin():
 
 
 def test_graphic_overlap_documents_keep_inferred_margin():
-    """c5's chart overlaps its own labels; the arm declines relief there.
+    """A figure with flow text beside it declines relief.
 
-    c3_tables was pinned here too, and its "graphic overlap" was a defect:
-    the merged-header table was rasterised (the bar-chart test read its
-    two-row 'Region' cell as a bar) together with the heading above it, and
-    two empty card rows were laid over the picture. Since the fill-tiled
-    table is recognised as the table it is (infer._tile_bands, defect
-    catalogue #13) c3 carries no figure at all; it keeps its margin for a
-    different reason, pinned below.
+    c5_graphics pinned this arm until its chart's axis numbers ('100', '50',
+    '0') were taken into the chart picture (infer.build_figure, WP13): they
+    had stood 15.4pt outside the absorption reach as three paragraphs beside
+    the picture, and that overlap was the only one c5 had. With them inside
+    it c5 carries no text beside a graphic and takes the reserve like any
+    plain page -- measured in the canonical gate, raw lane 2 -> 1 pages (its
+    source has one) and within-2pt 0.800 -> 0.975. The arm itself is pinned
+    on a layout that still has the overlap.
     """
-    for name in ("c5_graphics",):
-        lay = layout(name)
-        check("%s graphic overlap disables relief" % name,
-              not _can_relax_bottom_margin(lay))
-        check("%s retains more than 14pt reserve" % name,
-              lay.margin_b > 14.0, str(lay.margin_b))
+    from exactdoc.layout import (Chunk, DocLayout, FigureEl, PageLayout, Para,
+                                 Run)
 
+    def page(label_x0):
+        fig = FigureEl(page_no=1, clip=(90.0, 195.0, 386.0, 332.0),
+                       width=296.0, height=137.0)
+        label = Para(runs=[Run(text="100", font="Helvetica", size=7.0,
+                               color="#000000")],
+                     bbox=(label_x0, 196.0, label_x0 + 10.0, 203.0))
+        lay = DocLayout(margin_b=72.0)
+        lay.pages = [PageLayout(number=1, chunks=[Chunk(elements=[fig, label])])]
+        return lay
+
+    check("a label beside a graphic disables relief",
+          not _can_relax_bottom_margin(page(66.0)))
+    check("text clear of every graphic allows relief",
+          _can_relax_bottom_margin(page(500.0)))
+    lay = layout("c5_graphics")
+    check("c5_graphics' axis numbers ride with its chart",
+          _can_relax_bottom_margin(lay))
 
 def test_page_spanning_tables_keep_inferred_margin():
     """A table coalesced across pages breaks where the bottom margin says.
