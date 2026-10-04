@@ -165,6 +165,10 @@ class Reading(unittest.TestCase):
         # 12 gates since ratification: a stale citation and a contradicted count
         self.assertEqual((c["readme"]["status"], c["readme"]["by"]), ("FAIL", 2))
         self.assertEqual(c["gdocs-policy"]["status"], "REPORTED")
+        # criterion 13 reads every lane, not Docs alone
+        for lane in ("LO raw", "Word", "Docs live"):
+            self.assertIn(lane, c["gdocs-policy"]["detail"])
+        self.assertTrue(any(m.startswith("LO raw ") for m in c["gdocs-policy"]["misses"]))
         self.assertEqual(res["verdict"], "NOT READY")
         text = B.render(res, [("raw sweep", "r.sweep.json", "x", False)])
         self.assertIn("ratified by the owner on 2026-10-05", text)

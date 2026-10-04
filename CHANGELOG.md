@@ -66,6 +66,31 @@ one verified fix at a time, each gated against the frozen 16.
   - `harness.page_words` drops the U+200B that Docs' exporter writes at tabs
     and soft breaks; 1.7% of exported words carried one.
 
+- **Faster, byte for byte (WP20b).** The writer spent most of its time inside
+  python-docx, and the product profile writes once per refine round.
+  `exactdoc/_docx_speed.py` replaces three python-docx internals with
+  functions that return what they return -- the per-picture id rescan (an
+  XPath over the whole part, quadratic), the successor lookup behind every
+  property set, and the XPath in every `run.text =` -- and the writer copies
+  its layout with a pickle round trip instead of `deepcopy`; the parser's
+  white-glyph visibility test uses a grid index instead of every dark glyph.
+  `write_docx` on y06 is 39-47% faster; y61's visibility pass 2.4s -> 0.5s.
+  Output: `word/*.xml` byte-identical for all 95 documents in the raw and
+  gdocs profiles (190 of 190), and the product output of all 8 A/B documents
+  identical. Raw sweep (canonical, 6 at a time, under lighter load than its base): total
+  869s -> 548s, and no
+  document over the beta bar's 1 s/page (was y06, y40, y56, y61), every
+  metric unchanged. Product, one conversion at a time, base vs new
+  interleaved: y06 388s -> 256s, y13 76 -> 66s, y64 60 -> 53s, y38 49 -> 43s;
+  measurement-dominated documents barely move (y12 97s both). Criterion 2
+  still fails for the product profile: the refine loop's remaining cost is
+  LibreOffice and re-reading the render, which nothing provably equivalent
+  shortens. Capping rounds was measured, not shipped: `--refine 1` saves
+  21-40% but publishes y12 (promised) at 62 pages for 59 instead of 60, and
+  `--refine 2` costs 1-2 pages on five of the seven long ones
+  (`docs/evidence/refine-speed-2026-10-05.json`). quality_sweep now records
+  `jobs`, because a 6-job sweep's convert_s is 1.4-2.3x a lone conversion's.
+
 - **A first public beta is mechanically ready, nothing published (WP20).**
   *Install*: the wheel installs into a clean virtualenv and converts two gated
   fixtures with no LibreOffice on python:3.9-slim, python:3.12-slim and

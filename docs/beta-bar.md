@@ -45,7 +45,7 @@ Google Docs (live: uploaded, converted by Google and exported).
 | 10 | Fonts | Every family the DOCX declares is in the stock Windows + Microsoft 365 set, or listed in the README | static census of the kept DOCX files | A family a tester's Word lacks is substituted, and the layout moves |
 | 11 | Gated 16 | Both gate lanes PASS | the canonical gate's lane verdicts | The frozen corpus is the contract every change is held to |
 | 12 | README is current | Every number the README cites matches the release sweep; no cited evidence file older than the newest measurement by more than 7 days | README.md against the inputs | Testers read the README first; a stale claim there is a false one |
-| 13 | Google Docs policy *(reported; GA gate)* | The ratified per-document thresholds in `testkit/gdocs_quality_policy.json` (page match, live text, recall, SSIM, drift) on ≥ 90% of promised documents | Docs live | The Docs qualification bar, applied beyond the gated 16 |
+| 13 | Google Docs policy *(reported; GA gate)* | The ratified per-document thresholds in `testkit/gdocs_quality_policy.json` (page match, live text, recall, SSIM, drift) on ≥ 90% of promised documents, in each lane | LibreOffice raw, Word, Docs live | The qualification bar the gated 16 already meet in Docs, applied to every promised document wherever it is opened |
 
 "FAIL by N" is the number of offending documents for an all-must-pass
 criterion, and for a share criterion the number of further documents that
