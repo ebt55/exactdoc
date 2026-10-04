@@ -4518,9 +4518,15 @@ def _slice_runs_at(runs: List[Run], a: int, b: int) -> List[Run]:
     return out
 
 
-_LEADER_DOTS = re.compile(r"[.·…]{4,}")
-# A label that ENDS in a dense dot leader, the leader to be drawn by a tab.
-_TRAILING_LEADER_RE = re.compile(r"^(?P<label>.*?\S)[ \t]*(?P<dots>[.·…]{4,})[ \t]*$")
+_LEADER_DOTS = re.compile(r"(?:[.·…][ \t]?){4,}")
+# A table stub that ENDS in a dot leader, the leader to be drawn by a tab.
+# Spaced dots count here, unlike in a contents line (`_LEADER_RE`): in a row of
+# cells the leader's role is fixed by the figures after it, and XPP's spaced
+# ". . . ." stubs (y64's establishment tables, 397 rows), set as text, ran past
+# the first stop in the renderer's wider spaces and pushed each table's last
+# line onto a page of its own.
+_TRAILING_LEADER_RE = re.compile(
+    r"^(?P<label>.*?[^.·…\s])[ \t]*(?P<dots>(?:[.·…][ \t]?){4,})[ \t]*$")
 
 
 def _label_before_leader(runs: List[Run], end: int) -> List[Run]:

@@ -178,6 +178,23 @@ class GridRows(unittest.TestCase):
             # the parser's tracking was measured over the dots, not the words
             self.assertEqual(p.runs[0].tracking, 0.0)
 
+    def test_a_spaced_dot_stub_is_a_leader_too(self):
+        # XPP's establishment tables: "Total nonfarm. . . . . . ." then figures
+        blocks = [_body(100.0)]
+        for i, label in enumerate(("Total nonfarm", "Total private", "Mining")):
+            base = 150.0 + 11.0 * i
+            spans = [_span(label + ". " * 12, 46.0, base)] + \
+                [_span(v, xr - 5.0 * len(v), base)
+                 for v, xr in zip(("118", "129", "5"), X_RIGHT)]
+            ln = Line(spans=spans, bbox=(46.0, base - 8.9, 547.8, base + 2.2))
+            blocks.append(TextBlock(lines=[ln], bbox=ln.bbox))
+        paras, _ = _paras(DocIR(path="t.pdf",
+                                pages=[PageIR(1, 612.0, 792.0, blocks=blocks)]))
+        rows = [p for p in paras if p.tab_stops]
+        self.assertEqual([p.text.split("\t")[0] for p in rows],
+                         ["Total nonfarm", "Total private", "Mining"])
+        self.assertTrue(all(p.tab_stops[0][-1] == "dot" for p in rows))
+
     def test_exponents_in_display_maths_are_not_figures(self):
         # y43: two summation signs and their two raised 2s on one baseline
         blocks = [_body(200.0)]
