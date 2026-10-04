@@ -240,6 +240,18 @@ class PageIR:
     rotated: List[Line] = field(default_factory=list)  # non-horizontal, out of flow
     # Ink whose character the parser could not recover. See UndecodedGlyph.
     undecoded: List[UndecodedGlyph] = field(default_factory=list)
+    # Characters the page's content stream shows but a reader does not see,
+    # by reason ('offpage', 'tiny', 'invisible', 'clipped', 'background'), and
+    # left out of `blocks`. Evidence, not content: nothing downstream reads
+    # text from it.
+    hidden_chars: Dict[str, int] = field(default_factory=dict)
+    # Non-space characters in an OCR layer (invisible text over the page's
+    # scan). Nonzero whether the layer became `blocks` or was left under its
+    # image, so `scan` can tell a scan WITH text from one without.
+    ocr_chars: int = 0
+    # Placed images the parser could not extract. Counted so the conversion's
+    # image report says what it lost instead of the drop being silent.
+    images_dropped: int = 0
 
 
 @dataclass

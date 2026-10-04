@@ -236,7 +236,10 @@ the numbers below describe.
   contract; not converted correctly today.
 - *Scanned / image-only PDFs*: rejected with an explicit OCR-required error.
   No OCR engine is bundled — by design, a wrong-but-confident transcription is
-  worse than an honest refusal.
+  worse than an honest refusal. A scan that already carries an OCR text layer
+  (invisible text over the page image, as every scan-to-PDF workflow writes) is
+  converted: the layer becomes editable text and the page image it duplicates
+  is left out; `--ocr-layer image` keeps the scan as a picture instead.
 
 ### The specific ones, with numbers
 

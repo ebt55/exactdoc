@@ -8,7 +8,8 @@ import argparse
 import sys
 
 from .errors import ExactdocError
-from .options import BACKENDS, ORACLES, OUTPUT_PROFILES, PRODUCT, TARGETS
+from .options import (BACKENDS, OCR_LAYERS, ORACLES, OUTPUT_PROFILES, PRODUCT,
+                      TARGETS)
 from .scan import MAX_PAGES_PER_DOCUMENT
 
 # Stable, documented exit codes. A script that branches on exit status is an API
@@ -86,6 +87,13 @@ def build_parser():
                          "refused rather than converted; pass a larger N to "
                          "agree to it, or 0 to remove the cap"
                          % MAX_PAGES_PER_DOCUMENT)
+    ap.add_argument("--ocr-layer", default=PRODUCT.ocr_layer,
+                    choices=list(OCR_LAYERS),
+                    help="for a scanned page carrying an invisible OCR text "
+                         "layer: 'text' converts the layer into editable text "
+                         "and leaves out the scan it duplicates; 'image' keeps "
+                         "the scan as a picture and drops the layer "
+                         "(default: %(default)s)")
     ap.add_argument("--verify", action="store_true",
                     help="render the DOCX back to PDF (needs LibreOffice) and "
                          "report per-page visual similarity + text coverage")
@@ -195,7 +203,8 @@ def _run(ap, argv):
         out = convert(p, args.out, dpi=args.dpi, refine_rounds=args.refine,
                       backend=args.backend, verbose=args.verbose,
                       allow_cloud_upload=args.allow_cloud_upload or None,
-                      max_pages=args.max_pages, **legacy)
+                      max_pages=args.max_pages, ocr_layer=args.ocr_layer,
+                      **legacy)
         print("wrote", out)
         if args.verify:
             from .verify import verify, audit

@@ -55,12 +55,15 @@ against the other arm rather than argued about.
 
 A backend must provide:
 
-    parse_pdf(path, keep_image_data=True) -> DocIR
+    parse_pdf(path, keep_image_data=True, ocr_layer="text") -> DocIR
         Text as spans carrying font name, size, colour, bold/italic/mono/serif
         flags, bbox and *baseline origin*; spans grouped into visual lines and
         lines into blocks; vector paths with fill/stroke colour, width and
         item list; placed images with bbox and bytes; link rectangles + URIs.
-        Coordinates in points, origin top-left.
+        Coordinates in points, origin top-left OF THE VISIBLE PAGE: CropBox
+        origin removed and /Rotate applied, so each page's width and height
+        are what a viewer shows. `ocr_layer` says what an invisible OCR layer
+        over a scan becomes: the page's text ("text") or nothing ("image").
 
     render_clip(path, page_no, clip, dpi) -> PNG bytes
         Used for figure regions.
@@ -123,7 +126,8 @@ class Backend(Protocol):
 
     name: str
 
-    def parse_pdf(self, path: str, keep_image_data: bool = True) -> DocIR:
+    def parse_pdf(self, path: str, keep_image_data: bool = True,
+                  ocr_layer: str = "text") -> DocIR:
         ...
 
     def render_clip(self, path: str, page_no: int, clip: BBox,
@@ -170,7 +174,11 @@ class PyMuPDFBackend:
     license = "AGPL-3.0"
     extra = "mupdf"
 
-    def parse_pdf(self, path: str, keep_image_data: bool = True) -> DocIR:
+    def parse_pdf(self, path: str, keep_image_data: bool = True,
+                  ocr_layer: str = "text") -> DocIR:
+        # `ocr_layer` is accepted for the seam and not acted on: this arm
+        # reports invisible text as text, which is the reference behaviour the
+        # parity measurements were taken against.
         from .parse import parse_pdf
         return parse_pdf(path, keep_image_data=keep_image_data)
 
@@ -286,9 +294,21 @@ class PDFiumBackend:
     name = "pdfium"
     license = "Apache-2.0"
 
-    def parse_pdf(self, path: str, keep_image_data: bool = True) -> DocIR:
+    def parse_pdf(self, path: str, keep_image_data: bool = True,
+                  ocr_layer: str = "text") -> DocIR:
         from .parse_pdfium import parse_pdf
-        return parse_pdf(path, keep_image_data=keep_image_data)
+        return parse_pdf(path, keep_image_data=keep_image_data,
+                         ocr_layer=ocr_layer)
+
+    def clip_renderer(self, path: str) -> "_PdfiumClipSession":
+        """One open document for every figure clip of a write.
+
+        `render_clip` opens and closes the PDF per call, which a figure-heavy
+        write repeats per clip: measured, 117 `PdfDocument` opens while writing
+        y06 (design audit B28). The writer asks for a session instead and
+        closes it when the write ends.
+        """
+        return _PdfiumClipSession(self, path)
 
     # Every native handle below is closed on the way out, in reverse order of
     # acquisition. It was not: a parity run over 16 documents ended with pypdfium2
@@ -314,6 +334,32 @@ class PDFiumBackend:
         finally:
             bitmap.close()
 
+    @staticmethod
+    def _frame(page):
+        """The frame parse_pdf put this page's bboxes in (see _Frame.of)."""
+        from .parse_pdfium import _Frame
+        textpage = page.get_textpage()
+        try:
+            return _Frame.of(page, textpage)
+        finally:
+            textpage.close()
+
+    @classmethod
+    def _clip_png(cls, page, clip: BBox, dpi: int, frame=None) -> bytes:
+        # `crop` is applied after rotation, in the rendered frame. parse_pdf
+        # reports every bbox in the frame its text reads in, which is the
+        # displayed one unless _Frame.of turned the page; then the render is
+        # turned the same way and the clip is cropped as is.
+        frame = frame if frame is not None else cls._frame(page)
+        if not frame.render_rotation:
+            h = page.get_height()
+            return cls._png(page.render(
+                scale=dpi / 72.0,
+                crop=(clip[0], h - clip[3], page.get_width() - clip[2], clip[1])))
+        return cls._png(page.render(
+            scale=dpi / 72.0, rotation=frame.render_rotation,
+            crop=(clip[0], frame.h - clip[3], frame.w - clip[2], clip[1])))
+
     def render_clip(self, path: str, page_no: int, clip: BBox,
                     dpi: int = 240) -> Optional[bytes]:
         import pypdfium2 as pdfium
@@ -321,11 +367,7 @@ class PDFiumBackend:
         try:
             page = doc[page_no - 1]
             try:
-                h = page.get_height()
-                return self._png(page.render(
-                    scale=dpi / 72.0,
-                    crop=(clip[0], h - clip[3],
-                          page.get_width() - clip[2], clip[1])))
+                return self._clip_png(page, clip, dpi)
             finally:
                 page.close()
         finally:
@@ -337,15 +379,23 @@ class PDFiumBackend:
         try:
             page = doc[page_no - 1]
             try:
-                return self._png(page.render(scale=dpi / 72.0))
+                # In the frame the parse used, so a page turned to read
+                # upright is compared upright.
+                return self._png(page.render(
+                    scale=dpi / 72.0,
+                    rotation=self._frame(page).render_rotation))
             finally:
                 page.close()
         finally:
             doc.close()
 
     def page_lines(self, path: str) -> PageLines:
+        # The same visible-frame geometry and the same visibility rules as
+        # parse_pdf: the loop compares these lines with what the DOCX shows,
+        # and the DOCX carries neither a printer's slug nor hidden text.
         import pypdfium2 as pdfium
-        from .parse_pdfium import _build_lines, _page_chars
+        from .parse_pdfium import (_Frame, _build_lines, _page_chars,
+                                   _page_objects, _text_visibility)
         doc = pdfium.PdfDocument(path)
         try:
             out = []
@@ -354,7 +404,10 @@ class PDFiumBackend:
                 try:
                     textpage = page.get_textpage()
                     try:
-                        chars = _page_chars(textpage, page.get_height())
+                        frame = _Frame.of(page, textpage)
+                        vis = _text_visibility(textpage,
+                                               _page_objects(page, frame), frame)
+                        chars = _page_chars(textpage, frame, vis)
                     finally:
                         textpage.close()
                     lines = [(ln.text, ln.bbox[1], ln.baseline, ln.bbox[3])
@@ -395,6 +448,40 @@ class PDFiumBackend:
             return counts
         finally:
             doc.close()
+
+
+class _PdfiumClipSession:
+    """`render_clip` against one open document, closed by `close()`.
+
+    The page of the last clip stays loaded too: figures arrive in page order,
+    and a page load parses its whole content stream. Handles are closed in
+    reverse order of acquisition, like everything else in this module.
+    """
+
+    def __init__(self, backend, path):
+        import pypdfium2 as pdfium
+        self._backend = backend
+        self._doc = pdfium.PdfDocument(path)
+        self._page_no, self._page, self._page_frame = None, None, None
+
+    def render_clip(self, page_no: int, clip: BBox, dpi: int = 240) -> Optional[bytes]:
+        if self._page_no != page_no:
+            self._drop_page()
+            self._page = self._doc[page_no - 1]
+            self._page_no = page_no
+            self._page_frame = self._backend._frame(self._page)
+        return self._backend._clip_png(self._page, clip, dpi, self._page_frame)
+
+    def _drop_page(self):
+        if self._page is not None:
+            self._page.close()
+        self._page_no, self._page, self._page_frame = None, None, None
+
+    def close(self):
+        self._drop_page()
+        if self._doc is not None:
+            self._doc.close()
+            self._doc = None
 
 
 _IMPLEMENTATIONS = {"pymupdf": PyMuPDFBackend, "pdfium": PDFiumBackend}

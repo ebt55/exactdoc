@@ -95,6 +95,14 @@ class LogoGlyphs(unittest.TestCase):
         lines = _build_lines(chars)
         self.assertEqual([ln.text for ln in lines], ["LATEX"])
 
+    def test_a_fraction_denominator_is_not_a_logo_glyph(self):
+        # Frontiers: `∂s` set 3.2pt under `∂u` at the same size. It sits
+        # beneath host glyphs rather than between them.
+        num = [_char("x", 10.0, 15.0, size=9.0), _char("∂", 15.0, 20.0, size=9.0),
+               _char("u", 20.0, 25.0, size=9.0)]
+        den = [_char("∂", 15.0, 20.0, size=9.0, baseline=103.2)]
+        self.assertEqual(len(_build_lines(num + den)), 2)
+
     def test_three_full_size_glyphs_are_a_line(self):
         host = _word("word", 10.0, 5.0)
         lower = _word("abc", 30.5, 5.0, baseline=103.0)

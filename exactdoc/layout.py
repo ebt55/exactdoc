@@ -163,6 +163,13 @@ class PageLayout:
     # The writer may then omit this source-page break and let Word paginate the
     # one logical table naturally.
     continuation_only: bool = False
+    # A page whose size differs from page 1's carries its own geometry: paper
+    # size and (left, right, top, bottom) margins measured on the pages of
+    # that size. None means the document's (DocLayout.page_w/h, margin_*).
+    # The writer opens a section wherever the geometry changes.
+    page_w: Optional[float] = None
+    page_h: Optional[float] = None
+    margins: Optional[Tuple[float, float, float, float]] = None
 
 
 @dataclass
