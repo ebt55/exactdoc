@@ -81,6 +81,16 @@ COL_SINGLE_BLOCK_FRAC = 0.5  # one block this tall is a column on its own
 # the constructs this rule exists for clear the column by tens of points.
 MARGIN_BAND_CLEARANCE = 2.0
 
+# --- quote bars -------------------------------------------------------------
+# A quote bar sits against the text it marks and is as tall as that text. Both
+# limits are in ems of the marked text (median line size). Measured over both
+# corpora: the genuine bars leave 14.0pt / 1.08em (04_exec_brief) and 11.9pt /
+# 1.08em (x11) before their text and overhang it by at most 8.1pt / 0.62em;
+# y09's page-height margin rule (x=41, y 72-720, beside every body page) leaves
+# 28.5-29.7pt / 2.4-2.5em and was wrapping 56 of 59 pages in a quote table.
+QUOTE_MAX_GAP_EM = 2.0
+QUOTE_MAX_OVERHANG_EM = 1.5
+
 
 def _thin(d: DrawCmd) -> bool:
     x0, y0, x1, y1 = d.bbox
@@ -1231,6 +1241,54 @@ def in_side_margin(bb: BBox, margin_l: float, margin_r: float,
             bb[0] >= page_w - margin_r + MARGIN_BAND_CLEARANCE)
 
 
+def _frame_edge(bar: BBox, drawings, reach_x: float, tol: float = 1.0) -> bool:
+    """Do horizontal rules leave BOTH ends of this vertical bar toward the text?
+
+    That is the left side of a drawn frame, not a quote bar: Word exports draw
+    a bordered box as four separate segments, and the NIST covers' title frame
+    (y01/y02/y08: x=65, 42.8pt tall) has hlines starting flush at the bar's
+    top and bottom ends and running across the title -- it was promoted to a
+    quote table holding the title.
+    """
+    x1 = bar[2]
+
+    def meets(y):
+        for e in drawings:
+            if e.shape != "hline":
+                continue
+            ex0, ey0, ex1, ey1 = e.bbox
+            if ey0 - tol <= y <= ey1 + tol and ex0 <= x1 + tol and ex1 >= reach_x:
+                return True
+        return False
+
+    return meets(bar[1]) and meets(bar[3])
+
+
+def _is_quote_bar(bar: BBox, lines: List[Line], drawings) -> bool:
+    """Is this tall vertical rule the bar of the quote formed by `lines`?
+
+    The caller has already found text to the bar's right inside the bar's own
+    vertical span. A quote bar also has to sit close to that text, must not run
+    far above or below it, and must not be one side of a frame. See
+    QUOTE_MAX_GAP_EM for the measurements.
+    """
+    sizes = sorted(max((s.size for s in l.spans if s.text.strip()), default=0.0)
+                   for l in lines)
+    sizes = [s for s in sizes if s > 0]
+    if not sizes:
+        return False
+    em = sizes[len(sizes) // 2]
+    minx = min(l.bbox[0] for l in lines)
+    if minx - bar[2] > QUOTE_MAX_GAP_EM * em:
+        return False
+    top = min(l.bbox[1] for l in lines)
+    bot = max(l.bbox[3] for l in lines)
+    slack = QUOTE_MAX_OVERHANG_EM * em
+    if bar[1] < top - slack or bar[3] > bot + slack:
+        return False
+    return not _frame_edge(bar, drawings, minx)
+
+
 def _classify_cluster(cl) -> str:
     ds = [d for _, d in cl]
     art = [d for d in ds if d.shape in ("curve", "complex", "line")
@@ -1263,10 +1321,18 @@ def _classify_cluster(cl) -> str:
     if len(hys) >= 2 and len(vxs) >= 2 and (len(hys) >= 3 or len(vxs) >= 3):
         return "grid"
     fills = [d for d in ds if d.fill and d.shape == "rect"]
-    if len(fills) >= 3:
-        bots = _cluster([f.bbox[3] for f in fills], 2.5)
+    # A glyph-sized square is not a bar. Word/PDFMaker paints one at every
+    # border junction, flush with the rules it joins; a shaded heading box
+    # has four, two of them sharing the fill's bottom edge. While dialect
+    # promoted the joints to bullets they left the drawing list; once they
+    # stayed (as the border ink they are), those three bottoms called the box
+    # a bar chart and rasterised the heading with the paragraph under it --
+    # measured on y08 without this guard: all 12 chapter headings.
+    bars = [f for f in fills if not _is_glyphlike(f)]
+    if len(bars) >= 3:
+        bots = _cluster([f.bbox[3] for f in bars], 2.5)
         for b in bots:
-            grp = [f for f in fills if abs(f.bbox[3] - b) <= 2.5]
+            grp = [f for f in bars if abs(f.bbox[3] - b) <= 2.5]
             if len(grp) >= 3:
                 hts = [f.bbox[3] - f.bbox[1] for f in grp]
                 if max(hts) > 1.3 * max(1e-6, min(hts)):
@@ -2338,7 +2404,10 @@ def infer(ir: DocIR) -> DocLayout:
                         d.bbox[2] + min(0.9 * content_w, 500), d.bbox[3] + 2)
                 probe = set(consumed)
                 lines = _take_lines_in(blocks, zone, probe, mode="overlap")
-                if lines:
+                # Text to the right is necessary, not sufficient: a margin
+                # rule beside the whole body has text to its right on every
+                # page. Defect catalogue #12.
+                if lines and _is_quote_bar(d.bbox, lines, p.drawings):
                     consumed.update(id(l) for l in lines)
                     bb = d.bbox
                     for l in lines:
@@ -2358,6 +2427,13 @@ def infer(ir: DocIR) -> DocLayout:
                     # convention; the quote table used to carry none.
                     qt.left_indent = max(0.0, round(d.bbox[0] - lay.margin_l, 1))
                     elements.append(qt)
+                    continue
+                if lines:
+                    # A rule beside text that is not its quote bar is a
+                    # margin or frame line. Before this test it became a
+                    # quote; it must not fall through to the stray-shape
+                    # branch below instead and be rasterised as a strip
+                    # that spends body height.
                     continue
             if d.shape == "hline" and (d.bbox[2] - d.bbox[0]) >= 0.3 * content_w:
                 r = RuleEl(width_pct=min(100.0, 100 * (d.bbox[2] - d.bbox[0]) / content_w),

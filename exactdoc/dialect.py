@@ -33,6 +33,28 @@ BULLET_GAP = 46.0         # max distance from marker to the text it labels
 BULLET_VTOL = 1.0         # vertical overlap tolerance, in marker heights
 BACKDROP_COVER = 0.60     # page-area fraction that makes a fill a backdrop
 BACKDROP_LUMA = 245       # min channel value for "invisible" light backdrop
+# A drawn bullet is ink at the scale of the text it labels. Measured over both
+# corpora, every genuine drawn marker is 2.67-3.0pt at 0.27-0.29em (c1, c6,
+# x09 -- Chromium discs), while the squares Word/PDFMaker paints where table
+# borders meet are 0.48pt and 1.5pt (y01, y02, y08, y09, y11: 0.04-0.15em) and
+# Chromium's dotted TOC leaders are 0.75pt (x11: 0.07em). Both floors sit in
+# the empty gap between those populations.
+MARKER_MIN_PT = 2.0
+MARKER_MIN_EM = 0.25
+# Within this distance a rule's end (or its run) touches a candidate marker.
+# Word draws the joint square flush against the segments it joins: measured
+# gaps are exactly 0.0pt on every joint in y01/y02, so the tolerance only has
+# to absorb float noise and the parser's 0.1pt rounding.
+JOINT_TOL = 0.6
+# A fill whose every channel is within this of the background is not ink. Word
+# writes paragraph shading as exactly #ffffff; 2 levels absorbs colour-space
+# rounding. Kept far below BACKDROP_LUMA on purpose: GitHub-style code panels
+# are #f6f8fa and the gated corpus has visible tints down to #f8fafc (01) and
+# #f2f5f8 (c1, c3, r1), all of which must stay boxes.
+BACKGROUND_TOL = 2
+# Drawings at or below this alpha leave no visible mark. The same cut-off the
+# leftover-drawing pass in infer.py already applies.
+TRANSPARENT_MAX = 0.05
 # em. A producer splitting one visual line leaves fragments almost touching --
 # a maths script boundary is ~0.1-0.3em, an inter-word space ~0.25em. Anything
 # wider is a real gap, and on a two-column page it may be the gutter: joining
@@ -163,11 +185,6 @@ def _labelled_line(bbox, lines: List[Line]) -> Optional[Line]:
     return best
 
 
-def _labels_a_line(d: DrawCmd, lines: List[Line]) -> bool:
-    """True if this glyph sits just left of a text line it plausibly labels."""
-    return _labelled_line(d.bbox, lines) is not None
-
-
 def _bullet_block(x0: float, baseline: float, size: float,
                   color: Optional[str]) -> TextBlock:
     """The canonical form both marker recoveries produce: a one-span block."""
@@ -186,6 +203,174 @@ def _drop_backdrops(page: PageIR) -> int:
     return n
 
 
+# --- visibility -------------------------------------------------------------
+# Inference treats every path as evidence of structure: a filled rectangle
+# around text becomes a box, a small square beside text becomes a bullet. That
+# is only sound for ink a reader can see. The helpers below decide visibility
+# from the page itself -- colour, alpha, and what the shape sits on -- so the
+# structural passes never have to.
+
+PAGE_BACKGROUND = "#ffffff"
+RULE_THICK = 2.5     # the parser's own hline/vline cut-off (parse_pdfium)
+
+
+def _rgb(hexcol: Optional[str]):
+    if not hexcol or len(hexcol) != 7 or hexcol[0] != "#":
+        return None
+    try:
+        return (int(hexcol[1:3], 16), int(hexcol[3:5], 16), int(hexcol[5:7], 16))
+    except ValueError:
+        return None
+
+
+def _same_colour(a: Optional[str], b: Optional[str]) -> bool:
+    """Indistinguishable on paper: every channel within BACKGROUND_TOL."""
+    ra, rb = _rgb(a), _rgb(b)
+    if ra is None or rb is None:
+        return False
+    return all(abs(x - y) <= BACKGROUND_TOL for x, y in zip(ra, rb))
+
+
+def _paints_nothing(d: DrawCmd) -> bool:
+    """A path that leaves no mark: no paint at all, or (near-)zero alpha.
+
+    Measured: y01/y02/y08/y09/y11 carry 45 such paths each on one page (alpha
+    0, no fill and no stroke colour), y03 859 glyph-outline strokes at alpha
+    0.03-0.04 laid over the filled glyphs. infer's leftover pass already
+    ignores them, but margins, furniture, column edges and marker detection
+    all read the raw list. `fillstroke` is exempt: its recorded opacity is the
+    fill's, and the stroke may still be opaque.
+    """
+    if d.fill is None and d.stroke is None:
+        return True
+    return d.kind in ("fill", "stroke") and d.opacity <= TRANSPARENT_MAX
+
+
+def _drop_transparent(page: PageIR) -> int:
+    keep = [d for d in page.drawings if not _paints_nothing(d)]
+    n = len(page.drawings) - len(keep)
+    page.drawings = keep
+    return n
+
+
+def _ink_against(e: DrawCmd, colour: str) -> bool:
+    """Does drawing `e` put down paint distinguishable from `colour`?"""
+    if _paints_nothing(e):
+        return False
+    paints = []
+    if e.kind in ("fill", "fillstroke") and e.fill:
+        paints.append(e.fill)
+    if e.kind in ("stroke", "fillstroke") and e.stroke:
+        paints.append(e.stroke)
+    return any(not _same_colour(c, colour) for c in paints)
+
+
+def _touching(a, b, pad: float) -> bool:
+    return not (a[2] < b[0] - pad or b[2] < a[0] - pad or
+                a[3] < b[1] - pad or b[3] < a[1] - pad)
+
+
+def _is_background_fill(d: DrawCmd) -> bool:
+    """An unstroked AREA fill in the page's own colour.
+
+    Rules and joints (either side within the parser's rule thickness) are not
+    candidates: a table drawn with white borders is still a table -- y09 p54
+    has a 112-segment #ffffff grid whose geometry is the only evidence of its
+    rows and columns -- and dropping its corner squares would break its grid.
+    """
+    if d.kind != "fill" or d.shape != "rect":
+        return False
+    x0, y0, x1, y1 = d.bbox
+    if (x1 - x0) <= RULE_THICK or (y1 - y0) <= RULE_THICK:
+        return False
+    return _same_colour(d.fill, PAGE_BACKGROUND)
+
+
+def _drop_invisible_fills(page: PageIR) -> int:
+    """Remove page-coloured fills that knock out nothing and frame nothing.
+
+    Word exports paint paragraph shading as one #ffffff rectangle per LINE.
+    Each one used to reach infer's leftover pass as a 'box' and become its own
+    single-cell table, so a 7-line paragraph came out as 7 stacked tables, each
+    line re-wrapping inside its cell (y01 p21; 111 such boxes on y01, which
+    was the largest single driver of its page inflation). White on white is
+    not a box: a box needs a visible edge or a fill that differs from what it
+    is painted on.
+
+    So a background-coloured area fill survives only when it is VISIBLE BY
+    CONTRAST with something it touches: any drawing whose paint differs from
+    its colour, before or after it in z-order (a white card knocked out of a
+    tinted band, white zebra rows between tinted ones and their rules -- 01,
+    03, r1 -- a white panel under chart artwork -- y03), or an image it
+    overlaps without wholly containing it. An image wholly inside the fill is
+    drawn on top of it -- underneath, it would be invisible -- and is no
+    evidence; y01's section numbers are such images inside the heading
+    shading. Z-order is deliberately not consulted for drawings: keeping a
+    fill that merely sits under dark ink costs nothing, dropping a knockout
+    would lose a visible shape.
+
+    Runs before `_drop_backdrops`, so a light page backdrop of a different
+    colour still counts as the thing a white card stands out against.
+    """
+    cand = [d for d in page.drawings if _is_background_fill(d)]
+    if not cand:
+        return 0
+    drop = set()
+    for d in cand:
+        bb = d.bbox
+        if any(e is not d and _touching(e.bbox, bb, 1.0) and _ink_against(e, d.fill)
+               for e in page.drawings):
+            continue
+        if any(_touching(im.bbox, bb, 1.0) and not (
+                im.bbox[0] >= bb[0] - 0.5 and im.bbox[1] >= bb[1] - 0.5 and
+                im.bbox[2] <= bb[2] + 0.5 and im.bbox[3] <= bb[3] + 0.5)
+               for im in page.images):
+            continue
+        drop.add(id(d))
+    if drop:
+        page.drawings = [d for d in page.drawings if id(d) not in drop]
+    return len(drop)
+
+
+def _abuts_rule(d: DrawCmd, drawings: List[DrawCmd]) -> bool:
+    """True if a horizontal or vertical rule ends at, or runs through, `d`.
+
+    Word/PDFMaker draws a table's borders as separate filled segments and
+    paints a small square at every point where they meet (y01 p1: 0.48pt
+    squares at each inner junction, 1.5pt at the outer corners), flush with
+    the segments on either side. A list marker never touches a rule: it sits
+    in the text's own x-height band, a gap away from anything drawn.
+    """
+    x0, y0, x1, y1 = d.bbox
+    t = JOINT_TOL
+    for e in drawings:
+        if e is d:
+            continue
+        ex0, ey0, ex1, ey1 = e.bbox
+        if e.shape == "hline":
+            if ey1 < y0 - t or ey0 > y1 + t:
+                continue
+            if abs(ex0 - x1) <= t or abs(ex1 - x0) <= t or \
+                    (ex0 <= x0 + t and ex1 >= x1 - t):
+                return True
+        elif e.shape == "vline":
+            if ex1 < x0 - t or ex0 > x1 + t:
+                continue
+            if abs(ey0 - y1) <= t or abs(ey1 - y0) <= t or \
+                    (ey0 <= y0 + t and ey1 >= y1 - t):
+                return True
+    return False
+
+
+def _marker_at_text_scale(d: DrawCmd, line: Line) -> bool:
+    """Is this glyph big enough, against its line's text, to be a marker?"""
+    em = _line_text_size(line)
+    if em <= 0:
+        return False             # nothing measurable to compare with
+    x0, y0, x1, y1 = d.bbox
+    return max(x1 - x0, y1 - y0) >= max(MARKER_MIN_PT, MARKER_MIN_EM * em)
+
+
 def _markers_to_text(page: PageIR) -> int:
     """Rewrite drawn bullet glyphs as one-span text blocks.
 
@@ -199,7 +384,18 @@ def _markers_to_text(page: PageIR) -> int:
     cand = [d for d in page.drawings if _is_marker_glyph(d)]
     if not cand:
         return 0
-    hits = [d for d in cand if _labels_a_line(d, lines)]
+    # Shape and position are not enough: Word's table-border joints are filled
+    # squares just left of cell text too, and y02 came out with 1,286 "•" for
+    # its 24 real bullets, most of them inside table cells. A marker must also
+    # be ink at its text's scale and must not be part of a rule.
+    hits = []
+    for d in cand:
+        near = _labelled_line(d.bbox, lines)
+        if near is None or not _marker_at_text_scale(d, near):
+            continue
+        if _abuts_rule(d, page.drawings):
+            continue
+        hits.append(d)
     # A real list has repetition. A single small square is more likely to be a
     # decorative dot, so require corroboration before rewriting anything.
     if len(hits) < 2:
@@ -675,11 +871,15 @@ def normalize(ir: DocIR) -> DocIR:
     """Rewrite producer idioms into canonical form. Mutates and returns `ir`."""
     stats = {"backdrops": 0, "vector_markers": 0, "symbol_markers": 0,
              "undecoded_markers": 0, "rotated": 0, "row_joins": 0,
-             "ruled_rows": 0, "tex_pua": 0}
+             "ruled_rows": 0, "tex_pua": 0, "transparent": 0,
+             "invisible_fills": 0}
     for p in ir.pages:
         if not hasattr(p, "rotated"):
             p.rotated = []
         stats["tex_pua"] += _tex_pua_to_text(p)
+        # Visibility first: everything after this reads drawings as evidence.
+        stats["transparent"] += _drop_transparent(p)
+        stats["invisible_fills"] += _drop_invisible_fills(p)
         stats["backdrops"] += _drop_backdrops(p)
         stats["rotated"] += _split_rotated(p)
         stats["vector_markers"] += _markers_to_text(p)
