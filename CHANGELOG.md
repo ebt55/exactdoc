@@ -20,6 +20,65 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **designed pages stay editable: rounded panels, card rows, side-by-side
+  regions, sidebars and CV date gutters (WP13).** A rounded panel is drawn
+  with curves, so the parser called it artwork and inference rasterised the
+  panel with every paragraph in it: y58_ssa_statement's page 1 was one
+  1822x1574px picture (live text 0.119), c1's three KPI cards one picture.
+  Both parsers now report a rectangle with rounded corners as a rectangle
+  (`model.rounded_rect_bbox`: one subpath, axis-aligned straight edges, 90%
+  of its box filled where a disc fills 78.5%). Boxes on one band become one
+  card row (`_merge_box_rows`); a box reads its lines as a flow (lists, rows)
+  and starts a paragraph where the source broke a line by hand
+  (`_forced_break`, one text column only); a line the parser joined across
+  two panels is cut at the panel edge when regions take every piece. Regions
+  set side by side -- panels in two columns, a picture beside a masthead, a
+  column against a drawn rule, a sidebar under the two-column bar's 35% --
+  are laid out as such where the two-column path does not fire: equal widths
+  as a 2-column section, unequal as a borderless layout table whose cells
+  carry the column's own flow (`Cell.blocks`; Google Docs imports only
+  equal-width column sections). A CV's date gutter no longer becomes the
+  left margin: each dated entry is `date TAB role` hanging at the main
+  column (`_gutter_column`); separate items on one baseline at item spacing
+  are one tabbed row; a chart's axis numbers ride with the chart, and an
+  ornament inside a box is left to the box. The regions read only where
+  neither two-column reading (WP12's gutter, the block clusters) claims the
+  page. A court caption ruled off over a page that runs on in one column
+  (y63) is a box of two cells rather than a section -- the section breaks
+  around it cost LibreOffice a later page's footnote room -- and a flush-left
+  column's flush-right lines ("Plaintiff,", "Defendant.") are lines of their
+  own (`_flush_right_edge`). Measured raw against e17795e (WP12 and WP15
+  merged) over 90 documents: page-exact 48 -> 51, the sum of |page ratio -
+  1| 16.69 -> 13.46 with no document gaining a page, mean char recall 0.804
+  -> 0.826, live text 0.933 -> 0.945, within-2pt 0.229 -> 0.235. y58 4 -> 3
+  pages (live text 0.119 -> 0.888), y44 4 -> 3 (char recall 0.59 -> 1.00),
+  y46 2 -> 1 (within-2pt 0.000 -> 0.159), y40 14 -> 12, y10 39 -> 38, y64 47
+  -> 46, y60 35 -> 34, c5 2 -> 1 (within-2pt 0.800 -> 0.975, past its
+  recorded shortfall), c1's cards live (char recall 0.972 -> 1.000,
+  within-2pt 0.869 -> 0.873); WP15's targets keep their gains (y28-y36,
+  y54; y63 5 pages, recall 1.000, within-2pt 0.087 -> 0.116), WP12's
+  y39/y41/y43 and y59 (18 pages) unchanged, and the owner's resume, y29,
+  y45, x17 and x18 unchanged in inferred layout. The mean edit score dips
+  0.003: panels are one-cell tables, and y46's section-tag rows, one figure
+  each since WP15, cut its columns into two sections. Flown live in Google
+  Docs (2026-10-04), the first probe found two
+  defects, both fixed: a layout row pinned to its region (778pt against a
+  786pt body on the shaded-sidebar page) cannot split, and Docs' row padding
+  plus its closing paragraph turned one page into three -- a layout row's
+  pin now keeps two of its own line pitches and 4pt clear of the page foot
+  (`_layout_row_pin`; a nested box drawn to the foot gives up the same
+  bottom pad; also capped in y11, y34 and y47, whose raw sweep is
+  unchanged); and the gdocs box form (bordered paragraphs) dropped a
+  panel's fill -- a filled box now carries `w:shd` on its paragraphs, and a
+  filled box the source drew without a stroke has its rails in its own fill
+  colour instead of #333333. Standard and raw output of the 16 gated
+  documents is unchanged; the gdocs candidate output of 01, 03, c1 and c5
+  gains the shading (c1's two callouts and c5's band also lose the dark
+  rails). The second probe passed live: the shaded sidebar is one page with
+  its fill, c5 2 -> 1 pages (word recall 0.17 -> 0.88), y46 2 -> 1, c1's
+  callouts and cards right (SSIM 0.820 -> 0.830), 03 within-2pt 0.209 ->
+  0.271, 01 unchanged; y58 stays 4 pages in Docs but its live text rises
+  0.12 -> 0.89.
 - **Office and Google Docs exports (WP15): a slide is a page, a blank page is
   a page, and pleading paper's line numbers are furniture.** The classes
   people convert most, diagnosed with the line-drift microscope.

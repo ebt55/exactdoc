@@ -28,7 +28,8 @@ import pypdfium2.raw as raw
 
 from .fonts import font_traits
 from .model import (DocIR, PageIR, TextBlock, Line, Span, DrawCmd, ImageObj,
-                    LinkDest, UndecodedGlyph, xml_safe_text, xml_safe_uri)
+                    LinkDest, UndecodedGlyph, rounded_rect_bbox, xml_safe_text,
+                    xml_safe_uri)
 
 _SUBSET_RE = re.compile(r"^[A-Z]{6}\+")
 
@@ -3843,6 +3844,11 @@ def _page_paths(objs: List[_PObj], frame) -> List[DrawCmd]:
             xs = [p[0] for p in pts]
             ys = [p[1] for p in pts]
             bbox = (min(xs), min(ys), max(xs), max(ys))
+        # A rectangle with rounded corners is a rectangle (model.
+        # rounded_rect_bbox), and its points give its geometric box exactly.
+        rounded = _rounded_box(pts) if pts else None
+        if rounded is not None:
+            bbox = rounded
 
         if frame.outside(bbox):
             # Wholly beyond the visible page: a printer's crop mark, slug rule
@@ -3885,7 +3891,7 @@ def _page_paths(objs: List[_PObj], frame) -> List[DrawCmd]:
                             opacity=opacity, n_items=1))
                     continue
 
-        shape = _classify(pts, w, h)
+        shape = "rect" if rounded is not None else _classify(pts, w, h)
         if shape == "rect" and fill is not None:
             if h <= 2.5 and w > 8:
                 shape = "hline"
@@ -3893,8 +3899,32 @@ def _page_paths(objs: List[_PObj], frame) -> List[DrawCmd]:
                 shape = "vline"
         out.append(DrawCmd(
             kind=kind, shape=shape, bbox=bbox, fill=fill, stroke=stroke_c,
-            width=stroke_w, opacity=opacity, n_items=max(1, len(pts))))
+            width=stroke_w, opacity=opacity, n_items=max(1, len(pts)),
+            rounded=rounded is not None))
     return out
+
+
+def _rounded_box(pts):
+    """model.rounded_rect_bbox over PDFium's (x, y, segment type) points.
+
+    A cubic Bezier arrives as three consecutive BEZIERTO points (two control
+    points, then the end point)."""
+    if not any(t == SEG_BEZIERTO for _, _, t in pts):
+        return None
+    segs, pend = [], []
+    for x, y, t in pts:
+        if t == SEG_BEZIERTO:
+            pend.append((x, y))
+            if len(pend) == 3:
+                segs.append(("c",) + tuple(pend))
+                pend = []
+            continue
+        if pend:
+            return None
+        segs.append(("m" if t == SEG_MOVETO else "l", (x, y)))
+    if pend:
+        return None
+    return rounded_rect_bbox(segs)
 
 
 # A glyph the text page kept nothing of leaves a text page-object whose bounds
