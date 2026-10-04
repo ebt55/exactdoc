@@ -103,6 +103,70 @@ class GutterDetection(unittest.TestCase):
         self.assertLess(g[2], 0.2 * (PAGE_H - 100))
 
 
+class Sidebar(unittest.TestCase):
+    """A narrow metadata column beside the main column (y40's title page)."""
+
+    S0, S1 = 54.0, 150.0          # sidebar
+    M0, M1 = 215.0, 558.0         # main column
+
+    def _lines(self, side_pitch):
+        side = [_line(self.S0, self.S1, 104 + side_pitch * i, "Editor, Univ.",
+                      size=7.0) for i in range(40)]
+        # paragraphs end short, as real ones do: the column's full lines are
+        # wider than the narrow-line scan reads, its last lines are not
+        main = [_line(self.M0, self.M1 if i % 5 else self.M0 + 180,
+                      100 + 12 * i) for i in range(40)]
+        return side, main
+
+    def test_a_sidebar_on_its_own_grid_is_a_column(self):
+        side, main = self._lines(9.0)
+        g = _two_column_gutter(side + main, self.S0, self.M1)
+        self.assertIsNotNone(g)
+        self.assertGreaterEqual(g[0], self.S1 - 1)
+        self.assertLessEqual(g[1], self.M0 + 1)
+
+    def test_labels_on_their_values_baselines_are_rows_not_a_column(self):
+        # a glossary: every term sits on the baseline of its definition
+        side, main = self._lines(12.0)
+        side = [_line(self.S0, self.S1, 100 + 12 * i, "Term") for i in range(40)]
+        self.assertIsNone(_two_column_gutter(side + main, self.S0, self.M1))
+
+    def test_unequal_widths_reach_the_section_standard_profile_only(self):
+        from exactdoc.docxout import _section_widths, _config_section
+        from exactdoc.layout import Chunk, DocLayout
+        from docx import Document
+        from docx.oxml.ns import qn
+        ch = Chunk(n_cols=2, col_gap=65.0, col_widths=[96.0, 343.0])
+
+        class Ctx:
+            output_profile = "standard"
+        self.assertEqual(_section_widths(ch, Ctx), (96.0, 343.0))
+        Ctx.output_profile = "gdocs"
+        self.assertIsNone(_section_widths(ch, Ctx))
+        doc = Document()
+        _config_section(doc.sections[0], DocLayout(), cols=2, col_gap=65.0,
+                        col_widths=(96.0, 343.0))
+        cols = doc.sections[0]._sectPr.find(qn("w:cols"))
+        self.assertEqual(cols.get(qn("w:equalWidth")), "0")
+        self.assertEqual([c.get(qn("w:w")) for c in cols.findall(qn("w:col"))],
+                         ["1920", "6860"])
+        # re-configured as equal columns, the per-column widths go
+        _config_section(doc.sections[0], DocLayout(), cols=2, col_gap=24.0)
+        self.assertEqual(cols.findall(qn("w:col")), [])
+        self.assertEqual(cols.get(qn("w:equalWidth")), "1")
+
+    def test_end_to_end_widths_follow_the_page(self):
+        side, main = self._lines(9.0)
+        blocks = [_block(side[i:i + 5]) for i in range(0, 40, 5)]
+        blocks += [_block(main[i:i + 5]) for i in range(0, 40, 5)]
+        lay = infer(_doc(blocks))
+        two = [ch for ch in _chunks(lay) if ch.n_cols == 2]
+        self.assertEqual(len(two), 1)
+        w = two[0].col_widths
+        self.assertEqual(len(w), 2)
+        self.assertLess(w[0], 0.5 * w[1])
+
+
 class MidPageSpanningFloat(unittest.TestCase):
     """A full-width caption between two runs of columns stays between them."""
 
@@ -121,6 +185,16 @@ class MidPageSpanningFloat(unittest.TestCase):
         caption = _chunks(lay)[2]
         self.assertTrue(any("caption ends here" in t
                             for t in _texts(caption.elements)))
+
+    def test_a_title_line_above_the_first_heading_is_not_a_column_section(self):
+        # y26's index pages: "Appendix D Indexes" sits in the left column's
+        # x-range above the spanning "D.1 ..." heading
+        blocks = [_block([_line(L0, 180, 70, "Appendix D Indexes", size=14)]),
+                  _block([_line(L0, 420, 100, "D.1 Index of Shell Builtins",
+                                size=12)])]
+        blocks += _column(L0, L1, 130, 40) + _column(R0, R1, 130, 40)
+        shape = [ch.n_cols for ch in _chunks(infer(_doc(blocks)))]
+        self.assertEqual(shape, [1, 2])
 
     def test_each_column_run_has_one_column_break(self):
         lay = infer(self._ir())
@@ -252,6 +326,13 @@ class DisplayedEquations(unittest.TestCase):
         self.assertIn("(2)", paras[1].text)
         self.assertEqual(paras[1].tab_stops[-1],
                          (round(self.COL[1] - self.COL[0], 1), "right"))
+
+    def test_a_line_of_prose_and_its_subscript_is_not_a_display(self):
+        prose = _line(108, 504, 500, "where Omega = N x M, T is fixed time, "
+                      "and the two small parameters are", font="NimbusRomNo9L-Regu")
+        sub = _line(250, 254, 502.5, "t", size=7.0, font="CMMI7")
+        rows, used = _display_rows(self._items([prose, sub]), *self.COL)
+        self.assertEqual(rows, [])
 
     def test_lines_of_prose_close_together_are_left_alone(self):
         a = _line(108, 300, 500, "a caption line")

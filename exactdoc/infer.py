@@ -146,6 +146,26 @@ TWO_COL_MAX_CROSS_FRAC = 0.25
 # one 250pt block under the abstract, is 0.33; tests/test_column_grid's 88pt
 # inset is 0.11.
 TWO_COL_MIN_EXTENT_FRAC = 0.2
+# A SIDEBAR beside a main column is a column too, of its own width: Frontiers'
+# title page (y40 p1) sets its editor/review/citation metadata in a 0.2-wide
+# column beside the 0.67-wide title, abstract and introduction. Read with the
+# half-width bar above it fell to the block clusters, which split it at the
+# wrong place, sent the main column's lines to a page-wide tail and set both
+# halves at the average width -- three rendered pages, and the next page's
+# left column landed 270pt to the right. A narrow side down to this share of
+# the measure is accepted (an equation-number column is 0.04)...
+TWO_COL_SIDE_MIN_FRAC = 0.15
+# ...when it runs on its own baselines. A glossary's terms and a form's labels
+# are narrow left columns too, but each sits on the baseline of the text it
+# labels: that is a row structure, and the row and table readings own it. A
+# sidebar set in its own type keeps its own grid (y40 p1: 6.4/9pt against the
+# main column's 12pt). Of the narrow column's lines, at most this share may
+# share a baseline with the wide column's.
+TWO_COL_SIDE_MAX_SHARED = 0.5
+# Columns this much apart in width (of the wider) are written at their own
+# widths (Chunk.col_widths); closer than that, equal columns as before -- the
+# journal classes differ by 0-3%, a sidebar by 60-70%.
+TWO_COL_UNEQUAL_FRAC = 0.10
 
 
 def _two_column_gutter(lines, content_l: float, content_r: float):
@@ -185,9 +205,11 @@ def _two_column_gutter(lines, content_l: float, content_r: float):
         while j < n and occ[j] <= tol:
             j += 1
         gl, gr = content_l + i, content_l + j
+        narrow = min(gl - content_l, content_r - gr)
+        wide = max(gl - content_l, content_r - gr)
         if i > 0 and j < n and (j - i) >= MIN_GUTTER_W and \
-                gl - content_l >= TWO_COL_MIN_BAND_FRAC * w and \
-                content_r - gr >= TWO_COL_MIN_BAND_FRAC * w:
+                wide >= TWO_COL_MIN_BAND_FRAC * w and \
+                narrow >= TWO_COL_SIDE_MIN_FRAC * w:
             # the widest qualifying band is the gutter; a second one would be
             # a three-column grid, which column_grid owns
             if best is None or (j - i) > (best[1] - best[0]):
@@ -210,7 +232,13 @@ def _two_column_gutter(lines, content_l: float, content_r: float):
     crossing = [b for b in inside if b[0] < gl and b[2] > gr]
     if len(crossing) > TWO_COL_MAX_CROSS_FRAC * max(1, len(inside)):
         return None
-    short = min(max(b[3] for b in left) - min(b[1] for b in left),
+    if min(lw, rw) < TWO_COL_MIN_BAND_FRAC * w:
+        side, other = (left, right) if lw < rw else (right, left)
+        bases = [b[3] for b in other]
+        shared = sum(1 for b in side if any(abs(b[3] - y) <= 1.0 for y in bases))
+        if shared > TWO_COL_SIDE_MAX_SHARED * max(1, len(side)):
+            return None
+    short =min(max(b[3] for b in left) - min(b[1] for b in left),
                 max(b[3] for b in right) - min(b[1] for b in right))
     return gl, gr, short
 
@@ -5523,6 +5551,21 @@ _MATH_CHARS = frozenset("=+−×÷±∓∑∏∫∮∂∇√∞≤≥≠≈≡�
 _ACCENTS = frozenset("ˆ˜¯˙¨´`ˇ˘˚^~·→⃗") | frozenset(chr(c) for c in range(0x300, 0x370))
 
 
+# A line of PROSE with a script set below it chains like a display -- y40 p1's
+# "where Ω = Ns × M = (0, 1) × (0, T], T is fixed time, ..." over a lone "t" --
+# and as a display row it would be given the 2.5pt pitch to its script, which
+# a wrapped line of text cannot survive. Words decide it: a display row reads
+# as symbols and operators with the odd "max" or "if"; prose carries words.
+_WORD_RE = re.compile(r"[A-Za-z]{3,}")
+DISPLAY_MAX_WORDS = 3
+
+
+def _prose_row(row: List[Line]) -> bool:
+    text = " ".join(s.text for l in row for s in l.spans
+                    if not _font_key(s.font).startswith(_MATH_FONTS))
+    return len(_WORD_RE.findall(text)) > DISPLAY_MAX_WORDS
+
+
 def _accent_row(row: List[Line]) -> bool:
     chars = [ch for l in row for ch in l.text if not ch.isspace()]
     return bool(chars) and all(ch in _ACCENTS for ch in chars)
@@ -5606,6 +5649,8 @@ def _display_rows(items, col_l: float, col_r: float):
         real = [r for r in g if not _accent_row(r)]
         if not real:
             continue
+        if len(real) >= 2 and any(_prose_row(r) for r in real):
+            continue                # a line of text and its scripts
         if len(real) < 2:
             pieces = _row_pieces(real[0])
             if len(pieces) < 2:
@@ -6498,9 +6543,27 @@ def _gutter_chunks(elements, flow_blocks, lay: DocLayout, gutter,
     gap = max(10.0, round(gap, 1))
     colr_edge = col_split - gap
 
+    def one_sided_lines(seg):
+        """A run of single lines all on one side -- a chapter title above the
+        first spanning heading (y26's "Appendix D Indexes") -- is a one-column
+        band, not a column section with an empty column: as a section it cost
+        an extra section break and its column break at the page top."""
+        if len({k for k, _t in seg}) != 1:
+            return False
+        for _k, (kind, _bb, o) in seg:
+            if kind != "blk" or len({round(l.baseline) for l in _blk_lines(o)}) > 1:
+                return False
+        return True
+
     plan = []                       # [n_cols, items]
     for i, seg in enumerate(segs):
-        if seg:
+        if seg and one_sided_lines(seg) and (i < len(groups) or plan):
+            seg_items = [t for _k, t in seg]
+            if plan and plan[-1][0] == 1:
+                plan[-1][1].extend(seg_items)
+            else:
+                plan.append([1, seg_items])
+        elif seg:
             if plan and plan[-1][0] == 2:
                 plan[-1][1].extend(seg)
             else:
@@ -6522,6 +6585,9 @@ def _gutter_chunks(elements, flow_blocks, lay: DocLayout, gutter,
             colL = [t for k, t in its if k == 0]
             colR = [t for k, t in its if k == 1]
             ch = Chunk(n_cols=2, col_gap=gap)
+            wl, wr = colr_edge - content_l, content_r - col_split
+            if abs(wl - wr) > TWO_COL_UNEQUAL_FRAC * max(wl, wr):
+                ch.col_widths = [round(wl, 1), round(wr, 1)]
             left_flow = _merge_flow_paras(
                 _to_flow(colL, content_l, colr_edge, doc_rows=lay_rows),
                 colr_edge)
