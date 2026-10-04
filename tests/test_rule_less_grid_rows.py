@@ -140,16 +140,15 @@ class GridRows(unittest.TestCase):
         self.assertEqual(len(rows), 2)
         self.assertIn("503 2,236", rows[0].text)
 
-    def _stat_table(self, dots_tracking=0.0):
-        """y64's shape: ONE block holding section headings and dotted rows."""
+    def _stat_table(self, leader=""):
+        """y64's shape: ONE block holding section headings and table rows."""
         lines, base = [], 150.0
         for head in ("WHITE", "Men, 20 years and over"):
             hs = _span(head, 120.0, base)
             lines.append(Line(spans=[hs], bbox=hs.bbox))
             base += 11.0
             for label in ("Civilian labor force", "Employed", "Unemployed"):
-                stub = _span(label + "." * 30, 46.0, base)
-                stub.tracking = dots_tracking
+                stub = _span(label + leader, 46.0, base)
                 spans = [stub] + [_span(v, xr - 5.0 * len(v), base)
                                   for v, xr in zip(("62.7", "62.4", "62.5"),
                                                    X_RIGHT)]
@@ -162,38 +161,18 @@ class GridRows(unittest.TestCase):
 
     def test_headings_inside_a_table_block_keep_their_place(self):
         paras, _ = _paras(self._stat_table())
-        order = [p.text.split("\t")[0] for p in paras[1:]]
+        self.assertEqual(sum(1 for p in paras if p.tab_stops), 6)
+        order = [p.text.split("	")[0] for p in paras[1:]]
         self.assertEqual(order[0], "WHITE")
         self.assertEqual(order[4], "Men, 20 years and over")
         tops = [p.bbox[1] for p in paras]
         self.assertEqual(tops, sorted(tops))
 
-    def test_a_dotted_stub_gets_a_dot_leader_tab(self):
-        paras, _ = _paras(self._stat_table(dots_tracking=0.62))
-        rows = [p for p in paras if p.tab_stops]
-        self.assertEqual(len(rows), 6)
-        for p in rows:
-            self.assertEqual(p.tab_stops[0][1:], ("right", "dot"))
-            self.assertNotIn("....", p.text)
-            # the parser's tracking was measured over the dots, not the words
-            self.assertEqual(p.runs[0].tracking, 0.0)
-
-    def test_a_spaced_dot_stub_is_a_leader_too(self):
-        # XPP's establishment tables: "Total nonfarm. . . . . . ." then figures
-        blocks = [_body(100.0)]
-        for i, label in enumerate(("Total nonfarm", "Total private", "Mining")):
-            base = 150.0 + 11.0 * i
-            spans = [_span(label + ". " * 12, 46.0, base)] + \
-                [_span(v, xr - 5.0 * len(v), base)
-                 for v, xr in zip(("118", "129", "5"), X_RIGHT)]
-            ln = Line(spans=spans, bbox=(46.0, base - 8.9, 547.8, base + 2.2))
-            blocks.append(TextBlock(lines=[ln], bbox=ln.bbox))
-        paras, _ = _paras(DocIR(path="t.pdf",
-                                pages=[PageIR(1, 612.0, 792.0, blocks=blocks)]))
-        rows = [p for p in paras if p.tab_stops]
-        self.assertEqual([p.text.split("\t")[0] for p in rows],
-                         ["Total nonfarm", "Total private", "Mining"])
-        self.assertTrue(all(p.tab_stops[0][-1] == "dot" for p in rows))
+    def test_a_stub_ending_in_a_leader_is_left_as_it_was(self):
+        # y64's BLS tables, dense and XPP's spaced leaders alike
+        for leader in ("." * 30, ". " * 12):
+            paras, _ = _paras(self._stat_table(leader))
+            self.assertFalse(any(p.tab_stops for p in paras), leader)
 
     def test_exponents_in_display_maths_are_not_figures(self):
         # y43: two summation signs and their two raised 2s on one baseline

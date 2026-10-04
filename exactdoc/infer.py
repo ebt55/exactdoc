@@ -4519,12 +4519,8 @@ def _slice_runs_at(runs: List[Run], a: int, b: int) -> List[Run]:
 
 
 _LEADER_DOTS = re.compile(r"(?:[.·…][ \t]?){4,}")
-# A table stub that ENDS in a dot leader, the leader to be drawn by a tab.
-# Spaced dots count here, unlike in a contents line (`_LEADER_RE`): in a row of
-# cells the leader's role is fixed by the figures after it, and XPP's spaced
-# ". . . ." stubs (y64's establishment tables, 397 rows), set as text, ran past
-# the first stop in the renderer's wider spaces and pushed each table's last
-# line onto a page of its own.
+# Text that ENDS in a dot leader, dense or spaced: a table stub the grid rule
+# leaves alone (see `_grid_rows`).
 _TRAILING_LEADER_RE = re.compile(
     r"^(?P<label>.*?[^.·…\s])[ \t]*(?P<dots>(?:[.·…][ \t]?){4,})[ \t]*$")
 
@@ -4534,11 +4530,10 @@ def _label_before_leader(runs: List[Run], end: int) -> List[Run]:
     parser measured over a span that also held the leader.
 
     `parse_pdfium._span_tracking` reads letter-spacing from the mean gap
-    between a span's glyphs, and a dot leader is mostly gap: y64's
-    "Civilian noninstitutional population......" measured 0.47pt, its
-    "Civilian labor force......" 0.62pt, against ~0 for the words. With the
-    dots drawn by a tab, that tracking would only letter-space the label
-    (and widen it past its tab stop, wrapping the row).
+    between a span's glyphs, and a dot leader is mostly gap: on y64, spans of
+    words and leader ("Civilian labor force......") measured 0.47-0.62pt
+    against ~0 for the words alone. With the dots drawn by a tab, that
+    tracking would only letter-space the title.
     """
     out, pos = [], 0
     for r in runs:
@@ -4679,7 +4674,16 @@ def _grid_rows(items, col_l, col_r):
     for row in rows:
         frags = _row_fragments(row)
         verbatim = all(s.mono for ln in row for s in ln.spans if s.text.strip())
-        ok = len(frags) >= 3 and not verbatim and \
+        # A stub that ends in a dot leader is left as the line it was. Drawn
+        # as label + dot-leader tab (y64's 540 BLS rows, dense and spaced),
+        # every row fitted and the document lost its spills, but the
+        # leader's dots are words to the recall metrics -- y64's doc recall
+        # 0.965 -> 0.568 -- and as text, the row overran its first stop in
+        # the renderer's wider spaces (+3 pages). Neither is a measured
+        # improvement; such tables are a follow-up, not a guess.
+        dotted = bool(frags) and \
+            bool(_TRAILING_LEADER_RE.match(_frag_text(frags[0])))
+        ok = len(frags) >= 3 and not verbatim and not dotted and \
             all(_cellish(f) for f in frags[1:])
         info.append((row, frags, ok))
     keep = set()
@@ -4724,22 +4728,12 @@ def _grid_para(frags, col_l: float, col_r: float) -> Para:
     line = Line(spans=spans, bbox=bb)
     p = para_from_lines([line], col_l, col_r)
     runs, stops = [], []
-    leader = None
     for i, f in enumerate(frags):
         rr = runs_from_spans(_frag_spans(f))
         if rr:
             rr[0].text = rr[0].text.lstrip(" ")
             rr[-1].text = rr[-1].text.rstrip(" ")
         rr = [r for r in rr if r.text]
-        if i == 0 and len(frags) > 1:
-            # A stub ending in a dense dot leader (y64's statistical tables:
-            # "Civilian labor force........ 167,988 170,359 ...") is drawn
-            # the way a word processor draws it: the leader is the first
-            # stop's, and the dots are not text that can overrun the stop.
-            m = _TRAILING_LEADER_RE.match("".join(r.text for r in rr))
-            if m is not None:
-                rr = _label_before_leader(rr, m.end("label"))
-                leader = "dot"
         if i:
             ref = runs[-1] if runs else (rr[0] if rr else None)
             runs.append(Run(text="\t", font=ref.font if ref else f[0].font,
@@ -4750,8 +4744,6 @@ def _grid_para(frags, col_l: float, col_r: float) -> Para:
                 stops.append((round(f[-1].bbox[2] - col_l, 1), "right"))
             else:
                 stops.append((round(f[0].bbox[0] - col_l, 1), "left"))
-            if i == 1 and leader:
-                stops[-1] = stops[-1] + (leader,)
         runs.extend(rr)
     p.runs = runs
     p.align = "left"

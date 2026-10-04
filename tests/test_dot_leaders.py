@@ -126,6 +126,19 @@ class LeaderParagraphs(unittest.TestCase):
         # one paragraph per entry: never welded into one justified block
         self.assertTrue(all(p.src_lines == 1 for p in toc))
 
+    def test_letter_spacing_measured_over_the_dots_does_not_reach_the_title(self):
+        # the parser's per-span tracking is a mean glyph gap, and a span of
+        # title + leader is mostly leader gap (0.47-0.62pt on y64)
+        blocks = _body(80.0)
+        for i, (label, _x, num) in enumerate(ENTRIES):
+            sp = _span(label + "." * 60 + num, 64.9, 532.9, 160.0 + 24.5 * i)
+            sp.tracking = 0.55
+            blocks.append(_blk(sp))
+        paras, _ = self._paras(PageIR(1, 612.0, 792.0, blocks=blocks))
+        toc = [p for p in paras if p.tab_stops]
+        self.assertEqual(len(toc), len(ENTRIES))
+        self.assertTrue(all(p.runs[0].tracking == 0.0 for p in toc))
+
     def test_spaced_leaders_stay_text(self):
         # TeX / Typst / Texinfo: ". . . ." -- a Word dot leader would redraw
         # them dense, and every dot is a word to the reader of the text
