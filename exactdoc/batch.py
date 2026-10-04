@@ -13,7 +13,7 @@ import tempfile
 import time
 from typing import Optional
 
-from .convert import convert
+from .convert import convert_result
 from .errors import (ConfigurationError, ExactdocError, InteractiveFormError,
                      OcrRequiredError, PageLimitError, ResourceLimitError)
 from .scan import MAX_PAGES_PER_DOCUMENT, inspect_pdf, refusal
@@ -187,7 +187,7 @@ def run(items, *, backend, dpi, refine_rounds, output_profile, oracle,
                "output": None if scan_only else item.relative_output,
                "status": "failed", "error": None, "page_count": None,
                "text_char_count": None, "classification": None,
-               "duration_ms": 0, "source_sha256": None}
+               "duration_ms": 0, "source_sha256": None, "warnings": []}
         try:
             size = item.source.stat().st_size
             if size > MAX_BYTES_PER_DOCUMENT:
@@ -211,11 +211,20 @@ def run(items, *, backend, dpi, refine_rounds, output_profile, oracle,
                 row["status"] = "blank" if report.classification == "blank" else "would_convert"
             else:
                 item.destination.parent.mkdir(parents=True, exist_ok=True)
-                convert(str(item.source), str(item.destination), dpi=dpi,
+                import warnings
+                from .errors import OracleDegradedWarning
+                with warnings.catch_warnings():
+                    # Recorded on the row instead, where a batch report
+                    # reader will look for it.
+                    warnings.simplefilter("ignore", OracleDegradedWarning)
+                    res = convert_result(
+                        str(item.source), str(item.destination), dpi=dpi,
                         refine_rounds=refine_rounds, backend=backend,
                         output_profile=output_profile, oracle=oracle,
                         allow_cloud_upload=allow_cloud_upload or None,
                         verbose=verbose)
+                row["warnings"] = [{"code": w.code, "message": w.message}
+                                   for w in res.warnings]
                 row["status"] = "blank" if report.classification == "blank" else "converted"
         except OcrRequiredError as exc:
             row["status"] = "ocr_required"

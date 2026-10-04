@@ -227,6 +227,43 @@ class OracleCleanupError(OracleError):
     code = "oracle-cleanup"
 
 
+class OracleDegradedWarning(UserWarning):
+    """The render oracle failed partway through refinement; a DOCX was still
+    published. A *warning*, raised with `warnings.warn`, not an error.
+
+    The line between this and `OracleUnavailableError` is deliberate. An oracle
+    that is not installed is a property of the machine, known before any work
+    is done and fixed by the caller -- converting open-loop there anyway would
+    make the shipping profile silently mean the raw one for every document,
+    which is how a published number once came to describe no shipping
+    configuration (THEORY 8). So that stays an error. An oracle that is
+    installed and then crashes, hangs or writes nothing is a transient fault in
+    an optional self-check, discovered after the conversion itself has
+    succeeded; failing then threw away a valid DOCX. So the loop publishes the
+    best candidate it has -- the best measured round, or the round-0 write,
+    which is byte-for-byte the open-loop DOCX -- and raises this.
+
+    It is raised *before* the file is published. A caller who wants the old
+    all-or-nothing behaviour escalates it --
+    `warnings.simplefilter("error", OracleDegradedWarning)` -- and then gets
+    this as an exception with the destination untouched. The gate does exactly
+    that, so a degraded conversion can never be scored as the product.
+
+    `code` is the stable slug; `round_index` the round that failed;
+    `published_round` the measured round that was published, or None for the
+    unmeasured open-loop write. `reason` is content-free.
+    """
+    code = "oracle-degraded"
+
+    def __init__(self, message, round_index=None, reason=None,
+                 published_round=None):
+        super().__init__(message)
+        self.message = message
+        self.round_index = round_index
+        self.reason = reason
+        self.published_round = published_round
+
+
 #: Every concrete error, by slug. Used by the CLI's exit-code table and by the
 #: tests that assert the table covers the hierarchy -- a new error class with no
 #: exit code would otherwise fall through to a generic failure.
