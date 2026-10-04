@@ -102,6 +102,56 @@ one verified fix at a time, each gated against the frozen 16.
   `compatibilityMode` 15, which drops the "Compatibility Mode" banner but
   re-wraps justified paragraphs (Word within-2pt 0.239 -> 0.193).
 
+- **Google Docs keeps the source's page count: pages at risk are planned
+  on Docs' own line model, pages that fit are left alone (WP19).** On the
+  2c1c68f live sweep only 27 of 54 ordinary documents were page-exact in Docs.
+  Google's own exports of that sweep were aligned word by word with the
+  sources, and each element was compared with the writer's model of it
+  (`docs/evidence/gdocs-2026-10-05-wp19-diagnosis.json`). Where the pages
+  went:
+  - rules closing a page (WP18 fixed most);
+  - pages the writer knew were over-full but would not absorb past two
+    lines;
+  - pages predicted to fit with under 15pt to spare, lost 26-46% of the time.
+
+  What Docs adds, measured:
+  - Times and Arial lines at 1.150, not 1.144;
+  - Roboto Mono 15.3% taller than the table said;
+  - the half-point size step;
+  - lines mixing families or sizes at max(ascent + gap) + max(descent);
+  - inline pictures +3.9pt;
+  - the first paragraph's gap dropped after `pageBreakBefore` (1,640 pages).
+
+  Probe 1 corrected all of that on every page. Pages came back:
+  - y17 217 -> 195 for 194;
+  - y18 258 -> 145 for 144;
+  - y08 66 -> 65;
+  - y36 36 -> 28;
+  - 31/31 short documents page-exact.
+
+  But placement fell on documents that already fit: c1 within-2pt 0.154 ->
+  0.064, x05 0.785 -> 0.066, and 01's SSIM dropped under its bound
+  (`docs/evidence/gdocs-2026-10-05-wp19-probe1-live.json`). The shipped
+  form's errors cancel, so correcting one of a pair moved the words.
+
+  `_gdocs_page_at_risk` now asks whether Docs would set a page, in the
+  shipped form, with less than a body line + 2pt to spare:
+  - If not, the page is written exactly as before (47 of 90 gdocs DOCX are
+    byte-identical to 92c542c).
+  - If so, the page's own gaps pay first, taken from the foot of the page up
+    so the fewest lines move (`_gdocs_page_plan(legacy=True)`).
+  - Only a page those gaps cannot fit is calibrated: true factors,
+    mixed-line rule, rule and picture compensation, and code-box sides
+    anchored to the page.
+  - A page before a blank source page is left alone.
+  - An empty 1pt holder that keeps the dropped page-top gap
+    (`GDOCS_PAGE_TOP_HOLDER`, +0.22pt live) is built but off pending probe 2.
+
+  The standard profile is byte-identical for all 90 convertible documents.
+  Gate PASS in both lanes at the recorded numbers. `harness.page_words` now
+  drops the U+200B that Docs' exporter writes at tabs and soft breaks (1.7%
+  of exported words).
+
 - **Faster, byte for byte (WP20b).** The writer spent most of its time inside
   python-docx, and the product profile writes once per refine round.
   `exactdoc/_docx_speed.py` replaces three python-docx internals with
