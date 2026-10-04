@@ -3,10 +3,10 @@
  "lanes": {
   "product": {
    "aggregate": {
-    "gate_pass_count": 12,
-    "mean_live_text": 0.9588,
-    "mean_within2pt": 0.5274,
-    "median_dy_p50": 1.045,
+    "gate_pass_count": 13,
+    "mean_live_text": 0.9635,
+    "mean_within2pt": 0.6019,
+    "median_dy_p50": 0.525,
     "n": 16,
     "page_match_count": 16
    },
@@ -17,7 +17,7 @@
      "live_text_cov": 0.9595,
      "page_err": 0,
      "raster_frac": 0.0405,
-     "within2pt": 0.6611,
+     "within2pt": 0.6458,
      "word_recall": 0.9677
     },
     "02_research_paper.pdf": {
@@ -31,7 +31,7 @@
     },
     "03_tech_report_code.pdf": {
      "doc_recall": 1.0,
-     "dy_p50": 1.49,
+     "dy_p50": 1.58,
      "live_text_cov": 0.9827,
      "page_err": 0,
      "raster_frac": 0.0173,
@@ -40,11 +40,11 @@
     },
     "04_exec_brief.pdf": {
      "doc_recall": 0.9337,
-     "dy_p50": 1.38,
+     "dy_p50": 1.39,
      "live_text_cov": 0.9406,
      "page_err": 0,
      "raster_frac": 0.0594,
-     "within2pt": 0.4201,
+     "within2pt": 0.4793,
      "word_recall": 0.9337
     },
     "05_memo.pdf": {
@@ -58,11 +58,11 @@
     },
     "c1_whitepaper.pdf": {
      "doc_recall": 0.9697,
-     "dy_p50": 0.99,
+     "dy_p50": 0.29,
      "live_text_cov": 0.9654,
      "page_err": 0,
      "raster_frac": 0.0346,
-     "within2pt": 0.3344,
+     "within2pt": 0.8688,
      "word_recall": 0.9697
     },
     "c2_paper2col.pdf": {
@@ -75,21 +75,21 @@
      "word_recall": 1.0
     },
     "c3_tables.pdf": {
-     "doc_recall": 0.9359,
-     "dy_p50": 2.75,
-     "live_text_cov": 0.9226,
+     "doc_recall": 1.0,
+     "dy_p50": 0.5,
+     "live_text_cov": 0.9981,
      "page_err": 0,
-     "raster_frac": 0.0774,
+     "raster_frac": 0.0019,
      "within2pt": 0.0,
-     "word_recall": 0.9359
+     "word_recall": 1.0
     },
     "c4_i18n.pdf": {
      "doc_recall": 0.9748,
-     "dy_p50": 0.8,
+     "dy_p50": 0.15,
      "live_text_cov": 0.9091,
      "page_err": 0,
      "raster_frac": 0.0909,
-     "within2pt": 0.4397,
+     "within2pt": 0.6207,
      "word_recall": 0.9748
     },
     "c5_graphics.pdf": {
@@ -103,20 +103,20 @@
     },
     "c6_long.pdf": {
      "doc_recall": 1.0,
-     "dy_p50": 0.5,
+     "dy_p50": 0.15,
      "live_text_cov": 0.9923,
      "page_err": 0,
      "raster_frac": 0.0077,
-     "within2pt": 0.758,
+     "within2pt": 0.9773,
      "word_recall": 1.0
     },
     "c7_code.pdf": {
      "doc_recall": 1.0,
-     "dy_p50": 0.8,
+     "dy_p50": 0.3,
      "live_text_cov": 1.0,
      "page_err": 0,
      "raster_frac": 0.0,
-     "within2pt": 0.9375,
+     "within2pt": 0.9886,
      "word_recall": 1.0
     },
     "c8_toc_links.pdf": {
@@ -143,7 +143,7 @@
      "live_text_cov": 0.9883,
      "page_err": 0,
      "raster_frac": 0.0117,
-     "within2pt": 0.1631,
+     "within2pt": 0.1702,
      "word_recall": 0.9792
     },
     "r1_reportlab_report.pdf": {
@@ -152,7 +152,7 @@
      "live_text_cov": 1.0,
      "page_err": 0,
      "raster_frac": 0.0,
-     "within2pt": 0.3212,
+     "within2pt": 0.4767,
      "word_recall": 1.0
     }
    },
@@ -334,7 +334,7 @@
     "machine": "x86_64",
     "oracles": {
      "chrome_path": "/usr/local/bin/chrome-headless-shell",
-     "chrome_version": "Google Chrome for Testing 149.0.7827.55",
+     "chrome_version": "Google Chrome for Testing 153.0.8010.12",
      "font_count": 14,
      "font_families": [
       "DejaVu Sans",
@@ -376,21 +376,21 @@
   },
   "raw": {
    "aggregate": {
-    "gate_pass_count": 12,
-    "mean_live_text": 0.9588,
-    "mean_within2pt": 0.3615,
-    "median_dy_p50": 1.6,
+    "gate_pass_count": 13,
+    "mean_live_text": 0.9635,
+    "mean_within2pt": 0.4568,
+    "median_dy_p50": 1.245,
     "n": 16,
     "page_match_count": 15
    },
    "documents": {
     "01_whitepaper_market.pdf": {
      "doc_recall": 0.9677,
-     "dy_p50": 3.68,
+     "dy_p50": 2.99,
      "live_text_cov": 0.9595,
      "page_err": 0,
      "raster_frac": 0.0405,
-     "within2pt": 0.2069,
+     "within2pt": 0.3139,
      "word_recall": 0.9677
     },
     "02_research_paper.pdf": {
@@ -404,16 +404,16 @@
     },
     "03_tech_report_code.pdf": {
      "doc_recall": 1.0,
-     "dy_p50": 4.08,
+     "dy_p50": 3.7,
      "live_text_cov": 0.9827,
      "page_err": 0,
      "raster_frac": 0.0173,
-     "within2pt": 0.0588,
+     "within2pt": 0.128,
      "word_recall": 1.0
     },
     "04_exec_brief.pdf": {
      "doc_recall": 0.9337,
-     "dy_p50": 9.35,
+     "dy_p50": 4.05,
      "live_text_cov": 0.9406,
      "page_err": 0,
      "raster_frac": 0.0594,
@@ -431,11 +431,11 @@
     },
     "c1_whitepaper.pdf": {
      "doc_recall": 0.9697,
-     "dy_p50": 0.99,
+     "dy_p50": 0.89,
      "live_text_cov": 0.9654,
      "page_err": 0,
      "raster_frac": 0.0346,
-     "within2pt": 0.3344,
+     "within2pt": 0.8688,
      "word_recall": 0.9697
     },
     "c2_paper2col.pdf": {
@@ -444,25 +444,25 @@
      "live_text_cov": 1.0,
      "page_err": 0,
      "raster_frac": 0.0,
-     "within2pt": 0.039,
+     "within2pt": 0.0416,
      "word_recall": 1.0
     },
     "c3_tables.pdf": {
-     "doc_recall": 0.9359,
-     "dy_p50": 7.45,
-     "live_text_cov": 0.9226,
+     "doc_recall": 1.0,
+     "dy_p50": 0.55,
+     "live_text_cov": 0.9981,
      "page_err": 0,
-     "raster_frac": 0.0774,
+     "raster_frac": 0.0019,
      "within2pt": 0.0,
-     "word_recall": 0.8648
+     "word_recall": 1.0
     },
     "c4_i18n.pdf": {
      "doc_recall": 0.9748,
-     "dy_p50": 0.8,
+     "dy_p50": 0.15,
      "live_text_cov": 0.9091,
      "page_err": 0,
      "raster_frac": 0.0909,
-     "within2pt": 0.4397,
+     "within2pt": 0.6207,
      "word_recall": 0.9748
     },
     "c5_graphics.pdf": {
@@ -476,20 +476,20 @@
     },
     "c6_long.pdf": {
      "doc_recall": 1.0,
-     "dy_p50": 1.3,
+     "dy_p50": 0.7,
      "live_text_cov": 0.9923,
      "page_err": 0,
      "raster_frac": 0.0077,
-     "within2pt": 0.6738,
+     "within2pt": 0.8132,
      "word_recall": 1.0
     },
     "c7_code.pdf": {
      "doc_recall": 1.0,
-     "dy_p50": 1.9,
+     "dy_p50": 1.65,
      "live_text_cov": 1.0,
      "page_err": 0,
      "raster_frac": 0.0,
-     "within2pt": 0.5568,
+     "within2pt": 0.892,
      "word_recall": 1.0
     },
     "c8_toc_links.pdf": {
@@ -525,7 +525,7 @@
      "live_text_cov": 1.0,
      "page_err": 0,
      "raster_frac": 0.0,
-     "within2pt": 0.3212,
+     "within2pt": 0.4767,
      "word_recall": 1.0
     }
    },
@@ -707,7 +707,7 @@
     "machine": "x86_64",
     "oracles": {
      "chrome_path": "/usr/local/bin/chrome-headless-shell",
-     "chrome_version": "Google Chrome for Testing 149.0.7827.55",
+     "chrome_version": "Google Chrome for Testing 153.0.8010.12",
      "font_count": 14,
      "font_families": [
       "DejaVu Sans",
