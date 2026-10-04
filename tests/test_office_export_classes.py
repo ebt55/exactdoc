@@ -308,6 +308,25 @@ class DoubleSpacedParagraphs(unittest.TestCase):
         groups = I._split_lines_to_paras(self._lines(24.1))
         self.assertEqual([len(g) for g in groups], [2, 2])
 
+    def test_a_stack_of_figures_is_not_prose(self):
+        # y47's chart axis: "54" over "52" over "50" at a 15pt pitch for 9pt
+        # type -- double-spaced by the numbers, filled by no line breaker
+        lines = [_line(str(54 - 2 * i), 196.0, 160.0 + 15.3 * i, 204.0, size=9.0,
+                       baseline=170.0 + 15.3 * i) for i in range(6)]
+        lines.append(_line("Axis title of the chart here", 196.0, 260.0, 380.0,
+                           size=9.0, baseline=270.0))
+        self.assertFalse(any(I._author_break(a, b, 380.0, 15.3)
+                             for a, b in zip(lines, lines[1:])))
+
+    def test_right_to_left_lines_are_left_alone(self):
+        # (boxed as a left-to-right short line would be, so only the script
+        # keeps the fit test from firing)
+        a = _line("هذا سطر", 72.0, 100.0, 200.0,
+                  size=12.0, baseline=110.0)
+        b = _line("سطر آخر طويل",
+                  72.0, 124.0, 540.0, size=12.0, baseline=134.0)
+        self.assertFalse(I._author_break(a, b, 540.0, 24.0))
+
     def test_single_spaced_text_is_left_to_its_gaps(self):
         groups = I._split_lines_to_paras(self._lines(16.0))
         self.assertEqual([len(g) for g in groups], [4])

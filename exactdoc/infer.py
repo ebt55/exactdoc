@@ -1019,7 +1019,16 @@ def _author_break(a: Line, b: Line, right: float, lead: float) -> bool:
         return False
     if b.baseline - a.baseline < 0.5 * size:
         return False                    # the same row: a marker and its text
+    if _RTL_TEXT.search(a.text) or _RTL_TEXT.search(b.text):
+        # A right-to-left line ends short on its LEFT; the fit test measures
+        # from the right end, so it says nothing about one.
+        return False
     at = a.text.rstrip()
+    if not any(ch.isalpha() for ch in at) or \
+            not any(ch.isalpha() for ch in b.text):
+        # Not prose: a chart's axis labels ("54" over "52", y47) are a
+        # stack of short lines no line breaker filled.
+        return False
     if not at or at.endswith(("-", "­")):
         return False                    # a hyphenated word runs on
     words = b.text.split()
