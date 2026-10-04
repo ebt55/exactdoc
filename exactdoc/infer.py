@@ -1082,6 +1082,26 @@ def _first_word_w(ln: Line) -> float:
     return (s.bbox[2] - s.bbox[0]) * len(word) / max(1, len(s.text))
 
 
+# Lines of one text column start at its left edge or within a list hang of it
+# (_INLINE_HANG_MAX). A box whose lines start further apart holds columns of
+# its own -- y59's mock-up notice page, two columns inside one frame -- and
+# there the widest line says nothing about where any one line could have
+# continued: read against it, every left-column line "broke by hand" and the
+# mock-up became one paragraph per line, three pages longer.
+def _text_column_edge(lines) -> Optional[float]:
+    """The right edge forced breaks are read against, or None when lines
+    are not one text column (see above)."""
+    xs = [ln.bbox[0] for ln in lines if ln.text.strip()]
+    if not xs:
+        return None
+    if max(xs) - min(xs) > _INLINE_HANG_MAX:
+        # no line has room to spare against -inf, so only the heading rule
+        # of _forced_break can fire: y46's ragged-left column keeps its bold
+        # entry titles apart from the text under them
+        return float("-inf")
+    return max(ln.bbox[2] for ln in lines)
+
+
 def _forced_break(prev: Line, ln: Line, col_r: float) -> bool:
     """Did the source END `prev` rather than wrap it?
 
@@ -3937,9 +3957,16 @@ def _split_lines_at_box_edges(blocks, rects, consumed=frozenset()) -> list:
 
 
 def _restore_uncut(cuts, consumed) -> None:
-    """Put back each cut line whose pieces every region left in the flow."""
+    """Put back each cut line unless regions took EVERY piece of it.
+
+    A cut stands when the line was two regions' text on one baseline -- y58's
+    two panels, a panel beside a table -- and every piece found its region.
+    A piece left in the flow beside a piece a box took is a column of body
+    text running past a box: cut, it re-paragraphs the column around the box,
+    and on y60 (an MMWR whose summary boxes sit in one column of two) that cost
+    a page in LibreOffice; uncut, the flow is exactly what it was."""
     for b, ln, pieces in cuts:
-        if any(id(p) in consumed for p in pieces):
+        if all(id(p) in consumed for p in pieces):
             continue
         ids = {id(p) for p in pieces}
         k = next((i for i, l in enumerate(b.lines) if id(l) in ids), None)
@@ -4165,7 +4192,7 @@ def build_box(cl, blocks, consumed) -> Optional[TableEl]:
         # ONE paragraph of eleven bullet items run together, 2x its height.
         blk = _mk_block(lines)
         cell.paras = [el for el in _to_flow([("blk", blk.bbox, blk)], minx, rect[2] - 4,
-                                            forced=max(l.bbox[2] for l in lines))
+                                            forced=_text_column_edge(lines))
                       if isinstance(el, Para)]
         t0 = _para_box(cell.paras[0])[0] if cell.paras else rect[1]
         pad_top = max(0.0, round(t0 - rect[1], 1))
@@ -4185,6 +4212,23 @@ def build_box(cl, blocks, consumed) -> Optional[TableEl]:
                                    else "quote")
     return TableEl(rows=[[cell]], col_widths=[rect[2] - rect[0]],
                    row_heights=[rect[3] - rect[1]], role=role, bbox=rect)
+
+
+# An ornament on a box -- a numbered badge in a callout's corner (y59's 11pt
+# circles), an icon beside its heading -- cannot ride in the box: a one-cell
+# table holds paragraphs, and stacked after the box as a picture it spends
+# its own height again (seven 15pt lines a page on y59). Up to twice the
+# glyph bound, wholly inside a built box, it is left to the box's shading,
+# as a smaller ornament anywhere already is (_is_glyphlike).
+BOX_ORNAMENT_MAX = 2 * GLYPH_MAX
+
+
+def _ornament_on_box(d: DrawCmd, elements) -> bool:
+    x0, y0, x1, y1 = d.bbox
+    if (x1 - x0) > BOX_ORNAMENT_MAX or (y1 - y0) > BOX_ORNAMENT_MAX:
+        return False
+    return any(isinstance(e, TableEl) and e.role in ("box", "cards") and e.bbox
+               and contains(e.bbox, d.bbox, 0.5) for e in elements)
 
 
 def build_figure(cl_ds: List[DrawCmd], blocks, images, consumed, page: PageIR) -> FigureEl:
@@ -4231,15 +4275,19 @@ def build_figure(cl_ds: List[DrawCmd], blocks, images, consumed, page: PageIR) -
     # than the 14pt reach: c5_graphics' '100' / '50' / '0' end 15.4pt left of
     # the y-axis, stayed flow, and -- a picture cannot share a line with text
     # -- were stacked UNDER the chart as three paragraphs, 115pt that pushed
-    # the whole page down. Only bare numbers beside the figure's own height.
+    # the whole page down. Only bare numbers beside the figure's own height,
+    # measured from the figure as grown above: a tick does not reach further
+    # ticks (chained, y59's callout badge numbers carried a mock-up page's
+    # picture 160pt across the callouts beside it).
+    ref = bb
     for ln in _all_lines(blocks):
         if id(ln) in consumed or not _AXIS_TICK_RE.match(ln.text.strip()):
             continue
         lb = ln.bbox
         cy = (lb[1] + lb[3]) / 2
-        if not (bb[1] - 2 <= cy <= bb[3] + 2):
+        if not (ref[1] - 2 <= cy <= ref[3] + 2):
             continue
-        if lb[2] >= bb[0] - AXIS_TICK_REACH and lb[0] <= bb[2] + AXIS_TICK_REACH:
+        if lb[2] >= ref[0] - AXIS_TICK_REACH and lb[0] <= ref[2] + AXIS_TICK_REACH:
             bb = bbox_union(bb, lb)
             consumed.add(id(ln))
     bb = (max(0, bb[0] - 2), max(0, bb[1] - 2),
@@ -5083,6 +5131,8 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
                 continue
             if _is_glyphlike(d):
                 continue        # stray ornament: not worth rasterising a region for
+            if _ornament_on_box(d, elements):
+                continue
             if d.shape in ("curve", "complex", "line") or (
                     d.fill and bbox_area(d.bbox) > 400):
                 # A stray shape is promoted to a rasterised block here on area
@@ -5807,6 +5857,8 @@ GRID_CELL_GAP_MIN = 12.0   # pt; and never less than _ROW_MIN_GAP's real gap
 GRID_ROW_PITCH_EM = 3.2    # consecutive rows are at most this far apart
 GRID_EDGE_TOL = 2.0        # pt; a shared column edge
 GRID_CELL_MAX_WORDS = 4    # a cell is a few words; a prose line is not
+ROW_ITEMS_MIN = 3          # separate lines on one baseline that are a row (_grid_rows)
+ROW_ITEMS_MAX_GAP_EM = 3.0  # ...set at item spacing, not across the page
 _NUMERIC_CELL = re.compile(r"[(+\-–−$€£¥]?\s?[0-9][0-9.,\s]*%?\)?")
 
 
@@ -5921,6 +5973,35 @@ def _grid_rows(items, col_l, col_r):
                if _NUMERIC_CELL.fullmatch(_frag_text(f))
                and max(s.size for s in f) >= 0.8 * size) >= 2:
             keep.add(i)
+    # A row of items the PARSER already set apart -- three or more lines on
+    # one baseline, each a few words, none overlapping -- is one row whatever
+    # its gaps: a CV's contact strip (y44: five 'icon + text' items 14pt
+    # apart, under the 2em cell gap above). Left as lines, each became a
+    # paragraph of its own and the strip stood as a five-line staircase.
+    # Lines sharing a baseline are never a stack, so they are written as the
+    # row they are, each at its own tab stop.
+    for i, (row, frags, ok) in enumerate(info):
+        if i in keep or len(row) < ROW_ITEMS_MIN:
+            continue
+        items = sorted(row, key=lambda l: l.bbox[0])
+        pieces = [[s for s in ln.spans if s.text.strip()] for ln in items]
+        sizes = [_line_size(ln) for ln in items]
+        # A strip, not a coincidence: one size (display maths puts its
+        # exponents on the baseline of their sums) and item spacing (a form's
+        # 'Name ... Date ... Signature' stands 130-235pt apart; y44's
+        # contact items 14pt, 1.4em).
+        if max(sizes) - min(sizes) > 0.6 or \
+                any(b.bbox[0] - a.bbox[2] > ROW_ITEMS_MAX_GAP_EM * max(sizes)
+                    for a, b in zip(items, items[1:])):
+            continue
+        if any(not p for p in pieces) or \
+                any(b.bbox[0] < a.bbox[2] for a, b in zip(items, items[1:])) or \
+                any(all(s.mono for s in p) for p in pieces) or \
+                not all(_cellish(p) for p in pieces) or \
+                bool(_TRAILING_LEADER_RE.match(_frag_text(pieces[0]))):
+            continue
+        info[i] = (row, pieces, True)
+        keep.add(i)
     out, consumed = [], set()
     for i in sorted(keep):
         row, frags, _ = info[i]
@@ -6882,8 +6963,10 @@ def _column_flow(items, col_l: float, box_r: float, lay_rows):
         joined.append(it)
     if run:
         joined.append(_lines_item(run))
+    edge = _text_column_edge(_side_lines(items))
     flow = _merge_flow_paras(_to_flow(joined, col_l, col_r, doc_rows=lay_rows,
-                                      forced=col_r), col_r)
+                                      forced=edge if edge is None or edge < 0
+                                      else col_r), col_r)
     extra = max(0.0, round(box_r - col_r, 1))
     for el in flow:
         # The right indent holds a WRAPPING paragraph to its source measure,

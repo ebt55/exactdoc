@@ -311,12 +311,50 @@ class LinesAcrossPanelEdges(unittest.TestCase):
         self.assertEqual([l.text for l in blk.lines], [ln.text])
         self.assertIs(blk.lines[0], ln)
 
-    def test_a_cut_a_box_claimed_stays_cut(self):
+    def test_a_cut_whose_pieces_all_found_regions_stays_cut(self):
         ln, blk = self._joined()
         cuts = I._split_lines_at_box_edges([blk], self._draws())
-        left = blk.lines[0]
-        I._restore_uncut(cuts, consumed={id(left)})
+        I._restore_uncut(cuts, consumed={id(l) for l in blk.lines})
         self.assertEqual(len(blk.lines), 2)
+
+    def test_a_cut_with_a_piece_left_in_the_flow_is_joined_back(self):
+        # body text running past a box: re-paragraphing it around the box
+        # cost y60 a page, so the line stays whole
+        ln, blk = self._joined()
+        cuts = I._split_lines_at_box_edges([blk], self._draws())
+        I._restore_uncut(cuts, consumed={id(blk.lines[0])})
+        self.assertEqual([l.text for l in blk.lines], [ln.text])
+
+class RowOfItems(unittest.TestCase):
+    def _items(self, lines):
+        out = []
+        for ln in lines:
+            out.append(("blk", ln.bbox, TextBlock(lines=[ln], bbox=ln.bbox)))
+        return out
+
+    def test_items_on_one_baseline_are_one_tabbed_row(self):
+        # y44's contact strip: five separate items 14pt apart
+        xs = [(50.4, 139.2, "San Francisco, CA"), (153.3, 259.6, "john.doe@email.com"),
+              (273.7, 347.9, "rendercv.com"), (362.0, 413.4, "rendercv"),
+              (427.6, 480.1, "rendercv")]
+        lines = [_line(_span(t, x, 88.0, size=10.0, x1=x1)) for x, x1, t in xs]
+        flow = I._to_flow(self._items(lines), 47.6, 561.6)
+        paras = [e for e in flow if isinstance(e, Para)]
+        self.assertEqual(len(paras), 1)
+        self.assertEqual(paras[0].text.count("\t"), 4)
+        self.assertEqual(len(paras[0].tab_stops), 4)
+
+    def test_two_items_are_not_a_row(self):
+        lines = [_line(_span("left", 50.0, 88.0, size=10.0, x1=70.0)),
+                 _line(_span("right", 300.0, 88.0, size=10.0, x1=325.0))]
+        flow = I._to_flow(self._items(lines), 47.6, 561.6)
+        self.assertEqual(len([e for e in flow if isinstance(e, Para)]), 2)
+
+    def test_prose_lines_are_not_items(self):
+        t = "a line of running prose with many words in it"
+        lines = [_line(_span(t, x, 88.0, size=10.0, x1=x + 150.0)) for x in (50.0, 210.0, 370.0)]
+        flow = I._to_flow(self._items(lines), 47.6, 561.6)
+        self.assertEqual(len([e for e in flow if isinstance(e, Para)]), 3)
 
 class ForcedBreaks(unittest.TestCase):
     def test_a_heading_line_over_its_text_is_its_own_paragraph(self):
