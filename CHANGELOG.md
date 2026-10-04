@@ -347,6 +347,52 @@ Non-gating; the expansion parity policy re-pins its corpus hash only.
   pass costs 15–20% of character extraction; DOCX size rises where black boxes became
   real RGBA images (y01 0.79 → 0.98 MB) and falls where JPEGs pass through
   (y28 1.96 → 1.53 MB, y50 1.55 → 0.84 MB).
+- **ordinary browser- and word-processor-printed documents (WP9).** The
+  expansion's Chromium, LibreOffice and ReportLab fixtures kept their page
+  counts and still landed 15–74pt off. Each root cause was found with the
+  line-drift microscope and fixed as a general rule:
+  *Chromium sets text 6.2–6.6% wider than its fonts' advances* (hinted
+  integer-ppem glyphs; IQR < 0.6%, against 0.999 for LibreOffice), so every
+  4-line paragraph re-wrapped into 3: `tracking.py` measures the scale on
+  regular metric-clone faces and restores the bias as character spacing
+  (standard profile only — Docs discards run tracking; WP3's w:w keeps the
+  half-point quantisation), and the ladder predicts with that part
+  (`Run.advance_track`) and never with its own lock compression.
+  *A contents page is not two columns*: x11's drawn dot leaders became
+  bullets, then a right-hand column, and the page split at a 238pt
+  "gutter" (→ 3 pages for 2). Drawn leaders become text dots; dense dot
+  leaders become title-TAB-number on a right tab stop with a dot leader
+  (`w:leader="dot"`); off-page drawings are dropped; a gutter over 30% of
+  the content (every genuine one ≤ 0.234) with the page's prose crossing
+  between the columns is not a gutter. *The column is at least as wide as
+  the lines that wrapped in it* (98th percentile, verbatim and multi-column
+  pages excluded; x05's edge sat 18pt inside a wrapped line); right-aligned
+  fields reaching a rule edge on two pages vouch for it. *A rule-less
+  table's rows are tabbed paragraphs* (right stops for figures), not one
+  welded line or a vertical stack of cells. Markers: outlined `circle`
+  bullets (one per line, in a column), a lone mark corroborated only by a
+  list column elsewhere, never a tombstone flush with a column end; raised
+  footnote numbers join their note, each note its own paragraph. Quote
+  tables start at their first line.
+  Canonical, on the merged tree: gate PASS both lanes at the recorded
+  numbers (product 0.5739, raw 0.4031; gated DOCX unchanged), 989 tests.
+  Product lane against the integration head (5ef641a), within-2pt: x02
+  0.17 → 1.00, x05 0.37 → 0.99, x07 0.02 → 0.48, x08 0.01 → 0.68, x09 0.21
+  → 0.94, x10 0.12 → 0.54, x11 0.04 → 0.76 (dy_p90 30.8 → 1.3pt), x14 0.15
+  → 0.54, x17/x18 0.19 → 0.41, x04 0.55 → 0.64; no target page moved.
+  Raw sweep, all 90 measured: within-2pt 0.141 → 0.191, word recall 0.562
+  → 0.569, char recall 0.720 → 0.729, page-ratio error 0.333 → 0.322,
+  page-exact 38 → 39, SSIM 0.604 → 0.615; y09 67 → 63 pages, y33 88 → 82,
+  y06 198 → 191, y01 103 → 100, x11 3 → 2. Worse, honestly: live-text
+  coverage 0.939 → 0.930, doc recall 0.911 → 0.910 — the metric reads a dot
+  leader drawn by a tab as lost text (x02 0.98 → 0.74) and "◦"+tab as a
+  token (x09); y35 15 → 16 pages, because its rate tables were fitting only
+  as welded prose beside a cell wrapping one syllable per line; y50 dy_p50
+  52 → 71 though 26 → 24 pages (15 in the source); y30, y60 recall −0.007,
+  −0.011 (TOC and table rows now tabbed); y46, y64 dy_p90 +15, +13 (y64
+  within-2pt 0.02 → 0.11). Not fixed here: x07's Chrome `position: fixed`
+  running header and footer, painted over the body inside the page, need
+  detect_hf (WP2).
 
 ## 1.0.1 — 2026-08-07
 
