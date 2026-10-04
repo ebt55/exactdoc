@@ -20,51 +20,55 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
-- **Google Docs keeps the source's page count: a page planner, on Docs'
-  own line model (WP19).** On the 2c1c68f live sweep only 27 of 54
-  ordinary documents were page-exact in Docs. Google's own exports of that
-  sweep were aligned word by word with the sources, and each element was
-  compared with the writer's model of it
+- **Google Docs keeps the source's page count: pages at risk are planned
+  on Docs' own line model, pages that fit are left alone (WP19).** On the
+  2c1c68f live sweep only 27 of 54 ordinary documents were page-exact in Docs.
+  Google's own exports of that sweep were aligned word by word with the
+  sources, and each element was compared with the writer's model of it
   (`docs/evidence/gdocs-2026-10-05-wp19-diagnosis.json`). Where the pages
-  went: rules closing a page (WP18 fixed most); pages the writer already
-  knew were over-full but would not absorb past two lines; and pages
-  predicted to fit with under 15pt to spare, lost 26-46% of the time.
+  went:
+  - rules closing a page (WP18 fixed most);
+  - pages the writer knew were over-full but would not absorb past two
+    lines;
+  - pages predicted to fit with under 15pt to spare, lost 26-46% of the time.
 
-  *Calibration, gdocs only:*
-  - Arial and Times New Roman at their true natural factor of 1.150. Every
-    line came out 0.5% taller than written.
-  - Roboto Mono and five other native families at the factor read from the
-    fonts Docs embeds. y17's code lines were 15.3% taller than written.
-  - Multiples are taken against the emitted half-point size.
-  - Lines mixing families or sizes follow Docs' largest-ascent-plus-largest-descent
-    rule wherever the source set them at one pitch: inline Courier New in
-    Times measured 1.2332 em against 1.2339 predicted, over 918 lines.
-    Asking for Word's mean pitch was tried and reverted: infer's gaps were
-    computed against the median.
-  - Rules are compensated by the 2.8pt Docs adds above them.
-  - Inline pictures are compensated by 1.5pt above and 2.45pt below.
-  - Code-box sides (pictures 8pt or narrower and 36pt or taller) are anchored
-    to the page instead of each taking a page.
+  What Docs adds, measured:
+  - Times and Arial lines at 1.150, not 1.144;
+  - Roboto Mono 15.3% taller than the table said;
+  - the half-point size step;
+  - lines mixing families or sizes at max(ascent + gap) + max(descent);
+  - inline pictures +3.9pt;
+  - the first paragraph's gap dropped after `pageBreakBefore` (1,640 pages).
 
-  *Planner* (`docxout._gdocs_page_plan`): each page is modelled as Docs sets
-  it. That includes the first paragraph's gap, which Docs drops after
-  `pageBreakBefore` (1,640 pages measured). The planner keeps one body line
-  plus 2pt free, paid from the page's own gaps proportionally: down to 60%
-  of each gap, then to the refine floors. A page whose gaps cannot cover its
-  overflow keeps the source's spacing.
+  Probe 1 corrected all of that on every page. Pages came back:
+  - y17 217 -> 195 for 194;
+  - y18 258 -> 145 for 144;
+  - y08 66 -> 65;
+  - y36 36 -> 28;
+  - 31/31 short documents page-exact.
 
-  *Results so far:*
-  - The standard profile is byte-identical for all 90 convertible documents.
-  - Gate PASS in both lanes at the recorded numbers (product within-2pt
-    0.6427, raw 0.4853).
-  - The raw sweep is unchanged except y32 and y54, whose recall rose from
-    the harness change below.
-  - Offline replay of the exports predicts y18 260 -> ~161 pages (src 144),
-    y01 90 -> 84, y03 62 -> 53 and y36 36 -> 31.
-  - The LibreOffice proxy agrees in direction: y18 253 -> 145, y17 202 -> 194.
-  - Live Docs probe pending.
-  - `harness.page_words` drops the U+200B that Docs' exporter writes at tabs
-    and soft breaks; 1.7% of exported words carried one.
+  But placement fell on documents that already fit: c1 within-2pt 0.154 ->
+  0.064, x05 0.785 -> 0.066, and 01's SSIM dropped under its bound
+  (`docs/evidence/gdocs-2026-10-05-wp19-probe1-live.json`). The shipped
+  form's errors cancel, so correcting one of a pair moved the words.
+
+  `_gdocs_page_at_risk` now asks whether Docs would set a page, in the
+  shipped form, with less than a body line + 2pt to spare:
+  - If not, the page is written exactly as before (47 of 90 gdocs DOCX are
+    byte-identical to 92c542c).
+  - If so, the page's own gaps pay first, taken from the foot of the page up
+    so the fewest lines move (`_gdocs_page_plan(legacy=True)`).
+  - Only a page those gaps cannot fit is calibrated: true factors,
+    mixed-line rule, rule and picture compensation, and code-box sides
+    anchored to the page.
+  - A page before a blank source page is left alone.
+  - An empty 1pt holder that keeps the dropped page-top gap
+    (`GDOCS_PAGE_TOP_HOLDER`, +0.22pt live) is built but off pending probe 2.
+
+  The standard profile is byte-identical for all 90 convertible documents.
+  Gate PASS in both lanes at the recorded numbers. `harness.page_words` now
+  drops the U+200B that Docs' exporter writes at tabs and soft breaks (1.7%
+  of exported words).
 
 - **Faster, byte for byte (WP20b).** The writer spent most of its time inside
   python-docx, and the product profile writes once per refine round.
