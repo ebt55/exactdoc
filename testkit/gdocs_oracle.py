@@ -32,8 +32,13 @@ import harness
 PROJECT = _paths.PROJECT
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_MANIFEST = os.path.join(HERE, "corpus_manifest.json")
-CREDS = os.path.join(PROJECT, "credentials.json")
-TOKEN = os.path.join(PROJECT, "token.json")
+# The same overrides the packaged surface (`exactdoc.gdocs.credential_paths`)
+# honours. Without them the oracle only worked from the one checkout that holds
+# the credentials, so a qualification of a worktree's candidate had to borrow
+# another checkout's copy of this script -- measuring one tree with another's
+# code.
+CREDS = os.environ.get("EXACTDOC_GDOCS_CREDENTIALS") or os.path.join(PROJECT, "credentials.json")
+TOKEN = os.environ.get("EXACTDOC_GDOCS_TOKEN") or os.path.join(PROJECT, "token.json")
 SCOPES = ["https://www.googleapis.com/auth/drive.file"]
 GDOC_MIME = "application/vnd.google-apps.document"
 DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
