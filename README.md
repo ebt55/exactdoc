@@ -87,20 +87,20 @@ and résumés.
 
 <table>
 <tr>
-<td width="50%"><img src="docs/images/works-tables.png" alt="A page of tables, PDF beside DOCX. Merged header cells and a table nested inside a table come through unchanged."></td>
+<td width="50%"><img src="docs/images/works-tables.png" alt="A page of tables, PDF beside DOCX. A table with merged header cells, a table-within-a-table layout and a long striped table all look the same in both."></td>
 <td width="50%"><img src="docs/images/works-two-column.png" alt="A two-column paper page, PDF beside DOCX. Title, abstract, two columns and a footnote are in the same places."></td>
 </tr>
 <tr>
-<td><b>Tables</b>: merged header cells and a table inside a table become real Word tables.</td>
+<td><b>Tables</b> become real Word tables with merged cells. A table-within-a-table is rebuilt as one table with merged cells.</td>
 <td><b>Two-column pages</b> keep their columns as a real two-column section.</td>
 </tr>
 <tr>
 <td><img src="docs/images/works-resume.png" alt="A résumé page, PDF beside DOCX. Section rules, role and date rows, and bullets match."></td>
-<td><img src="docs/images/works-footnotes.png" alt="A consultation response, PDF beside DOCX. The running header, block quotes and links match; the footnotes sit at the foot of the page."></td>
+<td><img src="docs/images/works-footnotes.png" alt="A consultation response, PDF beside DOCX. The block quotes and links match; the footnotes sit at the foot of the page."></td>
 </tr>
 <tr>
 <td><b>Résumés</b>: role and date on one line, rules under section headings, bullet lists.</td>
-<td><b>Headers, quotes, links and footnotes.</b> Footnotes become real Word footnotes, so they move to the foot of the page.</td>
+<td><b>Quotes, links and footnotes.</b> Footnotes become real Word footnotes, so they move to the foot of the page.</td>
 </tr>
 </table>
 
