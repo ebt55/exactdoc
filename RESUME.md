@@ -1,46 +1,39 @@
-# WP13 resume notes (paused for shutdown, 2026-10-04)
+# WP13 resume notes (paused: usage limit, 2026-10-04 late)
 
-Branch: worktree-agent-ad472d44b82c61bec, fast-forwarded to integration 79d2100, then WIP commit.
-Scratch: `SCR\wp13\` (laysig.py/sigdiff.py layout signatures, sbs.py LO side-by-sides,
-ablate.py constant/function ablation + LO page count, cmp.py sweep compare, cuts.py, base_src = 79d2100 export).
-Baseline sweep (raw, both corpora, KEEP_DOCX): `SCR\runs\wp13-base-raw.sweep.json`.
+Branch: worktree-agent-ad472d44b82c61bec. Integration 0b0f787 is MERGED (commit 06cd7d4), then a WIP commit.
+Scratch: `SCR\wp13\` -- laysig.py/sigdiff.py (layout signatures), sbs.py (LO side-by-sides), ablate.py
+(constant/function ablation; values ID/FALSE/OFF), pages.py <tree> <outdir> docs... (local LO page counts),
+cmp.py (sweep compare), cuts.py, base_src = 79d2100 export, base2_src = 0b0f787 export (the merged base).
 
-## Done (in the WIP commit; unit tests tests/test_designed_regions.py, 24 pass locally)
-- model.rounded_rect_bbox + DrawCmd.rounded; parse_pdfium/parse report rounded rectangles as shape "rect".
-- infer: _merge_box_rows (side-by-side one-cell boxes -> role "cards"); build_box reads its lines
-  through _to_flow with forced breaks (_forced_break: room for next word, or wholly-bold over non-bold);
-  box paragraph indents now cell-edge relative (docxout._write_box_paragraphs adjusted to match).
-- _split_lines_at_box_edges (pre-pass, candidate rects, only where a box takes a piece) +
-  _restore_uncut after element building (JUST ADDED, NOT YET MEASURED).
-- Side-by-side regions: _side_splits/_split_side/_side_evidence (figure|panel|rule|sidebar)/_sbs_regions/
-  _side_by_side_chunks: equal widths -> Chunk(n_cols=2) (`_sbs`), else TableEl role "layout"
-  (_layout_table; Cell.blocks holds the column flow; nested boxes). Called in _assemble_chunks only when
-  the twocol path did not fire.
-- docxout: Cell.blocks writer (_write_cell_blocks), negative tblInd, layout rows pinned atLeast,
-  no row shrink for layout; _merge_grid_page_runs refuses pages with `_sbs` chunks.
-- layout.page_sequences used by headings/caps headings/list hangs/lists._collect/structures numbering check;
-  iter_paras and gdocs_metrics walk layout blocks.
-- Gutter columns (y44): _gutter_column in _measure_margins (margin -> gutter left, lay._gutter_main for
-  side-margin furniture), _gutter_para (label TAB text hanging at main column).
-- build_figure absorbs numeric axis ticks within 24pt (c5).
-- full-bleed boxes wider than the column keep a negative indent in _to_flow.
-- REMOVED (measured harmful): right-aligned line slack in _keep_room (y40 15->18).
+## State of the code (all in the WIP commit)
+See the earlier list in git history (d0c62cd RESUME.md). Since then:
+- merged 0b0f787 (one import conflict in infer.py, resolved keeping both).
+- _split_lines_at_box_edges now returns cuts; _restore_uncut joins back cuts no region claimed
+  (unit tests added: test_a_cut_no_region_claimed_is_joined_back / ..._a_box_claimed_stays_cut).
+- _keep_room: RIGHT_LINE_SLACK (0.10) restored but ONLY for short (<= 1/3 room) flush-right
+  single lines (y40 regression came from giving it to every right-aligned line).
+- _column_flow: right-aligned single lines in a side column get the same slack (y46 1 page locally).
+- _gutter_column marks main-column lines `_main_col`; para_from_lines never right-aligns them
+  (y44's 'Created on-device...' bullet was set flush right).
+- _side_splits: a band is rejected when an item outside it crosses the split within the band's
+  height (y59's leader-line figure spans the callouts).  Local LO: y59 still 21 (base2 18) -- NOT FIXED.
+- tests/test_designed_regions.py: 26 tests pass locally.
 
-## Measurements so far (raw, canonical container; tree before the last 5 edits)
-wp13-raw-1 vs base: page-exact 40->43, mean char_recall .7375->.7601, word .5796->.6088,
-within2pt .2130->.2195, live .9311->.9431. y58 4->3 (live .119->.888), y44 4->3 (char .59->1.0),
-y46 2->1, y09 word .316->.901, c1 within2pt .869->.873 (gate floor .869), c5 within2pt .800->.333 (raw; now
-addressed by tick absorption, unmeasured). Regressions then: y40 15->18 (fixed: slack removed, local 15),
-y41 20->27 (fixed: _sbs pages not merged + figure-evidence overlap; local 20), y60 38->40 (cuts; local 39,
-restore step just added), y59 20->23 (local 24 now), y61 7->8 (local 7).
-Local LO after move-cut-into-build_box: y58 regressed to 4 because 'Earnings Earnings Taxed' fragment
-was no longer absorbed by the p2 table figure -> reverted to pre-pass + restore (unmeasured).
+## Measurements (canonical container, raw, current tree except the last _side_splits edit)
+wp13-t3 (targets): c5 1 page, within2pt 0.975, word 0.878 (gate risk RESOLVED by axis-tick absorption);
+c1 2 pages within2pt 0.873; 01 .339; 04 dy_p50 4.05 (= floor); y58 3 pages (base 4) live .892;
+y46 1 page (base 2); y44 4 pages (earlier pre-merge run gave 3; base 4) -- contact row staircase
+(5 one-baseline blocks -> 5 paragraphs) + check whether WP2 footer/margins changed; y59 21 (base 20,
+base2 unknown); y60 39 (base 38); y40 15 (=base); y41 20 (=base); y61 7 (=base); y03 66? (was 63 in
+old base -- compare against base2 when its sweep exists); y38 56 (old base 55); y39 29 (old 28).
+Container `exs-wp13-base2-raw` (full raw sweep of 0b0f787) was running at pause; it is removed
+-- RE-RUN it: `bash SCR/sweep.sh wp13-base2-raw SCR/wp13/base2_src --corpus both --jobs 6 --profile raw`.
 
-## Next
-1. Re-run local ablate on y58/y60/y59/y40/y41/c5 (`SCR\wp13\ablate.py`), then targeted container sweep.
-2. Unit test for _restore_uncut; rerun full local suite (one earlier failure fixed by narrowing).
-3. Full raw sweep + product sweep on targets; merge integration branch; gate_full.sh.
-4. CHANGELOG entry; side-by-sides for y58 p1, y44 p1, sidebar (before images in SCR\wp13\sbs\before).
-5. Known open: y58 masthead wraps (Arial Bold 7% wider than InDesign's kerned title; ladder MAX_TRACK
-   refuses), y59 leader-line figure spanning callouts, gdocs box paragraph form drops panel shading
-   (needs a live probe set, not changed).
+## Next (exact)
+1. Re-run base2 raw sweep (above) and a full raw sweep of this tree (`wp13-raw-2`), compare with
+   `SCR\wp13\cmp.py`. Chase any doc worse than base2 (y59, y60, y03, y38, y39 suspects).
+2. y59: if still worse than base2, require 'panel' evidence bands to have no FigureEl wider than
+   either side overlapping the band (or drop y59's band) -- check with pages.py.
+3. Product sweep on targets + gated; full local unit suite; `bash SCR/gate_full.sh wp13-gate-1 <wt>`.
+4. CHANGELOG entry under Unreleased; side-by-sides y58 p1 / y44 p1 / sidebar (before: SCR\wp13\sbs\before).
+5. Report: gdocs box paragraph form drops panel shading (needs live probe); y58 masthead wraps.

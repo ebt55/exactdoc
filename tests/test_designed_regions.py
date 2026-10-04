@@ -269,28 +269,17 @@ def _line(*spans):
 
 class LinesAcrossPanelEdges(unittest.TestCase):
     def _draws(self):
-        # the two panels' boxes, as build_box hands them over
+        # the two panels' boxes, as the leftover-box pass will build them
         return [(35.9, 474.0, 301.4, 543.1), (310.4, 471.5, 575.9, 722.5)]
 
-    def test_a_line_no_box_takes_a_piece_of_stays_whole(self):
-        # pieces that would both stay in the flow are two lines on one
-        # baseline, which the flow stacks
-        ln = _line(_span("left column text ending here", 45.0, 600.0, x1=200.0),
-                   _span("right column text", 240.0, 600.0, x1=330.0))
-        blk = TextBlock(lines=[ln], bbox=ln.bbox)
-        self.assertEqual(I._split_lines_at_box_edges([blk], [(220.0, 100.0, 400.0, 150.0)]), 0)
-
-    def test_a_consumed_line_is_never_cut(self):
+    def _joined(self):
         ln = _line(_span("You have earned enough credits to qualif", 45.0, 490.7, x1=292.0),
                    _span("You have enough credits to qualify for M", 319.4, 490.7, x1=562.3))
-        blk = TextBlock(lines=[ln], bbox=ln.bbox)
-        self.assertEqual(I._split_lines_at_box_edges([blk], self._draws(), {id(ln)}), 0)
+        return ln, TextBlock(lines=[ln], bbox=ln.bbox)
 
     def test_a_line_joined_across_two_panels_is_cut_at_the_gutter(self):
-        ln = _line(_span("You have earned enough credits to qualif", 45.0, 490.7, x1=292.0),
-                   _span("You have enough credits to qualify for M", 319.4, 490.7, x1=562.3))
-        blk = TextBlock(lines=[ln], bbox=ln.bbox)
-        self.assertEqual(I._split_lines_at_box_edges([blk], self._draws()), 1)
+        ln, blk = self._joined()
+        self.assertEqual(len(I._split_lines_at_box_edges([blk], self._draws())), 1)
         self.assertEqual([l.text for l in blk.lines],
                          ["You have earned enough credits to qualif",
                           "You have enough credits to qualify for M"])
@@ -301,20 +290,33 @@ class LinesAcrossPanelEdges(unittest.TestCase):
         ln = _line(_span("left column text ending here", 45.0, 600.0, x1=200.0),
                    _span("right column text", 240.0, 600.0, x1=330.0))
         blk = TextBlock(lines=[ln], bbox=ln.bbox)
-        self.assertEqual(I._split_lines_at_box_edges([blk], [(220.0, 100.0, 400.0, 150.0)]), 0)
+        self.assertEqual(I._split_lines_at_box_edges([blk], [(220.0, 100.0, 400.0, 150.0)]), [])
 
     def test_a_consumed_line_is_never_cut(self):
-        ln = _line(_span("You have earned enough credits to qualif", 45.0, 490.7, x1=292.0),
-                   _span("You have enough credits to qualify for M", 319.4, 490.7, x1=562.3))
-        blk = TextBlock(lines=[ln], bbox=ln.bbox)
-        self.assertEqual(I._split_lines_at_box_edges([blk], self._draws(), {id(ln)}), 0)
+        ln, blk = self._joined()
+        self.assertEqual(I._split_lines_at_box_edges([blk], self._draws(), {id(ln)}), [])
 
     def test_a_word_touching_a_panel_edge_stays_whole(self):
         ln = _line(_span("credits to qualify for", 200.0, 490.7, x1=299.0),
                    _span("disability", 302.0, 490.7, x1=340.0))
         blk = TextBlock(lines=[ln], bbox=ln.bbox)
-        self.assertEqual(I._split_lines_at_box_edges([blk], self._draws()), 0)
+        self.assertEqual(I._split_lines_at_box_edges([blk], self._draws()), [])
 
+    def test_a_cut_no_region_claimed_is_joined_back(self):
+        # the rectangles were boxes-to-be; if no box took a piece (a figure
+        # absorbed the rect, a table claimed it), the line is put back whole
+        ln, blk = self._joined()
+        cuts = I._split_lines_at_box_edges([blk], self._draws())
+        I._restore_uncut(cuts, consumed=set())
+        self.assertEqual([l.text for l in blk.lines], [ln.text])
+        self.assertIs(blk.lines[0], ln)
+
+    def test_a_cut_a_box_claimed_stays_cut(self):
+        ln, blk = self._joined()
+        cuts = I._split_lines_at_box_edges([blk], self._draws())
+        left = blk.lines[0]
+        I._restore_uncut(cuts, consumed={id(left)})
+        self.assertEqual(len(blk.lines), 2)
 
 class ForcedBreaks(unittest.TestCase):
     def test_a_heading_line_over_its_text_is_its_own_paragraph(self):

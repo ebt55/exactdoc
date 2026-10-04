@@ -1172,7 +1172,8 @@ def para_from_lines(lines: List[Line], col_l: float, col_r: float,
         x0, x1 = xs0[0], xs1[0]
         if abs((x0 + x1) / 2 - ccx) < 2.5 and x0 - col_l > 8 and col_r - x1 > 8:
             p.align = "center"
-        elif col_r - x1 < 2.5 and x0 - col_l > 10:
+        elif col_r - x1 < 2.5 and x0 - col_l > 10 and \
+                not getattr(lines[0], "_main_col", False):
             p.align = "right"
     minx = min(xs0)
     p.left_indent = max(0.0, round(minx - col_l, 1))
@@ -1288,6 +1289,10 @@ def para_from_lines(lines: List[Line], col_l: float, col_r: float,
 OVERHANG_TOL = 3.0
 STARVED_FRAC = 0.5
 SHORT_LINE_FRAC = 1.0 / 3.0
+# Room a short right-aligned line keeps beyond its own width, as a share of
+# it: the substitute faces the font table maps run up to ~10% wider than the
+# source's (Fontin's substitute on y44).
+RIGHT_LINE_SLACK = 0.10
 # A forced break leaves room for the next line's first word plus this much
 # (in em of that line): a word space (SPACE_EM) and the same again for
 # justification and the character-apportioned word width. The breaks it is
@@ -1317,6 +1322,20 @@ def _keep_room(p: Para, col_l: float, col_r: float) -> None:
     if width > room:
         return              # wider than the column: no indent makes it fit
     start = p.left_indent + min(0.0, p.first_indent)
+    if p.align == "right" and (p.src_lines or 1) <= 1 and start > 0 and \
+            width <= SHORT_LINE_FRAC * room and \
+            p.bbox[2] <= col_r - p.right_indent + OVERHANG_TOL:
+        # A SHORT line set flush against the right edge -- a date, a page
+        # label -- is placed by its alignment; its indent only bounds the
+        # wrap, so it can be given room for a substitute face a little wider
+        # than the source's and nothing moves. y44's 'Last updated in Mar
+        # 2026' fitted its indent exactly and wrapped in Fontin's substitute.
+        # Short only: given to every flush-right line it moved y40's
+        # misread right-aligned body lines and cost that paper 3 pages.
+        fit = room - width * (1.0 + RIGHT_LINE_SLACK)
+        if fit < start:
+            p.left_indent = round(max(0.0, p.left_indent - (start - fit)), 1)
+        return
     over = start + width - room
     if start <= 0 or over <= OVERHANG_TOL:
         return
@@ -4366,6 +4385,13 @@ def _gutter_column(body_lines, margin_l: float) -> Optional[float]:
     stop = sorted(h[3] for h in hits)[len(hits) // 2]
     for ln, k, lx0, _x1, _r in hits:
         ln._gutter = (k, stop if right_al else lx0, margin_l, right_al)
+    # A main-column line is LEFT-aligned at the main column, however far
+    # from the page's new left edge it starts: a one-line bullet reaching the
+    # right margin otherwise reads as right-aligned (y44's 'Created on-device
+    # ...' set flush right with a 126pt indent and wrapped).
+    for _pg, ln in body_lines:
+        if abs(ln.bbox[0] - margin_l) <= GUTTER_EDGE_TOL:
+            ln._main_col = True
     left = [ln.bbox[0] for _pg, ln in body_lines if ln.bbox[0] < margin_l - 1.0]
     return min(left) if left else None
 
@@ -6350,7 +6376,20 @@ def _side_splits(items, x_lo: float, x_hi: float):
             gl, gr = max(b[2] for b in L), min(b[0] for b in R)
             if gr - gl < SBS_MIN_GUTTER:
                 continue
-            found.append(((len(band), max(ly1, ry1) - min(ly0, ry0)), xs, band, gl, gr))
+            # The split must be clean over the band's whole HEIGHT, not just
+            # in reading order: an item outside the band that crosses x while
+            # standing beside it means the sides are arranged around that
+            # item. y59's callouts flank a mock-up whose leader lines make
+            # one picture spanning all three; split there, the picture was
+            # stacked above a table of callouts and the page ran to three.
+            y0, y1 = min(ly0, ry0), max(ly1, ry1)
+            members = {i for i, _s in band}
+            if any(i not in members and items[i][1][3] > y0 + 2.0 and
+                   items[i][1][1] < y1 - 2.0 and
+                   items[i][1][0] < xs - SBS_MIN_GUTTER and items[i][1][2] > xs - 0.5
+                   for i in idx):
+                continue
+            found.append(((len(band), y1 - y0), xs, band, gl, gr))
     found.sort(key=lambda f: f[0], reverse=True)
     return [f[1:] for f in found]
 
@@ -6548,6 +6587,15 @@ def _column_flow(items, col_l: float, box_r: float, lay_rows):
         if isinstance(el, Para) and extra > 0.0 and \
                 ((el.src_lines or 1) > 1 or el.align in ("right", "center")):
             el.right_indent = round((el.right_indent or 0.0) + extra, 1)
+        if isinstance(el, Para) and el.align == "right" and el.bbox and \
+                (el.src_lines or 1) <= 1:
+            # A right-aligned column (y46's left side) sets every line by its
+            # right edge; the left indent only bounds the wrap, and at the
+            # source's own x it leaves no room for a substitute face a hair
+            # wider -- each title wrapped and the column overflowed into
+            # the next. See RIGHT_LINE_SLACK.
+            w = el.bbox[2] - el.bbox[0]
+            el.left_indent = round(max(0.0, el.left_indent - RIGHT_LINE_SLACK * w), 1)
         if isinstance(el, RuleEl) and getattr(el, "_bbox", None):
             # rules carry page-relative indents until a flow places them
             el.left_indent = max(0.0, round(el._bbox[0] - col_l, 1))
