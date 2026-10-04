@@ -387,8 +387,13 @@ class _Char:
             or font_traits(self.font or "").cls == "mono"
 
 
-def _page_chars(textpage, frame, vis=None, objs=None) -> List[_Char]:
+def _page_chars(textpage, frame, vis=None, objs=None,
+                _read_only=False) -> List[_Char]:
     """Characters with geometry, in content-stream order.
+
+    `_read_only` stops after reading, before `_finish_chars`, for a caller
+    that finishes the same reading more than one way (parse_pdf with
+    `measure_lines`).
 
     `frame` maps PDFium's user space onto the visible page (see _Frame; a bare
     page height is accepted and means an unrotated box at the origin). `vis`,
@@ -636,12 +641,83 @@ def _page_chars(textpage, frame, vis=None, objs=None) -> List[_Char]:
             continue
         adv = (MONO_ADV_EM if c.mono_hint else SPACE_ADV_EM) * max(c.size, 1.0)
         c.x1 = min(nxt.x0, max(c.x1, c.x0 + adv))
+    if _read_only:
+        return out
+    return _finish_chars(out, textpage, frame, objs)
+
+
+def page_lines_range(path: str, start: int = 0, stop: Optional[int] = None):
+    """`PdfiumBackend.page_lines` for pages [start, stop) of `path`: per page,
+    (text, top, baseline, bottom) of each line, with the parse's frame and
+    visibility rules (a printer's slug and hidden text are not lines)."""
+    doc = pdfium.PdfDocument(path)
+    try:
+        n = len(doc)
+        stop = n if stop is None else min(stop, n)
+        out = []
+        for i in range(start, stop):
+            page = doc[i]
+            try:
+                textpage = page.get_textpage()
+                try:
+                    frame = _Frame.of(page, textpage)
+                    vis = _text_visibility(textpage,
+                                           _page_objects(page, frame), frame)
+                    chars = _page_chars(textpage, frame, vis)
+                finally:
+                    textpage.close()
+                lines = _line_tuples(chars)
+            finally:
+                page.close()
+            out.append(lines)
+        return out
+    finally:
+        doc.close()
+
+
+def _line_tuples(chars: List[_Char]):
+    """`PdfiumBackend.page_lines`' answer for one page's characters:
+    (text, top, baseline, bottom) per line that carries text."""
+    return [(ln.text, ln.bbox[1], ln.baseline, ln.bbox[3])
+            for ln in _build_lines(chars) if ln.text.strip()]
+
+
+def _finish_chars(out, textpage, frame, objs=None) -> List[_Char]:
+    """The passes `_page_chars` runs after reading the characters: dropped
+    spaces restored (only with `objs`), inked and tracking spaces dropped,
+    soft hyphens restored. They change the characters in place, so a caller
+    finishing one reading two ways gives each way its own `_copy_chars`."""
     if objs is not None:
         _restore_dropped_spaces(out, _dropped_space_points(objs, textpage, frame))
     out = _drop_inked_spaces(out)
     out = _drop_tracking_spaces(out)
     _restore_soft_hyphens(out)
     return out
+
+
+def _make_char_copier():
+    """A `_Char` copier built from `_Char.__slots__`, so a slot added later is
+    copied too. Unset slots stay unset (ix0/ix1 exist only on RTL glyphs).
+    About 1.5us a character, against ~13us to read one through PDFium."""
+    lines = ["def _copy_char(c, _new=_Char.__new__, _C=_Char):", "    n = _new(_C)"]
+    for s in _Char.__slots__:
+        lines += ["    try:", "        n.%s = c.%s" % (s, s),
+                  "    except AttributeError:", "        pass"]
+    lines.append("    return n")
+    scope = {"_Char": _Char}
+    exec("\n".join(lines), scope)
+    return scope["_copy_char"]
+
+
+_copy_char = None
+
+
+def _copy_chars(chars: List[_Char]) -> List[_Char]:
+    global _copy_char
+    if _copy_char is None:
+        _copy_char = _make_char_copier()
+    cp = _copy_char
+    return [cp(c) for c in chars]
 
 
 # Letter-spaced text, and why PDFium's space synthesis cannot see it.
@@ -4399,8 +4475,17 @@ def _page_labels(doc) -> Optional[List[Optional[str]]]:
 
 
 def parse_pdf(path: str, keep_image_data: bool = True,
-              ocr_layer: str = "text") -> DocIR:
+              ocr_layer: str = "text", measure_lines: bool = False) -> DocIR:
     """Parse a PDF into the backend-neutral IR.
+
+    `measure_lines` also leaves `ir.page_lines`: exactly what
+    `PdfiumBackend.page_lines(path)` returns, from the same PDFium reading.
+    The refine loop measures the source with page_lines in its first round,
+    and that second full read of the input -- 15.4s for y13 on a busy desktop,
+    against 6.3s added to this parse to produce the same lines from its own
+    reading (WP20c) -- now comes from here. Only when `ocr_layer`
+    is "text" (page_lines' own mode) -- otherwise `ir.page_lines` is None and
+    the loop reads the source itself, as before.
 
     Every native handle is closed on the way out, in reverse order of acquisition.
     None of them was: a parity run over 16 documents ended with pypdfium2 printing
@@ -4423,6 +4508,10 @@ def parse_pdf(path: str, keep_image_data: bool = True,
     if ocr_layer not in OCR_LAYER_MODES:
         raise ValueError("ocr_layer must be one of %s, got %r"
                          % (", ".join(OCR_LAYER_MODES), ocr_layer))
+    # page_lines reads visibility with the default OCR mode, so the parse can
+    # only stand in for it when it reads the same way.
+    measure = measure_lines and ocr_layer == "text"
+    measured = []
     doc = pdfium.PdfDocument(path)
     try:
         meta = {}
@@ -4450,7 +4539,16 @@ def parse_pdf(path: str, keep_image_data: bool = True,
                     vis = _text_visibility(tp, objs, frame, ocr_layer)
                     pir.hidden_chars = dict(vis.counts)
                     pir.ocr_chars = vis.ocr_chars
-                    chars = _page_chars(tp, frame, vis, objs)
+                    if measure:
+                        # One PDFium read, finished two ways: as page_lines
+                        # finishes it (no dropped-space restore) for the refine
+                        # loop, and as the parse always has.
+                        read = _page_chars(tp, frame, vis, _read_only=True)
+                        measured.append(_line_tuples(_finish_chars(
+                            _copy_chars(read), tp, frame)))
+                        chars = _finish_chars(read, tp, frame, objs)
+                    else:
+                        chars = _page_chars(tp, frame, vis, objs)
                     _collect_advances(chars, advances)
                     # Before spans exist: a link is a property of characters, and
                     # settling it here lets _style end a span at the anchor's
@@ -4474,6 +4572,9 @@ def parse_pdf(path: str, keep_image_data: bool = True,
             ir.pages.append(pir)
         _resolve_dests(ir, frames)
         ir.font_advances = _median_advances(advances)
+        # A plain attribute, not a DocIR field: it describes how this parse
+        # was run, not the document, and no IR serialisation should carry it.
+        ir.page_lines = measured if measure else None
         return ir
     finally:
         doc.close()

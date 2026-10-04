@@ -147,7 +147,14 @@ def convert_result(pdf_path: str, out_path: Optional[str] = None,
     # Keep the backend-native reader boundary here.  Known password and format
     # statuses become stable public errors before any output can be published;
     # unrelated exceptions deliberately propagate as bugs.
-    ir = parse_input(bk, pdf_path, ocr_layer=opts.ocr_layer)
+    # The refine loop measures the source's text lines in its first round; the
+    # PDFium parse can hand them over from its own reading instead of the loop
+    # reading the whole input a second time (parse_pdfium.parse_pdf).
+    measure = opts.refine_rounds > 0 and opts.ocr_layer == "text" and \
+        getattr(bk, "name", None) == "pdfium"
+    ir = parse_input(bk, pdf_path, ocr_layer=opts.ocr_layer,
+                     **({"measure_lines": True} if measure else {}))
+    src_page_lines = getattr(ir, "page_lines", None) if measure else None
     _notify(progress, "layout", pages=len(getattr(ir, "pages", ())) or None)
     # Images the parser could not extract never reach the writer, so the
     # writer's ledger cannot see them; they are added to it after the write.
@@ -230,7 +237,7 @@ def convert_result(pdf_path: str, out_path: Optional[str] = None,
                rounds=opts.refine_rounds, verbose=opts.verbose,
                render=render, output_profile=opts.output_profile,
                backend=bk, image_report=image_report, report=refine_report,
-               progress=progress)
+               progress=progress, src_page_lines=src_page_lines)
         failure = refine_report.get("oracle_failure")
         if failure is not None:
             # What actually ran: the correction rounds measured before the

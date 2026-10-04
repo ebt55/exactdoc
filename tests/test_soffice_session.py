@@ -62,8 +62,13 @@ class SessionProcessTests(unittest.TestCase):
         self.env.start()
         self.soffice = mock.patch.object(V, "SOFFICE", self.fake)
         self.soffice.start()
+        # The fake answers no --version; keep the version probe from counting
+        # as a render call.
+        self.flt = mock.patch.object(V, "pdf_export_filter", return_value="pdf")
+        self.flt.start()
 
     def tearDown(self):
+        self.flt.stop()
         self.soffice.stop()
         self.env.stop()
         self.tmp.cleanup()
@@ -127,6 +132,75 @@ class SessionProcessTests(unittest.TestCase):
             if alive:
                 time.sleep(0.1)
         self.assertFalse(alive, "the hung soffice's child survived the kill")
+
+
+class ExportFilterTests(unittest.TestCase):
+    """The fast PDF export only where LibreOffice can parse it (7.4+)."""
+
+    def _version(self, stdout=None, exc=None):
+        V._VERSIONS.clear()
+        run = mock.Mock(return_value=mock.Mock(stdout=stdout)) if exc is None \
+            else mock.Mock(side_effect=exc)
+        with mock.patch.object(V.subprocess, "run", run), \
+                mock.patch.object(V.os.path, "exists", return_value=True):
+            try:
+                return V.soffice_version("/opt/lo/program/soffice"), run
+            finally:
+                V._VERSIONS.clear()
+
+    def test_versions_are_read_from_the_banner(self):
+        self.assertEqual(self._version("LibreOffice 24.2.7.2 420(Build:2)\n")[0], (24, 2))
+        self.assertEqual(self._version("LibreOffice 7.3.7.2 30(Build:2)")[0], (7, 3))
+        self.assertIsNone(self._version("")[0])
+        self.assertIsNone(self._version(exc=OSError("no"))[0])
+
+    def test_the_filter_follows_the_version(self):
+        for version, fast in (((24, 2), True), ((7, 4), True), ((7, 3), False),
+                              (None, False)):
+            with mock.patch.object(V, "soffice_version", return_value=version):
+                got = V.pdf_export_filter("/x/soffice")
+            self.assertEqual(got == V.FAST_PDF_EXPORT, fast, version)
+            self.assertEqual(got == "pdf", not fast, version)
+
+    def test_the_fast_filter_is_valid_json_after_the_prefix(self):
+        import json
+        prefix = "pdf:writer_pdf_Export:"
+        self.assertTrue(V.FAST_PDF_EXPORT.startswith(prefix))
+        opts = json.loads(V.FAST_PDF_EXPORT[len(prefix):])
+        self.assertEqual(opts["ReduceImageResolution"]["value"], "true")
+
+    def test_the_version_is_asked_once_per_path(self):
+        V._VERSIONS.clear()
+        run = mock.Mock(return_value=mock.Mock(stdout="LibreOffice 24.2.7.2"))
+        with mock.patch.object(V.subprocess, "run", run), \
+                mock.patch.object(V.os.path, "exists", return_value=True):
+            V.soffice_version("/a/soffice")
+            V.soffice_version("/a/soffice")
+        V._VERSIONS.clear()
+        self.assertEqual(run.call_count, 1)
+
+    def test_a_session_renders_with_the_chosen_filter_and_one_shot_renders_do_not(self):
+        seen = []
+
+        def popen(cmd, **kw):
+            seen.append(cmd)
+            raise OSError("not started")
+
+        with tempfile.TemporaryDirectory() as d, \
+                mock.patch.dict(os.environ, {"EXACTDOC_SOFFICE_ROOT": d}), \
+                mock.patch.object(V, "SOFFICE", "/x/soffice"), \
+                mock.patch.object(V, "pdf_export_filter",
+                                  return_value=V.FAST_PDF_EXPORT), \
+                mock.patch.object(V.subprocess, "Popen", side_effect=popen):
+            src = os.path.join(d, "a.docx")
+            with open(src, "wb") as fh:
+                fh.write(b"PK")
+            with V.SofficeSession() as s:
+                s.render(src, d)
+            V.docx_to_pdf(src, d)
+        flt = [c[c.index("--convert-to") + 1] for c in seen]
+        self.assertEqual(flt[0], V.FAST_PDF_EXPORT)
+        self.assertEqual(flt[-1], "pdf")
 
 
 class ShortRootTests(unittest.TestCase):

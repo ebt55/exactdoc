@@ -9,6 +9,7 @@ than through `fitz` directly. The import used to be at module scope, which put
 PyMuPDF on the default runtime path of a stage that only wants pixels.
 """
 import io
+import json
 import os
 import re
 import subprocess
@@ -58,6 +59,69 @@ SHORT_ROOT_MAX = 96
 # hung; it is killed with its whole process tree rather than left holding the
 # profile.
 RENDER_TIMEOUT_S = 300
+
+
+# The refine loop reads only text positions from LibreOffice's PDF, so the
+# images in it are wasted work. From 7.4 LibreOffice accepts export options as
+# JSON on the command line; these drop image quality, outline bookmarks and
+# notes, none of which moves a line. Measured in the canonical container
+# (LibreOffice 24.2, 2026-10-05) on the eight-document product A/B set: every
+# page_lines identical to the default export, PDFs 1.3-8x smaller, renders
+# 2-22% faster on the documents with pictures, best of three
+# (docs/evidence/refine-speed-2026-10-05c.json).
+# An older LibreOffice would reject the JSON and write nothing, so below 7.4,
+# or when the version cannot be read, the plain "pdf" export stays.
+FAST_EXPORT_MIN_VERSION = (7, 4)
+FAST_PDF_EXPORT = "pdf:writer_pdf_Export:" + json.dumps({
+    "ExportBookmarks": {"type": "boolean", "value": "false"},
+    "ExportNotes": {"type": "boolean", "value": "false"},
+    "MaxImageResolution": {"type": "long", "value": "75"},
+    "Quality": {"type": "long", "value": "50"},
+    "ReduceImageResolution": {"type": "boolean", "value": "true"},
+    "UseLosslessCompression": {"type": "boolean", "value": "false"},
+}, sort_keys=True, separators=(",", ":"))
+VERSION_TIMEOUT_S = 30
+_VERSIONS = {}
+
+
+def soffice_version(soffice: Optional[str] = None):
+    """(major, minor) of the LibreOffice at `soffice` (default SOFFICE), or None.
+
+    Asked once per path per process (`soffice --version`, ~0.3-0.7s). On
+    Windows the console launcher soffice.com answers; soffice.exe is a GUI
+    program whose --version was seen to block, so without a .com beside it
+    the version is unknown.
+    """
+    soffice = soffice or SOFFICE
+    if not soffice:
+        return None
+    if soffice in _VERSIONS:
+        return _VERSIONS[soffice]
+    exe = soffice
+    if os.name == "nt":
+        com = os.path.splitext(soffice)[0] + ".com"
+        exe = com if os.path.exists(com) else None
+    version = None
+    if exe:
+        try:
+            proc = subprocess.run([exe, "--version"], capture_output=True,
+                                  text=True, timeout=VERSION_TIMEOUT_S,
+                                  stdin=subprocess.DEVNULL)
+            m = re.search(r"LibreOffice\s+(\d+)\.(\d+)", proc.stdout or "")
+            if m:
+                version = (int(m.group(1)), int(m.group(2)))
+        except (OSError, subprocess.SubprocessError, ValueError):
+            version = None
+    _VERSIONS[soffice] = version
+    return version
+
+
+def pdf_export_filter(soffice: Optional[str] = None) -> str:
+    """The --convert-to argument the refine loop's renders use."""
+    v = soffice_version(soffice)
+    if v is not None and v >= FAST_EXPORT_MIN_VERSION:
+        return FAST_PDF_EXPORT
+    return "pdf"
 
 
 def _short_root() -> str:
@@ -148,11 +212,15 @@ class SofficeSession:
     retried. `last_failure` says, content-free, what went wrong.
     """
 
-    def __init__(self, profile: Optional[str] = None):
+    def __init__(self, profile: Optional[str] = None,
+                 export_filter: Optional[str] = None):
         self.root = None
         self._profile = profile
         self.last_failure = None
         self.renders = 0
+        # None: chosen at the first render from the LibreOffice version
+        # (pdf_export_filter); "pdf" forces the plain export.
+        self.export_filter = export_filter
 
     def _ensure(self):
         if self.root is None:
@@ -170,9 +238,11 @@ class SofficeSession:
         env.setdefault("HOME", tempfile.gettempdir())
         tmp = os.path.join(self._ensure(), "t")
         env["TMP"] = env["TEMP"] = env["TMPDIR"] = tmp
+        if self.export_filter is None:
+            self.export_filter = pdf_export_filter(SOFFICE)
         cmd = [SOFFICE, "--headless", "--norestore", "--invisible",
                "--nolockcheck", "-env:UserInstallation=" + _file_url(self.profile),
-               "--convert-to", "pdf", "--outdir", work, docx_copy]
+               "--convert-to", self.export_filter, "--outdir", work, docx_copy]
         kw = {}
         if os.name == "nt":
             kw["creationflags"] = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)
@@ -267,7 +337,9 @@ def docx_to_pdf(docx_path: str, out_dir: str, profile: Optional[str] = None
     """
     if SOFFICE is None:
         return None
-    with SofficeSession(profile=profile) as session:
+    # The plain export: this render is for looking at (`--verify` compares its
+    # pixels), where the refine loop's session only reads text positions.
+    with SofficeSession(profile=profile, export_filter="pdf") as session:
         return session.render(docx_path, out_dir)
 
 

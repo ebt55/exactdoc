@@ -295,10 +295,10 @@ class PDFiumBackend:
     license = "Apache-2.0"
 
     def parse_pdf(self, path: str, keep_image_data: bool = True,
-                  ocr_layer: str = "text") -> DocIR:
+                  ocr_layer: str = "text", measure_lines: bool = False) -> DocIR:
         from .parse_pdfium import parse_pdf
         return parse_pdf(path, keep_image_data=keep_image_data,
-                         ocr_layer=ocr_layer)
+                         ocr_layer=ocr_layer, measure_lines=measure_lines)
 
     def clip_renderer(self, path: str) -> "_PdfiumClipSession":
         """One open document for every figure clip of a write.
@@ -393,31 +393,13 @@ class PDFiumBackend:
         # The same visible-frame geometry and the same visibility rules as
         # parse_pdf: the loop compares these lines with what the DOCX shows,
         # and the DOCX carries neither a printer's slug nor hidden text.
-        import pypdfium2 as pdfium
-        from .parse_pdfium import (_Frame, _build_lines, _page_chars,
-                                   _page_objects, _text_visibility)
-        doc = pdfium.PdfDocument(path)
-        try:
-            out = []
-            for i in range(len(doc)):
-                page = doc[i]
-                try:
-                    textpage = page.get_textpage()
-                    try:
-                        frame = _Frame.of(page, textpage)
-                        vis = _text_visibility(textpage,
-                                               _page_objects(page, frame), frame)
-                        chars = _page_chars(textpage, frame, vis)
-                    finally:
-                        textpage.close()
-                    lines = [(ln.text, ln.bbox[1], ln.baseline, ln.bbox[3])
-                             for ln in _build_lines(chars) if ln.text.strip()]
-                finally:
-                    page.close()
-                out.append(lines)
-            return out
-        finally:
-            doc.close()
+        # parse_pdf(measure_lines=True) gives the same answer from its own
+        # reading (`ir.page_lines`); both go through `_line_tuples`. A long
+        # document is read by worker processes, a slice each, and the slices
+        # joined in page order -- each page's lines depend on that page alone,
+        # so the answer is the serial one (see _pagelines_pool).
+        from ._pagelines_pool import page_lines
+        return page_lines(path)
 
     def form_widgets(self, path: str) -> List[int]:
         # pypdfium2's object layer has no annotation wrapper, so this counts
