@@ -191,6 +191,23 @@ class ThePlan(unittest.TestCase):
         self.assertTrue(rep["at_risk"])
         self.assertGreater(rep["short"], 0.0)
 
+    def test_the_cap_leaves_a_page_many_lines_over_as_spaced(self):
+        # PAGEFIT_MAX_OVER_LINES: y59's first page, 11 body lines over by
+        # the model, was paid back into its box and its placement fell
+        from exactdoc import pagefit
+        lay = _lay()
+        far = _page(_fill(lay, spare=-4 * BODY))
+        near = _page(_fill(lay, spare=-2 * BODY))
+        was = pagefit.PAGEFIT_MAX_OVER_LINES
+        pagefit.PAGEFIT_MAX_OVER_LINES = 3
+        try:
+            given = {}
+            self.assertIs(self._plan(far, lay, given), given)
+            self.assertTrue(self._plan(near, lay))
+        finally:
+            pagefit.PAGEFIT_MAX_OVER_LINES = was
+        self.assertTrue(self._plan(far, lay))
+
     def test_no_gap_goes_below_the_refine_floor(self):
         lay = _lay()
         els = _fill(lay, spare=-60.0)

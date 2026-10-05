@@ -43,7 +43,11 @@ one verified fix at a time, each gated against the frozen 16.
   Word, planner on: raw DOCX 11 -> 13 of 21 (y18 168 -> 144, y33 63 -> 60);
   product DOCX 15 -> 16 (y18 154 -> 144, word recall 0.462 -> 0.986; y27
   152 -> 151), but y64 40 -> 41. The LibreOffice product lane is unchanged
-  on the 21 (17 of 21). Gate PASS with it off; not yet gated on
+  on the 21 (17 of 21). A cap (`PAGEFIT_MAX_OVER_LINES`) leaves a page
+  the model puts more than N body lines over as spaced: at 3 or 5 lines
+  y59 is restored but y18 and y33 lose their gains; at 10 all of y59, y18
+  144, y33 60 and y03 47 hold (y22 173, y64 41) -- with one line of margin
+  to y59's page. Gate PASS with it off; not yet gated on
   (`docs/evidence/pagefit-2026-10-06.json`).
 
 - **Beta criteria 8 and 12 (WP28).** *Criterion 8* (no document worse than

@@ -58,6 +58,20 @@ from .layout import ColBreak, FigureEl, ImageEl, Para, RuleEl, TableEl
 # (y18 154 -> 144) but y64 40 -> 41. With it off the writer is byte-identical
 # to the code before the planner. `docs/evidence/pagefit-2026-10-06.json`.
 PAGEFIT_ENABLED = False
+# A page the model puts more than this many body lines past its box is not a
+# spill of a line or two but a page that does not fit, and paying it back from
+# its gaps is the guess the model is least sure of (spare < -20pt: 60% spilled,
+# so 40% did not). y59's first page, 178pt (11.1 body lines of 16pt) over,
+# was such a page: paid back, its dy_p50 went 30.07 -> 46.35. Measured on the
+# raw lane, planner on (docs/evidence/pagefit-2026-10-06.json, "cap"): at 3
+# and 5 lines y59 is restored but y18 (147-148 pages for 144), y33 (61 for
+# 60) and at 3 y03 lose their gains -- their saved pages run 3-8 lines over
+# (y33 p22 5.2, y03 p21 4.7); at 8, y18 is 145; at 10 y59 is restored and
+# y18, y33 and y03 keep every gain (144, 60, 47 pages), y22 173 and y64 41
+# against 172 and 40 uncapped. The margin to y59 is one line: a cap in lines
+# separates these six documents, it is not yet shown to be the right
+# discriminator.
+PAGEFIT_MAX_OVER_LINES = 10
 # Sizes are half-points, gaps tenths and the exact line a tenth of a point: a
 # plan that lands exactly on its target can still be a point out. The value
 # the Google Docs planner (GDOCS_PAGE_SAFETY_PT) and the refine loop
@@ -316,6 +330,9 @@ def fit_page(pg, content_w: float, lay, notes_h: float, body_line: float,
         report["short"] = max(0.0, need - total)
     if over > 0 and total < over + PAGEFIT_SAFETY_PT:
         return plan            # cannot be saved by its spacing: as shipped
+    if PAGEFIT_MAX_OVER_LINES is not None and \
+            over > PAGEFIT_MAX_OVER_LINES * max(0.0, body_line):
+        return plan            # not a spill but a page that does not fit
     pay = min(need, total)
     take = [0.0] * len(gaps)
     # From the foot of the page up, each tier in turn: a gap taken low on the
