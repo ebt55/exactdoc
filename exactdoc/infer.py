@@ -3091,13 +3091,39 @@ def _touches(a: BBox, b: BBox, d: float = 6.0) -> bool:
     return not (ea[2] < b[0] or b[2] < ea[0] or ea[3] < b[1] or b[3] < ea[1])
 
 
+# Past this many drawings a page's clusters are found by a sweep over the
+# boxes sorted by left edge instead of testing every pair (a page of y06's
+# ruled tables holds ~400: 76,000 pairs).
+_CLUSTER_SWEEP_MIN = 48
+
+
 def _clusters(draws):
     n = len(draws)
     uf = _UF(n)
-    for i in range(n):
-        for j in range(i + 1, n):
-            if _touches(draws[i][1].bbox, draws[j][1].bbox):
-                uf.union(i, j)
+    boxes = [d[1].bbox for d in draws]
+    if n >= _CLUSTER_SWEEP_MIN and all(
+            math.isfinite(v) and abs(v) < 1e9 for b in boxes for v in b):
+        # The same pairs are united: every pair the sweep skips has its left
+        # box end more than 7pt (6pt reach + 1pt of slack against rounding)
+        # before the right one starts, which _touches answers False for either
+        # way round; every pair it tests is tested by _touches itself, lower
+        # index first, as the double loop does. Components, and so the groups
+        # below and their order, are those of the double loop.
+        order = sorted(range(n), key=lambda k: boxes[k][0])
+        for a, i in enumerate(order):
+            reach = boxes[i][2] + 7.0
+            for b in range(a + 1, n):
+                j = order[b]
+                if boxes[j][0] > reach:
+                    break
+                lo, hi = (i, j) if i < j else (j, i)
+                if _touches(boxes[lo], boxes[hi]):
+                    uf.union(lo, hi)
+    else:
+        for i in range(n):
+            for j in range(i + 1, n):
+                if _touches(boxes[i], boxes[j]):
+                    uf.union(i, j)
     groups = defaultdict(list)
     for i in range(n):
         groups[uf.find(i)].append(draws[i])

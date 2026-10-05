@@ -153,5 +153,44 @@ class WorkerPool(unittest.TestCase):
             self.assertEqual(P.page_lines(path), PP.page_lines_range(path))
 
 
+class DrawingClusters(unittest.TestCase):
+    """infer._clusters' sweep unites the pairs the double loop does."""
+
+    def _reference(self, draws):
+        from collections import defaultdict
+        from exactdoc.infer import _UF, _touches
+        n = len(draws)
+        uf = _UF(n)
+        for i in range(n):
+            for j in range(i + 1, n):
+                if _touches(draws[i][1].bbox, draws[j][1].bbox):
+                    uf.union(i, j)
+        groups = defaultdict(list)
+        for i in range(n):
+            groups[uf.find(i)].append(draws[i])
+        return list(groups.values())
+
+    def test_same_groups_in_the_same_order(self):
+        import random
+        from types import SimpleNamespace
+        from exactdoc.infer import _clusters
+        rng = random.Random(1040)
+        for trial in range(150):
+            n = rng.choice([0, 1, 5, 47, 48, 60, 150, 400])
+            draws = []
+            for k in range(n):
+                x0, y0 = rng.uniform(0, 600), rng.uniform(0, 800)
+                w, h = rng.choice([(rng.uniform(0, 300), 0.5), (0.5, rng.uniform(0, 200)),
+                                   (rng.uniform(-3, 40), rng.uniform(-3, 40))])
+                if rng.random() < 0.1:          # boxes 6-7pt apart: the slack
+                    x0 = round(x0) + rng.choice([5.999, 6.0, 6.001, 7.0])
+                draws.append((k, SimpleNamespace(bbox=(x0, y0, x0 + w, y0 + h))))
+            if n and rng.random() < 0.05:
+                draws[0] = (0, SimpleNamespace(bbox=(float("nan"), 0.0, 1.0, 1.0)))
+            got = [[d[0] for d in g] for g in _clusters(draws)]
+            want = [[d[0] for d in g] for g in self._reference(draws)]
+            self.assertEqual(got, want, (trial, n))
+
+
 if __name__ == "__main__":
     unittest.main()
