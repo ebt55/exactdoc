@@ -54,7 +54,8 @@ from .layout import ColBreak, FigureEl, ImageEl, Para, RuleEl, TableEl
 # 11 -> 13 of 21), y03 51 -> 47 and y64 44 -> 40, page-exact 59 -> 62, the 16
 # gated documents byte-identical -- but y59 (CMS notice, 6 pages rendered as
 # 18, not promised) regresses dy_p50 30.07 -> 46.35 when its first page, 178pt
-# over, is paid back into its box. With it off the writer is byte-identical
+# over, is paid back into its box. Word, on: product DOCX 15 -> 16 of 21
+# (y18 154 -> 144) but y64 40 -> 41. With it off the writer is byte-identical
 # to the code before the planner. `docs/evidence/pagefit-2026-10-06.json`.
 PAGEFIT_ENABLED = False
 # Sizes are half-points, gaps tenths and the exact line a tenth of a point: a

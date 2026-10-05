@@ -39,8 +39,11 @@ one verified fix at a time, each gated against the frozen 16.
   -> 53, y02 120 -> 117; page-exact 59 -> 62; the 16 gated documents
   byte-identical. It is off (`pagefit.PAGEFIT_ENABLED`) because y59 (not
   promised; 6 pages rendered as 18) regresses dy_p50 30.07 -> 46.35 when its
-  first page, 11 body lines over by the model, is paid back into its box;
-  the product and Word lanes are not yet measured
+  first page, 11 body lines over by the model, is paid back into its box.
+  Word, planner on: raw DOCX 11 -> 13 of 21 (y18 168 -> 144, y33 63 -> 60);
+  product DOCX 15 -> 16 (y18 154 -> 144, word recall 0.462 -> 0.986; y27
+  152 -> 151), but y64 40 -> 41. The LibreOffice product lane is unchanged
+  on the 21 (17 of 21). Gate PASS with it off; not yet gated on
   (`docs/evidence/pagefit-2026-10-06.json`).
 
 - **Beta criteria 8 and 12 (WP28).** *Criterion 8* (no document worse than

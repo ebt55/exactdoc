@@ -755,9 +755,56 @@
   ]
  },
  "not_measured": [
-  "product sweep",
-  "Word lane",
-  "canonical gate with the planner on"
+  "canonical gate with the planner on (its 16 raw DOCX are byte-identical on the sweep)",
+  "product sweep of the other 69 documents"
  ],
- "why_off": "y59_cms_notice_inddcs4 dy_p50 30.07 -> 46.35 (criterion 8 / rule 4); its page 1, 178pt (11 body lines) over by the model, is paid back into its box"
+ "why_off": "y59_cms_notice_inddcs4 dy_p50 30.07 -> 46.35 (criterion 8 / rule 4); its page 1, 178pt (11 body lines) over by the model, is paid back into its box",
+ "word_lane_planner_on": {
+  "word": "Word 16.0.20430 (Office 2024) via testkit/word_oracle.py, the 21 promised long documents",
+  "raw_docx": {
+   "before": "C:/lotmp/ckptword/raw",
+   "after": "wp30-c raw DOCX",
+   "criterion5": [
+    "11/21",
+    "13/21"
+   ],
+   "changed": [
+    "y02_nist_sp800171r2.pdf 120->117 pages (src 114), wr 0.7408->0.7447",
+    "y03_nist_fips197.pdf 51->48 pages (src 46), wr 0.4522->0.4652",
+    "y18_eurlex_ai_act.pdf 168->144 pages (src 144), wr 0.3696->0.9864",
+    "y21_worldbank_wdr24.pdf 56->52 pages (src 48), wr 0.1951->0.5842",
+    "y22_lshort.pdf 176->170 pages (src 153), wr 0.3845->0.391",
+    "y33_nz_paper_powerpdf.pdf 63->60 pages (src 60), wr 0.4858->0.8943",
+    "y64_bls_release_xpp.pdf 44->41 pages (src 39), wr 0.3438->0.3828"
+   ]
+  },
+  "product_docx": {
+   "before": "C:/lotmp/ckptword/product",
+   "after": "wp30-prodon product DOCX (planner on, refine 3)",
+   "criterion5": [
+    "15/21",
+    "16/21"
+   ],
+   "changed": [
+    "y18_eurlex_ai_act.pdf 154->144 pages (src 144), wr 0.4618->0.9864",
+    "y27_rfc9000.pdf 152->151 pages (src 151), wr 0.881->0.9685",
+    "y64_bls_release_xpp.pdf 40->41 pages (src 39), wr 0.4212->0.3834"
+   ]
+  }
+ },
+ "product_sweep_planner_on": {
+  "what": "21 promised long documents, --profile product, planner on",
+  "criterion5_libreoffice": [
+   "17/21",
+   "17/21"
+  ],
+  "changed": []
+ },
+ "gate_merged_tree_planner_off": {
+  "tree": "9a7e037 (wp30 merged with e572bb7)",
+  "suite": "Ran 1617 tests OK (skipped=2)",
+  "product": "PASS pagematch 16/16 within2pt 0.7209",
+  "raw": "PASS pagematch 16/16 within2pt 0.5463",
+  "failed_steps": 0
+ }
 }
