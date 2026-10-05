@@ -20,6 +20,33 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **A table cut by a page break stays a table (WP26).** The pandoc manual
+  (y24) sets its defaults-file tables as LaTeX longtables: a table at a page
+  foot has its head rule and mid rule but no closing rule, and the next page
+  restates the head. Two rules alone were never a table, so p43's, p44's and
+  p45's cut tables went to the flow as tabbed paragraphs under a lone rule;
+  and p45's 33-row continuation was refused by `_cells_hold_lines`, which
+  charged a right-set cell line's indent twice (once as the cell pad, once
+  as the indent the writer de-pads), so its two columns were read as a
+  two-column page, out of order -- and from p46 on the document sat a page
+  late. Now a head pair whose body runs, inside the rules' ends, to the
+  foot of the page, with the next page opening on a rule of the same length
+  before any text, is a table ending half a row-gap under its last line
+  (`_open_foot`; `build_rules_table(bottom=)`), and the hold test charges a
+  right- or centre-set line `max(indent, pad)`. Each page keeps its own
+  table and its own head, as the source draws them. LibreOffice raw, 90
+  documents against the checkpoint: only y24 changes (the other 89 DOCX are
+  byte-identical in word/*.xml) -- 181 -> 180 pages, word recall 0.549 ->
+  0.994, char recall 0.801 -> 1.000, within-2pt 0.175 -> 0.177; criterion 5
+  in LibreOffice 11/21 -> 12/21. Product: y24 180 = 180, within-2pt 0.204 ->
+  0.210. Word raw DOCX: 181 -> 180 (0.547 -> 0.987); Word product DOCX 180
+  = 180, within-2pt 0.193 -> 0.200. Gated: unchanged in both gate lanes;
+  c3, x04, x10 byte-identical under the standard and gdocs profiles. A
+  95-document survey found the rule firing on y24 alone (pp. 43, 44, 45).
+  Google Docs is to be flown (probe set prepared; the LibreOffice proxy of
+  the same gdocs DOCX goes 181 -> 180).
+  (`docs/evidence/wp26-cut-tables-2026-10-06.json`)
+
 - **The product profile meets the beta's time bar, byte for byte (WP20c).**
   The refine loop no longer reads the source PDF a second time: the parse
   hands it the source's text lines from its own PDFium reading
