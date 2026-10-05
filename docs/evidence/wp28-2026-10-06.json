@@ -344,5 +344,35 @@
   "failed_steps": 0,
   "product": "PASS pagematch 16/16 within2pt 0.7209",
   "raw": "PASS pagematch 16/16 within2pt 0.5463"
+ },
+ "merged_tree": {
+  "tree": "f281163 (wp28 merged with integration f2f6480, WP26)",
+  "raw_sweep_vs_checkpoint": {
+   "documents": 90,
+   "moved": [
+    "y24_pandoc_manual (WP26)",
+    "y61_fedreg_gpo_3col (WP28)"
+   ],
+   "word_xml_identical": "88 of 90; against the pre-merge wp28 sweep only y24 differs",
+   "summary": {
+    "page_exact": 60,
+    "measured": 90,
+    "mean_word_recall": 0.7645,
+    "mean_char_recall": 0.8583,
+    "mean_within2pt": 0.2744
+   }
+  },
+  "gate": {
+   "tests": 1593,
+   "ok": true,
+   "failed_steps": 0,
+   "product": "PASS pagematch 16/16 within2pt 0.7209",
+   "raw": "PASS pagematch 16/16 within2pt 0.5463"
+  },
+  "beta_readiness": {
+   "8": "FAIL by 1: y26_bash_reference doc_recall 0.9924 -> 0.9712 (leader dots; WP29)",
+   "12": "PASS: 9 evidence file(s) cited, 8 dated; 0 stale or contradicted",
+   "2_note": "raw 10 of 90 over 1 s/page in this sweep, run 6 at a time beside 6-8 other containers; output of 88 documents byte-identical to the checkpoint, whose raw sweep passed"
+  }
  }
 }
