@@ -8891,20 +8891,31 @@ def _is_marker_line(ln: Line, rtl_form: bool = False) -> bool:
         (t.isdigit() and len(t) <= 3) or SECTION_NUM_RE.match(t))
 
 
-def _has_item_beside(ln: Line, own, flow_blocks) -> bool:
+def _has_item_beside(ln: Line, own, flow_blocks, opens_block: bool = False) -> bool:
     """Does another block hold text on `ln`'s baseline, a marker's gap to its
     right (the test `_merge_list_markers` glues by)? Only for a marker that
     STARTS its line at the block's own left edge, where a heading's number
     stands: on a two-column page a block's last line can be a lone "S." at
     the column's right end, with the other column's text a gutter away
-    (y41, IEEEtran: glued across the gutter, within-2pt 0.063 -> 0.031)."""
+    (y41, IEEEtran: glued across the gutter, within-2pt 0.063 -> 0.031).
+
+    `opens_block`: the text must be the FIRST line of its block -- the item's
+    first line in a block of its own, which is the run-in shape the opening
+    marker rule exists for (all 304 of y18's run-in numbers glue to a
+    one-line block). A line in the middle of another block is that block's
+    text, already placed in its reading order: y61's three-column Federal
+    Register page welds "Mail: OPP Docket, Environmental | Consistent with
+    ... | vegetable subgroup ..." across its gutters, line 11 of a 14-line
+    block, and its column-1 bullet glued onto it was pulled out of its own
+    column and 69pt of that column's flow went with it (dy_p50 33.3 ->
+    39.0pt against the accepted wp18-m2 sweep)."""
     left = min(l.bbox[0] for l in own.lines)
     if ln.bbox[0] - left > MARKER_LEFT_TOL_EM * max(_line_size(ln), 1.0):
         return False
     for c in flow_blocks:
         if c is own:
             continue
-        for fl in c.lines:
+        for fl in (c.lines[:1] if opens_block else c.lines):
             gap = fl.bbox[0] - ln.bbox[2]
             if fl.spans and abs(fl.baseline - ln.baseline) < 2.5 and \
                     -1.0 < gap < 60:
@@ -8944,7 +8955,7 @@ def _merge_list_markers(flow_blocks):
             marker_lines.append((b.lines[-1], b))
         elif len(b.lines) > 1 and _is_marker_line(b.lines[0]) and \
                 not _is_marker_line(b.lines[1]) and \
-                _has_item_beside(b.lines[0], b, flow_blocks):
+                _has_item_beside(b.lines[0], b, flow_blocks, opens_block=True):
             # A marker that OPENS a block of the item's other lines: a
             # numbered paragraph set run-in, its number at the margin, its
             # first line an indent to the right in a block of its own, and
