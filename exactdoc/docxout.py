@@ -22,6 +22,7 @@ from docx.table import _Cell
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
+from docx.text.run import Run as _DocxRun
 
 from ._docx_speed import enable_monotonic_ids    # also installs the fast paths
 from .layout import (DocLayout, Para, Run, Cell, TableEl, FigureEl, ImageEl,
@@ -149,7 +150,99 @@ def _set_borders(el_pr, borders: dict, tag: str):
     el_pr.append(bel)
 
 
+# A run's w:rPr is a pure function of the few inputs _rpr_key reads. The writer
+# styles every run it writes (41,565 on y06_irs_1040_instructions, once per
+# refine round) through python-docx's generic property machinery, ~40% of a
+# write; but a document has few distinct styles -- y06 has a few hundred.
+# So the first run of each style is styled the long way and a copy of the
+# rPr it gets is kept; every later run of that style receives a copy of the
+# copy, where python-docx would have put the one it builds (the run's first
+# child). Only a run that has no rPr yet takes the shortcut: one that does
+# (a footnote reference's rStyle) is styled the long way. The copies are taken
+# at styling time, so anything the writer later changes in a run's rPr it
+# changes in the copy that run holds, as before. Output is byte-identical:
+# tests/test_docx_speed.py compares the two paths, and every corpus
+# document's word/*.xml matched with the shortcut on and off.
+_RPR_TAG = qn("w:rPr")
+_RPR_TEMPLATES: Dict[tuple, Any] = {}
+_RPR_TEMPLATES_MAX = 4096
+_RPR_SHORTCUT = True          # tests switch it off to compare the long way
+
+
+def _rpr_key(r_el, run: Run, profile: str):
+    """Everything _style_run_built reads from the run, the paragraph and the
+    profile, in the form it writes it."""
+    text = run.text or ""
+    lang, has_rtl = complex_script(text)
+    in_bidi = _in_bidi_para(r_el)
+    try:
+        hexv = _hex(run.color)
+    except Exception:
+        hexv = None            # the long way swallows the same failure
+    spacing = getattr(run, "char_spacing", 0.0) + getattr(run, "tracking", 0.0)
+    ws = getattr(run, "width_scale", 0.0) or 0.0
+    return (profile,
+            writer_family(run.font, mono=run.mono, serif=run.serif, profile=profile),
+            east_asian_family(run.font, run.text, profile),
+            int(Pt(round(run.size * 2) / 2)),
+            run.bold, run.italic, bool(run.underline), bool(run.superscript),
+            int(round(spacing * 20)) if abs(spacing) > 0.004 else None,
+            int(round(ws * 100)) if ws > 0 and abs(ws - 1.0) > 0.004 and
+            profile == "standard" else None,
+            hexv, lang, has_rtl, in_bidi,
+            bool(_STRONG_LTR.search(text)) if in_bidi else None,
+            complex_script_family(run.font) if profile == "standard" and
+            lang is not None else None)
+
+
+_W_R, _W_T = "w:r", "w:t"
+_XML_SPACE = qn("xml:space")
+
+
+def _add_text_run(par, text: str):
+    """`par.add_run(text)`, without python-docx's per-character pass.
+
+    For text holding no tab, CR or LF, python-docx appends a new w:r to the
+    paragraph and one w:t holding the text to the run, marked
+    xml:space="preserve" when stripping would shorten it -- after walking the
+    text a character at a time (_RunContentAppender) to learn that there is
+    nothing else to write. This does the same directly. Any other text goes
+    through python-docx itself.
+    """
+    if not text or "\t" in text or "\r" in text or "\n" in text:
+        return par.add_run(text)
+    r = OxmlElement(_W_R)
+    par._p.append(r)
+    t = OxmlElement(_W_T)
+    t.text = text
+    r.append(t)
+    if len(text.strip()) < len(text):
+        t.set(_XML_SPACE, "preserve")
+    return _DocxRun(r, par)
+
+
 def _style_run(r, run: Run, profile: str = "standard"):
+    r_el = r._element
+    if not _RPR_SHORTCUT or r_el.find(_RPR_TAG) is not None:
+        _style_run_built(r, run, profile)
+        return
+    try:
+        key = _rpr_key(r_el, run, profile)
+        hash(key)
+    except Exception:
+        _style_run_built(r, run, profile)
+        return
+    tpl = _RPR_TEMPLATES.get(key)
+    if tpl is not None:
+        r_el.insert(0, copy.deepcopy(tpl))
+        return
+    _style_run_built(r, run, profile)
+    if len(_RPR_TEMPLATES) >= _RPR_TEMPLATES_MAX:
+        _RPR_TEMPLATES.clear()
+    _RPR_TEMPLATES[key] = copy.deepcopy(r_el.find(_RPR_TAG))
+
+
+def _style_run_built(r, run: Run, profile: str = "standard"):
     f = r.font
     fam = writer_family(run.font, mono=run.mono, serif=run.serif, profile=profile)
     f.name = fam
@@ -1265,7 +1358,7 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None,
         parts = run.text.split("\n")
         for j, chunk in enumerate(parts):
             if chunk:
-                r = par.add_run(chunk)
+                r = _add_text_run(par, chunk)
                 _style_run(r, run, ctx.output_profile)
             if j < len(parts) - 1:
                 br = par.add_run()
@@ -4873,7 +4966,11 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
         cur_cols = cols
         # Shrink section-break paragraphs to the least height a renderer will
         # give them. That is SECT_BREAK_PARA_PT, not zero -- see the constant.
-        for p_el in doc.element.body.findall(qn("w:p")):
+        # The XPath picks, in document order, exactly the paragraphs the test
+        # below can act on (a w:sectPr in the paragraph's first w:pPr), without
+        # a Python pass over every paragraph of the body per section: y06's 96
+        # sections made that 2.6 million tests a write.
+        for p_el in doc.element.body.xpath("./w:p[w:pPr[1]/w:sectPr]"):
             ppr = p_el.find(qn("w:pPr"))
             if ppr is not None and ppr.find(qn("w:sectPr")) is not None:
                 if ppr.find(qn("w:spacing")) is None:

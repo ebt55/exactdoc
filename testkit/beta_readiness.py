@@ -25,6 +25,10 @@ reads what the measuring tools already wrote --
                      testkit/runall.py (testkit/batch/ or a copied <run>.batch/).
     accepted sweep   the last raw sweep the coordinator accepted, for the
                      per-document regression check (--accepted).
+    serial timings   testkit/serial_timing.py runs (<name>.timing.json, schema
+                     exactdoc.serial-timing.v1): one conversion at a time.
+                     Criterion 2 prefers them, document by document, over a
+                     sweep's convert_s, which ran documents side by side.
     kept DOCX        the DOCX files a sweep kept (sweep.sh KEEP_DOCX=1 writes
                      <name>.docx/ beside <name>.sweep.json), for the font census.
 
@@ -199,8 +203,28 @@ def _when(path):
     return datetime.datetime.fromtimestamp(os.path.getmtime(path))
 
 
+def _shipped_profiles():
+    """{profile_id: kind} of the profiles exactdoc ships, or None."""
+    try:
+        if PROJECT not in sys.path:
+            sys.path.insert(0, PROJECT)
+        from exactdoc.options import PDFIUM_GDOCS_CANDIDATE, PRODUCT, RAW
+    except Exception:                                   # pragma: no cover
+        return None
+    return {PRODUCT.profile_id(): "product", RAW.profile_id(): "raw",
+            PDFIUM_GDOCS_CANDIDATE.profile_id(): "gdocs-lo"}
+
+
 def _profile_kind(profile):
-    """'pdfium/standard/none/refine0@240dpi' -> 'raw', etc. None if unknown."""
+    """'pdfium/standard/none/refine0@240dpi' -> 'raw', etc. None if unknown.
+
+    Exactly the shipped profiles when exactdoc is importable: a measurement
+    with the refine loop capped (`refine1`) is not a reading of the product,
+    and must not be picked up as one.
+    """
+    shipped = _shipped_profiles()
+    if shipped is not None:
+        return shipped.get(profile)
     parts = (profile or "").split("/")
     if len(parts) < 4:
         return None
@@ -333,6 +357,29 @@ def find_gate(dirs):
     return (best[0], best[1]) if best else None
 
 
+def load_timing(path):
+    data = _load_json(path)
+    if data.get("schema") != "exactdoc.serial-timing.v1":
+        raise ValueError("%s is not a serial timing run" % path)
+    return data
+
+
+def find_timings(dirs):
+    """{kind: (path, data)}: the newest serial timing run per profile."""
+    best = {}
+    for d in dirs:
+        for path in glob.glob(os.path.join(d, "*.timing.json")):
+            try:
+                data = load_timing(path)
+            except (OSError, ValueError):
+                continue
+            kind = _profile_kind(data.get("profile"))
+            if kind and (kind not in best or
+                         os.path.getmtime(path) > os.path.getmtime(best[kind][0])):
+                best[kind] = (path, data)
+    return best
+
+
 def find_docx_dir(raw_path):
     """The KEEP_DOCX folder sweep.sh writes beside a sweep, if it exists."""
     if not raw_path:
@@ -397,7 +444,7 @@ def _short(doc):
 
 # ------------------------------------------------------------- the reading
 def evaluate(docs, sweeps, lanes, gate, accepted=None, docx_dir=None,
-             readme_path=None, now=None):
+             readme_path=None, now=None, timings=None):
     """-> {"inputs", "criteria", "verdict", ...}.
 
     `lanes` is {"lo": rows|None, "word": rows|None, "docs": rows|None} of raw
@@ -459,36 +506,52 @@ def evaluate(docs, sweeps, lanes, gate, accepted=None, docx_dir=None,
              crashes + ["(not counted) " + i for i in infra])
 
     # 2. time ---------------------------------------------------------------
+    # Serial timings (testkit/serial_timing.py, one conversion at a time) are
+    # what a tester waits for and win over a sweep's, which ran documents side
+    # by side (WP20b measured 1.4-2.3x); the sweep still covers every
+    # document a serial run did not time.
     parts, offenders, unmeasured = [], [], []
+    timings = timings or {}
     for kind, limit_of in (
             ("product", lambda p: BAR["product_flat_s"] if p <= BAR["product_flat_pages"]
              else BAR["product_s_per_page"] * p),
             ("raw", lambda p: BAR["raw_s_per_page"] * p)):
-        if kind not in sweeps:
+        serial = {r["document"]: r for r in
+                  (timings[kind][1].get("documents", ()) if kind in timings else ())
+                  if isinstance(r.get("convert_s"), (int, float))}
+        if kind not in sweeps and not serial:
             unmeasured.append(kind)
-            parts.append("%s: no full sweep" % kind)
+            parts.append("%s: no full sweep or serial timing" % kind)
             continue
+        merged = {}
+        for r in (sweeps[kind][1].get("documents", ()) if kind in sweeps else ()):
+            if isinstance(r.get("convert_s"), (int, float)):
+                merged[r["document"]] = dict(r, timing="sweep")
+        for d, r in serial.items():
+            merged[d] = dict(merged.get(d, {}), document=d, convert_s=r["convert_s"],
+                             src_pages=r.get("src_pages") or merged.get(d, {}).get("src_pages"),
+                             timing="serial")
         # Unsupported documents are refused in normal use; a sweep converts
         # them only because it lifts the page cap (--max-pages 0).
-        rows = [r for r in sweeps[kind][1].get("documents", ())
-                if isinstance(r.get("convert_s"), (int, float)) and r.get("src_pages")
+        rows = [r for r in merged.values() if r.get("src_pages")
                 and docs.get(r.get("document"), {}).get("tier") != "unsupported"]
         slow = sorted(((r["convert_s"] - limit_of(r["src_pages"]), r) for r in rows
                        if r["convert_s"] > limit_of(r["src_pages"])),
                       key=lambda t: -t[0])
-        jobs = sweeps[kind][1].get("jobs")
-        parts.append("%s: %d of %d over%s" % (
-            kind, len(slow), len(rows),
-            " (%d documents at a time)" % jobs if jobs else ""))
-        offenders += ["%s %s %.0fs for %d pages (limit %.0fs)" % (
+        n_serial = sum(1 for r in rows if r["timing"] == "serial")
+        jobs = sweeps[kind][1].get("jobs") if kind in sweeps else None
+        parts.append("%s: %d of %d over (%d timed serially%s)" % (
+            kind, len(slow), len(rows), n_serial,
+            "" if n_serial == len(rows) else ", the rest from a sweep%s" % (
+                " of %d at a time" % jobs if jobs else "")))
+        offenders += ["%s %s %.0fs for %d pages (limit %.0fs, %s)" % (
             kind, _short(r["document"]), r["convert_s"], r["src_pages"],
-            limit_of(r["src_pages"])) for _, r in slow]
+            limit_of(r["src_pages"]), r["timing"]) for _, r in slow]
     status = FAIL if offenders else (UNMEASURED if unmeasured else PASS)
     crit(2, "time", "time: product <=%gs up to %d pages, <=%gs/page above; raw <=%gs/page"
          % (BAR["product_flat_s"], BAR["product_flat_pages"],
             BAR["product_s_per_page"], BAR["raw_s_per_page"]),
-         status, "; ".join(parts) + " (sweeps run documents in parallel, so "
-         "their times are upper bounds)", len(offenders) or None, offenders)
+         status, "; ".join(parts), len(offenders) or None, offenders)
 
     # 3. Word opens cleanly --------------------------------------------------
     W = L.get("word")
@@ -904,6 +967,9 @@ def main(argv=None):
     ap.add_argument("--word", help="Word-lane JSONL (WP21)")
     ap.add_argument("--gate", help="folder holding lane_raw/ and lane_product/")
     ap.add_argument("--accepted", help="the last accepted raw sweep, for regressions")
+    ap.add_argument("--timing", action="append", default=[],
+                    help="a serial timing JSON (testkit/serial_timing.py); repeatable. "
+                         "Default: the newest *.timing.json per profile under --runs")
     ap.add_argument("--docx-dir", help="kept DOCX folder for the font census "
                                        "(default: <raw sweep>.docx beside it)")
     ap.add_argument("--readme", default=os.path.join(PROJECT, "README.md"))
@@ -931,12 +997,19 @@ def main(argv=None):
     lanes = {"lo": sweeps["raw"][1].get("documents") if "raw" in sweeps else None,
              "docs": [r for r in docs_rows[1] if row_lane(r) == "docs"] if docs_rows else None,
              "word": [r for r in word_rows[1] if row_lane(r) == "word"] if word_rows else None}
+    timings = find_timings(dirs)
+    for path in a.timing:
+        data = load_timing(path)
+        kind = _profile_kind(data.get("profile"))
+        if kind:
+            timings[kind] = (path, data)
     result = evaluate(docs, sweeps, lanes, gate, accepted=accepted,
-                      docx_dir=docx_dir, readme_path=a.readme)
+                      docx_dir=docx_dir, readme_path=a.readme, timings=timings)
 
     paths = [("raw sweep", sweeps.get("raw")), ("product sweep", sweeps.get("product")),
              ("gdocs-lo sweep", sweeps.get("gdocs-lo")), ("Docs live", docs_rows),
-             ("Word lane", word_rows), ("accepted", accepted)]
+             ("Word lane", word_rows), ("accepted", accepted),
+             ("product serial", timings.get("product")), ("raw serial", timings.get("raw"))]
     stamps = [_when(v[0]) for _, v in paths if v and v[0] and os.path.exists(v[0])]
     newest = max(stamps) if stamps else datetime.datetime.now()
     inputs = []

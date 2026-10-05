@@ -187,5 +187,116 @@ class WriterOutput(unittest.TestCase):
         self.assertIs(b.ladder_report["probe"], lay.ladder_report["probe"])
 
 
+class RunPropertiesShortcut(unittest.TestCase):
+    """docxout._style_run's copied rPr is the rPr the long way builds (WP20c)."""
+
+    FONTS = ["Helvetica", "Times-Bold", "Courier", "ABCDEF+Roboto-Regular",
+             "MSGothic", "WenQuanYiZenHei", "David", "ArialMT", "NotoSansMono"]
+    TEXTS = ["Plain words.", " leading and trailing ", "日本語のテキスト",
+             "בפסק דין.", "שלום world", "مرحبا", "नमस्ते", "1234.", "x"]
+    COLORS = ["#000000", "#1F3864", "#ff0000", None, "", "#12345", "nothex"]
+
+    def _runs(self, rng, n):
+        out = []
+        for _ in range(n):
+            out.append(Run(
+                text=rng.choice(self.TEXTS), font=rng.choice(self.FONTS),
+                size=rng.choice([6.5, 8, 9.25, 10, 10.04, 11.5, 14, 24]),
+                color=rng.choice(self.COLORS), bold=rng.random() < 0.3,
+                italic=rng.random() < 0.2, mono=rng.random() < 0.1,
+                serif=rng.random() < 0.3, underline=rng.random() < 0.1,
+                superscript=rng.random() < 0.1,
+                char_spacing=rng.choice([0.0, 0.0, 0.003, -0.2, 0.35]),
+                tracking=rng.choice([0.0, 0.0, 0.5]),
+                width_scale=rng.choice([0.0, 0.0, 1.0, 0.97, 1.002, 1.08])))
+        return out
+
+    def _layout(self, seed):
+        rng = random.Random(seed)
+        els = []
+        for i in range(60):
+            els.append(Para(runs=self._runs(rng, rng.randint(1, 6)),
+                            rtl=rng.random() < 0.2,
+                            align=rng.choice(["left", "justify", "center"])))
+        return DocLayout(pages=[PageLayout(1, [Chunk(elements=els)])])
+
+    def _write(self, lay, path, profile, shortcut):
+        from exactdoc import docxout
+        old = docxout._RPR_SHORTCUT
+        docxout._RPR_SHORTCUT = shortcut
+        docxout._RPR_TEMPLATES.clear()
+        try:
+            write_docx(lay, path, output_profile=profile)
+        finally:
+            docxout._RPR_SHORTCUT = old
+
+    def test_byte_identical_with_and_without_the_shortcut(self):
+        for seed in (1, 2, 3):
+            lay = self._layout(seed)
+            for profile in ("standard", "gdocs"):
+                with tempfile.TemporaryDirectory() as d:
+                    fast, slow = os.path.join(d, "f.docx"), os.path.join(d, "s.docx")
+                    self._write(lay, fast, profile, True)
+                    self._write(lay, slow, profile, False)
+                    self.assertEqual(_xml_parts(fast), _xml_parts(slow), (seed, profile))
+
+    def test_templates_are_reused_and_never_the_live_element(self):
+        from exactdoc import docxout
+        body = Run(text="Body text.", font="Times-Roman", size=10, color="#000000")
+        bold = Run(text="Heading", font="Times-Bold", size=12, color="#000000", bold=True)
+        els = [Para(runs=[copy.deepcopy(bold), copy.deepcopy(body)]) for _ in range(40)]
+        lay = DocLayout(pages=[PageLayout(1, [Chunk(elements=els)])])
+        with tempfile.TemporaryDirectory() as d:
+            docxout._RPR_TEMPLATES.clear()
+            write_docx(lay, os.path.join(d, "o.docx"))
+        self.assertEqual(len(docxout._RPR_TEMPLATES), 2)
+        for tpl in docxout._RPR_TEMPLATES.values():
+            self.assertIsNone(tpl.getparent())
+
+
+class TextRunShortcut(unittest.TestCase):
+    """docxout._add_text_run appends what python-docx's add_run(text) does."""
+
+    def test_same_xml_as_add_run(self):
+        from exactdoc.docxout import _add_text_run
+        rng = random.Random(55)
+        alphabet = ["a", "Z", " ", " ", "\t", "\n", "\r", "é", "中", "&", "<", "'"]
+        doc = Document()
+        for _ in range(2000):
+            text = "".join(rng.choice(alphabet) for _k in range(rng.randint(0, 9)))
+            p1, p2 = doc.add_paragraph(), doc.add_paragraph()
+            p1.add_run("pre")
+            p2.add_run("pre")
+            r1, r2 = p1.add_run(text), _add_text_run(p2, text)
+            self.assertIs(r2._parent, p2)
+            self.assertEqual(etree.tostring(p1._p), etree.tostring(p2._p), repr(text))
+            self.assertEqual(r1.text, r2.text)
+
+
+class SectionBreakParagraphs(unittest.TestCase):
+    """The XPath new_section uses selects what its old per-paragraph test did."""
+
+    def test_same_paragraphs_as_the_python_scan(self):
+        from docx.oxml.ns import qn
+        rng = random.Random(96)
+        for _ in range(200):
+            doc = Document()
+            body = doc.element.body
+            for _k in range(rng.randint(0, 25)):
+                p = doc.add_paragraph("t")._p
+                shape = rng.random()
+                if shape < 0.3:
+                    p.get_or_add_pPr().append(OxmlElement("w:sectPr"))
+                elif shape < 0.4:
+                    p.append(OxmlElement("w:pPr"))           # a second pPr
+                    p[-1].append(OxmlElement("w:sectPr"))
+                elif shape < 0.5:
+                    p.get_or_add_pPr().append(OxmlElement("w:spacing"))
+            want = [p for p in body.findall(qn("w:p"))
+                    if p.find(qn("w:pPr")) is not None and
+                    p.find(qn("w:pPr")).find(qn("w:sectPr")) is not None]
+            self.assertEqual(body.xpath("./w:p[w:pPr[1]/w:sectPr]"), want)
+
+
 if __name__ == "__main__":
     unittest.main()
