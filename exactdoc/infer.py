@@ -4930,9 +4930,20 @@ def _cells_hold_lines(t: TableEl, tol: float = 2.0) -> bool:
             if cell is None or not cell.paras:
                 continue
             span = max(1, getattr(cell, "col_span", 1))
-            w = sum(t.col_widths[ci:ci + span]) - cell.pad[1] - cell.pad[3]
+            cw = sum(t.col_widths[ci:ci + span]) - cell.pad[3]
             for p in cell.paras:
-                if p.src_widths and max(p.src_widths) + p.left_indent > w + tol:
+                # Where the writer starts the line: a right- or centre-set
+                # paragraph's indent is from the CELL edge, the cell's own pad
+                # inside it (write_table's `_depadded` emits the difference),
+                # so the two are not added. Added, y24 p45's indented
+                # '--epub-embed-font headline.otf' -- one line ending on its
+                # column's edge, read as right-set -- was charged its 11.3pt
+                # indent twice, failed by 0.4pt, and the whole 33-row table
+                # went to the flow as a two-column page.
+                lead = max(p.left_indent, cell.pad[1]) \
+                    if p.align in ("right", "center") \
+                    else p.left_indent + cell.pad[1]
+                if p.src_widths and max(p.src_widths) + lead > cw + tol:
                     return False
     return True
 
@@ -4992,11 +5003,96 @@ def _rule_bands(hgroup, lines) -> Optional[List[List[Line]]]:
     return bands
 
 
-def build_rules_table(hgroup: List[DrawCmd], blocks, consumed) -> Optional[TableEl]:
+# How far the next page's opening rule may differ in length from the open
+# table's head rule and still be the same table's head repeated (pt). y24's
+# longtables restate their head on every page 426.2pt long, at 74.9-501.1 on
+# versos and 110.9-537.1 on rectos -- to 0.1pt -- so 2pt is drawing noise.
+OPEN_FOOT_RULE_TOL = 2.0
+
+
+def _open_foot(sub, blocks, consumed, nxt_lines, nxt_rules) -> Optional[float]:
+    """The foot of a booktabs table the page break cut: a head rule, a
+    row-high head band, a mid rule -- and the body under them running off the
+    page with no closing rule, because the table goes on. The next page then
+    opens, before any of its text, on a rule of the same span: the head
+    repeated (LaTeX's longtable). Returns the y at which the cut table ends
+    on this page, or None.
+
+    y24 (the pandoc manual) sets its defaults-file tables this way; read as
+    two rules alone, its p44 'Options affecting specific writers' table and
+    its p45 'Citation rendering' table went to the flow as tabbed paragraphs
+    after a lone rule, and from p46 on the document sat a page late.
+
+    Everything under the mid rule must be the table's: no line stands out
+    past the rules' ends (prose, a heading), and nothing on the page lies
+    below it -- the body is what is left of the page."""
+    ds = sorted((d for _, d in sub), key=lambda d: d.bbox[1])
+    if len(ds) != 2:
+        return None
+    head, mid = ds
+    ya, yb = (head.bbox[1] + head.bbox[3]) / 2, (mid.bbox[1] + mid.bbox[3]) / 2
+    if yb - ya > RULED_ROW_MAX_GAP:
+        return None
+    x0 = min(d.bbox[0] for d in ds) - RULE_TABLE_TEXT_TOL
+    x1 = max(d.bbox[2] for d in ds) + RULE_TABLE_TEXT_TOL
+    free = [ln for ln in _all_lines(blocks)
+            if id(ln) not in consumed and ln.text.strip()]
+    cy = lambda ln: (ln.bbox[1] + ln.bbox[3]) / 2   # noqa: E731
+    if not any(ya < cy(ln) < yb and x0 <= ln.bbox[0] and ln.bbox[2] <= x1
+               for ln in free):
+        return None                       # no head between the rules
+    body = [ln for ln in free if cy(ln) > yb]
+    if not body or any(ln.bbox[0] < x0 or ln.bbox[2] > x1 for ln in body):
+        return None
+    rows = _group_lines_by_row(body)
+    if len(rows) < 2 or sum(1 for r in rows if len(r) >= 2) < \
+            max(2, int(0.6 * len(rows))):
+        return None
+    # the head restated at the top of the next page, before any text there
+    first = min((ln.bbox[1] for ln in nxt_lines if ln.text.strip()),
+                default=None)
+    # (the same LENGTH: a recto's table repeats on a verso, shifted by the
+    # mirrored margins -- y24's 110.9-537.1 on p44 is 74.9-501.1 on p45)
+    hw = head.bbox[2] - head.bbox[0]
+    if not any(abs((r.bbox[2] - r.bbox[0]) - hw) <= OPEN_FOOT_RULE_TOL and
+               (first is None or r.bbox[3] <= first)
+               for r in nxt_rules):
+        return None
+    # the last row ends where the row pitch says the next one would begin:
+    # half the white between rows past its last line
+    gaps = sorted(min(l.bbox[1] for l in b) - max(l.bbox[3] for l in a)
+                  for a, b in zip(rows, rows[1:]))
+    white = max(0.0, gaps[len(gaps) // 2])
+    return max(ln.bbox[3] for ln in rows[-1]) + white / 2
+
+
+def _next_page_opening(page, hf):
+    """What `_open_foot` reads of the next page: its body lines and its long
+    horizontal rules, the page's furniture (running head, folio, head rule)
+    left out. Empty for the last page."""
+    if page is None:
+        return [], []
+    ct = hf["consumed_text"].get(page.number, ())
+    cd = hf["consumed_draw"].get(page.number, ())
+    lines =[ln for bi, b in enumerate(page.blocks) for ln in b.lines
+             if (bi, id(ln)) not in ct]
+    rules = [d for di, d in enumerate(page.drawings)
+             if di not in cd and d.shape == "hline" and d.opacity > 0.05]
+    return lines, rules
+
+
+def build_rules_table(hgroup: List[DrawCmd], blocks, consumed,
+                      bottom: Optional[float] = None) -> Optional[TableEl]:
+    """A table read between its rules. `bottom`, when given, is the foot of
+    a table that runs past its last rule to the page's foot, open (see
+    `_open_foot`): every rule is then inside the table, and its last row
+    has no bottom border because the source draws none."""
     hgroup = sorted(hgroup, key=lambda d: d.bbox[1])
     x0 = min(d.bbox[0] for d in hgroup)
     x1 = max(d.bbox[2] for d in hgroup)
     top, bot = hgroup[0].bbox[1], hgroup[-1].bbox[3]
+    if bottom is not None:
+        bot = max(bot, bottom)
     region = (x0 - 2, top - 1, x1 + 2, bot + 1)
     probe = set(consumed)
     whole = _take_lines_in(blocks, region, probe)
@@ -5058,7 +5154,7 @@ def build_rules_table(hgroup: List[DrawCmd], blocks, consumed) -> Optional[Table
         prev_b = max(l.bbox[3] for l in rows[i - 1])
         cur_t = min(l.bbox[1] for l in rows[i])
         mid = (prev_b + cur_t) / 2
-        for d in hgroup[1:-1]:
+        for d in (hgroup[1:] if bottom is not None else hgroup[1:-1]):
             dy = (d.bbox[1] + d.bbox[3]) / 2
             if prev_b - 1 <= dy <= cur_t + 1:
                 mid = dy
@@ -5981,6 +6077,7 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
     doc_lay = lay
     prev_notes = False
     headed_carry = None     # (column xs, row pitch) of a headed table cut by a page
+    pages_by_no = {pg.number: pg for pg in ir.pages}   # a cut table's next page
     for p in ir.pages:
         own = own_geometry.get(p.number)
         lay = _geometry(doc_lay, own)
@@ -6135,6 +6232,23 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
             for sub in subs:
                 if len(sub) < 2:
                     continue
+                foot = _open_foot(sub, blocks, consumed, *_next_page_opening(
+                    pages_by_no.get(p.number + 1), hf)) if len(sub) == 2 else None
+                if foot is not None:
+                    # A table the page break cut (see _open_foot). Its body
+                    # is bounded by no rule, so -- like a long booktabs
+                    # head's -- it must hold its own lines.
+                    before = set(consumed)
+                    t = build_rules_table([d for _, d in sub], blocks, consumed,
+                                          bottom=foot)
+                    if t is not None and not _cells_hold_lines(t):
+                        consumed.clear()
+                        consumed.update(before)
+                        t = None
+                    if t is not None:
+                        elements.append(t)
+                        used.update(i for i, _ in sub)
+                        continue
                 ys = sorted(d.bbox[1] for _, d in sub)
                 long_head = not (ys[-1] - ys[0] < 320 or _ruled_rows(ys)) and \
                     _booktabs_head(ys)
