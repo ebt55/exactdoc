@@ -50,15 +50,18 @@ one verified fix at a time, each gated against the frozen 16.
   leader cut to the dots that still fit its stop
   (`docxout._typed_leader_room`). Gated: `word/*.xml` byte-identical for
   all 16 under both profiles; gate PASS in both lanes. Raw, 95 documents,
-  against integration 16a94de: page-exact 51 -> 58, 19 better, none worse
-  (beta criterion 8 PASS); criterion 5 in LibreOffice 4/21 -> 10/21 and in
-  Word 4/21 -> 10/21 -- y01 91 -> 80 pages (word recall 0.244 -> 0.965),
-  y08 66 -> 65 (0.378 -> 0.988), y09 60 -> 59 (0.340 -> 0.972), y17 202 ->
-  194 (0.916 -> 0.976), y27 152 -> 151 (0.460 -> 0.968), y28 22 -> 21
-  (0.375 -> 0.989); also y10 38 -> 36 (0.548 -> 0.789), y02 125 -> 120,
-  y64 46 -> 44, y22 183 -> 178, y03 58 -> 56, y38 54 -> 53. Google Docs
-  output changes (rows, titles, ASCII art, sidebar, drop caps, leaders);
-  a probe set against WP19 is prepared.
+  merged with WP22 and measured against integration aeb98fb: page-exact
+  52 -> 59, 16 better, none worse (beta criterion 8 PASS); criterion 5 in
+  LibreOffice 5/21 -> 11/21, and 11/21 in Word -- y01 91 -> 80 pages
+  (word recall 0.244 -> 0.964), y08 66 -> 65 (0.378 -> 0.988), y09 60 ->
+  59 (0.340 -> 0.971), y17 202 -> 194 (0.916 -> 0.976), y27 152 -> 151
+  (0.460 -> 0.968), y28 22 -> 21 (0.375 -> 0.989); also y10 38 -> 36
+  (0.548 -> 0.784), y02 125 -> 120, y64 46 -> 44, y22 183 -> 178, y03 53
+  -> 51, y18 157 -> 156, y24 182 -> 181. Live in Google Docs (probe 1,
+  against WP19): y02 116 -> 114 (word recall 0.400 -> 0.966) and y27 152
+  -> 151 (0.459 -> 0.967) now pass, y64 42 -> 40, y01 82 -> 81, y22 178
+  -> 175; y10's contents page numbers wrapped (0.554 -> 0.338), which the
+  typed-leader room cap answers, awaiting its own flight.
 
 - **The promised documents that broke the beta bar (WP22).** Each fix is
   for the structure behind the first page that went wrong.
