@@ -6755,6 +6755,18 @@ def _float_graphics(elements, blocks, page_w: float, page_h: float):
 
 # Text lines a picture must hold, whole, to be the page's background.
 BACKGROUND_MIN_LINES = 1
+# A picture under the page's text that spans the paper's width is a page
+# background element -- a full-bleed strip or panel -- even under the
+# `pictures_only` capability (gdocs), where a background otherwise stays in
+# the flow. Same share as the full-page rule (FULL_PAGE_FRAC, d630b33), in
+# width only: y33's cover strips are 594.8 x 280.6pt and its p3/p4 tinted
+# panel 594.0 x 93.5 / 654.4 / 93.1pt on 595.2pt paper (0.998-0.999).
+# Stacked in the flow they put y33 at 65 pages for 60 in live Docs (onset
+# p2); anchored behind the text at their page position, live Docs read 60
+# for 60, word recall 0.271 -> 0.992, within-2pt 0.314, SSIM 0.61 -> 0.74
+# (WP27 probe wp27bg, 2026-10-06). A picture inside the margins -- a figure
+# a caption is set on -- is narrower and keeps the flow.
+PAGE_BACKGROUND_WIDTH_FRAC = FULL_PAGE_FRAC
 
 
 def _float_backgrounds(elements, blocks, lay: DocLayout, page_w: float,
@@ -6781,7 +6793,8 @@ def _float_backgrounds(elements, blocks, lay: DocLayout, page_w: float,
     `pictures_only`: the pictures set on a text line, wrapped by a paragraph
     or printed into a margin leave the flow (the capability "anchor_pictures",
     for a profile that does not position graphics otherwise); a background
-    the text is set on stays in it. DOE OIG's highlights picture (y28 page 3,
+    the text is set on stays in it unless it spans the paper's width
+    (PAGE_BACKGROUND_WIDTH_FRAC: y33's strips and panels). DOE OIG's highlights picture (y28 page 3,
     320x390pt beside the findings, running off the paper's foot) is the
     margin case.
     """
@@ -6796,7 +6809,8 @@ def _float_backgrounds(elements, blocks, lay: DocLayout, page_w: float,
             BACKGROUND_MIN_LINES
         bleeds = bb[1] < lay.margin_t - MARGIN_BLEED_PT or \
             bb[3] > page_h - lay.margin_b + MARGIN_BLEED_PT
-        if under and pictures_only:
+        if under and pictures_only and \
+                (bb[2] - bb[0]) < PAGE_BACKGROUND_WIDTH_FRAC * page_w:
             keep.append(e)
             continue
         if under or bleeds:
