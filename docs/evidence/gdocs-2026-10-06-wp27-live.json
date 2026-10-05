@@ -1,0 +1,84 @@
+{
+ "what": "WP27 (question panels, note separator) flown live through Google Docs",
+ "date": "2026-10-06",
+ "base": "e572bb7",
+ "candidate": "WP27 ab4311b; wp27bg = probe-only build with page-background strips anchored behind the text",
+ "rows": [
+  {
+   "doc": "04_exec_brief",
+   "v": "base",
+   "src_pages": 2,
+   "out_pages": 2,
+   "word_recall": 0.9337,
+   "within2pt": 0.3254,
+   "dy_p50": 1.95,
+   "mean_ssim": 0.8794,
+   "live_text_cov": 0.9406,
+   "char_recall": 0.9509
+  },
+  {
+   "doc": "04_exec_brief",
+   "v": "wp27",
+   "src_pages": 2,
+   "out_pages": 2,
+   "word_recall": 0.9337,
+   "within2pt": 0.3018,
+   "dy_p50": 1.95,
+   "mean_ssim": 0.8794,
+   "live_text_cov": 0.9406,
+   "char_recall": 0.9509
+  },
+  {
+   "doc": "y33_nz_paper_powerpdf",
+   "v": "base",
+   "src_pages": 60,
+   "out_pages": 65,
+   "word_recall": 0.2485,
+   "within2pt": 0.0011,
+   "dy_p50": 57.79,
+   "mean_ssim": 0.6077,
+   "live_text_cov": 0.9056,
+   "char_recall": 0.6464
+  },
+  {
+   "doc": "y33_nz_paper_powerpdf",
+   "v": "wp27",
+   "src_pages": 60,
+   "out_pages": 65,
+   "word_recall": 0.2712,
+   "within2pt": 0.001,
+   "dy_p50": 54.61,
+   "mean_ssim": 0.6096,
+   "live_text_cov": 0.9959,
+   "char_recall": 0.7053
+  },
+  {
+   "doc": "y33_nz_paper_powerpdf",
+   "v": "wp27",
+   "src_pages": 60,
+   "out_pages": 65,
+   "word_recall": 0.2712,
+   "within2pt": 0.001,
+   "dy_p50": 54.61,
+   "mean_ssim": 0.6096,
+   "live_text_cov": 0.9959,
+   "char_recall": 0.7053
+  },
+  {
+   "doc": "y33_nz_paper_powerpdf",
+   "v": "wp27bg",
+   "src_pages": 60,
+   "out_pages": 60,
+   "word_recall": 0.9919,
+   "within2pt": 0.3144,
+   "dy_p50": 2.14,
+   "mean_ssim": 0.7437,
+   "live_text_cov": 0.9959,
+   "char_recall": 0.9981
+  }
+ ],
+ "notes": [
+  "y33 base 65 -> wp27 65 pages (wr .249->.271, live text .906->.996); 04 2 pages either way",
+  "wp27bg: y33 60/60, wr 0.992, within-2pt 0.314 -- the rule to productise (WP27b)"
+ ]
+}
