@@ -1048,14 +1048,84 @@ _PPR_AFTER_SUPPRESS_HYPHENS = (
 _GDOCS_LEADER_SLACK = 2
 
 
+def _runs_width(runs, metrics, profile: str) -> Optional[float]:
+    """The width `runs` set on one line (no tabs), or None if unmeasurable."""
+    from .metrics import shaped_size
+    total = 0.0
+    for r in runs:
+        if r.is_tab or not r.text:
+            continue
+        fam = map_font(r.font, mono=r.mono, serif=r.serif, profile=profile)
+        w = metrics.text_width(r.text, fam, shaped_size(r), bold=r.bold,
+                               italic=r.italic)
+        if w is None:
+            return None
+        total += w
+    return total
+
+
+def _typed_leader_room(p: Para, i: int) -> Optional[int]:
+    """How many dots fit between the text before leader tab `i` and the
+    number after it, against the dot stop -- or None where that cannot be
+    measured (no stop, a face without widths)."""
+    stop = next((ts[0] for ts in p.tab_stops
+                 if len(ts) > 2 and ts[2] == "dot"), None)
+    metrics = _text_metrics("gdocs")
+    if stop is None or metrics is None:
+        return None
+    x = (p.left_indent or 0.0) + (p.first_indent or 0.0)   # the first line's start
+    plain =sorted(ts[0] for ts in p.tab_stops if not (len(ts) > 2 and ts[2] == "dot"))
+    seg = []
+    for k, r in enumerate(p.runs[:i]):
+        if r.is_tab:
+            w = _runs_width(seg, metrics, "gdocs")
+            if w is None:
+                return None
+            x += w
+            x = next((s for s in plain if s > x + 0.01), x)
+            seg = []
+        else:
+            seg.append(r)
+    label = _runs_width(seg, metrics, "gdocs")
+    num = _runs_width(p.runs[i + 1:], metrics, "gdocs")
+    if label is None or num is None:
+        return None
+    ref = p.runs[i]
+    dot = _runs_width([dataclasses.replace(ref, text=".", is_tab=False)],
+                      metrics, "gdocs")
+    if not dot:
+        return None
+    room = stop - (x + label) - num
+    return max(0, int(room // dot))
+
+
 def _gdocs_typed_leader(p: Para) -> Para:
     """`p` with its dot-leader tab drawn as typed dots (a copy; see above)."""
     if not p.leader_text:
         return p
-    i = next((k for k, r in enumerate(p.runs) if r.is_tab), None)
+    # A row fused from fragments (infer._fuse_row) tabs to its entry before
+    # the entry's own leader tab, and names that one.
+    i = getattr(p, "_leader_tab", None)
+    if i is None or not (0 <= i < len(p.runs)) or not p.runs[i].is_tab:
+        i = next((k for k, r in enumerate(p.runs) if r.is_tab), None)
     if i is None:
         return p
-    keep = max(0, len(p.leader_text) - _GDOCS_LEADER_SLACK)
+    # The white the source set around its leader (infer._leader_para) is
+    # typed now, a space each side; a dot is about a space wide, so the
+    # typed leader gives up one dot for each and the line is as long as it
+    # was.
+    around = int(i > 0 and p.runs[i - 1].text[-1:] == " ") + \
+        int(i + 1 < len(p.runs) and p.runs[i + 1].text[:1] == " ")
+    keep = max(0, len(p.leader_text) - _GDOCS_LEADER_SLACK - around)
+    fit = _typed_leader_room(p, i)
+    if fit is not None:
+        # Never more dots than the line has room for. The source's count is
+        # right for the source's text, and the text can come out wider: the
+        # white kept around the leader, a bold title set in the substitute
+        # face. Live, FIPS 180-4's chapter entries ran
+        # a few points past their stop, and Docs put every one of their page
+        # numbers on a line of its own -- six lines a contents page.
+        keep = max(0, min(keep, fit - _GDOCS_LEADER_SLACK))
     dots = dataclasses.replace(p.runs[i], text=p.leader_text[:keep], is_tab=False)
     stops = [tuple(ts[:2]) if len(ts) > 2 and ts[2] == "dot" else ts
              for ts in p.tab_stops]
@@ -3654,8 +3724,10 @@ def anchor_floats(par, floats, ctx=None) -> int:
         if inline is None:
             continue
         anchor = OxmlElement("wp:anchor")
-        for k, v in (("distT", "0"), ("distB", "0"), ("distL", "0"),
-                     ("distR", "0"), ("simplePos", "0"),
+        wrap = getattr(fl, "wrap", None)
+        dl, dt, dr, db = (int(round(v * 12700)) for v in (wrap or (0, 0, 0, 0)))
+        for k, v in (("distT", str(dt)), ("distB", str(db)), ("distL", str(dl)),
+                     ("distR", str(dr)), ("simplePos", "0"),
                      # z-order among the page's graphics: source order
                      ("relativeHeight", str(251658240 + i)),
                      ("behindDoc", "1" if fl.behind else "0"),
@@ -3678,7 +3750,14 @@ def anchor_floats(par, floats, ctx=None) -> int:
         for k in ("l", "t", "r", "b"):
             ee.set(k, "0")
         anchor.append(ee)
-        anchor.append(OxmlElement("wp:wrapNone"))
+        if wrap is not None:
+            # A paragraph the source wrapped around the picture
+            # (infer._wrapped_by_text): the renderer wraps it the same way.
+            ws = OxmlElement("wp:wrapSquare")
+            ws.set("wrapText", "bothSides")
+            anchor.append(ws)
+        else:
+            anchor.append(OxmlElement("wp:wrapNone"))
         for tag in ("wp:docPr", "wp:cNvGraphicFramePr", "a:graphic"):
             child = inline.find(qn(tag))
             if child is not None:
@@ -4549,6 +4628,8 @@ def _merge_grid_page_runs(pages):
             out.append(pg)
             i = j
             continue
+        for rp in run:
+            _floats_into_flow(rp)
         if key == 1:
             # all-1-col run: one flowing page, chunks concatenated; the
             # dropped page seams are the entire point
@@ -4597,6 +4678,41 @@ def _merge_grid_page_runs(pages):
                               margins=pg.margins))
         i = j
     return out
+
+
+def _floats_into_flow(pg) -> None:
+    """Set a page's anchored graphics back in its flow, in place.
+
+    A float is anchored to the page it lands on (`anchor_floats`), and a
+    merged run (`_merge_grid_page_runs`) has no pages of its own -- the
+    merged page used to be built without them, and every picture inference
+    had anchored there was dropped: IRS Pub 15's and Pub 501's icons set
+    beside their text lines (infer._on_text_line) went missing from the
+    document. In the flow each goes before the first element set below its
+    top, as a picture the flow carried before it was floated."""
+    floats = list(getattr(pg, "floats", None) or ())
+    if not floats:
+        return
+    pg.floats = []
+    for fl in floats:
+        el = fl.el
+        el.space_before = 0.0
+        top = fl.bbox[1]
+        placed = False
+        for ch in pg.chunks:
+            for k, other in enumerate(ch.elements):
+                bb = getattr(other, "bbox", None) or getattr(other, "_bbox", None) \
+                    or getattr(other, "clip", None)
+                if bb is not None and bb[1] > top:
+                    ch.elements.insert(k, el)
+                    placed = True
+                    break
+            if placed:
+                break
+        if not placed:
+            if not pg.chunks:
+                pg.chunks.append(Chunk(n_cols=1))
+            pg.chunks[-1].elements.append(el)
 
 
 def _script_base_sizes(lay: DocLayout) -> int:

@@ -282,6 +282,13 @@ PAGE_COVER_FRAC = 0.9
 # 28.5-29.7pt / 2.4-2.5em and was wrapping 56 of 59 pages in a quote table.
 QUOTE_MAX_GAP_EM = 2.0
 QUOTE_MAX_OVERHANG_EM = 1.5
+# A lone vline running at least this share of the page's height is the side of
+# a frame or a box down the page, drawn behind the text rather than stacked in
+# the flow as a picture (the stray-shape branch of `_infer_body`). RFC 9110's
+# collected-ABNF box sides run 0.66-0.75 of the page. Shorter bars keep the old
+# path: an accent bar beside a heading (y48's, 0.27 of its page) is placed with
+# the heading by the flow, and floated it moved the median word 15pt.
+VLINE_FLOAT_MIN_FRAC = 0.5
 
 # --- grid tables: merged cells and per-edge borders ------------------------
 # Every producer in the corpus that rules a table draws its borders PER CELL
@@ -4765,6 +4772,51 @@ def _split_lines_at_box_edges(blocks, rects, consumed=frozenset()) -> list:
     return cuts
 
 
+def _keeps_panel_cuts(blocks, consumed, lay) -> bool:
+    """Do this page's panel-side cuts stand (see `_infer_body`)? Yes unless
+    the page's flow reads as two columns."""
+    return _two_column_gutter(
+        [l for l in _all_lines(blocks) if id(l) not in consumed],
+        lay.margin_l, lay.page_w - lay.margin_r) is None
+
+
+# A panel narrower than this share of the content width is a sidebar, not a
+# column: the narrowest genuine column of a two-column page is 0.46 of it
+# (TWO_COL_MIN_BAND_FRAC's measurement); DOE OIG's sidebar is 0.38, the MMWR
+# summary boxes that fill one column of two (y60) 0.48.
+SIDEBAR_MAX_FRAC = 0.45
+# ... and the text set beside it starts within this many ems of its side: the
+# panel's own inset (DOE OIG: 1.1em). A piece further off is another column of
+# the page (y59's brochure panels, 5.6em).
+SIDEBAR_GAP_EM = 2.0
+
+
+def _sidebar_cut(cut, rects, consumed, content_w: float) -> bool:
+    """Is this panel-side cut a sidebar's -- the panel a sidebar, and the
+    piece outside it the start of the text set right beside it?"""
+    _b, _ln, pieces = cut
+    inside = [p for p in pieces if id(p) in consumed]
+    outside = [p for p in pieces if id(p) not in consumed]
+    if not inside or not outside:
+        return False
+    box = next((r for r in rects
+                if any(bbox_overlap(p.bbox, r) > 0.55 * max(1e-6, bbox_area(p.bbox))
+                       for p in inside)), None)
+    if box is None or box[2] - box[0] >= SIDEBAR_MAX_FRAC * max(1.0, content_w):
+        return False
+    for p in outside:
+        size = max((s.size for s in p.spans if s.text.strip()), default=10.0)
+        if p.bbox[0] >= box[2] - 1.0:
+            gap = p.bbox[0] - box[2]
+        elif p.bbox[2] <= box[0] + 1.0:
+            gap = box[0] - p.bbox[2]
+        else:
+            return False
+        if gap > SIDEBAR_GAP_EM * size:
+            return False
+    return True
+
+
 def _restore_uncut(cuts, consumed) -> None:
     """Put back each cut line unless regions took EVERY piece of it.
 
@@ -6005,6 +6057,7 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
                 if cont is not None:
                     elements.append(cont)
         leftover = []
+        rule_floats = []        # vertical rules drawn behind the text (below)
         page_text_area = sum(bbox_area(l.bbox) for l in _all_lines(blocks)) or 1.0
         clusters = _clusters(draws)
         # Fill-tiled tables first: their row bands are separate clusters,
@@ -6221,6 +6274,23 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
                 continue        # stray ornament: not worth rasterising a region for
             if _ornament_on_box(d, elements):
                 continue
+            if anchored and d.shape == "vline" and \
+                    (d.bbox[3] - d.bbox[1]) >= VLINE_FLOAT_MIN_FRAC * p.height and \
+                    (d.fill and bbox_area(d.bbox) > 400):
+                # A vertical rule that is not a quote bar (above) is a frame
+                # or margin line, and the flow has nothing to place it with.
+                # Its fill passes the stray-shape area test below, so it went
+                # into the flow as a picture of a rule, and a picture in the
+                # flow spends its full height: RFC 9110's collected ABNF sits
+                # in a box drawn as two 0.8pt vlines down the page, 553pt
+                # each, and its four pages rendered as twelve. Drawn where the
+                # source drew it, behind the text, it spends none. (Not under
+                # the Google Docs profile, which keeps the flow; its writer
+                # places these itself.)
+                fig = build_figure([d], blocks, p.images, consumed, p)
+                rule_floats.append(FloatEl(el=fig, bbox=tuple(fig.clip),
+                                           behind=True))
+                continue
             if d.shape in ("curve", "complex", "line") or (
                     d.fill and bbox_area(d.bbox) > 400):
                 # A stray shape is promoted to a rasterised block here on area
@@ -6252,14 +6322,30 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
 
         elements = _merge_box_rows(_merge_figures(elements))
         elements = _merge_table_rows(elements, blocks, consumed)
+        if cuts and _keeps_panel_cuts(blocks, consumed, lay):
+            # Not a two-column page, so the piece left outside a panel is not
+            # the other column running past it (y60's MMWR summary boxes, one
+            # column of two, which the cut re-paragraphed): it is the text
+            # set BESIDE the panel. DOE OIG's highlights page sets a shaded
+            # sidebar (x 41-239) beside its findings (252-560); welded back,
+            # the sidebar's last lines read across into the findings, the
+            # page lost its side-by-side reading, the sidebar stood 570pt
+            # above the findings, and every later page was a page late.
+            # Kept cut, the region readers lay the two out side by side. Only
+            # for a sidebar's cut (`_sidebar_cut`).
+            rects = [d.bbox for _, d in draws if _box_candidate(d)]
+            cuts = [c for c in cuts
+                    if not _sidebar_cut(c, rects, consumed, lay.content_w)]
         _restore_uncut(cuts, consumed)
         if p.number in deck:
             elements, pl.floats = _float_graphics(elements, blocks,
                                                   p.width, p.height)
+            pl.floats = rule_floats + list(pl.floats)
         else:
             if anchored:
                 elements, pl.floats = _float_backgrounds(elements, blocks,
                                                          lay, p.width, p.height)
+                pl.floats = rule_floats + list(pl.floats)
             elements = _merge_graphic_rows(elements, blocks, p.number)
 
         # rebuild flow blocks from unconsumed lines (contiguous runs)
@@ -6546,13 +6632,113 @@ def _float_backgrounds(elements, blocks, lay: DocLayout, page_w: float,
             bb[3] > page_h - lay.margin_b + MARGIN_BLEED_PT
         if under or bleeds:
             floats.append(FloatEl(el=e, bbox=tuple(bb), behind=under))
+            continue
+        wrap = _wrapped_by_text(bb, lines)
+        if wrap is not None or _on_text_line(bb, lines):
+            # Placed in the flow's terms too, as `_to_flow` places a picture:
+            # a writer that cannot anchor it on its page (a merged booklet
+            # run, docxout._merge_grid_page_runs) sets it back in the flow.
+            e.align = "left"
+            e.left_indent = max(0.0, round(bb[0] - lay.margin_l, 1))
+            floats.append(FloatEl(el=e, bbox=tuple(bb), wrap=wrap))
         else:
             keep.append(e)
     return keep, floats
 
 
+def _wrapped_by_text(bb, lines):
+    """The clearance (left, top, right, bottom) a paragraph wrapped around the
+    picture `bb` keeps from it, or None when the source does not wrap one.
+
+    A wrap is text set beside the picture -- every line in its band clear of
+    it, on one side -- that then runs on UNDER (or over) it, across its
+    width: SP 800-63B sets a 72pt icon at the head of each authenticator's
+    section and wraps the first six lines of the paragraph beside it at
+    x 153 before it returns to the margin at 72. Stacked, the icon stood
+    below its paragraph, and each such page ran 45-76pt over (three pages
+    late by the end of chapter 5). Anchored where it was with the text
+    wrapped around it, the paragraph breaks where the source broke it.
+
+    The run under the picture is what separates a wrap from a picture beside
+    a column of text, which the side-by-side region readers lay out instead
+    (`_side_by_side_chunks`): a column never comes back under its neighbour."""
+    beside, below_above = [], False
+    for t in lines:
+        lh = t[3] - t[1]
+        if lh <= 0:
+            continue
+        ov = min(bb[3], t[3]) - max(bb[1], t[1])
+        crosses = t[0] < bb[2] - 1.0 and t[2] > bb[0] + 1.0
+        if ov >= WRAP_MIN_OVERLAP * lh:
+            if crosses:
+                return None
+            beside.append(t)
+        elif crosses and (0.0 <= t[1] - bb[3] <= WRAP_REACH_LINES * lh or
+                          0.0 <= bb[1] - t[3] <= WRAP_REACH_LINES * lh):
+            below_above = True
+    if len(beside) < WRAP_MIN_LINES or not below_above:
+        return None
+    if all(t[0] >= bb[2] - 1.0 for t in beside):
+        return (0.0, 0.0, round(max(0.0, min(t[0] for t in beside) - bb[2]), 1), 0.0)
+    if all(t[2] <= bb[0] + 1.0 for t in beside):
+        return (round(max(0.0, bb[0] - max(t[2] for t in beside)), 1), 0.0, 0.0, 0.0)
+    return None             # text on both sides: a picture between columns
+
+
+# A wrap (`_wrapped_by_text`): lines sharing at least this share of their height
+# with the picture's band are beside it; at least this many of them, and a line
+# within this many of its own heights under or over the picture that crosses
+# its width. The 0.5 is ON_LINE_MIN_OVERLAP's; two lines is the least a wrap can
+# be, and a single line beside a picture is `_on_text_line`'s case.
+WRAP_MIN_OVERLAP = 0.5
+WRAP_MIN_LINES = 2
+WRAP_REACH_LINES = 2.0
+
+
 # A picture this far into the top or bottom margin is set in it (pt).
 MARGIN_BLEED_PT = 2.0
+# A picture is set ON a text line (`_on_text_line`) when a line beside it shares
+# at least this share of its height with the picture's band, and the picture is
+# no taller than this many of those lines. Measured: NIST's withdrawal-notice
+# logo, 28pt beside a 16pt "Date updated" line (overlap 0.69, 1.75 lines), and
+# SP 800-63B's contents numbers drawn as 10pt pictures inside 16pt entry lines
+# (0.61, 0.6 lines). Two lines keeps a picture beside a paragraph -- a masthead
+# logo, a figure with a caption -- for the side-by-side region readers.
+ON_LINE_MIN_OVERLAP = 0.5
+ON_LINE_MAX_LINES = 2.0
+
+
+def _on_text_line(bb, lines) -> bool:
+    """Is the picture `bb` set on a text line: beside it, in its band?
+
+    The flow stacks every element, so a picture and the line beside it each
+    take their own height, one under the other. NIST's withdrawal notice sets
+    its logo beside the "Date updated" line at the foot of the page, and
+    stacked, the line went over: the notice took two pages, and SP 800-88's
+    and 800-63B's every later page was a page late (word recall 0.38, 0.24).
+    The contents of SP 800-63B draw each entry's section number as a 10pt
+    picture inside the entry's line, and stacked, three contents pages ran
+    five lines over each. Anchored at its own position the picture spends no
+    flow height and the line keeps its own, which is the page the source set.
+
+    Only when every line in the picture's band is clear of it horizontally:
+    a line crossing the picture is text over it (the `under` test's case) or a
+    caption, and both are left alone."""
+    h = bb[3] - bb[1]
+    if h <= 0:
+        return False
+    best, tallest = 0.0, 0.0
+    for t in lines:
+        lh = t[3] - t[1]
+        ov = min(bb[3], t[3]) - max(bb[1], t[1])
+        if lh <= 0 or ov <= 0:
+            continue
+        if not (t[2] <= bb[0] + 1.0 or t[0] >= bb[2] - 1.0):
+            return False
+        if ov / lh >= ON_LINE_MIN_OVERLAP:
+            best = max(best, ov / lh)
+            tallest = max(tallest, lh)
+    return best > 0.0 and h <= ON_LINE_MAX_LINES * tallest
 
 
 # A one-line framed paragraph keeps its own width plus this much (fraction of
@@ -7368,7 +7554,20 @@ def _leader_para(ln: Line, edge: float, col_l: float, col_r: float) -> Para:
     ref = (label or runs)[-1]
     tab = Run(text="\t", font=ref.font, size=ref.size,
               color=(dots[0].color if dots else ref.color), is_tab=True)
-    p.runs = [r for r in label if r.text] + [tab] + [r for r in num if r.text]
+    label = [r for r in label if r.text]
+    num = [r for r in num if r.text]
+    # The white the source set around its leader stays: a tab's leader is
+    # drawn from where the text before it ends to where the text after it
+    # starts, so without these the dots touch the title and the number --
+    # "INTRODUCTION.......3" for the source's "INTRODUCTION ....... 3", one
+    # word where the reader, and word recall, see three (FIPS 180-4's
+    # contents, 150 words a page).
+    if label and text[m.end("label"):m.start("dots")].strip(" \t") == "" and \
+            m.start("dots") > m.end("label"):
+        label[-1] = replace(label[-1], text=label[-1].text + " ")
+    if num and m.start("num") > m.end("dots"):
+        num[0] = replace(num[0], text=" " + num[0].text)
+    p.runs = label + [tab] + num
     p.align = "left"
     p.right_indent = 0.0
     p.first_indent = 0.0
@@ -9549,6 +9748,44 @@ def _split_crossed(lines, col_split: float, content_l: float,
     return len(crossing) > TWO_COL_MAX_CROSS_FRAC * max(1, len(inside))
 
 
+def _split_unfilled(lines, col_split: float, col_y0: float, content_l: float,
+                    content_r: float) -> bool:
+    """Is a block-cluster split two "columns" that neither is set in?
+
+    The gutter reader asks every column for lines that fill it
+    (TWO_COL_FULL_LINE_FRAC of the column); the block-cluster reader never
+    did. FIPS 180-4 sets its initial hash values as a centred table of
+    short rows -- "H0(0)" at x 236, "= 67452301" at 266 -- under headings at
+    the margin, and the rows' left edges made a right-hand cluster: the page
+    was laid out as two columns of fragments with a column break between,
+    ran 655pt over its box, and every page after it was a page late. Real
+    columns -- the journals', lshort's code-and-output boxes -- carry lines
+    that run the width of their side; a scatter of short pieces on both sides
+    of a split is one column of something narrow."""
+    lw = col_split - content_l
+    rw = content_r - col_split
+    full_l = full_r = 0
+    reach = col_split
+    for ln in lines:
+        if not ln.horizontal or not ln.text.strip() or ln.bbox[1] < col_y0:
+            continue
+        x0, x1 = ln.bbox[0], ln.bbox[2]
+        if x1 <= col_split + GUTTER_SIDE_TOL and \
+                x1 - x0 >= TWO_COL_FULL_LINE_FRAC * lw:
+            full_l += 1
+        elif x0 >= col_split - 2.0:
+            reach = max(reach, x1)
+            if x1 - x0 >= TWO_COL_FULL_LINE_FRAC * rw:
+                full_r += 1
+    # Not one full line on either side -- the gutter reader wants six per
+    # column, but a real two-column page can end on a few lines a column --
+    # and a right side that stops short of the middle of its own band. An
+    # index is two columns of short entries too (lshort's, pp. 149-153), but
+    # its right column runs on towards the margin; FIPS 180-4's table stops
+    # at x 341 of a band from 236 to 540.
+    return full_l == 0 and full_r == 0 and reach < col_split + 0.5 * rw
+
+
 def _split_at_gutter(ln: Line, gutter) -> List[Line]:
     """A line the parser joined across the gutter, as its two column halves.
 
@@ -9824,7 +10061,9 @@ def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
             col_split = float(round(gutter[1]))
         return _gutter_chunks(elements, flow_blocks, lay, gutter, col_split,
                               page_top, lead_y=lead_y)
-    if twocol and _split_crossed(flow_lines, col_split, content_l, content_r):
+    if twocol and (_split_crossed(flow_lines, col_split, content_l, content_r)
+                   or _split_unfilled(flow_lines, col_split, col_y0,
+                                      content_l, content_r)):
         twocol = False
 
     items = [("blk", b.bbox, b) for b in flow_blocks]
@@ -9928,6 +10167,7 @@ def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
 def _position_chunks(chunks: List[Chunk], lay: DocLayout,
                      page_top: Optional[float]) -> List[Chunk]:
     """Turn absolute source positions into the flow's space_before values."""
+    _fuse_baseline_rows(chunks, lay.margin_l, lay.page_w - lay.margin_r)
     base = page_top if page_top is not None else lay.margin_t
     for ch in chunks:
         top = base
@@ -9968,6 +10208,216 @@ def _position_chunks(chunks: List[Chunk], lay: DocLayout,
             maxy = max(maxy, cursor)
         base = maxy
     return chunks
+
+
+# --- one row, one line -------------------------------------------------------
+# Two one-line paragraphs set on one baseline, side by side, are one line of the
+# page. The flow stacks them, and the row then stands two lines tall. Measured
+# where it costs pages: SP 800-63B's contents set each chapter number a tab
+# ahead of its entry ("1" at x 72, "Purpose ....... 1" at x 96, one baseline),
+# and its title page sets two columns of authors and affiliations row by row --
+# each page of them ran 55-180pt over its box. FIPS 180-4's padding figure sets
+# "a", "b", "c" under one brace on one baseline, three lines for one.
+#
+# The fragments become one paragraph: the first keeps its own start, and each
+# later one follows a tab to a stop at its own edge -- left, right or centre as
+# the fragment was aligned -- which is how the producer set the row. Only short
+# rows of short fragments: when both are wider than ROW_FUSE_MAX_SHARE of the
+# column they are the lines of two columns the column readers did not split,
+# and welding a page's columns line by line is not this rule's call.
+ROW_FUSE_BASELINE_TOL = 2.0     # one baseline, as _ROW_BASELINE_TOL
+ROW_FUSE_MIN_GAP = 1.0          # side by side: the right one starts past the left
+ROW_FUSE_MAX_SHARE = 0.40       # a column line is ~0.48 of a two-column page
+ROW_FUSE_MAX_SIZE_RATIO = 1.6   # a title beside its small print is two lines
+# Three or more fragments fuse only when each is at most this share of the
+# column: FIPS 180-4's brace labels are a few points wide, a three-column page's
+# lines about 0.3 (`_row_accepted`).
+ROW_FUSE_MANY_SHARE = 0.25
+
+
+def _one_line(p) -> bool:
+    """A one-line flow paragraph this rule may fuse: not a list item (its
+    marker belongs to lists.assign_lists), a display row, a frame or a note."""
+    return bool(isinstance(p, Para) and p.runs and not p.line_breaks and
+                not p.rtl and p.frame is None and not p.role and
+                (getattr(p, "_vis_lines", None) or p.src_lines or 1) <= 1 and
+                (p.src_lines or 1) <= 1 and p.bbox is not None and
+                getattr(p, "_b1", None) is not None and
+                not getattr(p, "_display", False) and
+                not getattr(p, "_list_item", False) and
+                not getattr(p, "_note", False))
+
+
+def _row_fusable(a: Para, b: Para, col_l: float, col_r: float) -> bool:
+    if not (_one_line(a) and _one_line(b)):
+        return False
+    if abs(a._b1 - b._b1) > ROW_FUSE_BASELINE_TOL:
+        return False
+    col_w = col_r - col_l
+    left, right = (a, b) if a.bbox[0] <= b.bbox[0] else (b, a)
+    if right.bbox[0] - left.bbox[2] < ROW_FUSE_MIN_GAP:
+        return False
+    wa, wb = a.bbox[2] - a.bbox[0], b.bbox[2] - b.bbox[0]
+    if min(wa, wb) > ROW_FUSE_MAX_SHARE * max(1.0, col_w):
+        return False
+    wl, wr = left.bbox[2] - left.bbox[0], right.bbox[2] - right.bbox[0]
+    if left.bbox[0] <= col_l + _ROW_LEFT_TOL and \
+            right.bbox[2] >= col_r - _ROW_EDGE_TOL and \
+            right.bbox[0] - left.bbox[2] >= _ROW_MIN_GAP and \
+            wr <= _ROW_MAX_RIGHT * col_w and wl >= _ROW_MIN_LEFT * col_w:
+        # A label and a field at the margin: `_row_pairs`' shape, and its
+        # call. It pairs them only on a column's worth of evidence (two rows
+        # at one edge, or the document's), because without it the same shape
+        # is a sentence broken across an unsplit two-column body; what it
+        # refused stays refused.
+        return False
+    sa = max((r.size for r in a.runs if r.text.strip()), default=0.0)
+    sb = max((r.size for r in b.runs if r.text.strip()), default=0.0)
+    if min(sa, sb) <= 0 or max(sa, sb) > ROW_FUSE_MAX_SIZE_RATIO * min(sa, sb):
+        return False
+    return True
+
+
+def _fragment_stop(p: Para, col_l: float):
+    """The tab stop that puts fragment `p` where the source set it."""
+    if p.align == "right":
+        return (round(p.bbox[2] - col_l, 1), "right")
+    if p.align == "center":
+        return (round((p.bbox[0] + p.bbox[2]) / 2 - col_l, 1), "center")
+    return (round(p.bbox[0] - col_l, 1), "left")
+
+
+def _fuse_row(a: Para, b: Para, col_l: float) -> Para:
+    """One paragraph for two one-line fragments of a row (see above)."""
+    left, right = (a, b) if a.bbox[0] <= b.bbox[0] else (b, a)
+    p = copy.copy(left)
+    runs = [copy.copy(r) for r in left.runs]
+    while runs and not runs[-1].is_tab and not runs[-1].text.strip():
+        runs.pop()
+    if runs and not runs[-1].is_tab:
+        runs[-1].text = runs[-1].text.rstrip(" ")
+    stops = list(left.tab_stops)
+    ref = next((r for r in reversed(left.runs) if r.text.strip()), left.runs[0])
+    tab = replace(ref, text="\t", is_tab=True, link=None, dest=None,
+                  field=None, footnote=None, footnote_mark=False,
+                  underline=False, superscript=False)
+    if left.align in ("right", "center"):
+        # A row that opens with a right- or centre-set fragment starts at the
+        # column edge and tabs to it.
+        runs = [copy.copy(tab)] + runs
+        stops.append(_fragment_stop(left, col_l))
+        p.left_indent = 0.0
+        p.first_indent = 0.0
+        if left.leader_text:
+            p._leader_tab = next((k for k, r in enumerate(runs)
+                                  if k > 0 and r.is_tab), None)
+    p.align = "left"
+    head = [copy.copy(r) for r in right.runs]
+    while head and not head[0].is_tab and not head[0].text.strip():
+        head.pop(0)
+    if head and not head[0].is_tab:
+        head[0].text = head[0].text.lstrip(" ")
+    if right.leader_text:
+        # the gdocs writer types this fragment's leader at its own tab
+        p._leader_tab = len(runs) + 1 + next(
+            (k for k, r in enumerate(head) if r.is_tab), 0)
+        p.leader_text = right.leader_text
+    runs += [tab] + head
+    stops.append(_fragment_stop(right, col_l))
+    stops += list(right.tab_stops)
+    seen, uniq = set(), []
+    for st in sorted(stops, key=lambda t: t[0]):
+        if st[0] in seen:
+            continue
+        seen.add(st[0])
+        uniq.append(st)
+    p.runs = runs
+    p.tab_stops = uniq
+    p.right_indent = 0.0
+    p.bbox = bbox_union(a.bbox, b.bbox)
+    tall = a if (a.leading or 0) >= (b.leading or 0) else b
+    p.leading = tall.leading
+    p._b1 = tall._b1
+    p._size1 = getattr(tall, "_size1", getattr(p, "_size1", 10.0))
+    p._vis_lines = 1
+    p.src_lines = 1
+    p.src_widths = [round(p.bbox[2] - p.bbox[0], 1)]
+    p.space_after = max(a.space_after or 0.0, b.space_after or 0.0)
+    if getattr(p, "_bookmark", None) is None and \
+            getattr(right, "_bookmark", None) is not None:
+        p._bookmark = right._bookmark
+    return p
+
+
+def _row_of(els, i):
+    """The run of one-line fragments from `els[i]` that share its baseline,
+    in flow order."""
+    row = [els[i]]
+    if not _one_line(els[i]):
+        return row
+    j = i + 1
+    while j < len(els) and _one_line(els[j]) and \
+            abs(els[j]._b1 - row[0]._b1) <= ROW_FUSE_BASELINE_TOL:
+        row.append(els[j])
+        j += 1
+    return row
+
+
+def _row_accepted(row, col_l: float, col_r: float) -> bool:
+    """Is this baseline's run of fragments one row to fuse? Two fragments by
+    `_row_fusable`. Three or more are a row of short pieces -- labels under a
+    brace, a contents line's parts -- only when they stand side by side,
+    every piece is short and all are set at one size. Three column-wide lines
+    of prose on shared baselines are three columns, and a sign beside its
+    raised exponents is maths; neither is this rule's
+    (test_rule_less_grid_rows)."""
+    if len(row) < 2:
+        return False
+    if len(row) == 2:
+        return _row_fusable(row[0], row[1], col_l, col_r)
+    xs = sorted(row, key=lambda p: p.bbox[0])
+    if any(b.bbox[0] - a.bbox[2] < ROW_FUSE_MIN_GAP for a, b in zip(xs, xs[1:])):
+        return False
+    sizes = [max((r.size for r in p.runs if r.text.strip()), default=0.0)
+             for p in row]
+    if min(sizes) <= 0 or max(sizes) > ROW_FUSE_MAX_SIZE_RATIO * min(sizes):
+        return False
+    # The leftmost piece may be a row's label -- BLS's "Participation rate
+    # ......" stub, 44% of the column, before five figures that each stood a
+    # line of their own (a 39-page release rendered 46) -- but every piece
+    # after it is short.
+    return all(p.bbox[2] - p.bbox[0] <=
+               ROW_FUSE_MANY_SHARE * max(1.0, col_r - col_l)
+               for p in xs[1:])
+
+
+def _fuse_baseline_rows(chunks: List[Chunk], col_l: float, col_r: float) -> None:
+    """Fuse each one-column chunk's same-baseline fragments (see above), in
+    place. Runs before the chunks are positioned, so the spacing chain is read
+    off the fused rows."""
+    for ch in chunks:
+        if ch.n_cols != 1:
+            continue
+        els, out, i = ch.elements, [], 0
+        while i < len(els):
+            el = els[i]
+            if not isinstance(el, Para):
+                out.append(el)
+                i += 1
+                continue
+            cl, cr = getattr(el, "_col", (col_l, col_r))
+            row = _row_of(els, i)
+            if _row_accepted(row, cl, cr):
+                row = sorted(row, key=lambda p: p.bbox[0])
+                fused = row[0]
+                for p in row[1:]:
+                    fused = _fuse_row(fused, p, cl)
+                out.append(fused)
+            else:
+                # not a row: the fragments keep the flow they had
+                out.extend(row)
+            i += len(row)
+        ch.elements = out
 
 
 def _body_font_size(ir: DocIR, hf) -> float:

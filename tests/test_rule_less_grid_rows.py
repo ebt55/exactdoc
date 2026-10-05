@@ -112,7 +112,10 @@ class GridRows(unittest.TestCase):
         self.assertFalse(any(p.tab_stops for p in paras))
 
     def test_a_lone_row_needs_figures(self):
-        # one row of words, no partner row: a coincidence, left alone
+        # one row of words, no partner row: a coincidence, not a table row --
+        # no figure columns (right stops). Since WP23 the words share one line
+        # (infer._fuse_baseline_rows), each at its source x by a LEFT stop, as
+        # any fragments of one baseline do; before, they stood one per line.
         blocks = [_body(100.0)]
         spans = [_span(t, x, 150.0) for t, x in
                  (("Name", 64.7), ("Date", 300.0), ("Signature", 450.0))]
@@ -121,7 +124,10 @@ class GridRows(unittest.TestCase):
             blocks.append(TextBlock(lines=[ln], bbox=ln.bbox))
         paras, _ = _paras(DocIR(path="t.pdf",
                                 pages=[PageIR(1, 612.0, 792.0, blocks=blocks)]))
-        self.assertFalse(any(p.tab_stops for p in paras))
+        self.assertFalse(any(ts[1] != "left" for p in paras for ts in p.tab_stops))
+        row = [p for p in paras if "Date" in p.text]
+        self.assertEqual(len(row), 1)
+        self.assertEqual(row[0].text, "Name\tDate\tSignature")
 
     def test_figures_closer_than_a_cell_gap_keep_their_word_space(self):
         # y06's EIC tables: cells under 2em apart fall into one fragment, and

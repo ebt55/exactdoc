@@ -1592,6 +1592,11 @@ def _wide_gap_starts_visual_line(prev: _Char, current: _Char,
     fragment_has_text = any(not char.u.isspace() for char in fragment)
     if not (explicit_interword_space and fragment_has_text):
         return True
+    if _same_mono_face(prev, current):
+        # Preformatted text: see _same_mono_face. Its gaps recur at one x
+        # because the text is set on a character grid, not because a gutter
+        # runs there.
+        return False
     # The exemption, bounded: it does not extend to a gap sitting on one of this
     # page's repeated gap positions. See _gutter_xs -- a stretched word space
     # lands wherever the line breaks, a gutter is the same x on every line.
@@ -1637,6 +1642,50 @@ def _short_fragment_text(fragment: List[_Char], limit: int):
     if total > limit:
         return None
     return "".join(parts)
+
+
+def _same_mono_face(prev: _Char, current: _Char) -> bool:
+    """Are both glyphs of one monospace face at one size, the gap between
+    them a whole number of the face's cells -- preformatted text?
+
+    The gutter bound on the justification exemption (`_gutter_xs`) reads a gap
+    position that recurs down the page as a column gutter. In preformatted
+    text every gap recurs: an ASCII-art figure draws its box sides at the same
+    character cell on line after line, and the producer moves over the run of
+    spaces between them after drawing the first. RFC 9000's state diagrams
+    (xml2rfc, WeasyPrint) were cut at their own box sides -- `|` alone at
+    x 116 on one line, `|` alone at x 276 on the next -- and every cut row
+    stood a line taller: page 16 ran 127pt over and took the rest of the
+    document a page late (word recall 0.07). Nobody justifies monospace text,
+    so a gap after an explicit space in it is spaces, and the gap test has
+    already counted them in the face's own cell (_gap_spaces).
+
+    The grid is the evidence, not the face: an OCR text layer is often set in
+    a monospace face with each word placed where the scan has it (y57's
+    Internet Archive layer), so its gaps fall anywhere and its columns are
+    real columns."""
+    if not (prev.mono_hint and current.mono_hint and
+            prev.font == current.font and abs(prev.size - current.size) < 0.01):
+        return False
+    return _on_mono_grid(current.x0 - prev.x1, prev)
+
+
+# A gap is on the monospace grid when it is within this share of a cell of a
+# whole number of cells. Producers place preformatted glyphs at exact
+# multiples (RFC 9000's art: 0.00-0.02 of a cell off); an OCR layer's gaps are
+# spread uniformly over the cell.
+MONO_GRID_TOL = 0.15
+
+
+def _on_mono_grid(gap: float, glyph: _Char) -> bool:
+    """Is `gap` a whole number of `glyph`'s monospace cells (MONO_GRID_TOL)?
+    The cell is the glyph's own advance where it draws one, else the face's
+    nominal MONO_ADV_EM."""
+    cell = glyph.x1 - glyph.x0
+    if cell <= 0.1 * max(glyph.size, 1.0):
+        cell = MONO_ADV_EM * max(glyph.size, 1.0)
+    k = gap / cell
+    return abs(k - round(k)) <= MONO_GRID_TOL
 
 
 def _marker_starts_visual_line(fragment: List[_Char], current: _Char) -> bool:
@@ -1761,6 +1810,19 @@ def _set_into(frag, host, hsz) -> bool:
     return True
 
 
+# A drop cap, for `_absorb_script_rows`: a host of at most DROP_CAP_MAX_GLYPHS
+# glyphs, this many times the size of the text beside it, which starts within
+# DROP_CAP_GAP_EM of the text's own size right of the cap and is a line of it
+# (DROP_CAP_MIN_LINE_GLYPHS or more). SP 800-171's caps are one 51pt glyph over
+# 11pt lines (4.6x) that start 0.1pt right of them; a maths base over its
+# indices is 1.4-1.8x (FIPS 180-4: 12pt over 7pt); an OCR layer's crumbs
+# beside a large misread glyph (y57) are not lines.
+DROP_CAP_SIZE_RATIO = 2.5
+DROP_CAP_MAX_GLYPHS = 2
+DROP_CAP_MIN_LINE_GLYPHS = 12
+DROP_CAP_GAP_EM = 1.0
+
+
 def _absorb_script_rows(vis_rows):
     """Put super/subscript fragments back on the line they belong to.
 
@@ -1836,6 +1898,9 @@ def _absorb_script_rows(vis_rows):
     base_keys = [b for b, _ in by_base]
     reach = SCRIPT_BASE_EM * max(sz, default=0.0) + 1e-6
     absorbed = set()
+    # Ink glyphs per row: a fragment that outnumbers its host is the LINE and
+    # the host is an ornament beside it (see below).
+    n_ink = [sum(1 for c in row if c.u.strip()) for _, row in rows]
     for i, (frag_ri, frag) in enumerate(rows):
         fx0 = x0s[i]
         fb = frag[0].oy
@@ -1845,6 +1910,21 @@ def _absorb_script_rows(vis_rows):
         for j in sorted(by_base[k][1] for k in range(lo, hi)):
             host_ri, host = rows[j]
             if j == i or j in absorbed or host_ri == frag_ri:
+                continue
+            if n_ink[j] <= DROP_CAP_MAX_GLYPHS and \
+                    n_ink[i] >= DROP_CAP_MIN_LINE_GLYPHS and \
+                    sz[j] >= DROP_CAP_SIZE_RATIO * sz[i] and \
+                    0.0 <= fx0 - x1s[j] <= DROP_CAP_GAP_EM * sz[i]:
+                # A drop cap: one glyph several times the size of the text
+                # beside it, whose em box spans that text's lines. SP 800-171's
+                # chapter openings set a 51pt "T" beside three 11pt lines, and
+                # all three were absorbed as its "scripts" and sorted by x
+                # into one line: "Tsfeednesirtaoivld eaa gfyee, ndmceiorearsel"
+                # for "Today, ... sensitive federal ... federal agencies",
+                # 59pt-leading and four lines tall, the page six lines over. A
+                # script is a few glyphs of a line, never more than its host;
+                # but a maths base and its indices are close in size (FIPS
+                # 180-4's 12pt "M" and its 7pt "(i)"), and those still join.
                 continue
             fsz = ink_sz[i] if rtl_row[j] else sz[i]
             hsz = sz[j]
@@ -1889,6 +1969,7 @@ def _absorb_script_rows(vis_rows):
         sz[j] = max(sz[j], fsz)
         x0s[j] = min(x0s[j], fx0)
         x1s[j] = max(x1s[j], x1s[i])
+        n_ink[j] += n_ink[i]
         absorbed.add(i)
     return [row for i, (_, row) in enumerate(rows) if i not in absorbed]
 
@@ -2097,7 +2178,16 @@ def _gap_spaces(prev: _Char, c: _Char, boundary: bool = False,
         # collapsing it once cost 19 unmatched words and 40pt of horizontal
         # drift on a listing.
         n_sp = n_sp if prev.mono_hint else 0
-    return min(max(n_sp, 0), 24)
+    # Preformatted text keeps every cell of its gap: an ASCII-art box side
+    # 27 cells right of the one before it (RFC 9000's state diagrams) came
+    # back 24 cells right under the old cap, and the figure's verticals no
+    # longer met. A line printer's 132 columns bound it. On the grid only
+    # (_on_mono_grid): an OCR layer's monospace gaps are positions, not cells.
+    grid = prev.mono_hint and _on_mono_grid(gap, prev)
+    return min(max(n_sp, 0), MONO_MAX_SPACES if grid else 24)
+
+
+MONO_MAX_SPACES = 132
 
 
 # Two characters of one line never sit on top of each other: kerning moves a
@@ -2442,6 +2532,7 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
                 if record is not None and \
                         c.x0 - prev.x1 > LINE_SPLIT_EM * max(
                             prev.size, c.size, 1.0) and \
+                        not _same_mono_face(prev, c) and \
                         not _wide_gap_starts_visual_line(prev, c, part):
                     record.append((prev.x1 + c.x0) / 2)
                 if _wide_gap_starts_visual_line(prev, c, part, gutters) or \
