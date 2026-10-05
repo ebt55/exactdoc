@@ -1,0 +1,590 @@
+{
+ "what": "WP24 offline analysis of WP19b's live probe 3 (Google's own exports): what the uniform within-2pt drop on 01/03/04/x15/r1/x13 is, and what each WP24 rule is predicted to do, line by line",
+ "date": "2026-10-06",
+ "exports": "C:/lotmp/wp19live3/<doc>.<base|wp19b>/gdocs.pdf (probe 3, base b014c39, wp19b aa7e887)",
+ "within2pt_reference": {
+  "finding": "testkit/harness.py scores within-2pt on the word box's top-left corner. MuPDF reports a base-14 font's box from its own substitute: Helvetica's top 1.075 em above the baseline, Times-Roman's 1.053; Docs' exported Arial 0.905, Times New Roman 0.891. A reportlab/fpdf source set in Helvetica 10.5pt whose baselines Docs reproduces exactly scores every word 1.8pt low. The shipped form set those lines 1-1.5pt high, which the harness counted as within 2pt.",
+  "per_doc_short_promised": {
+   "01_whitepaper_market": {
+    "harness_base": 0.362,
+    "harness_wp19b": 0.1415,
+    "baseline_base": 0.3781,
+    "baseline_wp19b": 0.2548
+   },
+   "02_research_paper": {
+    "harness_base": 0.0888,
+    "harness_wp19b": 0.0888,
+    "baseline_base": 0.6472,
+    "baseline_wp19b": 0.1142
+   },
+   "03_tech_report_code": {
+    "harness_base": 0.263,
+    "harness_wp19b": 0.0554,
+    "baseline_base": 0.3564,
+    "baseline_wp19b": 0.4567
+   },
+   "04_exec_brief": {
+    "harness_base": 0.3254,
+    "harness_wp19b": 0.0888,
+    "baseline_base": 0.2176,
+    "baseline_wp19b": 0.5471
+   },
+   "05_memo": {
+    "harness_base": 0.0,
+    "harness_wp19b": 0.6506,
+    "baseline_base": 0.0361,
+    "baseline_wp19b": 1.0
+   },
+   "c1_whitepaper": {
+    "harness_base": 0.1545,
+    "harness_wp19b": 0.2394,
+    "baseline_base": 0.1515,
+    "baseline_wp19b": 0.2212
+   },
+   "c2_paper2col": {
+    "harness_base": 0.8597,
+    "harness_wp19b": 0.7481,
+    "baseline_base": 0.8615,
+    "baseline_wp19b": 0.7487
+   },
+   "c6_long": {
+    "harness_base": 0.341,
+    "harness_wp19b": 0.8994,
+    "baseline_base": 0.341,
+    "baseline_wp19b": 0.8994
+   },
+   "c7_code": {
+    "harness_base": 0.392,
+    "harness_wp19b": 0.4091,
+    "baseline_base": 0.392,
+    "baseline_wp19b": 0.4091
+   },
+   "c8_toc_links": {
+    "harness_base": 0.0977,
+    "harness_wp19b": 0.8496,
+    "baseline_base": 0.1357,
+    "baseline_wp19b": 0.8571
+   },
+   "f1_fpdf_brief": {
+    "harness_base": 0.121,
+    "harness_wp19b": 0.0968,
+    "baseline_base": 0.3145,
+    "baseline_wp19b": 0.1613
+   },
+   "l1_word_native": {
+    "harness_base": 0.227,
+    "harness_wp19b": 0.234,
+    "baseline_base": 0.2057,
+    "baseline_wp19b": 0.2482
+   },
+   "r1_reportlab_report": {
+    "harness_base": 0.5389,
+    "harness_wp19b": 0.4715,
+    "baseline_base": 0.1347,
+    "baseline_wp19b": 0.6788
+   },
+   "x01_lo_memo_pageno": {
+    "harness_base": 0.2899,
+    "harness_wp19b": 0.4494,
+    "baseline_base": 0.2899,
+    "baseline_wp19b": 0.4494
+   },
+   "x02_lo_report_toc": {
+    "harness_base": 0.7747,
+    "harness_wp19b": 0.792,
+    "baseline_base": 0.7747,
+    "baseline_wp19b": 0.792
+   },
+   "x03_lo_lists_nested": {
+    "harness_base": 0.2881,
+    "harness_wp19b": 1.0,
+    "baseline_base": 0.2881,
+    "baseline_wp19b": 1.0
+   },
+   "x04_lo_tables_plain": {
+    "harness_base": 0.2714,
+    "harness_wp19b": 0.1004,
+    "baseline_base": 0.2714,
+    "baseline_wp19b": 0.1004
+   },
+   "x05_lo_quotes_notes": {
+    "harness_base": 0.7847,
+    "harness_wp19b": 0.8577,
+    "baseline_base": 0.8036,
+    "baseline_wp19b": 0.8727
+   },
+   "x06_lo_euro_scripts": {
+    "harness_base": 0.3398,
+    "harness_wp19b": 0.3301,
+    "baseline_base": 0.3398,
+    "baseline_wp19b": 0.3301
+   },
+   "x07_chrome_memo_running": {
+    "harness_base": 0.0144,
+    "harness_wp19b": 0.0192,
+    "baseline_base": 0.0144,
+    "baseline_wp19b": 0.0192
+   },
+   "x08_chrome_print_default": {
+    "harness_base": 0.0166,
+    "harness_wp19b": 0.0414,
+    "baseline_base": 0.0166,
+    "baseline_wp19b": 0.0415
+   },
+   "x09_chrome_lists_nested": {
+    "harness_base": 0.0293,
+    "harness_wp19b": 0.272,
+    "baseline_base": 0.0293,
+    "baseline_wp19b": 0.272
+   },
+   "x10_chrome_tables_plain": {
+    "harness_base": 0.0224,
+    "harness_wp19b": 0.0634,
+    "baseline_base": 0.0224,
+    "baseline_wp19b": 0.0634
+   },
+   "x11_chrome_toc_headings": {
+    "harness_base": 0.0182,
+    "harness_wp19b": 0.0818,
+    "baseline_base": 0.0178,
+    "baseline_wp19b": 0.0802
+   },
+   "x12_chrome_euro_scripts": {
+    "harness_base": 0.0936,
+    "harness_wp19b": 0.0788,
+    "baseline_base": 0.0936,
+    "baseline_wp19b": 0.0788
+   },
+   "x13_rl_report_running": {
+    "harness_base": 0.4882,
+    "harness_wp19b": 0.441,
+    "baseline_base": 0.3429,
+    "baseline_wp19b": 0.6248
+   },
+   "x14_rl_statement_lines": {
+    "harness_base": 0.4211,
+    "harness_wp19b": 0.5146,
+    "baseline_base": 0.7193,
+    "baseline_wp19b": 0.8889
+   },
+   "x15_rl_handbook_toc": {
+    "harness_base": 0.8558,
+    "harness_wp19b": 0.7664,
+    "baseline_base": 0.3097,
+    "baseline_wp19b": 0.9344
+   },
+   "x16_fpdf_bulletin": {
+    "harness_base": 0.0233,
+    "harness_wp19b": 0.0233,
+    "baseline_base": 0.3135,
+    "baseline_wp19b": 0.3212
+   },
+   "x17_resume_twocol": {
+    "harness_base": 0.1661,
+    "harness_wp19b": 0.185,
+    "baseline_base": 0.1536,
+    "baseline_wp19b": 0.1693
+   },
+   "x18_resume_twocol_tnr": {
+    "harness_base": 0.1732,
+    "harness_wp19b": 0.1928,
+    "baseline_base": 0.1569,
+    "baseline_wp19b": 0.1797
+   },
+   "y20_typst_report": {
+    "harness_base": 0.0398,
+    "harness_wp19b": 0.0144,
+    "baseline_base": 0.038,
+    "baseline_wp19b": 0.0
+   },
+   "y29_uk_letter_word365": {
+    "harness_base": 0.1002,
+    "harness_wp19b": 0.5047,
+    "baseline_base": 0.1024,
+    "baseline_wp19b": 0.5335
+   },
+   "y31_uk_policy_printtopdf": {
+    "harness_base": 0.0225,
+    "harness_wp19b": 0.0238,
+    "baseline_base": 0.0248,
+    "baseline_wp19b": 0.0285
+   },
+   "y35_uk_rates_excel365": {
+    "harness_base": 0.1041,
+    "harness_wp19b": 0.4192,
+    "baseline_base": 0.1044,
+    "baseline_wp19b": 0.4676
+   },
+   "y44_cv_rendercv_typst": {
+    "harness_base": 0.0147,
+    "harness_wp19b": 0.0943,
+    "baseline_base": 0.0232,
+    "baseline_wp19b": 0.1404
+   },
+   "y45_cv_academic_pdftex": {
+    "harness_base": 0.1236,
+    "harness_wp19b": 0.1679,
+    "baseline_base": 0.123,
+    "baseline_wp19b": 0.1646
+   },
+   "y46_cv_twocol_xdvipdfmx": {
+    "harness_base": 0.0644,
+    "harness_wp19b": 0.0,
+    "baseline_base": 0.0,
+    "baseline_wp19b": 0.0
+   },
+   "y62_bill_gpo_linenum": {
+    "harness_base": 0.0582,
+    "harness_wp19b": 0.0816,
+    "baseline_base": 0.0383,
+    "baseline_wp19b": 0.0806
+   },
+   "y63_court_pleading_word365": {
+    "harness_base": 0.0096,
+    "harness_wp19b": 0.1395,
+    "baseline_base": 0.0095,
+    "baseline_wp19b": 0.1385
+   },
+   "y65_nrc_jasperreports": {
+    "harness_base": 0.1245,
+    "harness_wp19b": 0.2012,
+    "baseline_base": 0.1266,
+    "baseline_wp19b": 0.1929
+   }
+  }
+ },
+ "data_tables": {
+  "what": "role table/striped-table, >=2 rows, baselines, probe-3 exports",
+  "stats": {
+   "top-prev": {
+    "n": 81,
+    "median": 1.39,
+    "p25": 0.85,
+    "p75": 2.3
+   },
+   "grow/row": {
+    "n": 108,
+    "median": 0.57,
+    "p25": 0.4,
+    "p75": 0.76
+   },
+   "next-last": {
+    "n": 65,
+    "median": 1.01,
+    "p25": 0.66,
+    "p75": 1.64
+   }
+  }
+ },
+ "line_replay_wp19b_to_wp24": {
+  "what": "lines within 2pt of their source baseline: probe-3 Docs baselines moved by the change in emitted gaps (wp19b tree -> wp24 tree). Line counts are Docs' own from the old export; pages whose line multiples changed (now written in the shipped form) are not replayed.",
+  "docs": {
+   "01_whitepaper_market": {
+    "lines": 66,
+    "wp19b": 0.424,
+    "wp24": 0.97,
+    "pages_not_replayed": 0
+   },
+   "02_research_paper": {
+    "lines": 49,
+    "wp19b": 0.286,
+    "wp24": 0.286,
+    "pages_not_replayed": 1
+   },
+   "03_tech_report_code": {
+    "lines": 44,
+    "wp19b": 0.795,
+    "wp24": 0.886,
+    "pages_not_replayed": 0
+   },
+   "04_exec_brief": {
+    "lines": 21,
+    "wp19b": 0.857,
+    "wp24": 1.0,
+    "pages_not_replayed": 0
+   },
+   "05_memo": {
+    "lines": 11,
+    "wp19b": 1.0,
+    "wp24": 1.0,
+    "pages_not_replayed": 0
+   },
+   "c1_whitepaper": {
+    "lines": 28,
+    "wp19b": 0.571,
+    "wp24": 0.857,
+    "pages_not_replayed": 0
+   },
+   "c2_paper2col": {
+    "lines": 37,
+    "wp19b": 0.703,
+    "wp24": 0.703,
+    "pages_not_replayed": 1
+   },
+   "c6_long": {
+    "lines": 201,
+    "wp19b": 1.0,
+    "wp24": 1.0,
+    "pages_not_replayed": 0
+   },
+   "c7_code": {
+    "lines": 26,
+    "wp19b": 0.885,
+    "wp24": 0.885,
+    "pages_not_replayed": 0
+   },
+   "c8_toc_links": {
+    "lines": 17,
+    "wp19b": 1.0,
+    "wp24": 1.0,
+    "pages_not_replayed": 0
+   },
+   "f1_fpdf_brief": {
+    "lines": 12,
+    "wp19b": 0.75,
+    "wp24": 1.0,
+    "pages_not_replayed": 0
+   },
+   "l1_word_native": {
+    "lines": 19,
+    "wp19b": 0.632,
+    "wp24": 0.684,
+    "pages_not_replayed": 0
+   },
+   "r1_reportlab_report": {
+    "lines": 21,
+    "wp19b": 0.667,
+    "wp24": 0.905,
+    "pages_not_replayed": 0
+   },
+   "x01_lo_memo_pageno": {
+    "lines": 50,
+    "wp19b": 1.0,
+    "wp24": 1.0,
+    "pages_not_replayed": 0
+   },
+   "x02_lo_report_toc": {
+    "lines": 65,
+    "wp19b": 1.0,
+    "wp24": 1.0,
+    "pages_not_replayed": 0
+   },
+   "x03_lo_lists_nested": {
+    "lines": 34,
+    "wp19b": 1.0,
+    "wp24": 1.0,
+    "pages_not_replayed": 0
+   },
+   "x04_lo_tables_plain": {
+    "lines": 31,
+    "wp19b": 0.29,
+    "wp24": 1.0,
+    "pages_not_replayed": 0
+   },
+   "x05_lo_quotes_notes": {
+    "lines": 25,
+    "wp19b": 1.0,
+    "wp24": 1.0,
+    "pages_not_replayed": 0
+   },
+   "x06_lo_euro_scripts": {
+    "lines": 23,
+    "wp19b": 0.565,
+    "wp24": 1.0,
+    "pages_not_replayed": 0
+   },
+   "x07_chrome_memo_running": {
+    "lines": 61,
+    "wp19b": 0.262,
+    "wp24": 0.262,
+    "pages_not_replayed": 1
+   },
+   "x08_chrome_print_default": {
+    "lines": 53,
+    "wp19b": 0.566,
+    "wp24": 0.566,
+    "pages_not_replayed": 0
+   },
+   "x09_chrome_lists_nested": {
+    "lines": 34,
+    "wp19b": 1.0,
+    "wp24": 1.0,
+    "pages_not_replayed": 0
+   },
+   "x10_chrome_tables_plain": {
+    "lines": 29,
+    "wp19b": 0.207,
+    "wp24": 0.828,
+    "pages_not_replayed": 0
+   },
+   "x11_chrome_toc_headings": {
+    "lines": 54,
+    "wp19b": 0.5,
+    "wp24": 0.5,
+    "pages_not_replayed": 0
+   },
+   "x12_chrome_euro_scripts": {
+    "lines": 22,
+    "wp19b": 0.545,
+    "wp24": 1.0,
+    "pages_not_replayed": 0
+   },
+   "x13_rl_report_running": {
+    "lines": 62,
+    "wp19b": 0.677,
+    "wp24": 0.984,
+    "pages_not_replayed": 0
+   },
+   "x14_rl_statement_lines": {
+    "lines": 19,
+    "wp19b": 1.0,
+    "wp24": 1.0,
+    "pages_not_replayed": 0
+   },
+   "x15_rl_handbook_toc": {
+    "lines": 55,
+    "wp19b": 1.0,
+    "wp24": 1.0,
+    "pages_not_replayed": 0
+   },
+   "x16_fpdf_bulletin": {
+    "lines": 31,
+    "wp19b": 0.677,
+    "wp24": 0.935,
+    "pages_not_replayed": 0
+   },
+   "x17_resume_twocol": {
+    "lines": 28,
+    "wp19b": 0.893,
+    "wp24": 0.893,
+    "pages_not_replayed": 0
+   },
+   "x18_resume_twocol_tnr": {
+    "lines": 27,
+    "wp19b": 0.926,
+    "wp24": 0.926,
+    "pages_not_replayed": 0
+   },
+   "y20_typst_report": {
+    "lines": 90,
+    "wp19b": 0.078,
+    "wp24": 0.078,
+    "pages_not_replayed": 1
+   },
+   "y29_uk_letter_word365": {
+    "lines": 112,
+    "wp19b": 0.759,
+    "wp24": 0.759,
+    "pages_not_replayed": 0
+   },
+   "y31_uk_policy_printtopdf": {
+    "lines": 332,
+    "wp19b": 0.401,
+    "wp24": 0.401,
+    "pages_not_replayed": 0
+   },
+   "y35_uk_rates_excel365": {
+    "lines": 520,
+    "wp19b": 0.95,
+    "wp24": 0.95,
+    "pages_not_replayed": 2
+   },
+   "y44_cv_rendercv_typst": {
+    "lines": 82,
+    "wp19b": 0.317,
+    "wp24": 0.317,
+    "pages_not_replayed": 0
+   },
+   "y45_cv_academic_pdftex": {
+    "lines": 70,
+    "wp19b": 0.543,
+    "wp24": 0.543,
+    "pages_not_replayed": 0
+   },
+   "y46_cv_twocol_xdvipdfmx": {
+    "lines": 36,
+    "wp19b": 0.0,
+    "wp24": 0.0,
+    "pages_not_replayed": 1
+   },
+   "y62_bill_gpo_linenum": {
+    "lines": 374,
+    "wp19b": 0.508,
+    "wp24": 0.508,
+    "pages_not_replayed": 0
+   },
+   "y63_court_pleading_word365": {
+    "lines": 86,
+    "wp19b": 0.372,
+    "wp24": 0.372,
+    "pages_not_replayed": 1
+   },
+   "y65_nrc_jasperreports": {
+    "lines": 14,
+    "wp19b": 0.5,
+    "wp24": 0.929,
+    "pages_not_replayed": 1
+   },
+   "y01_nist_sp80063b": {
+    "lines": 2560,
+    "wp19b": 0.525,
+    "wp24": 0.528,
+    "pages_not_replayed": 2
+   },
+   "y03_nist_fips197": {
+    "lines": 859,
+    "wp19b": 0.386,
+    "wp24": 0.426,
+    "pages_not_replayed": 10
+   },
+   "y08_nist_sp80088r1": {
+    "lines": 1962,
+    "wp19b": 0.669,
+    "wp24": 0.698,
+    "pages_not_replayed": 5
+   },
+   "y09_nist_sp800207": {
+    "lines": 1613,
+    "wp19b": 0.587,
+    "wp24": 0.588,
+    "pages_not_replayed": 6
+   },
+   "y17_rfc9110": {
+    "lines": 6360,
+    "wp19b": 0.783,
+    "wp24": 0.793,
+    "pages_not_replayed": 0
+   },
+   "y24_pandoc_manual": {
+    "lines": 4165,
+    "wp19b": 0.718,
+    "wp24": 0.721,
+    "pages_not_replayed": 6
+   },
+   "y26_bash_reference": {
+    "lines": 6110,
+    "wp19b": 0.585,
+    "wp24": 0.591,
+    "pages_not_replayed": 47
+   },
+   "y30_nz_guideline_word365": {
+    "lines": 941,
+    "wp19b": 0.603,
+    "wp24": 0.655,
+    "pages_not_replayed": 0
+   },
+   "y32_uk_response_gdocs": {
+    "lines": 548,
+    "wp19b": 0.781,
+    "wp24": 0.781,
+    "pages_not_replayed": 1
+   },
+   "y36_lo_writer_guide": {
+    "lines": 716,
+    "wp19b": 0.492,
+    "wp24": 0.518,
+    "pages_not_replayed": 0
+   }
+  }
+ }
+}

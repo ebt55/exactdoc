@@ -20,6 +20,43 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **WP19b's live flight, read line by line (WP24).** Probe 3 flew WP19b on
+  all 62 promised documents; Google's exports, aligned with the sources
+  baseline by baseline (`docs/evidence/gdocs-2026-10-06-wp24-offline.json`),
+  say what its blockers were:
+  - The "uniform 2-3pt offset" on 03, 04, x15, r1 and x13 is the metric's
+    reference point, not placement: the harness scores a word's box top,
+    and MuPDF draws an unembedded Helvetica's 1.075 em above the baseline
+    where Docs' Arial says 0.905. Scored at the baseline, WP19b raised them
+    (03 0.356 -> 0.457, 04 0.218 -> 0.547, x15 0.310 -> 0.934, r1 0.135 ->
+    0.679, x13 0.343 -> 0.625) as the harness's numbers fell.
+  - A page the line model cannot add up (columns, a column break) got the
+    corrected line heights without the moves: y46 1 -> 2 pages, 02's
+    columns 0.647 -> 0.114 at the baseline. Such a page is written in the
+    shipped form again, byte for byte (`WriteCtx.gdocs_calibrated`;
+    `GDOCS_UNMODELLED_SHIPPED`, which the probe flies both ways for y12).
+  - A data table stands taller in Docs than the source -- first line
+    +1.23pt (n=53), +0.68 a row (n=70), the line after +0.93 (n=33) -- and
+    nothing paid it, so every line under a five-row table sat ~5pt low (01,
+    x04, f1, r1, x13, x10). Its spacer pays its top, the gaps under it the
+    rest. The cover page's rules and pictures pay their excess (01's body
+    sat 2.9pt low under one); a quote's space after rides on the next gap
+    (04's heading 6.5pt high); a re-wrap the width tables cannot see
+    (Cyrillic, Greek) gives no line to the gap under it (x06 stepped down
+    14.5, 28.8 and 43.4pt); a box standing past the column keeps its widest
+    line's room (03's warning box, one line set as two).
+
+  Replayed against the probe-3 exports (lines within 2pt of the source
+  baseline, an estimate; the live probe decides): 01 0.424 -> 0.970, 04
+  0.857 -> 1.000, x04 0.290 -> 1.000, x06 0.565 -> 1.000, f1 0.750 -> 1.000,
+  r1 0.667 -> 0.905, x13 0.677 -> 0.984, x10 0.207 -> 0.828, c1 0.571 ->
+  0.857. y46 and c2 are again identical to integration. The capability
+  `anchor_pictures` (WP23's pictures on a line, wrapped or in a margin,
+  anchored without the rest of `anchored`) is built and withheld from
+  gdocs; `testkit/gdocs_probe_anchors.py` writes the set that decides it.
+  The standard profile is byte-identical on all 90 convertible documents;
+  gate PASS in both lanes at the recorded numbers.
+
 - **Google Docs sets every line where the source drew it: Docs' own line
   placement on every page, the box and quote gaps it dropped, the page-top
   holder on (WP19b).** WP19 calibrated only pages at risk, because the
