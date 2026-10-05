@@ -1,0 +1,109 @@
+{
+ "what": "WP26 (cut longtables) flown live through Google Docs before merge",
+ "date": "2026-10-06",
+ "profile": "gdocs candidate (options.PDFIUM_GDOCS_CANDIDATE)",
+ "base": "integration 4cd018f",
+ "candidate": "WP26 d5b8502",
+ "rows": [
+  {
+   "doc": "c3_tables",
+   "v": "base",
+   "src_pages": 3,
+   "out_pages": 3,
+   "word_recall": 0.9809,
+   "within2pt": 0.0,
+   "dy_p50": 7.87,
+   "mean_ssim": 0.7725,
+   "live_text_cov": 0.9981,
+   "char_recall": 0.9816
+  },
+  {
+   "doc": "c3_tables",
+   "v": "wp26",
+   "src_pages": 3,
+   "out_pages": 3,
+   "word_recall": 0.9809,
+   "within2pt": 0.0,
+   "dy_p50": 7.87,
+   "mean_ssim": 0.7725,
+   "live_text_cov": 0.9981,
+   "char_recall": 0.9816
+  },
+  {
+   "doc": "x04_lo_tables_plain",
+   "v": "base",
+   "src_pages": 1,
+   "out_pages": 1,
+   "word_recall": 0.9926,
+   "within2pt": 0.2714,
+   "dy_p50": 2.37,
+   "mean_ssim": 0.7328,
+   "live_text_cov": 1.0,
+   "char_recall": 1.0
+  },
+  {
+   "doc": "x04_lo_tables_plain",
+   "v": "wp26",
+   "src_pages": 1,
+   "out_pages": 1,
+   "word_recall": 0.9926,
+   "within2pt": 0.2714,
+   "dy_p50": 2.37,
+   "mean_ssim": 0.7328,
+   "live_text_cov": 1.0,
+   "char_recall": 1.0
+  },
+  {
+   "doc": "x10_chrome_tables_plain",
+   "v": "base",
+   "src_pages": 2,
+   "out_pages": 2,
+   "word_recall": 1.0,
+   "within2pt": 0.0224,
+   "dy_p50": 13.21,
+   "mean_ssim": 0.8118,
+   "live_text_cov": 1.0,
+   "char_recall": 1.0
+  },
+  {
+   "doc": "x10_chrome_tables_plain",
+   "v": "wp26",
+   "src_pages": 2,
+   "out_pages": 2,
+   "word_recall": 1.0,
+   "within2pt": 0.0224,
+   "dy_p50": 13.21,
+   "mean_ssim": 0.8118,
+   "live_text_cov": 1.0,
+   "char_recall": 1.0
+  },
+  {
+   "doc": "y24_pandoc_manual",
+   "v": "base",
+   "src_pages": 180,
+   "out_pages": 181,
+   "word_recall": 0.5479,
+   "within2pt": 0.0606,
+   "dy_p50": 8.72,
+   "mean_ssim": 0.7501,
+   "live_text_cov": 0.9927,
+   "char_recall": 0.8013
+  },
+  {
+   "doc": "y24_pandoc_manual",
+   "v": "wp26",
+   "src_pages": 180,
+   "out_pages": 180,
+   "word_recall": 0.9906,
+   "within2pt": 0.065,
+   "dy_p50": 4.99,
+   "mean_ssim": 0.7864,
+   "live_text_cov": 0.9929,
+   "char_recall": 0.9996
+  }
+ ],
+ "notes": [
+  "y24 181 -> 180 pages for 180, word recall 0.548 -> 0.991: passes criterion 5 in Docs",
+  "c3, x04, x10 identical"
+ ]
+}
