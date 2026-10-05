@@ -27,8 +27,8 @@ one verified fix at a time, each gated against the frozen 16.
     the rest of the item;
   - a run-in numbered paragraph ("2." at the margin) is one paragraph;
   - a rule drawn as abutting segments, split differently on versos and
-    rectos, is signed as one rule;
-  - a head rule drawn just past TOPZ is the head's.
+    rectos, is signed as one rule. EUR-Lex's head rule is left in the body
+    (measured again: in the header it cost the gdocs DOCX 21 pages).
   *LibreOffice Writer Guide* (y36):
   - a recto foot naming the current section is varying furniture, because
     it carries the folio;
@@ -47,8 +47,9 @@ one verified fix at a time, each gated against the frozen 16.
   - grids side by side on one band are one table.
   *Refine*: no page is pushed down while another spills; that push turned
   y18's 145-page round into 150.
-  LibreOffice raw, final tree against fb5dbdb, all 90 documents, none worse:
-  - y18 240 -> 153 pages (char recall 0.583 -> 0.834);
+  LibreOffice raw, final tree against the integration head, all 90 documents,
+  none worse:
+  - y18 240 -> 157 pages (char recall 0.583 -> 0.817);
   - y36 36 -> 25 (0.465 -> 1.000);
   - y03 58 -> 53;
   - y24 185 -> 182 (0.683 -> 0.782);
@@ -60,7 +61,10 @@ one verified fix at a time, each gated against the frozen 16.
   - y36 26 -> 25 (0.788 -> 1.000);
   - y18 stays 144;
   - y28 and y40 lose 0.009 and 0.006 char recall at the same page counts.
-  Word: y18 250 -> 160, y36 36 -> 25, y03 64 -> 53.
+  Word: y18 250 -> 160 (measured before the head-rule revert), y36 36 -> 25,
+  y03 64 -> 53.
+  gdocs DOCX rendered by LibreOffice: y18 145 -> 144 (char recall 0.870 ->
+  0.988), y36 28 -> 25, y03 55 -> 51.
   Gated: unchanged, gate PASS in both lanes.
   Not fixed: y52 (CJK line packing, which the WP2 footers no longer hide)
   and y24's p44-45 tables cut by page breaks.
