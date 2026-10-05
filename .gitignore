@@ -85,3 +85,6 @@ exactdoc — *.md
 # tracked doc ends in -plan.md.
 *-plan.md
 .codex/
+
+# measurement scratch (scripts/dev)
+.scratch/
