@@ -1,0 +1,348 @@
+{
+ "what": "WP28: beta criteria 8 and 12. Bisect of the two criterion-8 regressions against the accepted wp18-m2 raw sweep, y26's token diff, the y61 fix measured in the canonical container (raw, gdocs and product), and the gate.",
+ "tree": {
+  "base": "4cd018f",
+  "fix": "71859b6"
+ },
+ "bisect_raw_only_y26_y61": [
+  {
+   "merge": "92c542c",
+   "what": "accepted tree (wp18-m2)",
+   "y26_bash_reference": {
+    "src_pages": 214,
+    "out_pages": 216,
+    "word_recall": 0.9244,
+    "doc_recall": 0.9924,
+    "char_recall": 0.9762,
+    "live_text_cov": 0.9845,
+    "within2pt": 0.0625,
+    "dy_p50": 13.1
+   },
+   "y61_fedreg_gpo_3col": {
+    "src_pages": 4,
+    "out_pages": 7,
+    "word_recall": 0.4012,
+    "doc_recall": 0.9562,
+    "char_recall": 0.5903,
+    "live_text_cov": 0.9395,
+    "within2pt": 0.0054,
+    "dy_p50": 33.33
+   }
+  },
+  {
+   "merge": "9c31154",
+   "what": "WP20",
+   "y26_bash_reference": {
+    "src_pages": 214,
+    "out_pages": 216,
+    "word_recall": 0.9244,
+    "doc_recall": 0.9924,
+    "char_recall": 0.9762,
+    "live_text_cov": 0.9845,
+    "within2pt": 0.0625,
+    "dy_p50": 13.1
+   },
+   "y61_fedreg_gpo_3col": {
+    "src_pages": 4,
+    "out_pages": 7,
+    "word_recall": 0.4012,
+    "doc_recall": 0.9562,
+    "char_recall": 0.5903,
+    "live_text_cov": 0.9395,
+    "within2pt": 0.0054,
+    "dy_p50": 33.33
+   }
+  },
+  {
+   "merge": "7a969e2",
+   "what": "WP20b",
+   "y26_bash_reference": {
+    "src_pages": 214,
+    "out_pages": 216,
+    "word_recall": 0.9244,
+    "doc_recall": 0.9924,
+    "char_recall": 0.9762,
+    "live_text_cov": 0.9845,
+    "within2pt": 0.0625,
+    "dy_p50": 13.1
+   },
+   "y61_fedreg_gpo_3col": {
+    "src_pages": 4,
+    "out_pages": 7,
+    "word_recall": 0.4012,
+    "doc_recall": 0.9562,
+    "char_recall": 0.5903,
+    "live_text_cov": 0.9395,
+    "within2pt": 0.0054,
+    "dy_p50": 33.33
+   }
+  },
+  {
+   "merge": "93531fa",
+   "what": "WP21",
+   "y26_bash_reference": {
+    "src_pages": 214,
+    "out_pages": 216,
+    "word_recall": 0.9244,
+    "doc_recall": 0.9924,
+    "char_recall": 0.9762,
+    "live_text_cov": 0.9845,
+    "within2pt": 0.0625,
+    "dy_p50": 13.1
+   },
+   "y61_fedreg_gpo_3col": {
+    "src_pages": 4,
+    "out_pages": 7,
+    "word_recall": 0.4012,
+    "doc_recall": 0.9562,
+    "char_recall": 0.5903,
+    "live_text_cov": 0.9395,
+    "within2pt": 0.0054,
+    "dy_p50": 33.33
+   }
+  },
+  {
+   "merge": "738bd2e",
+   "what": "WP19",
+   "y26_bash_reference": {
+    "src_pages": 214,
+    "out_pages": 216,
+    "word_recall": 0.9244,
+    "doc_recall": 0.9924,
+    "char_recall": 0.9762,
+    "live_text_cov": 0.9845,
+    "within2pt": 0.0625,
+    "dy_p50": 13.1
+   },
+   "y61_fedreg_gpo_3col": {
+    "src_pages": 4,
+    "out_pages": 7,
+    "word_recall": 0.4012,
+    "doc_recall": 0.9562,
+    "char_recall": 0.5903,
+    "live_text_cov": 0.9395,
+    "within2pt": 0.0054,
+    "dy_p50": 33.33
+   }
+  },
+  {
+   "merge": "aeb98fb",
+   "what": "WP22",
+   "y26_bash_reference": {
+    "src_pages": 214,
+    "out_pages": 213,
+    "word_recall": 0.9525,
+    "doc_recall": 0.9712,
+    "char_recall": 0.9872,
+    "live_text_cov": 0.9795,
+    "within2pt": 0.1125,
+    "dy_p50": 12.0
+   },
+   "y61_fedreg_gpo_3col": {
+    "src_pages": 4,
+    "out_pages": 7,
+    "word_recall": 0.4026,
+    "doc_recall": 0.9562,
+    "char_recall": 0.5906,
+    "live_text_cov": 0.9395,
+    "within2pt": 0.0054,
+    "dy_p50": 39.04
+   }
+  },
+  {
+   "merge": "2bdfa59",
+   "what": "WP23",
+   "y26_bash_reference": {
+    "src_pages": 214,
+    "out_pages": 213,
+    "word_recall": 0.9525,
+    "doc_recall": 0.9712,
+    "char_recall": 0.9872,
+    "live_text_cov": 0.9803,
+    "within2pt": 0.1142,
+    "dy_p50": 12.92
+   },
+   "y61_fedreg_gpo_3col": {
+    "src_pages": 4,
+    "out_pages": 7,
+    "word_recall": 0.4026,
+    "doc_recall": 0.9562,
+    "char_recall": 0.5906,
+    "live_text_cov": 0.9395,
+    "within2pt": 0.0054,
+    "dy_p50": 39.04
+   }
+  },
+  {
+   "merge": "f5e0396",
+   "what": "WP20c",
+   "y26_bash_reference": {
+    "src_pages": 214,
+    "out_pages": 213,
+    "word_recall": 0.9525,
+    "doc_recall": 0.9712,
+    "char_recall": 0.9872,
+    "live_text_cov": 0.9803,
+    "within2pt": 0.1142,
+    "dy_p50": 12.92
+   },
+   "y61_fedreg_gpo_3col": {
+    "src_pages": 4,
+    "out_pages": 7,
+    "word_recall": 0.4026,
+    "doc_recall": 0.9562,
+    "char_recall": 0.5906,
+    "live_text_cov": 0.9395,
+    "within2pt": 0.0054,
+    "dy_p50": 39.04
+   }
+  }
+ ],
+ "y26_token_diff": {
+  "note": "harness.page_words over the source and the two LibreOffice renders (accepted wp18-m2 kept render vs checkpoint kept render)",
+  "doc_recall": [
+   0.9924,
+   0.9712
+  ],
+  "render_dot_tokens": [
+   21081,
+   18812
+  ],
+  "source_dot_tokens": 21055,
+  "missing_source_tokens": [
+   796,
+   3027
+  ],
+  "newly_missing_by_type": {
+   ".": 2243,
+   "18 other types (hyphenation splits)": 18
+  },
+  "no_longer_missing": 30,
+  "docx": {
+   "tab_runs": [
+    28,
+    764
+   ],
+   "spaced_leader_runs_matching '. . .'": [
+    6849,
+    6108
+   ]
+  },
+  "verdict": "leader dots trimmed by WP22's _spaced_leader_para so an entry fits before its number's right tab; no prose lost; y26 216 -> 213 pages for 214, word recall 0.9244 -> 0.9525. Scorer question, WP29."
+ },
+ "opens_rule_census": {
+  "fires": 314,
+  "y18_eurlex_ai_act": 304,
+  "y25_texbytopic": 8,
+  "y23_luatex": 1,
+  "y61_fedreg_gpo_3col": 1,
+  "target_not_first_line_of_its_block": [
+   "y61 (line 11 of 14)",
+   "y25 (line 2 of 2)",
+   "y25 (line 6 of 6)"
+  ],
+  "note": "y23 and y25 are outside the measured 90 (refused)"
+ },
+ "raw_sweep_vs_checkpoint": {
+  "documents": 90,
+  "moved": [
+   "y61_fedreg_gpo_3col"
+  ],
+  "y61": {
+   "before": {
+    "src_pages": 4,
+    "out_pages": 7,
+    "word_recall": 0.4026,
+    "doc_recall": 0.9562,
+    "char_recall": 0.5906,
+    "live_text_cov": 0.9395,
+    "within2pt": 0.0054,
+    "dy_p50": 39.04
+   },
+   "after": {
+    "src_pages": 4,
+    "out_pages": 7,
+    "word_recall": 0.4012,
+    "doc_recall": 0.9562,
+    "char_recall": 0.5903,
+    "live_text_cov": 0.9395,
+    "within2pt": 0.0054,
+    "dy_p50": 33.33
+   }
+  },
+  "word_xml_identical": "89 of 90 (y61 differs: document.xml, numbering.xml)",
+  "summary_unchanged": {
+   "documents": 90,
+   "errors": 0,
+   "mean_abs_ratio_err": 0.1288,
+   "mean_char_doc_recall": 0.9808,
+   "mean_char_recall": 0.8561,
+   "mean_doc_recall": 0.9473,
+   "mean_edit_score": 0.6286,
+   "mean_live_text_cov": 0.9459,
+   "mean_ssim": 0.6988,
+   "mean_within2pt": 0.2743,
+   "mean_word_recall": 0.7595,
+   "measured": 90,
+   "median_ratio": 1.0,
+   "page_exact": 59,
+   "refused": 0,
+   "total_convert_s": 1837.1
+  }
+ },
+ "gdocs_sweep_vs_base": {
+  "documents": 90,
+  "word_xml_identical": "89 of 90 (y61 differs)",
+  "y61": {
+   "before": {
+    "src_pages": 4,
+    "out_pages": 7,
+    "word_recall": 0.4009,
+    "doc_recall": 0.9562,
+    "char_recall": 0.5903,
+    "live_text_cov": 0.9395,
+    "within2pt": 0.0054,
+    "dy_p50": 33.88
+   },
+   "after": {
+    "src_pages": 4,
+    "out_pages": 7,
+    "word_recall": 0.4012,
+    "doc_recall": 0.9562,
+    "char_recall": 0.5903,
+    "live_text_cov": 0.9395,
+    "within2pt": 0.0054,
+    "dy_p50": 33.94
+   }
+  }
+ },
+ "product_y61": {
+  "before": {
+   "src_pages": 4,
+   "out_pages": 6,
+   "word_recall": 0.4378,
+   "doc_recall": 0.9559,
+   "char_recall": 0.6309,
+   "live_text_cov": 0.9395,
+   "within2pt": 0.005,
+   "dy_p50": 43.02
+  },
+  "after": {
+   "src_pages": 4,
+   "out_pages": 6,
+   "word_recall": 0.438,
+   "doc_recall": 0.9559,
+   "char_recall": 0.6309,
+   "live_text_cov": 0.9395,
+   "within2pt": 0.0049,
+   "dy_p50": 45.2
+  }
+ },
+ "gate": {
+  "tests": 1587,
+  "ok": true,
+  "failed_steps": 0,
+  "product": "PASS pagematch 16/16 within2pt 0.7209",
+  "raw": "PASS pagematch 16/16 within2pt 0.5463"
+ }
+}
