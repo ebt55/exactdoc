@@ -563,6 +563,24 @@ class ContentsLineWords(unittest.TestCase):
         q = _gdocs_typed_leader(p)
         self.assertEqual(q.runs[1].text, "." * 6)
 
+    def test_the_gdocs_typed_leader_never_overruns_its_stop(self):
+        # Live: FIPS 180-4's chapter entries, their text a marker space wider
+        # than the source's, ran a few points past the stop and Docs put
+        # each page number on a line of its own.
+        from exactdoc.docxout import _runs_width, _text_metrics
+        label = Run("2. DEFINITIONS ", "Times-Bold", 10.0, "#000000", bold=True,
+                    serif=True)
+        p = Para(runs=[label, Run("\t", "Times-Roman", 10.0, "#000000", is_tab=True),
+                       Run("4", "Times-Bold", 10.0, "#000000", bold=True, serif=True)],
+                 left_indent=19.6, tab_stops=[(468.0, "right", "dot")],
+                 leader_text="." * 400)
+        q = _gdocs_typed_leader(p)
+        m = _text_metrics("gdocs")
+        used = 19.6 + _runs_width(q.runs[:2], m, "gdocs") + \
+            _runs_width(q.runs[3:], m, "gdocs")
+        self.assertLess(used, 468.0)
+        self.assertGreater(len(q.runs[1].text), 100)
+
 
 if __name__ == "__main__":
     unittest.main()

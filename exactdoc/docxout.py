@@ -955,6 +955,57 @@ _PPR_AFTER_SUPPRESS_HYPHENS = (
 _GDOCS_LEADER_SLACK = 2
 
 
+def _runs_width(runs, metrics, profile: str) -> Optional[float]:
+    """The width `runs` set on one line (no tabs), or None if unmeasurable."""
+    from .metrics import shaped_size
+    total = 0.0
+    for r in runs:
+        if r.is_tab or not r.text:
+            continue
+        fam = map_font(r.font, mono=r.mono, serif=r.serif, profile=profile)
+        w = metrics.text_width(r.text, fam, shaped_size(r), bold=r.bold,
+                               italic=r.italic)
+        if w is None:
+            return None
+        total += w
+    return total
+
+
+def _typed_leader_room(p: Para, i: int) -> Optional[int]:
+    """How many dots fit between the text before leader tab `i` and the
+    number after it, against the dot stop -- or None where that cannot be
+    measured (no stop, a face without widths)."""
+    stop = next((ts[0] for ts in p.tab_stops
+                 if len(ts) > 2 and ts[2] == "dot"), None)
+    metrics = _text_metrics("gdocs")
+    if stop is None or metrics is None:
+        return None
+    x = (p.left_indent or 0.0) + (p.first_indent or 0.0)   # the first line's start
+    plain =sorted(ts[0] for ts in p.tab_stops if not (len(ts) > 2 and ts[2] == "dot"))
+    seg = []
+    for k, r in enumerate(p.runs[:i]):
+        if r.is_tab:
+            w = _runs_width(seg, metrics, "gdocs")
+            if w is None:
+                return None
+            x += w
+            x = next((s for s in plain if s > x + 0.01), x)
+            seg = []
+        else:
+            seg.append(r)
+    label = _runs_width(seg, metrics, "gdocs")
+    num = _runs_width(p.runs[i + 1:], metrics, "gdocs")
+    if label is None or num is None:
+        return None
+    ref = p.runs[i]
+    dot = _runs_width([dataclasses.replace(ref, text=".", is_tab=False)],
+                      metrics, "gdocs")
+    if not dot:
+        return None
+    room = stop - (x + label) - num
+    return max(0, int(room // dot))
+
+
 def _gdocs_typed_leader(p: Para) -> Para:
     """`p` with its dot-leader tab drawn as typed dots (a copy; see above)."""
     if not p.leader_text:
@@ -973,6 +1024,15 @@ def _gdocs_typed_leader(p: Para) -> Para:
     around = int(i > 0 and p.runs[i - 1].text[-1:] == " ") + \
         int(i + 1 < len(p.runs) and p.runs[i + 1].text[:1] == " ")
     keep = max(0, len(p.leader_text) - _GDOCS_LEADER_SLACK - around)
+    fit = _typed_leader_room(p, i)
+    if fit is not None:
+        # Never more dots than the line has room for. The source's count is
+        # right for the source's text, and the text can come out wider: a
+        # marker given back its word space ("1. INTRODUCTION"), a bold title
+        # set in the substitute face. Live, FIPS 180-4's chapter entries ran
+        # a few points past their stop, and Docs put every one of their page
+        # numbers on a line of its own -- six lines a contents page.
+        keep = max(0, min(keep, fit - _GDOCS_LEADER_SLACK))
     dots = dataclasses.replace(p.runs[i], text=p.leader_text[:keep], is_tab=False)
     stops = [tuple(ts[:2]) if len(ts) > 2 and ts[2] == "dot" else ts
              for ts in p.tab_stops]
