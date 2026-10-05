@@ -289,6 +289,16 @@ def _split_continua(text, x0, y0, x1, y1):
             for i, c in enumerate(text) if not c.isspace()]
 
 
+# Google Docs' PDF exporter writes U+200B ZERO WIDTH SPACE where a tab (typed,
+# or a list label's) or a soft line break ends a text segment: "800-63B\u200b"
+# before the header's tab, "Secrets....\u200b" before a contents page number,
+# the end of every soft-broken code line. 16,526 of the 990,342 words in the
+# 2c1c68f live sweep's exports carried one, and each then matched no source
+# word, booking a correctly placed word as missing. It is invisible and not
+# text; no gated source carries one.
+_INVISIBLE = dict.fromkeys(map(ord, "\u200b\ufeff"), None)
+
+
 def page_words(pdf_path):
     """[(page_idx, text, x0, y0, x1, y1)] in reading order per page."""
     doc = fitz.open(pdf_path)
@@ -298,7 +308,10 @@ def page_words(pdf_path):
         ws.sort(key=lambda w: (round(w[1], 1), w[0]))
         out = []
         for w in ws:
-            out.extend(_split_continua(w[4], w[0], w[1], w[2], w[3]))
+            text = w[4].translate(_INVISIBLE)
+            if not text:
+                continue
+            out.extend(_split_continua(text, w[0], w[1], w[2], w[3]))
         pages.append(out)
     doc.close()
     return pages
