@@ -22,9 +22,9 @@ input:
 6. A drop cap's em box swallowing the lines beside it as its "scripts" and
    sorting them into one line of interleaved characters (SP 800-171's chapter
    openings; `parse_pdfium._absorb_script_rows`).
-7. A contents line's words glued together: a separated marker ("1." +
-   "INTRODUCTION") and a tab leader drawn against its title and number
-   (`infer._merge_list_markers`, `infer._leader_para`).
+7. A contents line's words glued to its leader: the white the source draws
+   between title, dots and number (`infer._leader_para`), and the typed
+   leader that must still fit its stop (`docxout._typed_leader_room`).
 8. A table of short rows read as two columns (`infer._split_unfilled`).
 9. Pictures floated on a page that a booklet run then merges
    (`docxout._floats_into_flow`).
@@ -528,20 +528,9 @@ class SidebarBesideColumn(unittest.TestCase):
 
 # ------------------------------------------------ 7. a contents line's words
 class ContentsLineWords(unittest.TestCase):
-    def test_a_glued_marker_keeps_its_word_space(self):
-        marker = _line("1.", 72.0, 237.0, 79.0, size=10.0)
-        entry = _line("INTRODUCTION", 91.6, 237.0, 170.0, size=10.0)
-        blocks = [_block([marker]), _block([entry])]
-        out = I._merge_list_markers(blocks)
-        lines = [ln for b in out for ln in b.lines]
-        self.assertEqual([ln.text for ln in lines], ["1. INTRODUCTION"])
-
-    def test_a_marker_that_abuts_its_item_is_left_as_drawn(self):
-        marker = _line("1.", 72.0, 237.0, 79.0, size=10.0)
-        entry = _line("INTRODUCTION", 79.5, 237.0, 160.0, size=10.0)
-        out = I._merge_list_markers([_block([marker]), _block([entry])])
-        self.assertEqual([ln.text for b in out for ln in b.lines],
-                         ["1.INTRODUCTION"])
+    # (A glued marker's word space, "1. INTRODUCTION", was tried and withdrawn:
+    # the space widened every glued item's first line, and EUR-Lex's recitals
+    # took two more pages in LibreOffice -- 156 -> 158 with it, 156 without.)
 
     def test_the_leaders_white_stays_around_the_tab(self):
         ln = _line("INTRODUCTION " + "." * 40 + " 3", 91.6, 237.0, 540.0,
@@ -564,9 +553,9 @@ class ContentsLineWords(unittest.TestCase):
         self.assertEqual(q.runs[1].text, "." * 6)
 
     def test_the_gdocs_typed_leader_never_overruns_its_stop(self):
-        # Live: FIPS 180-4's chapter entries, their text a marker space wider
-        # than the source's, ran a few points past the stop and Docs put
-        # each page number on a line of its own.
+        # Live: FIPS 180-4's chapter entries, their text a few points wider
+        # than the source's, ran past the stop and Docs put each page number
+        # on a line of its own.
         from exactdoc.docxout import _runs_width, _text_metrics
         label = Run("2. DEFINITIONS ", "Times-Bold", 10.0, "#000000", bold=True,
                     serif=True)

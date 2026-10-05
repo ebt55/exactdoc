@@ -8881,21 +8881,7 @@ def _merge_list_markers(flow_blocks):
                 # Left of a right-to-left line is its logical END.
                 fl.spans.extend(ln.spans)
             else:
-                mk = list(ln.spans)
-                if not raised and mk and not mk[-1].text[-1:].isspace() and \
-                        fl.spans and not fl.spans[0].text[:1].isspace() and \
-                        fl.bbox[0] - ln.bbox[2] > 0.25 * max(msz, 1.0):
-                    # The marker and its item are two words with white
-                    # between them. The parser drops the space it
-                    # synthesises at a line's end, and a marker split off its
-                    # item is a line of its own: FIPS 180-4's contents glued
-                    # "1." to its entry as "1.INTRODUCTION" (19.6pt apart in
-                    # the source), and every entry's words were lost to the
-                    # reader and to word recall alike.
-                    last = copy.copy(mk[-1])
-                    last.text += " "
-                    mk[-1] = last
-                fl.spans[0:0] = mk
+                fl.spans[0:0] = list(ln.spans)
             fl.bbox = bbox_union(fl.bbox, ln.bbox)
             c.bbox = bbox_union(c.bbox, ln.bbox)
             consumed.add(id(ln))

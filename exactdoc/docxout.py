@@ -1027,9 +1027,9 @@ def _gdocs_typed_leader(p: Para) -> Para:
     fit = _typed_leader_room(p, i)
     if fit is not None:
         # Never more dots than the line has room for. The source's count is
-        # right for the source's text, and the text can come out wider: a
-        # marker given back its word space ("1. INTRODUCTION"), a bold title
-        # set in the substitute face. Live, FIPS 180-4's chapter entries ran
+        # right for the source's text, and the text can come out wider: the
+        # white kept around the leader, a bold title set in the substitute
+        # face. Live, FIPS 180-4's chapter entries ran
         # a few points past their stop, and Docs put every one of their page
         # numbers on a line of its own -- six lines a contents page.
         keep = max(0, min(keep, fit - _GDOCS_LEADER_SLACK))

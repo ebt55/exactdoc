@@ -45,8 +45,10 @@ one verified fix at a time, each gated against the frozen 16.
   laid out beside the column it was welded to (`infer._sidebar_cut`); *a
   drop cap's* em box no longer swallows the lines beside it as scripts,
   which garbled SP 800-171's chapter openings into "Tsfeednesirtaoivld eaa
-  gfyee"; and a contents line keeps its words apart ("1. INTRODUCTION ....
-  3", not "1.INTRODUCTION.....3"). Gated: `word/*.xml` byte-identical for
+  gfyee"; and a contents line keeps the white around its leader
+  ("INTRODUCTION .... 3", not "INTRODUCTION.....3"), with the typed Docs
+  leader cut to the dots that still fit its stop
+  (`docxout._typed_leader_room`). Gated: `word/*.xml` byte-identical for
   all 16 under both profiles; gate PASS in both lanes. Raw, 95 documents,
   against integration 16a94de: page-exact 51 -> 58, 19 better, none worse
   (beta criterion 8 PASS); criterion 5 in LibreOffice 4/21 -> 10/21 and in
