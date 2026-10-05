@@ -235,15 +235,21 @@ def find_page_notes(flow_lines: List[Line], drawings, body_size: float,
     zone_first_top = run[first_i].bbox[1] if sep_i is None else run[sep_i].bbox[3]
     # A right-to-left document starts its separator at the RIGHT edge (y49).
     rtl_zone = sum(1 for l in run if getattr(l, "rtl", False)) * 2 > len(run)
+    # The separator is the qualifying rule NEAREST the notes, not the first
+    # one drawn. `body_bottom` sees only the flow's lines, so text a table has
+    # already taken does not bound the search: on y33 p32 and p40 the
+    # 27pt white hairline under a question badge (a table above the notes)
+    # was taken for the separator, the zone opened 110-470pt above the notes
+    # and straddled the table, and the page's notes stayed typed.
     for d in drawings or ():
         w = d.bbox[2] - d.bbox[0]
         if d.shape in ("hline", "rect") and (d.bbox[3] - d.bbox[1]) <= 1.5 \
                 and SEP_RULE_MIN_W <= w <= SEP_RULE_MAX_FRAC * (col_r - col_l) \
                 and (abs(d.bbox[0] - col_l) <= SEP_RULE_X_TOL or
                      (rtl_zone and abs(d.bbox[2] - col_r) <= SEP_RULE_X_TOL)) \
-                and body_bottom - 1.0 <= d.bbox[1] <= zone_first_top + 1.0:
+                and body_bottom - 1.0 <= d.bbox[1] <= zone_first_top + 1.0 \
+                and (sep_rule is None or d.bbox[1] > sep_rule[1]):
             sep_rule = d.bbox
-            break
     # Lines between the separator and the first note continue a note from
     # the previous page; without a separator they are small BODY text (a
     # table note, a caption) and stay out of the zone.
