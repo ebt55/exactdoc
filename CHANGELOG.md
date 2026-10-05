@@ -39,7 +39,8 @@ one verified fix at a time, each gated against the frozen 16.
   60 pages, word recall 0.494 -> 0.993, char recall 0.780 -> 1.000, doc
   recall 0.893 -> 0.993, within-2pt 0.071 -> 0.063; y02 120 -> 119 pages
   (114; word recall -0.0004); 04's KPI tiles at their source x (SSIM +0.001);
-  y03 +0.0001; the rest identical. Word, raw DOCX: y33 63 -> 60 pages, word
+  y03 +0.0001; the rest identical (beta criterion 5, LibreOffice raw: y33
+  passes, 11 -> 12 of 21; 13 with WP26's y24). Word, raw DOCX: y33 63 -> 60 pages, word
   recall 0.486 -> 0.993, within-2pt 0.087 -> 0.159. Google Docs is not
   changed by proxy evidence: y33's Docs onset (p2) is its page-background
   pictures, stacked in the flow because the gdocs profile has no `anchored`
