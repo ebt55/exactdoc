@@ -1,0 +1,763 @@
+{
+ "schema": "exactdoc.evidence.v1",
+ "what": "WP30 page-fit planner for the standard profile (exactdoc/pagefit.py), shipped OFF",
+ "tree": "wp30 on 4cd018f (planner on for the sweep); canonical image exactdoc-gate:boot, LibreOffice 24.2.7.2",
+ "page_model_vs_ckpt_raw_renders": {
+  "documents_identical_to_ckpt_raw": 90,
+  "pages": 2092,
+  "spilled": 162,
+  "buckets": [
+   {
+    "spare_pt": [
+     null,
+     -20
+    ],
+    "pages": 145,
+    "spilled": 87
+   },
+   {
+    "spare_pt": [
+     -20,
+     0
+    ],
+    "pages": 50,
+    "spilled": 14
+   },
+   {
+    "spare_pt": [
+     0,
+     5
+    ],
+    "pages": 51,
+    "spilled": 5
+   },
+   {
+    "spare_pt": [
+     5,
+     10
+    ],
+    "pages": 15,
+    "spilled": 1
+   },
+   {
+    "spare_pt": [
+     10,
+     15
+    ],
+    "pages": 34,
+    "spilled": 2
+   },
+   {
+    "spare_pt": [
+     15,
+     20
+    ],
+    "pages": 47,
+    "spilled": 1
+   },
+   {
+    "spare_pt": [
+     20,
+     30
+    ],
+    "pages": 162,
+    "spilled": 4
+   },
+   {
+    "spare_pt": [
+     30,
+     null
+    ],
+    "pages": 1588,
+    "spilled": 48
+   }
+  ],
+  "rendered_minus_model_pt_unspilled_text_end": {
+   "n": 1708,
+   "p5": -81.3,
+   "p25": -25.4,
+   "p50": -0.3,
+   "p75": 0.3,
+   "p90": 4.5,
+   "p95": 46.0
+  },
+  "model": "pagefit.page_model with table_growth as first written (cells at their exact width, source count from src_lines); the shipped form adds the source row height and forced-line count (c7's code cells predicted 9 lines of growth without it) and the 2pt cell edge (CELL_EDGE_PT, y64 p22)",
+  "method": "each document converted RAW in the canonical container with the planner off (word/document.xml identical to ckpt-raw for all 90), the writer hooked for the page model; the kept ckpt-raw render measured with refine._measure (spill per source page, room left at the foot)"
+ },
+ "raw_sweep_planner_on": {
+  "before": "ckpt-raw.sweep.json (4cd018f-equivalent ccaef09)",
+  "after": "wp30-c.sweep.json (both corpora, --profile raw, --jobs 6)",
+  "page_exact": [
+   59,
+   62
+  ],
+  "criterion5_libreoffice_raw": [
+   "11/21",
+   "13/21"
+  ],
+  "criterion5_newly_passing": [
+   "y18_eurlex_ai_act 156->144 (wr 0.393->0.986)",
+   "y33_nz_paper_powerpdf 62->60 (wr 0.494->0.893)"
+  ],
+  "gated_16_word_xml_identical": true,
+  "documents_changed": [
+   {
+    "doc": "y02_nist_sp800171r2.pdf",
+    "src_pages": 114,
+    "pages": [
+     120,
+     117
+    ],
+    "word_recall": [
+     0.3033,
+     0.3088
+    ],
+    "doc_recall": [
+     0.9609,
+     0.9609
+    ],
+    "within2pt": [
+     0.0482,
+     0.0481
+    ],
+    "dy_p50": [
+     34.94,
+     34.66
+    ]
+   },
+   {
+    "doc": "y03_nist_fips197.pdf",
+    "src_pages": 46,
+    "pages": [
+     51,
+     47
+    ],
+    "word_recall": [
+     0.5677,
+     0.8452
+    ],
+    "doc_recall": [
+     0.9628,
+     0.9628
+    ],
+    "within2pt": [
+     0.1971,
+     0.1895
+    ],
+    "dy_p50": [
+     1.8,
+     1.89
+    ]
+   },
+   {
+    "doc": "y09_nist_sp800207.pdf",
+    "src_pages": 59,
+    "pages": [
+     59,
+     59
+    ],
+    "word_recall": [
+     0.9714,
+     0.9714
+    ],
+    "doc_recall": [
+     0.972,
+     0.972
+    ],
+    "within2pt": [
+     0.7266,
+     0.7113
+    ],
+    "dy_p50": [
+     1.45,
+     1.45
+    ]
+   },
+   {
+    "doc": "y10_nist_fips180.pdf",
+    "src_pages": 36,
+    "pages": [
+     36,
+     36
+    ],
+    "word_recall": [
+     0.7844,
+     0.7844
+    ],
+    "doc_recall": [
+     0.7853,
+     0.7853
+    ],
+    "within2pt": [
+     0.4814,
+     0.4869
+    ],
+    "dy_p50": [
+     0.32,
+     0.36
+    ]
+   },
+   {
+    "doc": "y17_rfc9110.pdf",
+    "src_pages": 194,
+    "pages": [
+     194,
+     194
+    ],
+    "word_recall": [
+     0.9756,
+     0.9756
+    ],
+    "doc_recall": [
+     0.9762,
+     0.9762
+    ],
+    "within2pt": [
+     0.0288,
+     0.0288
+    ],
+    "dy_p50": [
+     19.71,
+     19.74
+    ]
+   },
+   {
+    "doc": "y18_eurlex_ai_act.pdf",
+    "src_pages": 144,
+    "pages": [
+     156,
+     144
+    ],
+    "word_recall": [
+     0.3925,
+     0.9858
+    ],
+    "doc_recall": [
+     0.9844,
+     0.9859
+    ],
+    "within2pt": [
+     0.0013,
+     0.0494
+    ],
+    "dy_p50": [
+     39.1,
+     2.47
+    ]
+   },
+   {
+    "doc": "y19_scotus_loper.pdf",
+    "src_pages": 114,
+    "pages": [
+     114,
+     114
+    ],
+    "word_recall": [
+     0.9327,
+     0.9327
+    ],
+    "doc_recall": [
+     0.9478,
+     0.9478
+    ],
+    "within2pt": [
+     0.0257,
+     0.0252
+    ],
+    "dy_p50": [
+     13.25,
+     13.25
+    ]
+   },
+   {
+    "doc": "y21_worldbank_wdr24.pdf",
+    "src_pages": 48,
+    "pages": [
+     57,
+     53
+    ],
+    "word_recall": [
+     0.1907,
+     0.5015
+    ],
+    "doc_recall": [
+     0.9005,
+     0.9005
+    ],
+    "within2pt": [
+     0.0008,
+     0.0079
+    ],
+    "dy_p50": [
+     50.87,
+     40.92
+    ]
+   },
+   {
+    "doc": "y22_lshort.pdf",
+    "src_pages": 153,
+    "pages": [
+     178,
+     172
+    ],
+    "word_recall": [
+     0.3861,
+     0.3855
+    ],
+    "doc_recall": [
+     0.9697,
+     0.9696
+    ],
+    "within2pt": [
+     0.125,
+     0.1252
+    ],
+    "dy_p50": [
+     5.13,
+     4.87
+    ]
+   },
+   {
+    "doc": "y24_pandoc_manual.pdf",
+    "src_pages": 180,
+    "pages": [
+     181,
+     181
+    ],
+    "word_recall": [
+     0.5493,
+     0.5493
+    ],
+    "doc_recall": [
+     0.9941,
+     0.9941
+    ],
+    "within2pt": [
+     0.1747,
+     0.1761
+    ],
+    "dy_p50": [
+     2.35,
+     2.35
+    ]
+   },
+   {
+    "doc": "y28_doe_oig_word365.pdf",
+    "src_pages": 21,
+    "pages": [
+     21,
+     21
+    ],
+    "word_recall": [
+     0.9892,
+     0.9892
+    ],
+    "doc_recall": [
+     0.99,
+     0.99
+    ],
+    "within2pt": [
+     0.2597,
+     0.2592
+    ],
+    "dy_p50": [
+     1.78,
+     1.78
+    ]
+   },
+   {
+    "doc": "y32_uk_response_gdocs.pdf",
+    "src_pages": 37,
+    "pages": [
+     37,
+     37
+    ],
+    "word_recall": [
+     0.9992,
+     0.9992
+    ],
+    "doc_recall": [
+     0.9992,
+     0.9992
+    ],
+    "within2pt": [
+     0.4773,
+     0.4568
+    ],
+    "dy_p50": [
+     1.12,
+     1.13
+    ]
+   },
+   {
+    "doc": "y33_nz_paper_powerpdf.pdf",
+    "src_pages": 60,
+    "pages": [
+     62,
+     60
+    ],
+    "word_recall": [
+     0.4938,
+     0.893
+    ],
+    "doc_recall": [
+     0.8932,
+     0.8932
+    ],
+    "within2pt": [
+     0.0705,
+     0.0669
+    ],
+    "dy_p50": [
+     3.03,
+     2.63
+    ]
+   },
+   {
+    "doc": "y37_plos_one_dvipdfmx.pdf",
+    "src_pages": 22,
+    "pages": [
+     34,
+     32
+    ],
+    "word_recall": [
+     0.2389,
+     0.2436
+    ],
+    "doc_recall": [
+     0.8869,
+     0.8869
+    ],
+    "within2pt": [
+     0.0113,
+     0.0111
+    ],
+    "dy_p50": [
+     41.27,
+     41.27
+    ]
+   },
+   {
+    "doc": "y38_elife_arbortext_gs.pdf",
+    "src_pages": 33,
+    "pages": [
+     53,
+     53
+    ],
+    "word_recall": [
+     0.2122,
+     0.2122
+    ],
+    "doc_recall": [
+     0.9705,
+     0.9705
+    ],
+    "within2pt": [
+     0.0005,
+     0.0005
+    ],
+    "dy_p50": [
+     38.09,
+     38.24
+    ]
+   },
+   {
+    "doc": "y39_copernicus_npg_2col.pdf",
+    "src_pages": 11,
+    "pages": [
+     12,
+     11
+    ],
+    "word_recall": [
+     0.7424,
+     0.8665
+    ],
+    "doc_recall": [
+     0.9024,
+     0.9024
+    ],
+    "within2pt": [
+     0.0134,
+     0.0075
+    ],
+    "dy_p50": [
+     40.32,
+     43.6
+    ]
+   },
+   {
+    "doc": "y40_frontiers_dvips_gs.pdf",
+    "src_pages": 10,
+    "pages": [
+     12,
+     12
+    ],
+    "word_recall": [
+     0.493,
+     0.4932
+    ],
+    "doc_recall": [
+     0.8348,
+     0.8348
+    ],
+    "within2pt": [
+     0.0644,
+     0.0648
+    ],
+    "dy_p50": [
+     27.54,
+     27.53
+    ]
+   },
+   {
+    "doc": "y43_arxiv_neurips.pdf",
+    "src_pages": 15,
+    "pages": [
+     19,
+     17
+    ],
+    "word_recall": [
+     0.2531,
+     0.4833
+    ],
+    "doc_recall": [
+     0.9707,
+     0.9707
+    ],
+    "within2pt": [
+     0.0,
+     0.0519
+    ],
+    "dy_p50": [
+     32.89,
+     10.69
+    ]
+   },
+   {
+    "doc": "y44_cv_rendercv_typst.pdf",
+    "src_pages": 3,
+    "pages": [
+     3,
+     3
+    ],
+    "word_recall": [
+     0.9942,
+     0.9942
+    ],
+    "doc_recall": [
+     0.9942,
+     0.9942
+    ],
+    "within2pt": [
+     0.0779,
+     0.0765
+    ],
+    "dy_p50": [
+     29.64,
+     31.82
+    ]
+   },
+   {
+    "doc": "y47_ar_ilo_word365.pdf",
+    "src_pages": 57,
+    "pages": [
+     86,
+     85
+    ],
+    "word_recall": [
+     0.1503,
+     0.1822
+    ],
+    "doc_recall": [
+     0.7256,
+     0.7255
+    ],
+    "within2pt": [
+     0.001,
+     0.0013
+    ],
+    "dy_p50": [
+     52.39,
+     44.12
+    ]
+   },
+   {
+    "doc": "y50_fa_word2016.pdf",
+    "src_pages": 15,
+    "pages": [
+     19,
+     19
+    ],
+    "word_recall": [
+     0.2109,
+     0.2124
+    ],
+    "doc_recall": [
+     0.6942,
+     0.6942
+    ],
+    "within2pt": [
+     0.0217,
+     0.0223
+    ],
+    "dy_p50": [
+     58.98,
+     58.41
+    ]
+   },
+   {
+    "doc": "y53_ko_word2016.pdf",
+    "src_pages": 28,
+    "pages": [
+     32,
+     32
+    ],
+    "word_recall": [
+     0.6642,
+     0.6657
+    ],
+    "doc_recall": [
+     0.9393,
+     0.9393
+    ],
+    "within2pt": [
+     0.1056,
+     0.0989
+    ],
+    "dy_p50": [
+     8.52,
+     8.57
+    ]
+   },
+   {
+    "doc": "y56_scan_usda1921_lura.pdf",
+    "src_pages": 10,
+    "pages": [
+     14,
+     14
+    ],
+    "word_recall": [
+     0.4404,
+     0.4449
+    ],
+    "doc_recall": [
+     0.9778,
+     0.9778
+    ],
+    "within2pt": [
+     0.0126,
+     0.0112
+    ],
+    "dy_p50": [
+     32.38,
+     23.39
+    ]
+   },
+   {
+    "doc": "y57_scan_usda1950_ia.pdf",
+    "src_pages": 16,
+    "pages": [
+     26,
+     25
+    ],
+    "word_recall": [
+     0.086,
+     0.0876
+    ],
+    "doc_recall": [
+     0.8475,
+     0.8475
+    ],
+    "within2pt": [
+     0.0189,
+     0.0309
+    ],
+    "dy_p50": [
+     52.59,
+     48.97
+    ]
+   },
+   {
+    "doc": "y59_cms_notice_inddcs4.pdf",
+    "src_pages": 6,
+    "pages": [
+     18,
+     17
+    ],
+    "word_recall": [
+     0.0884,
+     0.1232
+    ],
+    "doc_recall": [
+     0.8553,
+     0.8553
+    ],
+    "within2pt": [
+     0.0631,
+     0.0453
+    ],
+    "dy_p50": [
+     30.07,
+     46.35
+    ]
+   },
+   {
+    "doc": "y63_court_pleading_word365.pdf",
+    "src_pages": 5,
+    "pages": [
+     5,
+     5
+    ],
+    "word_recall": [
+     0.9947,
+     0.9947
+    ],
+    "doc_recall": [
+     0.9947,
+     0.9947
+    ],
+    "within2pt": [
+     0.1598,
+     0.1598
+    ],
+    "dy_p50": [
+     8.72,
+     8.82
+    ]
+   },
+   {
+    "doc": "y64_bls_release_xpp.pdf",
+    "src_pages": 39,
+    "pages": [
+     44,
+     40
+    ],
+    "word_recall": [
+     0.3432,
+     0.4203
+    ],
+    "doc_recall": [
+     0.9618,
+     0.9618
+    ],
+    "within2pt": [
+     0.1041,
+     0.1009
+    ],
+    "dy_p50": [
+     11.17,
+     11.82
+    ]
+   }
+  ],
+  "worse_beyond_gate_tolerance": [
+   "y59_cms_notice_inddcs4.pdf dy_p50 30.07 -> 46.35"
+  ]
+ },
+ "not_measured": [
+  "product sweep",
+  "Word lane",
+  "canonical gate with the planner on"
+ ],
+ "why_off": "y59_cms_notice_inddcs4 dy_p50 30.07 -> 46.35 (criterion 8 / rule 4); its page 1, 178pt (11 body lines) over by the model, is paid back into its box"
+}

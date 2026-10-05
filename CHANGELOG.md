@@ -20,6 +20,29 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **A page-fit planner for LibreOffice and Word, built and measured, shipped
+  off (WP30).** `exactdoc/pagefit.py` models each single-column page as the
+  standard profile writes it -- the ladder's re-wrap per forced line (a
+  verbatim line padded with spaces never fewer lines than the source), the
+  exact line, and tables at their source box plus the rows their cells wrap
+  into (`table_growth`; a line within 2pt of its cell's edge counts as
+  wrapping) -- and a page left with less than a body line plus 2pt to spare
+  is paid from its own gaps, gently first, foot up, within the refine
+  floors, as WP19's Docs planner does; a page that fits is written as
+  before. Measured against the checkpoint's LibreOffice renders (2,092
+  pages): pages predicted to keep 0-15pt spilled 6-10%, past 20pt 2-3%, and
+  the model is within a point of the render at the median. With it on, raw
+  sweep against ckpt-raw: y18 156 -> 144 pages (word recall 0.393 -> 0.986)
+  and y33 62 -> 60 (0.494 -> 0.893), both page-exact, so criterion 5 in
+  LibreOffice 11 -> 13 of 21; y03 51 -> 47 (0.568 -> 0.845; a table whose
+  cells were mis-partitioned overruns p40 by 150pt), y64 44 -> 40, y21 57
+  -> 53, y02 120 -> 117; page-exact 59 -> 62; the 16 gated documents
+  byte-identical. It is off (`pagefit.PAGEFIT_ENABLED`) because y59 (not
+  promised; 6 pages rendered as 18) regresses dy_p50 30.07 -> 46.35 when its
+  first page, 11 body lines over by the model, is paid back into its box;
+  the product and Word lanes are not yet measured
+  (`docs/evidence/pagefit-2026-10-06.json`).
+
 - **The product profile meets the beta's time bar, byte for byte (WP20c).**
   The refine loop no longer reads the source PDF a second time: the parse
   hands it the source's text lines from its own PDFium reading

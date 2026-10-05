@@ -5203,6 +5203,23 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
             spill_plan = _absorb_page_spill(pg, cw_ctx, glay,
                                             notes_h.get(pg.number, 0.0),
                                             ctx.output_profile)
+            from . import pagefit as _pagefit
+            if _pagefit.PAGEFIT_ENABLED and ctx.output_profile != "gdocs" \
+                    and not booklet and not before_blank:
+                # Standard profile: a page LibreOffice or Word would set
+                # with less than a body line to spare is planned from its own
+                # gaps (`pagefit.fit_page`); every other page keeps the plan
+                # above. The seam is a carrier before a non-paragraph first
+                # element unless the refine loop opted the page into
+                # pageBreakBefore (`top_gap_fits`), and LibreOffice drops the
+                # gap after a carrier (B23, below).
+                from .pagefit import fit_page
+                spill_plan = fit_page(
+                    pg, cw_ctx, glay, notes_h.get(pg.number, 0.0), body_line,
+                    spill_plan, ctx.output_profile,
+                    drop_first_gap=pending_break[0] and first_el is not None
+                    and not isinstance(first_el, Para)
+                    and getattr(pg, "top_gap_fits", None) is not True)
         if not (has_cover and pi == 0):
             # The element closing the page keeps a body line of clearance
             # when it is only there for where it sits: `_guard_page_tail`.
