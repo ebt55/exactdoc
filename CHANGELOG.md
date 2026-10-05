@@ -36,11 +36,12 @@ one verified fix at a time, each gated against the frozen 16.
   character. Proofs: identical text positions under both exports on the 8
   A/B documents (LibreOffice 24.2); the parse's source lines equal a
   separate reading; `word/*.xml` byte-identical for all 95 documents in the
-  raw and gdocs profiles against integration (190 of 190, on the merged and
-  the final tree); product output identical on the 8 A/B documents and the
-  gate's 32 lane DOCX; gate PASS in both lanes at the recorded numbers.
-  One conversion at a time in the canonical container: y06 155s (limit 189;
-  256s after WP20b), y12 46s (limit 88; was 97), y13 42s (limit 60; was 66),
+  raw and gdocs profiles against integration (190 of 190, against b014c39
+  and again against WP23's ccaef09); product output identical on the 8 A/B
+  documents and the gate's 32 lane DOCX; gate PASS in both lanes at the
+  recorded numbers. One conversion at a time in the canonical container: y06
+  155s (limit 189; 256s after WP20b; 166s re-timed after merging WP23, which
+  changed its pages), y12 46s (limit 88; was 97), y13 42s (limit 60; was 66),
   y64 27s (was 53); base vs new interleaved, y06 258 -> 157s, y12 103 -> 53s.
   Every product document that took over 40s is now within its limit, and
   `beta_readiness.py` scores criterion 2 PASS (product 0 of 90 over).

@@ -209,6 +209,93 @@
  },
  "image": "exactdoc-gate:boot (canonical: LibreOffice 24.2.7.2, pinned fonts)",
  "machine_load_caveat": "the machine was shared with other agents' containers throughout (host CPU at 100%, other sweeps using several cores each); wall times are upper bounds and vary run to run -- y13 timed 50.6s and 83.8s an hour apart with the same code, y06 218s and 282s back to back. Serial runs keep the fastest of --repeat; the per-stage split (write, render, measure) is the more robust signal.",
+ "merged_with_ccaef09": {
+  "byte_identity_raw_gdocs_vs_ccaef09": [
+   "190 of 190 (document, profile) results identical",
+   "gdocs: total convert 698s -> 497s (29% less)",
+   "raw: total convert 640s -> 492s (23% less)"
+  ],
+  "gate wp20c-gate-4": [
+   "Ran 1586 tests in 177.070s",
+   "OK (skipped=2)",
+   "lane    product  PASS  pagematch 16/16  <2pt 0.7209  live 0.9784  dy50 0.525",
+   "lane    raw      PASS  pagematch 16/16  <2pt 0.5463  live 0.9784  dy50 1.245",
+   "FAILED_STEPS=0",
+   "lane DOCX vs wp23-gate-4: 32 identical, 0 different, 0 missing"
+  ],
+  "tree": "7dc5459 (40753bc merged with integration ccaef09: WP23)",
+  "y06_serial": {
+   "note": "fastest of two, one conversion at a time; part of it ran beside the identity container, so an upper bound. Limit 189s.",
+   "run": {
+    "documents": [
+     {
+      "all_s": [
+       170.11,
+       165.53
+      ],
+      "convert_s": 165.53,
+      "document": "y06_irs_1040_instructions.pdf",
+      "outputs_agree": true,
+      "parts": {
+       "word/document.xml": "48cc3d6d1ab45fade339068945bffb8bd91fdbced03374b30af0cf4a592f2cf3",
+       "word/fontTable.xml": "47976a0c440c8513f3764355ece9dda8fb2de2f6b08508c854a2206a6844d792",
+       "word/footer1.xml": "14d6a360a25efec022b69b8715f89593ff5503053e0b3da1e9a2f765b670d4ce",
+       "word/footer2.xml": "93c862d90558b064986f495033e4cfbd3b5503471fc7ea0840d6c395e4826359",
+       "word/footer3.xml": "861d1b6db86af2469df4e64e2506d93dca026f9b675c744ffca28c4eee1677b3",
+       "word/numbering.xml": "f7a20498b88ec9f364beef171e11fcd8851d292a48d18c141168d9c8fade74e3",
+       "word/settings.xml": "436d17f73a622dbdf136840c5c0305a832c5d0e99b38171fb8bdadbc842a9f1a",
+       "word/styles.xml": "2b853fac6f8c2bc727717753bd9dc94e88cc0f9cd6267ecb67e55db410fc2007",
+       "word/stylesWithEffects.xml": "6d26eb28d50ed1c67c49cb6682a287ed41421c8120d0d3293edb1bdb82e06c37",
+       "word/theme/theme1.xml": "b211090b7de4db2f0e1f9df7447fd4a8c7a80f3d1b3a176ba5e43d843972cfd1",
+       "word/webSettings.xml": "349d36de7434d09f86987ff671d8814964a0588c1e630c06e562cda7e75e9f95"
+      },
+      "rounds": [
+       {
+        "measure_ms": 6311,
+        "out_pages": 163,
+        "render_ms": 13047,
+        "round": 0,
+        "write_ms": 14047
+       },
+       {
+        "measure_ms": 5014,
+        "out_pages": 155,
+        "render_ms": 11102,
+        "round": 1,
+        "write_ms": 11382
+       },
+       {
+        "measure_ms": 5089,
+        "out_pages": 151,
+        "render_ms": 12948,
+        "round": 2,
+        "write_ms": 10244
+       },
+       {
+        "measure_ms": 5129,
+        "out_pages": 147,
+        "render_ms": 10897,
+        "round": 3,
+        "write_ms": 10029
+       }
+      ],
+      "src_pages": 126,
+      "stopped": "max-rounds"
+     }
+    ],
+    "elapsed_s": 362.7,
+    "gating": false,
+    "jobs": 1,
+    "machine": {
+     "cpus": 24,
+     "platform": "linux"
+    },
+    "profile": "pdfium/standard/libreoffice/refine3@240dpi",
+    "repeat": 2,
+    "schema": "exactdoc.serial-timing.v1"
+   }
+  }
+ },
  "product_ab_serial": {
   "7a969e2 -> a19edd1": {
    "c1_whitepaper.pdf": {
