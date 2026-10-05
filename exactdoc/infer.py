@@ -2091,9 +2091,6 @@ def detect_hf(ir: DocIR):
                 continue
             y0, y1 = d.bbox[1], d.bbox[3]
             zone = "top" if y1 <= TOPZ else ("bot" if y0 >= p.height - BOTZ else None)
-            if zone is None and _head_rule_below(p, d, res["consumed_text"][p.number],
-                                                 runs.get(di)):
-                zone = "top"
             if zone and d.shape in ("hline", "vline", "rect", "line"):
                 # a rule drawn as abutting segments is signed as the whole rule
                 x0 = runs[di][0] if di in runs else d.bbox[0]
@@ -2114,7 +2111,14 @@ def detect_hf(ir: DocIR):
     # loop, which had been spending the rule paragraphs' seam spacing as
     # its correction currency, could no longer converge below 156. The
     # stray rule-paragraphs at each seam are also a faithful rendering of
-    # the source's own per-page furniture rules. Reverted; the +2% class
+    # the source's own per-page furniture rules. Measured a third time by
+    # WP22 (2026-10-05), with the recitals fixed and WP19's Docs planner in:
+    # the head rule (3.5pt past TOPZ) taken into the header took y18's raw
+    # LibreOffice render 157 -> 153 pages (its 1pt seam carriers stopped
+    # firing after full pages), but grew margin_t 62.8 -> 67.1 and took the
+    # gdocs DOCX, rendered by LibreOffice, 144 -> 165. Left alone again. The
+    # FOOT rule, which lies inside BOTZ, is a different case: its halves are
+    # signed as one rule (`_rule_runs`) and go to the footer. Reverted; the +2% class
     # is bounded and recorded as such.
 
     # -- page numbers as the FURNITURE states them. Only tokens on lines that
@@ -2255,44 +2259,6 @@ def _rule_runs(drawings) -> Dict[int, Tuple[float, float]]:
             for j in run:
                 out[j] = (d.bbox[0], x1)
     return out
-
-
-def _head_rule_below(p: PageIR, d: DrawCmd, ct, run=None) -> bool:
-    """Is `d` the rule under a running head set inside TOPZ, drawn just past
-    the zone's edge? A thin hline ending within RUNNING_RULE_GAP_PT beyond
-    TOPZ, within that gap under a head line already consumed as furniture
-    there, with the body's first line at least that gap below it. `run` is
-    the (x0, x1) of the whole rule when `d` is one of its segments
-    (`_rule_runs`): a head line over any part of the rule is over the rule.
-
-    EUR-Lex's head rule: "EN" / "OJ L, 12.7.2024" end at 60.3, the rule runs
-    63.8-64.3 against TOPZ 62, the body starts at 76.9 (y18, every page).
-    Left in the body its two halves opened every page as rule paragraphs,
-    and a rule cannot carry the page's seam as pageBreakBefore: the seam went
-    on a 1pt carrier before them, and wherever the page above filled to its
-    foot the carrier went over and fired there -- a blank page (y18: 5 of
-    157 once its foot rule and recitals were fixed). Repetition is still the
-    zone-drawing signature's to decide.
-    """
-    if d.shape != "hline" or d.bbox[3] - d.bbox[1] > 2.0:
-        return False
-    y0, y1 = d.bbox[1], d.bbox[3]
-    if not (TOPZ < y1 <= TOPZ + RUNNING_RULE_GAP_PT):
-        return False
-    rx0, rx1 = run if run is not None else (d.bbox[0], d.bbox[2])
-    head = body_top = None
-    for bi, blk in enumerate(p.blocks):
-        for ln in blk.lines:
-            if not ln.text.strip():
-                continue
-            if (bi, id(ln)) in ct:
-                if ln.bbox[3] <= TOPZ and 0 <= y0 - ln.bbox[3] <= RUNNING_RULE_GAP_PT \
-                        and ln.bbox[0] < rx1 and ln.bbox[2] > rx0:
-                    head = ln
-            elif body_top is None or ln.bbox[1] < body_top:
-                body_top = ln.bbox[1]
-    return head is not None and (body_top is None or
-                                 body_top - y1 >= RUNNING_RULE_GAP_PT)
 
 
 # The band, from either edge, in which `_furniture_leftovers` looks.

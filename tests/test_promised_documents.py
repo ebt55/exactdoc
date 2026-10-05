@@ -6,8 +6,8 @@ on that document first:
 * a marker item whose first line arrives as a block of its own (EUR-Lex
   recitals, y18) and a run-in numbered paragraph ("2." at the margin, its first
   line indented, the rest back under the number; EUR-Lex articles);
-* a rule drawn as abutting segments split at a parity-dependent x, and a head
-  rule drawn just past TOPZ (EUR-Lex's foot and head rules);
+* a rule drawn as abutting segments split at a parity-dependent x (EUR-Lex's
+  foot rule);
 * a recto running foot that names the current section beside a verso foot
   (LibreOffice Writer Guide, y36);
 * a table whose every row is filled, arriving as one drawing cluster; a
@@ -168,10 +168,13 @@ class SegmentedFurnitureRules(unittest.TestCase):
         runs = I._rule_runs(ds)
         self.assertEqual(runs, {0: (41.8, 553.4), 1: (41.8, 553.4)})
 
-    def test_both_halves_of_both_rules_leave_the_body(self):
+    def test_both_halves_of_the_foot_rule_leave_the_body(self):
+        # The head rule, just past TOPZ, stays a body rule: taken into the
+        # header it grew margin_t and the gdocs render of y18 went 144 -> 165
+        # (see the NOTE at the end of detect_hf).
         hf = detect_hf(self._doc())
         for pg in range(2, 9):
-            self.assertEqual(hf["consumed_draw"][pg], {0, 1, 2, 3}, pg)
+            self.assertEqual(hf["consumed_draw"][pg], {2, 3}, pg)
 
 
 class RectoSectionFoot(unittest.TestCase):
