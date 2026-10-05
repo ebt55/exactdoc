@@ -1,0 +1,242 @@
+{
+ "schema": "exactdoc.evidence.wp26.v1",
+ "title": "WP26: tables cut by a page break (y24 pp. 43-46)",
+ "tree": "wp26 (4cd018f + WP26)",
+ "base": "4cd018f",
+ "canonical": {
+  "gate": {
+   "run": "wp26-a-gate",
+   "suite": "Ran 1592 tests OK (skipped=2)",
+   "failed_steps": 0,
+   "product": "PASS pagematch 16/16 <2pt 0.7209",
+   "raw": "PASS pagematch 16/16 <2pt 0.5463"
+  },
+  "raw_sweep": {
+   "run": "wp26-a-raw",
+   "before": "ckpt-raw",
+   "compared": 90,
+   "changed": [
+    "y24_pandoc_manual.pdf"
+   ],
+   "deltas": {
+    "y24_pandoc_manual.pdf": {
+     "src_pages": [
+      180,
+      180
+     ],
+     "out_pages": [
+      181,
+      180
+     ],
+     "word_recall": [
+      0.5493,
+      0.9939
+     ],
+     "doc_recall": [
+      0.9941,
+      0.9943
+     ],
+     "char_recall": [
+      0.8014,
+      0.9997
+     ],
+     "within2pt": [
+      0.1747,
+      0.1765
+     ],
+     "dy_p50": [
+      2.35,
+      1.96
+     ]
+    }
+   }
+  },
+  "raw_docx_word_xml": "89 of 90 byte-identical to ckpt-raw (word/*.xml); y24 differs",
+  "product_sweep": {
+   "run": "wp26-a-prod (y24, c3, x04, x10)",
+   "before": "ckpt-prod",
+   "compared": 4,
+   "changed": [
+    "y24_pandoc_manual.pdf"
+   ],
+   "deltas": {
+    "y24_pandoc_manual.pdf": {
+     "src_pages": [
+      180,
+      180
+     ],
+     "out_pages": [
+      180,
+      180
+     ],
+     "word_recall": [
+      0.9939,
+      0.9939
+     ],
+     "doc_recall": [
+      0.9943,
+      0.9943
+     ],
+     "char_recall": [
+      0.9997,
+      0.9997
+     ],
+     "within2pt": [
+      0.2036,
+      0.2104
+     ],
+     "dy_p50": [
+      0.55,
+      0.54
+     ]
+    }
+   }
+  }
+ },
+ "word": {
+  "raw": {
+   "before": {
+    "src_pages": 180,
+    "out_pages": 181,
+    "word_recall": 0.547,
+    "char_recall": 0.8019,
+    "within2pt": 0.1729,
+    "dy_p50": 2.46
+   },
+   "after": {
+    "src_pages": 180,
+    "out_pages": 180,
+    "word_recall": 0.9868,
+    "char_recall": 0.9999,
+    "within2pt": 0.1707,
+    "dy_p50": 2.0
+   }
+  },
+  "product": {
+   "before": {
+    "src_pages": 180,
+    "out_pages": 180,
+    "word_recall": 0.9868,
+    "char_recall": 0.9999,
+    "within2pt": 0.1931,
+    "dy_p50": 0.61
+   },
+   "after": {
+    "src_pages": 180,
+    "out_pages": 180,
+    "word_recall": 0.9868,
+    "char_recall": 0.9999,
+    "within2pt": 0.2,
+    "dy_p50": 0.61
+   }
+  }
+ },
+ "gdocs": {
+  "live_before": {
+   "src_pages": 180,
+   "out_pages": 181,
+   "word_recall": 0.5479,
+   "char_recall": 0.8013,
+   "within2pt": 0.0606,
+   "dy_p50": 8.72
+  },
+  "probe_set": "C:\\lotmp\\scr\\wp26\\gdocs_probe",
+  "controls_word_xml_identical": [
+   "c3_tables",
+   "x04_lo_tables_plain",
+   "x10_chrome_tables_plain"
+  ],
+  "libreoffice_proxy": {
+   "base": "181 pages, onset +1 at p46",
+   "wp26": "180 pages, no onset"
+  },
+  "live_after": "pending the coordinator's flight"
+ },
+ "survey": {
+  "what": "95 documents (16 gated + 79 expansion), infer under the raw profile",
+  "open_foot_fired": {
+   "y24_pandoc_manual.pdf": [
+    43,
+    44,
+    45
+   ]
+  },
+  "table_ends_page_and_table_opens_next": {
+   "03_tech_report_code.pdf": [
+    1
+   ],
+   "x10_chrome_tables_plain.pdf": [
+    1
+   ],
+   "y01_nist_sp80063b.pdf": [
+    22,
+    52,
+    53,
+    54,
+    55,
+    56,
+    69
+   ],
+   "y02_nist_sp800171r2.pdf": [
+    75,
+    76,
+    79,
+    94
+   ],
+   "y03_nist_fips197.pdf": [
+    42
+   ],
+   "y08_nist_sp80088r1.pdf": [
+    33,
+    36,
+    37,
+    38,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47
+   ],
+   "y12_irs_pub15.pdf": [
+    46,
+    47,
+    48,
+    49,
+    50,
+    51
+   ],
+   "y17_rfc9110.pdf": [
+    101,
+    162,
+    164
+   ],
+   "y23_luatex.pdf": [
+    86
+   ],
+   "y24_pandoc_manual.pdf": [
+    43,
+    44,
+    45
+   ],
+   "y25_texbytopic.pdf": [
+    297
+   ],
+   "y27_rfc9000.pdf": [
+    89
+   ],
+   "y30_nz_guideline_word365.pdf": [
+    21,
+    27,
+    28
+   ],
+   "y33_nz_paper_powerpdf.pdf": [
+    57,
+    58,
+    59
+   ]
+  }
+ }
+}
