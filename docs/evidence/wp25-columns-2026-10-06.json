@@ -1,0 +1,526 @@
+{
+ "what": "WP25: column inference. A same-baseline gap that holds a recurring gutter's white channel is split (parse_pdfium._gutter_channels); a rule that ends above infer._position_chunks' cursor no longer moves it back up. Measured in the canonical container on the tree merged with integration e572bb7.",
+ "tree": {
+  "base_checkpoint": "4cd018f",
+  "fix": "07cf506",
+  "merged": "97b3963 (integration e572bb7 merged)"
+ },
+ "gate": {
+  "tree": "97b3963",
+  "tests": 1598,
+  "ok": true,
+  "skipped": 2,
+  "failed_steps": 0,
+  "product": "PASS pagematch 16/16 within2pt 0.7209",
+  "raw": "PASS pagematch 16/16 within2pt 0.5463"
+ },
+ "word_xml": "gdocs profile against e572bb7: 30 of 95 documents differ, the gated 16 byte-identical; raw profile against 4cd018f (before merge): the gated 16 byte-identical",
+ "raw_sweep_vs_checkpoint": {
+  "before": "ckpt-raw.sweep.json (4cd018f)",
+  "after": "wp25-raw3.sweep.json (97b3963)",
+  "page_exact": [
+   59,
+   61
+  ],
+  "documents_moved": {
+   "y03_nist_fips197": {
+    "checkpoint": {
+     "src_pages": 46,
+     "out_pages": 51,
+     "word_recall": 0.5677,
+     "doc_recall": 0.9628,
+     "live_text_cov": 0.9188,
+     "within2pt": 0.1971,
+     "dy_p50": 1.8
+    },
+    "wp25": {
+     "src_pages": 46,
+     "out_pages": 51,
+     "word_recall": 0.5682,
+     "doc_recall": 0.9633,
+     "live_text_cov": 0.9188,
+     "within2pt": 0.1982,
+     "dy_p50": 1.78
+    }
+   },
+   "y06_irs_1040_instructions": {
+    "checkpoint": {
+     "src_pages": 126,
+     "out_pages": 163,
+     "word_recall": 0.2182,
+     "doc_recall": 0.9461,
+     "live_text_cov": 0.9496,
+     "within2pt": 0.0016,
+     "dy_p50": 56.39
+    },
+    "wp25": {
+     "src_pages": 126,
+     "out_pages": 149,
+     "word_recall": 0.211,
+     "doc_recall": 0.9467,
+     "live_text_cov": 0.9512,
+     "within2pt": 0.0027,
+     "dy_p50": 51.05
+    }
+   },
+   "y12_irs_pub15": {
+    "checkpoint": {
+     "src_pages": 59,
+     "out_pages": 66,
+     "word_recall": 0.382,
+     "doc_recall": 0.9567,
+     "live_text_cov": 0.9809,
+     "within2pt": 0.0011,
+     "dy_p50": 55.0
+    },
+    "wp25": {
+     "src_pages": 59,
+     "out_pages": 63,
+     "word_recall": 0.424,
+     "doc_recall": 0.9564,
+     "live_text_cov": 0.9809,
+     "within2pt": 0.0011,
+     "dy_p50": 55.1
+    }
+   },
+   "y13_irs_pub501": {
+    "checkpoint": {
+     "src_pages": 31,
+     "out_pages": 58,
+     "word_recall": 0.2132,
+     "doc_recall": 0.9509,
+     "live_text_cov": 0.9709,
+     "within2pt": 0.0017,
+     "dy_p50": 36.55
+    },
+    "wp25": {
+     "src_pages": 31,
+     "out_pages": 50,
+     "word_recall": 0.2199,
+     "doc_recall": 0.9547,
+     "live_text_cov": 0.9732,
+     "within2pt": 0.0057,
+     "dy_p50": 35.47
+    }
+   },
+   "y17_rfc9110": {
+    "checkpoint": {
+     "src_pages": 194,
+     "out_pages": 194,
+     "word_recall": 0.9756,
+     "doc_recall": 0.9762,
+     "live_text_cov": 0.948,
+     "within2pt": 0.0288,
+     "dy_p50": 19.71
+    },
+    "wp25": {
+     "src_pages": 194,
+     "out_pages": 194,
+     "word_recall": 0.9756,
+     "doc_recall": 0.9762,
+     "live_text_cov": 0.948,
+     "within2pt": 0.0291,
+     "dy_p50": 19.71
+    }
+   },
+   "y21_worldbank_wdr24": {
+    "checkpoint": {
+     "src_pages": 48,
+     "out_pages": 57,
+     "word_recall": 0.1907,
+     "doc_recall": 0.9005,
+     "live_text_cov": 0.9155,
+     "within2pt": 0.0008,
+     "dy_p50": 50.87
+    },
+    "wp25": {
+     "src_pages": 48,
+     "out_pages": 51,
+     "word_recall": 0.2674,
+     "doc_recall": 0.8965,
+     "live_text_cov": 0.9145,
+     "within2pt": 0.001,
+     "dy_p50": 71.37
+    }
+   },
+   "y22_lshort": {
+    "checkpoint": {
+     "src_pages": 153,
+     "out_pages": 178,
+     "word_recall": 0.3861,
+     "doc_recall": 0.9697,
+     "live_text_cov": 0.9703,
+     "within2pt": 0.125,
+     "dy_p50": 5.13
+    },
+    "wp25": {
+     "src_pages": 153,
+     "out_pages": 174,
+     "word_recall": 0.3851,
+     "doc_recall": 0.9697,
+     "live_text_cov": 0.9703,
+     "within2pt": 0.1254,
+     "dy_p50": 4.89
+    }
+   },
+   "y24_pandoc_manual": {
+    "checkpoint": {
+     "src_pages": 180,
+     "out_pages": 181,
+     "word_recall": 0.5493,
+     "doc_recall": 0.9941,
+     "live_text_cov": 0.9927,
+     "within2pt": 0.1747,
+     "dy_p50": 2.35
+    },
+    "wp25": {
+     "src_pages": 180,
+     "out_pages": 180,
+     "word_recall": 0.9939,
+     "doc_recall": 0.9943,
+     "live_text_cov": 0.9929,
+     "within2pt": 0.1765,
+     "dy_p50": 1.96
+    }
+   },
+   "y33_nz_paper_powerpdf": {
+    "checkpoint": {
+     "src_pages": 60,
+     "out_pages": 62,
+     "word_recall": 0.4938,
+     "doc_recall": 0.8932,
+     "live_text_cov": 0.8616,
+     "within2pt": 0.0705,
+     "dy_p50": 3.03
+    },
+    "wp25": {
+     "src_pages": 60,
+     "out_pages": 61,
+     "word_recall": 0.5355,
+     "doc_recall": 0.8932,
+     "live_text_cov": 0.8616,
+     "within2pt": 0.0659,
+     "dy_p50": 3.22
+    }
+   },
+   "y37_plos_one_dvipdfmx": {
+    "checkpoint": {
+     "src_pages": 22,
+     "out_pages": 34,
+     "word_recall": 0.2389,
+     "doc_recall": 0.8869,
+     "live_text_cov": 0.8747,
+     "within2pt": 0.0113,
+     "dy_p50": 41.27
+    },
+    "wp25": {
+     "src_pages": 22,
+     "out_pages": 33,
+     "word_recall": 0.2443,
+     "doc_recall": 0.8883,
+     "live_text_cov": 0.8747,
+     "within2pt": 0.0111,
+     "dy_p50": 41.88
+    }
+   },
+   "y38_elife_arbortext_gs": {
+    "checkpoint": {
+     "src_pages": 33,
+     "out_pages": 53,
+     "word_recall": 0.2122,
+     "doc_recall": 0.9705,
+     "live_text_cov": 0.9547,
+     "within2pt": 0.0005,
+     "dy_p50": 38.09
+    },
+    "wp25": {
+     "src_pages": 33,
+     "out_pages": 50,
+     "word_recall": 0.2128,
+     "doc_recall": 0.9705,
+     "live_text_cov": 0.9547,
+     "within2pt": 0.0005,
+     "dy_p50": 38.17
+    }
+   },
+   "y47_ar_ilo_word365": {
+    "checkpoint": {
+     "src_pages": 57,
+     "out_pages": 86,
+     "word_recall": 0.1503,
+     "doc_recall": 0.7256,
+     "live_text_cov": 0.8289,
+     "within2pt": 0.001,
+     "dy_p50": 52.39
+    },
+    "wp25": {
+     "src_pages": 57,
+     "out_pages": 86,
+     "word_recall": 0.1504,
+     "doc_recall": 0.7256,
+     "live_text_cov": 0.8289,
+     "within2pt": 0.001,
+     "dy_p50": 52.23
+    }
+   },
+   "y54_hi_gdocs": {
+    "checkpoint": {
+     "src_pages": 4,
+     "out_pages": 4,
+     "word_recall": 0.6991,
+     "doc_recall": 0.6991,
+     "live_text_cov": 0.7193,
+     "within2pt": 0.0281,
+     "dy_p50": 6.15
+    },
+    "wp25": {
+     "src_pages": 4,
+     "out_pages": 4,
+     "word_recall": 0.6991,
+     "doc_recall": 0.6991,
+     "live_text_cov": 0.7193,
+     "within2pt": 0.0399,
+     "dy_p50": 6.07
+    }
+   },
+   "y60_cdc_mmwr_indd19": {
+    "checkpoint": {
+     "src_pages": 24,
+     "out_pages": 34,
+     "word_recall": 0.3161,
+     "doc_recall": 0.9702,
+     "live_text_cov": 0.9466,
+     "within2pt": 0.0193,
+     "dy_p50": 65.7
+    },
+    "wp25": {
+     "src_pages": 24,
+     "out_pages": 34,
+     "word_recall": 0.316,
+     "doc_recall": 0.9701,
+     "live_text_cov": 0.9465,
+     "within2pt": 0.0196,
+     "dy_p50": 66.1
+    }
+   },
+   "y61_fedreg_gpo_3col": {
+    "checkpoint": {
+     "src_pages": 4,
+     "out_pages": 7,
+     "word_recall": 0.4026,
+     "doc_recall": 0.9562,
+     "live_text_cov": 0.9395,
+     "within2pt": 0.0054,
+     "dy_p50": 39.04
+    },
+    "wp25": {
+     "src_pages": 4,
+     "out_pages": 6,
+     "word_recall": 0.5516,
+     "doc_recall": 0.9617,
+     "live_text_cov": 0.9593,
+     "within2pt": 0.0039,
+     "dy_p50": 47.09
+    }
+   },
+   "y64_bls_release_xpp": {
+    "checkpoint": {
+     "src_pages": 39,
+     "out_pages": 44,
+     "word_recall": 0.3432,
+     "doc_recall": 0.9618,
+     "live_text_cov": 0.9669,
+     "within2pt": 0.1041,
+     "dy_p50": 11.17
+    },
+    "wp25": {
+     "src_pages": 39,
+     "out_pages": 39,
+     "word_recall": 0.9516,
+     "doc_recall": 0.9618,
+     "live_text_cov": 0.967,
+     "within2pt": 0.089,
+     "dy_p50": 11.92
+    }
+   }
+  },
+  "note": "y24_pandoc_manual moved with WP26 (merged), not WP25 (WP28's evidence: y24 moved on the WP26 merge)",
+  "worse_beyond_gate_tolerance": [
+   "y21_worldbank_wdr24 dy_p50 50.87 -> 71.37 (tol 5.09)",
+   "y61_fedreg_gpo_3col dy_p50 39.04 -> 47.09 (tol 3.9)"
+  ]
+ },
+ "criterion_8_vs_wp18_m2": [
+  "y21_worldbank_wdr24 dy_p50 50.92 -> 71.37 (tol 5.09)",
+  "y26_bash_reference doc_recall 0.9924 -> 0.9712 (tol 0.01; pre-existing, WP22)",
+  "y61_fedreg_gpo_3col dy_p50 33.33 -> 47.09 (tol 3.33)"
+ ],
+ "product_libreoffice": {
+  "y21_worldbank_wdr24": {
+   "checkpoint": {
+    "src_pages": 48,
+    "out_pages": 49,
+    "word_recall": 0.7143,
+    "doc_recall": 0.9005,
+    "live_text_cov": 0.9155,
+    "within2pt": 0.0152,
+    "dy_p50": 26.85
+   },
+   "wp25": {
+    "src_pages": 48,
+    "out_pages": 48,
+    "word_recall": 0.5177,
+    "doc_recall": 0.8965,
+    "live_text_cov": 0.9145,
+    "within2pt": 0.0097,
+    "dy_p50": 29.51
+   }
+  },
+  "y61_fedreg_gpo_3col": {
+   "checkpoint": {
+    "src_pages": 4,
+    "out_pages": 6,
+    "word_recall": 0.4378,
+    "doc_recall": 0.9559,
+    "live_text_cov": 0.9395,
+    "within2pt": 0.005,
+    "dy_p50": 43.02
+   },
+   "wp25": {
+    "src_pages": 4,
+    "out_pages": 5,
+    "word_recall": 0.5651,
+    "doc_recall": 0.9617,
+    "live_text_cov": 0.9593,
+    "within2pt": 0.0043,
+    "dy_p50": 48.51
+   }
+  },
+  "y64_bls_release_xpp": {
+   "checkpoint": {
+    "src_pages": 39,
+    "out_pages": 39,
+    "word_recall": 0.9455,
+    "doc_recall": 0.9618,
+    "live_text_cov": 0.9669,
+    "within2pt": 0.1392,
+    "dy_p50": 8.72
+   },
+   "wp25": {
+    "src_pages": 39,
+    "out_pages": 39,
+    "word_recall": 0.9514,
+    "doc_recall": 0.9618,
+    "live_text_cov": 0.967,
+    "within2pt": 0.1339,
+    "dy_p50": 8.74
+   }
+  }
+ },
+ "word_product": {
+  "checkpoint": {
+   "y21_worldbank_wdr24": {
+    "src_pages": 48,
+    "out_pages": 49,
+    "word_recall": 0.701,
+    "within2pt": 0.0108,
+    "dy_p50": 28.76
+   },
+   "y61_fedreg_gpo_3col": {
+    "src_pages": 4,
+    "out_pages": 10,
+    "word_recall": 0.3304,
+    "within2pt": 0.0058,
+    "dy_p50": 60.5
+   },
+   "y64_bls_release_xpp": {
+    "src_pages": 39,
+    "out_pages": 40,
+    "word_recall": 0.4212,
+    "within2pt": 0.1454,
+    "dy_p50": 9.9
+   }
+  },
+  "wp25": {
+   "y21_worldbank_wdr24": {
+    "src_pages": 48,
+    "out_pages": 50,
+    "word_recall": 0.4116,
+    "within2pt": 0.0083,
+    "dy_p50": 28.09
+   },
+   "y61_fedreg_gpo_3col": {
+    "src_pages": 4,
+    "out_pages": 7,
+    "word_recall": 0.3889,
+    "within2pt": 0.0056,
+    "dy_p50": 39.33
+   },
+   "y64_bls_release_xpp": {
+    "src_pages": 39,
+    "out_pages": 39,
+    "word_recall": 0.9513,
+    "within2pt": 0.1306,
+    "dy_p50": 9.11
+   }
+  }
+ },
+ "word_raw": {
+  "checkpoint": {
+   "y21_worldbank_wdr24": {
+    "src_pages": 48,
+    "out_pages": 56,
+    "word_recall": 0.1951,
+    "within2pt": 0.0008,
+    "dy_p50": 53.39
+   },
+   "y61_fedreg_gpo_3col": {
+    "src_pages": 4,
+    "out_pages": 11,
+    "word_recall": 0.3275,
+    "within2pt": 0.0059,
+    "dy_p50": 59.07
+   },
+   "y64_bls_release_xpp": {
+    "src_pages": 39,
+    "out_pages": 44,
+    "word_recall": 0.3438,
+    "within2pt": 0.1024,
+    "dy_p50": 8.55
+   }
+  },
+  "wp25": {
+   "y21_worldbank_wdr24": {
+    "src_pages": 48,
+    "out_pages": 56,
+    "word_recall": 0.2026,
+    "within2pt": 0.0005,
+    "dy_p50": 53.53
+   },
+   "y61_fedreg_gpo_3col": {
+    "src_pages": 4,
+    "out_pages": 7,
+    "word_recall": 0.3889,
+    "within2pt": 0.0056,
+    "dy_p50": 38.53
+   },
+   "y64_bls_release_xpp": {
+    "src_pages": 39,
+    "out_pages": 39,
+    "word_recall": 0.9515,
+    "within2pt": 0.0843,
+    "dy_p50": 11.96
+   }
+  }
+ },
+ "gdocs_probe": "C:\\lotmp\\scr\\wp25\\gdocs_probe (base = e572bb7, wp25 = 97b3963; y64 y61 y12 y13 y21 + c2 control)",
+ "not_shipped": {
+  "banded_block_columns": "The block-cluster path sends prose crossing its split to a tail after the columns; laying such pages out in bands (as _gutter_chunks does) when the crossing prose runs BETWEEN column items took y22 178 -> 168 (wr 0.386 -> 0.468) and y24 to 180/180, but fired on y37's one-column maths and table pages and y60's tables (y37 34 -> 36, y60 34 -> 38). Per-side full-line share and row-sharing did not separate the classes (y24 p45 row share 0.94 good, y37 p15 1.00 bad; y60 p1 0.00 bad, y22 p33 0.14 good). Withdrawn."
+ },
+ "diagnoses": {
+  "y64_table_titles": "detect_hf's varying-furniture geometry pass consumes 'HOUSEHOLD DATA' / 'Table A-n. ...' (one line at one position and size on >= 60% of later pages: 29 of 38) without emission. Census of the white between each varying top line and the body below it: y64 p50 1.4pt (min -0.2), against y20 17.3, y22 18.7, y24 18.6, y26 11.8 minimum -- a 'clears the body by a line' bar separates them. detect_hf is outside WP25's band.",
+  "y64_p19_p22": "after the fix: p19's footnotes and p22's NOTE render on their own page in LibreOffice only through table row heights (stub cells with leaders wrap: 'Less than 5 / weeks....'), a table-width issue.",
+  "y21_first_divergence": "p1 and p3 (covers): the 72pt title 'Middle Income' wraps in the render (font width), each cover takes two pages -- not a column class.",
+  "y22_first_divergence": "p33 (lshort p19): code-and-output examples between full-width prose, read by the block-cluster path as two columns with the prose sent to a tail (see not_shipped)."
+ }
+}

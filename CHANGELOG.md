@@ -20,6 +20,38 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **A line welded across a column gutter is cut there (WP25).** A source-to-
+  render page map put y64_bls_release_xpp's first divergent page on p8: a
+  left-column paragraph's short last line ("...Statistics (BLS). ", ending x
+  223) and the right column's indented first line ("Establishment survey",
+  x 339) share a baseline across a 295-317 gutter. The gap's midpoint is
+  25pt off the gutter's, so the justification exemption forgave it, and the
+  one margin-to-margin line cut the page's columns into three chunks. A
+  forgiven gap that holds a recurring gutter's whole white channel -- from
+  the column's measure (p90 of the line ends before it) to the next
+  column's start (p10 of the starts after it) -- now splits
+  (`parse_pdfium._gutter_channels`); the median end would have left half of
+  y61's ragged three-column lines welded at one gutter. And a rule that ends
+  above the spacing cursor (BLS's column-group rule, flowed after its table)
+  no longer moves it back up: the note under each such table took 200-312pt
+  of space before and left its page (`infer._position_chunks`). Canonical,
+  raw LibreOffice, merged with e572bb7, against the checkpoint: y64 44 -> 39
+  pages (word recall 0.343 -> 0.952; criterion 5 now passes), y06 163 ->
+  149, y13 58 -> 50, y38 53 -> 50, y12 66 -> 63 (0.382 -> 0.424), y21 57 ->
+  51 (0.191 -> 0.267), y22 178 -> 174, y33 62 -> 61, y37 34 -> 33, y61 7 ->
+  6 (0.403 -> 0.552); page-exact 59 -> 61. Word: y64 40 -> 39 pages (0.421
+  -> 0.951) with product DOCX, 44 -> 39 with raw. Worse: dy_p50 beyond gate
+  tolerance on y21 (50.9 -> 71.4) and y61 (39.0 -> 47.1; 33.3 in the
+  accepted wp18-m2 sweep, so criterion 8 fails on it) -- both with fewer
+  pages and more words on the right page -- and y21's product DOCX (49 ->
+  48 pages in LibreOffice but word recall 0.714 -> 0.518; Word 49 -> 50,
+  0.701 -> 0.411). Gate PASS in both lanes at the recorded numbers; the
+  gated 16 byte-identical. Not shipped: laying the block-cluster split out
+  in bands when crossing prose runs between its column items (y22 -> 168,
+  but y37 and y60 each +2-4 pages). Diagnosed, not fixed: y64's table titles
+  ("HOUSEHOLD DATA / Table A-n") are consumed as varying furniture, which a
+  "clears the body" bar would separate (1.4pt against >= 11.8pt in every
+  real case) (`docs/evidence/wp25-columns-2026-10-06.json`).
 - **Beta criteria 8 and 12 (WP28).** *Criterion 8* (no document worse than
   the accepted wp18-m2 sweep) failed on two documents; both bisect to WP22
   (aeb98fb; every merge from 92c542c to 738bd2e measured the accepted values).
