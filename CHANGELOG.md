@@ -46,6 +46,35 @@ one verified fix at a time, each gated against the frozen 16.
   capability; a probe set (with and without those backgrounds anchored)
   awaits a live pass. Tests: `tests/test_question_panels.py`.
 
+- **Beta criteria 8 and 12 (WP28).** *Criterion 8* (no document worse than
+  the accepted wp18-m2 sweep) failed on two documents; both bisect to WP22
+  (aeb98fb; every merge from 92c542c to 738bd2e measured the accepted values).
+  y61's dy_p50 33.33 -> 39.04 was real: WP22's opening-marker rule glued a
+  column-1 bullet onto line 11 of a block welded across the three-column
+  Federal Register page, and the bullet's 69pt of column flow went with it.
+  That rule now glues only to a line that opens its own block, the run-in
+  shape it was written for (all 304 of y18's fires land on a one-line block;
+  `_has_item_beside(opens_block=True)`). Raw sweep, 90 documents against
+  the checkpoint: y61 alone moves (dy_p50 39.04 -> 33.33, word recall
+  0.4026 -> 0.4012, both the accepted values); `word/*.xml` identical for
+  the other 89, and for all gdocs-profile DOCX but y61. Product, y61 only:
+  6 pages either way, dy_p50 43.02 -> 45.20 (within tolerance), word recall
+  0.4378 -> 0.4380. Gate PASS in both lanes (1587 tests). y26's doc recall
+  0.9924 -> 0.9712 is the scorer counting leader dots as words: its render
+  has 2,269 fewer "." tokens (21,081 -> 18,812), the dots WP22 trims so a
+  contents entry fits before its number's right tab; no prose token is lost,
+  and y26 went 216 -> 213 pages for 214 with word recall 0.924 -> 0.953. Left
+  for the scorer decision (WP29), so criterion 8 now fails by that one.
+  *Criterion 12* passes: the README's numbers are refreshed from the
+  checkpoint and each cites its file. A stale 2026-09-11 NIST sweep
+  (12-22% more pages; now page for page) and the first live Docs sweep (26
+  of 73 page-exact; now 57 of 90) are replaced, the Word/LibreOffice counts
+  (65 and 69 of 90), the gate's within-2pt (72%, baseline 64%) and the
+  not-yet captions are current, and the README says long documents are not
+  yet at the bar (11, 15 and 10 of the 17 needed)
+  ([evidence](docs/evidence/checkpoint-2026-10-05-lo-sweeps.json),
+  [WP28](docs/evidence/wp28-2026-10-06.json)).
+
 - **A table cut by a page break stays a table (WP26).** The pandoc manual
   (y24) sets its defaults-file tables as LaTeX longtables: a table at a page
   foot has its head rule and mid rule but no closing rule, and the next page

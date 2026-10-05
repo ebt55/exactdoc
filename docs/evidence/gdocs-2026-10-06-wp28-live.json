@@ -1,0 +1,35 @@
+{
+ "what": "WP28's y61 marker-rule narrowing flown live through Google Docs",
+ "date": "2026-10-06",
+ "base": "f2f6480",
+ "candidate": "WP28 93d621c",
+ "rows": [
+  {
+   "doc": "y61_fedreg_gpo_3col",
+   "v": "base",
+   "src_pages": 4,
+   "out_pages": 10,
+   "word_recall": 0.328,
+   "within2pt": 0.0066,
+   "dy_p50": 38.44,
+   "mean_ssim": 0.1441,
+   "live_text_cov": 0.9395,
+   "char_recall": 0.4153
+  },
+  {
+   "doc": "y61_fedreg_gpo_3col",
+   "v": "wp28",
+   "src_pages": 4,
+   "out_pages": 10,
+   "word_recall": 0.3251,
+   "within2pt": 0.0067,
+   "dy_p50": 38.14,
+   "mean_ssim": 0.1447,
+   "live_text_cov": 0.9395,
+   "char_recall": 0.415
+  }
+ ],
+ "notes": [
+  "y61 (not promised) 10 pages for 4 either way; word recall 0.328 -> 0.325, dy_p50 38.4 -> 38.1: neutral"
+ ]
+}
