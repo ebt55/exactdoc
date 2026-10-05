@@ -689,6 +689,15 @@ class WP24(unittest.TestCase):
         self.assertNotEqual(legacy, calibrated)
         lines = [int(v) for v in re.findall(r'w:line="(\d+)" w:lineRule="auto"', xml)]
         self.assertIn(legacy, lines)
+        # the probe's `wp24c` variant writes such a page calibrated too
+        D.GDOCS_UNMODELLED_SHIPPED = False
+        try:
+            lines = [int(v) for v in re.findall(r'w:line="(\d+)" w:lineRule="auto"',
+                                                _xml(lay))]
+        finally:
+            D.GDOCS_UNMODELLED_SHIPPED = True
+        self.assertIn(calibrated, lines)
+        self.assertNotIn(legacy, lines)
         # the same paragraph on a page the model adds up is calibrated
         lay.pages = [_page([_para(gap=0.0)], number=1), _page([body], number=2)]
         lines = [int(v) for v in re.findall(r'w:line="(\d+)" w:lineRule="auto"',

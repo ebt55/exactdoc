@@ -840,6 +840,12 @@ GDOCS_WRITER_DESCENT_EM = 0.21          # infer._para_box's Word-terms descent
 # and Times at 1.144 and these at the 1.144 default, the multiple taken
 # against the unquantised size, one-line paragraphs shaved by
 # GDOCS_SINGLE_LINE_SHAVE_PT, boxes and quotes without their written gaps.
+#
+# Not settled for every such page: around y12_irs_pub15's two-column pages
+# 37-40 the shipped base lost a page that WP19b, writing them calibrated, kept
+# (probe 3; 72 -> 69 pages over the document, most of it from planned pages).
+# WP24's probe flies both (variant `wp24c`: GDOCS_UNMODELLED_SHIPPED off).
+GDOCS_UNMODELLED_SHIPPED = True
 GDOCS_LEGACY_1144 = frozenset({"arial", "times new roman", "roboto mono",
                                "open sans", "source code pro", "figtree",
                                "tahoma", "ubuntu", "arial unicode ms"})
@@ -5648,7 +5654,7 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
             spill_plan = _gdocs_baseline_plan(pg, cw_ctx, glay, nh, spill_plan,
                                               first_fixed=pending_break[0],
                                               skip=vrules, body_line=body_line)
-        if gdocs_flow and not modelled:
+        if gdocs_flow and not modelled and GDOCS_UNMODELLED_SHIPPED:
             ctx = dataclasses.replace(ctx, gdocs_calibrated=False)
         # A slide's graphics ride in the page's first paragraph, anchored to
         # the page (see anchor_floats); a page with no paragraph gets a host.
