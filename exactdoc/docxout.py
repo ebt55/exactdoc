@@ -3165,9 +3165,9 @@ def _gdocs_box_spaces(t: TableEl, bw_top: float, bw_bot: float,
     width below the last; the writer's spaces were the source's glyph-box
     distances. Measured on the WP19 probe-1 exports, the first lines landed
     where that predicts within 0.3pt on y02's eight notice boxes and the
-    bottoms within 0.4pt on c1's, 01's and 03's (01's 3pt borders: 5.9pt
-    tall each side, the text after them all 5.9pt low). Without infer's
-    baselines the source's spaces stand."""
+    bottoms within 0.4pt on c1's, 01's and 03's (01's 3pt borders set the
+    text after them 5.9pt low). Without infer's baselines the source's
+    spaces stand."""
     cell = t.rows[0][0]
     if not t.bbox or not cell.paras:
         return space_top, space_bot

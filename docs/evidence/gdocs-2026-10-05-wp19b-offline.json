@@ -1,0 +1,504 @@
+{
+ "what": "WP19b offline evidence: where Google Docs places a paragraph's lines, read from Google's own PDF exports of the WP19 probe-1 documents (every page calibrated), and the WP19b writer replayed against them.",
+ "date": "2026-10-05",
+ "method": {
+  "alignment": "source and Docs words aligned per page (WP19 diag.py); baselines from the exported glyph origins (PyMuPDF span origin)",
+  "model": "writer: first baseline leading - 0.21*size1 below the paragraph top (infer._para_box); Docs: (ascent+gap)*emitted size*min(1, multiple) below the top, every line box multiple*size*factor",
+  "replay": "Docs position of every line = its position in the old export + the change the model predicts from the old and new DOCX (emitted gaps, multiples, block edges); page fit as WP19's replay.py"
+ },
+ "boundary_jumps_probe1": {
+  "ALL": {
+   "n": 1268,
+   "measured_median": -0.34,
+   "residual_median": 0.0,
+   "residual_p10": -0.06,
+   "residual_p90": 0.09
+  },
+  "body1>body1": {
+   "n": 244,
+   "measured_median": -0.39,
+   "residual_median": -0.01,
+   "residual_p10": -0.05,
+   "residual_p90": 0.04
+  },
+  "body>body": {
+   "n": 216,
+   "measured_median": 0.0,
+   "residual_median": 0.0,
+   "residual_p10": -0.12,
+   "residual_p90": 0.04
+  },
+  "body1>body": {
+   "n": 172,
+   "measured_median": -1.54,
+   "residual_median": 0.0,
+   "residual_p10": -0.02,
+   "residual_p90": 0.04
+  },
+  "list>list": {
+   "n": 141,
+   "measured_median": -0.37,
+   "residual_median": 0.02,
+   "residual_p10": -0.0,
+   "residual_p90": 0.08
+  },
+  "body>body1": {
+   "n": 110,
+   "measured_median": 1.25,
+   "residual_median": -0.0,
+   "residual_p10": -0.06,
+   "residual_p90": 0.34
+  },
+  "head>body": {
+   "n": 97,
+   "measured_median": -2.5,
+   "residual_median": 0.02,
+   "residual_p10": -0.03,
+   "residual_p90": 0.03
+  },
+  "body>head": {
+   "n": 54,
+   "measured_median": 2.09,
+   "residual_median": -0.02,
+   "residual_p10": -0.05,
+   "residual_p90": 0.01
+  },
+  "body>list": {
+   "n": 47,
+   "measured_median": 1.86,
+   "residual_median": -0.62,
+   "residual_p10": -0.63,
+   "residual_p90": 0.13
+  },
+  "body1>list": {
+   "n": 42,
+   "measured_median": 0.32,
+   "residual_median": -0.38,
+   "residual_p10": -0.41,
+   "residual_p90": 0.05
+  },
+  "list>body1": {
+   "n": 36,
+   "measured_median": -0.29,
+   "residual_median": 0.45,
+   "residual_p10": -0.04,
+   "residual_p90": 0.47
+  },
+  "head>body1": {
+   "n": 32,
+   "measured_median": -0.33,
+   "residual_median": 0.03,
+   "residual_p10": -0.03,
+   "residual_p90": 0.05
+  },
+  "list>head": {
+   "n": 28,
+   "measured_median": 0.3,
+   "residual_median": 0.69,
+   "residual_p10": 0.42,
+   "residual_p90": 0.7
+  },
+  "body1>head": {
+   "n": 20,
+   "measured_median": -0.39,
+   "residual_median": 0.0,
+   "residual_p10": -0.03,
+   "residual_p90": 0.04
+  },
+  "list>body": {
+   "n": 17,
+   "measured_median": -1.51,
+   "residual_median": 0.4,
+   "residual_p10": 0.0,
+   "residual_p90": 0.6
+  },
+  "head>head": {
+   "n": 8,
+   "measured_median": -0.39,
+   "residual_median": -0.01,
+   "residual_p10": -0.05,
+   "residual_p90": 0.04
+  },
+  "head>list": {
+   "n": 4,
+   "measured_median": -0.41,
+   "residual_median": 0.08,
+   "residual_p10": -0.59,
+   "residual_p90": 3.14
+  }
+ },
+ "placement_replay_from_probe1": {
+  "01_whitepaper_market": {
+   "lines": 66,
+   "within2pt_lines_now": 0.439,
+   "within2pt_lines_replayed": 0.788
+  },
+  "02_research_paper": {
+   "lines": 6,
+   "within2pt_lines_now": 1.0,
+   "within2pt_lines_replayed": 1.0
+  },
+  "03_tech_report_code": {
+   "lines": 44,
+   "within2pt_lines_now": 0.364,
+   "within2pt_lines_replayed": 0.795
+  },
+  "04_exec_brief": {
+   "lines": 21,
+   "within2pt_lines_now": 0.524,
+   "within2pt_lines_replayed": 0.81
+  },
+  "05_memo": {
+   "lines": 11,
+   "within2pt_lines_now": 0.636,
+   "within2pt_lines_replayed": 1.0
+  },
+  "c1_whitepaper": {
+   "lines": 28,
+   "within2pt_lines_now": 0.214,
+   "within2pt_lines_replayed": 0.714
+  },
+  "c6_long": {
+   "lines": 201,
+   "within2pt_lines_now": 0.179,
+   "within2pt_lines_replayed": 1.0
+  },
+  "c7_code": {
+   "lines": 26,
+   "within2pt_lines_now": 0.846,
+   "within2pt_lines_replayed": 0.885
+  },
+  "c8_toc_links": {
+   "lines": 17,
+   "within2pt_lines_now": 0.412,
+   "within2pt_lines_replayed": 1.0
+  },
+  "f1_fpdf_brief": {
+   "lines": 12,
+   "within2pt_lines_now": 0.917,
+   "within2pt_lines_replayed": 0.75
+  },
+  "l1_word_native": {
+   "lines": 19,
+   "within2pt_lines_now": 0.789,
+   "within2pt_lines_replayed": 0.632
+  },
+  "r1_reportlab_report": {
+   "lines": 21,
+   "within2pt_lines_now": 0.571,
+   "within2pt_lines_replayed": 0.667
+  },
+  "x01_lo_memo_pageno": {
+   "lines": 50,
+   "within2pt_lines_now": 0.5,
+   "within2pt_lines_replayed": 1.0
+  },
+  "x02_lo_report_toc": {
+   "lines": 65,
+   "within2pt_lines_now": 0.369,
+   "within2pt_lines_replayed": 1.0
+  },
+  "x03_lo_lists_nested": {
+   "lines": 34,
+   "within2pt_lines_now": 0.176,
+   "within2pt_lines_replayed": 1.0
+  },
+  "x04_lo_tables_plain": {
+   "lines": 31,
+   "within2pt_lines_now": 0.484,
+   "within2pt_lines_replayed": 0.323
+  },
+  "x05_lo_quotes_notes": {
+   "lines": 25,
+   "within2pt_lines_now": 0.2,
+   "within2pt_lines_replayed": 1.0
+  },
+  "x06_lo_euro_scripts": {
+   "lines": 23,
+   "within2pt_lines_now": 0.261,
+   "within2pt_lines_replayed": 0.565
+  },
+  "x07_chrome_memo_running": {
+   "lines": 64,
+   "within2pt_lines_now": 0.188,
+   "within2pt_lines_replayed": 0.281
+  },
+  "x08_chrome_print_default": {
+   "lines": 53,
+   "within2pt_lines_now": 0.245,
+   "within2pt_lines_replayed": 0.566
+  },
+  "x09_chrome_lists_nested": {
+   "lines": 34,
+   "within2pt_lines_now": 0.088,
+   "within2pt_lines_replayed": 0.971
+  },
+  "x10_chrome_tables_plain": {
+   "lines": 29,
+   "within2pt_lines_now": 0.172,
+   "within2pt_lines_replayed": 0.241
+  },
+  "x11_chrome_toc_headings": {
+   "lines": 54,
+   "within2pt_lines_now": 0.074,
+   "within2pt_lines_replayed": 0.5
+  },
+  "x12_chrome_euro_scripts": {
+   "lines": 22,
+   "within2pt_lines_now": 0.318,
+   "within2pt_lines_replayed": 0.545
+  },
+  "x13_rl_report_running": {
+   "lines": 62,
+   "within2pt_lines_now": 0.177,
+   "within2pt_lines_replayed": 0.694
+  },
+  "x14_rl_statement_lines": {
+   "lines": 19,
+   "within2pt_lines_now": 0.368,
+   "within2pt_lines_replayed": 1.0
+  },
+  "x15_rl_handbook_toc": {
+   "lines": 55,
+   "within2pt_lines_now": 0.273,
+   "within2pt_lines_replayed": 1.0
+  },
+  "x16_fpdf_bulletin": {
+   "lines": 31,
+   "within2pt_lines_now": 0.774,
+   "within2pt_lines_replayed": 0.677
+  },
+  "x17_resume_twocol": {
+   "lines": 28,
+   "within2pt_lines_now": 0.214,
+   "within2pt_lines_replayed": 0.893
+  },
+  "x18_resume_twocol_tnr": {
+   "lines": 27,
+   "within2pt_lines_now": 0.222,
+   "within2pt_lines_replayed": 0.926
+  },
+  "y01_nist_sp80063b": {
+   "lines": 2592,
+   "within2pt_lines_now": 0.086,
+   "within2pt_lines_replayed": 0.519
+  },
+  "y02_nist_sp800171r2": {
+   "lines": 3854,
+   "within2pt_lines_now": 0.038,
+   "within2pt_lines_replayed": 0.289
+  },
+  "y03_nist_fips197": {
+   "lines": 1049,
+   "within2pt_lines_now": 0.232,
+   "within2pt_lines_replayed": 0.368
+  },
+  "y08_nist_sp80088r1": {
+   "lines": 2097,
+   "within2pt_lines_now": 0.209,
+   "within2pt_lines_replayed": 0.638
+  },
+  "y10_nist_fips180": {
+   "lines": 686,
+   "within2pt_lines_now": 0.182,
+   "within2pt_lines_replayed": 0.52
+  },
+  "y17_rfc9110": {
+   "lines": 6360,
+   "within2pt_lines_now": 0.53,
+   "within2pt_lines_replayed": 0.783
+  },
+  "y18_eurlex_ai_act": {
+   "lines": 5840,
+   "within2pt_lines_now": 0.149,
+   "within2pt_lines_replayed": 0.076
+  },
+  "y19_scotus_loper": {
+   "lines": 3777,
+   "within2pt_lines_now": 0.002,
+   "within2pt_lines_replayed": 0.882
+  },
+  "y20_typst_report": {
+   "lines": 99,
+   "within2pt_lines_now": 0.131,
+   "within2pt_lines_replayed": 0.424
+  },
+  "y22_lshort": {
+   "lines": 3998,
+   "within2pt_lines_now": 0.092,
+   "within2pt_lines_replayed": 0.309
+  },
+  "y26_bash_reference": {
+   "lines": 7589,
+   "within2pt_lines_now": 0.035,
+   "within2pt_lines_replayed": 0.519
+  },
+  "y29_uk_letter_word365": {
+   "lines": 112,
+   "within2pt_lines_now": 0.277,
+   "within2pt_lines_replayed": 0.759
+  },
+  "y30_nz_guideline_word365": {
+   "lines": 872,
+   "within2pt_lines_now": 0.389,
+   "within2pt_lines_replayed": 0.641
+  },
+  "y31_uk_policy_printtopdf": {
+   "lines": 332,
+   "within2pt_lines_now": 0.295,
+   "within2pt_lines_replayed": 0.401
+  },
+  "y32_uk_response_gdocs": {
+   "lines": 539,
+   "within2pt_lines_now": 0.319,
+   "within2pt_lines_replayed": 0.794
+  },
+  "y36_lo_writer_guide": {
+   "lines": 539,
+   "within2pt_lines_now": 0.256,
+   "within2pt_lines_replayed": 0.401
+  }
+ },
+ "placement_replay_from_shipped_base": {
+  "01_whitepaper_market": {
+   "lines": 66,
+   "within2pt_lines_now": 0.455,
+   "within2pt_lines_replayed": 0.424
+  },
+  "04_exec_brief": {
+   "lines": 21,
+   "within2pt_lines_now": 0.381,
+   "within2pt_lines_replayed": 0.81
+  },
+  "c1_whitepaper": {
+   "lines": 28,
+   "within2pt_lines_now": 0.321,
+   "within2pt_lines_replayed": 0.643
+  },
+  "x02_lo_report_toc": {
+   "lines": 65,
+   "within2pt_lines_now": 0.923,
+   "within2pt_lines_replayed": 1.0
+  },
+  "x05_lo_quotes_notes": {
+   "lines": 25,
+   "within2pt_lines_now": 1.0,
+   "within2pt_lines_replayed": 1.0
+  },
+  "x13_rl_report_running": {
+   "lines": 62,
+   "within2pt_lines_now": 0.468,
+   "within2pt_lines_replayed": 0.694
+  },
+  "x15_rl_handbook_toc": {
+   "lines": 55,
+   "within2pt_lines_now": 0.564,
+   "within2pt_lines_replayed": 1.0
+  },
+  "x16_fpdf_bulletin": {
+   "lines": 31,
+   "within2pt_lines_now": 0.452,
+   "within2pt_lines_replayed": 0.677
+  },
+  "x17_resume_twocol": {
+   "lines": 28,
+   "within2pt_lines_now": 0.821,
+   "within2pt_lines_replayed": 0.893
+  },
+  "x18_resume_twocol_tnr": {
+   "lines": 27,
+   "within2pt_lines_now": 0.852,
+   "within2pt_lines_replayed": 0.926
+  },
+  "y01_nist_sp80063b": {
+   "lines": 2567,
+   "within2pt_lines_now": 0.111,
+   "within2pt_lines_replayed": 0.466
+  },
+  "y02_nist_sp800171r2": {
+   "lines": 3722,
+   "within2pt_lines_now": 0.036,
+   "within2pt_lines_replayed": 0.301
+  },
+  "y03_nist_fips197": {
+   "lines": 1037,
+   "within2pt_lines_now": 0.263,
+   "within2pt_lines_replayed": 0.371
+  },
+  "y08_nist_sp80088r1": {
+   "lines": 2096,
+   "within2pt_lines_now": 0.22,
+   "within2pt_lines_replayed": 0.537
+  },
+  "y10_nist_fips180": {
+   "lines": 673,
+   "within2pt_lines_now": 0.239,
+   "within2pt_lines_replayed": 0.513
+  },
+  "y17_rfc9110": {
+   "lines": 6290,
+   "within2pt_lines_now": 0.428,
+   "within2pt_lines_replayed": 0.788
+  },
+  "y18_eurlex_ai_act": {
+   "lines": 5578,
+   "within2pt_lines_now": 0.018,
+   "within2pt_lines_replayed": 0.075
+  },
+  "y19_scotus_loper": {
+   "lines": 3777,
+   "within2pt_lines_now": 0.002,
+   "within2pt_lines_replayed": 0.882
+  },
+  "y20_typst_report": {
+   "lines": 99,
+   "within2pt_lines_now": 0.121,
+   "within2pt_lines_replayed": 0.465
+  },
+  "y22_lshort": {
+   "lines": 3930,
+   "within2pt_lines_now": 0.089,
+   "within2pt_lines_replayed": 0.326
+  },
+  "y26_bash_reference": {
+   "lines": 7583,
+   "within2pt_lines_now": 0.039,
+   "within2pt_lines_replayed": 0.513
+  },
+  "y30_nz_guideline_word365": {
+   "lines": 872,
+   "within2pt_lines_now": 0.37,
+   "within2pt_lines_replayed": 0.63
+  },
+  "y32_uk_response_gdocs": {
+   "lines": 539,
+   "within2pt_lines_now": 0.286,
+   "within2pt_lines_replayed": 0.794
+  },
+  "y35_uk_rates_excel365": {
+   "lines": 611,
+   "within2pt_lines_now": 0.175,
+   "within2pt_lines_replayed": 0.866
+  },
+  "y36_lo_writer_guide": {
+   "lines": 532,
+   "within2pt_lines_now": 0.261,
+   "within2pt_lines_replayed": 0.406
+  },
+  "y44_cv_rendercv_typst": {
+   "lines": 82,
+   "within2pt_lines_now": 0.073,
+   "within2pt_lines_replayed": 0.317
+  },
+  "y45_cv_academic_pdftex": {
+   "lines": 70,
+   "within2pt_lines_now": 0.357,
+   "within2pt_lines_replayed": 0.543
+  },
+  "y63_court_pleading_word365": {
+   "lines": 110,
+   "within2pt_lines_now": 0.055,
+   "within2pt_lines_replayed": 0.291
+  }
+ }
+}

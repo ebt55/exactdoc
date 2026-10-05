@@ -20,6 +20,45 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **Google Docs sets every line where the source drew it: Docs' own line
+  placement on every page, the box and quote gaps it dropped, the page-top
+  holder on (WP19b).** WP19 calibrated only pages at risk, because the
+  shipped form's errors cancel on pages that fit. Google's own exports of the
+  probe-1 documents, aligned line by line with the sources
+  (`docs/evidence/gdocs-2026-10-05-wp19b-offline.json`), say what cancelled:
+  - Docs sets a paragraph's first baseline (ascent + gap) x size below its
+    top, all of the leading's extra below it; infer anchored every gap in
+    Word terms, the extra above. The error changes wherever the leading
+    does: heading -> body -2.50pt median, body -> heading +2.09, body ->
+    list +1.86 over 1,268 boundaries; with the model the residual is 0.00
+    (p10 -0.06, p90 +0.09). Every gap is now moved by it
+    (`_gdocs_baseline_gaps`), from the source's own page top where infer
+    clamped a first gap (x07, x08: 3.69pt), under a first line's tallest run.
+  - A quote or callout box in the paragraph form never wrote the table's
+    gap: c1's callouts sat 9.9 and 9.4pt high (the "-9.7pt" its lines' drift
+    had cancelled), y02's notice boxes 21-25pt. The gap is written, and a
+    box's border spaces follow Docs' border model (width outside the
+    padding; y02's boxes within 0.3pt; 01's 3pt-bordered boxes set the text after them 5.9pt low).
+  - Lever [E]'s 0.38pt shave on one-line paragraphs left each 0.39pt short
+    of the source in Docs (248 boundaries); it is gone.
+
+  The planner models all of that, predicts a soft-broken paragraph a line
+  at a time with its indentation (y26's code listings were 2-5 lines short),
+  may spend a table's spacer, and pays a page its spacing brings within a
+  body line of fitting. `GDOCS_PAGE_TOP_HOLDER` is on: probe 2's wp19h
+  variant raised within-2pt on all eight documents at the same page counts
+  (y19's median offset 24.3 -> 11.5pt).
+
+  Replayed against the exports (lines within 2pt, an offline estimate; the
+  live probe decides): probe 1 -> now c1 0.214 -> 0.714, 01 0.439 -> 0.788,
+  x05 0.200 -> 1.000, x09 0.088 -> 0.971, y19 0.002 -> 0.882, y26 0.035 ->
+  0.519; the shipped form -> now x02 0.923 -> 1.000, 04 0.381 -> 0.810, c1
+  0.321 -> 0.643, y35 0.175 -> 0.866, but 01 0.455 -> 0.424 (its striped
+  table still grows 0.75pt a row in Docs, and its post-rule body sits 1pt
+  low). Pages replayed against probe 2's exports: 14 lost -> 14,
+  y26's page 77 recovered (its first loss moves from page 77 to 172). The
+  standard profile is byte-identical for all 90 convertible documents.
+
 - **The promised documents that broke the beta bar (WP22).** Each fix is
   for the structure behind the first page that went wrong.
   *EUR-Lex* (y18):
