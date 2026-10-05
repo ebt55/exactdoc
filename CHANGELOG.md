@@ -50,10 +50,28 @@ one verified fix at a time, each gated against the frozen 16.
   baseline, an estimate; the live probe decides): 01 0.424 -> 0.970, 04
   0.857 -> 1.000, x04 0.290 -> 1.000, x06 0.565 -> 1.000, f1 0.750 -> 1.000,
   r1 0.667 -> 0.905, x13 0.677 -> 0.984, x10 0.207 -> 0.828, c1 0.571 ->
-  0.857. y46 and c2 are again identical to integration. The capability
-  `anchor_pictures` (WP23's pictures on a line, wrapped or in a margin,
-  anchored without the rest of `anchored`) is built and withheld from
-  gdocs; `testkit/gdocs_probe_anchors.py` writes the set that decides it.
+  0.857. y46 and c2 are again identical to integration.
+
+  Flown live (`docs/evidence/gdocs-2026-10-06-wp24-live.json`): every short
+  document flown page-exact; mean within-2pt 0.278 -> 0.462 and SSIM
+  0.828 -> 0.887 over the first 15 (x03 0.288 -> 1.000, c6 0.341 -> 0.899,
+  c8 0.098 -> 0.850, x04 0.271 -> 0.513, x10 0.022 -> 0.280, c1 0.154 ->
+  0.376); 03, 04, r1, x13 and x15 lose harness within-2pt as their SSIM
+  rises (the reference point above); y03 50 -> 47 pages (word recall 0.577
+  -> 0.849). Two decisions from it:
+  - **`anchor_pictures` granted to gdocs**: WP23's pictures on a line,
+    wrapped or in a margin, anchored without the rest of `anchored`. Docs
+    keeps them where they are put: y01 81 -> 80 pages for 80 (word recall
+    0.409 -> 0.962), y28 22 -> 21 for 21 (0.396 -> 0.990), the synthetic set
+    (`testkit/gdocs_probe_anchors.py`) 6 -> 5 for 5.
+  - **Unmodelled pages, per page**: all shipped, y12 took 71 pages for 59
+    (criterion 6 fails); all calibrated, 69, but y46 went 1 -> 2. A page
+    whose columns leave less than a body line free is written calibrated --
+    the shipped form's lines run ~0.5% tall in Docs, which a full column
+    cannot absorb -- and any other keeps the shipped form
+    (`_gdocs_unmodelled_tight`; y46 26pt spare, 02 21, c2 197). Flown next
+    (variant wp24d).
+
   The standard profile is byte-identical on all 90 convertible documents;
   gate PASS in both lanes at the recorded numbers.
 
