@@ -1669,6 +1669,9 @@ def para_from_lines(lines: List[Line], col_l: float, col_r: float,
                                         >= col_r - p.right_indent - 3.0))
                 runs.extend(runs_from_spans(lines[j].spans))
             p.runs = runs
+            # its one tab is the marker's separator, not a tabbed row
+            # (`_mergeable` lets the item's continuation join it)
+            p._marker_tab = True
     if getattr(lines[0], "_gutter", None) is not None and p.align != "center":
         _gutter_para(p, lines, col_l)
     _keep_room(p, col_l, col_r)
@@ -2040,6 +2043,9 @@ def detect_hf(ir: DocIR):
                     else:
                         res["var_lines"][pg].append((zone, bi, ln))
 
+    if n >= 3:
+        _varying_folio_lines(ir, res, cands, row_has_page_number, parity0)
+
     _furniture_leftovers(ir, res, TOPZ, BOTZ)
     _line_number_gutters(ir, res)
     # A thin rule running the page's whole height is page furniture: pleading
@@ -2079,13 +2085,16 @@ def detect_hf(ir: DocIR):
     # repeating zone drawings
     dsigs = defaultdict(list)
     for p in ir.pages:
+        runs = _rule_runs(p.drawings)
         for di, d in enumerate(p.drawings):
             if di in res["consumed_draw"][p.number]:
                 continue
             y0, y1 = d.bbox[1], d.bbox[3]
             zone = "top" if y1 <= TOPZ else ("bot" if y0 >= p.height - BOTZ else None)
             if zone and d.shape in ("hline", "vline", "rect", "line"):
-                sig = (zone, round(y0 / 3), round(d.bbox[0] / 5), d.shape, d.fill, d.stroke)
+                # a rule drawn as abutting segments is signed as the whole rule
+                x0 = runs[di][0] if di in runs else d.bbox[0]
+                sig = (zone, round(y0 / 3), round(x0 / 5), d.shape, d.fill, d.stroke)
                 dsigs[sig].append((p.number, di, d))
     for sig, occ in dsigs.items():
         if len({o[0] for o in occ}) >= need:
@@ -2102,7 +2111,14 @@ def detect_hf(ir: DocIR):
     # loop, which had been spending the rule paragraphs' seam spacing as
     # its correction currency, could no longer converge below 156. The
     # stray rule-paragraphs at each seam are also a faithful rendering of
-    # the source's own per-page furniture rules. Reverted; the +2% class
+    # the source's own per-page furniture rules. Measured a third time by
+    # WP22 (2026-10-05), with the recitals fixed and WP19's Docs planner in:
+    # the head rule (3.5pt past TOPZ) taken into the header took y18's raw
+    # LibreOffice render 157 -> 153 pages (its 1pt seam carriers stopped
+    # firing after full pages), but grew margin_t 62.8 -> 67.1 and took the
+    # gdocs DOCX, rendered by LibreOffice, 144 -> 165. Left alone again. The
+    # FOOT rule, which lies inside BOTZ, is a different case: its halves are
+    # signed as one rule (`_rule_runs`) and go to the footer. Reverted; the +2% class
     # is bounded and recorded as such.
 
     # -- page numbers as the FURNITURE states them. Only tokens on lines that
@@ -2150,6 +2166,99 @@ def detect_hf(ir: DocIR):
     res["num_sections"] = numbering_sections(pn, n)
     res["parity"] = printed_parity(pn, n)
     return res
+
+
+def _varying_folio_lines(ir: DocIR, res: dict, cands, row_has_page_number,
+                         parity) -> None:
+    """VARYING running furniture outside the legacy zones: a line of the
+    extended band that carries the page's own number, alone at one place and
+    size on 60% of the pages -- or on 60% of one parity's pages, when the
+    other parity's furniture there is already consumed.
+
+    The geometry pass in `detect_hf` reads only TOPZ/BOTZ, and the extended
+    pass only text that repeats. A recto foot that names the current section
+    -- "Parts of the main Writer window | 5", "Creating a new document | 15"
+    -- does neither: y36_lo_writer_guide (LibreOffice, A4) sets it at y 772,
+    70pt above the paper's edge, beside versos whose "6 | Chapter 1
+    Introducing Writer" the extended pass takes. Left in the body, the recto
+    foot closed every odd page as a paragraph the page had no room for. Its
+    folio is the evidence body text cannot give; the line is consumed as
+    varying furniture, which `_running_head_sections` states per section.
+    """
+    n = len(ir.pages)
+    ct = res["consumed_text"]
+    geo = defaultdict(list)
+    for pg, bi, ln, zone, legacy in cands:
+        if legacy or pg == 1 or (bi, id(ln)) in ct[pg] or not ln.text.strip():
+            continue
+        if not row_has_page_number(pg, zone, ln):
+            continue
+        size = max((s.size for s in ln.spans if s.text.strip()), default=0.0)
+        geo[(zone, round(ln.bbox[1] / 3), round(size))].append((pg, bi, ln))
+    need = max(2, int(round(0.6 * (n - 1))))
+    later = range(2, n + 1)
+    for sig, occ in geo.items():
+        per_page = defaultdict(list)
+        for pg, bi, ln in occ:
+            per_page[pg].append((bi, ln))
+        single = [pg for pg, v in per_page.items() if len(v) == 1]
+        ok = len(single) >= need
+        if not ok and n >= PARITY_MIN_PAGES:
+            for par in (0, 1):
+                cls = [pg for pg in later if parity.get(pg, pg % 2) == par]
+                on = [pg for pg in single if parity.get(pg, pg % 2) == par]
+                if len(on) >= max(3, int(round(0.6 * len(cls)))) and \
+                        len(on) >= 0.9 * len(single):
+                    ok = True
+        if not ok:
+            continue
+        for pg in single:
+            bi, ln = per_page[pg][0]
+            ct[pg].add((bi, id(ln)))
+            res["var_lines"][pg].append((sig[0], bi, ln))
+
+
+# Two hline segments are one rule when they share a y within RULE_RUN_Y_TOL and
+# the next starts within RULE_RUN_GAP of where the last ended (pt). The EU
+# Official Journal draws its foot rule as two abutting segments split under the
+# folio, at x 98.5 on versos and 496.7 on rectos (y18: 41.8-98.5 + 98.5-553.4
+# against 41.8-496.7 + 496.7-553.4, all at y 806.2).
+RULE_RUN_Y_TOL = 0.6
+RULE_RUN_GAP = 1.0
+
+
+def _rule_runs(drawings) -> Dict[int, Tuple[float, float]]:
+    """{drawing index: (x0, x1) of the whole rule} for hlines drawn as two or
+    more abutting collinear segments of one colour.
+
+    The zone-drawing signature keys a rule on where it starts; signed per
+    segment, a parity-mirrored split gives the second segment a different
+    start on versos and rectos, so neither variant repeats on 60% of pages and
+    that half of the rule stayed in the body -- below the body box (the box
+    ends at 804.6 on y18), so wherever the text filled its page that 2pt
+    paragraph went over the foot and took a page of its own (y18: 60 of 226
+    pages blank). Signed as the whole rule, both halves are the same furniture
+    on every page."""
+    hl = sorted(((i, d) for i, d in enumerate(drawings) if d.shape == "hline"),
+                key=lambda t: (round(t[1].bbox[1], 1), t[1].bbox[0]))
+    out = {}
+    used = set()
+    for k, (i, d) in enumerate(hl):
+        if i in used:
+            continue
+        run, x1 = [i], d.bbox[2]
+        for j, e in hl[k + 1:]:
+            if j in used or abs(e.bbox[1] - d.bbox[1]) > RULE_RUN_Y_TOL or \
+                    (e.fill, e.stroke) != (d.fill, d.stroke):
+                continue
+            if e.bbox[0] <= x1 + RULE_RUN_GAP and e.bbox[2] > x1:
+                run.append(j)
+                x1 = e.bbox[2]
+        if len(run) > 1:
+            used.update(run)
+            for j in run:
+                out[j] = (d.bbox[0], x1)
+    return out
 
 
 # The band, from either edge, in which `_furniture_leftovers` looks.
@@ -3106,10 +3215,57 @@ def _has_bars(fills) -> bool:
     return False
 
 
+def _blank_picture_frame(d: DrawCmd, images) -> bool:
+    """A white, unstroked rectangle behind a picture: a word processor's
+    picture frame, which draws nothing on a white page. As a one-cell box it
+    held the caption and the picture went after it, so the frame's height was
+    paid twice: y36 p11, Figure 6 inside a 282pt white frame -- the box, then
+    the 269pt picture below it. Left alone, picture and caption flow as the
+    page shows them."""
+    if d.stroke or (d.fill or "").lower() != "#ffffff":
+        return False
+    return any(bbox_overlap(im.bbox, d.bbox) >= 0.9 * max(1e-6, bbox_area(im.bbox))
+               for im in images)
+
+
+# An icon on a shaded box -- a callout's tick, a tip's bulb -- covers a sliver of
+# the box it sits in. LibreOffice Writer's Note/Tip headings (y36: a 473x26pt
+# band, a 19.5pt icon at its left end, 3% of its area) are a band holding a
+# word, and read as artwork the cluster went to a figure that grew over the
+# heading and paragraph above it and the note's first lines below: 105pt of
+# text rasterised on page 5, and the rest of the note set 82pt lower. A curve
+# wholly inside a filled rectangle of its own cluster, covering no more than
+# ICON_FILL_FRAC of it, is that box's ornament, as a glyph-sized one already is.
+ICON_FILL_FRAC = 0.1
+
+
+def _icon_on_fill(d: DrawCmd, ds) -> bool:
+    """...and so is the artwork inside it taken TOGETHER: a drawing set in a
+    framed box is many small pieces (lshort's arrows, y22 p106: each vector a
+    sliver of its frame, all of them the whole frame) and stays a figure.
+    Only on a band that is the cluster's one fill: among several (y59's
+    mock-up notice page, tiles standing for a page's panels) the curves are
+    the picture's, and read as ornaments they left tables of empty cells."""
+    fills = [f for f in ds if f.fill and f.shape == "rect" and not _is_glyphlike(f)]
+    if len(fills) != 1:
+        return False
+    for f in fills:
+        if f is d or not f.fill or f.shape != "rect" or not contains(f.bbox, d.bbox, 0.5):
+            continue
+        art = None
+        for e in ds:
+            if e is not f and e.shape in ("curve", "complex", "line") and \
+                    not _is_glyphlike(e) and contains(f.bbox, e.bbox, 0.5):
+                art = bbox_union(art, e.bbox)
+        if art is not None and bbox_area(art) <= ICON_FILL_FRAC * bbox_area(f.bbox):
+            return True
+    return False
+
+
 def _classify_cluster(cl) -> str:
     ds = [d for _, d in cl]
     art = [d for d in ds if d.shape in ("curve", "complex", "line")
-           and not _is_glyphlike(d)]
+           and not _is_glyphlike(d) and not _icon_on_fill(d, ds)]
     # A rule is a rule at any length; on its own it is never a figure.
     if art and not all(d.shape == "line" and _thin(d) for d in art):
         return "figure"
@@ -3949,6 +4105,12 @@ def _tile_frame(cl, has_text=None):
     return (x0, y0, x1, y1, inner)
 
 
+def _mostly_texted(t: TableEl) -> bool:
+    """Do at least half of a table's cells hold text?"""
+    cells = [c for row in t.rows for c in row if c is not None]
+    return bool(cells) and 2 * sum(1 for c in cells if c.paras) >= len(cells)
+
+
 def _tile_bands(clusters, blocks, consumed):
     """Clusters that are row bands of ONE fill-tiled table.
 
@@ -3982,11 +4144,41 @@ def _tile_bands(clusters, blocks, consumed):
                            cl, False))
     frames.sort(key=lambda fc: fc[0][1])
 
+    def tile_rows(cl):
+        """Rows of a cluster whose tiles form a FULL lattice -- every row a
+        tile in every column -- else 0. y06's worksheet frames are tiles of
+        many sizes (a sidebar of 'Part 1' labels beside one wide panel), and
+        read as one table they wrapped its worksheets into a nine-row grid
+        (164 -> 169 pages)."""
+        fills = [d for _, d in cl if d.fill and d.shape == "rect"
+                 and not _is_glyphlike(d)]
+        tiles = _cell_tiles(fills)
+        rows = _cluster([t.bbox[1] for t in tiles], 2.0)
+        cols = _cluster([t.bbox[0] for t in tiles], 2.0)
+        if len(rows) < 2 or len(cols) < 2 or len(tiles) != len(rows) * len(cols):
+            return 0
+        seen = set()
+        for t in tiles:
+            key = (min(range(len(rows)), key=lambda i: abs(rows[i] - t.bbox[1])),
+                   min(range(len(cols)), key=lambda i: abs(cols[i] - t.bbox[0])))
+            if key in seen:
+                return 0
+            seen.add(key)
+        return len(rows)
+
     def close(cur, bands):
         # trailing rule-only frames belong to whatever follows, not here
         while cur and not cur[-1][2]:
             cur.pop()
-        if sum(1 for _, _, tiled in cur if tiled) >= 2:
+        tiled_cls = [c for _, c, tiled in cur if tiled]
+        # ...or ONE cluster that is itself rows of tiles: a table whose every
+        # row is filled (white body rows under a grey header) touches from
+        # row to row and arrives whole. LibreOffice Writer's tables do (y36
+        # p2: 5 rows x 3 tiles, no vertical rule); classified as a figure it
+        # was refused by the figure budget, each tile became a box, and the
+        # boxes a one-row 'cards' table per row with its rules as paragraphs
+        # between them -- 110pt over the page.
+        if len(tiled_cls) >= 2 or (len(tiled_cls) == 1 and tile_rows(tiled_cls[0]) >= 2):
             bands.append([c for _, c, _ in cur])
 
     bands, cur = [], []
@@ -4602,6 +4794,126 @@ def _gutter_bounds(rows, x0: float, x1: float) -> Optional[List[float]]:
     return bounds if len(bounds) >= 3 else None
 
 
+# A rule-ruled table -- a rule under EVERY row -- has no row taller than this
+# (pt): y36's Navigator table rules rows of one and two lines 20.1-32.2pt
+# apart; four lines of 12pt type are under 60. A booktabs table rules only its
+# head and foot and is told apart by its body, one band of many rows.
+RULED_ROW_MAX_GAP = 60.0
+# ...and has at least this many rules (a head rule, a foot rule, two rows).
+RULED_ROW_MIN_RULES = 4
+# How far past a rule's ends a line may stand and still be the table's (pt).
+RULE_TABLE_TEXT_TOL = 1.5
+
+
+def _ruled_rows(ys) -> bool:
+    """Do these rule positions rule every row of one table (see above)?"""
+    ys = sorted(ys)
+    return len(ys) >= RULED_ROW_MIN_RULES and \
+        max(b - a for a, b in zip(ys, ys[1:])) <= RULED_ROW_MAX_GAP
+
+
+def _bands_texted(sub, blocks, consumed) -> bool:
+    """Does every band between consecutive rules of `sub` hold text inside
+    the rules' span? Rows do; the white between stacked frames does not
+    (lshort's example boxes, y22 p60: a frame's top and bottom rule, white, the
+    next frame -- four rules 26-30pt apart that are no table)."""
+    ds = sorted((d for _, d in sub), key=lambda d: d.bbox[1])
+    x0 = min(d.bbox[0] for d in ds)
+    x1 = max(d.bbox[2] for d in ds)
+    lines = [ln for ln in _all_lines(blocks) if id(ln) not in consumed and ln.text.strip()
+             and x0 <= (ln.bbox[0] + ln.bbox[2]) / 2 <= x1]
+    for a, b in zip(ds, ds[1:]):
+        if not any(a.bbox[3] < (ln.bbox[1] + ln.bbox[3]) / 2 < b.bbox[1] for ln in lines):
+            return False
+    return True
+
+
+def _booktabs_head(ys) -> bool:
+    """A head rule, a row-high band, a mid rule, and the body under them: a
+    booktabs table, however long its body. The 320pt bound on a rule group's
+    span refused y24 p43's 'Reader options' table (95.3 / 116.4 / 477.7) and
+    its 360pt body went to the flow, where the column detector read its two
+    columns of code as a two-column page. Two rules alone (a page's head and
+    foot rules around its prose) still have to fit the bound."""
+    ys = sorted(ys)
+    return len(ys) >= 3 and ys[1] - ys[0] <= RULED_ROW_MAX_GAP
+
+
+def _cells_hold_lines(t: TableEl, tol: float = 2.0) -> bool:
+    """Does every cell of `t` hold its own widest source line? A reading that
+    puts a line in a column narrower than the line has the columns wrong, and
+    every such row wraps. Asked of the long booktabs tables only (see
+    `_booktabs_head`): y64's BLS tables set each stub's leader up to its first
+    figure ('Civilian labor force........ 204,831'), and read as one table
+    under their head rules every stub wrapped onto a second line -- 46 pages
+    rendered 66 -- where the rule-less row reading had set them as rows."""
+    for row in t.rows:
+        for ci, cell in enumerate(row):
+            if cell is None or not cell.paras:
+                continue
+            span = max(1, getattr(cell, "col_span", 1))
+            w = sum(t.col_widths[ci:ci + span]) - cell.pad[1] - cell.pad[3]
+            for p in cell.paras:
+                if p.src_widths and max(p.src_widths) + p.left_indent > w + tol:
+                    return False
+    return True
+
+
+def _rule_runs_by_text(grp, blocks, consumed):
+    """A page's same-width rules cut into the tables they belong to.
+
+    Rules are grouped by their ends, so two tables of one width on a page are
+    one group: the pandoc manual's defaults-file tables (y24 p42), 166-248 and
+    378-628, at 110.9-537.1 both, made one 462pt group that the 320pt span
+    test refused whole, and both tables were set as tabbed paragraphs --
+    each about 70pt longer than its source, and from page 46 on the document
+    sat five pages late. Between two tables there is text the tables do not
+    hold: a line standing out past the rules' ends ("The value of
+    input-files ...", 107.7-539.9; the next heading at 108.0)."""
+    grp = sorted(grp, key=lambda t: t[1].bbox[1])
+    lines = [ln for ln in _all_lines(blocks)
+             if id(ln) not in consumed and ln.text.strip()]
+    out, cur = [], [grp[0]]
+    for prev, nxt in zip(grp, grp[1:]):
+        a, b = prev[1], nxt[1]
+        x0 = min(a.bbox[0], b.bbox[0]) - RULE_TABLE_TEXT_TOL
+        x1 = max(a.bbox[2], b.bbox[2]) + RULE_TABLE_TEXT_TOL
+        lo, hi = a.bbox[3], b.bbox[1]
+        # over the rules' span and past an end of it: text BESIDE the rules
+        # (lshort's code beside its framed figure, y22 p106) cuts nothing
+        if any(lo < (ln.bbox[1] + ln.bbox[3]) / 2 < hi and
+               ln.bbox[0] < x1 and ln.bbox[2] > x0 and
+               (ln.bbox[0] < x0 or ln.bbox[2] > x1) for ln in lines):
+            out.append(cur)
+            cur = [nxt]
+        else:
+            cur.append(nxt)
+    out.append(cur)
+    return out
+
+
+def _rule_bands(hgroup, lines) -> Optional[List[List[Line]]]:
+    """The rows of a table with a rule under every row: the lines between
+    each pair of rules, one row per band -- or None when the rules are not
+    row rules (see RULED_ROW_MAX_GAP) or a band holds no text.
+
+    Read line by line instead, a row whose cells are set at different heights
+    fell apart: y36's Navigator table centres '1 Navigate By' between the two
+    lines of its description, 6pt off each, and became three one-line rows of
+    which only one had two cells -- too few for a table, so every row went to
+    the flow as three paragraphs, a third taller than the source."""
+    ys = [(d.bbox[1] + d.bbox[3]) / 2 for d in hgroup]
+    if not _ruled_rows(ys):
+        return None
+    bands = []
+    for a, b in zip(ys, ys[1:]):
+        band = [ln for ln in lines if a < (ln.bbox[1] + ln.bbox[3]) / 2 < b]
+        if not band:
+            return None
+        bands.append(sorted(band, key=lambda l: (l.bbox[1], l.bbox[0])))
+    return bands
+
+
 def build_rules_table(hgroup: List[DrawCmd], blocks, consumed) -> Optional[TableEl]:
     hgroup = sorted(hgroup, key=lambda d: d.bbox[1])
     x0 = min(d.bbox[0] for d in hgroup)
@@ -4622,6 +4934,9 @@ def build_rules_table(hgroup: List[DrawCmd], blocks, consumed) -> Optional[Table
         joined = joined or len(frags) > 1
         lines.extend(frags)
     rows = _group_lines_by_row(lines)
+    bands = _rule_bands(hgroup, lines)
+    if bands is not None:
+        rows = bands
     if len(rows) < 2:
         return None
     multi = sum(1 for r in rows if len(r) >= 2)
@@ -4633,11 +4948,21 @@ def build_rules_table(hgroup: List[DrawCmd], blocks, consumed) -> Optional[Table
         # lines whole, exactly as before the cut existed
         joined, lines = False, whole
         rows = _group_lines_by_row(lines)
+        if bands is not None:
+            rows = _rule_bands(hgroup, lines) or rows
         if len(rows) < 2 or sum(1 for r in rows if len(r) >= 2) < \
                 max(2, int(0.6 * len(rows))):
             return None
     if bounds is None:
         col_lefts = _cluster([ln.bbox[0] for ln in lines], 7.0)
+        if bands is not None:
+            # A column starts where no line runs across from the left: an
+            # indent inside a cell is not a column (y36's two-digit row
+            # numbers sit 5.9pt left of the one-digit ones).
+            pieces = [f for ln in whole for f in _split_at_span_gaps(ln)]
+            col_lefts = [c for i, c in enumerate(col_lefts)
+                         if i == 0 or not any(f.bbox[0] < c - 3.0 and f.bbox[2] > c + 3.0
+                                              for f in pieces)]
         if len(col_lefts) < 2:
             return None
         bounds = [x0]
@@ -4691,8 +5016,15 @@ def build_rules_table(hgroup: List[DrawCmd], blocks, consumed) -> Optional[Table
                 else:
                     groups[(c0, c1)] = [f]
         else:
+            row = rows[ri]
+            if bands is not None:
+                # a row's cells the parser joined into one line ('4 Set
+                # Reminder' + 'Inserts a reminder ...') go to their columns
+                row = [f for l in row for f in (
+                    _split_at_span_gaps(l) if any(l.bbox[0] < b - 1 < b + 1 < l.bbox[2]
+                                                  for b in bounds[1:-1]) else [l])]
             for ci in range(nc):
-                rl = [l for l in rows[ri]
+                rl = [l for l in row
                       if bounds[ci] - 1 <= (l.bbox[0] + l.bbox[2]) / 2 <= bounds[ci + 1] + 1]
                 groups[(ci, ci)] = rl
         rowcells = [None] * nc
@@ -5652,8 +5984,16 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
         # Fill-tiled tables first: their row bands are separate clusters,
         # and each alone reads as cards, bars or a figure.
         for band in _tile_bands(clusters, blocks, consumed):
+            before = set(consumed)
             el = build_grid_table([it for c in band for it in c], blocks,
                                   consumed, tiled=True)
+            if el is not None and len(band) == 1 and not _mostly_texted(el):
+                # One cluster of tiles is a table only if its cells hold the
+                # text: y59's mock-up notice page (tiles standing for a
+                # page's panels) built two tables of empty cells
+                consumed.clear()
+                consumed.update(before)
+                el = None
             if el is not None:
                 elements.append(el)
                 done = {id(c) for c in band}
@@ -5679,6 +6019,16 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
             elif kind == "stripes":
                 el = build_stripes_table(cl, blocks, consumed) or _fig()
             elif kind == "boxlike":
+                frame = next(d for _, d in cl if d.fill and d.shape == "rect")
+                if _blank_picture_frame(frame, p.images):
+                    # the frame draws nothing, and the hairlines on its
+                    # picture's edges are the picture's border (y36 p16: a
+                    # 0.1pt rule down the screenshot's left side, which as
+                    # loose ink seeded a figure over half the page)
+                    leftover.extend(it for it in cl if it[1] is not frame and
+                                    not any(contains(im.bbox, it[1].bbox, 1.0)
+                                            for im in p.images))
+                    continue
                 el = build_box(cl, blocks, consumed)
                 if el is None and len(cl) >= 4:
                     el = _fig()
@@ -5697,13 +6047,36 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
             groups[(round(d.bbox[0] / 8), round(d.bbox[2] / 8))].append((i, d))
         used = set()
         for key, grp in groups.items():
-            if len(grp) >= 2:
-                ys = sorted(d.bbox[1] for _, d in grp)
-                if ys[-1] - ys[0] < 320:
-                    t = build_rules_table([d for _, d in grp], blocks, consumed)
+            gys = sorted(d.bbox[1] for _, d in grp)
+            short_group = len(grp) >= 2 and gys[-1] - gys[0] < 320
+            # A group inside the span bound is read whole, as it always was:
+            # cut at its prose, lshort's example frames (code beside its
+            # framed output, y22 p60) became two-column tables of code.
+            subs = [grp] if short_group else _rule_runs_by_text(grp, blocks, consumed)
+            for sub in subs:
+                if len(sub) < 2:
+                    continue
+                ys = sorted(d.bbox[1] for _, d in sub)
+                long_head = not (ys[-1] - ys[0] < 320 or _ruled_rows(ys)) and \
+                    _booktabs_head(ys)
+                # A group the span bound refused is read again only as tables
+                # that state themselves -- ruled rows, or a booktabs head:
+                # cut from a figure's same-length strokes (lshort's arrows,
+                # y22 p106), two rules alone made a "table" of its code.
+                if not short_group and not (
+                        (_ruled_rows(ys) or _booktabs_head(ys)) and
+                        _bands_texted(sub, blocks, consumed)):
+                    continue
+                if ys[-1] - ys[0] < 320 or _ruled_rows(ys) or long_head:
+                    before = set(consumed)
+                    t = build_rules_table([d for _, d in sub], blocks, consumed)
+                    if t is not None and long_head and not _cells_hold_lines(t):
+                        consumed.clear()
+                        consumed.update(before)
+                        t = None
                     if t is not None:
                         elements.append(t)
-                        used.update(i for i, _ in grp)
+                        used.update(i for i, _ in sub)
         leftover = [(i, d) for i, d in leftover if i not in used]
 
         still = []
@@ -5715,7 +6088,8 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
             # -- the text survived, the box did not.
             if d.shape == "rect" and (d.fill or d.stroke) \
                     and (d.bbox[2] - d.bbox[0]) > 30 \
-                    and (d.bbox[3] - d.bbox[1]) > 10:
+                    and (d.bbox[3] - d.bbox[1]) > 10 \
+                    and not _blank_picture_frame(d, p.images):
                 el = build_box([(i, d)], blocks, consumed)
                 if el is not None:
                     el.left_indent = max(0.0, round(d.bbox[0] - lay.margin_l, 1))
@@ -5851,6 +6225,7 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
             elements.append(el)
 
         elements = _merge_box_rows(_merge_figures(elements))
+        elements = _merge_table_rows(elements, blocks, consumed)
         _restore_uncut(cuts, consumed)
         if p.number in deck:
             elements, pl.floats = _float_graphics(elements, blocks,
@@ -6358,6 +6733,115 @@ CARD_ROW_EDGE_TOL = 3.0
 CARD_ROW_MAX_GAP = 36.0
 
 
+# Tables side by side on one band share their top and bottom within this (pt)
+# and their rows within TABLE_ROW_ROW_TOL each: FIPS 197's Appendix B states
+# (y03 p42) are 4x4 grids at x 123/206/289/372/455, 269.3-327.0 every one.
+TABLE_ROW_EDGE_TOL = 2.0
+TABLE_ROW_ROW_TOL = 1.0
+
+
+def _merge_table_rows(elements, blocks, consumed):
+    """Grid tables standing side by side on one band -> one table.
+
+    The flow is a single column: tables that share a band were written one
+    under another, each at the band's own space-before. y03's Appendix B (the
+    AES state after each round step, five 4x4 grids a row, six rows a page)
+    came out one grid wide and thirty tall -- two source pages over seven.
+    Each table keeps its columns, cells and borders; the white between them
+    becomes an empty, unruled column. A label beside the band ('input', the
+    round number) sits in a column of its own in the row its centre falls in,
+    where the flow had put it after the tables. Only where the white between
+    the tables holds no text, so nothing on the page is covered."""
+    tabs = [e for e in elements if isinstance(e, TableEl) and e.role == "table"
+            and e.bbox and e.rows and len(e.row_heights) == len(e.rows)
+            and all(h is not None for h in e.row_heights)]
+    if len(tabs) < 2:
+        return elements
+    free = [ln for ln in _all_lines(blocks) if id(ln) not in consumed and ln.text.strip()]
+    tabs.sort(key=lambda e: (round(e.bbox[1]), e.bbox[0]))
+    used, merged = set(), {}
+    for t in tabs:
+        if id(t) in used:
+            continue
+        row = [u for u in tabs if id(u) not in used and
+               abs(u.bbox[1] - t.bbox[1]) <= TABLE_ROW_EDGE_TOL and
+               abs(u.bbox[3] - t.bbox[3]) <= TABLE_ROW_EDGE_TOL and
+               len(u.rows) == len(t.rows) and
+               all(abs(a - b) <= TABLE_ROW_ROW_TOL
+                   for a, b in zip(u.row_heights, t.row_heights))]
+        if len(row) < 2:
+            continue
+        row.sort(key=lambda e: e.bbox[0])
+        y0 = min(e.bbox[1] for e in row)
+        y1 = max(e.bbox[3] for e in row)
+        if any(b.bbox[0] < a.bbox[2] - 0.5 for a, b in zip(row, row[1:])):
+            continue                         # overlapping: not one band of tables
+        gap_text = any(
+            a.bbox[2] < (ln.bbox[0] + ln.bbox[2]) / 2 < b.bbox[0] and
+            y0 < (ln.bbox[1] + ln.bbox[3]) / 2 < y1
+            for a, b in zip(row, row[1:]) for ln in free)
+        if gap_text:
+            continue
+        labels = [ln for ln in free
+                  if ln.bbox[2] <= row[0].bbox[0] - 1.0 and
+                  y0 <= (ln.bbox[1] + ln.bbox[3]) / 2 <= y1]
+        used.update(id(e) for e in row)
+        merged[id(row[0])] = _join_tables(row, labels, y0)
+        for e in row[1:]:
+            merged[id(e)] = None
+        consumed.update(id(ln) for ln in labels)
+    if not merged:
+        return elements
+    out = []
+    for e in elements:
+        if id(e) in merged:
+            if merged[id(e)] is not None:
+                out.append(merged[id(e)])
+            continue
+        out.append(e)
+    return out
+
+
+def _join_tables(row, labels, y0) -> TableEl:
+    """One table of `row`'s tables, left to right, with a label column."""
+    heights = list(row[0].row_heights)
+    nr = len(heights)
+    row_ys = [y0]
+    for h in heights:
+        row_ys.append(row_ys[-1] + h)
+    cells = [[] for _ in range(nr)]
+    widths = []
+    x_left = row[0].bbox[0]
+    if labels:
+        lx = min(ln.bbox[0] for ln in labels) - 1.0
+        widths.append(row[0].bbox[0] - lx)
+        x_left = lx
+        for r in range(nr):
+            mine = [ln for ln in labels
+                    if row_ys[r] <= (ln.bbox[1] + ln.bbox[3]) / 2 < row_ys[r + 1]
+                    or (r == nr - 1 and (ln.bbox[1] + ln.bbox[3]) / 2 >= row_ys[r + 1])]
+            rect = (lx, row_ys[r], row[0].bbox[0], row_ys[r + 1])
+            c = _cell_from_lines(sorted(mine, key=lambda l: (l.bbox[1], l.bbox[0])),
+                                 rect) if mine else Cell(borders={}, pad=(0.0, 0.0, 0.0, 0.0))
+            c.borders = {}
+            cells[r].append(c)
+    for i, t in enumerate(row):
+        if i:
+            gap = t.bbox[0] - row[i - 1].bbox[2]
+            if gap > 0.05:
+                widths.append(gap)
+                for r in range(nr):
+                    cells[r].append(Cell(borders={}, pad=(0.0, 0.0, 0.0, 0.0)))
+        widths.extend(t.col_widths)
+        for r in range(nr):
+            cells[r].extend(t.rows[r])
+    bb = (x_left, y0, row[-1].bbox[2], max(e.bbox[3] for e in row))
+    out = TableEl(rows=cells, col_widths=widths, row_heights=heights,
+                  role="table", bbox=bb)
+    out.col_edges_drawn = True
+    return out
+
+
 def _merge_box_rows(elements):
     """Side-by-side one-cell boxes on one band -> one 'cards' table.
 
@@ -6795,6 +7279,32 @@ _TRAILING_LEADER_RE = re.compile(
     r"^(?P<label>.*?[^.·…\s])[ \t]*(?P<dots>(?:[.·…][ \t]?){4,})[ \t]*$")
 
 
+# Of a right-hand cluster's lines, the share that must close a leadered line to
+# make it a contents page's number column (see _leadered_numbers).
+LEADER_COLUMN_SHARE = 0.6
+
+
+def _leadered_numbers(x: float, narrow, flow_blocks) -> bool:
+    """Is the narrow-block cluster at `x` the page numbers of a contents page
+    whose entries end in leaders -- each number on the baseline of a line that
+    ends in dots? Those are the ends of rows, not a column. TeX's spaced
+    leaders stay text (see _LEADER_RE), so the entry is one line and its
+    number another: y24 p3's 'Using pandoc . . . 3' ends at 477.4 and its '3'
+    stands at 498.5, and the two-column reading set the entries in a column
+    half the page wide, every one wrapping over two lines -- a contents page
+    four lines over its foot and every page after it one place late."""
+    nums = [l for b in narrow if abs(b.bbox[0] - x) < 12 for l in b.lines]
+    # roman too: a front matter's folios head the column ('iii', 'v' on y22)
+    if not nums or not all(_NUMERIC_CELL.match(l.text.strip()) or
+                           _PAGE_REF.match(l.text.strip()) for l in nums):
+        return False
+    others = [l for b in flow_blocks for l in b.lines
+              if l.bbox[2] < x - 2 and _TRAILING_LEADER_RE.match(l.text.strip())]
+    led = sum(1 for n in nums
+              if any(abs(o.baseline - n.baseline) < 2.0 for o in others))
+    return led >= LEADER_COLUMN_SHARE * len(nums)
+
+
 def _label_before_leader(runs: List[Run], end: int) -> List[Run]:
     """The label's runs, text [0, end), without the letter-spacing the
     parser measured over a span that also held the leader.
@@ -6838,6 +7348,194 @@ def _leader_para(ln: Line, edge: float, col_l: float, col_r: float) -> Para:
     p.first_indent = 0.0
     p.tab_stops = [(round(edge - col_l, 1), "right", "dot")]
     p.leader_text = m.group("dots")
+    return p
+
+
+# Contents rows whose page number is a line of its own: a TeX contents page sets
+# 'Using pandoc . . . .' (spaced leader, kept as text) and its '3' as two lines
+# on one baseline, and its part titles ('Synopsis', bold, no leader) beside
+# theirs. Each number on the same right edge as at least TOC_ROW_MIN others,
+# half of them closing a leadered entry, ends its entry's row.
+TOC_ROW_MIN = 3
+TOC_ROW_EDGE_TOL = 1.5
+_PAGE_REF = re.compile(r"^(?:[0-9]{1,5}|[ivxlcdmIVXLCDM]{1,7})$")
+
+
+def _toc_number_rows(items):
+    """-> ([(entry line, number line, edge)], {id(line)}) -- see above."""
+    lines = [ln for kind, _bb, o in items if kind == "blk"
+             for ln in _blk_lines(o) if ln.horizontal and ln.spans]
+    nums = [ln for ln in lines if _PAGE_REF.match(ln.text.strip())]
+    if len(nums) < TOC_ROW_MIN:
+        return [], set()
+    cands = []
+    for n in nums:
+        # any distance: a part title ('Synopsis', 116.0) stands far from its
+        # number (498.5) -- the leadered entries vouch for the column
+        left = [ln for ln in lines if ln is not n and
+                abs(ln.baseline - n.baseline) < 2.0 and 0 < n.bbox[0] - ln.bbox[2]]
+        if len(left) == 1:
+            cands.append((left[0], n))
+    cands.sort(key=lambda c: c[1].bbox[2])
+    out, cur = [], []
+
+    def close(grp):
+        led = sum(1 for e, _ in grp if _TRAILING_LEADER_RE.match(e.text.strip()))
+        if len(grp) >= TOC_ROW_MIN and 2 * led >= len(grp):
+            edge = max(n.bbox[2] for _, n in grp)
+            out.extend((e, n, edge) for e, n in grp)
+
+    for c in cands:
+        if cur and c[1].bbox[2] - cur[0][1].bbox[2] > TOC_ROW_EDGE_TOL:
+            close(cur)
+            cur = []
+        cur.append(c)
+    if cur:
+        close(cur)
+    return out, {id(x) for e, n, _ in out for x in (e, n)}
+
+
+# A contents or index line with a SPACED leader and its number in the line
+# itself ("bg . . . . . . 126"). The dots stay text (see _LEADER_RE); what
+# changes is that each entry is a paragraph of its own whose number sits on a
+# right tab stop. Read as prose, an index's entries ran together into one
+# paragraph per letter that re-wrapped dot by dot: y26 p206 ("bg ... 126",
+# "bind ... 61", ...) came out "bg ......" / "126 bind ......" / "61 ...", two
+# lines an entry, and the index took two pages more than its two.
+_SPACED_LEADER_RE = re.compile(
+    r"^(?P<label>.*?\S)[ \t]*(?P<dots>(?:[.·…][ \t]+){3,}[.·…])[ \t]*"
+    r"(?P<num>[0-9]{1,5}(?:,[ \t]*[0-9]{1,5})*|[ivxlcdmIVXLCDM]{1,7})[ \t]*$")
+
+
+TOC_LEADER_MIN_UNITS = 3
+TOC_TAB_MIN_PT = 2.0        # white the tab keeps before the number
+
+
+def _runs_width(runs) -> Optional[float]:
+    """Predicted width of runs in the faces the writer maps them to, or None."""
+    from .fonts import map_font
+    from .metrics import get_metrics
+    met = get_metrics()
+    tot = 0.0
+    for r in runs:
+        w = met.text_width(r.text, map_font(r.font, mono=r.mono, serif=r.serif),
+                           r.size, r.bold, r.italic)
+        if w is None:
+            return None
+        tot += w
+    return tot
+
+
+def _spaced_leader_lines(items):
+    """-> ([(line, edge_x)], {id(line)}) for spaced-leader lines, two or more
+    ending at one edge (the tab-stop evidence of `_leader_lines`)."""
+    cands = [ln for kind, _bb, o in items if kind == "blk"
+             for ln in _blk_lines(o)
+             if ln.horizontal and ln.spans and _SPACED_LEADER_RE.match(ln.text)]
+    cands.sort(key=lambda l: l.bbox[2])
+    out, cur = [], []
+    for ln in cands:
+        if cur and ln.bbox[2] - cur[0].bbox[2] > _LEADER_EDGE_TOL:
+            if len(cur) >= 2:
+                out.extend((l, max(x.bbox[2] for x in cur)) for l in cur)
+            cur = []
+        cur.append(ln)
+    if len(cur) >= 2:
+        out.extend((l, max(x.bbox[2] for x in cur)) for l in cur)
+    return out, {id(l) for l, _ in out}
+
+
+def _row_pitch(lines) -> Optional[float]:
+    """The baseline pitch of rows set one under another, or None: the median
+    step between consecutive baselines no wider than 1.6 of the type size
+    (a wider step is a gap between groups, not the pitch)."""
+    size = max((s.size for ln in lines for s in ln.spans if s.text.strip()), default=10.0)
+    steps = []
+    # each row's step to the next row of its OWN column: a contents page set
+    # in two columns interleaves their baselines (y06 p2: 98.9 / 98.9, 117.9
+    # / 117.9, 130.9 / 136.9 ...), and read together they gave a 9.5pt pitch
+    for ln in lines:
+        below = [m.baseline - ln.baseline for m in lines
+                 if m is not ln and m.baseline - ln.baseline > 0.5 and
+                 m.bbox[0] < ln.bbox[2] and m.bbox[2] > ln.bbox[0]]
+        if below and min(below) <= 1.6 * size:
+            steps.append(min(below))
+    return median(steps) if steps else None
+
+
+def _set_row_pitch(paras, lines) -> None:
+    """A row paragraph's exact line is never taller than its rows' pitch. A
+    one-line paragraph is set at 1.16 of its size, and lshort's contents
+    (y22) set 10.95pt entries 12.2pt apart: at 12.7 a row, 43 rows ran 22pt
+    past the page and every contents page spilled."""
+    pitch = _row_pitch(lines)
+    if pitch is None:
+        return
+    for p in paras:
+        if p.leading and p.leading > pitch:
+            p.leading = round(pitch, 2)
+
+
+def _spaced_leader_para(ln: Line, edge: float, col_l: float, col_r: float) -> Para:
+    """Title and its spaced leader as text, a TAB, the number on a right stop."""
+    p = para_from_lines([ln], col_l, col_r)
+    runs = runs_from_spans(ln.spans)
+    text = "".join(r.text for r in runs)
+    m = _SPACED_LEADER_RE.match(text)
+    if m is None:
+        return p
+    num = [r for r in _slice_runs_at(runs, m.start("num"), m.end("num")) if r.text]
+    # TeX sets its leader dots by glue; the substitute face's '. ' units are
+    # wider (y26: an entry's dots ran past the number's place and the number
+    # wrapped under them, two lines an entry). Dots the line has no room for
+    # in the face that will draw them are left off the end, never below
+    # TOC_LEADER_MIN_UNITS; a face the shaper cannot measure keeps them all.
+    cuts = [m.start("dots") + k.end() for k in re.finditer(r"[.·…]", m.group("dots"))]
+    nw = _runs_width(num)
+    room = edge - ln.bbox[0] - (nw if nw is not None else ln.bbox[2] - ln.bbox[0]) \
+        - TOC_TAB_MIN_PT
+    end = cuts[-1]
+    for k in range(len(cuts) - 1, TOC_LEADER_MIN_UNITS - 2, -1):
+        end = cuts[k]
+        hw = _runs_width(_slice_runs_at(runs, 0, end))
+        if hw is None or hw <= room:
+            break
+    head = [r for r in _slice_runs_at(runs, 0, end) if r.text]
+    if not head or not num:
+        return p
+    ref = head[-1]
+    tab = Run(text="\t", font=ref.font, size=ref.size, color=ref.color, is_tab=True)
+    p.runs = head + [tab] + num
+    p.align = "left"
+    p.right_indent = 0.0
+    p.first_indent = 0.0
+    p.tab_stops = [(round(edge - col_l, 1), "right")]
+    return p
+
+
+def _toc_number_para(entry: Line, num: Line, edge: float, col_l: float,
+                     col_r: float) -> Para:
+    """The entry, a TAB, its number -- against a right stop at the numbers'
+    edge. A spaced leader stays text (see _LEADER_RE); the white TeX leaves
+    between its last dot and the number (21pt on y24 p3) is the tab's."""
+    p = para_from_lines([entry], col_l, col_r)
+    runs = [r for r in runs_from_spans(entry.spans) if r.text]
+    while runs and not runs[-1].text.strip():
+        runs.pop()
+    if runs:
+        runs[-1] = replace(runs[-1], text=runs[-1].text.rstrip(" "))
+    ref = runs[-1] if runs else Run(text="", font=num.spans[0].font,
+                                    size=num.spans[0].size, color=num.spans[0].color)
+    tab = Run(text="\t", font=ref.font, size=ref.size, color=ref.color, is_tab=True)
+    p.runs = [r for r in runs if r.text] + [tab] + \
+        [r for r in runs_from_spans(num.spans) if r.text]
+    p.align = "left"
+    p.right_indent = 0.0
+    p.first_indent = 0.0
+    p.tab_stops = [(round(edge - col_l, 1), "right")]
+    p.bbox = bbox_union(entry.bbox, num.bbox)
+    p.src_lines = 1
+    p.src_widths = [round(num.bbox[2] - entry.bbox[0], 1)]
     return p
 
 
@@ -7538,6 +8236,15 @@ def _to_flow(items, col_l, col_r, doc_rows=None, forced=None):
     if lconsumed:
         items = _drop_row_lines(items, lconsumed) + \
             [("leader", ln.bbox, (ln, edge)) for ln, edge in leaders]
+    tocrows, tconsumed = _toc_number_rows(items)
+    if tconsumed:
+        items = _drop_row_lines(items, tconsumed) + \
+            [("tocrow", bbox_union(e.bbox, n.bbox), (e, n, edge))
+             for e, n, edge in tocrows]
+    spaced, sconsumed = _spaced_leader_lines(items)
+    if sconsumed:
+        items = _drop_row_lines(items, sconsumed) + \
+            [("spaced", ln.bbox, (ln, edge)) for ln, edge in spaced]
     displays, dconsumed = _display_rows(items, col_l, col_r)
     if dconsumed:
         def _dbb(rows):
@@ -7569,9 +8276,16 @@ def _to_flow(items, col_l, col_r, doc_rows=None, forced=None):
     # baseline is a broken line of prose, not cells.
     items = _absorb_fragments(items)
     out = []
+    row_paras = []
     for kind, bb, o in sorted(items, key=lambda t: (t[1][1], t[1][0])):
         if kind == "leader":
             out.append(_leader_para(o[0], o[1], col_l, col_r))
+        elif kind == "tocrow":
+            out.append(_toc_number_para(o[0], o[1], o[2], col_l, col_r))
+            row_paras.append(out[-1])
+        elif kind == "spaced":
+            out.append(_spaced_leader_para(o[0], o[1], col_l, col_r))
+            row_paras.append(out[-1])
         elif kind == "display":
             out.extend(_display_paras(o, col_l, col_r))
         elif kind == "grid":
@@ -7616,6 +8330,9 @@ def _to_flow(items, col_l, col_r, doc_rows=None, forced=None):
                         el.align = "left"
                         el.left_indent = max(0.0, round(bbx[0] - col_l, 1))
             out.append(el)
+    if row_paras:
+        _set_row_pitch(row_paras, [ln for ln, _ in spaced] +
+                       [e for e, _, _ in tocrows])
     return out
 
 
@@ -7635,7 +8352,9 @@ def _mergeable(a: Para, b: Para, col_l: Optional[float] = None,
     # with a space and undoes the break structure both were built with.
     if getattr(a, "line_breaks", False) or getattr(b, "line_breaks", False):
         return False
-    if any(r.is_tab for r in a.runs) or any(r.is_tab for r in b.runs):
+    if any(r.is_tab for r in b.runs):
+        return False
+    if any(r.is_tab for r in a.runs) and not _item_runs_on(a, col_r):
         return False
     # A display's rows are rows of one equation, set at their own pitch.
     if getattr(a, "_display", False) or getattr(b, "_display", False):
@@ -7694,13 +8413,50 @@ def _mergeable(a: Para, b: Para, col_l: Optional[float] = None,
             return False
     else:
         ax = a.bbox[0]
-        if getattr(a, "_list_item", False) and a.first_indent < -1.0:
+        if (getattr(a, "_list_item", False) or getattr(a, "_marker_tab", False)) \
+                and a.first_indent < -1.0:
             ax = a.bbox[0] - a.first_indent
-        if abs(b.bbox[0] - ax) > 2.5:
+        if abs(b.bbox[0] - ax) > 2.5 and not _runs_in(a, b):
             return False
     sa = max((r.size for r in a.runs if r.text.strip()), default=0)
     sb = max((r.size for r in b.runs if r.text.strip()), default=0)
     return abs(sa - sb) < 0.6
+
+
+def _item_runs_on(a: Para, col_r: Optional[float]) -> bool:
+    """Does the marker item `a`, whose one tab follows its marker, run on into
+    the next fragment? Only when the item's last line was FULL: a line breaker
+    moves a word down only when it does not fit, so a last line that reaches
+    the column's right edge wrapped rather than ended.
+
+    EUR-Lex sets each recital as a marker cell and a text cell, and its first
+    line, glued to its "(4)" (`_merge_list_markers`), arrives as a block of its
+    own above the other lines of the recital. Measured on y18_eurlex_ai_act p2:
+    "(4)\tAI is a fast evolving ... and" ends at 527.9 on a 527.9 column, and
+    the recital's next line starts at 93.6, the item's text column. Kept
+    apart, the first line was a one-line paragraph with no slack at the
+    measure, and the substitute face wrapped its last word onto a line of its
+    own: one line per recital, four or five a page, which put 2-4 lines of
+    every page over its foot (144 pages rendered 240).
+    """
+    if col_r is None or not getattr(a, "_marker_tab", False) or \
+            getattr(a, "rtl", False) or \
+            (a.first_indent >= -1.0 and not getattr(a, "_run_in", False)) or \
+            sum(1 for r in a.runs if r.is_tab) != 1 or not a.src_widths:
+        return False
+    x0 = a.bbox[0] if getattr(a, "_vis_lines", 1) == 1 or getattr(a, "_run_in", False) \
+        else a.bbox[0] - a.first_indent
+    return x0 + a.src_widths[-1] >= col_r - FULL_EDGE_PT
+
+
+def _runs_in(a: Para, b: Para) -> bool:
+    """Is `b` the rest of the one-line marker item `a`, set back at the
+    marker's own edge rather than at the item's text (a run-in number: "2.",
+    a gap, the text, and the next line under the "2.")? `_item_runs_on`
+    has already said that `a`'s line wrapped."""
+    return getattr(a, "_marker_tab", False) and a.first_indent < -1.0 and \
+        getattr(a, "_vis_lines", 1) == 1 and not getattr(a, "rtl", False) and \
+        abs(b.bbox[0] - a.bbox[0]) <= 2.5
 
 
 def _merge_flow_paras(seq, col_r, col_l=None):
@@ -7709,8 +8465,21 @@ def _merge_flow_paras(seq, col_r, col_l=None):
         if out and isinstance(el, Para) and isinstance(out[-1], Para) \
                 and _mergeable(out[-1], el, col_l, col_r):
             a = out[-1]
+            if _runs_in(a, el):
+                # The item's lines return to the margin under its number: the
+                # number keeps its tab to the text, the paragraph its edge.
+                a.left_indent = max(0.0, round(a.left_indent + a.first_indent, 1))
+                a.first_indent = 0.0
+                a._run_in = True
             if getattr(a, "_vis_lines", 1) == 1 and el.bbox and a.bbox:
                 delta = round(el.bbox[1] - a.bbox[1], 2)
+                if getattr(a, "_marker_tab", False) and \
+                        getattr(a, "_b1", None) is not None and \
+                        getattr(el, "_b1", None) is not None:
+                    # the item's box took its marker's in, so its pitch is
+                    # read from the baselines (y18 p55: 10.7 by the boxes,
+                    # 10.5 by the baselines, as every other line of the page)
+                    delta = round(el._b1 - a._b1, 2)
                 if delta > 2:
                     a.leading = delta
             if getattr(a, "rtl", False) and col_l is not None:
@@ -7834,6 +8603,18 @@ def _merge_list_markers(flow_blocks):
             # DISCUSSION"). Left there, the marker closed the paragraph above
             # and its item stood a line lower, alone.
             marker_lines.append((b.lines[-1], b))
+        elif len(b.lines) > 1 and _is_marker_line(b.lines[0]) and \
+                not _is_marker_line(b.lines[1]) and \
+                _has_item_beside(b.lines[0], b, flow_blocks):
+            # A marker that OPENS a block of the item's other lines: a
+            # numbered paragraph set run-in, its number at the margin, its
+            # first line an indent to the right in a block of its own, and
+            # its other lines back at the margin under the number. EUR-Lex's
+            # articles (y18 p55: "2." at 67.4, "When assessing ..." at 89.0
+            # on its baseline, "criteria:" at 67.4 below) -- left there, the
+            # number opened the block of the item's LAST lines ("2.
+            # criteria:", two lines) and the first line stood alone above it.
+            marker_lines.append((b.lines[0], b))
     marker_ids = {id(l) for l, _ in marker_lines}
     consumed = set()
     for ln, b in marker_lines:
@@ -8953,6 +9734,9 @@ def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
                     _figure_cluster(c, narrow, _figs)]
         if len(fig_cols) >= FIGURE_COLUMN_MIN:
             right_cands = [c for c in right_cands if c not in fig_cols]
+        else:
+            right_cands = [c for c in right_cands
+                           if not _leadered_numbers(c, narrow, flow_blocks)]
         if lefts and abs(lefts[0] - content_l) < 10 and right_cands:
             # dominant right-column cluster (by block count)
             def csize(c):
