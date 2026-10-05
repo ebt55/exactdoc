@@ -142,5 +142,36 @@ class LoneQuestionPanel(unittest.TestCase):
         self.assertEqual(len(_tile_bands(_clusters(draws), page.blocks, set())), 1)
 
 
+class StackedNoteMark(unittest.TestCase):
+    """y33 p45: a note that is one unbreakable URL prints its mark alone on
+    the first line and the URL from the next, flush under it."""
+
+    def _page(self, mark_size=6.48):
+        body = [_line(_span(_words(i), 70.9, 100.0 + 15.5 * i, x1=524.0))
+                for i in range(30)]
+        ref = _line(_span("Equivalency Principle Policy.", 70.9, 600.0, x1=200.0),
+                    _span("35", 200.0, 597.0, size=6.96, x1=207.0, sup=True),
+                    _span(" That is, a", 207.0, 600.0, x1=260.0))
+        mark = _line(_span("35", 70.9, 732.1, size=mark_size, x1=77.4))
+        url = [_line(_span("https://paymentsnz.example.net/wiki/spaces/Standards/pages/"
+                           "1578467379/Equivalency+P", 70.9, 747.8, size=9.96, x1=524.2)),
+               _line(_span("rinciple+Policy", 70.9, 760.1, size=9.96, x1=130.7))]
+        rule = _fill(70.9, 708.2, 214.9, 709.0, "#000000")
+        return PageIR(number=1, width=595.2, height=842.0,
+                      blocks=[_block(body), _block([ref]), _block([mark]), _block(url)],
+                      drawings=[rule])
+
+    def test_the_lone_mark_opens_the_note_under_it(self):
+        lay = infer(DocIR(path="n.pdf", pages=[self._page()]))
+        self.assertEqual([f.mark for f in lay.footnotes], ["35"])
+        text = "".join(r.text for p in lay.footnotes[0].paras for r in p.runs)
+        self.assertIn("rinciple+Policy", text)
+
+    def test_a_body_size_number_is_not_a_mark(self):
+        # a line holding only "35" at the notes' own size is note text
+        lay = infer(DocIR(path="n.pdf", pages=[self._page(mark_size=9.96)]))
+        self.assertEqual(lay.footnotes, [])
+
+
 if __name__ == "__main__":
     unittest.main()
