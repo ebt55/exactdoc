@@ -473,6 +473,118 @@ def _el_height(el, width, metrics) -> float:
 PAGE_SLACK_FRAC = 0.25
 
 
+# --- one line stays one line --------------------------------------------------
+# A paragraph the source set on ONE line has no wrap to keep -- so the lock above
+# has nothing to pin (MIN_LINES) -- but it can still gain one. Its indent was
+# read off its own ink, so the room it is given is its own width to the point,
+# and a face a hair wider than the source's, or the trailing space a producer
+# leaves on the line, wraps it. NIST's covers set their 28pt titles flush right
+# with exactly that room: "Zero Trust Architecture" (SP 800-207) and "Digital
+# Identity Guidelines" (SP 800-63B) each predicted two lines, rendered two, and
+# the 32pt they added took the cover's logo onto a page of its own -- every page
+# after it a page late (word recall 0.34, 0.24).
+#
+# The side that does not place the line is free: a right-set line is placed by
+# its right edge, a centred one by its centre, a left-set one by its left. That
+# side's indent only bounds the wrap, so it gives up what the predicted line
+# needs, and the line stays where it was. Not only where `predict_lines` says
+# two: a line it says fits by less than the slack below is a line a renderer
+# one rounding wider wraps -- NIST SP 800-171's 14pt "NIST Special Publication
+# 800-171" fitted its 189.1pt by the shaper's account and wrapped in Word, and
+# its 26pt title with it, and the title page took the logo onto a page of its
+# own. Only when the free side can give all of it: a line wider than its whole
+# column wraps whatever is done.
+#
+# The slack is a share of the line plus a floor: the shaper is base-14 AFM data
+# and the renderer's faces are metric clones of it, so they agree to a few
+# hundredths of a point per word, and a line twice as long carries twice the
+# rounding.
+RELIEF_SLACK_FRAC = 0.01
+RELIEF_SLACK_PT = 2.0
+# A one-line paragraph whose ink spans this share of its column is a full line
+# of prose, not a title placed by its alignment (see relieve_one_line). The
+# titles this is for span 0.47-0.65 of theirs (NIST covers).
+RELIEF_MAX_FILL = 0.90
+
+
+def one_line_width(p: Para, metrics) -> Optional[float]:
+    """The width `p`'s text takes set on one line, or None if unmeasurable --
+    the same words, spaces and shaping `predict_lines` counts."""
+    total, first = 0.0, True
+    for r in p.runs:
+        if r.is_tab or not r.text:
+            continue
+        fam = map_font(r.font, mono=r.mono, serif=r.serif)
+        if _face(fam, r.bold, r.italic) is None:
+            return None
+        tr = getattr(r, "tracking", 0.0) if honours_tracking(metrics) else 0.0
+        sz = shaped_size(r)
+        for w in r.text.replace("\n", " ").split(" "):
+            if not w:
+                continue
+            ww = metrics.text_width(w, fam, sz, bold=r.bold, italic=r.italic)
+            if ww is None:
+                return None
+            ww += tr * len(w)
+            if not first:
+                sp = metrics.text_width(" ", fam, sz, bold=r.bold,
+                                        italic=r.italic)
+                if sp is None:
+                    return None
+                ww += sp + tr
+            total += ww
+            first = False
+    return total
+
+
+def relieve_one_line(p: Para, avail: float, metrics) -> bool:
+    """Give a one-line paragraph predicted to wrap, or to fit by less than the
+    slack, the room it needs from the indent that does not place it (see
+    above). True when the indents moved."""
+    if (p.src_lines or 0) != 1 or not p.runs or p.line_breaks or \
+            getattr(p, "rtl", False) or p.frame is not None or \
+            any(r.is_tab for r in p.runs) or not _predictable(p):
+        return False
+    text = "".join(r.text for r in p.runs)
+    if not _lockable_text(text):
+        return False
+    measure = avail + (p.left_indent or 0.0) + (p.right_indent or 0.0)
+    if p.bbox is not None and \
+            p.bbox[2] - p.bbox[0] >= RELIEF_MAX_FILL * max(1.0, measure):
+        # A line that fills its column is a line of a justified paragraph,
+        # whatever alignment its single line was read as: y40's "Proof.
+        # Assume that the arbitrary function..." filled 94% of its column
+        # and read as right-set. `infer._keep_room` refuses those lines for
+        # the same reason; their wrap is the paragraph's, not a title's.
+        return False
+    pred = predict_lines(p, avail, metrics)
+    if pred is None:
+        return False
+    w = one_line_width(p, metrics)
+    if w is None:
+        return False
+    need = w * (1.0 + RELIEF_SLACK_FRAC) + RELIEF_SLACK_PT + \
+        max(0.0, p.first_indent) - avail
+    if need <= 0:
+        return False
+    li, ri = p.left_indent or 0.0, p.right_indent or 0.0
+    if p.align == "right":
+        if li < need:
+            return False
+        p.left_indent = round(li - need, 1)
+    elif p.align == "center":
+        half = need / 2.0
+        if li < half or ri < half:
+            return False
+        p.left_indent = round(li - half, 1)
+        p.right_indent = round(ri - half, 1)
+    else:
+        if ri < need:
+            return False
+        p.right_indent = round(ri - need, 1)
+    return True
+
+
 def _page_capacity(lay: DocLayout, page_index: int) -> float:
     cap = lay.page_h - lay.margin_t - lay.margin_b
     if page_index == 0 and lay.cover_band is not None and lay.cover_band.bbox:
@@ -504,7 +616,8 @@ def apply_ladder(lay: DocLayout, enabled: bool = True, metrics=None) -> dict:
       on is predicted to have room, in document order.
     """
     rep = {"flow": 0, "line-locked": 0, "unpredictable": 0, "short": 0,
-           "lock_failed": 0, "unmeasured_script": 0, "no_page_room": 0}
+           "lock_failed": 0, "unmeasured_script": 0, "no_page_room": 0,
+           "relieved": 0}
     if metrics is None:
         from .metrics import NullMetrics
         metrics = NullMetrics()
@@ -521,6 +634,9 @@ def apply_ladder(lay: DocLayout, enabled: bool = True, metrics=None) -> dict:
         """
         if p.src_lines < MIN_LINES or not p.runs:
             rep["short"] += 1
+            # A flow line only: a cell's width is the table's, not an indent.
+            if slack is not None and relieve_one_line(p, avail, metrics):
+                rep["relieved"] += 1
             return
         if not _predictable(p):
             rep["unpredictable"] += 1

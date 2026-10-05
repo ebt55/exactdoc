@@ -77,7 +77,8 @@ def _format_error(path):
     return ParseError("the PDF is malformed or truncated")
 
 
-def parse(backend, path, keep_image_data=True, ocr_layer="text"):
+def parse(backend, path, keep_image_data=True, ocr_layer="text",
+          measure_lines=False):
     """Parse ``path`` and translate only documented input-status failures.
 
     Chaining retains the native exception for developers, while callers see a
@@ -89,6 +90,9 @@ def parse(backend, path, keep_image_data=True, ocr_layer="text"):
     default, so a backend that predates the keyword keeps working.
     """
     kw = {} if ocr_layer == "text" else {"ocr_layer": ocr_layer}
+    if measure_lines:
+        # Asked of the PDFium backend only; see parse_pdfium.parse_pdf.
+        kw["measure_lines"] = True
     try:
         return backend.parse_pdf(path, keep_image_data=keep_image_data, **kw)
     except (UnsupportedInputError, ParseError, InputNotFoundError):

@@ -41,9 +41,9 @@ That is all you need to convert PDFs. Two things are optional:
   layout. When it is installed, exactdoc opens its own DOCX in LibreOffice,
   compares each page with the PDF and corrects page breaks and spacing. Without
   it, exactdoc converts in one pass and prints a note saying so. The check takes
-  time: in the project's test container a 31-page IRS publication took 66
-  seconds with it and about 15 without
-  ([measurement](docs/evidence/refine-speed-2026-10-05.json)). `--refine 0`
+  time: in the project's test container a 31-page IRS publication took 42
+  seconds with it
+  ([measurement](docs/evidence/refine-speed-2026-10-05c.json)). `--refine 0`
   skips it.
 - **The Google Docs tools** (`pip install "exactdoc[gdocs]"`) measure a DOCX
   inside Google Docs with your own Google account. You do not need them to make
@@ -197,8 +197,9 @@ The short version, for anyone testing the beta:
 - **Long documents grow.** Expect extra pages on long reports, and more of them
   in Google Docs than in LibreOffice.
 - **The LibreOffice layout check is slow on long documents.** It renders the
-  document up to four times: a 126-page IRS booklet took 4 min 16 s in the
-  project's test container, against about 1½ min with `--refine 0`.
+  document up to four times: a 126-page IRS booklet took 2 min 35 s in the
+  project's test container, one conversion at a time
+  ([measurement](docs/evidence/refine-speed-2026-10-05c.json)).
   `--refine 1` is a middle way: about a third less time on long documents,
   for up to six more pages in our measurements
   ([measurement](docs/evidence/refine-speed-2026-10-05.json)).

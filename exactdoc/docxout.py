@@ -22,6 +22,7 @@ from docx.table import _Cell
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.opc.constants import RELATIONSHIP_TYPE as RT
+from docx.text.run import Run as _DocxRun
 
 from ._docx_speed import enable_monotonic_ids    # also installs the fast paths
 from .layout import (DocLayout, Para, Run, Cell, TableEl, FigureEl, ImageEl,
@@ -145,7 +146,99 @@ def _set_borders(el_pr, borders: dict, tag: str):
     el_pr.append(bel)
 
 
+# A run's w:rPr is a pure function of the few inputs _rpr_key reads. The writer
+# styles every run it writes (41,565 on y06_irs_1040_instructions, once per
+# refine round) through python-docx's generic property machinery, ~40% of a
+# write; but a document has few distinct styles -- y06 has a few hundred.
+# So the first run of each style is styled the long way and a copy of the
+# rPr it gets is kept; every later run of that style receives a copy of the
+# copy, where python-docx would have put the one it builds (the run's first
+# child). Only a run that has no rPr yet takes the shortcut: one that does
+# (a footnote reference's rStyle) is styled the long way. The copies are taken
+# at styling time, so anything the writer later changes in a run's rPr it
+# changes in the copy that run holds, as before. Output is byte-identical:
+# tests/test_docx_speed.py compares the two paths, and every corpus
+# document's word/*.xml matched with the shortcut on and off.
+_RPR_TAG = qn("w:rPr")
+_RPR_TEMPLATES: Dict[tuple, Any] = {}
+_RPR_TEMPLATES_MAX = 4096
+_RPR_SHORTCUT = True          # tests switch it off to compare the long way
+
+
+def _rpr_key(r_el, run: Run, profile: str):
+    """Everything _style_run_built reads from the run, the paragraph and the
+    profile, in the form it writes it."""
+    text = run.text or ""
+    lang, has_rtl = complex_script(text)
+    in_bidi = _in_bidi_para(r_el)
+    try:
+        hexv = _hex(run.color)
+    except Exception:
+        hexv = None            # the long way swallows the same failure
+    spacing = getattr(run, "char_spacing", 0.0) + getattr(run, "tracking", 0.0)
+    ws = getattr(run, "width_scale", 0.0) or 0.0
+    return (profile,
+            writer_family(run.font, mono=run.mono, serif=run.serif, profile=profile),
+            east_asian_family(run.font, run.text, profile),
+            int(Pt(round(run.size * 2) / 2)),
+            run.bold, run.italic, bool(run.underline), bool(run.superscript),
+            int(round(spacing * 20)) if abs(spacing) > 0.004 else None,
+            int(round(ws * 100)) if ws > 0 and abs(ws - 1.0) > 0.004 and
+            profile == "standard" else None,
+            hexv, lang, has_rtl, in_bidi,
+            bool(_STRONG_LTR.search(text)) if in_bidi else None,
+            complex_script_family(run.font) if profile == "standard" and
+            lang is not None else None)
+
+
+_W_R, _W_T = "w:r", "w:t"
+_XML_SPACE = qn("xml:space")
+
+
+def _add_text_run(par, text: str):
+    """`par.add_run(text)`, without python-docx's per-character pass.
+
+    For text holding no tab, CR or LF, python-docx appends a new w:r to the
+    paragraph and one w:t holding the text to the run, marked
+    xml:space="preserve" when stripping would shorten it -- after walking the
+    text a character at a time (_RunContentAppender) to learn that there is
+    nothing else to write. This does the same directly. Any other text goes
+    through python-docx itself.
+    """
+    if not text or "\t" in text or "\r" in text or "\n" in text:
+        return par.add_run(text)
+    r = OxmlElement(_W_R)
+    par._p.append(r)
+    t = OxmlElement(_W_T)
+    t.text = text
+    r.append(t)
+    if len(text.strip()) < len(text):
+        t.set(_XML_SPACE, "preserve")
+    return _DocxRun(r, par)
+
+
 def _style_run(r, run: Run, profile: str = "standard"):
+    r_el = r._element
+    if not _RPR_SHORTCUT or r_el.find(_RPR_TAG) is not None:
+        _style_run_built(r, run, profile)
+        return
+    try:
+        key = _rpr_key(r_el, run, profile)
+        hash(key)
+    except Exception:
+        _style_run_built(r, run, profile)
+        return
+    tpl = _RPR_TEMPLATES.get(key)
+    if tpl is not None:
+        r_el.insert(0, copy.deepcopy(tpl))
+        return
+    _style_run_built(r, run, profile)
+    if len(_RPR_TEMPLATES) >= _RPR_TEMPLATES_MAX:
+        _RPR_TEMPLATES.clear()
+    _RPR_TEMPLATES[key] = copy.deepcopy(r_el.find(_RPR_TAG))
+
+
+def _style_run_built(r, run: Run, profile: str = "standard"):
     f = r.font
     fam = writer_family(run.font, mono=run.mono, serif=run.serif, profile=profile)
     f.name = fam
@@ -988,14 +1081,84 @@ _PPR_AFTER_SUPPRESS_HYPHENS = (
 _GDOCS_LEADER_SLACK = 2
 
 
+def _runs_width(runs, metrics, profile: str) -> Optional[float]:
+    """The width `runs` set on one line (no tabs), or None if unmeasurable."""
+    from .metrics import shaped_size
+    total = 0.0
+    for r in runs:
+        if r.is_tab or not r.text:
+            continue
+        fam = map_font(r.font, mono=r.mono, serif=r.serif, profile=profile)
+        w = metrics.text_width(r.text, fam, shaped_size(r), bold=r.bold,
+                               italic=r.italic)
+        if w is None:
+            return None
+        total += w
+    return total
+
+
+def _typed_leader_room(p: Para, i: int) -> Optional[int]:
+    """How many dots fit between the text before leader tab `i` and the
+    number after it, against the dot stop -- or None where that cannot be
+    measured (no stop, a face without widths)."""
+    stop = next((ts[0] for ts in p.tab_stops
+                 if len(ts) > 2 and ts[2] == "dot"), None)
+    metrics = _text_metrics("gdocs")
+    if stop is None or metrics is None:
+        return None
+    x = (p.left_indent or 0.0) + (p.first_indent or 0.0)   # the first line's start
+    plain =sorted(ts[0] for ts in p.tab_stops if not (len(ts) > 2 and ts[2] == "dot"))
+    seg = []
+    for k, r in enumerate(p.runs[:i]):
+        if r.is_tab:
+            w = _runs_width(seg, metrics, "gdocs")
+            if w is None:
+                return None
+            x += w
+            x = next((s for s in plain if s > x + 0.01), x)
+            seg = []
+        else:
+            seg.append(r)
+    label = _runs_width(seg, metrics, "gdocs")
+    num = _runs_width(p.runs[i + 1:], metrics, "gdocs")
+    if label is None or num is None:
+        return None
+    ref = p.runs[i]
+    dot = _runs_width([dataclasses.replace(ref, text=".", is_tab=False)],
+                      metrics, "gdocs")
+    if not dot:
+        return None
+    room = stop - (x + label) - num
+    return max(0, int(room // dot))
+
+
 def _gdocs_typed_leader(p: Para) -> Para:
     """`p` with its dot-leader tab drawn as typed dots (a copy; see above)."""
     if not p.leader_text:
         return p
-    i = next((k for k, r in enumerate(p.runs) if r.is_tab), None)
+    # A row fused from fragments (infer._fuse_row) tabs to its entry before
+    # the entry's own leader tab, and names that one.
+    i = getattr(p, "_leader_tab", None)
+    if i is None or not (0 <= i < len(p.runs)) or not p.runs[i].is_tab:
+        i = next((k for k, r in enumerate(p.runs) if r.is_tab), None)
     if i is None:
         return p
-    keep = max(0, len(p.leader_text) - _GDOCS_LEADER_SLACK)
+    # The white the source set around its leader (infer._leader_para) is
+    # typed now, a space each side; a dot is about a space wide, so the
+    # typed leader gives up one dot for each and the line is as long as it
+    # was.
+    around = int(i > 0 and p.runs[i - 1].text[-1:] == " ") + \
+        int(i + 1 < len(p.runs) and p.runs[i + 1].text[:1] == " ")
+    keep = max(0, len(p.leader_text) - _GDOCS_LEADER_SLACK - around)
+    fit = _typed_leader_room(p, i)
+    if fit is not None:
+        # Never more dots than the line has room for. The source's count is
+        # right for the source's text, and the text can come out wider: the
+        # white kept around the leader, a bold title set in the substitute
+        # face. Live, FIPS 180-4's chapter entries ran
+        # a few points past their stop, and Docs put every one of their page
+        # numbers on a line of its own -- six lines a contents page.
+        keep = max(0, min(keep, fit - _GDOCS_LEADER_SLACK))
     dots = dataclasses.replace(p.runs[i], text=p.leader_text[:keep], is_tab=False)
     stops = [tuple(ts[:2]) if len(ts) > 2 and ts[2] == "dot" else ts
              for ts in p.tab_stops]
@@ -1223,7 +1386,7 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None,
         parts = run.text.split("\n")
         for j, chunk in enumerate(parts):
             if chunk:
-                r = par.add_run(chunk)
+                r = _add_text_run(par, chunk)
                 _style_run(r, run, ctx.output_profile)
             if j < len(parts) - 1:
                 br = par.add_run()
@@ -3856,8 +4019,10 @@ def anchor_floats(par, floats, ctx=None) -> int:
         if inline is None:
             continue
         anchor = OxmlElement("wp:anchor")
-        for k, v in (("distT", "0"), ("distB", "0"), ("distL", "0"),
-                     ("distR", "0"), ("simplePos", "0"),
+        wrap = getattr(fl, "wrap", None)
+        dl, dt, dr, db = (int(round(v * 12700)) for v in (wrap or (0, 0, 0, 0)))
+        for k, v in (("distT", str(dt)), ("distB", str(db)), ("distL", str(dl)),
+                     ("distR", str(dr)), ("simplePos", "0"),
                      # z-order among the page's graphics: source order
                      ("relativeHeight", str(251658240 + i)),
                      ("behindDoc", "1" if fl.behind else "0"),
@@ -3880,7 +4045,14 @@ def anchor_floats(par, floats, ctx=None) -> int:
         for k in ("l", "t", "r", "b"):
             ee.set(k, "0")
         anchor.append(ee)
-        anchor.append(OxmlElement("wp:wrapNone"))
+        if wrap is not None:
+            # A paragraph the source wrapped around the picture
+            # (infer._wrapped_by_text): the renderer wraps it the same way.
+            ws = OxmlElement("wp:wrapSquare")
+            ws.set("wrapText", "bothSides")
+            anchor.append(ws)
+        else:
+            anchor.append(OxmlElement("wp:wrapNone"))
         for tag in ("wp:docPr", "wp:cNvGraphicFramePr", "a:graphic"):
             child = inline.find(qn(tag))
             if child is not None:
@@ -4751,6 +4923,8 @@ def _merge_grid_page_runs(pages):
             out.append(pg)
             i = j
             continue
+        for rp in run:
+            _floats_into_flow(rp)
         if key == 1:
             # all-1-col run: one flowing page, chunks concatenated; the
             # dropped page seams are the entire point
@@ -4799,6 +4973,41 @@ def _merge_grid_page_runs(pages):
                               margins=pg.margins))
         i = j
     return out
+
+
+def _floats_into_flow(pg) -> None:
+    """Set a page's anchored graphics back in its flow, in place.
+
+    A float is anchored to the page it lands on (`anchor_floats`), and a
+    merged run (`_merge_grid_page_runs`) has no pages of its own -- the
+    merged page used to be built without them, and every picture inference
+    had anchored there was dropped: IRS Pub 15's and Pub 501's icons set
+    beside their text lines (infer._on_text_line) went missing from the
+    document. In the flow each goes before the first element set below its
+    top, as a picture the flow carried before it was floated."""
+    floats = list(getattr(pg, "floats", None) or ())
+    if not floats:
+        return
+    pg.floats = []
+    for fl in floats:
+        el = fl.el
+        el.space_before = 0.0
+        top = fl.bbox[1]
+        placed = False
+        for ch in pg.chunks:
+            for k, other in enumerate(ch.elements):
+                bb = getattr(other, "bbox", None) or getattr(other, "_bbox", None) \
+                    or getattr(other, "clip", None)
+                if bb is not None and bb[1] > top:
+                    ch.elements.insert(k, el)
+                    placed = True
+                    break
+            if placed:
+                break
+        if not placed:
+            if not pg.chunks:
+                pg.chunks.append(Chunk(n_cols=1))
+            pg.chunks[-1].elements.append(el)
 
 
 def _script_base_sizes(lay: DocLayout) -> int:
@@ -5052,7 +5261,11 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
         cur_cols = cols
         # Shrink section-break paragraphs to the least height a renderer will
         # give them. That is SECT_BREAK_PARA_PT, not zero -- see the constant.
-        for p_el in doc.element.body.findall(qn("w:p")):
+        # The XPath picks, in document order, exactly the paragraphs the test
+        # below can act on (a w:sectPr in the paragraph's first w:pPr), without
+        # a Python pass over every paragraph of the body per section: y06's 96
+        # sections made that 2.6 million tests a write.
+        for p_el in doc.element.body.xpath("./w:p[w:pPr[1]/w:sectPr]"):
             ppr = p_el.find(qn("w:pPr"))
             if ppr is not None and ppr.find(qn("w:sectPr")) is not None:
                 if ppr.find(qn("w:spacing")) is None:

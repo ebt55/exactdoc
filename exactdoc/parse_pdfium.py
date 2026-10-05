@@ -387,8 +387,13 @@ class _Char:
             or font_traits(self.font or "").cls == "mono"
 
 
-def _page_chars(textpage, frame, vis=None, objs=None) -> List[_Char]:
+def _page_chars(textpage, frame, vis=None, objs=None,
+                _read_only=False) -> List[_Char]:
     """Characters with geometry, in content-stream order.
+
+    `_read_only` stops after reading, before `_finish_chars`, for a caller
+    that finishes the same reading more than one way (parse_pdf with
+    `measure_lines`).
 
     `frame` maps PDFium's user space onto the visible page (see _Frame; a bare
     page height is accepted and means an unrotated box at the origin). `vis`,
@@ -638,12 +643,83 @@ def _page_chars(textpage, frame, vis=None, objs=None) -> List[_Char]:
             continue
         adv = (MONO_ADV_EM if c.mono_hint else SPACE_ADV_EM) * max(c.size, 1.0)
         c.x1 = min(nxt.x0, max(c.x1, c.x0 + adv))
+    if _read_only:
+        return out
+    return _finish_chars(out, textpage, frame, objs)
+
+
+def page_lines_range(path: str, start: int = 0, stop: Optional[int] = None):
+    """`PdfiumBackend.page_lines` for pages [start, stop) of `path`: per page,
+    (text, top, baseline, bottom) of each line, with the parse's frame and
+    visibility rules (a printer's slug and hidden text are not lines)."""
+    doc = pdfium.PdfDocument(path)
+    try:
+        n = len(doc)
+        stop = n if stop is None else min(stop, n)
+        out = []
+        for i in range(start, stop):
+            page = doc[i]
+            try:
+                textpage = page.get_textpage()
+                try:
+                    frame = _Frame.of(page, textpage)
+                    vis = _text_visibility(textpage,
+                                           _page_objects(page, frame), frame)
+                    chars = _page_chars(textpage, frame, vis)
+                finally:
+                    textpage.close()
+                lines = _line_tuples(chars)
+            finally:
+                page.close()
+            out.append(lines)
+        return out
+    finally:
+        doc.close()
+
+
+def _line_tuples(chars: List[_Char]):
+    """`PdfiumBackend.page_lines`' answer for one page's characters:
+    (text, top, baseline, bottom) per line that carries text."""
+    return [(ln.text, ln.bbox[1], ln.baseline, ln.bbox[3])
+            for ln in _build_lines(chars) if ln.text.strip()]
+
+
+def _finish_chars(out, textpage, frame, objs=None) -> List[_Char]:
+    """The passes `_page_chars` runs after reading the characters: dropped
+    spaces restored (only with `objs`), inked and tracking spaces dropped,
+    soft hyphens restored. They change the characters in place, so a caller
+    finishing one reading two ways gives each way its own `_copy_chars`."""
     if objs is not None:
         _restore_dropped_spaces(out, _dropped_space_points(objs, textpage, frame))
     out = _drop_inked_spaces(out)
     out = _drop_tracking_spaces(out)
     _restore_soft_hyphens(out)
     return out
+
+
+def _make_char_copier():
+    """A `_Char` copier built from `_Char.__slots__`, so a slot added later is
+    copied too. Unset slots stay unset (ix0/ix1 exist only on RTL glyphs).
+    About 1.5us a character, against ~13us to read one through PDFium."""
+    lines = ["def _copy_char(c, _new=_Char.__new__, _C=_Char):", "    n = _new(_C)"]
+    for s in _Char.__slots__:
+        lines += ["    try:", "        n.%s = c.%s" % (s, s),
+                  "    except AttributeError:", "        pass"]
+    lines.append("    return n")
+    scope = {"_Char": _Char}
+    exec("\n".join(lines), scope)
+    return scope["_copy_char"]
+
+
+_copy_char = None
+
+
+def _copy_chars(chars: List[_Char]) -> List[_Char]:
+    global _copy_char
+    if _copy_char is None:
+        _copy_char = _make_char_copier()
+    cp = _copy_char
+    return [cp(c) for c in chars]
 
 
 # Letter-spaced text, and why PDFium's space synthesis cannot see it.
@@ -1516,11 +1592,100 @@ def _wide_gap_starts_visual_line(prev: _Char, current: _Char,
     fragment_has_text = any(not char.u.isspace() for char in fragment)
     if not (explicit_interword_space and fragment_has_text):
         return True
+    if _same_mono_face(prev, current):
+        # Preformatted text: see _same_mono_face. Its gaps recur at one x
+        # because the text is set on a character grid, not because a gutter
+        # runs there.
+        return False
     # The exemption, bounded: it does not extend to a gap sitting on one of this
     # page's repeated gap positions. See _gutter_xs -- a stretched word space
     # lands wherever the line breaks, a gutter is the same x on every line.
     mid = (prev.x1 + current.x0) / 2
     return any(abs(mid - g) <= GUTTER_X_TOL for g in gutters)
+
+
+def _short_fragment_text(fragment: List[_Char], limit: int):
+    """`"".join(c.u for c in fragment).strip()` when that is at most `limit`
+    characters long, else None -- without joining a long fragment.
+
+    `_split_rows` asks `_marker_starts_visual_line` about the growing first
+    fragment of every row, once per character, so joining it each time was
+    quadratic in the row: 11.2M generator steps and 3.5s of y47's 35s parse
+    (57 pages, profiled 2026-10-05). The leading characters with no ink are
+    whitespace that `strip` would remove anyway, and so are the trailing
+    ones; between the first and last inked character, the text is summed only
+    until it passes `limit`. The same string, or the same None.
+    """
+    n = len(fragment)
+    i = 0
+    while i < n and not fragment[i].u.strip():
+        i += 1
+    if i == n:
+        return ""
+    j = n - 1
+    while not fragment[j].u.strip():
+        j -= 1
+    if i == j:
+        t = fragment[i].u.strip()
+        return t if len(t) <= limit else None
+    parts = [fragment[i].u.lstrip()]
+    total = len(parts[0])
+    for k in range(i + 1, j):
+        u = fragment[k].u
+        parts.append(u)
+        total += len(u)
+        if total > limit:
+            return None
+    last = fragment[j].u.rstrip()
+    parts.append(last)
+    total += len(last)
+    if total > limit:
+        return None
+    return "".join(parts)
+
+
+def _same_mono_face(prev: _Char, current: _Char) -> bool:
+    """Are both glyphs of one monospace face at one size, the gap between
+    them a whole number of the face's cells -- preformatted text?
+
+    The gutter bound on the justification exemption (`_gutter_xs`) reads a gap
+    position that recurs down the page as a column gutter. In preformatted
+    text every gap recurs: an ASCII-art figure draws its box sides at the same
+    character cell on line after line, and the producer moves over the run of
+    spaces between them after drawing the first. RFC 9000's state diagrams
+    (xml2rfc, WeasyPrint) were cut at their own box sides -- `|` alone at
+    x 116 on one line, `|` alone at x 276 on the next -- and every cut row
+    stood a line taller: page 16 ran 127pt over and took the rest of the
+    document a page late (word recall 0.07). Nobody justifies monospace text,
+    so a gap after an explicit space in it is spaces, and the gap test has
+    already counted them in the face's own cell (_gap_spaces).
+
+    The grid is the evidence, not the face: an OCR text layer is often set in
+    a monospace face with each word placed where the scan has it (y57's
+    Internet Archive layer), so its gaps fall anywhere and its columns are
+    real columns."""
+    if not (prev.mono_hint and current.mono_hint and
+            prev.font == current.font and abs(prev.size - current.size) < 0.01):
+        return False
+    return _on_mono_grid(current.x0 - prev.x1, prev)
+
+
+# A gap is on the monospace grid when it is within this share of a cell of a
+# whole number of cells. Producers place preformatted glyphs at exact
+# multiples (RFC 9000's art: 0.00-0.02 of a cell off); an OCR layer's gaps are
+# spread uniformly over the cell.
+MONO_GRID_TOL = 0.15
+
+
+def _on_mono_grid(gap: float, glyph: _Char) -> bool:
+    """Is `gap` a whole number of `glyph`'s monospace cells (MONO_GRID_TOL)?
+    The cell is the glyph's own advance where it draws one, else the face's
+    nominal MONO_ADV_EM."""
+    cell = glyph.x1 - glyph.x0
+    if cell <= 0.1 * max(glyph.size, 1.0):
+        cell = MONO_ADV_EM * max(glyph.size, 1.0)
+    k = gap / cell
+    return abs(k - round(k)) <= MONO_GRID_TOL
 
 
 def _marker_starts_visual_line(fragment: List[_Char], current: _Char) -> bool:
@@ -1551,8 +1716,8 @@ def _marker_starts_visual_line(fragment: List[_Char], current: _Char) -> bool:
     """
     if not fragment:
         return False
-    text = "".join(c.u for c in fragment).strip()
-    if not text or len(text) > 5:
+    text = _short_fragment_text(fragment, 5)
+    if not text:
         return False
     if not (text in _MARKER_BULLETS or _MARKER_RE.match(text)):
         return False
@@ -1645,6 +1810,19 @@ def _set_into(frag, host, hsz) -> bool:
     return True
 
 
+# A drop cap, for `_absorb_script_rows`: a host of at most DROP_CAP_MAX_GLYPHS
+# glyphs, this many times the size of the text beside it, which starts within
+# DROP_CAP_GAP_EM of the text's own size right of the cap and is a line of it
+# (DROP_CAP_MIN_LINE_GLYPHS or more). SP 800-171's caps are one 51pt glyph over
+# 11pt lines (4.6x) that start 0.1pt right of them; a maths base over its
+# indices is 1.4-1.8x (FIPS 180-4: 12pt over 7pt); an OCR layer's crumbs
+# beside a large misread glyph (y57) are not lines.
+DROP_CAP_SIZE_RATIO = 2.5
+DROP_CAP_MAX_GLYPHS = 2
+DROP_CAP_MIN_LINE_GLYPHS = 12
+DROP_CAP_GAP_EM = 1.0
+
+
 def _absorb_script_rows(vis_rows):
     """Put super/subscript fragments back on the line they belong to.
 
@@ -1720,6 +1898,9 @@ def _absorb_script_rows(vis_rows):
     base_keys = [b for b, _ in by_base]
     reach = SCRIPT_BASE_EM * max(sz, default=0.0) + 1e-6
     absorbed = set()
+    # Ink glyphs per row: a fragment that outnumbers its host is the LINE and
+    # the host is an ornament beside it (see below).
+    n_ink = [sum(1 for c in row if c.u.strip()) for _, row in rows]
     for i, (frag_ri, frag) in enumerate(rows):
         fx0 = x0s[i]
         fb = frag[0].oy
@@ -1729,6 +1910,21 @@ def _absorb_script_rows(vis_rows):
         for j in sorted(by_base[k][1] for k in range(lo, hi)):
             host_ri, host = rows[j]
             if j == i or j in absorbed or host_ri == frag_ri:
+                continue
+            if n_ink[j] <= DROP_CAP_MAX_GLYPHS and \
+                    n_ink[i] >= DROP_CAP_MIN_LINE_GLYPHS and \
+                    sz[j] >= DROP_CAP_SIZE_RATIO * sz[i] and \
+                    0.0 <= fx0 - x1s[j] <= DROP_CAP_GAP_EM * sz[i]:
+                # A drop cap: one glyph several times the size of the text
+                # beside it, whose em box spans that text's lines. SP 800-171's
+                # chapter openings set a 51pt "T" beside three 11pt lines, and
+                # all three were absorbed as its "scripts" and sorted by x
+                # into one line: "Tsfeednesirtaoivld eaa gfyee, ndmceiorearsel"
+                # for "Today, ... sensitive federal ... federal agencies",
+                # 59pt-leading and four lines tall, the page six lines over. A
+                # script is a few glyphs of a line, never more than its host;
+                # but a maths base and its indices are close in size (FIPS
+                # 180-4's 12pt "M" and its 7pt "(i)"), and those still join.
                 continue
             fsz = ink_sz[i] if rtl_row[j] else sz[i]
             hsz = sz[j]
@@ -1773,6 +1969,7 @@ def _absorb_script_rows(vis_rows):
         sz[j] = max(sz[j], fsz)
         x0s[j] = min(x0s[j], fx0)
         x1s[j] = max(x1s[j], x1s[i])
+        n_ink[j] += n_ink[i]
         absorbed.add(i)
     return [row for i, (_, row) in enumerate(rows) if i not in absorbed]
 
@@ -1981,7 +2178,16 @@ def _gap_spaces(prev: _Char, c: _Char, boundary: bool = False,
         # collapsing it once cost 19 unmatched words and 40pt of horizontal
         # drift on a listing.
         n_sp = n_sp if prev.mono_hint else 0
-    return min(max(n_sp, 0), 24)
+    # Preformatted text keeps every cell of its gap: an ASCII-art box side
+    # 27 cells right of the one before it (RFC 9000's state diagrams) came
+    # back 24 cells right under the old cap, and the figure's verticals no
+    # longer met. A line printer's 132 columns bound it. On the grid only
+    # (_on_mono_grid): an OCR layer's monospace gaps are positions, not cells.
+    grid = prev.mono_hint and _on_mono_grid(gap, prev)
+    return min(max(n_sp, 0), MONO_MAX_SPACES if grid else 24)
+
+
+MONO_MAX_SPACES = 132
 
 
 # Two characters of one line never sit on top of each other: kerning moves a
@@ -2326,6 +2532,7 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
                 if record is not None and \
                         c.x0 - prev.x1 > LINE_SPLIT_EM * max(
                             prev.size, c.size, 1.0) and \
+                        not _same_mono_face(prev, c) and \
                         not _wide_gap_starts_visual_line(prev, c, part):
                     record.append((prev.x1 + c.x0) / 2)
                 if _wide_gap_starts_visual_line(prev, c, part, gutters) or \
@@ -4472,8 +4679,17 @@ def _page_labels(doc) -> Optional[List[Optional[str]]]:
 
 
 def parse_pdf(path: str, keep_image_data: bool = True,
-              ocr_layer: str = "text") -> DocIR:
+              ocr_layer: str = "text", measure_lines: bool = False) -> DocIR:
     """Parse a PDF into the backend-neutral IR.
+
+    `measure_lines` also leaves `ir.page_lines`: exactly what
+    `PdfiumBackend.page_lines(path)` returns, from the same PDFium reading.
+    The refine loop measures the source with page_lines in its first round,
+    and that second full read of the input -- 15.4s for y13 on a busy desktop,
+    against 6.3s added to this parse to produce the same lines from its own
+    reading (WP20c) -- now comes from here. Only when `ocr_layer`
+    is "text" (page_lines' own mode) -- otherwise `ir.page_lines` is None and
+    the loop reads the source itself, as before.
 
     Every native handle is closed on the way out, in reverse order of acquisition.
     None of them was: a parity run over 16 documents ended with pypdfium2 printing
@@ -4496,6 +4712,10 @@ def parse_pdf(path: str, keep_image_data: bool = True,
     if ocr_layer not in OCR_LAYER_MODES:
         raise ValueError("ocr_layer must be one of %s, got %r"
                          % (", ".join(OCR_LAYER_MODES), ocr_layer))
+    # page_lines reads visibility with the default OCR mode, so the parse can
+    # only stand in for it when it reads the same way.
+    measure = measure_lines and ocr_layer == "text"
+    measured = []
     doc = pdfium.PdfDocument(path)
     try:
         meta = {}
@@ -4523,7 +4743,16 @@ def parse_pdf(path: str, keep_image_data: bool = True,
                     vis = _text_visibility(tp, objs, frame, ocr_layer)
                     pir.hidden_chars = dict(vis.counts)
                     pir.ocr_chars = vis.ocr_chars
-                    chars = _page_chars(tp, frame, vis, objs)
+                    if measure:
+                        # One PDFium read, finished two ways: as page_lines
+                        # finishes it (no dropped-space restore) for the refine
+                        # loop, and as the parse always has.
+                        read = _page_chars(tp, frame, vis, _read_only=True)
+                        measured.append(_line_tuples(_finish_chars(
+                            _copy_chars(read), tp, frame)))
+                        chars = _finish_chars(read, tp, frame, objs)
+                    else:
+                        chars = _page_chars(tp, frame, vis, objs)
                     _collect_advances(chars, advances)
                     # Before spans exist: a link is a property of characters, and
                     # settling it here lets _style end a span at the anchor's
@@ -4547,6 +4776,9 @@ def parse_pdf(path: str, keep_image_data: bool = True,
             ir.pages.append(pir)
         _resolve_dests(ir, frames)
         ir.font_advances = _median_advances(advances)
+        # A plain attribute, not a DocIR field: it describes how this parse
+        # was run, not the document, and no IR serialisation should carry it.
+        ir.page_lines = measured if measure else None
         return ir
     finally:
         doc.close()

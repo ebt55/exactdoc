@@ -189,6 +189,26 @@ class Reading(unittest.TestCase):
         self.assertEqual(c["gate"]["status"], "FAIL")
         self.assertEqual(c["catastrophic"]["status"], "FAIL")
 
+    def test_serial_timings_win_over_the_sweep(self):
+        prod = self._sweep("p.sweep.json", "pdfium/standard/libreoffice/refine3@240dpi",
+                           [_row("short.pdf", 3, 3, conv=90.0),
+                            _row("long.pdf", 50, 50, conv=70.0)])
+        path = os.path.join(self.dir, "run.timing.json")
+        with open(path, "w") as fh:
+            json.dump({"schema": "exactdoc.serial-timing.v1", "jobs": 1,
+                       "profile": "pdfium/standard/libreoffice/refine3@240dpi",
+                       "documents": [{"document": "short.pdf", "src_pages": 3,
+                                      "convert_s": 41.0}]}, fh)
+        timings = B.find_timings([self.dir])
+        self.assertEqual(list(timings), ["product"])
+        res = B.evaluate(DOCS, {"product": (prod, B.load_sweep(prod))},
+                         {"lo": None, "word": None, "docs": None}, None,
+                         timings=timings)
+        c = self._by_key(res)["time"]
+        # short.pdf: 90s in the sweep, 41s alone -> under its 60s limit
+        self.assertNotIn("short", " ".join(c["misses"]))
+        self.assertIn("1 timed serially", c["detail"])
+
     def test_a_targeted_sweep_is_not_a_reading_of_the_product(self):
         self._sweep("only.sweep.json", "pdfium/standard/none/refine0@240dpi",
                     [_row("short.pdf", 3, 3)])
@@ -219,6 +239,8 @@ class Reading(unittest.TestCase):
                          "product")
         self.assertEqual(B._profile_kind("pdfium/gdocs/none/refine0@240dpi"), "gdocs-lo")
         self.assertIsNone(B._profile_kind("nonsense"))
+        # a capped refine loop is a measurement, not the product
+        self.assertIsNone(B._profile_kind("pdfium/standard/libreoffice/refine1@240dpi"))
 
 
 if __name__ == "__main__":

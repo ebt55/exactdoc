@@ -34,7 +34,7 @@ Google Docs (live: uploaded, converted by Google and exported).
 | # | Criterion | Threshold | Data | Why |
 |---:|---|---|---|---|
 | 1 | Crash-free | 0 conversion errors on any document in any input; every `unsupported` document refused with a typed exit code (17 scan, 19 form, 20 page cap) | every sweep and lane read | A crash is the one failure a tester cannot work around |
-| 2 | Time | Product profile ≤ 60 s for documents of ≤ 40 pages, ≤ 1.5 s per page above; raw ≤ 1 s per page | `convert_s` in the product and raw sweeps | The product profile is what `exactdoc file.pdf` runs when LibreOffice is installed; minutes per document reads as a hang |
+| 2 | Time | Product profile ≤ 60 s for documents of ≤ 40 pages, ≤ 1.5 s per page above; raw ≤ 1 s per page | one-at-a-time timings (`testkit/serial_timing.py`), preferred document by document; otherwise `convert_s` in the product and raw sweeps, which run documents side by side and read 1.4–2.3× slower | The product profile is what `exactdoc file.pdf` runs when LibreOffice is installed; minutes per document reads as a hang |
 | 3 | Word opens cleanly | 100% open with no repair prompt; compatibility mode recorded | Word lane rows (open, repair, compat) | A repair prompt tells a tester the file is broken, whatever it looks like |
 | 4 | Short documents exact | Promised documents of ≤ 20 pages: 100% page-exact in each lane | LibreOffice raw, Word, Docs live | A memo or letter that gains a page is visibly wrong at a glance |
 | 5 | Long documents close | Promised documents over 20 pages: on ≥ 80% of them, \|Δpages\| ≤ max(1, 2% of the pages) and word recall ≥ 0.85, in each lane | LibreOffice raw, Word, Docs live | Long reports are what people convert; page drift there breaks every cross-reference |

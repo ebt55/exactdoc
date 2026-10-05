@@ -150,8 +150,13 @@ def _pages_text(pdf_path, backend, anchor=ANCHOR):
     measures a document *it just wrote*, and what it needs is text lines with a
     vertical anchor, which is now `Backend.page_lines`.
     """
+    return _lines_from_page_lines(backend.page_lines(pdf_path), anchor)
+
+
+def _lines_from_page_lines(pages, anchor=ANCHOR):
+    """`Backend.page_lines` output -> the measurement's per-page lines."""
     return [[(_norm(ln[0]), ln[anchor], ln[3]) for ln in page]
-            for page in backend.page_lines(pdf_path)]
+            for page in pages]
 
 
 def _align(src_pages, out_pages):
@@ -669,7 +674,8 @@ def _score(m):
 def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
            rounds: int = 2, verbose: bool = False, render=None,
            output_profile: str = "standard", backend=None,
-           image_report=None, report=None, progress=None) -> str:
+           image_report=None, report=None, progress=None,
+           src_page_lines=None) -> str:
     """Write `lay`, then correct it against real renders. Returns out_path.
 
     `render(docx_path, tmp_dir) -> pdf_path | None` selects the oracle. It
@@ -693,6 +699,10 @@ def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
     `progress`, when given, is called as `progress("refine", {"round": r,
     "rounds": n})` as each render round begins (`n` is the most the loop will
     run; it often stops sooner). Observes only -- see `convert_result`.
+
+    `src_page_lines`, when given, is `backend.page_lines(src_pdf)` already
+    read -- by the parse (parse_pdfium.parse_pdf `measure_lines`) -- and the
+    first round's measurement uses it instead of reading the source again.
 
     **Cost.** Measured on y01 (80 pages) in the canonical container, the loop
     was 87s against ~10s open-loop: 58s reading text back out of PDFs (the
@@ -753,6 +763,8 @@ def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
 
     state = new_state()
     src_cache = {}
+    if src_page_lines is not None:
+        src_cache["lines"] = _lines_from_page_lines(src_page_lines)
     clip_cache = {}
     geom = _geom(lay)
     # Opt the pages whose stack fits their box into the page-top-gap-keeping

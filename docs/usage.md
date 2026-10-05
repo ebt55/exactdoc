@@ -127,6 +127,26 @@ stops with exit 3 if `report.docx` exists, because that is very often the Word
 document the PDF was exported from. Pass `-o` to choose a name, or
 `--overwrite` to replace it. An explicit `-o` always replaces.
 
+### How long it takes
+
+With LibreOffice installed, the default conversion renders its own DOCX up
+to four times and reads each render back. Three things keep that affordable,
+none of which changes the output:
+
+- the PDF's own text lines, which the first check compares against, come from
+  the conversion's reading of the PDF rather than a second reading;
+- a render of 16 pages or more is read back by up to four worker processes
+  (one fewer than the machine's CPUs), each taking a slice of the pages. Set
+  `EXACTDOC_READ_WORKERS=1` to read in one process, or another number to fix
+  the count;
+- with LibreOffice 7.4 or newer, the renders leave out picture quality,
+  bookmarks and notes, which the check never reads. Older versions get the
+  ordinary export.
+
+`--refine 0` skips the check altogether and is the fastest; `--refine 1` is a
+middle way. Measurements are in
+[docs/evidence/refine-speed-2026-10-05c.json](evidence/refine-speed-2026-10-05c.json).
+
 ### Reporting a bad conversion
 
 ```bash

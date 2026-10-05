@@ -280,6 +280,10 @@ class FloatEl:
     el: Any                      # ImageEl | FigureEl
     bbox: BBox                   # where the source drew it, page points
     behind: bool = False         # under text it overlaps (slide text sits on it)
+    # The text wraps around it (wp:wrapSquare) keeping this clearance, points
+    # (left, top, right, bottom); None for no wrap. Set where the source wraps
+    # a paragraph around a picture (infer._wrapped_by_text).
+    wrap: Optional[Tuple[float, float, float, float]] = None
 
 
 class ColBreak:
