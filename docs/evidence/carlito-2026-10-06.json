@@ -59,7 +59,14 @@
    "pagematch": "16/16 both lanes"
   },
   "per_document_changes_vs_int-4cd018f_in_canonical_image": 0,
-  "note": "No gated document's DOCX names Calibri or Cambria; every per-document gated metric in both lanes equals the canonical-image gate of the same code (int-4cd018f). Baseline not re-recorded."
+  "note": "No gated document's DOCX names Calibri or Cambria; every per-document gated metric in both lanes equals the canonical-image gate of the same code (int-4cd018f). Baseline not re-recorded.",
+  "merged_tree_run": {
+   "run": "wp31-gate-2 in exactdoc-gate:boot-carlito",
+   "tree": "13c4e50 (WP31 merged with integration f2f6480, WP26)",
+   "result": "Ran 1595 tests OK (skipped=1); FAILED_STEPS=0; runall PASS both lanes, within-2pt 0.7209 product / 0.5463 raw, pagematch 16/16",
+   "per_document_changes_vs_int-4cd018f_in_canonical_image": 0
+  },
+  "clone_width_provenance": "The canonical image runs 1586 tests with 2 skipped; the candidate runs the same suite plus 3 new pin tests with 1 skipped: tests/test_clone_metrics.py Provenance now finds the renderer's own Carlito/Caladea and regenerates exactdoc/_clone_widths.py from them byte for byte."
  },
  "raw_sweep": {
   "before": "ckpt-raw.sweep.json (canonical image, ccaef09 == 4cd018f output)",
