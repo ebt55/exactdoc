@@ -1,0 +1,207 @@
+{
+ "wp": "WP27",
+ "date": "2026-10-06",
+ "what": "y33 footnote spill: lone question panels rasterised the prose above them (footnote references with it); notes separator nearest the notes; a mark printed alone above its note's text",
+ "lane_libreoffice_raw": {
+  "before": "ckpt-raw.sweep.json (4cd018f)",
+  "after": "wp27-r5-raw.sweep.json",
+  "documents": 90,
+  "changed": {
+   "04_exec_brief.pdf": {
+    "mean_ssim": [
+     0.8855,
+     0.8865
+    ]
+   },
+   "y02_nist_sp800171r2.pdf": {
+    "out_pages": [
+     120,
+     119
+    ],
+    "word_recall": [
+     0.3033,
+     0.3029
+    ],
+    "char_recall": [
+     0.7635,
+     0.764
+    ],
+    "doc_recall": [
+     0.9609,
+     0.961
+    ],
+    "live_text_cov": [
+     0.8786,
+     0.8785
+    ],
+    "within2pt": [
+     0.0482,
+     0.0476
+    ],
+    "dy_p50": [
+     34.94,
+     34.95
+    ],
+    "mean_ssim": [
+     0.601,
+     0.6058
+    ]
+   },
+   "y03_nist_fips197.pdf": {
+    "word_recall": [
+     0.5677,
+     0.5678
+    ],
+    "doc_recall": [
+     0.9628,
+     0.9629
+    ],
+    "mean_ssim": [
+     0.6525,
+     0.6524
+    ]
+   },
+   "y24_pandoc_manual.pdf": {
+    "out_pages": [
+     181,
+     180
+    ],
+    "word_recall": [
+     0.5493,
+     0.9939
+    ],
+    "char_recall": [
+     0.8014,
+     0.9997
+    ],
+    "doc_recall": [
+     0.9941,
+     0.9943
+    ],
+    "live_text_cov": [
+     0.9927,
+     0.9929
+    ],
+    "within2pt": [
+     0.1747,
+     0.1765
+    ],
+    "dy_p50": [
+     2.35,
+     1.96
+    ],
+    "mean_ssim": [
+     0.7564,
+     0.8134
+    ]
+   },
+   "y33_nz_paper_powerpdf.pdf": {
+    "out_pages": [
+     62,
+     60
+    ],
+    "word_recall": [
+     0.4938,
+     0.9928
+    ],
+    "char_recall": [
+     0.7802,
+     0.9999
+    ],
+    "doc_recall": [
+     0.8932,
+     0.9929
+    ],
+    "live_text_cov": [
+     0.8616,
+     0.9518
+    ],
+    "within2pt": [
+     0.0705,
+     0.0626
+    ],
+    "dy_p50": [
+     3.03,
+     2.73
+    ],
+    "mean_ssim": [
+     0.6695,
+     0.74
+    ]
+   },
+   "y61_fedreg_gpo_3col.pdf": {
+    "word_recall": [
+     0.4026,
+     0.4012
+    ],
+    "char_recall": [
+     0.5906,
+     0.5903
+    ],
+    "dy_p50": [
+     39.04,
+     33.33
+    ],
+    "mean_ssim": [
+     0.1877,
+     0.1871
+    ]
+   }
+  },
+  "unchanged": 84,
+  "note": "y24 changes come from WP26 (merged), not WP27: identical in the pre-merge sweep wp27-r3-raw"
+ },
+ "lane_word_raw_docx": {
+  "before": "C:/lotmp/ckptword/raw/rows.jsonl",
+  "rows": {
+   "null": {
+    "out_pages": [
+     3,
+     60
+    ],
+    "src_pages": [
+     3,
+     60
+    ],
+    "word_recall": [
+     1.0,
+     0.9931
+    ],
+    "char_recall": [
+     1.0,
+     0.9999
+    ],
+    "within2pt": [
+     0.2344,
+     0.1586
+    ],
+    "dy_p50": [
+     10.16,
+     4.04
+    ]
+   }
+  },
+  "note": "y33 row from a local DOCX XML-identical to the canonical conversion"
+ },
+ "gdocs": {
+  "diagnosis": "y33 Docs onset p2/p4 is page-background pictures (cover 3x594.8x280.6pt, p3/p4 594x93.5+654.4+93.1pt) stacked inline: the gdocs profile lacks the anchored capability. Not fonts.",
+  "probe_set": "C:/lotmp/scr/wp27/gdocs_probe (PROBE.md)",
+  "libreoffice_proxy_pages": {
+   "base": 71,
+   "wp27": 78,
+   "wp27bg": 73
+  }
+ },
+ "survey_note_only_pages_ckpt_raw": {
+  "promised": {
+   "y33": "p23, p26 (fixed)",
+   "y22": "p56 typed note 12 (column sections keep notes typed)",
+   "y02": "p103 (out of scope)"
+  },
+  "not_promised": {
+   "y47": "p29 p32 p39 p41 p49",
+   "y49": "p6-p26 (8 pages)",
+   "y50": "p9 p11"
+  }
+ }
+}

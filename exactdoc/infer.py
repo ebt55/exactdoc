@@ -4199,6 +4199,37 @@ def _tile_bands(clusters, blocks, consumed):
             seen.add(key)
         return len(rows)
 
+    def one_texted_row(cl):
+        """A cluster that is ONE row of abutting tiles, every tile holding
+        text: a one-row table drawn as fills. y33's consultation questions
+        are a numbered badge (a teal tile holding "8") flush against a tinted
+        panel holding the question; stacked two to a band they were already a
+        table (above), but a question standing alone was classified a figure
+        (four substantial fills), and the figure, grown from a 454pt-wide seed,
+        swallowed the body lines above it within its reach -- prose
+        rasterised on 20 of 60 pages, footnote references with it, so those
+        pages' notes could not bind and spilled as typed text (LibreOffice
+        raw 62 pages for 60, word recall 0.49 -> 0.99 with this rule). Every
+        tile must hold text and the tiles must touch: a row of cards keeps
+        its gutters (c1: 9.3pt) and stays cards, and a tile row with an empty
+        tile is decoration. 04's KPI tiles (66-546pt, abutting) read this
+        way too, at their source x (12pt right of it as cards)."""
+        tiles = sorted(_cell_tiles([d for _, d in cl if d.fill and d.shape == "rect"
+                                    and not _is_glyphlike(d)]),
+                       key=lambda t: t.bbox[0])
+        if len(tiles) < 2 or len(_cluster([t.bbox[1] for t in tiles], 2.0)) != 1 \
+                or len(_cluster([t.bbox[3] for t in tiles], 2.0)) != 1:
+            return False
+        if any(abs(b.bbox[0] - a.bbox[2]) > GRID_EDGE_TOL
+               for a, b in zip(tiles, tiles[1:])):
+            return False
+        if not all(has_text(t.bbox) for t in tiles):
+            return False
+        # A shaded header over unruled body rows is the headed table's
+        # (build_headed_table, x04/x10's 'Table 3'), which reads the rows
+        # under it; probed on a copy, as it claims lines when it accepts.
+        return build_headed_table(cl, blocks, set(consumed)) is None
+
     def close(cur, bands):
         # trailing rule-only frames belong to whatever follows, not here
         while cur and not cur[-1][2]:
@@ -4211,7 +4242,8 @@ def _tile_bands(clusters, blocks, consumed):
         # was refused by the figure budget, each tile became a box, and the
         # boxes a one-row 'cards' table per row with its rules as paragraphs
         # between them -- 110pt over the page.
-        if len(tiled_cls) >= 2 or (len(tiled_cls) == 1 and tile_rows(tiled_cls[0]) >= 2):
+        if len(tiled_cls) >= 2 or (len(tiled_cls) == 1 and (
+                tile_rows(tiled_cls[0]) >= 2 or one_texted_row(tiled_cls[0]))):
             bands.append([c for _, c, _ in cur])
 
     bands, cur = [], []
