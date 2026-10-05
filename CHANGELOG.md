@@ -51,7 +51,14 @@ one verified fix at a time, each gated against the frozen 16.
   but y37 and y60 each +2-4 pages). Diagnosed, not fixed: y64's table titles
   ("HOUSEHOLD DATA / Table A-n") are consumed as varying furniture, which a
   "clears the body" bar would separate (1.4pt against >= 11.8pt in every
-  real case) (`docs/evidence/wp25-columns-2026-10-06.json`).
+  real case) (`docs/evidence/wp25-columns-2026-10-06.json`). **Not merged
+  (2026-10-06): per-rule isolation.** Neither rule alone keeps y64's raw
+  gain (channels alone 43 pages at 0.630, cursor alone 40 at 0.420; both 39
+  at 0.952). The y21 and y61 losses are the channel rule's alone: with only
+  the cursor change y21 product is the checkpoint's (49 pages, 0.714) and
+  y61 raw stays at 7 pages with dy_p50 33.6; with only the channels y21
+  product falls to 0.519. Next: why splitting y21's welded lines moves its
+  words to the wrong pages; the cursor change can ship alone meanwhile.
 - **Beta criteria 8 and 12 (WP28).** *Criterion 8* (no document worse than
   the accepted wp18-m2 sweep) failed on two documents; both bisect to WP22
   (aeb98fb; every merge from 92c542c to 738bd2e measured the accepted values).

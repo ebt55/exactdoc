@@ -522,5 +522,222 @@
   "y64_p19_p22": "after the fix: p19's footnotes and p22's NOTE render on their own page in LibreOffice only through table row heights (stub cells with leaders wrap: 'Less than 5 / weeks....'), a table-width issue.",
   "y21_first_divergence": "p1 and p3 (covers): the 72pt title 'Middle Income' wraps in the render (font width), each cover takes two pages -- not a column class.",
   "y22_first_divergence": "p33 (lshort p19): code-and-output examples between full-width prose, read by the block-cluster path as two columns with the prose sent to a tail (see not_shipped)."
+ },
+ "per_rule_isolation": {
+  "how": "canonical container, tree 97b3963 with a temporary env switch per rule (not committed); y21, y61, y64",
+  "raw": {
+   "checkpoint": {
+    "y21_worldbank_wdr24": {
+     "src_pages": 48,
+     "out_pages": 57,
+     "word_recall": 0.1907,
+     "doc_recall": 0.9005,
+     "within2pt": 0.0008,
+     "dy_p50": 50.87
+    },
+    "y61_fedreg_gpo_3col": {
+     "src_pages": 4,
+     "out_pages": 7,
+     "word_recall": 0.4026,
+     "doc_recall": 0.9562,
+     "within2pt": 0.0054,
+     "dy_p50": 39.04
+    },
+    "y64_bls_release_xpp": {
+     "src_pages": 39,
+     "out_pages": 44,
+     "word_recall": 0.3432,
+     "doc_recall": 0.9618,
+     "within2pt": 0.1041,
+     "dy_p50": 11.17
+    }
+   },
+   "both_rules": {
+    "y21_worldbank_wdr24": {
+     "src_pages": 48,
+     "out_pages": 51,
+     "word_recall": 0.2674,
+     "doc_recall": 0.8965,
+     "within2pt": 0.001,
+     "dy_p50": 71.37
+    },
+    "y61_fedreg_gpo_3col": {
+     "src_pages": 4,
+     "out_pages": 6,
+     "word_recall": 0.5516,
+     "doc_recall": 0.9617,
+     "within2pt": 0.0039,
+     "dy_p50": 47.09
+    },
+    "y64_bls_release_xpp": {
+     "src_pages": 39,
+     "out_pages": 39,
+     "word_recall": 0.9516,
+     "doc_recall": 0.9618,
+     "within2pt": 0.089,
+     "dy_p50": 11.92
+    }
+   },
+   "only_gutter_channels": {
+    "y21_worldbank_wdr24": {
+     "src_pages": 48,
+     "out_pages": 51,
+     "word_recall": 0.2674,
+     "doc_recall": 0.8965,
+     "within2pt": 0.001,
+     "dy_p50": 71.34
+    },
+    "y61_fedreg_gpo_3col": {
+     "src_pages": 4,
+     "out_pages": 6,
+     "word_recall": 0.5516,
+     "doc_recall": 0.9617,
+     "within2pt": 0.0039,
+     "dy_p50": 47.09
+    },
+    "y64_bls_release_xpp": {
+     "src_pages": 39,
+     "out_pages": 43,
+     "word_recall": 0.6297,
+     "doc_recall": 0.9618,
+     "within2pt": 0.0989,
+     "dy_p50": 10.52
+    }
+   },
+   "only_cursor": {
+    "y21_worldbank_wdr24": {
+     "src_pages": 48,
+     "out_pages": 56,
+     "word_recall": 0.1914,
+     "doc_recall": 0.9005,
+     "within2pt": 0.0008,
+     "dy_p50": 50.74
+    },
+    "y61_fedreg_gpo_3col": {
+     "src_pages": 4,
+     "out_pages": 7,
+     "word_recall": 0.4012,
+     "doc_recall": 0.9562,
+     "within2pt": 0.0054,
+     "dy_p50": 33.55
+    },
+    "y64_bls_release_xpp": {
+     "src_pages": 39,
+     "out_pages": 40,
+     "word_recall": 0.4203,
+     "doc_recall": 0.9618,
+     "within2pt": 0.1004,
+     "dy_p50": 11.82
+    }
+   }
+  },
+  "product": {
+   "checkpoint": {
+    "y21_worldbank_wdr24": {
+     "src_pages": 48,
+     "out_pages": 49,
+     "word_recall": 0.7143,
+     "doc_recall": 0.9005,
+     "within2pt": 0.0152,
+     "dy_p50": 26.85
+    },
+    "y61_fedreg_gpo_3col": {
+     "src_pages": 4,
+     "out_pages": 6,
+     "word_recall": 0.4378,
+     "doc_recall": 0.9559,
+     "within2pt": 0.005,
+     "dy_p50": 43.02
+    },
+    "y64_bls_release_xpp": {
+     "src_pages": 39,
+     "out_pages": 39,
+     "word_recall": 0.9455,
+     "doc_recall": 0.9618,
+     "within2pt": 0.1392,
+     "dy_p50": 8.72
+    }
+   },
+   "both_rules": {
+    "y21_worldbank_wdr24": {
+     "src_pages": 48,
+     "out_pages": 48,
+     "word_recall": 0.5177,
+     "doc_recall": 0.8965,
+     "within2pt": 0.0097,
+     "dy_p50": 29.51
+    },
+    "y61_fedreg_gpo_3col": {
+     "src_pages": 4,
+     "out_pages": 5,
+     "word_recall": 0.5651,
+     "doc_recall": 0.9617,
+     "within2pt": 0.0043,
+     "dy_p50": 48.51
+    },
+    "y64_bls_release_xpp": {
+     "src_pages": 39,
+     "out_pages": 39,
+     "word_recall": 0.9514,
+     "doc_recall": 0.9618,
+     "within2pt": 0.1339,
+     "dy_p50": 8.74
+    }
+   },
+   "only_gutter_channels": {
+    "y21_worldbank_wdr24": {
+     "src_pages": 48,
+     "out_pages": 48,
+     "word_recall": 0.519,
+     "doc_recall": 0.8965,
+     "within2pt": 0.0095,
+     "dy_p50": 29.9
+    },
+    "y61_fedreg_gpo_3col": {
+     "src_pages": 4,
+     "out_pages": 5,
+     "word_recall": 0.5651,
+     "doc_recall": 0.9617,
+     "within2pt": 0.0043,
+     "dy_p50": 48.51
+    },
+    "y64_bls_release_xpp": {
+     "src_pages": 39,
+     "out_pages": 39,
+     "word_recall": 0.9514,
+     "doc_recall": 0.9618,
+     "within2pt": 0.1387,
+     "dy_p50": 8.79
+    }
+   },
+   "only_cursor": {
+    "y21_worldbank_wdr24": {
+     "src_pages": 48,
+     "out_pages": 49,
+     "word_recall": 0.7138,
+     "doc_recall": 0.9005,
+     "within2pt": 0.0152,
+     "dy_p50": 26.85
+    },
+    "y61_fedreg_gpo_3col": {
+     "src_pages": 4,
+     "out_pages": 6,
+     "word_recall": 0.438,
+     "doc_recall": 0.9559,
+     "within2pt": 0.0049,
+     "dy_p50": 45.2
+    },
+    "y64_bls_release_xpp": {
+     "src_pages": 39,
+     "out_pages": 39,
+     "word_recall": 0.9455,
+     "doc_recall": 0.9618,
+     "within2pt": 0.1344,
+     "dy_p50": 8.61
+    }
+   }
+  },
+  "finding": "Neither rule alone keeps y64's raw-lane gain: it needs both (raw 44 -> 39, word recall 0.952; channels alone 43 pages 0.630, cursor alone 40 pages 0.420). The y21 and y61 losses are the gutter-channel rule's alone: with only the cursor change y21 product is the checkpoint's (49 pages, 0.714) and raw 57 -> 56 at dy_p50 50.7, y61 raw 7 pages 0.401 at dy_p50 33.6 (checkpoint 39.0, accepted 33.3) -- no regression beyond tolerance on either. With only the channel rule y21 product drops to 48 pages at 0.519 and y61's raw dy_p50 rises to 47.1. Product y64 passes criterion 5 with either rule (checkpoint product was already 39 pages, 0.946).",
+  "next": "Find why splitting y21's welded lines costs its product lane (48 pages for 48, yet word recall 0.714 -> 0.519: words land on the wrong pages); the cursor change can ship alone as a safe, smaller step (y64 raw 44 -> 40, not yet criterion 5)."
  }
 }
