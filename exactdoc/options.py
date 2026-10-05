@@ -83,6 +83,16 @@ OUTPUT_PROFILES = ("standard", "gdocs")
 #               in the flow; inference reads a slide only for a profile that
 #               has it (infer._deck_pages). Docs' handling of page-anchored
 #               pictures is unmeasured, so the gdocs profile keeps the flow.
+#   anchor_pictures
+#               a picture set on a text line, wrapped by a paragraph or
+#               printed into a margin (infer._on_text_line, _wrapped_by_text)
+#               anchored at its source position, wrapped where the source
+#               wrapped it, instead of stacked under its line -- the part of
+#               `anchored` WP23 measured on long documents (SP 800-63B's
+#               contents numbers, DOE OIG's highlights picture). Implied by
+#               `anchored`. Withheld from gdocs until a live probe shows Docs
+#               keeps such an anchor where it is put (WP24's variant `wp24a`
+#               flies it: y01, y28 and a synthetic set).
 #   bidi        right-to-left paragraphs as w:bidi with start/end alignment
 #               and indents, and their runs as w:rtl with complex-script
 #               size, weight and language, instead of left-to-right

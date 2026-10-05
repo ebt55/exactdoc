@@ -344,9 +344,10 @@ class Blocks(unittest.TestCase):
         return TableEl(rows=[[cell]], col_widths=[490.0], role=role,
                        space_before=gap, bbox=(61.5, 407.85, 551.5, 435.18))
 
-    def _written(self, block):
+    def _written(self, block, after=None):
         lay = _lay()
-        lay.pages = [_page([_para(gap=0.0), block], number=1)]
+        lay.pages = [_page([_para(gap=0.0), block] + ([after] if after else []),
+                           number=1)]
         return _xml(lay)
 
     def test_a_box_keeps_its_own_gap(self):
@@ -385,11 +386,43 @@ class Blocks(unittest.TestCase):
         box = D._gdocs_para_box(t.rows[0][0].paras[0])
         self.assertAlmostEqual(top, (423.84 - 407.85) - box[3], places=6)
         self.assertGreater(bottom, 0.0)
-        xml = self._written(t)
+        nxt = _para(gap=30.8, text="Deployment trajectory")
+        xml = self._written(t, after=nxt)
         p = re.search(r"<w:p>(?:(?!</w:p>).)*?Key finding(?:(?!</w:p>).)*?</w:p>", xml, re.S).group(0)
         before = int(re.search(r'w:before="(\d+)"', p).group(1)) / 20.0
         self.assertGreater(before, 18.3)
-        self.assertIn('w:after="%d"' % round(round(bottom, 1) * 20), p)
+        # WP24: the space after rides on what follows -- Docs set 04's heading
+        # 6.5pt high with 8.0pt written as the quote's space after
+        self.assertIn('w:after="0"', p)
+        q = re.search(r"<w:p>(?:(?!</w:p>).)*?Deployment trajectory(?:(?!</w:p>).)*?</w:p>",
+                      xml, re.S).group(0)
+        got = int(re.search(r'w:before="(\d+)"', q).group(1)) / 20.0
+        # (and the heading's own first-baseline move, under a point)
+        self.assertAlmostEqual(got, 30.8 + bottom, delta=1.0)
+        self.assertGreater(got, 30.8 + bottom - 0.15)
+
+    def test_a_box_past_the_column_keeps_its_widest_line(self):
+        # 03_tech_report_code's warning box (x 57-555, column to 551.6): the
+        # right indent from the box edge left the text 3.4pt short of the
+        # source's one line, and Docs set it as two
+        t = self._box()
+        p = t.rows[0][0].paras[0]
+        t.bbox = (57.0, 407.85, 555.0, 435.18)
+        t.left_indent = -15.0                    # the column starts at 72.0
+        p.bbox = (75.0, 415.5, 535.0, 425.9)
+        xml = self._written(t)
+        w = re.search(r"<w:p>(?:(?!</w:p>).)*?Key finding(?:(?!</w:p>).)*?</w:p>", xml, re.S).group(0)
+        right = int(re.search(r'w:right="(\d+)"', w).group(1)) / 20.0
+        self.assertLessEqual(right, (72.0 + 468.0) - 535.0 + 0.05)
+        # inside the column the box's own inset stands
+        t2 = self._box()
+        t2.rows[0][0].paras[0].bbox = (75.0, 415.5, 500.0, 425.9)
+        t2.left_indent = 61.5 - 72.0
+        xml = self._written(t2)
+        w = re.search(r"<w:p>(?:(?!</w:p>).)*?Key finding(?:(?!</w:p>).)*?</w:p>", xml, re.S).group(0)
+        # (the inset 51.5pt, capped at the schema's 31)
+        self.assertAlmostEqual(int(re.search(r'w:right="(\d+)"', w).group(1)) / 20.0,
+                               31.0, delta=0.1)
 
     def test_the_standard_profile_keeps_the_table_form(self):
         xml = self._written(self._box())
@@ -631,6 +664,170 @@ class EveryPage(unittest.TestCase):
         # the gap follows an empty 1pt holder that took the break
         self.assertEqual(held.count('<w:sz w:val="2"/>'), 2)
         self.assertTrue(any(b >= 18.0 - D.GDOCS_HOLDER_PT - 0.11 for b in _befores(held)))
+
+
+def _grid(rows=5, gap=8.0, row_h=24.0, top=300.0):
+    cells = [[Cell(paras=[_para(gap=0.0, lines=1)])] for _ in range(rows)]
+    return TableEl(rows=cells, col_widths=[468.0], role="table", space_before=gap,
+                   bbox=(72.0, top, 540.0, top + rows * row_h))
+
+
+class WP24(unittest.TestCase):
+    """What WP19b's live flight (probe 3) left: pages the model cannot add up,
+    data tables, the cover page's rule, a quote's space after."""
+
+    def test_a_page_the_model_cannot_add_up_keeps_the_shipped_form(self):
+        # y46's two-column CV lost its page to a box gap written on a page the
+        # model never saw; 02's columns lost their baselines
+        lay = _lay()
+        body = _times("alpha beta gamma delta " * 9, size=10.0, lead=12.6, lines=3)
+        two = PageLayout(number=2, chunks=[Chunk(n_cols=2, elements=[body])])
+        lay.pages = [_page([_para(gap=0.0)], number=1), two]
+        xml = _xml(lay)
+        legacy = round(240 * 12.6 / (10.0 * D.NATURAL_DEFAULT))       # 1.144, unquantised
+        calibrated = round(240 * 12.6 / (10.0 * 1.150))
+        self.assertNotEqual(legacy, calibrated)
+        lines = [int(v) for v in re.findall(r'w:line="(\d+)" w:lineRule="auto"', xml)]
+        self.assertIn(legacy, lines)
+        # the same paragraph on a page the model adds up is calibrated
+        lay.pages = [_page([_para(gap=0.0)], number=1), _page([body], number=2)]
+        lines = [int(v) for v in re.findall(r'w:line="(\d+)" w:lineRule="auto"',
+                                            _xml(lay))]
+        self.assertIn(calibrated, lines)
+        self.assertNotIn(legacy, lines)
+
+    def test_a_box_on_such_a_page_writes_no_gap_of_its_own(self):
+        lay = _lay()
+        box = Blocks._box(gap=21.3)
+        two = PageLayout(number=2, chunks=[Chunk(n_cols=2, elements=[_para(), box])])
+        lay.pages = [_page([_para(gap=0.0)], number=1), two]
+        xml = _xml(lay)
+        p = re.search(r"<w:p>(?:(?!</w:p>).)*?Key finding(?:(?!</w:p>).)*?</w:p>", xml, re.S).group(0)
+        self.assertEqual(int(re.search(r'w:before="(\d+)"', p).group(1)), 0)
+
+    def test_a_data_table_stands_taller_in_docs(self):
+        t = _grid(rows=5)
+        self.assertAlmostEqual(D._gdocs_table_excess(t),
+                               D.GDOCS_TABLE_TOP_PT + 4 * D.GDOCS_TABLE_GROW_PT
+                               + D.GDOCS_TABLE_FOOT_PT)
+        # a code block or a one-row grid keeps the per-row allowance
+        one = _grid(rows=1)
+        self.assertAlmostEqual(D._gdocs_table_excess(one), D.GDOCS_TABLE_ROW_EXCESS_PT)
+        code = _grid(rows=3)
+        code.role = "code"
+        self.assertFalse(D._gdocs_data_table(code))
+
+    @staticmethod
+    def _moves(els, t):
+        """Gaps moved with `t` a data table, and with the same table read as
+        a code block (no data-table excess): the difference is the rule."""
+        lay = _lay()
+        out = []
+        for role in ("table", "code"):
+            t.role = role
+            _pre, flow = D._gdocs_flow(_page(els), 468.0, lay, 0.0)
+            gap_of = {id(el): el.space_before for el, _n, _h, _b in flow}
+            out.append(D._gdocs_baseline_gaps(flow, gap_of, lay, False))
+        t.role = "table"
+        return out
+
+    def test_the_lines_under_a_data_table_pay_its_excess(self):
+        # 01's pricing table set everything under it 5.3pt low, x04's 5pt
+        t = _grid(rows=5, gap=8.0)
+        cap = _times("Table 1: Normalized pricing", gap=4.4, lines=1)
+        after = _times("We model total cost " * 6, gap=9.2)
+        data, code = self._moves([_times("intro " * 9), t, cap, after], t)
+        # the spacer pays the table's top
+        self.assertAlmostEqual(data[id(t)], code[id(t)] - D.GDOCS_TABLE_TOP_PT,
+                               delta=0.11)
+        # what the rows and the foot add is paid by the gap under it
+        rest = 4 * D.GDOCS_TABLE_GROW_PT + D.GDOCS_TABLE_FOOT_PT
+        self.assertAlmostEqual(data[id(cap)], code[id(cap)] - rest, delta=0.11)
+        self.assertAlmostEqual(data[id(after)], code[id(after)], delta=0.11)
+        # a gap too small to pay it all gives what it has, the next the rest
+        cap.space_before = 0.0
+        data, code = self._moves([_times("intro " * 9), t, cap, after], t)
+        self.assertEqual(data[id(cap)], 0.0)
+        self.assertAlmostEqual(data[id(after)], code[id(after)] - (rest - code[id(cap)]),
+                               delta=0.11)
+
+    def test_a_table_without_a_spacer_passes_its_top_down(self):
+        t = _grid(rows=3, gap=0.3)
+        after = _times("next " * 9, gap=12.0)
+        data, code = self._moves([_times("intro " * 9), t, after], t)
+        self.assertEqual(data[id(t)], 0.3)
+        self.assertAlmostEqual(data[id(after)], code[id(after)] - D._gdocs_table_excess(t),
+                               delta=0.11)
+    def test_unmeasured_scripts_get_no_rewrap_line(self):
+        # x06's Cyrillic and Greek paragraphs: a re-wrap the width tables
+        # cannot see gave a line to the gap under each, and Docs kept them
+        ru = _times("Замещающие автобусы курсируют в течение всего периода " * 2,
+                    size=11.0, lead=14.5, lines=3)
+        en = _times("Replacement buses run for the whole of the period " * 2,
+                    size=11.0, lead=14.5, lines=3)
+        self.assertFalse(D._gdocs_measured(ru))
+        self.assertTrue(D._gdocs_measured(en))
+        lay = _lay()
+        for p, credited in ((en, True), (ru, False)):
+            nxt = _times("next paragraph " * 3, gap=10.0, lines=1)
+            _pre, flow = D._gdocs_flow(_page([p, nxt]), 468.0, lay, 0.0)
+            p.src_lines = flow[0][1] + 1           # the source had one more line
+            gap_of = {id(p): 0.0, id(nxt): 10.0}
+            plain = D._gdocs_baseline_gaps(flow, gap_of, lay, False)
+            wrapped = D._gdocs_baseline_gaps(flow, gap_of, lay, False, rewrap=True)
+            self.assertEqual(wrapped[id(nxt)] > plain[id(nxt)] + 1.0, credited)
+
+    def test_the_cover_page_rule_pays_its_excess(self):
+        # 01_whitepaper_market's cover-page rule set its body 2.9pt low
+        lay = _lay()
+        rule = RuleEl(width_pct=100.0, thickness=0.75, color="#cccccc",
+                      space_before=9.6)
+        lay.pages = [_page([_para(gap=0.0), rule, _para()], number=1),
+                     _page([_para()], number=2)]
+        lay.cover_band = TableEl(rows=[[Cell(paras=[_para(gap=0.0, lines=1)],
+                                             shading="#1E3A5F")]],
+                                 col_widths=[612.0], bbox=(0.0, 0.0, 612.0, 120.0))
+        got = _befores(_xml(lay))
+        self.assertTrue(any(abs(b - (9.6 - GDOCS_RULE_EXCESS_PT)) <= 0.35 for b in got),
+                        got)
+
+
+class AnchoredPictures(unittest.TestCase):
+    """The capability `anchor_pictures` (WP24's probe variant): infer's
+    on-a-line and wrapped pictures leave the flow without the rest of
+    `anchored`."""
+
+    def test_gdocs_withholds_it(self):
+        from exactdoc.options import capabilities
+        self.assertNotIn("anchor_pictures", capabilities("gdocs"))
+        self.assertIn("anchored", capabilities("standard"))
+
+    def test_on_a_line_only(self):
+        from exactdoc import infer as I
+        lay = _lay()
+        line = Para(runs=[_run("1.2 Scope")])
+        blocks = []
+        logo = ImageEl(data=b"x", ext="png", width=17.0, height=10.0)
+        logo._bbox = (72.0, 200.0, 89.0, 210.0)
+        under = ImageEl(data=b"x", ext="png", width=200.0, height=100.0)
+        under._bbox = (72.0, 300.0, 272.0, 400.0)
+
+        class _L:
+            def __init__(self, bb):
+                self.bbox = bb
+        orig = I._all_lines
+        I._all_lines = lambda _b: [_L((95.0, 198.0, 300.0, 212.0)),
+                                   _L((80.0, 340.0, 260.0, 352.0))]
+        try:
+            keep, floats = I._float_backgrounds([logo, under, line], blocks, lay,
+                                                612.0, 792.0, pictures_only=True)
+            full_keep, full_floats = I._float_backgrounds([logo, under, line], blocks,
+                                                          lay, 612.0, 792.0)
+        finally:
+            I._all_lines = orig
+        self.assertEqual([f.el for f in floats], [logo])
+        self.assertIn(under, keep)                # a background stays in the flow
+        self.assertEqual({id(f.el) for f in full_floats}, {id(logo), id(under)})
 
 
 class TheWriter(unittest.TestCase):
