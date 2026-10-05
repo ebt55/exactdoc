@@ -147,7 +147,6 @@ one verified fix at a time, each gated against the frozen 16.
   low). Pages replayed against probe 2's exports: 14 lost -> 14,
   y26's page 77 recovered (its first loss moves from page 77 to 172). The
   standard profile is byte-identical for all 90 convertible documents.
-<<<<<<< HEAD
 
 - **y33's footnotes stay on their pages (WP27).** The pages whose notes
   spilled (LibreOffice raw p22 and p24) had lost their footnote references
@@ -202,7 +201,6 @@ one verified fix at a time, each gated against the frozen 16.
   on the 21 (17 of 21). Gate PASS with it off; not yet gated on
   (`docs/evidence/pagefit-2026-10-06.json`).
 
->>>>>>> wp27b
 
 - **Beta criteria 8 and 12 (WP28).** *Criterion 8* (no document worse than
   the accepted wp18-m2 sweep) failed on two documents; both bisect to WP22
