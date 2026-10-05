@@ -20,6 +20,49 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **Long documents keep each source page on its own page (WP23).** Every
+  source page ends in a hard break, so the first page that renders taller
+  than its box puts every later page one place late, and word recall --
+  words on the right page -- collapses from there: SP 800-88 was one page
+  over and scored 0.378. A source-to-render page map found each long
+  promised document's FIRST divergent page; the classes, each a general
+  rule: *a picture set on a text line or wrapped by a paragraph* is anchored
+  at its source position instead of stacked under it (standard profile:
+  NIST's withdrawal-notice logo beside "Date updated", SP 800-63B's contents
+  numbers drawn as pictures and its wrapped icons; `infer._on_text_line`,
+  `_wrapped_by_text`, wp:wrapSquare); *fragments of one row* -- a contents
+  number and its entry, two columns of authors, brace labels, a stat
+  table's stub and figures -- are one tabbed line, not one line each
+  (`infer._fuse_baseline_rows`); *a one-line title* given exactly its own
+  width takes the room its line needs from the indent that does not place
+  it (`ladder.relieve_one_line`); *preformatted text* is no longer cut at
+  its own character grid by the gutter rule (RFC 9000's ASCII-art
+  diagrams; `parse_pdfium._same_mono_face`); *a frame's side* running half
+  the page is drawn behind the text, not rasterised into the flow at its
+  full height (RFC 9110's collected-ABNF box, four pages rendered as
+  twelve); *a table of short rows* is not read as two columns
+  (`infer._split_unfilled`); *a sidebar's* panel-side cut stands, so it is
+  laid out beside the column it was welded to (`infer._sidebar_cut`); *a
+  drop cap's* em box no longer swallows the lines beside it as scripts,
+  which garbled SP 800-171's chapter openings into "Tsfeednesirtaoivld eaa
+  gfyee"; and a contents line keeps the white around its leader
+  ("INTRODUCTION .... 3", not "INTRODUCTION.....3"), with the typed Docs
+  leader cut to the dots that still fit its stop
+  (`docxout._typed_leader_room`). Gated: `word/*.xml` byte-identical for
+  all 16 under both profiles; gate PASS in both lanes. Raw, 95 documents,
+  merged with WP22 and measured against integration aeb98fb: page-exact
+  52 -> 59, 16 better, none worse (beta criterion 8 PASS); criterion 5 in
+  LibreOffice 5/21 -> 11/21, and 11/21 in Word -- y01 91 -> 80 pages
+  (word recall 0.244 -> 0.964), y08 66 -> 65 (0.378 -> 0.988), y09 60 ->
+  59 (0.340 -> 0.971), y17 202 -> 194 (0.916 -> 0.976), y27 152 -> 151
+  (0.460 -> 0.968), y28 22 -> 21 (0.375 -> 0.989); also y10 38 -> 36
+  (0.548 -> 0.784), y02 125 -> 120, y64 46 -> 44, y22 183 -> 178, y03 53
+  -> 51, y18 157 -> 156, y24 182 -> 181. Live in Google Docs (probe 1,
+  against WP19): y02 116 -> 114 (word recall 0.400 -> 0.966) and y27 152
+  -> 151 (0.459 -> 0.967) now pass, y64 42 -> 40, y01 82 -> 81, y22 178
+  -> 175; y10's contents page numbers wrapped (0.554 -> 0.338), which the
+  typed-leader room cap answers, awaiting its own flight.
+
 - **The promised documents that broke the beta bar (WP22).** Each fix is
   for the structure behind the first page that went wrong.
   *EUR-Lex* (y18):
