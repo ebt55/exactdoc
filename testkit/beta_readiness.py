@@ -13,8 +13,10 @@ reads what the measuring tools already wrote --
     quality sweeps   testkit/quality_sweep.py --json (exactdoc.quality-sweep.v1).
                      The profile is read from the payload, so --runs finds the
                      newest full-corpus raw, product and gdocs-profile sweeps.
-                     The raw sweep is the LibreOffice lane; the product sweep
-                     is read for timing.
+                     The PRODUCT sweep is the LibreOffice lane (amendment 1,
+                     2026-10-06: every lane is graded on the default DOCX
+                     flavour); the raw sweep is read for criterion 2's raw
+                     time limit and for crashes.
     Docs live        rows.jsonl from the live Google Docs sweep, one object per
                      document ({"doc", "src_pages", "out_pages", "char_recall",
                      "word_recall", "dy_p50", ... or "error"}).
@@ -23,8 +25,12 @@ reads what the measuring tools already wrote --
                      "lane": "word" field or by Word-only keys.
     gate verdicts    lane_raw/verdict.json and lane_product/verdict.json from
                      testkit/runall.py (testkit/batch/ or a copied <run>.batch/).
-    accepted sweep   the last raw sweep the coordinator accepted, for the
-                     per-document regression check (--accepted).
+    accepted sweep   the last full-corpus sweep the coordinator accepted, for
+                     the per-document regression check (--accepted). It is
+                     compared with the current sweep of ITS OWN profile: a
+                     product sweep (the amended reading) or a raw one (the
+                     reading before 2026-10-06, kept so old scorecards
+                     reproduce).
     serial timings   testkit/serial_timing.py runs (<name>.timing.json, schema
                      exactdoc.serial-timing.v1): one conversion at a time.
                      Criterion 2 prefers them, document by document, over a
@@ -55,6 +61,13 @@ gate the beta; 7, 9 and 13 are reported for it and gate GA. 0.3.0b1 is not
 tagged while any gating criterion fails. Changing a threshold here is changing
 a ratified bar: do it only with the owner, and update docs/beta-bar.md in the
 same commit.
+
+**Amended by the owner on 2026-10-06** (docs/beta-bar.md, "Amendments"): (1)
+the LibreOffice lane is graded on the product (default) DOCX, as the Word lane
+already was -- criteria 4-9 and 13 read the product sweep, criterion 2 still
+holds the raw profile to its own time limit; (2) the harness reads leader runs,
+symbol-font PUA and maths operators symmetrically (testkit/harness.py), so the
+same renders read differently from 2026-10-06 on. No threshold changed.
 """
 import argparse
 import datetime
@@ -123,6 +136,12 @@ BAR = {
     # beta; they gate GA (1.0). Every other criterion gates.
     "reported_only": ("placement", "editability", "gdocs-policy"),
     "ratified": "owner, 2026-10-05 (option A: the reviewer's bar exactly)",
+    # Amendment 1, ratified 2026-10-06: the DOCX flavour every lane grades.
+    # The LibreOffice lane reads the product sweep for criteria 4-9 and 13;
+    # Word already rendered the product DOCX; Docs live is the gdocs profile.
+    "lo_flavour": "product",
+    "amended": "owner, 2026-10-06 (lanes graded on the product DOCX; "
+               "symmetric leader/symbol/operator reading in the harness)",
 }
 
 # 10. Font families every Windows 10/11 + Microsoft 365 install has, or that
@@ -448,7 +467,8 @@ def evaluate(docs, sweeps, lanes, gate, accepted=None, docx_dir=None,
     """-> {"inputs", "criteria", "verdict", ...}.
 
     `lanes` is {"lo": rows|None, "word": rows|None, "docs": rows|None} of raw
-    row lists (the LibreOffice lane is the raw sweep's documents).
+    row lists. The LibreOffice lane is the PRODUCT sweep's documents
+    (`BAR["lo_flavour"]`, amendment 1 of 2026-10-06; `main` picks it).
     """
     now = now or datetime.datetime.now()
     criteria = []
@@ -457,7 +477,8 @@ def evaluate(docs, sweeps, lanes, gate, accepted=None, docx_dir=None,
                           if s["promised"] is None and s["tier"] != "unsupported")
     L = {lane: (lane_rows(rows, docs) if rows is not None else None)
          for lane, rows in lanes.items()}
-    names = {"lo": "LO raw", "word": "Word", "docs": "Docs live"}
+    flavour = BAR["lo_flavour"]
+    names = {"lo": "LO %s" % flavour, "word": "Word", "docs": "Docs live"}
 
     def crit(num, key, name, status, detail, by=None, misses=None):
         criteria.append({"num": num, "key": key, "criterion": name,
@@ -644,10 +665,24 @@ def evaluate(docs, sweeps, lanes, gate, accepted=None, docx_dir=None,
                 round(100 * BAR["placement_share"])), reported=True)
 
     # 8. no regression --------------------------------------------------------
-    if not accepted or "raw" not in sweeps:
+    # The current sweep compared is the one of the ACCEPTED sweep's own
+    # profile: product under amendment 1, raw for a scorecard read the way it
+    # was before 2026-10-06. An accepted sweep that does not cover the corpus
+    # (wp18-m2-prod.sweep.json, the product sweep at the ratification point,
+    # ran 13 documents) cannot say "no document worse", so it is UNMEASURED.
+    acc_kind = _profile_kind(accepted[1].get("profile")) if accepted else None
+    want = sum(1 for d in docs.values() if d["tier"] != "unsupported")
+    if not accepted or acc_kind not in sweeps:
         crit(8, "regression", "no regression against the accepted sweep (gate.py tolerances)",
              UNMEASURED, "no accepted sweep given (--accepted)" if not accepted
-             else "no current raw sweep")
+             else "no current %s sweep to compare with the accepted %s sweep"
+             % (acc_kind or "same-profile", acc_kind or "unknown-profile"))
+    elif len(accepted[1].get("documents", ())) < 0.9 * want:
+        crit(8, "regression", "no regression against the accepted sweep (gate.py tolerances)",
+             UNMEASURED, "the accepted %s sweep %s covers %d documents, not the corpus "
+             "(%d); name a full-corpus accepted %s sweep"
+             % (acc_kind, os.path.basename(accepted[0]),
+                len(accepted[1].get("documents", ())), want, acc_kind))
     else:
         try:
             sys.path.insert(0, HERE)
@@ -662,7 +697,7 @@ def evaluate(docs, sweeps, lanes, gate, accepted=None, docx_dir=None,
         else:
             base = {r["document"]: r for r in accepted[1].get("documents", ())}
             worse = []
-            for r in sweeps["raw"][1].get("documents", ()):
+            for r in sweeps[acc_kind][1].get("documents", ()):
                 b = base.get(r.get("document"))
                 if not b:
                     continue
@@ -691,16 +726,17 @@ def evaluate(docs, sweeps, lanes, gate, accepted=None, docx_dir=None,
             regressed = sorted({w.split(" ", 1)[0] for w in worse})
             crit(8, "regression", "no regression against the accepted sweep (gate.py tolerances)",
                  FAIL if worse else PASS,
-                 "%d document(s) worse than %s" % (len(regressed), os.path.basename(accepted[0])),
+                 "%d document(s) worse than %s (%s flavour)"
+                 % (len(regressed), os.path.basename(accepted[0]), acc_kind),
                  len(regressed) or None, worse)
 
     # 9. editability (REPORTED) ----------------------------------------------
-    if "raw" not in sweeps:
+    if flavour not in sweeps:
         crit(9, "editability", "editability, promised documents", REPORTED,
-             "unmeasured: no raw sweep")
+             "unmeasured: no %s sweep" % flavour)
     else:
         bad, n = [], 0
-        for r in sweeps["raw"][1].get("documents", ()):
+        for r in sweeps[flavour][1].get("documents", ()):
             if r.get("document") not in promised or "editability" not in r:
                 continue
             n += 1
@@ -718,8 +754,9 @@ def evaluate(docs, sweeps, lanes, gate, accepted=None, docx_dir=None,
              "tables<=%g/page, numpr_frac>=%.1f where lists exist"
              % (BAR["edit_textbox_frac"], BAR["edit_one_cell_tables_per_page"],
                 BAR["edit_numpr_frac"]), REPORTED,
-             "%s pass (LO raw sweep); would %s for GA" % (
-                 _pct(n - len(bad), n), "FAIL by %d" % len(bad) if bad else "PASS"),
+             "%s pass (LO %s sweep); would %s for GA" % (
+                 _pct(n - len(bad), n), flavour,
+                 "FAIL by %d" % len(bad) if bad else "PASS"),
              len(bad) or None, bad)
 
     # 10. fonts ---------------------------------------------------------------
@@ -776,7 +813,8 @@ def evaluate(docs, sweeps, lanes, gate, accepted=None, docx_dir=None,
 
     # 13. the ratified gdocs policy on promised documents (reported) ----------
     # Clarified by the coordinator 2026-10-05: the policy applies in ALL three
-    # lanes (LibreOffice raw, Word, Docs live), each on its own share.
+    # lanes (LibreOffice, Word, Docs live), each on its own share; LibreOffice
+    # on the product DOCX since amendment 1 (2026-10-06).
     policy = _gdocs_policy_thresholds()
     name = ("ratified Google Docs quality policy's per-document thresholds on "
             ">=%d%% of promised documents, in every lane"
@@ -929,7 +967,8 @@ def readme_staleness(readme_path, newest, live=None):
 # ----------------------------------------------------------------- output
 def render(result, inputs, show=8):
     lines = ["exactdoc beta readiness (%s) -- the bar ratified by the owner on "
-             "2026-10-05, docs/beta-bar.md" % result["evaluated"], "", "inputs"]
+             "2026-10-05, amended 2026-10-06, docs/beta-bar.md" % result["evaluated"],
+             "", "inputs"]
     for label, path, detail, stale in inputs:
         lines.append("  %-13s %s" % (label, path or "not found"))
         if path and detail:
@@ -961,12 +1000,15 @@ def main(argv=None):
                     help="folder to search for sweeps, JSONL lanes, gate verdicts "
                          "and kept DOCX (repeatable; also EXACTDOC_RUNS, "
                          "os.pathsep-separated; default testkit/sweep, testkit/batch)")
-    ap.add_argument("--raw", help="raw-profile quality sweep (the LibreOffice lane)")
-    ap.add_argument("--product", help="product-profile quality sweep (timing)")
+    ap.add_argument("--raw", help="raw-profile quality sweep (raw timing, crashes)")
+    ap.add_argument("--product", help="product-profile quality sweep (the LibreOffice "
+                                      "lane since 2026-10-06, and product timing)")
     ap.add_argument("--gdocs", help="Google Docs live rows.jsonl")
     ap.add_argument("--word", help="Word-lane JSONL (WP21)")
     ap.add_argument("--gate", help="folder holding lane_raw/ and lane_product/")
-    ap.add_argument("--accepted", help="the last accepted raw sweep, for regressions")
+    ap.add_argument("--accepted", help="the last accepted full-corpus sweep, for "
+                                       "regressions; compared with the current sweep "
+                                       "of its own profile (product since 2026-10-06)")
     ap.add_argument("--timing", action="append", default=[],
                     help="a serial timing JSON (testkit/serial_timing.py); repeatable. "
                          "Default: the newest *.timing.json per profile under --runs")
@@ -994,7 +1036,8 @@ def main(argv=None):
     accepted = (a.accepted, load_sweep(a.accepted)) if a.accepted else None
     raw_path = sweeps.get("raw", (None,))[0]
     docx_dir = a.docx_dir or find_docx_dir(raw_path)
-    lanes = {"lo": sweeps["raw"][1].get("documents") if "raw" in sweeps else None,
+    lo = BAR["lo_flavour"]
+    lanes = {"lo": sweeps[lo][1].get("documents") if lo in sweeps else None,
              "docs": [r for r in docs_rows[1] if row_lane(r) == "docs"] if docs_rows else None,
              "word": [r for r in word_rows[1] if row_lane(r) == "word"] if word_rows else None}
     timings = find_timings(dirs)
