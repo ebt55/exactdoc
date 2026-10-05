@@ -4212,9 +4212,8 @@ def _tile_bands(clusters, blocks, consumed):
         raw 62 pages for 60, word recall 0.49 -> 0.99 with this rule). Every
         tile must hold text and the tiles must touch: a row of cards keeps
         its gutters (c1: 9.3pt) and stays cards, and a tile row with an empty
-        tile is decoration. x04/x10's one-row 'Table 3' header and 04's KPI
-        tiles (66-546pt, abutting) read this way too, at their source x
-        (04: 12pt right of it before)."""
+        tile is decoration. 04's KPI tiles (66-546pt, abutting) read this
+        way too, at their source x (12pt right of it as cards)."""
         tiles = sorted(_cell_tiles([d for _, d in cl if d.fill and d.shape == "rect"
                                     and not _is_glyphlike(d)]),
                        key=lambda t: t.bbox[0])
@@ -4224,7 +4223,12 @@ def _tile_bands(clusters, blocks, consumed):
         if any(abs(b.bbox[0] - a.bbox[2]) > GRID_EDGE_TOL
                for a, b in zip(tiles, tiles[1:])):
             return False
-        return all(has_text(t.bbox) for t in tiles)
+        if not all(has_text(t.bbox) for t in tiles):
+            return False
+        # A shaded header over unruled body rows is the headed table's
+        # (build_headed_table, x04/x10's 'Table 3'), which reads the rows
+        # under it; probed on a copy, as it claims lines when it accepts.
+        return build_headed_table(cl, blocks, set(consumed)) is None
 
     def close(cur, bands):
         # trailing rule-only frames belong to whatever follows, not here
