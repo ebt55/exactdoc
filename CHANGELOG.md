@@ -20,6 +20,39 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **The product profile meets the beta's time bar, byte for byte (WP20c).**
+  The refine loop no longer reads the source PDF a second time: the parse
+  hands it the source's text lines from its own PDFium reading
+  (`parse_pdf(measure_lines=True)`). A render of 16 pages or more is read
+  back by up to four worker processes, a slice of pages each, joined in page
+  order (`EXACTDOC_READ_WORKERS=1` reads in one process). With LibreOffice
+  7.4 or newer the renders leave out picture quality, bookmarks and notes,
+  which the loop never reads; older versions keep the plain export. The
+  writer gives every run after the first of its style a copy of that run's
+  properties instead of rebuilding them through python-docx (40% of a
+  write), appends plain text runs directly and finds section-break
+  paragraphs by XPath; infer clusters a page's drawings by a sweep instead of
+  testing every pair; the list-marker test stops re-joining a row per
+  character. Proofs: identical text positions under both exports on the 8
+  A/B documents (LibreOffice 24.2); the parse's source lines equal a
+  separate reading; `word/*.xml` byte-identical for all 95 documents in the
+  raw and gdocs profiles against integration (190 of 190, on the merged and
+  the final tree); product output identical on the 8 A/B documents and the
+  gate's 32 lane DOCX; gate PASS in both lanes at the recorded numbers.
+  One conversion at a time in the canonical container: y06 155s (limit 189;
+  256s after WP20b), y12 46s (limit 88; was 97), y13 42s (limit 60; was 66),
+  y64 27s (was 53); base vs new interleaved, y06 258 -> 157s, y12 103 -> 53s.
+  Every product document that took over 40s is now within its limit, and
+  `beta_readiness.py` scores criterion 2 PASS (product 0 of 90 over).
+  `testkit/serial_timing.py` writes such runs (`--repeat` keeps the fastest)
+  and criterion 2 prefers them to a parallel sweep's times. A refine-round
+  cap for long documents was measured and not shipped: one round over N
+  pages (any N from 20 to 100) loses criterion 5 on y02, y18 and y24 (10 of
+  the 21 promised long documents pass -> 7); two rounds keep the 10 but add
+  a page to y22 (and to y33 and y64 at N <= 40)
+  (`docs/evidence/refine-speed-2026-10-05c.json`,
+  `docs/evidence/product-serial-2026-10-05.timing.json`).
+
 - **The promised documents that broke the beta bar (WP22).** Each fix is
   for the structure behind the first page that went wrong.
   *EUR-Lex* (y18):
