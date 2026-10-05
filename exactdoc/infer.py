@@ -5458,7 +5458,8 @@ def _figure_in_budget(cl_ds, blocks, images, consumed, page, text_area):
 
 
 # ------------------------------------------------------------------ main
-def infer(ir: DocIR, anchored: bool = True) -> DocLayout:
+def infer(ir: DocIR, anchored: bool = True,
+          anchor_pictures: Optional[bool] = None) -> DocLayout:
     """DocIR -> DocLayout.
 
     The document's hyphenation evidence is built first and made current for
@@ -5470,10 +5471,16 @@ def infer(ir: DocIR, anchored: bool = True) -> DocLayout:
     capability "anchored"), so a slide's pictures leave the flow
     (`_deck_pages`). False keeps every graphic in the flow, as the Google Docs
     profile always has.
+
+    `anchor_pictures`: a picture set on a text line, wrapped by a paragraph
+    or printed into a margin leaves the flow for its own position
+    (`_on_text_line`, `_wrapped_by_text`; options capability
+    "anchor_pictures"); by default whatever `anchored` is.
     """
     token = hyphen.activate(hyphen.HyphenEvidence.from_ir(ir) if ir.pages else None)
     try:
-        lay = _infer(ir, anchored)
+        lay = _infer(ir, anchored,
+                     anchored if anchor_pictures is None else anchor_pictures)
     finally:
         hyphen.deactivate(token)
     hyphen.mark_unhyphenated(lay)
@@ -5545,7 +5552,8 @@ def _balance_brackets(runs) -> int:
     return flips
 
 
-def _infer(ir: DocIR, anchored: bool = True) -> DocLayout:
+def _infer(ir: DocIR, anchored: bool = True,
+           anchor_pictures: bool = True) -> DocLayout:
     lay = DocLayout(src_path=ir.path)
     lay.font_advances = getattr(ir, "font_advances", None) or {}
     if not ir.pages:
@@ -5581,7 +5589,8 @@ def _infer(ir: DocIR, anchored: bool = True) -> DocLayout:
         # point of flow drift sent one slide in two onto a page of its own.
         for g in [lay] + list(own_geometry.values()):
             g.margin_b = min(g.margin_b, DECK_MARGIN_B)
-    _infer_body(lay, ir, hf, n_pages, own_geometry, deck, anchored)
+    _infer_body(lay, ir, hf, n_pages, own_geometry, deck, anchored,
+                anchor_pictures)
     return lay
 
 
@@ -5913,7 +5922,7 @@ def _geometry(lay: DocLayout, own: Optional[DocLayout]) -> DocLayout:
 def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
                 own_geometry: Dict[int, DocLayout],
                 deck: frozenset = frozenset(),
-                anchored: bool = True) -> None:
+                anchored: bool = True, anchor_pictures: bool = True) -> None:
     # Was the source set with hyphenation? This was `>= 6` hyphenated line
     # pairs anywhere, a count that cannot tell a hyphenating document from a
     # long one full of compounds: SP 800-63B reached it on `Out-of-/Band` and
@@ -6492,6 +6501,10 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
                 elements, pl.floats = _float_backgrounds(elements, blocks,
                                                          lay, p.width, p.height)
                 pl.floats = rule_floats + list(pl.floats)
+            elif anchor_pictures:
+                elements, floated = _float_backgrounds(
+                    elements, blocks, lay, p.width, p.height, pictures_only=True)
+                pl.floats = list(pl.floats or ()) + floated
             elements = _merge_graphic_rows(elements, blocks, p.number)
 
         # rebuild flow blocks from unconsumed lines (contiguous runs)
@@ -6745,7 +6758,7 @@ BACKGROUND_MIN_LINES = 1
 
 
 def _float_backgrounds(elements, blocks, lay: DocLayout, page_w: float,
-                       page_h: float):
+                       page_h: float, pictures_only: bool = False):
     """(flow elements, [FloatEl]): a picture the page's text is set ON leaves
     the flow for its own position, behind the text.
 
@@ -6764,6 +6777,13 @@ def _float_backgrounds(elements, blocks, lay: DocLayout, page_w: float,
     over the page and took a page of its own.
 
     A full-page picture is left to the writer's own rule (FULL_PAGE_FRAC).
+
+    `pictures_only`: the pictures set on a text line, wrapped by a paragraph
+    or printed into a margin leave the flow (the capability "anchor_pictures",
+    for a profile that does not position graphics otherwise); a background
+    the text is set on stays in it. DOE OIG's highlights picture (y28 page 3,
+    320x390pt beside the findings, running off the paper's foot) is the
+    margin case.
     """
     lines = [l.bbox for l in _all_lines(blocks)]
     keep, floats = [], []
@@ -6776,6 +6796,9 @@ def _float_backgrounds(elements, blocks, lay: DocLayout, page_w: float,
             BACKGROUND_MIN_LINES
         bleeds = bb[1] < lay.margin_t - MARGIN_BLEED_PT or \
             bb[3] > page_h - lay.margin_b + MARGIN_BLEED_PT
+        if under and pictures_only:
+            keep.append(e)
+            continue
         if under or bleeds:
             floats.append(FloatEl(el=e, bbox=tuple(bb), behind=under))
             continue

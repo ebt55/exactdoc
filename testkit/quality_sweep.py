@@ -188,7 +188,7 @@ def editability(docx_path, src_pages):
     return c
 
 
-def char_recall(src_pdf, out_pdf):
+def char_recall(src_pdf, out_pdf, normalise=True):
     """(right-page, anywhere) recall of non-whitespace characters.
 
     Word recall is meaningless for scripts written without spaces: tranche 4's
@@ -197,13 +197,19 @@ def char_recall(src_pdf, out_pdf):
     break unmatches it. Characters have no such dependence on segmentation.
     Multiset overlap per page (did the text land on its own page?) and over the
     whole document (did it survive at all?).
+
+    Both sides are read through `harness.recall_text`: symbol-font PUA as the
+    characters it encodes and leader runs dropped, as word recall reads them
+    (WP29). `normalise=False` is the reading before that, for re-scores.
     """
     import fitz
     from collections import Counter
+    import harness
 
     def pages(path):
         with fitz.open(path) as d:
-            return [Counter(ch for ch in p.get_text("text") if not ch.isspace())
+            return [Counter(ch for ch in harness.recall_text(p, normalise)
+                            if not ch.isspace())
                     for p in d]
     s, o = pages(src_pdf), pages(out_pdf)
     total = sum(sum(c.values()) for c in s)

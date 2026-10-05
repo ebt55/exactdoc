@@ -299,22 +299,258 @@ def _split_continua(text, x0, y0, x1, y1):
 _INVISIBLE = dict.fromkeys(map(ord, "\u200b\ufeff"), None)
 
 
-def page_words(pdf_path):
-    """[(page_idx, text, x0, y0, x1, y1)] in reading order per page."""
+# ------------------------------------------------- reading normalisation (WP29)
+# Three things a PDF's text layer says that are not the document's words, each
+# of which booked correctly converted text as missing. All three are applied
+# SYMMETRICALLY -- to the source and to the render alike, by the same function
+# -- so they can only stop counting a difference that is not one; they cannot
+# hide text that was lost (the text either side still has is compared as
+# before). Ratified by the owner 2026-10-06 (docs/beta-bar.md, amendments).
+#
+# 1. Leaders. A tab leader is drawn as however many dots fill the gap, and the
+#    gap depends on the renderer's font metrics: y26_bash_reference's 214
+#    pages lost doc_recall 0.9924 -> 0.9712 at the checkpoint, and 2,243 of
+#    the 3,027 unmatched source tokens were single "." leader dots (LibreOffice
+#    drew fewer dots per contents line, every word kept). A run of three or
+#    more leader characters on one line -- as separate tokens, as one token, or
+#    glued to the end or start of a word ("Secrets....", "....12") -- carries
+#    no word, so it is not counted. One or two dots are text (a full stop, a
+#    path's ".."). An ellipsis is three dots too and goes the same way, on both
+#    sides. Only dot-like leaders: hyphen and underscore "leaders" are also
+#    rules and fill-in blanks, which are content.
+_LEADER_WEIGHT = {".": 1, "\u00b7": 1, "\u2024": 1, "\u2025": 2, "\u2026": 3}
+_LEADER_MIN = 3
+_LEADER_EDGE = re.compile(r"^[.\u00b7\u2024\u2025\u2026]+|[.\u00b7\u2024\u2025\u2026]+$")
+
+
+def _leader_weight(text):
+    """Leader characters in `text` if it is made of nothing else, else 0."""
+    if not text or any(c not in _LEADER_WEIGHT for c in text):
+        return 0
+    return sum(_LEADER_WEIGHT[c] for c in text)
+
+
+def _strip_glued_leader(text):
+    """'Secrets....' -> 'Secrets'; a dot or two at a word's edge is kept."""
+    def cut(m):
+        return "" if _leader_weight(m.group(0)) >= _LEADER_MIN else m.group(0)
+    return _LEADER_EDGE.sub(cut, text)
+
+
+def _leader_runs(words):
+    """Indices of `words` (fitz word tuples) that belong to a leader run: a
+    maximal sequence of leader-only tokens adjacent on one fitz line, holding
+    at least `_LEADER_MIN` leader characters in all."""
+    lines = {}
+    for i, w in enumerate(words):
+        lines.setdefault((w[5], w[6]), []).append(i)
+    drop = set()
+    for idx in lines.values():
+        idx.sort(key=lambda i: words[i][0])
+        run, weight = [], 0
+        for i in idx + [None]:
+            wt = _leader_weight(words[i][4].translate(_INVISIBLE)) if i is not None else 0
+            if wt:
+                run.append(i)
+                weight += wt
+                continue
+            if weight >= _LEADER_MIN:
+                drop.update(run)
+            run, weight = [], 0
+    return drop
+
+
+# 2. Symbol-font private-use code points. A symbolic font with no /ToUnicode
+#    reaches every text extractor as U+F000 + its character code, so the
+#    source's maths reads as PUA while a render that carries real characters
+#    reads as Unicode: y10_nist_fips180 is 36/36 pages and capped at word
+#    recall 0.78 because its 385 Symbol and 81 MT Extra glyphs ("=" 93, "-" 66,
+#    "+" 63, "<=" 53, "xor" 39) never matched the "=", "-", "+" the render
+#    shows. For the faces with a PUBLISHED encoding the code is the character,
+#    so the scorer reads it, keyed by the span's font, never by the document.
+#    The table is written here from the published sources (Adobe's
+#    VENDORS/ADOBE/symbol.txt and zdingbat.txt; for MT Extra the two codes its
+#    glyphs show), not imported from the converter, which this module must not
+#    share code with. A code outside the table is left as it is.
+_SYMBOL_ENC = dict(zip(range(0x20, 0x7F), (
+    " !\u2200#\u2203%&\u220b()\u2217+,\u2212./0123456789:;<=>?"
+    "\u2245\u0391\u0392\u03a7\u0394\u0395\u03a6\u0393\u0397\u0399\u03d1\u039a"
+    "\u039b\u039c\u039d\u039f\u03a0\u0398\u03a1\u03a3\u03a4\u03a5\u03c2\u03a9"
+    "\u039e\u03a8\u0396[\u2234]\u22a5_\uf8e5\u03b1\u03b2\u03c7\u03b4\u03b5\u03c6"
+    "\u03b3\u03b7\u03b9\u03d5\u03ba\u03bb\u03bc\u03bd\u03bf\u03c0\u03b8\u03c1"
+    "\u03c3\u03c4\u03c5\u03d6\u03c9\u03be\u03c8\u03b6{|}\u223c")))
+_SYMBOL_ENC.update(zip(range(0xA0, 0x100), (
+    "\u20ac\u03d2\u2032\u2264\u2044\u221e\u0192\u2663\u2666\u2665\u2660\u2194"
+    "\u2190\u2191\u2192\u2193\u00b0\u00b1\u2033\u2265\u00d7\u221d\u2202\u2022"
+    "\u00f7\u2260\u2261\u2248\u2026\u23d0\u23af\u21b5\u2135\u2111\u211c\u2118"
+    "\u2297\u2295\u2205\u2229\u222a\u2283\u2287\u2284\u2282\u2286\u2208\u2209"
+    "\u2220\u2207\u00ae\u00a9\u2122\u220f\u221a\u22c5\u00ac\u2227\u2228\u21d4"
+    "\u21d0\u21d1\u21d2\u21d3\u25ca\u2329\u00ae\u00a9\u2122\u2211"
+    # 0xE6-0xEF and 0xF1-0xFE are the pieces of tall brackets, braces and
+    # integrals; a piece reads as the character it builds.
+    "((([[[{{{|\uf8ff\u232a\u222b\u222b\u222b\u222b)))]]]}}}\uf8ff")))
+# Codes the published table itself leaves in the private-use area (the radical
+# extender, Apple's logo at 0xF0, the undefined 0xFF) have no reading.
+_SYMBOL_ENC = {k: v for k, v in _SYMBOL_ENC.items() if not 0xE000 <= ord(v) <= 0xF8FF}
+_ZAPF_ENC = {0x33: "\u2713", 0x34: "\u2714", 0x35: "\u2715", 0x36: "\u2716",
+             0x37: "\u2717", 0x38: "\u2718", 0x48: "\u2605", 0x6C: "\u25cf",
+             0x6E: "\u25a0", 0x6F: "\u274f", 0x70: "\u2750", 0x71: "\u2751",
+             0x72: "\u2752", 0x73: "\u25b2", 0x74: "\u25bc", 0x75: "\u25c6",
+             0x76: "\u2756"}
+_MTEXTRA_ENC = {0x6C: "\u2113", 0x4B: "\u2026"}
+_PUA_LO, _PUA_HI = 0xF020, 0xF0FF
+
+
+def _pua_table(font):
+    """The published encoding of a symbol face, by its whole family name."""
+    key = re.sub(r"^[A-Z]{6}\+", "", font or "")           # subset prefix
+    key = re.sub(r"[^a-z0-9]", "", key.lower())
+    for suffix in ("regular", "mt", "std", "itc"):
+        if key.endswith(suffix) and len(key) > len(suffix):
+            key = key[:-len(suffix)]
+    if key in ("symbol", "symbolneu", "standardsymbolsps", "standardsyml"):
+        return _SYMBOL_ENC
+    if key in ("zapfdingbats", "dingbats"):
+        return _ZAPF_ENC
+    if key == "mtextra":
+        return _MTEXTRA_ENC
+    return None
+
+
+def _has_pua(text):
+    return any(_PUA_LO <= ord(c) <= _PUA_HI for c in text)
+
+
+def _pua_spans(page):
+    """[(Rect, table, text)] of the page's spans that carry symbol-font PUA."""
+    out = []
+    for b in page.get_text("dict").get("blocks", ()):
+        for ln in b.get("lines", ()):
+            for s in ln.get("spans", ()):
+                if _has_pua(s.get("text", "")):
+                    table = _pua_table(s.get("font"))
+                    if table:
+                        out.append((fitz.Rect(s["bbox"]), table, s["text"]))
+    return out
+
+
+def _read_pua(text, bbox, spans):
+    """`text` with each symbol-font PUA character read through the encoding of
+    the span it came from (the span holding it that overlaps `bbox`)."""
+    if not spans or not _has_pua(text):
+        return text
+    r = fitz.Rect(bbox)
+    out = []
+    for c in text:
+        o = ord(c)
+        if _PUA_LO <= o <= _PUA_HI:
+            for rect, table, stext in spans:
+                if c in stext and rect.intersects(r) and (o - 0xF000) in table:
+                    c = table[o - 0xF000]
+                    break
+        out.append(c)
+    return "".join(out)
+
+
+# 3. Brackets and operators. Where a token ends is a gap in the drawing, and
+#    maths is set with gaps around operators that a re-flowed render does not
+#    keep: FIPS 180's source reads "H", "0", "(", "i", "-", "1", ")" where the
+#    render reads "H0(", "i-1)" -- the same characters, so not a single token
+#    matched. Brackets and mathematical operators are therefore their own
+#    tokens on both sides. Not the ASCII hyphen (it is inside words), not the
+#    comma or the slash (they attach to words in prose and URLs), not "*"
+#    (footnote marks). The pieces share the token's box in proportion to their
+#    characters, as the CJK split above does. Exact boxes from the page's
+#    character layer were tried and moved nothing (y10 within-2pt 0.4073
+#    proportional, 0.4070 exact) at many times the cost, so they are not used.
+#    Within-2pt does fall on y10 (0.4814 -> 0.4073): it is a share of the
+#    MATCHED words, and the newly matched operators sit less exactly than the
+#    prose that matched before -- a truer number, not a worse conversion.
+_OPERATORS = ("()[]{}\u2329\u232a\u27e8\u27e9=+<>\u2212\u00b1\u00d7\u00f7"
+              "\u2264\u2265\u2260\u2248\u2261\u2245\u223c\u2295\u2297\u2227"
+              "\u2228\u00ac\u2211\u220f\u222b\u221a\u2202\u2207\u2208\u2209"
+              "\u2282\u2283\u2286\u2287\u222a\u2229\u2192\u2190\u2194\u21d2"
+              "\u21d0\u21d4\u2217\u22c5\u2200\u2203")
+_OP_SPLIT = re.compile("([%s])" % re.escape(_OPERATORS))
+
+
+def _split_operators(text, x0, y0, x1, y1):
+    """`text` cut at brackets and operators, the pieces sharing its box."""
+    parts = [p for p in _OP_SPLIT.split(text) if p]
+    if len(parts) <= 1:
+        return [(text, x0, y0, x1, y1)]
+    step = (x1 - x0) / max(1, len(text))
+    out, at = [], 0
+    for p in parts:
+        out.append((p, x0 + at * step, y0, x0 + (at + len(p)) * step, y1))
+        at += len(p)
+    return out
+
+
+def page_words(pdf_path, normalise=True):
+    """[(page_idx, text, x0, y0, x1, y1)] in reading order per page.
+
+    `normalise=False` is the reading before WP29 (2026-10-06): no leader,
+    symbol-font or operator normalisation. It exists so a re-score can report
+    both readings of the same render; nothing gates on it.
+    """
     doc = fitz.open(pdf_path)
     pages = []
     for p in doc:
         ws = p.get_text("words")           # x0,y0,x1,y1,word,block,line,wordno
         ws.sort(key=lambda w: (round(w[1], 1), w[0]))
+        spans, drop = None, ()
+        if normalise:
+            if any(_has_pua(w[4]) for w in ws):
+                spans = _pua_spans(p)
+            if spans:
+                ws = [w[:4] + (_read_pua(w[4], w[:4], spans),) + tuple(w[5:])
+                      for w in ws]
+            drop = _leader_runs(ws)
         out = []
-        for w in ws:
+        for i, w in enumerate(ws):
+            if i in drop:
+                continue
             text = w[4].translate(_INVISIBLE)
+            if normalise:
+                text = _strip_glued_leader(text)
             if not text:
                 continue
-            out.extend(_split_continua(text, w[0], w[1], w[2], w[3]))
+            if normalise:
+                for piece in _split_operators(text, w[0], w[1], w[2], w[3]):
+                    out.extend(_split_continua(*piece))
+            else:
+                out.extend(_split_continua(text, w[0], w[1], w[2], w[3]))
         pages.append(out)
     doc.close()
     return pages
+
+
+_LEADER_TEXT = re.compile(
+    r"[.\u00b7\u2024\u2025\u2026](?:[ \t\u00a0\u200b]*[.\u00b7\u2024\u2025\u2026])*")
+
+
+def recall_text(page, normalise=True):
+    """A page's text as character recall counts it: `page.get_text("text")`,
+    read through the same symbol-font table and with the same leader runs
+    removed as `page_words` (the operator split has nothing to do here --
+    characters do not depend on where a token ends)."""
+    text = page.get_text("text")
+    if not normalise:
+        return text
+    if _has_pua(text):
+        tables = {}
+        for _rect, table, stext in _pua_spans(page):
+            for c in stext:
+                o = ord(c)
+                if _PUA_LO <= o <= _PUA_HI and (o - 0xF000) in table:
+                    tables.setdefault(c, Counter())[table[o - 0xF000]] += 1
+        if tables:
+            text = text.translate({ord(c): n.most_common(1)[0][0]
+                                   for c, n in tables.items()})
+    return _LEADER_TEXT.sub(
+        lambda m: "" if sum(_LEADER_WEIGHT.get(c, 0) for c in m.group(0)) >= _LEADER_MIN
+        else m.group(0), text)
 
 
 def match_words(src_pages, out_pages):
@@ -414,6 +650,42 @@ def ink_iou(a, b, thr=200):
 
 
 # ------------------------------------------------------------------- runner
+# The metrics that depend on how the text is read -- and so on page_words'
+# normalisation -- as opposed to page counts, pixels and the DOCX's live text.
+WORD_METRICS = ("src_words", "word_recall", "doc_recall", "dx_p50", "dx_p90",
+                "dy_p50", "dy_p90", "within2pt", "within5pt", "page_dy_p90")
+
+
+def word_metrics(src_pdf, rendered_pdf, normalise=True):
+    """The word-level half of `evaluate`: recall on the right page and
+    anywhere, and the drift of the matched words. Separate so a saved render
+    can be re-scored without converting or rendering anything again."""
+    res = {}
+    sw = page_words(src_pdf, normalise=normalise)
+    ow = page_words(rendered_pdf, normalise=normalise)
+    drifts, matched, total = match_words(sw, ow)
+    res["src_words"] = total
+    res["word_recall"] = round(matched / max(1, total), 4)      # right page
+    res["doc_recall"] = round(doc_word_recall(sw, ow), 4)       # anywhere
+    if drifts:
+        dx = np.array([d[0] for d in drifts])
+        dy = np.array([d[1] for d in drifts])
+        eu = np.hypot(dx, dy)
+        res["dx_p50"] = round(float(np.percentile(np.abs(dx), 50)), 2)
+        res["dx_p90"] = round(float(np.percentile(np.abs(dx), 90)), 2)
+        res["dy_p50"] = round(float(np.percentile(np.abs(dy), 50)), 2)
+        res["dy_p90"] = round(float(np.percentile(np.abs(dy), 90)), 2)
+        res["within2pt"] = round(float((eu <= 2).mean()), 4)
+        res["within5pt"] = round(float((eu <= 5).mean()), 4)
+        # worst pages by drift
+        bad = {}
+        for x, y, pg, w in drifts:
+            bad.setdefault(pg, []).append(abs(y))
+        res["page_dy_p90"] = {p: round(float(np.percentile(v, 90)), 1)
+                              for p, v in sorted(bad.items())}
+    return res
+
+
 def evaluate(src_pdf, docx_path, work_dir, save_images=True, dpi=110, img_dir=None,
              rendered_pdf=None):
     """Score a conversion.
@@ -453,27 +725,7 @@ def evaluate(src_pdf, docx_path, work_dir, save_images=True, dpi=110, img_dir=No
     res["out_pagesize"] = [round(r_doc[0].rect.width, 1), round(r_doc[0].rect.height, 1)]
     s_doc.close(); r_doc.close()
 
-    sw, ow = page_words(src_pdf), page_words(rpdf)
-    drifts, matched, total = match_words(sw, ow)
-    res["src_words"] = total
-    res["word_recall"] = round(matched / max(1, total), 4)      # right page
-    res["doc_recall"] = round(doc_word_recall(sw, ow), 4)       # anywhere
-    if drifts:
-        dx = np.array([d[0] for d in drifts])
-        dy = np.array([d[1] for d in drifts])
-        eu = np.hypot(dx, dy)
-        res["dx_p50"] = round(float(np.percentile(np.abs(dx), 50)), 2)
-        res["dx_p90"] = round(float(np.percentile(np.abs(dx), 90)), 2)
-        res["dy_p50"] = round(float(np.percentile(np.abs(dy), 50)), 2)
-        res["dy_p90"] = round(float(np.percentile(np.abs(dy), 90)), 2)
-        res["within2pt"] = round(float((eu <= 2).mean()), 4)
-        res["within5pt"] = round(float((eu <= 5).mean()), 4)
-        # worst pages by drift
-        bad = {}
-        for x, y, pg, w in drifts:
-            bad.setdefault(pg, []).append(abs(y))
-        res["page_dy_p90"] = {p: round(float(np.percentile(v, 90)), 1)
-                              for p, v in sorted(bad.items())}
+    res.update(word_metrics(src_pdf, rpdf))
 
     # Page i of the source is only ever compared with page i of the render, so
     # rasterise exactly that pair and let it go. Materialising both documents

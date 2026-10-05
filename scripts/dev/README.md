@@ -19,6 +19,10 @@ The Word lane is in the package's testkit: `python testkit/word_oracle.py sweep
 OUT --docx-dir <runs>/<name>.docx/raw --lane raw`. The beta scorecard is
 `python testkit/beta_readiness.py --raw ... --product ... --gdocs ... --word ...
 --gate <runs>/<name>.batch --accepted ... --docx-dir ...` (see its docstring).
+Since 2026-10-06 its LibreOffice lane is the product sweep (beta-bar.md,
+amendment 1). Renders saved before the harness's 2026-10-06 reading change are
+re-read, without converting, by `python testkit/rescore.py sweep|rows|gate ...`
+(it keeps the old values and a recomputed control beside the new ones).
 
 Set `TEMP`/`TMP` to a short path such as `C:\lotmp\<name>` before anything that
 starts LibreOffice on Windows: long profile paths crash soffice with a popup.

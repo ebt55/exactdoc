@@ -83,6 +83,20 @@ OUTPUT_PROFILES = ("standard", "gdocs")
 #               in the flow; inference reads a slide only for a profile that
 #               has it (infer._deck_pages). Docs' handling of page-anchored
 #               pictures is unmeasured, so the gdocs profile keeps the flow.
+#   anchor_pictures
+#               a picture set on a text line, wrapped by a paragraph or
+#               printed into a margin (infer._on_text_line, _wrapped_by_text)
+#               anchored at its source position, wrapped where the source
+#               wrapped it, instead of stacked under its line -- the part of
+#               `anchored` WP23 measured on long documents (SP 800-63B's
+#               contents numbers, DOE OIG's highlights picture). Implied by
+#               `anchored`. Granted to gdocs on live evidence (WP24 probe,
+#               variant wp24a against wp24, 2026-10-06,
+#               docs/evidence/gdocs-2026-10-06-wp24-live.json): Docs keeps
+#               the anchors where they are put -- the synthetic set
+#               (testkit/gdocs_probe_anchors.py) 6 -> 5 pages for 5 (word
+#               recall 0.49 -> 0.94), y01 81 -> 80 for 80 (0.409 -> 0.962),
+#               y28 22 -> 21 for 21 (0.396 -> 0.990); y12 unchanged.
 #   bidi        right-to-left paragraphs as w:bidi with start/end alignment
 #               and indents, and their runs as w:rtl with complex-script
 #               size, weight and language, instead of left-to-right
@@ -115,7 +129,7 @@ OUTPUT_PROFILES = ("standard", "gdocs")
 #               unchanged.
 PROFILE_CAPABILITIES = {
     "standard": frozenset({"numbering", "footnotes", "bidi", "anchored"}),
-    "gdocs": frozenset({"numbering", "bidi"}),
+    "gdocs": frozenset({"numbering", "bidi", "anchor_pictures"}),
 }
 
 
