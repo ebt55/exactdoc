@@ -1,0 +1,117 @@
+"""Column inference: a line welded across a gutter, and a rule that pulled
+the flow's cursor back up.
+
+WP25. Measured with a source-to-render page map on the LibreOffice raw lane:
+
+* y64_bls_release_xpp p8: "the U.S. Bureau of Labor Statistics (BLS). "
+  (ending at x 223) and "Establishment survey" (starting at 339, an indented
+  first line) share a baseline across a 295-317 gutter. The gap's midpoint
+  (281) is far from the gutter's (306), so the justification exemption
+  forgave it; one line ran from margin to margin and cut the column grid into
+  three chunks (39 pages rendered 44).
+* y64 p22/p23: a table's column-group rule (y 80) flowed after the table
+  (y 67-274) and moved the spacing cursor back up, so the note under the
+  table took 200-312pt of space before and left its page.
+"""
+import unittest
+
+from exactdoc.infer import _position_chunks
+from exactdoc.layout import Chunk, DocLayout, Para, RuleEl, Run, TableEl
+from exactdoc.parse_pdfium import _Char, _build_lines
+
+
+# --------------------------------------------------------------- the parser
+def _char(text, x0, x1, baseline):
+    c = _Char()
+    c.u = text
+    c.x0, c.x1 = x0, x1
+    c.y0, c.y1 = baseline - 10.0, baseline
+    c.ox, c.oy = x0, baseline
+    c.size = 10.0
+    c.font = "Helvetica"
+    c.flags = 0
+    c.color = "#000000"
+    c.gen = False
+    return c
+
+
+def _word(text, x0, baseline):
+    return [_char(ch, x0 + i, x0 + i + 1, baseline) for i, ch in enumerate(text)]
+
+
+def _row(left, l0, right, r0, baseline):
+    """`left` set from l0, a literal space after it, `right` set from r0."""
+    end = l0 + len(left)
+    return (_word(left, l0, baseline) + [_char(" ", end, end + 1.0, baseline)]
+            + _word(right, r0, baseline))
+
+
+class AGapHoldingTheGutterSplits(unittest.TestCase):
+    """Six column rows put the gutter's channel at x 9-30 (left lines end at
+    8 after their space, right lines start at 30)."""
+
+    def _page(self, extra):
+        chars = []
+        for i in range(6):
+            chars += _row("leftcol", 0.0, "rightcol", 30.0, 10.0 + 20.0 * i)
+        return chars + extra
+
+    def test_short_left_line_beside_indented_right_line(self):
+        # BLS's shape: the left paragraph's last line stops short (x 3) and
+        # the right paragraph's first line is indented (x 45). Midpoint 24.5
+        # is 5pt from the gutter's 19.5, beyond GUTTER_X_TOL; the gap still
+        # holds the whole channel.
+        lines = _build_lines(self._page(_row("end", 0.0, "Indented", 45.0,
+                                             130.0)))
+        texts = [l.text for l in lines]
+        self.assertIn("end", texts)
+        self.assertIn("Indented", texts)
+        self.assertNotIn("end Indented", texts)
+
+    def test_a_stretched_space_clear_of_the_channel_stays(self):
+        # a justified gap of 2em inside the right column, not across the
+        # gutter: the exemption still forgives it
+        lines = _build_lines(self._page(_row("aaaa", 31.0, "bbbb", 56.0,
+                                             130.0)))
+        self.assertIn("aaaa bbbb", [l.text for l in lines])
+
+    def test_a_ragged_column_is_measured_at_its_measure(self):
+        # y61's shape: the left column's lines end anywhere from x 2 to 17,
+        # so their MEDIAN end (11) stops well short of the gutter. A line
+        # ending at 16 beside an indented right line is still cut: the
+        # channel's left edge is the column's measure (GUTTER_CHANNEL_Q).
+        chars = []
+        for i, n in enumerate((1, 4, 7, 10, 13, 16)):
+            chars += _row("x" * n, 0.0, "rightcol", 30.0, 10.0 + 20.0 * i)
+        chars += _row("y" * 15, 0.0, "Indented", 45.0, 130.0)
+        texts = [l.text for l in _build_lines(chars)]
+        self.assertIn("y" * 15, texts)
+        self.assertIn("Indented", texts)
+
+    def test_no_gutter_no_channel(self):
+        # one such row alone is a stretched space, as it always was
+        lines = _build_lines(_row("end", 0.0, "Indented", 45.0, 10.0))
+        self.assertEqual([l.text for l in lines], ["end Indented"])
+
+
+# ------------------------------------------------------------ the spacing chain
+class ARuleInsideTheStackedSpan(unittest.TestCase):
+    def _chunks(self):
+        table = TableEl(bbox=(36.0, 67.0, 575.0, 274.0))
+        rule = RuleEl(width_pct=60.0, thickness=0.6, color="#000000",
+                      length=363.0)
+        rule._bbox = (211.6, 79.6, 575.0, 80.2)
+        note = Para(runs=[Run(text="NOTE: detail will not add to totals.",
+                              font="Arial", size=8.0, color="#000000")],
+                    bbox=(36.0, 280.0, 543.0, 296.0))
+        return [Chunk(n_cols=1, elements=[table, rule, note])], note
+
+    def test_does_not_move_the_cursor_back_up(self):
+        chunks, note = self._chunks()
+        _position_chunks(chunks, DocLayout(), page_top=50.0)
+        # 280 - 274: the gap under the table, not 280 - 80
+        self.assertAlmostEqual(note.space_before, 6.0, places=1)
+
+
+if __name__ == "__main__":
+    unittest.main()

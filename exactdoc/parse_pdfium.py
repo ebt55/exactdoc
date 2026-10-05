@@ -146,6 +146,7 @@ TABLE_COL_TOL = 3.0       # x-starts of one column agree to about a character
 # recurs down a page is a column gutter, not a stretched space.
 GUTTER_MIN_ROWS = 4       # 4x the largest legitimate cluster measured (01: 1)
 GUTTER_X_TOL = 3.0        # a gutter holds its x; a word space wanders
+GUTTER_CHANNEL_Q = 0.9    # _gutter_channels: the measure, not the median end
 MARKER_GAP_EM = 0.5       # separation that is not an interword space
 MARKER_GAP_ADV = 0.6      # ...and is wide against the marker's own advance
 _MARKER_BULLETS = set("•◦▪‣·-–—*➤►○●♦")
@@ -1570,9 +1571,56 @@ def _gutter_xs(exempted: List[float]) -> List[float]:
     return [sum(c) / len(c) for c in clusters if len(c) >= GUTTER_MIN_ROWS]
 
 
+def _gutter_channels(exempted) -> List[tuple]:
+    """The white channel each of this page's gutters keeps: (left, right),
+    the median end of the text before it and the median start of the text
+    after it, over the gaps `_gutter_xs` clustered into that gutter.
+
+    `_gutter_xs` finds a gutter by the x its gaps' MIDPOINTS share, which is
+    the full column lines' shape. A short line closing a paragraph in the left
+    column beside an indented first line in the right one leaves a gap whose
+    midpoint is far from that x, though the gap still holds the whole channel:
+    y64_bls_release_xpp's technical note, "the U.S. Bureau of Labor Statistics
+    (BLS). " ending at x 223 and "Establishment survey" starting at 339 across
+    a 295-317 gutter (midpoint 281 against the gutter's 306). The exemption
+    forgave it, one line ran from margin to margin, and the column grid around
+    it was cut into three chunks with the right column's paragraphs below the
+    left's (LibreOffice: a 12-line overflow page, 39 pages rendered 44).
+    `exempted` holds (midpoint, end before, start after) per forgiven gap.
+
+    The channel's edges are the column's MEASURE, not its typical line end:
+    the 90th percentile of the ends before it and the 10th of the starts
+    after it (GUTTER_CHANNEL_Q). A ragged column's median end stops well
+    short of the gutter -- y61_fedreg_gpo_3col's first column ends anywhere
+    from x 180 to 213 against a 213-222 gutter -- and with the median as the
+    edge, a gap from 211 to 222 did not "hold" the channel: half of that
+    page's welded lines were cut at one gutter and not the other, and the
+    pieces crossing the first gutter cost the page its three-column reading."""
+    pts = sorted(exempted)
+    if len(pts) < GUTTER_MIN_ROWS:
+        return []
+    clusters, cur = [], [pts[0]]
+    for p in pts[1:]:
+        if p[0] - cur[-1][0] <= GUTTER_X_TOL:
+            cur.append(p)
+        else:
+            clusters.append(cur)
+            cur = [p]
+    clusters.append(cur)
+    out = []
+    for c in clusters:
+        if len(c) < GUTTER_MIN_ROWS:
+            continue
+        ls = sorted(p[1] for p in c)
+        rs = sorted(p[2] for p in c)
+        k = int(GUTTER_CHANNEL_Q * len(c))
+        out.append((ls[min(len(ls) - 1, k)], rs[max(0, len(rs) - 1 - k)]))
+    return out
+
+
 def _wide_gap_starts_visual_line(prev: _Char, current: _Char,
                                  fragment: List[_Char],
-                                 gutters=()) -> bool:
+                                 gutters=(), channels=()) -> bool:
     """Whether a same-baseline gap is a new visual line rather than justification.
 
     PDFium exposes literal spaces as ordinary characters.  A producer can then
@@ -1601,7 +1649,13 @@ def _wide_gap_starts_visual_line(prev: _Char, current: _Char,
     # page's repeated gap positions. See _gutter_xs -- a stretched word space
     # lands wherever the line breaks, a gutter is the same x on every line.
     mid = (prev.x1 + current.x0) / 2
-    return any(abs(mid - g) <= GUTTER_X_TOL for g in gutters)
+    if any(abs(mid - g) <= GUTTER_X_TOL for g in gutters):
+        return True
+    # ...nor to a gap that holds a gutter's whole channel (_gutter_channels).
+    # A stretched word space would have to be as wide as the gutter itself
+    # and sit exactly across it.
+    return any(prev.x1 <= lo + GUTTER_X_TOL and current.x0 >= hi - GUTTER_X_TOL
+               for lo, hi in channels)
 
 
 def _short_fragment_text(fragment: List[_Char], limit: int):
@@ -2522,7 +2576,7 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
     # copies drift apart.
     numbers = _line_number_gutter(rows)
 
-    def _split_rows(gutters, record=None):
+    def _split_rows(gutters, record=None, channels=()):
         out = []
         for ri, row in enumerate(rows):
             row.sort(key=lambda c: c.x0)
@@ -2534,8 +2588,9 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
                             prev.size, c.size, 1.0) and \
                         not _same_mono_face(prev, c) and \
                         not _wide_gap_starts_visual_line(prev, c, part):
-                    record.append((prev.x1 + c.x0) / 2)
-                if _wide_gap_starts_visual_line(prev, c, part, gutters) or \
+                    record.append(((prev.x1 + c.x0) / 2, prev.x1, c.x0))
+                if _wide_gap_starts_visual_line(prev, c, part, gutters,
+                                                channels) or \
                         (not started and _marker_starts_visual_line(part, c)) \
                         or (not started and
                             _number_gutter_split(part, c, numbers)):
@@ -2549,9 +2604,9 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
 
     exempted = []
     vis_rows = _split_rows((), record=exempted)
-    gutters = _gutter_xs(exempted)
+    gutters = _gutter_xs([e[0] for e in exempted])
     if gutters:
-        vis_rows = _split_rows(gutters)
+        vis_rows = _split_rows(gutters, channels=_gutter_channels(exempted))
 
     vis_rows = _absorb_script_rows(vis_rows)
 

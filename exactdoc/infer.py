@@ -10204,7 +10204,13 @@ def _position_chunks(chunks: List[Chunk], lay: DocLayout,
                 cursor = t + h
             else:
                 el.space_before = max(0.0, round(bb[1] - cursor, 1))
-                cursor = bb[3]
+                # A rule or picture that ends above the cursor lies inside
+                # the span already stacked -- BLS's column-group rule under
+                # "Seasonally adjusted" (y 80) flowed after its table (y
+                # 67-274) -- and does not move the cursor back up: the note
+                # under the table took 200pt of space before from it and
+                # left its page (y64 p22/p23, each a page in LibreOffice).
+                cursor = max(cursor, bb[3])
             maxy = max(maxy, cursor)
         base = maxy
     return chunks
