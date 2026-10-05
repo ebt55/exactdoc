@@ -20,6 +20,40 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+
+- **y33's footnotes stay on their pages (WP27).** The pages whose notes
+  spilled (LibreOffice raw p22 and p24) had lost their footnote references
+  to pictures: y33 (Kofax Power PDF) sets each consultation question as a
+  teal number badge flush against a tinted panel, and a question standing
+  alone was classified a figure that, grown from the panel's 454pt seed,
+  rasterised the body lines above it -- on 20 of 60 pages. With a
+  reference inside a picture the page's notes could not bind and stayed
+  typed. A cluster that is one row of abutting tiles, every tile holding
+  text, is now a one-row table (`_tile_bands`; cards with gutters, a row
+  with an empty tile and a shaded header over body rows -- the headed
+  table's -- are not). Notes: the separator is the qualifying rule nearest
+  the notes, not the first drawn (a question badge's white hairline opened
+  the zone over a table on p32 and p40); and a mark printed alone above its
+  note's text -- a note that is one unbreakable URL, p45 -- opens the note
+  under it. Every y33 page with notes now binds them (23 pages). Canonical
+  LibreOffice raw, against ckpt-raw over all 90 swept documents: y33 62 ->
+  60 pages, word recall 0.494 -> 0.993, char recall 0.780 -> 1.000, doc
+  recall 0.893 -> 0.993, within-2pt 0.071 -> 0.063; y02 120 -> 119 pages
+  (114; word recall -0.0004); 04's KPI tiles at their source x (SSIM +0.001);
+  y03 +0.0001; the rest identical (beta criterion 5, LibreOffice raw: y33
+  passes, 11 -> 12 of 21; 13 with WP26's y24). Word, raw DOCX: y33 63 -> 60 pages, word
+  recall 0.486 -> 0.993, within-2pt 0.087 -> 0.159. Google Docs is not
+  changed by proxy evidence: y33's Docs onset (p2) is its page-background
+  pictures, stacked in the flow because the gdocs profile has no `anchored`
+  capability. Live, the probe with those backgrounds anchored behind the
+  text read y33 60 for 60 pages (word recall 0.271 -> 0.992, within-2pt
+  0.314, SSIM 0.61 -> 0.74), so under the gdocs profile's
+  `anchor_pictures` a picture the text is set on that spans the paper's
+  width (>= 0.97, `PAGE_BACKGROUND_WIDTH_FRAC`) now leaves the flow for
+  its page position, behind the text (WP27b); the standard profile is
+  unchanged. Tests: `tests/test_question_panels.py`,
+  `tests/test_page_backgrounds.py`.
+
 - **WP19b's live flight, read line by line (WP24).** Probe 3 flew WP19b on
   all 62 promised documents; Google's exports, aligned with the sources
   baseline by baseline (`docs/evidence/gdocs-2026-10-06-wp24-offline.json`),
@@ -113,6 +147,7 @@ one verified fix at a time, each gated against the frozen 16.
   low). Pages replayed against probe 2's exports: 14 lost -> 14,
   y26's page 77 recovered (its first loss moves from page 77 to 172). The
   standard profile is byte-identical for all 90 convertible documents.
+<<<<<<< HEAD
 
 - **y33's footnotes stay on their pages (WP27).** The pages whose notes
   spilled (LibreOffice raw p22 and p24) had lost their footnote references
@@ -166,6 +201,8 @@ one verified fix at a time, each gated against the frozen 16.
   152 -> 151), but y64 40 -> 41. The LibreOffice product lane is unchanged
   on the 21 (17 of 21). Gate PASS with it off; not yet gated on
   (`docs/evidence/pagefit-2026-10-06.json`).
+
+>>>>>>> wp27b
 
 - **Beta criteria 8 and 12 (WP28).** *Criterion 8* (no document worse than
   the accepted wp18-m2 sweep) failed on two documents; both bisect to WP22
