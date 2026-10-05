@@ -141,6 +141,32 @@ one verified fix at a time, each gated against the frozen 16.
   capability; a probe set (with and without those backgrounds anchored)
   awaits a live pass. Tests: `tests/test_question_panels.py`.
 
+- **A page-fit planner for LibreOffice and Word, built and measured, shipped
+  off (WP30).** `exactdoc/pagefit.py` models each single-column page as the
+  standard profile writes it -- the ladder's re-wrap per forced line (a
+  verbatim line padded with spaces never fewer lines than the source), the
+  exact line, and tables at their source box plus the rows their cells wrap
+  into (`table_growth`; a line within 2pt of its cell's edge counts as
+  wrapping) -- and a page left with less than a body line plus 2pt to spare
+  is paid from its own gaps, gently first, foot up, within the refine
+  floors, as WP19's Docs planner does; a page that fits is written as
+  before. Measured against the checkpoint's LibreOffice renders (2,092
+  pages): pages predicted to keep 0-15pt spilled 6-10%, past 20pt 2-3%, and
+  the model is within a point of the render at the median. With it on, raw
+  sweep against ckpt-raw: y18 156 -> 144 pages (word recall 0.393 -> 0.986)
+  and y33 62 -> 60 (0.494 -> 0.893), both page-exact, so criterion 5 in
+  LibreOffice 11 -> 13 of 21; y03 51 -> 47 (0.568 -> 0.845; a table whose
+  cells were mis-partitioned overruns p40 by 150pt), y64 44 -> 40, y21 57
+  -> 53, y02 120 -> 117; page-exact 59 -> 62; the 16 gated documents
+  byte-identical. It is off (`pagefit.PAGEFIT_ENABLED`) because y59 (not
+  promised; 6 pages rendered as 18) regresses dy_p50 30.07 -> 46.35 when its
+  first page, 11 body lines over by the model, is paid back into its box.
+  Word, planner on: raw DOCX 11 -> 13 of 21 (y18 168 -> 144, y33 63 -> 60);
+  product DOCX 15 -> 16 (y18 154 -> 144, word recall 0.462 -> 0.986; y27
+  152 -> 151), but y64 40 -> 41. The LibreOffice product lane is unchanged
+  on the 21 (17 of 21). Gate PASS with it off; not yet gated on
+  (`docs/evidence/pagefit-2026-10-06.json`).
+
 - **Beta criteria 8 and 12 (WP28).** *Criterion 8* (no document worse than
   the accepted wp18-m2 sweep) failed on two documents; both bisect to WP22
   (aeb98fb; every merge from 92c542c to 738bd2e measured the accepted values).
