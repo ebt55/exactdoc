@@ -5,14 +5,15 @@
 The standard profile anchors a picture set on a text line, wrapped by a
 paragraph or printed into a margin at its source position (WP23:
 `infer._on_text_line`, `_wrapped_by_text`; wp:anchor, wrapSquare where the
-source wrapped); the gdocs profile stacks it in the flow under its line,
-because Docs' handling of an anchored picture is unmeasured. Stacked, such a
-picture costs its own height: SP 800-63B's contents numbers (y01) run at a
-32pt pitch in Docs for the source's 20, DOE OIG's highlights picture (y28)
-takes a page of its own. LibreOffice does not predict Docs, so the capability
-is decided live: each source is converted by the gdocs profile without it
-("<stem>.wp24.gdocs.docx") and with it ("<stem>.wp24a.gdocs.docx"). Nothing
-here uploads anything.
+source wrapped); the gdocs profile stacked it in the flow under its line.
+Stacked, such a picture costs its own height: SP 800-63B's contents numbers
+(y01) ran at a 32pt pitch in Docs for the source's 20, DOE OIG's highlights
+picture (y28) took a page of its own. LibreOffice does not predict Docs, so
+the capability was decided live: each source converted by the gdocs profile
+without it ("<stem>.wp24.gdocs.docx") and with it ("<stem>.wp24a.gdocs.docx").
+Flown 2026-10-06 (docs/evidence/gdocs-2026-10-06-wp24-live.json): Docs keeps
+the anchors (this set 6 -> 5 pages, y01 81 -> 80, y28 22 -> 21), and gdocs
+has the capability since. Nothing here uploads anything.
 
 The synthetic document, five pages, each full enough that a stacked picture
 spills it (so the page count alone answers "honoured"), every line carrying a
@@ -133,8 +134,8 @@ def make_pdf(path):
 
 
 def convert_pair(src, out_dir, stem):
-    """Write <stem>.wp24.gdocs.docx (stacked) and <stem>.wp24a.gdocs.docx
-    (the capability granted for this conversion only)."""
+    """Write <stem>.wp24.gdocs.docx (stacked: the capability withdrawn) and
+    <stem>.wp24a.gdocs.docx (granted), whatever the profile now carries."""
     from exactdoc import options
     from exactdoc.convert import convert
     from exactdoc.options import PDFIUM_GDOCS_CANDIDATE
@@ -142,8 +143,8 @@ def convert_pair(src, out_dir, stem):
     for tag, grant in (("wp24", False), ("wp24a", True)):
         dst = os.path.join(out_dir, "%s.%s.gdocs.docx" % (stem, tag))
         saved = options.PROFILE_CAPABILITIES["gdocs"]
-        if grant:
-            options.PROFILE_CAPABILITIES["gdocs"] = saved | {"anchor_pictures"}
+        options.PROFILE_CAPABILITIES["gdocs"] = (saved | {"anchor_pictures"}) if grant \
+            else (saved - {"anchor_pictures"})
         try:
             convert(src, dst, options=PDFIUM_GDOCS_CANDIDATE)
         finally:

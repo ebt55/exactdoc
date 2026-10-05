@@ -705,6 +705,25 @@ class WP24(unittest.TestCase):
         self.assertIn(calibrated, lines)
         self.assertNotIn(legacy, lines)
 
+    def test_a_full_such_page_is_written_calibrated(self):
+        # y12's two-column pages, their columns within a line of the box:
+        # 71 pages shipped, 69 calibrated (live, WP24 probe)
+        lay = _lay()
+        body = _times("alpha beta gamma delta " * 9, size=10.0, lead=12.6, lines=3)
+        cap = _body_capacity(lay)
+        # Georgia has no width table: each takes its source line count
+        full = [_para(gap=0.0, lines=4, lead=12.6)
+                for _ in range(int(cap // (4 * 12.6)) + 1)]
+        two = PageLayout(number=2, chunks=[Chunk(n_cols=2, elements=[body] + full)])
+        self.assertTrue(D._gdocs_unmodelled_tight(two, 468.0, lay, 0.0, BODY))
+        roomy = PageLayout(number=2, chunks=[Chunk(n_cols=2, elements=[body])])
+        self.assertFalse(D._gdocs_unmodelled_tight(roomy, 468.0, lay, 0.0, BODY))
+        lay.pages = [_page([_para(gap=0.0)], number=1), two]
+        lines = [int(v) for v in re.findall(r'w:line="(\d+)" w:lineRule="auto"',
+                                            _xml(lay))]
+        self.assertIn(round(240 * 12.6 / (10.0 * 1.150)), lines)
+        self.assertNotIn(round(240 * 12.6 / (10.0 * D.NATURAL_DEFAULT)), lines)
+
     def test_a_box_on_such_a_page_writes_no_gap_of_its_own(self):
         lay = _lay()
         box = Blocks._box(gap=21.3)
@@ -802,13 +821,16 @@ class WP24(unittest.TestCase):
 
 
 class AnchoredPictures(unittest.TestCase):
-    """The capability `anchor_pictures` (WP24's probe variant): infer's
+    """The capability `anchor_pictures`: infer's
     on-a-line and wrapped pictures leave the flow without the rest of
     `anchored`."""
 
-    def test_gdocs_withholds_it(self):
+    def test_gdocs_has_it_without_the_rest_of_anchored(self):
+        # granted live (WP24 wp24a: y01 81 -> 80, y28 22 -> 21, the synthetic
+        # set 6 -> 5); slides and backgrounds stay in the flow
         from exactdoc.options import capabilities
-        self.assertNotIn("anchor_pictures", capabilities("gdocs"))
+        self.assertIn("anchor_pictures", capabilities("gdocs"))
+        self.assertNotIn("anchored", capabilities("gdocs"))
         self.assertIn("anchored", capabilities("standard"))
 
     def test_on_a_line_only(self):

@@ -90,9 +90,13 @@ OUTPUT_PROFILES = ("standard", "gdocs")
 #               wrapped it, instead of stacked under its line -- the part of
 #               `anchored` WP23 measured on long documents (SP 800-63B's
 #               contents numbers, DOE OIG's highlights picture). Implied by
-#               `anchored`. Withheld from gdocs until a live probe shows Docs
-#               keeps such an anchor where it is put (WP24's variant `wp24a`
-#               flies it: y01, y28 and a synthetic set).
+#               `anchored`. Granted to gdocs on live evidence (WP24 probe,
+#               variant wp24a against wp24, 2026-10-06,
+#               docs/evidence/gdocs-2026-10-06-wp24-live.json): Docs keeps
+#               the anchors where they are put -- the synthetic set
+#               (testkit/gdocs_probe_anchors.py) 6 -> 5 pages for 5 (word
+#               recall 0.49 -> 0.94), y01 81 -> 80 for 80 (0.409 -> 0.962),
+#               y28 22 -> 21 for 21 (0.396 -> 0.990); y12 unchanged.
 #   bidi        right-to-left paragraphs as w:bidi with start/end alignment
 #               and indents, and their runs as w:rtl with complex-script
 #               size, weight and language, instead of left-to-right
@@ -125,7 +129,7 @@ OUTPUT_PROFILES = ("standard", "gdocs")
 #               unchanged.
 PROFILE_CAPABILITIES = {
     "standard": frozenset({"numbering", "footnotes", "bidi", "anchored"}),
-    "gdocs": frozenset({"numbering", "bidi"}),
+    "gdocs": frozenset({"numbering", "bidi", "anchor_pictures"}),
 }
 
 

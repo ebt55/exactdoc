@@ -841,10 +841,15 @@ GDOCS_WRITER_DESCENT_EM = 0.21          # infer._para_box's Word-terms descent
 # against the unquantised size, one-line paragraphs shaved by
 # GDOCS_SINGLE_LINE_SHAVE_PT, boxes and quotes without their written gaps.
 #
-# Not settled for every such page: around y12_irs_pub15's two-column pages
-# 37-40 the shipped base lost a page that WP19b, writing them calibrated, kept
-# (probe 3; 72 -> 69 pages over the document, most of it from planned pages).
-# WP24's probe flies both (variant `wp24c`: GDOCS_UNMODELLED_SHIPPED off).
+# Except a page with no room for the shipped form's error
+# (`_gdocs_unmodelled_tight`). That form sets a line ~0.5% taller in Docs than
+# asked (1.150 against 1.144), which a full column cannot absorb: live (WP24
+# probe, 2026-10-06) y12_irs_pub15 took 71 pages for 59 with its two-column
+# pages shipped and 69 with them calibrated (wp24c), its columns predicted
+# within a line of their box or over it; y46 (26pt spare), 02 (21pt) and c2
+# (197pt) went 1 -> 2 pages / lost placement calibrated, and keep the shipped
+# form. GDOCS_UNMODELLED_SHIPPED False writes every such page calibrated (the
+# probe's `wp24c`).
 GDOCS_UNMODELLED_SHIPPED = True
 GDOCS_LEGACY_1144 = frozenset({"arial", "times new roman", "roboto mono",
                                "open sans", "source code pro", "figtree",
@@ -1913,6 +1918,45 @@ def _column_one_overflows(ch, content_w: float, lay: DocLayout,
             return False          # not predictable: leave the break alone
         used += el.space_before + n * _line_height(el) + el.space_after
     return used > capacity + COL_OVERFLOW_SLACK_PT
+
+
+def _gdocs_unmodelled_tight(pg, content_w: float, lay: DocLayout,
+                            notes_h: float, body_line: float) -> bool:
+    """Does a page `_gdocs_flow` cannot add up leave less than a body line
+    plus GDOCS_PAGE_SAFETY_PT of its box free? Each chunk counts its pre-gap
+    and its tallest column, a column's elements stacked at the writer's
+    heights (`_line_height`, the ladder's re-wrap, a block's source box) --
+    the page-level reading of `_column_one_overflows`. A merged run of pages
+    is one chunk far taller than a page, and so tight. See
+    GDOCS_UNMODELLED_SHIPPED for why a tight page is written calibrated."""
+    metrics = _text_metrics("gdocs")
+    used = 0.0
+    for ch in pg.chunks:
+        n = max(1, ch.n_cols)
+        gap = ch.col_gap or 0.0
+        col_w = (content_w - gap * (n - 1)) / n
+        cols, cur = [], 0.0
+        for el in ch.elements:
+            if isinstance(el, ColBreak):
+                cols.append(cur)
+                cur = 0.0
+                continue
+            if notes_h > 0 and getattr(el, "role", "") == "footnote":
+                continue
+            if isinstance(el, Para):
+                k = predict_lines_for(el, col_w - el.left_indent - el.right_indent,
+                                      metrics) if metrics is not None else None
+                k = k if k is not None else max(1, el.src_lines or 1)
+                cur += (el.space_before or 0.0) + k * _line_height(el) \
+                    + (el.space_after or 0.0)
+            else:
+                bb = getattr(el, "bbox", None) or getattr(el, "clip", None) \
+                    or getattr(el, "_bbox", None)
+                cur += (el.space_before or 0.0) + ((bb[3] - bb[1]) if bb else 0.0)
+        cols.append(cur)
+        used += max(0.0, ch.pre_gap) + max(cols)
+    return used + max(0.0, body_line) + GDOCS_PAGE_SAFETY_PT > \
+        _body_capacity(lay) - notes_h
 
 
 # --- page-spill absorption ---------------------------------------------------
@@ -5654,7 +5698,8 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
             spill_plan = _gdocs_baseline_plan(pg, cw_ctx, glay, nh, spill_plan,
                                               first_fixed=pending_break[0],
                                               skip=vrules, body_line=body_line)
-        if gdocs_flow and not modelled and GDOCS_UNMODELLED_SHIPPED:
+        if gdocs_flow and not modelled and GDOCS_UNMODELLED_SHIPPED and \
+                not _gdocs_unmodelled_tight(pg, cw_ctx, glay, nh, body_line):
             ctx = dataclasses.replace(ctx, gdocs_calibrated=False)
         # A slide's graphics ride in the page's first paragraph, anchored to
         # the page (see anchor_floats); a page with no paragraph gets a host.
