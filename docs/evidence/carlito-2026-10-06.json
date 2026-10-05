@@ -1,0 +1,1369 @@
+{
+ "schema": 1,
+ "work_package": "WP31",
+ "date": "2026-10-06",
+ "claim": "Adding Carlito and Caladea (the pinned 2013 Crosextra builds) to the gate image changes no converter output in the raw/standard profile and no gated number; it changes renders of documents whose DOCX names Calibri or Cambria (directly, or via writer_family's Word substitutes for Noto Serif/Sans, Roboto, etc.), and on those the LibreOffice lane moves towards Word's own numbers.",
+ "images": {
+  "canonical": {
+   "tag": "exactdoc-gate:boot",
+   "id": "sha256:390a910873d6",
+   "unchanged": true
+  },
+  "candidate": {
+   "tag": "exactdoc-gate:boot-carlito",
+   "id": "sha256:bab1cfc0d2cd15c1c1a63d6db86fb1bfcb7f8f33ce7ee608568303fa58536f20",
+   "recipe": "docker/gate-carlito.Dockerfile --build-arg BASE=exactdoc-gate:boot",
+   "packages": {
+    "fonts-crosextra-carlito": "20130920-1.1 (jammy pool)",
+    "fonts-crosextra-caladea": "20130214-2.1 (jammy pool)"
+   },
+   "deb_sha256": {
+    "fonts-crosextra-carlito_20130920-1.1_all.deb": "7385475cde807e1363c3361976576571870373032466c7f525d5900852b6f420",
+    "fonts-crosextra-caladea_20130214-2.1_all.deb": "1330d25dfa5bab2e9b712b4950d2855cdb63a2b2b9451e2ffb93618c77e1f242"
+   }
+  }
+ },
+ "build_choice": {
+  "method": "testkit/gen_clone_widths.py run on each candidate build; WinAnsi advance tables diffed against exactdoc/_clone_widths.py",
+  "noble_fonts-crosextra-caladea_20200211-2": "135-173 codepoints differ per face; proportional figures ('1' 362 units, '0' 517) where Cambria is tabular (554): not a metric clone, rejected",
+  "noble_fonts-crosextra-carlito_20230309-2": "identical except U+00A0 added",
+  "jammy_20130214-2.1_and_20130920-1.1": "all eight TTFs byte-identical (SHA-256) to _clone_widths.SOURCES"
+ },
+ "environment": {
+  "canonical_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+  "proposed_fingerprint": "9cb0bc17cbf88970c790ce9cfb6577e5c016c45a370642d093fa86209b0d41ec",
+  "proposed_record": "testkit/canonical_env.proposed.json",
+  "differences": [
+   "font_files 35 -> 43 (+8 Carlito/Caladea)",
+   "font_families 14 -> 16 (+Caladea, Carlito)",
+   "scripts/fonts.conf digest 84d4357a -> bbeb510b",
+   "LibreOffice 24.2.7.2, Python 3.12.3 and every dependency unchanged"
+  ],
+  "fc_match_candidate": {
+   "Calibri": "Carlito",
+   "Cambria": "Caladea",
+   "Calibri Light": "FreeSerif",
+   "Arial": "Liberation Sans",
+   "Georgia": "FreeSerif",
+   "Consolas": "FreeSerif"
+  },
+  "fc_match_canonical_with_new_fonts_conf": "unchanged: same 14 families, Calibri/Cambria -> FreeSerif"
+ },
+ "gate": {
+  "tree": "4cd018f + WP31 (af95f6e..eb3dec2)",
+  "run": "wp31-gate-1 in exactdoc-gate:boot-carlito",
+  "result": "Ran 1589 tests OK (skipped=1); FAILED_STEPS=0; runall PASS both lanes",
+  "aggregates": {
+   "product_within2pt": 0.7209,
+   "raw_within2pt": 0.5463,
+   "pagematch": "16/16 both lanes"
+  },
+  "per_document_changes_vs_int-4cd018f_in_canonical_image": 0,
+  "note": "No gated document's DOCX names Calibri or Cambria; every per-document gated metric in both lanes equals the canonical-image gate of the same code (int-4cd018f). Baseline not re-recorded."
+ },
+ "raw_sweep": {
+  "before": "ckpt-raw.sweep.json (canonical image, ccaef09 == 4cd018f output)",
+  "after": "wp31-raw.sweep.json (candidate image, 4cd018f + WP31)",
+  "docx_word_xml_identical": "90/90",
+  "changed_documents": 13,
+  "beyond_tolerance_regressions": [
+   "y17_rfc9110.pdf",
+   "y33_nz_paper_powerpdf.pdf",
+   "y34_census_slides_pptx365.pdf",
+   "y47_ar_ilo_word365.pdf"
+  ],
+  "beyond_tolerance_improvements": [
+   "y02_nist_sp800171r2.pdf",
+   "y17_rfc9110.pdf",
+   "y20_typst_report.pdf",
+   "y27_rfc9000.pdf",
+   "y30_nz_guideline_word365.pdf",
+   "y33_nz_paper_powerpdf.pdf",
+   "y46_cv_twocol_xdvipdfmx.pdf",
+   "y55_th_pages_quartz.pdf"
+  ],
+  "means_before_after": {
+   "within2pt": [
+    0.2743488888888889,
+    0.28644111111111115
+   ],
+   "word_recall": [
+    0.7595322222222223,
+    0.7638033333333334
+   ],
+   "page_match": [
+    59,
+    58
+   ]
+  },
+  "changed": {
+   "y02_nist_sp800171r2.pdf": {
+    "pages": [
+     120,
+     118,
+     114
+    ],
+    "word_recall": [
+     0.3033,
+     0.741
+    ],
+    "within2pt": [
+     0.0482,
+     0.1904
+    ],
+    "dy_p50": [
+     34.94,
+     9.38
+    ],
+    "doc_recall": [
+     0.9609,
+     0.9617
+    ],
+    "mean_ssim": [
+     0.601,
+     0.6568
+    ],
+    "regressions": [],
+    "improvements": [
+     "page_err 6->4",
+     "word_recall 0.3033->0.741",
+     "within2pt 0.0482->0.1904",
+     "dy_p50 34.94->9.38"
+    ]
+   },
+   "y17_rfc9110.pdf": {
+    "pages": [
+     194,
+     195,
+     194
+    ],
+    "word_recall": [
+     0.9756,
+     0.9085
+    ],
+    "within2pt": [
+     0.0288,
+     0.0237
+    ],
+    "dy_p50": [
+     19.71,
+     13.04
+    ],
+    "doc_recall": [
+     0.9762,
+     0.9763
+    ],
+    "mean_ssim": [
+     0.6695,
+     0.6679
+    ],
+    "regressions": [
+     "page_err 0->1",
+     "word_recall 0.9756->0.9085"
+    ],
+    "improvements": [
+     "dy_p50 19.71->13.04"
+    ]
+   },
+   "y20_typst_report.pdf": {
+    "pages": [
+     5,
+     5,
+     5
+    ],
+    "word_recall": [
+     0.9933,
+     0.9933
+    ],
+    "within2pt": [
+     0.0295,
+     0.3724
+    ],
+    "dy_p50": [
+     15.57,
+     0.68
+    ],
+    "doc_recall": [
+     0.9933,
+     0.9933
+    ],
+    "mean_ssim": [
+     0.8422,
+     0.8588
+    ],
+    "regressions": [],
+    "improvements": [
+     "within2pt 0.0295->0.3724",
+     "dy_p50 15.57->0.68"
+    ]
+   },
+   "y21_worldbank_wdr24.pdf": {
+    "pages": [
+     57,
+     57,
+     48
+    ],
+    "word_recall": [
+     0.1907,
+     0.1906
+    ],
+    "within2pt": [
+     0.0008,
+     0.0008
+    ],
+    "dy_p50": [
+     50.87,
+     50.87
+    ],
+    "doc_recall": [
+     0.9005,
+     0.9004
+    ],
+    "mean_ssim": [
+     0.4985,
+     0.4981
+    ],
+    "regressions": [],
+    "improvements": []
+   },
+   "y27_rfc9000.pdf": {
+    "pages": [
+     151,
+     151,
+     151
+    ],
+    "word_recall": [
+     0.9677,
+     0.9678
+    ],
+    "within2pt": [
+     0.0119,
+     0.0159
+    ],
+    "dy_p50": [
+     22.59,
+     12.35
+    ],
+    "doc_recall": [
+     0.9682,
+     0.9682
+    ],
+    "mean_ssim": [
+     0.6526,
+     0.6617
+    ],
+    "regressions": [],
+    "improvements": [
+     "dy_p50 22.59->12.35"
+    ]
+   },
+   "y30_nz_guideline_word365.pdf": {
+    "pages": [
+     33,
+     33,
+     33
+    ],
+    "word_recall": [
+     0.9839,
+     0.9854
+    ],
+    "within2pt": [
+     0.1217,
+     0.3176
+    ],
+    "dy_p50": [
+     2.15,
+     2.38
+    ],
+    "doc_recall": [
+     0.9847,
+     0.9858
+    ],
+    "mean_ssim": [
+     0.7571,
+     0.8351
+    ],
+    "regressions": [],
+    "improvements": [
+     "within2pt 0.1217->0.3176"
+    ]
+   },
+   "y33_nz_paper_powerpdf.pdf": {
+    "pages": [
+     62,
+     63,
+     60
+    ],
+    "word_recall": [
+     0.4938,
+     0.4859
+    ],
+    "within2pt": [
+     0.0705,
+     0.3637
+    ],
+    "dy_p50": [
+     3.03,
+     2.05
+    ],
+    "doc_recall": [
+     0.8932,
+     0.8934
+    ],
+    "mean_ssim": [
+     0.6695,
+     0.6744
+    ],
+    "regressions": [
+     "page_err 2->3"
+    ],
+    "improvements": [
+     "within2pt 0.0705->0.3637",
+     "dy_p50 3.03->2.05"
+    ]
+   },
+   "y34_census_slides_pptx365.pdf": {
+    "pages": [
+     40,
+     40,
+     40
+    ],
+    "word_recall": [
+     0.9231,
+     0.9241
+    ],
+    "within2pt": [
+     0.0644,
+     0.0459
+    ],
+    "dy_p50": [
+     3.43,
+     4.41
+    ],
+    "doc_recall": [
+     0.9241,
+     0.9241
+    ],
+    "mean_ssim": [
+     0.8844,
+     0.9079
+    ],
+    "regressions": [
+     "dy_p50 3.43->4.41"
+    ],
+    "improvements": []
+   },
+   "y35_uk_rates_excel365.pdf": {
+    "pages": [
+     14,
+     14,
+     14
+    ],
+    "word_recall": [
+     1.0,
+     1.0
+    ],
+    "within2pt": [
+     0.2483,
+     0.2523
+    ],
+    "dy_p50": [
+     5.26,
+     5.26
+    ],
+    "doc_recall": [
+     1.0,
+     1.0
+    ],
+    "mean_ssim": [
+     0.8715,
+     0.8721
+    ],
+    "regressions": [],
+    "improvements": []
+   },
+   "y46_cv_twocol_xdvipdfmx.pdf": {
+    "pages": [
+     1,
+     1,
+     1
+    ],
+    "word_recall": [
+     0.8939,
+     0.8939
+    ],
+    "within2pt": [
+     0.1593,
+     0.2847
+    ],
+    "dy_p50": [
+     0.81,
+     0.61
+    ],
+    "doc_recall": [
+     0.8939,
+     0.8939
+    ],
+    "mean_ssim": [
+     0.6477,
+     0.6653
+    ],
+    "regressions": [],
+    "improvements": [
+     "within2pt 0.1593->0.2847"
+    ]
+   },
+   "y47_ar_ilo_word365.pdf": {
+    "pages": [
+     86,
+     86,
+     57
+    ],
+    "word_recall": [
+     0.1503,
+     0.1492
+    ],
+    "within2pt": [
+     0.001,
+     0.001
+    ],
+    "dy_p50": [
+     52.39,
+     52.39
+    ],
+    "doc_recall": [
+     0.7256,
+     0.7154
+    ],
+    "mean_ssim": [
+     0.3586,
+     0.3585
+    ],
+    "regressions": [
+     "doc_recall 0.7256->0.7154"
+    ],
+    "improvements": []
+   },
+   "y49_he_word2016.pdf": {
+    "pages": [
+     54,
+     54,
+     28
+    ],
+    "word_recall": [
+     0.1519,
+     0.1519
+    ],
+    "within2pt": [
+     0.0159,
+     0.0159
+    ],
+    "dy_p50": [
+     28.93,
+     28.55
+    ],
+    "doc_recall": [
+     0.8975,
+     0.8975
+    ],
+    "mean_ssim": [
+     0.3165,
+     0.3165
+    ],
+    "regressions": [],
+    "improvements": []
+   },
+   "y55_th_pages_quartz.pdf": {
+    "pages": [
+     3,
+     3,
+     3
+    ],
+    "word_recall": [
+     0.8374,
+     0.8577
+    ],
+    "within2pt": [
+     0.0194,
+     0.0237
+    ],
+    "dy_p50": [
+     17.64,
+     17.67
+    ],
+    "doc_recall": [
+     0.8374,
+     0.8577
+    ],
+    "mean_ssim": [
+     0.6961,
+     0.6964
+    ],
+    "regressions": [],
+    "improvements": [
+     "word_recall 0.8374->0.8577",
+     "doc_recall 0.8374->0.8577"
+    ]
+   }
+  },
+  "agreement_with_word_raw": {
+   "documents_with_word_row": 90,
+   "changed": {
+    "y02_nist_sp800171r2.pdf": {
+     "before": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.4375,
+      "abs_within2pt_gap": 0.0094
+     },
+     "after": {
+      "pages_equal": false,
+      "abs_word_recall_gap": 0.0002,
+      "abs_within2pt_gap": 0.1328
+     }
+    },
+    "y17_rfc9110.pdf": {
+     "before": {
+      "pages_equal": false,
+      "abs_word_recall_gap": 0.0667,
+      "abs_within2pt_gap": 0.0054
+     },
+     "after": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0004,
+      "abs_within2pt_gap": 0.0003
+     }
+    },
+    "y20_typst_report.pdf": {
+     "before": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0,
+      "abs_within2pt_gap": 0.3471
+     },
+     "after": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0,
+      "abs_within2pt_gap": 0.0042
+     }
+    },
+    "y21_worldbank_wdr24.pdf": {
+     "before": {
+      "pages_equal": false,
+      "abs_word_recall_gap": 0.0044,
+      "abs_within2pt_gap": 0.0
+     },
+     "after": {
+      "pages_equal": false,
+      "abs_word_recall_gap": 0.0045,
+      "abs_within2pt_gap": 0.0
+     }
+    },
+    "y27_rfc9000.pdf": {
+     "before": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0008,
+      "abs_within2pt_gap": 0.0039
+     },
+     "after": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0007,
+      "abs_within2pt_gap": 0.0001
+     }
+    },
+    "y30_nz_guideline_word365.pdf": {
+     "before": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0019,
+      "abs_within2pt_gap": 0.5131
+     },
+     "after": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0004,
+      "abs_within2pt_gap": 0.3172
+     }
+    },
+    "y33_nz_paper_powerpdf.pdf": {
+     "before": {
+      "pages_equal": false,
+      "abs_word_recall_gap": 0.008,
+      "abs_within2pt_gap": 0.0161
+     },
+     "after": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0001,
+      "abs_within2pt_gap": 0.2771
+     }
+    },
+    "y34_census_slides_pptx365.pdf": {
+     "before": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0,
+      "abs_within2pt_gap": 0.5208
+     },
+     "after": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.001,
+      "abs_within2pt_gap": 0.5393
+     }
+    },
+    "y35_uk_rates_excel365.pdf": {
+     "before": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0,
+      "abs_within2pt_gap": 0.0208
+     },
+     "after": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0,
+      "abs_within2pt_gap": 0.0248
+     }
+    },
+    "y46_cv_twocol_xdvipdfmx.pdf": {
+     "before": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0,
+      "abs_within2pt_gap": 0.0474
+     },
+     "after": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0,
+      "abs_within2pt_gap": 0.1728
+     }
+    },
+    "y47_ar_ilo_word365.pdf": {
+     "before": {
+      "pages_equal": false,
+      "abs_word_recall_gap": 0.0428,
+      "abs_within2pt_gap": 0.0005
+     },
+     "after": {
+      "pages_equal": false,
+      "abs_word_recall_gap": 0.0439,
+      "abs_within2pt_gap": 0.0005
+     }
+    },
+    "y49_he_word2016.pdf": {
+     "before": {
+      "pages_equal": false,
+      "abs_word_recall_gap": 0.0387,
+      "abs_within2pt_gap": 0.0052
+     },
+     "after": {
+      "pages_equal": false,
+      "abs_word_recall_gap": 0.0387,
+      "abs_within2pt_gap": 0.0052
+     }
+    },
+    "y55_th_pages_quartz.pdf": {
+     "before": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0569,
+      "abs_within2pt_gap": 0.0897
+     },
+     "after": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0366,
+      "abs_within2pt_gap": 0.0854
+     }
+    }
+   },
+   "before": {
+    "pages_equal_word": 71,
+    "mean_abs_word_recall_gap": 0.0249,
+    "mean_abs_within2pt_gap": 0.032
+   },
+   "after": {
+    "pages_equal_word": 72,
+    "mean_abs_word_recall_gap": 0.019,
+    "mean_abs_within2pt_gap": 0.0318
+   }
+  }
+ },
+ "product_sweep": {
+  "before": "ckpt-prod.sweep.json",
+  "after": "wp31-prod.sweep.json",
+  "docx_word_xml_identical": "77/90 -- the 13 that differ are exactly documents whose render changed: the product profile's refine loop reads the LibreOffice render back, so a different renderer is different feedback. Conversion code unchanged.",
+  "changed_documents": 15,
+  "beyond_tolerance_regressions": [
+   "y34_census_slides_pptx365.pdf",
+   "y47_ar_ilo_word365.pdf"
+  ],
+  "beyond_tolerance_improvements": [
+   "y02_nist_sp800171r2.pdf",
+   "y17_rfc9110.pdf",
+   "y20_typst_report.pdf",
+   "y30_nz_guideline_word365.pdf",
+   "y33_nz_paper_powerpdf.pdf",
+   "y46_cv_twocol_xdvipdfmx.pdf",
+   "y55_th_pages_quartz.pdf"
+  ],
+  "means_before_after": {
+   "within2pt": [
+    0.3626511111111111,
+    0.38131444444444446
+   ],
+   "word_recall": [
+    0.8415533333333334,
+    0.8417955555555555
+   ],
+   "page_match": [
+    69,
+    69
+   ]
+  },
+  "changed": {
+   "y01_nist_sp80063b.pdf": {
+    "pages": [
+     80,
+     80,
+     80
+    ],
+    "word_recall": [
+     0.9641,
+     0.9641
+    ],
+    "within2pt": [
+     0.7972,
+     0.7989
+    ],
+    "dy_p50": [
+     0.23,
+     0.23
+    ],
+    "doc_recall": [
+     0.9647,
+     0.9647
+    ],
+    "mean_ssim": [
+     0.7143,
+     0.7151
+    ],
+    "regressions": [],
+    "improvements": []
+   },
+   "y02_nist_sp800171r2.pdf": {
+    "pages": [
+     114,
+     114,
+     114
+    ],
+    "word_recall": [
+     0.9606,
+     0.9614
+    ],
+    "within2pt": [
+     0.1746,
+     0.3292
+    ],
+    "dy_p50": [
+     2.97,
+     1.97
+    ],
+    "doc_recall": [
+     0.9609,
+     0.9617
+    ],
+    "mean_ssim": [
+     0.6929,
+     0.7268
+    ],
+    "regressions": [],
+    "improvements": [
+     "within2pt 0.1746->0.3292",
+     "dy_p50 2.97->1.97"
+    ]
+   },
+   "y08_nist_sp80088r1.pdf": {
+    "pages": [
+     65,
+     65,
+     65
+    ],
+    "word_recall": [
+     0.9877,
+     0.9877
+    ],
+    "within2pt": [
+     0.4106,
+     0.4124
+    ],
+    "dy_p50": [
+     0.15,
+     0.15
+    ],
+    "doc_recall": [
+     0.9895,
+     0.9895
+    ],
+    "mean_ssim": [
+     0.7101,
+     0.7109
+    ],
+    "regressions": [],
+    "improvements": []
+   },
+   "y17_rfc9110.pdf": {
+    "pages": [
+     194,
+     194,
+     194
+    ],
+    "word_recall": [
+     0.9756,
+     0.9756
+    ],
+    "within2pt": [
+     0.0495,
+     0.0592
+    ],
+    "dy_p50": [
+     13.44,
+     9.63
+    ],
+    "doc_recall": [
+     0.9762,
+     0.9763
+    ],
+    "mean_ssim": [
+     0.6743,
+     0.6831
+    ],
+    "regressions": [],
+    "improvements": [
+     "dy_p50 13.44->9.63"
+    ]
+   },
+   "y20_typst_report.pdf": {
+    "pages": [
+     5,
+     5,
+     5
+    ],
+    "word_recall": [
+     0.9933,
+     0.9933
+    ],
+    "within2pt": [
+     0.0994,
+     0.4499
+    ],
+    "dy_p50": [
+     4.45,
+     0.54
+    ],
+    "doc_recall": [
+     0.9933,
+     0.9933
+    ],
+    "mean_ssim": [
+     0.8428,
+     0.8627
+    ],
+    "regressions": [],
+    "improvements": [
+     "within2pt 0.0994->0.4499",
+     "dy_p50 4.45->0.54"
+    ]
+   },
+   "y21_worldbank_wdr24.pdf": {
+    "pages": [
+     49,
+     49,
+     48
+    ],
+    "word_recall": [
+     0.7143,
+     0.7142
+    ],
+    "within2pt": [
+     0.0152,
+     0.0144
+    ],
+    "dy_p50": [
+     26.85,
+     26.83
+    ],
+    "doc_recall": [
+     0.9005,
+     0.9004
+    ],
+    "mean_ssim": [
+     0.5982,
+     0.598
+    ],
+    "regressions": [],
+    "improvements": []
+   },
+   "y27_rfc9000.pdf": {
+    "pages": [
+     151,
+     151,
+     151
+    ],
+    "word_recall": [
+     0.9677,
+     0.9678
+    ],
+    "within2pt": [
+     0.0407,
+     0.0464
+    ],
+    "dy_p50": [
+     13.44,
+     12.35
+    ],
+    "doc_recall": [
+     0.9682,
+     0.9682
+    ],
+    "mean_ssim": [
+     0.6597,
+     0.6718
+    ],
+    "regressions": [],
+    "improvements": []
+   },
+   "y30_nz_guideline_word365.pdf": {
+    "pages": [
+     33,
+     33,
+     33
+    ],
+    "word_recall": [
+     0.9839,
+     0.9854
+    ],
+    "within2pt": [
+     0.2156,
+     0.7189
+    ],
+    "dy_p50": [
+     0.46,
+     0.32
+    ],
+    "doc_recall": [
+     0.9847,
+     0.9858
+    ],
+    "mean_ssim": [
+     0.746,
+     0.774
+    ],
+    "regressions": [],
+    "improvements": [
+     "within2pt 0.2156->0.7189"
+    ]
+   },
+   "y33_nz_paper_powerpdf.pdf": {
+    "pages": [
+     60,
+     60,
+     60
+    ],
+    "word_recall": [
+     0.893,
+     0.8932
+    ],
+    "within2pt": [
+     0.1725,
+     0.7239
+    ],
+    "dy_p50": [
+     0.31,
+     0.24
+    ],
+    "doc_recall": [
+     0.8932,
+     0.8934
+    ],
+    "mean_ssim": [
+     0.766,
+     0.8486
+    ],
+    "regressions": [],
+    "improvements": [
+     "within2pt 0.1725->0.7239"
+    ]
+   },
+   "y34_census_slides_pptx365.pdf": {
+    "pages": [
+     40,
+     40,
+     40
+    ],
+    "word_recall": [
+     0.9231,
+     0.9241
+    ],
+    "within2pt": [
+     0.0692,
+     0.0524
+    ],
+    "dy_p50": [
+     3.39,
+     4.18
+    ],
+    "doc_recall": [
+     0.9241,
+     0.9241
+    ],
+    "mean_ssim": [
+     0.8781,
+     0.9027
+    ],
+    "regressions": [
+     "dy_p50 3.39->4.18"
+    ],
+    "improvements": []
+   },
+   "y35_uk_rates_excel365.pdf": {
+    "pages": [
+     14,
+     14,
+     14
+    ],
+    "word_recall": [
+     1.0,
+     1.0
+    ],
+    "within2pt": [
+     0.3458,
+     0.3498
+    ],
+    "dy_p50": [
+     1.76,
+     1.76
+    ],
+    "doc_recall": [
+     1.0,
+     1.0
+    ],
+    "mean_ssim": [
+     0.8814,
+     0.882
+    ],
+    "regressions": [],
+    "improvements": []
+   },
+   "y46_cv_twocol_xdvipdfmx.pdf": {
+    "pages": [
+     1,
+     1,
+     1
+    ],
+    "word_recall": [
+     0.8939,
+     0.8939
+    ],
+    "within2pt": [
+     0.1831,
+     0.2847
+    ],
+    "dy_p50": [
+     1.01,
+     0.61
+    ],
+    "doc_recall": [
+     0.8939,
+     0.8939
+    ],
+    "mean_ssim": [
+     0.6733,
+     0.6653
+    ],
+    "regressions": [],
+    "improvements": [
+     "within2pt 0.1831->0.2847"
+    ]
+   },
+   "y47_ar_ilo_word365.pdf": {
+    "pages": [
+     65,
+     65,
+     57
+    ],
+    "word_recall": [
+     0.2347,
+     0.2327
+    ],
+    "within2pt": [
+     0.0013,
+     0.0015
+    ],
+    "dy_p50": [
+     45.35,
+     45.48
+    ],
+    "doc_recall": [
+     0.7243,
+     0.7141
+    ],
+    "mean_ssim": [
+     0.4359,
+     0.4359
+    ],
+    "regressions": [
+     "doc_recall 0.7243->0.7141"
+    ],
+    "improvements": []
+   },
+   "y49_he_word2016.pdf": {
+    "pages": [
+     29,
+     29,
+     28
+    ],
+    "word_recall": [
+     0.6076,
+     0.6076
+    ],
+    "within2pt": [
+     0.0072,
+     0.0072
+    ],
+    "dy_p50": [
+     15.48,
+     15.47
+    ],
+    "doc_recall": [
+     0.8974,
+     0.8974
+    ],
+    "mean_ssim": [
+     0.5214,
+     0.5214
+    ],
+    "regressions": [],
+    "improvements": []
+   },
+   "y55_th_pages_quartz.pdf": {
+    "pages": [
+     3,
+     3,
+     3
+    ],
+    "word_recall": [
+     0.8374,
+     0.8577
+    ],
+    "within2pt": [
+     0.0583,
+     0.0711
+    ],
+    "dy_p50": [
+     17.87,
+     17.56
+    ],
+    "doc_recall": [
+     0.8374,
+     0.8577
+    ],
+    "mean_ssim": [
+     0.6907,
+     0.6919
+    ],
+    "regressions": [],
+    "improvements": [
+     "word_recall 0.8374->0.8577",
+     "doc_recall 0.8374->0.8577"
+    ]
+   }
+  },
+  "agreement_with_word_product": {
+   "documents_with_word_row": 90,
+   "changed": {
+    "y01_nist_sp80063b.pdf": {
+     "before": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0018,
+      "abs_within2pt_gap": 0.0114
+     },
+     "after": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0018,
+      "abs_within2pt_gap": 0.0131
+     }
+    },
+    "y02_nist_sp800171r2.pdf": {
+     "before": {
+      "pages_equal": false,
+      "abs_word_recall_gap": 0.106,
+      "abs_within2pt_gap": 0.0079
+     },
+     "after": {
+      "pages_equal": false,
+      "abs_word_recall_gap": 0.1068,
+      "abs_within2pt_gap": 0.1467
+     }
+    },
+    "y08_nist_sp80088r1.pdf": {
+     "before": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0021,
+      "abs_within2pt_gap": 0.0009
+     },
+     "after": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0021,
+      "abs_within2pt_gap": 0.0027
+     }
+    },
+    "y17_rfc9110.pdf": {
+     "before": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0004,
+      "abs_within2pt_gap": 0.0
+     },
+     "after": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0004,
+      "abs_within2pt_gap": 0.0097
+     }
+    },
+    "y20_typst_report.pdf": {
+     "before": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0,
+      "abs_within2pt_gap": 0.048
+     },
+     "after": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0,
+      "abs_within2pt_gap": 0.3985
+     }
+    },
+    "y21_worldbank_wdr24.pdf": {
+     "before": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0133,
+      "abs_within2pt_gap": 0.0044
+     },
+     "after": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0132,
+      "abs_within2pt_gap": 0.0036
+     }
+    },
+    "y27_rfc9000.pdf": {
+     "before": {
+      "pages_equal": false,
+      "abs_word_recall_gap": 0.0867,
+      "abs_within2pt_gap": 0.0075
+     },
+     "after": {
+      "pages_equal": false,
+      "abs_word_recall_gap": 0.0868,
+      "abs_within2pt_gap": 0.0132
+     }
+    },
+    "y30_nz_guideline_word365.pdf": {
+     "before": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0019,
+      "abs_within2pt_gap": 0.2421
+     },
+     "after": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0004,
+      "abs_within2pt_gap": 0.2612
+     }
+    },
+    "y33_nz_paper_powerpdf.pdf": {
+     "before": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0013,
+      "abs_within2pt_gap": 0.2219
+     },
+     "after": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0011,
+      "abs_within2pt_gap": 0.3295
+     }
+    },
+    "y34_census_slides_pptx365.pdf": {
+     "before": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0,
+      "abs_within2pt_gap": 0.4354
+     },
+     "after": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.001,
+      "abs_within2pt_gap": 0.4522
+     }
+    },
+    "y35_uk_rates_excel365.pdf": {
+     "before": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0,
+      "abs_within2pt_gap": 0.0324
+     },
+     "after": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0,
+      "abs_within2pt_gap": 0.0364
+     }
+    },
+    "y46_cv_twocol_xdvipdfmx.pdf": {
+     "before": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0,
+      "abs_within2pt_gap": 0.0915
+     },
+     "after": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0,
+      "abs_within2pt_gap": 0.0101
+     }
+    },
+    "y47_ar_ilo_word365.pdf": {
+     "before": {
+      "pages_equal": false,
+      "abs_word_recall_gap": 0.0291,
+      "abs_within2pt_gap": 0.0048
+     },
+     "after": {
+      "pages_equal": false,
+      "abs_word_recall_gap": 0.0311,
+      "abs_within2pt_gap": 0.0046
+     }
+    },
+    "y49_he_word2016.pdf": {
+     "before": {
+      "pages_equal": false,
+      "abs_word_recall_gap": 0.2866,
+      "abs_within2pt_gap": 0.0174
+     },
+     "after": {
+      "pages_equal": false,
+      "abs_word_recall_gap": 0.2866,
+      "abs_within2pt_gap": 0.0174
+     }
+    },
+    "y55_th_pages_quartz.pdf": {
+     "before": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0569,
+      "abs_within2pt_gap": 0.0401
+     },
+     "after": {
+      "pages_equal": true,
+      "abs_word_recall_gap": 0.0366,
+      "abs_within2pt_gap": 0.0529
+     }
+    }
+   },
+   "before": {
+    "pages_equal_word": 73,
+    "mean_abs_word_recall_gap": 0.0355,
+    "mean_abs_within2pt_gap": 0.0366
+   },
+   "after": {
+    "pages_equal_word": 73,
+    "mean_abs_word_recall_gap": 0.0353,
+    "mean_abs_within2pt_gap": 0.0432
+   }
+  }
+ },
+ "fonts_py_check": "exactdoc reads no installed font: fonts.py tables, _clone_widths, NATURAL_FACTORS and map_font/writer_family/metric_fit are static. Carlito's presence changes no mapping; proven by the raw lane's 90/90 byte-identical word/*.xml. The fonts.py docstrings that say Calibri/Cambria render as FreeSerif in the gate become stale at the switch.",
+ "y02": "NIST SP 800-171r2 (82% Calibri). Raw: pages 120 -> 118 of 114, word_recall 0.3033 -> 0.7410 (Word raw 0.7408), within2pt 0.0482 -> 0.1904, dy_p50 34.94 -> 9.38; page 5 leaves the worst-page list. Product: pages 114 -> 114, within2pt 0.1746 -> 0.3292, dy_p50 2.97 -> 1.97. The specific cover 'Date updated' spill and p3 title wrap were not inspected page by page."
+}
