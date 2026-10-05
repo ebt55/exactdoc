@@ -44,8 +44,14 @@ one verified fix at a time, each gated against the frozen 16.
   recall 0.486 -> 0.993, within-2pt 0.087 -> 0.159. Google Docs is not
   changed by proxy evidence: y33's Docs onset (p2) is its page-background
   pictures, stacked in the flow because the gdocs profile has no `anchored`
-  capability; a probe set (with and without those backgrounds anchored)
-  awaits a live pass. Tests: `tests/test_question_panels.py`.
+  capability. Live, the probe with those backgrounds anchored behind the
+  text read y33 60 for 60 pages (word recall 0.271 -> 0.992, within-2pt
+  0.314, SSIM 0.61 -> 0.74), so under the gdocs profile's
+  `anchor_pictures` a picture the text is set on that spans the paper's
+  width (>= 0.97, `PAGE_BACKGROUND_WIDTH_FRAC`) now leaves the flow for
+  its page position, behind the text (WP27b); the standard profile is
+  unchanged. Tests: `tests/test_question_panels.py`,
+  `tests/test_page_backgrounds.py`.
 
 - **WP19b's live flight, read line by line (WP24).** Probe 3 flew WP19b on
   all 62 promised documents; Google's exports, aligned with the sources
