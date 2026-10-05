@@ -20,6 +20,100 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **WP19b's live flight, read line by line (WP24).** Probe 3 flew WP19b on
+  all 62 promised documents; Google's exports, aligned with the sources
+  baseline by baseline (`docs/evidence/gdocs-2026-10-06-wp24-offline.json`),
+  say what its blockers were:
+  - The "uniform 2-3pt offset" on 03, 04, x15, r1 and x13 is the metric's
+    reference point, not placement: the harness scores a word's box top,
+    and MuPDF draws an unembedded Helvetica's 1.075 em above the baseline
+    where Docs' Arial says 0.905. Scored at the baseline, WP19b raised them
+    (03 0.356 -> 0.457, 04 0.218 -> 0.547, x15 0.310 -> 0.934, r1 0.135 ->
+    0.679, x13 0.343 -> 0.625) as the harness's numbers fell.
+  - A page the line model cannot add up (columns, a column break) got the
+    corrected line heights without the moves: y46 1 -> 2 pages, 02's
+    columns 0.647 -> 0.114 at the baseline. Such a page is written in the
+    shipped form again, byte for byte (`WriteCtx.gdocs_calibrated`;
+    `GDOCS_UNMODELLED_SHIPPED`, which the probe flies both ways for y12).
+  - A data table stands taller in Docs than the source -- first line
+    +1.23pt (n=53), +0.68 a row (n=70), the line after +0.93 (n=33) -- and
+    nothing paid it, so every line under a five-row table sat ~5pt low (01,
+    x04, f1, r1, x13, x10). Its spacer pays its top, the gaps under it the
+    rest. The cover page's rules and pictures pay their excess (01's body
+    sat 2.9pt low under one); a quote's space after rides on the next gap
+    (04's heading 6.5pt high); a re-wrap the width tables cannot see
+    (Cyrillic, Greek) gives no line to the gap under it (x06 stepped down
+    14.5, 28.8 and 43.4pt); a box standing past the column keeps its widest
+    line's room (03's warning box, one line set as two).
+
+  Replayed against the probe-3 exports (lines within 2pt of the source
+  baseline, an estimate; the live probe decides): 01 0.424 -> 0.970, 04
+  0.857 -> 1.000, x04 0.290 -> 1.000, x06 0.565 -> 1.000, f1 0.750 -> 1.000,
+  r1 0.667 -> 0.905, x13 0.677 -> 0.984, x10 0.207 -> 0.828, c1 0.571 ->
+  0.857. y46 and c2 are again identical to integration.
+
+  Flown live (`docs/evidence/gdocs-2026-10-06-wp24-live.json`): every short
+  document flown page-exact; mean within-2pt 0.278 -> 0.462 and SSIM
+  0.828 -> 0.887 over the first 15 (x03 0.288 -> 1.000, c6 0.341 -> 0.899,
+  c8 0.098 -> 0.850, x04 0.271 -> 0.513, x10 0.022 -> 0.280, c1 0.154 ->
+  0.376); 03, 04, r1, x13 and x15 lose harness within-2pt as their SSIM
+  rises (the reference point above); y03 50 -> 47 pages (word recall 0.577
+  -> 0.849). Two decisions from it:
+  - **`anchor_pictures` granted to gdocs**: WP23's pictures on a line,
+    wrapped or in a margin, anchored without the rest of `anchored`. Docs
+    keeps them where they are put: y01 81 -> 80 pages for 80 (word recall
+    0.409 -> 0.962), y28 22 -> 21 for 21 (0.396 -> 0.990), the synthetic set
+    (`testkit/gdocs_probe_anchors.py`) 6 -> 5 for 5.
+  - **Unmodelled pages, per page**: all shipped, y12 took 71 pages for 59
+    (criterion 6 fails); all calibrated, 69, but y46 went 1 -> 2. A page
+    whose columns leave less than a body line free is written calibrated --
+    the shipped form's lines run ~0.5% tall in Docs, which a full column
+    cannot absorb -- and any other keeps the shipped form
+    (`_gdocs_unmodelled_tight`; y46 26pt spare, 02 21, c2 197). Flown next
+    (variant wp24d).
+
+  The standard profile is byte-identical on all 90 convertible documents;
+  gate PASS in both lanes at the recorded numbers.
+
+- **Google Docs sets every line where the source drew it: Docs' own line
+  placement on every page, the box and quote gaps it dropped, the page-top
+  holder on (WP19b).** WP19 calibrated only pages at risk, because the
+  shipped form's errors cancel on pages that fit. Google's own exports of the
+  probe-1 documents, aligned line by line with the sources
+  (`docs/evidence/gdocs-2026-10-05-wp19b-offline.json`), say what cancelled:
+  - Docs sets a paragraph's first baseline (ascent + gap) x size below its
+    top, all of the leading's extra below it; infer anchored every gap in
+    Word terms, the extra above. The error changes wherever the leading
+    does: heading -> body -2.50pt median, body -> heading +2.09, body ->
+    list +1.86 over 1,268 boundaries; with the model the residual is 0.00
+    (p10 -0.06, p90 +0.09). Every gap is now moved by it
+    (`_gdocs_baseline_gaps`), from the source's own page top where infer
+    clamped a first gap (x07, x08: 3.69pt), under a first line's tallest run.
+  - A quote or callout box in the paragraph form never wrote the table's
+    gap: c1's callouts sat 9.9 and 9.4pt high (the "-9.7pt" its lines' drift
+    had cancelled), y02's notice boxes 21-25pt. The gap is written, and a
+    box's border spaces follow Docs' border model (width outside the
+    padding; y02's boxes within 0.3pt; 01's 3pt-bordered boxes set the text after them 5.9pt low).
+  - Lever [E]'s 0.38pt shave on one-line paragraphs left each 0.39pt short
+    of the source in Docs (248 boundaries); it is gone.
+
+  The planner models all of that, predicts a soft-broken paragraph a line
+  at a time with its indentation (y26's code listings were 2-5 lines short),
+  may spend a table's spacer, and pays a page its spacing brings within a
+  body line of fitting. `GDOCS_PAGE_TOP_HOLDER` is on: probe 2's wp19h
+  variant raised within-2pt on all eight documents at the same page counts
+  (y19's median offset 24.3 -> 11.5pt).
+
+  Replayed against the exports (lines within 2pt, an offline estimate; the
+  live probe decides): probe 1 -> now c1 0.214 -> 0.714, 01 0.439 -> 0.788,
+  x05 0.200 -> 1.000, x09 0.088 -> 0.971, y19 0.002 -> 0.882, y26 0.035 ->
+  0.519; the shipped form -> now x02 0.923 -> 1.000, 04 0.381 -> 0.810, c1
+  0.321 -> 0.643, y35 0.175 -> 0.866, but 01 0.455 -> 0.424 (its striped
+  table still grows 0.75pt a row in Docs, and its post-rule body sits 1pt
+  low). Pages replayed against probe 2's exports: 14 lost -> 14,
+  y26's page 77 recovered (its first loss moves from page 77 to 172). The
+  standard profile is byte-identical for all 90 convertible documents.
+
 - **Beta criteria 8 and 12 (WP28).** *Criterion 8* (no document worse than
   the accepted wp18-m2 sweep) failed on two documents; both bisect to WP22
   (aeb98fb; every merge from 92c542c to 738bd2e measured the accepted values).
