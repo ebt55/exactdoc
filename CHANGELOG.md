@@ -43,6 +43,62 @@ one verified fix at a time, each gated against the frozen 16.
   the product and Word lanes are not yet measured
   (`docs/evidence/pagefit-2026-10-06.json`).
 
+- **Beta criteria 8 and 12 (WP28).** *Criterion 8* (no document worse than
+  the accepted wp18-m2 sweep) failed on two documents; both bisect to WP22
+  (aeb98fb; every merge from 92c542c to 738bd2e measured the accepted values).
+  y61's dy_p50 33.33 -> 39.04 was real: WP22's opening-marker rule glued a
+  column-1 bullet onto line 11 of a block welded across the three-column
+  Federal Register page, and the bullet's 69pt of column flow went with it.
+  That rule now glues only to a line that opens its own block, the run-in
+  shape it was written for (all 304 of y18's fires land on a one-line block;
+  `_has_item_beside(opens_block=True)`). Raw sweep, 90 documents against
+  the checkpoint: y61 alone moves (dy_p50 39.04 -> 33.33, word recall
+  0.4026 -> 0.4012, both the accepted values); `word/*.xml` identical for
+  the other 89, and for all gdocs-profile DOCX but y61. Product, y61 only:
+  6 pages either way, dy_p50 43.02 -> 45.20 (within tolerance), word recall
+  0.4378 -> 0.4380. Gate PASS in both lanes (1587 tests). y26's doc recall
+  0.9924 -> 0.9712 is the scorer counting leader dots as words: its render
+  has 2,269 fewer "." tokens (21,081 -> 18,812), the dots WP22 trims so a
+  contents entry fits before its number's right tab; no prose token is lost,
+  and y26 went 216 -> 213 pages for 214 with word recall 0.924 -> 0.953. Left
+  for the scorer decision (WP29), so criterion 8 now fails by that one.
+  *Criterion 12* passes: the README's numbers are refreshed from the
+  checkpoint and each cites its file. A stale 2026-09-11 NIST sweep
+  (12-22% more pages; now page for page) and the first live Docs sweep (26
+  of 73 page-exact; now 57 of 90) are replaced, the Word/LibreOffice counts
+  (65 and 69 of 90), the gate's within-2pt (72%, baseline 64%) and the
+  not-yet captions are current, and the README says long documents are not
+  yet at the bar (11, 15 and 10 of the 17 needed)
+  ([evidence](docs/evidence/checkpoint-2026-10-05-lo-sweeps.json),
+  [WP28](docs/evidence/wp28-2026-10-06.json)).
+
+- **A table cut by a page break stays a table (WP26).** The pandoc manual
+  (y24) sets its defaults-file tables as LaTeX longtables: a table at a page
+  foot has its head rule and mid rule but no closing rule, and the next page
+  restates the head. Two rules alone were never a table, so p43's, p44's and
+  p45's cut tables went to the flow as tabbed paragraphs under a lone rule;
+  and p45's 33-row continuation was refused by `_cells_hold_lines`, which
+  charged a right-set cell line's indent twice (once as the cell pad, once
+  as the indent the writer de-pads), so its two columns were read as a
+  two-column page, out of order -- and from p46 on the document sat a page
+  late. Now a head pair whose body runs, inside the rules' ends, to the
+  foot of the page, with the next page opening on a rule of the same length
+  before any text, is a table ending half a row-gap under its last line
+  (`_open_foot`; `build_rules_table(bottom=)`), and the hold test charges a
+  right- or centre-set line `max(indent, pad)`. Each page keeps its own
+  table and its own head, as the source draws them. LibreOffice raw, 90
+  documents against the checkpoint: only y24 changes (the other 89 DOCX are
+  byte-identical in word/*.xml) -- 181 -> 180 pages, word recall 0.549 ->
+  0.994, char recall 0.801 -> 1.000, within-2pt 0.175 -> 0.177; criterion 5
+  in LibreOffice 11/21 -> 12/21. Product: y24 180 = 180, within-2pt 0.204 ->
+  0.210. Word raw DOCX: 181 -> 180 (0.547 -> 0.987); Word product DOCX 180
+  = 180, within-2pt 0.193 -> 0.200. Gated: unchanged in both gate lanes;
+  c3, x04, x10 byte-identical under the standard and gdocs profiles. A
+  95-document survey found the rule firing on y24 alone (pp. 43, 44, 45).
+  Google Docs is to be flown (probe set prepared; the LibreOffice proxy of
+  the same gdocs DOCX goes 181 -> 180).
+  (`docs/evidence/wp26-cut-tables-2026-10-06.json`)
+
 - **The product profile meets the beta's time bar, byte for byte (WP20c).**
   The refine loop no longer reads the source PDF a second time: the parse
   hands it the source's text lines from its own PDFium reading
