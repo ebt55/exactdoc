@@ -1,0 +1,1543 @@
+{
+ "schema": 1,
+ "date": "2026-10-05",
+ "inputs": {
+  "flown": "C:/lotmp/gds2c1/out (2c1c68f gdocs DOCX + Google's PDF export), 68 documents",
+  "wp18": "C:/lotmp/wp18live (92c542c), 6 documents",
+  "method": "source words aligned to Docs words page by page (difflib, anchored on unique 3-grams); every element of every source page located in Docs; its height compared with the writer's own model (capture.py hooks _absorb_page_spill: predicted lines, gaps, element heights, the writer's spill prediction)"
+ },
+ "lost_pages_ordinary_2c1c68f": [
+  {
+   "class": "gap:decorative-tail",
+   "pages": 98,
+   "docs": 5,
+   "first_loss_in": 2
+  },
+  {
+   "class": "model over budget, absorber refused (>2 lines)",
+   "pages": 62,
+   "docs": 12,
+   "first_loss_in": 5
+  },
+  {
+   "class": "no prediction (other): picture",
+   "pages": 61,
+   "docs": 4,
+   "first_loss_in": 1
+  },
+  {
+   "class": "model at/over budget, not absorbed",
+   "pages": 33,
+   "docs": 12,
+   "first_loss_in": 4
+  },
+  {
+   "class": "skip:multicol",
+   "pages": 29,
+   "docs": 10,
+   "first_loss_in": 5
+  },
+  {
+   "class": "gap:blank",
+   "pages": 22,
+   "docs": 10,
+   "first_loss_in": 0
+  },
+  {
+   "class": "no prediction (other): spacing",
+   "pages": 21,
+   "docs": 5,
+   "first_loss_in": 1
+  },
+  {
+   "class": "Docs error > predicted slack: wrap",
+   "pages": 12,
+   "docs": 6,
+   "first_loss_in": 2
+  },
+  {
+   "class": "no prediction (other): table",
+   "pages": 10,
+   "docs": 3,
+   "first_loss_in": 1
+  },
+  {
+   "class": "gap:picture-alone",
+   "pages": 9,
+   "docs": 5,
+   "first_loss_in": 1
+  },
+  {
+   "class": "no prediction (other): wrap",
+   "pages": 9,
+   "docs": 4,
+   "first_loss_in": 0
+  },
+  {
+   "class": "Docs error > predicted slack: pitch",
+   "pages": 8,
+   "docs": 3,
+   "first_loss_in": 0
+  },
+  {
+   "class": "no prediction (fonts): pitch",
+   "pages": 6,
+   "docs": 1,
+   "first_loss_in": 0
+  },
+  {
+   "class": "no prediction (fonts): wrap",
+   "pages": 5,
+   "docs": 3,
+   "first_loss_in": 1
+  },
+  {
+   "class": "Docs error > predicted slack: rule",
+   "pages": 5,
+   "docs": 1,
+   "first_loss_in": 0
+  },
+  {
+   "class": "gap:untexted-tail",
+   "pages": 4,
+   "docs": 3,
+   "first_loss_in": 0
+  },
+  {
+   "class": "no prediction (fonts): rule",
+   "pages": 4,
+   "docs": 1,
+   "first_loss_in": 0
+  },
+  {
+   "class": "no prediction (other): rule",
+   "pages": 4,
+   "docs": 2,
+   "first_loss_in": 0
+  },
+  {
+   "class": "Docs error > predicted slack: table",
+   "pages": 3,
+   "docs": 3,
+   "first_loss_in": 1
+  },
+  {
+   "class": "Docs error > predicted slack: page-top",
+   "pages": 3,
+   "docs": 2,
+   "first_loss_in": 0
+  },
+  {
+   "class": "Docs error > predicted slack: picture",
+   "pages": 3,
+   "docs": 3,
+   "first_loss_in": 0
+  },
+  {
+   "class": "no prediction (other): none",
+   "pages": 3,
+   "docs": 2,
+   "first_loss_in": 0
+  },
+  {
+   "class": "Docs error > predicted slack: spacing",
+   "pages": 2,
+   "docs": 2,
+   "first_loss_in": 0
+  },
+  {
+   "class": "no prediction (fonts): table",
+   "pages": 2,
+   "docs": 1,
+   "first_loss_in": 0
+  },
+  {
+   "class": "no prediction (fonts): spacing",
+   "pages": 2,
+   "docs": 2,
+   "first_loss_in": 1
+  },
+  {
+   "class": "Docs error > predicted slack: none",
+   "pages": 2,
+   "docs": 1,
+   "first_loss_in": 0
+  },
+  {
+   "class": "no prediction (fonts): none",
+   "pages": 2,
+   "docs": 1,
+   "first_loss_in": 0
+  },
+  {
+   "class": "no prediction (other): pitch",
+   "pages": 2,
+   "docs": 2,
+   "first_loss_in": 1
+  },
+  {
+   "class": "no prediction (fonts): page-top",
+   "pages": 1,
+   "docs": 1,
+   "first_loss_in": 0
+  },
+  {
+   "class": "no prediction (fonts): picture",
+   "pages": 1,
+   "docs": 1,
+   "first_loss_in": 0
+  }
+ ],
+ "lost_pages_fine_2c1c68f": {
+  "model-over(unabsorbed):layout": 16,
+  "gap:picture-alone": 9,
+  "unpredicted[other]:wrap": 9,
+  "model-over(refused):stacked-pictures": 7,
+  "unpredicted[other]:picture": 61,
+  "docs-error:wrap": 11,
+  "model-over(refused):layout": 22,
+  "docs-error:table": 3,
+  "unpredicted[other]:spacing": 21,
+  "model-over(refused):re-wrap": 33,
+  "docs-error:pitch": 5,
+  "docs-error:spacing": 1,
+  "gap:decorative-tail": 98,
+  "model-over(unabsorbed):re-wrap": 13,
+  "unpredicted[other]:table": 10,
+  "model-over(unabsorbed):stacked-pictures": 4,
+  "skip:multicol": 29,
+  "gap:untexted-tail": 4,
+  "kwn/widow:pitch": 3,
+  "gap:blank": 22,
+  "kwn/widow:page-top": 3,
+  "unpredicted[fonts]:wrap": 5,
+  "unpredicted[fonts]:rule": 4,
+  "unpredicted[fonts]:page-top": 1,
+  "unpredicted[fonts]:pitch": 6,
+  "docs-error:picture": 3,
+  "unpredicted[fonts]:picture": 1,
+  "unpredicted[other]:none": 3,
+  "kwn/widow:wrap": 1,
+  "kwn/widow:rule": 2,
+  "docs-error:rule": 3,
+  "unpredicted[other]:rule": 4,
+  "unpredicted[fonts]:table": 2,
+  "unpredicted[fonts]:spacing": 2,
+  "kwn/widow:none": 2,
+  "unpredicted[fonts]:none": 2,
+  "unpredicted[other]:pitch": 2,
+  "kwn/widow:spacing": 1
+ },
+ "lost_pages_wp18_live": [
+  {
+   "class": "no prediction (fonts): pitch",
+   "pages": 8,
+   "docs": 1,
+   "first_loss_in": 1
+  },
+  {
+   "class": "no prediction (fonts): rule",
+   "pages": 5,
+   "docs": 1,
+   "first_loss_in": 0
+  },
+  {
+   "class": "gap:blank",
+   "pages": 5,
+   "docs": 2,
+   "first_loss_in": 1
+  },
+  {
+   "class": "no prediction (fonts): wrap",
+   "pages": 3,
+   "docs": 1,
+   "first_loss_in": 0
+  },
+  {
+   "class": "gap:decorative-tail",
+   "pages": 2,
+   "docs": 1,
+   "first_loss_in": 0
+  },
+  {
+   "class": "model at/over budget, not absorbed",
+   "pages": 1,
+   "docs": 1,
+   "first_loss_in": 1
+  },
+  {
+   "class": "no prediction (fonts): page-top",
+   "pages": 1,
+   "docs": 1,
+   "first_loss_in": 0
+  }
+ ],
+ "per_document": {
+  "x01_lo_memo_pageno": {
+   "src": 3,
+   "docs": 3,
+   "match": 1.0,
+   "classes": {}
+  },
+  "x02_lo_report_toc": {
+   "src": 4,
+   "docs": 4,
+   "match": 1.0,
+   "classes": {}
+  },
+  "x03_lo_lists_nested": {
+   "src": 2,
+   "docs": 2,
+   "match": 1.0,
+   "classes": {}
+  },
+  "x04_lo_tables_plain": {
+   "src": 1,
+   "docs": 1,
+   "match": 1.0,
+   "classes": {}
+  },
+  "x05_lo_quotes_notes": {
+   "src": 1,
+   "docs": 1,
+   "match": 1.0,
+   "classes": {}
+  },
+  "x06_lo_euro_scripts": {
+   "src": 1,
+   "docs": 1,
+   "match": 1.0,
+   "classes": {}
+  },
+  "x07_chrome_memo_running": {
+   "src": 3,
+   "docs": 3,
+   "match": 0.991,
+   "classes": {}
+  },
+  "x08_chrome_print_default": {
+   "src": 2,
+   "docs": 2,
+   "match": 1.0,
+   "classes": {}
+  },
+  "x09_chrome_lists_nested": {
+   "src": 2,
+   "docs": 2,
+   "match": 1.0,
+   "classes": {}
+  },
+  "x10_chrome_tables_plain": {
+   "src": 2,
+   "docs": 2,
+   "match": 1.0,
+   "classes": {}
+  },
+  "x11_chrome_toc_headings": {
+   "src": 2,
+   "docs": 2,
+   "match": 1.0,
+   "classes": {}
+  },
+  "x12_chrome_euro_scripts": {
+   "src": 1,
+   "docs": 1,
+   "match": 1.0,
+   "classes": {}
+  },
+  "x13_rl_report_running": {
+   "src": 2,
+   "docs": 2,
+   "match": 1.0,
+   "classes": {}
+  },
+  "x14_rl_statement_lines": {
+   "src": 1,
+   "docs": 1,
+   "match": 1.0,
+   "classes": {}
+  },
+  "x15_rl_handbook_toc": {
+   "src": 3,
+   "docs": 3,
+   "match": 1.0,
+   "classes": {}
+  },
+  "x16_fpdf_bulletin": {
+   "src": 1,
+   "docs": 1,
+   "match": 1.0,
+   "classes": {}
+  },
+  "x17_resume_twocol": {
+   "src": 2,
+   "docs": 2,
+   "match": 0.89,
+   "classes": {}
+  },
+  "x18_resume_twocol_tnr": {
+   "src": 2,
+   "docs": 2,
+   "match": 0.888,
+   "classes": {}
+  },
+  "y01_nist_sp80063b": {
+   "src": 80,
+   "docs": 90,
+   "match": 0.988,
+   "classes": {
+    "model at/over budget, not absorbed": 1,
+    "gap:picture-alone": 1,
+    "no prediction (other): wrap": 1,
+    "model over budget, absorber refused (>2 lines)": 5,
+    "no prediction (other): picture": 1,
+    "Docs error > predicted slack: wrap": 1
+   }
+  },
+  "y02_nist_sp800171r2": {
+   "src": 114,
+   "docs": 124,
+   "match": 0.971,
+   "classes": {
+    "Docs error > predicted slack: table": 1,
+    "no prediction (other): spacing": 4,
+    "model over budget, absorber refused (>2 lines)": 5
+   }
+  },
+  "y03_nist_fips197": {
+   "src": 46,
+   "docs": 62,
+   "match": 0.923,
+   "classes": {
+    "model over budget, absorber refused (>2 lines)": 2,
+    "no prediction (other): wrap": 1,
+    "Docs error > predicted slack: pitch": 1,
+    "no prediction (other): spacing": 1,
+    "Docs error > predicted slack: spacing": 1,
+    "gap:decorative-tail": 1,
+    "model at/over budget, not absorbed": 4,
+    "no prediction (other): table": 5
+   }
+  },
+  "y08_nist_sp80088r1": {
+   "src": 65,
+   "docs": 67,
+   "match": 0.996,
+   "classes": {
+    "model at/over budget, not absorbed": 1,
+    "gap:picture-alone": 1
+   }
+  },
+  "y09_nist_sp800207": {
+   "src": 59,
+   "docs": 60,
+   "match": 0.987,
+   "classes": {
+    "gap:picture-alone": 1
+   }
+  },
+  "y10_nist_fips180": {
+   "src": 36,
+   "docs": 43,
+   "match": 0.903,
+   "classes": {
+    "model at/over budget, not absorbed": 2,
+    "model over budget, absorber refused (>2 lines)": 1,
+    "skip:multicol": 1,
+    "gap:untexted-tail": 1,
+    "Docs error > predicted slack: pitch": 2,
+    "gap:blank": 1
+   }
+  },
+  "y12_irs_pub15": {
+   "src": 59,
+   "docs": 72,
+   "match": 0.646,
+   "classes": {
+    "skip:multicol": 10,
+    "gap:blank": 2,
+    "Docs error > predicted slack: page-top": 1
+   }
+  },
+  "y17_rfc9110": {
+   "src": 194,
+   "docs": 272,
+   "match": 0.999,
+   "classes": {
+    "gap:decorative-tail": 58,
+    "no prediction (fonts): wrap": 3,
+    "no prediction (fonts): rule": 4,
+    "Docs error > predicted slack: page-top": 2,
+    "gap:blank": 3,
+    "gap:untexted-tail": 1,
+    "no prediction (fonts): page-top": 1,
+    "no prediction (fonts): pitch": 6
+   }
+  },
+  "y18_eurlex_ai_act": {
+   "src": 144,
+   "docs": 260,
+   "match": 0.997,
+   "classes": {
+    "model over budget, absorber refused (>2 lines)": 30,
+    "no prediction (other): picture": 54,
+    "model at/over budget, not absorbed": 11,
+    "gap:decorative-tail": 12,
+    "Docs error > predicted slack: picture": 1,
+    "no prediction (other): wrap": 6,
+    "gap:blank": 2
+   }
+  },
+  "y19_scotus_loper": {
+   "src": 114,
+   "docs": 114,
+   "match": 0.954,
+   "classes": {}
+  },
+  "y20_typst_report": {
+   "src": 5,
+   "docs": 5,
+   "match": 1.0,
+   "classes": {}
+  },
+  "y21_worldbank_wdr24": {
+   "src": 48,
+   "docs": 53,
+   "match": 0.672,
+   "classes": {
+    "no prediction (other): spacing": 3,
+    "no prediction (fonts): picture": 1,
+    "no prediction (fonts): wrap": 1,
+    "gap:blank": 3,
+    "no prediction (other): none": 1
+   }
+  },
+  "y22_lshort": {
+   "src": 153,
+   "docs": 190,
+   "match": 0.94,
+   "classes": {
+    "skip:multicol": 5,
+    "Docs error > predicted slack: pitch": 5,
+    "model over budget, absorber refused (>2 lines)": 5,
+    "Docs error > predicted slack: wrap": 6,
+    "no prediction (other): wrap": 1,
+    "Docs error > predicted slack: rule": 5,
+    "model at/over budget, not absorbed": 4,
+    "Docs error > predicted slack: table": 1,
+    "gap:blank": 3,
+    "gap:decorative-tail": 1,
+    "no prediction (other): rule": 1
+   }
+  },
+  "y24_pandoc_manual": {
+   "src": 180,
+   "docs": 184,
+   "match": 0.99,
+   "classes": {
+    "Docs error > predicted slack: wrap": 1,
+    "skip:multicol": 2,
+    "model over budget, absorber refused (>2 lines)": 1
+   }
+  },
+  "y26_bash_reference": {
+   "src": 214,
+   "docs": 219,
+   "match": 0.99,
+   "classes": {
+    "Docs error > predicted slack: wrap": 2,
+    "model at/over budget, not absorbed": 1,
+    "gap:blank": 1,
+    "skip:multicol": 1
+   }
+  },
+  "y27_rfc9000": {
+   "src": 151,
+   "docs": 186,
+   "match": 0.979,
+   "classes": {
+    "gap:decorative-tail": 26,
+    "no prediction (fonts): table": 2,
+    "no prediction (fonts): spacing": 1,
+    "Docs error > predicted slack: none": 2,
+    "gap:blank": 2,
+    "no prediction (fonts): none": 2
+   }
+  },
+  "y28_doe_oig_word365": {
+   "src": 21,
+   "docs": 22,
+   "match": 0.98,
+   "classes": {
+    "no prediction (fonts): spacing": 1
+   }
+  },
+  "y29_uk_letter_word365": {
+   "src": 4,
+   "docs": 4,
+   "match": 1.0,
+   "classes": {}
+  },
+  "y30_nz_guideline_word365": {
+   "src": 33,
+   "docs": 33,
+   "match": 0.982,
+   "classes": {}
+  },
+  "y31_uk_policy_printtopdf": {
+   "src": 18,
+   "docs": 20,
+   "match": 0.981,
+   "classes": {
+    "model at/over budget, not absorbed": 3
+   }
+  },
+  "y32_uk_response_gdocs": {
+   "src": 37,
+   "docs": 37,
+   "match": 0.985,
+   "classes": {}
+  },
+  "y33_nz_paper_powerpdf": {
+   "src": 60,
+   "docs": 76,
+   "match": 0.862,
+   "classes": {
+    "no prediction (other): picture": 2,
+    "gap:blank": 4,
+    "gap:picture-alone": 3,
+    "Docs error > predicted slack: picture": 1,
+    "model at/over budget, not absorbed": 1,
+    "no prediction (other): table": 4,
+    "model over budget, absorber refused (>2 lines)": 1
+   }
+  },
+  "y35_uk_rates_excel365": {
+   "src": 14,
+   "docs": 14,
+   "match": 0.999,
+   "classes": {}
+  },
+  "y36_lo_writer_guide": {
+   "src": 25,
+   "docs": 36,
+   "match": 0.923,
+   "classes": {
+    "no prediction (other): table": 1,
+    "no prediction (other): rule": 3,
+    "no prediction (other): spacing": 2,
+    "model at/over budget, not absorbed": 2,
+    "Docs error > predicted slack: table": 1,
+    "Docs error > predicted slack: wrap": 1,
+    "Docs error > predicted slack: picture": 1
+   }
+  },
+  "y37_plos_one_dvipdfmx": {
+   "src": 22,
+   "docs": 36,
+   "match": 0.843,
+   "classes": {
+    "no prediction (fonts): wrap": 1,
+    "model over budget, absorber refused (>2 lines)": 7,
+    "gap:blank": 1,
+    "gap:untexted-tail": 2,
+    "Docs error > predicted slack: wrap": 1,
+    "skip:multicol": 2
+   }
+  },
+  "y38_elife_arbortext_gs": {
+   "src": 33,
+   "docs": 57,
+   "match": 0.97,
+   "classes": {
+    "model over budget, absorber refused (>2 lines)": 3,
+    "no prediction (other): pitch": 1,
+    "no prediction (other): spacing": 11,
+    "no prediction (other): none": 2,
+    "no prediction (other): picture": 4,
+    "gap:picture-alone": 3
+   }
+  },
+  "y39_copernicus_npg_2col": {
+   "src": 11,
+   "docs": 12,
+   "match": 0.619,
+   "classes": {
+    "model over budget, absorber refused (>2 lines)": 1
+   }
+  },
+  "y40_frontiers_dvips_gs": {
+   "src": 10,
+   "docs": 14,
+   "match": 0.647,
+   "classes": {
+    "skip:multicol": 3,
+    "model at/over budget, not absorbed": 1
+   }
+  },
+  "y41_arxiv_ieeetran": {
+   "src": 8,
+   "docs": 11,
+   "match": 0.403,
+   "classes": {
+    "model over budget, absorber refused (>2 lines)": 1
+   }
+  },
+  "y42_arxiv_acmart": {
+   "src": 5,
+   "docs": 7,
+   "match": 0.606,
+   "classes": {
+    "no prediction (other): pitch": 1,
+    "skip:multicol": 1
+   }
+  },
+  "y43_arxiv_neurips": {
+   "src": 15,
+   "docs": 20,
+   "match": 0.952,
+   "classes": {
+    "skip:multicol": 2,
+    "Docs error > predicted slack: spacing": 1,
+    "model at/over budget, not absorbed": 2
+   }
+  },
+  "y44_cv_rendercv_typst": {
+   "src": 3,
+   "docs": 3,
+   "match": 0.994,
+   "classes": {}
+  },
+  "y45_cv_academic_pdftex": {
+   "src": 3,
+   "docs": 3,
+   "match": 1.0,
+   "classes": {}
+  },
+  "y46_cv_twocol_xdvipdfmx": {
+   "src": 1,
+   "docs": 1,
+   "match": 0.812,
+   "classes": {}
+  },
+  "y58_ssa_statement_indd20": {
+   "src": 2,
+   "docs": 4,
+   "match": 0.674,
+   "classes": {
+    "skip:multicol": 2
+   }
+  }
+ },
+ "per_document_wp18": {
+  "y08_nist_sp80088r1": {
+   "src": 65,
+   "docs": 66,
+   "match": 0.996,
+   "classes": {
+    "model at/over budget, not absorbed": 1
+   }
+  },
+  "y17_rfc9110": {
+   "src": 194,
+   "docs": 217,
+   "match": 0.999,
+   "classes": {
+    "no prediction (fonts): pitch": 8,
+    "no prediction (fonts): rule": 5,
+    "gap:decorative-tail": 2,
+    "no prediction (fonts): wrap": 3,
+    "no prediction (fonts): page-top": 1,
+    "gap:blank": 4
+   }
+  },
+  "y30_nz_guideline_word365": {
+   "src": 33,
+   "docs": 33,
+   "match": 0.982,
+   "classes": {}
+  },
+  "y31_uk_policy_printtopdf": {
+   "src": 18,
+   "docs": 18,
+   "match": 0.981,
+   "classes": {
+    "gap:blank": 1
+   }
+  },
+  "y32_uk_response_gdocs": {
+   "src": 37,
+   "docs": 37,
+   "match": 0.985,
+   "classes": {}
+  },
+  "y63_court_pleading_word365": {
+   "src": 5,
+   "docs": 5,
+   "match": 0.931,
+   "classes": {}
+  }
+ },
+ "residuals": {
+  "pitch": {
+   "Times New Roman|11.0|flow": {
+    "n": 1728,
+    "mean": 0.474,
+    "p5": 0.081,
+    "p25": 0.2,
+    "p50": 0.465,
+    "p75": 0.695,
+    "p95": 1.135
+   },
+   "Noto Serif|10.0|flow": {
+    "n": 1580,
+    "mean": 0.02,
+    "p5": 0.015,
+    "p25": 0.02,
+    "p50": 0.02,
+    "p75": 0.02,
+    "p95": 0.025
+   },
+   "Times New Roman|12.0|flow": {
+    "n": 794,
+    "mean": 0.071,
+    "p5": 0.05,
+    "p25": 0.053,
+    "p50": 0.056,
+    "p75": 0.057,
+    "p95": 0.133
+   },
+   "Times New Roman|9.5|flow": {
+    "n": 558,
+    "mean": -0.004,
+    "p5": -0.025,
+    "p25": -0.021,
+    "p50": -0.02,
+    "p75": 0.02,
+    "p95": 0.025
+   },
+   "Carlito|11.0|flow": {
+    "n": 297,
+    "mean": -0.022,
+    "p5": -0.05,
+    "p25": -0.045,
+    "p50": -0.038,
+    "p75": -0.025,
+    "p95": 0.045
+   },
+   "Carlito|10.0|flow": {
+    "n": 166,
+    "mean": -0.029,
+    "p5": -0.052,
+    "p25": -0.042,
+    "p50": -0.034,
+    "p75": -0.028,
+    "p95": 0.04
+   },
+   "Times New Roman|9.0|flow": {
+    "n": 104,
+    "mean": 0.127,
+    "p5": 0.05,
+    "p25": 0.078,
+    "p50": 0.112,
+    "p75": 0.126,
+    "p95": 0.34
+   },
+   "Arial|12.0|flow": {
+    "n": 93,
+    "mean": 0.106,
+    "p5": 0.075,
+    "p25": 0.11,
+    "p50": 0.113,
+    "p75": 0.113,
+    "p95": 0.115
+   },
+   "Arial|11.0|flow": {
+    "n": 75,
+    "mean": 0.068,
+    "p5": 0.047,
+    "p25": 0.053,
+    "p50": 0.055,
+    "p75": 0.055,
+    "p95": 0.214
+   },
+   "Times New Roman|10.0|flow": {
+    "n": 64,
+    "mean": 0.076,
+    "p5": -0.265,
+    "p25": 0.08,
+    "p50": 0.11,
+    "p75": 0.11,
+    "p95": 0.11
+   },
+   "Roboto Mono|9.5|breaks": {
+    "n": 61,
+    "mean": 1.628,
+    "p5": 1.62,
+    "p25": 1.625,
+    "p50": 1.628,
+    "p75": 1.63,
+    "p95": 1.634
+   },
+   "Times New Roman|10.5|flow": {
+    "n": 23,
+    "mean": 0.089,
+    "p5": 0.087,
+    "p25": 0.09,
+    "p50": 0.09,
+    "p75": 0.09,
+    "p95": 0.09
+   },
+   "Carlito|9.0|flow": {
+    "n": 21,
+    "mean": 0.003,
+    "p5": -0.008,
+    "p25": 0.003,
+    "p50": 0.005,
+    "p75": 0.005,
+    "p95": 0.007
+   },
+   "Times New Roman|14.0|flow": {
+    "n": 8,
+    "mean": 0.091,
+    "p5": 0.017,
+    "p25": 0.08,
+    "p50": 0.087,
+    "p75": 0.153,
+    "p95": 0.155
+   },
+   "Times New Roman|8.5|flow": {
+    "n": 7,
+    "mean": 0.057,
+    "p5": 0.055,
+    "p25": 0.055,
+    "p50": 0.057,
+    "p75": 0.06,
+    "p95": 0.06
+   },
+   "Times New Roman|8.0|flow": {
+    "n": 7,
+    "mean": 0.125,
+    "p5": 0.118,
+    "p25": 0.119,
+    "p50": 0.124,
+    "p75": 0.129,
+    "p95": 0.13
+   },
+   "Courier New|10.0|flow": {
+    "n": 6,
+    "mean": 1.847,
+    "p5": 0.03,
+    "p25": 0.04,
+    "p50": 0.605,
+    "p75": 1.11,
+    "p95": 8.735
+   },
+   "Courier New|9.5|breaks": {
+    "n": 6,
+    "mean": 3.514,
+    "p5": 0.165,
+    "p25": 0.165,
+    "p50": 0.167,
+    "p75": 5.187,
+    "p95": 15.235
+   },
+   "Vollkorn|11.0|flow": {
+    "n": 5,
+    "mean": 0.016,
+    "p5": 0.016,
+    "p25": 0.016,
+    "p50": 0.016,
+    "p75": 0.016,
+    "p95": 0.017
+   },
+   "Courier New|11.0|breaks": {
+    "n": 5,
+    "mean": 1.009,
+    "p5": 0.09,
+    "p25": 0.09,
+    "p50": 0.105,
+    "p75": 0.105,
+    "p95": 4.657
+   },
+   "Times New Roman|11.5|flow": {
+    "n": 3,
+    "mean": 0.06,
+    "p5": 0.027,
+    "p25": 0.027,
+    "p50": 0.075,
+    "p75": 0.078,
+    "p95": 0.078
+   },
+   "Arial|8.0|flow": {
+    "n": 3,
+    "mean": 0.043,
+    "p5": 0.04,
+    "p25": 0.04,
+    "p50": 0.043,
+    "p75": 0.045,
+    "p95": 0.045
+   },
+   "Courier New|10.0|breaks": {
+    "n": 2,
+    "mean": 0.048,
+    "p5": 0.047,
+    "p25": 0.047,
+    "p50": 0.048,
+    "p75": 0.048,
+    "p95": 0.048
+   },
+   "Times New Roman|7.0|flow": {
+    "n": 2,
+    "mean": 0.012,
+    "p5": 0.01,
+    "p25": 0.01,
+    "p50": 0.013,
+    "p75": 0.013,
+    "p95": 0.013
+   },
+   "Arial|10.0|flow": {
+    "n": 2,
+    "mean": 0.083,
+    "p5": 0.047,
+    "p25": 0.047,
+    "p50": 0.12,
+    "p75": 0.12,
+    "p95": 0.12
+   },
+   "Arial|38.0|flow": {
+    "n": 2,
+    "mean": 0.18,
+    "p5": 0.177,
+    "p25": 0.177,
+    "p50": 0.182,
+    "p75": 0.182,
+    "p95": 0.182
+   },
+   "Carlito|12.0|flow": {
+    "n": 1,
+    "mean": 0.007,
+    "p5": 0.007,
+    "p25": 0.007,
+    "p50": 0.007,
+    "p75": 0.007,
+    "p95": 0.007
+   },
+   "Carlito|26.0|flow": {
+    "n": 1,
+    "mean": -0.015,
+    "p5": -0.015,
+    "p25": -0.015,
+    "p50": -0.015,
+    "p75": -0.015,
+    "p95": -0.015
+   },
+   "Times New Roman|12.0|breaks": {
+    "n": 1,
+    "mean": 0.058,
+    "p5": 0.058,
+    "p25": 0.058,
+    "p50": 0.058,
+    "p75": 0.058,
+    "p95": 0.058
+   },
+   "Times New Roman|9.0|breaks": {
+    "n": 1,
+    "mean": 0.067,
+    "p5": 0.067,
+    "p25": 0.067,
+    "p50": 0.067,
+    "p75": 0.067,
+    "p95": 0.067
+   },
+   "Courier New|11.0|flow": {
+    "n": 1,
+    "mean": 1.324,
+    "p5": 1.324,
+    "p25": 1.324,
+    "p50": 1.324,
+    "p75": 1.324,
+    "p95": 1.324
+   },
+   "Courier New|9.5|flow": {
+    "n": 1,
+    "mean": 3.235,
+    "p5": 3.235,
+    "p25": 3.235,
+    "p50": 3.235,
+    "p75": 3.235,
+    "p95": 3.235
+   },
+   "Times New Roman|11.0|breaks": {
+    "n": 1,
+    "mean": 0.927,
+    "p5": 0.927,
+    "p25": 0.927,
+    "p50": 0.927,
+    "p75": 0.927,
+    "p95": 0.927
+   },
+   "Courier New|9.0|breaks": {
+    "n": 1,
+    "mean": 0.03,
+    "p5": 0.03,
+    "p25": 0.03,
+    "p50": 0.03,
+    "p75": 0.03,
+    "p95": 0.03
+   },
+   "Carlito|28.0|flow": {
+    "n": 1,
+    "mean": -0.02,
+    "p5": -0.02,
+    "p25": -0.02,
+    "p50": -0.02,
+    "p75": -0.02,
+    "p95": -0.02
+   },
+   "Carlito|7.5|flow": {
+    "n": 1,
+    "mean": -0.09,
+    "p5": -0.09,
+    "p25": -0.09,
+    "p50": -0.09,
+    "p75": -0.09,
+    "p95": -0.09
+   },
+   "Carlito|24.0|flow": {
+    "n": 1,
+    "mean": -0.045,
+    "p5": -0.045,
+    "p25": -0.045,
+    "p50": -0.045,
+    "p75": -0.045,
+    "p95": -0.045
+   },
+   "Carlito|49.0|flow": {
+    "n": 1,
+    "mean": 0.135,
+    "p5": 0.135,
+    "p25": 0.135,
+    "p50": 0.135,
+    "p75": 0.135,
+    "p95": 0.135
+   },
+   "Arial|7.0|flow": {
+    "n": 1,
+    "mean": 0.065,
+    "p5": 0.065,
+    "p25": 0.065,
+    "p50": 0.065,
+    "p75": 0.065,
+    "p95": 0.065
+   },
+   "Arial|9.0|flow": {
+    "n": 1,
+    "mean": 0.155,
+    "p5": 0.155,
+    "p25": 0.155,
+    "p50": 0.155,
+    "p75": 0.155,
+    "p95": 0.155
+   }
+  },
+  "pitch_ratio": {
+   "Times New Roman": {
+    "n": 3301,
+    "mean": 1.02,
+    "p5": 0.998,
+    "p25": 1.004,
+    "p50": 1.01,
+    "p75": 1.036,
+    "p95": 1.068
+   },
+   "Noto Serif": {
+    "n": 1580,
+    "mean": 1.001,
+    "p5": 1.001,
+    "p25": 1.001,
+    "p50": 1.001,
+    "p75": 1.001,
+    "p95": 1.002
+   },
+   "Carlito": {
+    "n": 490,
+    "mean": 0.998,
+    "p5": 0.997,
+    "p25": 0.997,
+    "p50": 0.997,
+    "p75": 0.999,
+    "p95": 1.003
+   },
+   "Arial": {
+    "n": 177,
+    "mean": 1.005,
+    "p5": 1.004,
+    "p25": 1.004,
+    "p50": 1.005,
+    "p75": 1.005,
+    "p95": 1.01
+   },
+   "Roboto Mono": {
+    "n": 61,
+    "mean": 1.153,
+    "p5": 1.152,
+    "p25": 1.153,
+    "p50": 1.153,
+    "p75": 1.153,
+    "p95": 1.154
+   },
+   "Courier New": {
+    "n": 22,
+    "mean": 1.138,
+    "p5": 1.003,
+    "p25": 1.007,
+    "p50": 1.011,
+    "p75": 1.098,
+    "p95": 1.73
+   },
+   "Vollkorn": {
+    "n": 5,
+    "mean": 1.001,
+    "p5": 1.001,
+    "p25": 1.001,
+    "p50": 1.001,
+    "p75": 1.001,
+    "p95": 1.001
+   }
+  },
+  "lead_bias": {
+   "Times New Roman": {
+    "n": 2476,
+    "mean": 0.034,
+    "p5": -0.03,
+    "p25": -0.003,
+    "p50": -0.0,
+    "p75": 0.025,
+    "p95": 0.26
+   },
+   "Noto Serif": {
+    "n": 1580,
+    "mean": 0.007,
+    "p5": 0.0,
+    "p25": -0.0,
+    "p50": 0.0,
+    "p75": 0.0,
+    "p95": 0.003
+   },
+   "Carlito": {
+    "n": 401,
+    "mean": 0.198,
+    "p5": -0.027,
+    "p25": 0.0,
+    "p50": 0.022,
+    "p75": 0.048,
+    "p95": 2.23
+   },
+   "Arial": {
+    "n": 151,
+    "mean": 0.018,
+    "p5": -0.033,
+    "p25": 0.0,
+    "p50": 0.003,
+    "p75": 0.05,
+    "p95": 0.05
+   },
+   "Roboto Mono": {
+    "n": 61,
+    "mean": -0.0,
+    "p5": -0.005,
+    "p25": 0.0,
+    "p50": 0.0,
+    "p75": -0.0,
+    "p95": 0.003
+   },
+   "Courier New": {
+    "n": 15,
+    "mean": -1.624,
+    "p5": -14.91,
+    "p25": -0.052,
+    "p50": -0.005,
+    "p75": 0.0,
+    "p95": 0.15
+   },
+   "Vollkorn": {
+    "n": 5,
+    "mean": -0.334,
+    "p5": -0.982,
+    "p25": -0.7,
+    "p50": 0.003,
+    "p75": 0.004,
+    "p95": 0.004
+   }
+  },
+  "wrap": {
+   "Times New Roman|pred": {
+    "same": 10378,
+    "more": 464,
+    "less": 395
+   },
+   "Noto Serif|nopred": {
+    "less": 130,
+    "same": 3615,
+    "more": 38
+   },
+   "Arial|pred": {
+    "same": 2389,
+    "more": 47,
+    "less": 13
+   },
+   "Carlito|pred": {
+    "same": 1958,
+    "less": 98,
+    "more": 57
+   },
+   "Courier New|pred": {
+    "same": 1632,
+    "more": 376,
+    "less": 12
+   },
+   "Roboto Mono|nopred": {
+    "same": 231,
+    "less": 54,
+    "more": 5
+   },
+   "Ubuntu|nopred": {
+    "same": 9,
+    "less": 3,
+    "more": 3
+   },
+   "Vollkorn|nopred": {
+    "more": 4,
+    "same": 5
+   },
+   "Times New Roman|nopred": {
+    "same": 3,
+    "less": 4
+   },
+   "Roboto|nopred": {
+    "same": 2,
+    "less": 2,
+    "more": 1
+   },
+   "Figtree|nopred": {
+    "same": 3
+   },
+   "Open Sans|nopred": {
+    "same": 3
+   }
+  },
+  "rule (one RuleEl between paras)": {
+   "n": 892,
+   "mean": 3.645,
+   "p5": 1.86,
+   "p25": 2.51,
+   "p50": 2.98,
+   "p75": 4.06,
+   "p95": 14.87
+  },
+  "picture (one image between)": {
+   "n": 136,
+   "mean": -7.343,
+   "p5": -6.411,
+   "p25": 3.6,
+   "p50": 3.88,
+   "p75": 4.619,
+   "p95": 27.101
+  },
+  "table internal (pt/table)": {
+   "n": 263,
+   "mean": 4.781,
+   "p5": -6.04,
+   "p25": -0.02,
+   "p50": 2.01,
+   "p75": 9.61,
+   "p95": 25.06
+  },
+  "table per row": {
+   "n": 263,
+   "mean": 1.177,
+   "p5": -2.51,
+   "p25": -0.02,
+   "p50": 0.516,
+   "p75": 0.88,
+   "p95": 11.26
+  },
+  "single-line para run, no gaps": {
+   "n": 853,
+   "mean": 0.43,
+   "p5": -0.02,
+   "p25": 0.03,
+   "p50": 0.08,
+   "p75": 0.13,
+   "p95": 1.19
+  },
+  "page-top": {
+   "n": 1467,
+   "mean": -11.378,
+   "p5": -25.69,
+   "p25": -17.76,
+   "p50": -3.3,
+   "p75": 0.01,
+   "p95": 0.39
+  },
+  "gap": {
+   "head": {
+    "n": 1535,
+    "mean": -0.084,
+    "p5": -2.27,
+    "p25": -0.58,
+    "p50": 0.06,
+    "p75": 0.61,
+    "p95": 2.51
+   },
+   "body": {
+    "n": 17358,
+    "mean": 0.11,
+    "p5": -1.67,
+    "p25": -0.01,
+    "p50": 0.05,
+    "p75": 0.29,
+    "p95": 2.51
+   },
+   "table-boundary": {
+    "n": 302,
+    "mean": 1.556,
+    "p5": -11.96,
+    "p25": 0.03,
+    "p50": 1.47,
+    "p75": 6.98,
+    "p95": 22.81
+   }
+  }
+ },
+ "findings": {
+  "loss_rate_vs_predicted_slack_pt": [
+   {
+    "slack": "<0",
+    "pages": 137,
+    "lost": 95
+   },
+   {
+    "slack": "0-10",
+    "pages": 28,
+    "lost": 13
+   },
+   {
+    "slack": "10-15",
+    "pages": 38,
+    "lost": 10
+   },
+   {
+    "slack": "15-30",
+    "pages": 82,
+    "lost": 9
+   },
+   {
+    "slack": "30-50",
+    "pages": 198,
+    "lost": 9
+   },
+   {
+    "slack": ">=50",
+    "pages": 893,
+    "lost": 16
+   }
+  ],
+  "page_top_gap_after_pageBreakBefore": {
+   "pages": 1640,
+   "first_line_top_minus_margin_minus_line_pt_median": 0.29,
+   "reading": "Docs drops the first paragraph's space-before after pageBreakBefore; kept on page 1 and after a section break"
+  },
+  "docs_embedded_font_lines": {
+   "rule": "USE_TYPO_METRICS ? typo : max(hhea, win), (asc - desc + gap) / upm",
+   "Roboto Mono": 1.3188,
+   "Roboto": 1.2002,
+   "Open Sans": 1.3618,
+   "Source Code Pro": 1.257,
+   "Figtree": 1.2,
+   "Tahoma": 1.207,
+   "Ubuntu": 1.149,
+   "Arial": 1.1499,
+   "Times New Roman": 1.1499,
+   "Courier New": 1.1328,
+   "Georgia": 1.1362,
+   "Carlito": 1.2207,
+   "Noto Serif": 1.362,
+   "Vollkorn": 1.393
+  },
+  "mixed_lines": {
+   "times_plus_inline_courier": {
+    "doc": "y26_bash_reference",
+    "lines": 918,
+    "measured_em": 1.2332,
+    "formula_em": 1.2339
+   },
+   "small_caps_contents": {
+    "doc": "y10_nist_fips180",
+    "asked_pt": 11.17,
+    "measured_pt": 13.94,
+    "formula": "multiple x 10pt x 1.150 = 13.96"
+   }
+  },
+  "rule_drawn_low_pt": {
+   "rules": 433,
+   "documents": 11,
+   "median": 2.78,
+   "p25": 2.3,
+   "p75": 3.38
+  },
+  "inline_picture_pt": {
+   "above_median": 1.5,
+   "below_median": 2.45,
+   "boundaries": 136,
+   "total_median": 3.9
+  },
+  "lead_bias_note": "residuals.lead_bias (IR median pitch over the source mean, Word grid jitter) is placement inside a paragraph, not page height: infer's baseline-anchored gaps are computed against the same median. Asking for the mean was tried and reverted (f205787).",
+  "zero_width_space": {
+   "words": 990342,
+   "with_u200b": 16526,
+   "source": "tab or soft line break ending a segment"
+  },
+  "replay_predictions_wp19": {
+   "method": "Google's export of the flown DOCX + per-element change in Docs height (wrapped rows kept)",
+   "y18_eurlex_ai_act": [
+    260,
+    161
+   ],
+   "y22_lshort": [
+    190,
+    176
+   ],
+   "y01_nist_sp80063b": [
+    90,
+    84
+   ],
+   "y03_nist_fips197": [
+    62,
+    53
+   ],
+   "y10_nist_fips180": [
+    43,
+    40
+   ],
+   "y36_lo_writer_guide": [
+    36,
+    31
+   ],
+   "y26_bash_reference": [
+    219,
+    217
+   ],
+   "y02_nist_sp800171r2": [
+    124,
+    121
+   ],
+   "y17_rfc9110": [
+    217,
+    202,
+    "before the anchored code-box sides"
+   ]
+  }
+ }
+}

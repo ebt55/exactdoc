@@ -20,6 +20,142 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **The promised documents that broke the beta bar (WP22).** Each fix is
+  for the structure behind the first page that went wrong.
+  *EUR-Lex* (y18):
+  - a marker item's full first line, arriving as a block of its own, takes
+    the rest of the item;
+  - a run-in numbered paragraph ("2." at the margin) is one paragraph;
+  - a rule drawn as abutting segments, split differently on versos and
+    rectos, is signed as one rule. EUR-Lex's head rule is left in the body
+    (measured again: in the header it cost the gdocs DOCX 21 pages).
+  *LibreOffice Writer Guide* (y36):
+  - a recto foot naming the current section is varying furniture, because
+    it carries the folio;
+  - a full lattice of fill tiles in one drawing cluster is one table;
+  - an icon on a band leaves it a box;
+  - a white frame behind a picture is not a box;
+  - an image placed larger than its clip is cropped to what shows
+    (`parse_pdfium._visible_image_box`).
+  *Tables and contents* (y24, y26, y03):
+  - a rule under every row gives one row per band;
+  - same-width rule groups refused by the span bound are cut at their prose
+    and read again only as ruled rows or booktabs heads;
+  - contents numbers beside leadered entries are row ends, not a column;
+  - a spaced leader line with its number is a paragraph with a right stop
+    (its dots stay text);
+  - grids side by side on one band are one table.
+  *Refine*: no page is pushed down while another spills; that push turned
+  y18's 145-page round into 150.
+  LibreOffice raw, final tree against the integration head, all 90 documents,
+  none worse:
+  - y18 240 -> 157 pages (char recall 0.583 -> 0.817);
+  - y36 36 -> 25 (0.465 -> 1.000);
+  - y03 58 -> 53;
+  - y24 185 -> 182 (0.683 -> 0.782);
+  - y26 216 -> 213 (0.976 -> 0.987);
+  - y33 69 -> 62;
+  - page-exact 51 -> 52.
+  Product:
+  - y03 50 -> 46 and y33 63 -> 60, both page-exact;
+  - y36 26 -> 25 (0.788 -> 1.000);
+  - y18 stays 144;
+  - y28 and y40 lose 0.009 and 0.006 char recall at the same page counts.
+  Word: y18 250 -> 160 (measured before the head-rule revert), y36 36 -> 25,
+  y03 64 -> 53.
+  gdocs DOCX rendered by LibreOffice: y18 145 -> 144 (char recall 0.870 ->
+  0.988), y36 28 -> 25, y03 55 -> 51.
+  Gated: unchanged, gate PASS in both lanes.
+  Not fixed: y52 (CJK line packing, which the WP2 footers no longer hide)
+  and y24's p44-45 tables cut by page breaks.
+  Google Docs is to be flown live (probe set prepared).
+
+- **Microsoft Word is measured, and four Word-only differences are fixed
+  (WP21).** `testkit/word_oracle.py` renders DOCX through desktop Word
+  (16.0.20430, Office 2024) over COM and scores the render like the live
+  Docs sweep; Windows only, never gating, and careful with the owner's Word
+  (its own proven instance only, read-only, alerts and macros off, hard
+  timeouts, a dialog stops the sweep). Rendering the canonical lanes' own
+  DOCX, Word was close to LibreOffice from the start -- raw page-exact 49
+  against 51 of 93, product 58 against 62 -- and differed in four places,
+  each now written in markup both read alike. *Table edges*: Word 2010
+  layout hangs a row left of `tblInd` by its first cell's margin,
+  LibreOffice by the table default; the first column's pad is now the
+  default and part of the indent (`_lead_pad`), and a border hanging left of
+  its text column is kept (`TableEl.hang_left`). Word within-2pt c1 0.612 ->
+  0.873, c7 0.443 -> 0.892; LibreOffice c3 0.000 -> 0.797. *Restarts under
+  odd/even headers*: Word inserts a blank page before a section restarting
+  at its predecessor's parity (y19 115 pages, char recall 0.906);
+  `_avoid_parity_blanks` re-bases a one-page or numberless lead, else lets
+  the count run on -- y19 114 in Word (0.982). A measured conflict: Word and
+  LibreOffice pick header variants by different rules, and LibreOffice pays
+  (y19 char recall 0.991 -> 0.982, y25 within-2pt 0.027 -> 0.003). *CJK
+  font names in a legacy encoding* (y51's Shift-JIS "ＭＳ ゴシック") are
+  decoded (`fonts.decode_font_name`). *Fonts a tester lacks*: the standard
+  profile wrote Google-native families (Noto Serif, Roboto Mono, Figtree ...
+  on 8 DOCX) and the template's Courier and MS Mincho on all 93; it now
+  writes Cambria / Calibri / Courier New for those (`writer_family`) --
+  measured equal to Word's own substitution on a stock machine, code kept
+  monospaced -- and declares no Courier or Mincho. Non-stock declarations
+  across the corpus 19 -> 10, all CJK or complex-script source faces, now
+  listed in the README. Word after, raw: page-exact 50, char recall >= 0.95
+  on 47 (46), within-2pt 0.239 -> 0.254; product: 59 (58), 55 (54), 0.326 ->
+  0.349. LibreOffice raw page-exact 51 = 51, within-2pt 0.228 -> 0.239.
+  Not fixed, reported: overflow cascades (y06 +23, y13 +14, y18 +10 pages in
+  Word over LibreOffice), CJK line packing (y51 22/12, y52), and
+  `compatibilityMode` 15, which drops the "Compatibility Mode" banner but
+  re-wraps justified paragraphs (Word within-2pt 0.239 -> 0.193).
+
+- **Google Docs keeps the source's page count: pages at risk are planned
+  on Docs' own line model, pages that fit are left alone (WP19).** On the
+  2c1c68f live sweep only 27 of 54 ordinary documents were page-exact in Docs.
+  Google's own exports of that sweep were aligned word by word with the
+  sources, and each element was compared with the writer's model of it
+  (`docs/evidence/gdocs-2026-10-05-wp19-diagnosis.json`). Where the pages
+  went:
+  - rules closing a page (WP18 fixed most);
+  - pages the writer knew were over-full but would not absorb past two
+    lines;
+  - pages predicted to fit with under 15pt to spare, lost 26-46% of the time.
+
+  What Docs adds, measured:
+  - Times and Arial lines at 1.150, not 1.144;
+  - Roboto Mono 15.3% taller than the table said;
+  - the half-point size step;
+  - lines mixing families or sizes at max(ascent + gap) + max(descent);
+  - inline pictures +3.9pt;
+  - the first paragraph's gap dropped after `pageBreakBefore` (1,640 pages).
+
+  Probe 1 corrected all of that on every page. Pages came back:
+  - y17 217 -> 195 for 194;
+  - y18 258 -> 145 for 144;
+  - y08 66 -> 65;
+  - y36 36 -> 28;
+  - 31/31 short documents page-exact.
+
+  But placement fell on documents that already fit: c1 within-2pt 0.154 ->
+  0.064, x05 0.785 -> 0.066, and 01's SSIM dropped under its bound
+  (`docs/evidence/gdocs-2026-10-05-wp19-probe1-live.json`). The shipped
+  form's errors cancel, so correcting one of a pair moved the words.
+
+  `_gdocs_page_at_risk` now asks whether Docs would set a page, in the
+  shipped form, with less than a body line + 2pt to spare:
+  - If not, the page is written exactly as before (47 of 90 gdocs DOCX are
+    byte-identical to 92c542c).
+  - If so, the page's own gaps pay first, taken from the foot of the page up
+    so the fewest lines move (`_gdocs_page_plan(legacy=True)`).
+  - Only a page those gaps cannot fit is calibrated: true factors,
+    mixed-line rule, rule and picture compensation, and code-box sides
+    anchored to the page.
+  - A page before a blank source page is left alone.
+  - An empty 1pt holder that keeps the dropped page-top gap
+    (`GDOCS_PAGE_TOP_HOLDER`, +0.22pt live) is built but off pending probe 2.
+
+  The standard profile is byte-identical for all 90 convertible documents.
+  Gate PASS in both lanes at the recorded numbers. `harness.page_words` now
+  drops the U+200B that Docs' exporter writes at tabs and soft breaks (1.7%
+  of exported words).
+
 - **Faster, byte for byte (WP20b).** The writer spent most of its time inside
   python-docx, and the product profile writes once per refine round.
   `exactdoc/_docx_speed.py` replaces three python-docx internals with

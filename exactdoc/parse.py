@@ -16,6 +16,7 @@ import re
 from typing import List, Optional
 
 from .errors import BackendUnavailableError, UnsupportedInputError
+from .fonts import decode_font_str
 from .model import (DocIR, PageIR, TextBlock, Line, Span, DrawCmd, ImageObj,
                     LinkDest, rounded_rect_bbox, xml_safe_text, xml_safe_uri)
 
@@ -237,7 +238,7 @@ def parse_pdf(path: str, keep_image_data: bool = True) -> DocIR:
                     if text == "":
                         continue
                     flags = sp.get("flags", 0)
-                    font = _SUBSET_RE.sub("", sp.get("font", "") or "")
+                    font = _SUBSET_RE.sub("", decode_font_str(sp.get("font", "") or ""))
                     fl = font.lower()
                     bold = bool(flags & 16) or "bold" in fl or "black" in fl or "heavy" in fl
                     italic = bool(flags & 2) or "italic" in fl or "oblique" in fl

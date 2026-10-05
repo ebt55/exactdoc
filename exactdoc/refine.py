@@ -593,7 +593,17 @@ def _apply(lay: DocLayout, m, state=None) -> bool:
         off = m["offset"][idx]
         if abs(off) > OFFSET_DEADBAND and abs(off) <= MAX_OFFSET_FIX \
                 and m["spill"][idx] == 0:
-            if off < 0:
+            if off < 0 and any(m["spill"]):
+                # Not while the render shows a page over its foot. A push is
+                # bounded by the room the render measured, and that bound is
+                # a couple of points loose: y18 (EUR-Lex, 144 pages) came out
+                # of round 0 with nine spills, its pushes made a tenth, and
+                # round 1 ended 145 pages with one 2pt spill; round 2's pushes
+                # then made six (150), and the loop kept 145. Held until the
+                # spills are gone, round 1 is 144/144 and is the published
+                # round. Pulling content UP (below) never overflows a page.
+                pass
+            elif off < 0:
                 # Content sits too high: push it down, the first gap absorbs
                 # it -- but never further than the render shows free at the
                 # foot of the page. A push past that room is a spill

@@ -26,7 +26,7 @@ from typing import List, Optional
 import pypdfium2 as pdfium
 import pypdfium2.raw as raw
 
-from .fonts import font_traits
+from .fonts import decode_font_name, font_traits
 from .model import (DocIR, PageIR, TextBlock, Line, Span, DrawCmd, ImageObj,
                     LinkDest, UndecodedGlyph, rounded_rect_bbox, xml_safe_text,
                     xml_safe_uri)
@@ -498,8 +498,10 @@ def _page_chars(textpage, frame, vis=None, objs=None,
         key = buf.raw[:max(0, ln - 1)] if ln else b""
         font = font_names.get(key)
         if font is None:
-            font = font_names[key] = _SUBSET_RE.sub(
-                "", key.decode("utf-8", "replace"))
+            # decode_font_name: UTF-8, else a CJK locale's legacy encoding
+            # when that yields a face the family table knows (y51 names MS
+            # Gothic in Shift-JIS).
+            font = font_names[key] = _SUBSET_RE.sub("", decode_font_name(key))
         cr.value = cg.value = cb.value = ca.value = 0
         get_fill(tp, i, p_cr, p_cg, p_cb, p_ca)
         # The LOOSE box is derived from the font's metrics; the tight box is
@@ -4291,6 +4293,72 @@ def _image_payload(img, turn=0):
         bm.close()
 
 
+# An image is cut to its clip only when the clip hides at least this share of
+# it: page-edge clips trim a bleed by a few points (y28's cover, 816pt drawn on
+# a 792pt page) and are left as they were.
+IMAGE_CLIP_MIN_HIDDEN = 0.03
+
+
+def _visible_image_box(ob: "_PObj", bbox, frame):
+    """The part of an image its clip lets through, or None to keep `bbox`.
+
+    The bounds PDFium reports are the image's whole placement, and LibreOffice
+    Writer places a screenshot larger than its frame and clips it there:
+    y36_lo_writer_guide p11's Figure 6 is drawn 176.7-590.8 under a clip that
+    ends at 446 -- over its own caption, the heading below and that heading's
+    paragraph. Placed whole it was a 414pt picture for a 265pt one, and the
+    page's text went over the foot (11 of y36's 23 images are clipped so).
+    Only an image drawn upright and unflipped, on an unturned page, so the
+    visible box maps back onto its pixels by a plain crop.
+    """
+    if frame.render_rotation:
+        return None
+    # An image placed past the paper is a composition set in a bleed, not a
+    # picture in a frame (y06's cover art, 43-953pt on a 612pt page): the
+    # figure built round it is the page's, and cutting the image to its clip
+    # unmade that figure and spilled the cover's text over it.
+    if bbox[0] < -1.0 or bbox[1] < -1.0 or bbox[2] > frame.w + 1.0 or \
+            bbox[3] > frame.h + 1.0:
+        return None
+    clip = _meet(ob.clip, _clip_box(ob.raw, ob.ctm, frame))
+    if clip is None:
+        return None
+    m = _compose(_obj_matrix(ob.raw), ob.ctm)
+    if m is None or abs(m[1]) > 1e-6 or abs(m[2]) > 1e-6 or m[0] <= 0 or m[3] <= 0:
+        return None
+    x0, y0 = max(bbox[0], clip[0]), max(bbox[1], clip[1])
+    x1, y1 = min(bbox[2], clip[2]), min(bbox[3], clip[3])
+    if x1 - x0 < 1.0 or y1 - y0 < 1.0:
+        return None
+    area = (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
+    if area <= 0 or (x1 - x0) * (y1 - y0) > (1.0 - IMAGE_CLIP_MIN_HIDDEN) * area:
+        return None
+    return (x0, y0, x1, y1)
+
+
+def _crop_payload(data: bytes, ext: str, bbox, vis):
+    """The payload cut to `vis` (frame boxes; the pixels span `bbox`), as PNG."""
+    import io
+    from PIL import Image
+    try:
+        im = Image.open(io.BytesIO(data))
+        im.load()
+    except Exception:
+        return data, ext
+    w, h = im.size
+    bw, bh = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    box = (int(round((vis[0] - bbox[0]) / bw * w)), int(round((vis[1] - bbox[1]) / bh * h)),
+           int(round((vis[2] - bbox[0]) / bw * w)), int(round((vis[3] - bbox[1]) / bh * h)))
+    if box[2] - box[0] < 1 or box[3] - box[1] < 1:
+        return data, ext
+    out = im.crop(box)
+    if out.mode not in ("1", "L", "LA", "P", "RGB", "RGBA", "I"):
+        out = out.convert("RGB")             # a CMYK JPEG has no PNG form
+    buf = io.BytesIO()
+    out.save(buf, format="PNG")
+    return buf.getvalue(), "png"
+
+
 def _page_images(objs: List[_PObj], frame, keep_data, doc=None, page=None,
                  skip=()):
     """(images, dropped): placed rasters, and how many could not be extracted.
@@ -4321,6 +4389,11 @@ def _page_images(objs: List[_PObj], frame, keep_data, doc=None, page=None,
             except Exception:
                 data = None
                 dropped += 1
+        vis = _visible_image_box(ob, bbox, frame)
+        if vis is not None:
+            if data is not None:
+                data, ext = _crop_payload(data, ext, bbox, vis)
+            bbox = vis
         out.append(ImageObj(bbox=bbox, xref=0,
                             width=int(bbox[2] - bbox[0]), height=int(bbox[3] - bbox[1]),
                             data=data, ext=ext))
