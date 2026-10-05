@@ -144,6 +144,29 @@ class RunInNumberedParagraph(unittest.TestCase):
         self.assertAlmostEqual(item.tab_stops[0][0], 21.6, delta=0.2)
         self.assertAlmostEqual(item.leading, 10.5, delta=0.05)
 
+    def test_a_line_inside_another_block_is_not_the_items_first_line(self):
+        # y61 (WP28): a bullet opening a column-1 block sits on the baseline
+        # of a line welded across a three-column page -- line 3 of another
+        # block. That line is the other block's text; the bullet stays put.
+        L = 45.0
+        bullet_block = [_ln("•", 54.0, 711.0, x1=58.1),
+                        _ln("Protection Agency Docket Center", L, 721.0, x1=200.0)]
+        welded = [_ln(_words(4 + i, 12), L, 690.0 + 10.5 * i, x1=561.4)
+                  for i in range(2)]
+        welded.append(_ln("Mail: OPP Docket, Environmental Consistent with "
+                          "FFDCA section vegetable subgroup", 63.1, 711.0, x1=561.4))
+        welded.append(_ln(_words(7, 12), L, 721.5 + 10.5, x1=561.4))
+        blocks = [TextBlock(list(b), _union(b)) for b in (bullet_block, welded)]
+        self.assertFalse(I._has_item_beside(bullet_block[0], blocks[0], blocks,
+                                            opens_block=True))
+        out = I._merge_list_markers(blocks)
+        self.assertEqual(out[0].lines[0].text.strip(), "•")
+        self.assertTrue(out[1].lines[2].text.startswith("Mail:"))
+        # the run-in shape the rule is for: the same line, in a block of its own
+        first = TextBlock([welded[2]], welded[2].bbox)
+        self.assertTrue(I._has_item_beside(bullet_block[0], blocks[0],
+                                           [blocks[0], first], opens_block=True))
+
 
 class SegmentedFurnitureRules(unittest.TestCase):
     """y18: the foot rule as two segments split under the folio, at a
