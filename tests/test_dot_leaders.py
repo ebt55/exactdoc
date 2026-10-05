@@ -151,7 +151,15 @@ class LeaderParagraphs(unittest.TestCase):
             blocks.append(_blk(_span(label + " " + ". " * 40 + num, 141.6,
                                      510.2, base)))
         paras, _ = self._paras(PageIR(1, 612.0, 792.0, blocks=blocks))
-        self.assertFalse(any(p.tab_stops for p in paras))
+        # The dots stay text: no Word dot leader redraws them. Since WP22 the
+        # number sits on a plain right stop (infer._spaced_leader_lines): read
+        # as prose, y26's index entries ran together and re-wrapped dot by dot.
+        self.assertFalse(any(len(ts) > 2 and ts[2] == "dot"
+                             for p in paras for ts in p.tab_stops))
+        rows = [p for p in paras if any(r.is_tab for r in p.runs)]
+        self.assertEqual(len(rows), len(ENTRIES))
+        for p in rows:
+            self.assertIn(". . . .", "".join(r.text for r in p.runs))
 
     def test_fixed_dot_runs_with_ragged_numbers_stay_text(self):
         # x15_rl_handbook_toc: 60 dots after each title, numbers at 278.6,

@@ -58,6 +58,56 @@ one verified fix at a time, each gated against the frozen 16.
   output changes (rows, titles, ASCII art, sidebar, drop caps, leaders);
   a probe set against WP19 is prepared.
 
+- **The promised documents that broke the beta bar (WP22).** Each fix is
+  for the structure behind the first page that went wrong.
+  *EUR-Lex* (y18):
+  - a marker item's full first line, arriving as a block of its own, takes
+    the rest of the item;
+  - a run-in numbered paragraph ("2." at the margin) is one paragraph;
+  - a rule drawn as abutting segments, split differently on versos and
+    rectos, is signed as one rule. EUR-Lex's head rule is left in the body
+    (measured again: in the header it cost the gdocs DOCX 21 pages).
+  *LibreOffice Writer Guide* (y36):
+  - a recto foot naming the current section is varying furniture, because
+    it carries the folio;
+  - a full lattice of fill tiles in one drawing cluster is one table;
+  - an icon on a band leaves it a box;
+  - a white frame behind a picture is not a box;
+  - an image placed larger than its clip is cropped to what shows
+    (`parse_pdfium._visible_image_box`).
+  *Tables and contents* (y24, y26, y03):
+  - a rule under every row gives one row per band;
+  - same-width rule groups refused by the span bound are cut at their prose
+    and read again only as ruled rows or booktabs heads;
+  - contents numbers beside leadered entries are row ends, not a column;
+  - a spaced leader line with its number is a paragraph with a right stop
+    (its dots stay text);
+  - grids side by side on one band are one table.
+  *Refine*: no page is pushed down while another spills; that push turned
+  y18's 145-page round into 150.
+  LibreOffice raw, final tree against the integration head, all 90 documents,
+  none worse:
+  - y18 240 -> 157 pages (char recall 0.583 -> 0.817);
+  - y36 36 -> 25 (0.465 -> 1.000);
+  - y03 58 -> 53;
+  - y24 185 -> 182 (0.683 -> 0.782);
+  - y26 216 -> 213 (0.976 -> 0.987);
+  - y33 69 -> 62;
+  - page-exact 51 -> 52.
+  Product:
+  - y03 50 -> 46 and y33 63 -> 60, both page-exact;
+  - y36 26 -> 25 (0.788 -> 1.000);
+  - y18 stays 144;
+  - y28 and y40 lose 0.009 and 0.006 char recall at the same page counts.
+  Word: y18 250 -> 160 (measured before the head-rule revert), y36 36 -> 25,
+  y03 64 -> 53.
+  gdocs DOCX rendered by LibreOffice: y18 145 -> 144 (char recall 0.870 ->
+  0.988), y36 28 -> 25, y03 55 -> 51.
+  Gated: unchanged, gate PASS in both lanes.
+  Not fixed: y52 (CJK line packing, which the WP2 footers no longer hide)
+  and y24's p44-45 tables cut by page breaks.
+  Google Docs is to be flown live (probe set prepared).
+
 - **Microsoft Word is measured, and four Word-only differences are fixed
   (WP21).** `testkit/word_oracle.py` renders DOCX through desktop Word
   (16.0.20430, Office 2024) over COM and scores the render like the live
