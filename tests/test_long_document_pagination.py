@@ -407,7 +407,8 @@ def _drop_cap_pdf(path):
     c.drawString(90, 792 - 185.5, "T")
     c.setFont("Times-Roman", 11)
     for i, t in enumerate(_DROP_LINES):
-        x = 114.9 if i < 3 else 90.0
+        # just right of the cap, as SP 800-171's lines are (0.1pt)
+        x = 90.0 + c.stringWidth("T", "Times-Roman", 51) + 0.5 if i < 3 else 90.0
         c.drawString(x, 792 - (160.7 + 13.45 * i), t)
     c.save()
 

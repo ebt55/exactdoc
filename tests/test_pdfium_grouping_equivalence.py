@@ -43,12 +43,14 @@ def _old_absorb_script_rows(vis_rows):
         for j, (host_ri, host) in enumerate(rows):
             if j == i or j in absorbed or host_ri == frag_ri:
                 continue
-            # WP23: a fragment outnumbering its host's ink is the line, not a
-            # script of it (a drop cap's em box).
-            if sum(1 for c in frag if c.u.strip()) > \
-                    sum(1 for c in host if c.u.strip()):
-                continue
+            # WP23: the line beside a drop cap is not a script of it.
             hsz = max(c.size for c in host)
+            if sum(1 for c in host if c.u.strip()) <= P.DROP_CAP_MAX_GLYPHS and \
+                    sum(1 for c in frag if c.u.strip()) >= \
+                    P.DROP_CAP_MIN_LINE_GLYPHS and \
+                    hsz >= P.DROP_CAP_SIZE_RATIO * fsz and \
+                    0.0 <= fx0 - P._row_span(host)[1] <= P.DROP_CAP_GAP_EM * fsz:
+                continue
             dy = fb - host[0].oy
             if abs(dy) > P.SCRIPT_BASE_EM * hsz:
                 continue

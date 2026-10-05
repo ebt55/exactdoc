@@ -1694,6 +1694,19 @@ def _set_into(frag, host, hsz) -> bool:
     return True
 
 
+# A drop cap, for `_absorb_script_rows`: a host of at most DROP_CAP_MAX_GLYPHS
+# glyphs, this many times the size of the text beside it, which starts within
+# DROP_CAP_GAP_EM of the text's own size right of the cap and is a line of it
+# (DROP_CAP_MIN_LINE_GLYPHS or more). SP 800-171's caps are one 51pt glyph over
+# 11pt lines (4.6x) that start 0.1pt right of them; a maths base over its
+# indices is 1.4-1.8x (FIPS 180-4: 12pt over 7pt); an OCR layer's crumbs
+# beside a large misread glyph (y57) are not lines.
+DROP_CAP_SIZE_RATIO = 2.5
+DROP_CAP_MAX_GLYPHS = 2
+DROP_CAP_MIN_LINE_GLYPHS = 12
+DROP_CAP_GAP_EM = 1.0
+
+
 def _absorb_script_rows(vis_rows):
     """Put super/subscript fragments back on the line they belong to.
 
@@ -1782,15 +1795,20 @@ def _absorb_script_rows(vis_rows):
             host_ri, host = rows[j]
             if j == i or j in absorbed or host_ri == frag_ri:
                 continue
-            if n_ink[i] > n_ink[j]:
-                # A script is a few glyphs of a line -- a note mark, an
-                # exponent -- never more than the line it is set against. A
-                # drop cap is the reverse: one 51pt glyph whose em box spans
-                # the three lines beside it, and SP 800-171's chapter openings
-                # had all three absorbed into the cap's row and sorted by x
+            if n_ink[j] <= DROP_CAP_MAX_GLYPHS and \
+                    n_ink[i] >= DROP_CAP_MIN_LINE_GLYPHS and \
+                    sz[j] >= DROP_CAP_SIZE_RATIO * sz[i] and \
+                    0.0 <= fx0 - x1s[j] <= DROP_CAP_GAP_EM * sz[i]:
+                # A drop cap: one glyph several times the size of the text
+                # beside it, whose em box spans that text's lines. SP 800-171's
+                # chapter openings set a 51pt "T" beside three 11pt lines, and
+                # all three were absorbed as its "scripts" and sorted by x
                 # into one line: "Tsfeednesirtaoivld eaa gfyee, ndmceiorearsel"
                 # for "Today, ... sensitive federal ... federal agencies",
-                # 59pt-leading and four lines tall, the page six lines over.
+                # 59pt-leading and four lines tall, the page six lines over. A
+                # script is a few glyphs of a line, never more than its host;
+                # but a maths base and its indices are close in size (FIPS
+                # 180-4's 12pt "M" and its 7pt "(i)"), and those still join.
                 continue
             fsz = ink_sz[i] if rtl_row[j] else sz[i]
             hsz = sz[j]
