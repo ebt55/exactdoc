@@ -49,6 +49,38 @@ one verified fix at a time, each gated against the frozen 16.
   ([evidence](docs/evidence/checkpoint-2026-10-05-lo-sweeps.json),
   [WP28](docs/evidence/wp28-2026-10-06.json)).
 
+- **The measuring instrument, amended by the owner on 2026-10-06 (WP29).**
+  No conversion output changed (`exactdoc/` identical to integration;
+  `word/*.xml` byte-identical for the 95 documents in the raw and gdocs
+  profiles). *Amendment 1:* the scorecard grades the LibreOffice lane on the
+  product DOCX, as Word already was (`beta_readiness.py`: criteria 4-7, 9 and
+  13 read the product sweep; criterion 2 still times raw; criterion 8
+  compares the accepted sweep with the current sweep of its own profile, and
+  an accepted sweep that does not cover the corpus is UNMEASURED --
+  `wp18-m2-prod` ran 13 documents, so a full accepted product sweep must be
+  named). *Amendment 2:* `harness.page_words` and character recall read the
+  source and the render the same way: runs of three or more leader dots are
+  not words, symbol-font private-use code points (Symbol, ZapfDingbats, MT
+  Extra) read as the characters they encode by the span's font, and brackets
+  and maths operators are their own tokens. One function reads both sides, so
+  lost text still counts. y26's criterion-8 "regression" was 2,243 leader
+  dots (doc recall 0.9712 -> 0.9915 re-read); y10 is 36/36 pages at word
+  recall 0.7844 -> 0.9405; y24 FALLS 0.5493 -> 0.4856, because its 6,732
+  leader dots had matched 6,729 times. `testkit/rescore.py` re-reads saved
+  renders without converting, keeping the old value and a recomputed control
+  (equal to the recorded value on all 450 checkpoint lane rows). Checkpoint
+  scorecard, 6 pass / 4 fail before and after: criterion 5 FAIL by 15 ->
+  9 (amendment 1: LO product 17/21) -> 8 (both: LO product 18/21, Word 16/21,
+  Docs 10/21); the only criterion-5 flip is y10, fail -> pass, in LibreOffice
+  and Word in both flavours, and nothing flips the other way; criterion 8
+  against `wp18-m2-raw` 2 documents -> 1 (y61's dy_p50 remains), and PASS
+  (7 pass / 3 fail) if the owner names the checkpoint's product sweep as the
+  accepted one. The gate's kept renders re-read: both lanes PASS against
+  the unchanged baseline (largest move 04_exec_brief word recall 0.9337 ->
+  0.9239, a lost chart label "(thousands)" now three tokens); the baseline
+  is not re-recorded (`docs/evidence/scorer-2026-10-06.json`,
+  `docs/beta-bar.md` "Amendments").
+
 - **A table cut by a page break stays a table (WP26).** The pandoc manual
   (y24) sets its defaults-file tables as LaTeX longtables: a table at a page
   foot has its head rule and mid rule but no closing rule, and the next page
