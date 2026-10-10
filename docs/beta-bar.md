@@ -135,8 +135,18 @@ Enforced with it:
   an accepted sweep read the same way, named by file and SHA-256. When the two
   sweeps record different readings (`rescored.scorer`, written by
   `testkit/rescore.py`), criterion 8 is UNMEASURED: a mixed-reading scorecard
-  is invalid. A sweep scored as it ran records no reading and is taken to be
-  in the reading of the sweep it is compared with.
+  is invalid. From WP41c every sweep records its reading itself: `reading` =
+  {`scorer`: `harness.HARNESS_READING`, `source`: a hash of the harness's
+  reading code}, written by `quality_sweep.py` and by `rescore.py` (which also
+  writes `rescored.scorer`). The name is bumped by each amendment that changes
+  the reading, in the same commit. A side that records no reading is compared
+  with a non-blocking warning, "reading unrecorded"; the same name over a
+  different code hash draws a "check the bump" warning. **Transition:** every
+  sweep scored before WP41c and never re-scored (r4-*, wp33-*, wp39-*, …)
+  records nothing and reads with the warning. Re-scoring it with
+  `testkit/rescore.py sweep` records the reading, and any sweep run from this
+  commit on records it, so the final product sweep and its accepted sweep
+  carry no warning.
 - **(b)** y43 is re-checked on the final sweep (its within2pt rise clears the
   0.05 by 0.0023). A document that no longer meets (i)–(iii) is a plain FAIL,
   with no waiver to fall back on; the question then goes back to the owner.

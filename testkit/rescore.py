@@ -72,7 +72,7 @@ def rescore_row(row, src, pdf):
     if "worst_pages_dy90" in row:
         new["worst_pages_dy90"] = sorted((after.get("page_dy_p90") or {}).items(),
                                          key=lambda kv: -kv[1])[:5]
-    new["scorer"] = "wp29"
+    new["scorer"] = harness.HARNESS_READING
     return new
 
 
@@ -110,7 +110,8 @@ def rescore_sweep(path, renders, out_path, jobs=4):
     data["documents"] = _rescore_all(items, jobs)
     data["summary"] = qs.summarise(data["documents"])
     data["rescored"] = {"from": os.path.abspath(path), "renders": os.path.abspath(renders),
-                        "scorer": "wp29"}
+                        "scorer": harness.HARNESS_READING}
+    data["reading"] = harness.reading()          # replaces the reading it was swept in
     _write_json(out_path, data)
     return data
 

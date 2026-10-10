@@ -21,6 +21,24 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 one verified fix at a time, each gated against the frozen 16.
 
 
+- **Sweeps record the harness reading they were scored in (WP41c).**
+  `testkit/harness.py` names its reading, `HARNESS_READING = "wp29"`, bumped
+  by every amendment that changes how text is read, and `harness.reading()`
+  adds a 12-hex hash of the reading code (the top-level definitions that
+  decide a page's words and the matching, as a syntax tree: comments,
+  docstrings and the Python version do not move it; a test pins it, so a
+  change to the reading code fails until the name is bumped or the pin
+  re-recorded). `quality_sweep.py` writes it as `reading` in every payload;
+  `rescore.py` writes it too and takes `rescored.scorer` and the per-row
+  `scorer` from the harness instead of a typed "wp29"; Word-oracle,
+  `gdsweep.py` and `flypairs.py` rows carry `scorer`. In
+  `beta_readiness.py` criterion 8 reads `reading` (or `rescored.scorer`) on
+  both sides: different -> UNMEASURED, "mixed reading"; missing on a side ->
+  compared with a non-blocking "reading unrecorded" warning instead of
+  silently matching; the same name over different code -> a warning to check
+  the bump. Sweeps from before this change read with the warning until
+  re-scored. No conversion code changed.
+
 - **Amendment 4: a capped dy_p50 rise that comes with more words within 2pt
   is not a criterion-8 regression (WP41b, owner-delegated decision
   2026-10-10).** In `testkit/beta_readiness.py` a dy_p50 flag is exempt when,

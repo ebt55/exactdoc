@@ -75,8 +75,11 @@ against the same accepted row in the same reading, within2pt rose by more than
 0.05, within5pt fell by no more than 0.05 and dy_p50 rose by at most max(3pt,
 30% of the accepted value) (`dy_exemption`, constants `c8_dy_*` in BAR). Each
 exempted document is printed with its deltas and cap. Two sweeps whose
-recorded readings (`rescored.scorer`) differ are not compared: criterion 8 is
-UNMEASURED. A document with a dy_p50 waiver is judged by the waiver, never
+recorded readings differ are not compared: criterion 8 is UNMEASURED. Sweeps
+record the reading themselves (`reading`, from harness.reading(): quality_sweep
+and rescore write it); a side that records none is compared with a non-blocking
+"reading unrecorded" warning, and a reading whose code hash differs under the
+same name with a "check the bump" warning. A document with a dy_p50 waiver is judged by the waiver, never
 also by the rule.
 
 **Criterion-8 exceptions** (testkit/beta_waivers.json, `--waivers`): an owner
@@ -470,10 +473,24 @@ def _sha256(path):
 
 
 def sweep_reading(data):
-    """The harness reading a sweep records (`testkit/rescore.py` writes
-    {"rescored": {"scorer": "wp29"}}), or None for a sweep scored as it ran."""
-    rescored = data.get("rescored") if isinstance(data, dict) else None
-    return rescored.get("scorer") if isinstance(rescored, dict) else None
+    """The harness reading a sweep records, or None.
+
+    From WP41c every sweep records `reading`: {"scorer": harness.HARNESS_READING,
+    "source": <hash of the reading code>} -- quality_sweep.py when it scores,
+    rescore.py when it re-reads (which also writes `rescored.scorer`). Sweeps
+    made before that record only `rescored.scorer` if they were re-scored, and
+    nothing if they were scored as they ran."""
+    if not isinstance(data, dict):
+        return None
+    for holder in (data.get("reading"), data.get("rescored")):
+        if isinstance(holder, dict) and holder.get("scorer"):
+            return holder["scorer"]
+    return None
+
+
+def _reading_source(data):
+    holder = data.get("reading") if isinstance(data, dict) else None
+    return holder.get("source") if isinstance(holder, dict) else None
 
 
 def _waiver_refusal(doc, metric, spec, docs, metrics):
@@ -971,10 +988,9 @@ def evaluate(docs, sweeps, lanes, gate, accepted=None, docx_dir=None,
                 len(accepted[1].get("documents", ())), want, acc_kind))
     elif None not in (sweep_reading(accepted[1]), sweep_reading(sweeps[acc_kind][1])) and \
             sweep_reading(accepted[1]) != sweep_reading(sweeps[acc_kind][1]):
-        # Amendment 4 (a): the two sides must be read the same way. A sweep
-        # records its reading only when testkit/rescore.py re-read it
-        # (`rescored.scorer`); a sweep scored as it ran records none, and is
-        # taken to be in the reading of the accepted sweep it is compared with.
+        # Amendment 4 (a): the two sides must be read the same way. When either
+        # side records no reading (a sweep from before WP41c that was never
+        # re-scored), the pair is compared with a "reading unrecorded" warning.
         crit(8, "regression", "no regression against the accepted sweep (gate.py tolerances)",
              UNMEASURED, "mixed reading: the accepted sweep %s is read %s, the current %s "
              "sweep %s is read %s; rescore one side (testkit/rescore.py) so both are read "
@@ -1057,6 +1073,23 @@ def evaluate(docs, sweeps, lanes, gate, accepted=None, docx_dir=None,
             detail = "%d document(s) worse than %s (%s flavour)" % (
                 len({w[0] for w in worse}), os.path.basename(accepted[0]), acc_kind)
             misses += ["(exempt, amendment 4) " + e["detail"] for e in exempted]
+            # Amendment 4 (a), made automatic (WP41c): a side that records no
+            # reading cannot be shown to be read like the other. Non-blocking
+            # -- every sweep before WP41c is like that -- but never silent.
+            reading_warnings = []
+            for side, (path, data) in (("accepted", accepted), ("current", sweeps[acc_kind])):
+                if sweep_reading(data) is None:
+                    reading_warnings.append(
+                        "reading unrecorded: the %s sweep %s records no harness reading, "
+                        "so amendment 4 (a) cannot be checked; re-score it with "
+                        "testkit/rescore.py to record one" % (side, os.path.basename(path)))
+            src_a, src_c = _reading_source(accepted[1]), _reading_source(sweeps[acc_kind][1])
+            if None not in (src_a, src_c) and src_a != src_c:
+                reading_warnings.append(
+                    "reading code differs under the one name %s (%s vs %s): check that "
+                    "harness.HARNESS_READING was bumped" % (sweep_reading(accepted[1]),
+                                                           src_a, src_c))
+            misses += ["(warning) " + w for w in reading_warnings]
             if waived:
                 detail += "; %d waived: %s" % (len(waived), "; ".join(v["detail"] for v in waived))
             if exempted:
@@ -1064,13 +1097,19 @@ def evaluate(docs, sweeps, lanes, gate, accepted=None, docx_dir=None,
                     len(exempted), ", ".join(_short(e["document"]) for e in exempted))
             if blocking or waivers.get("error"):
                 detail += "; %d waiver(s) blocking" % (len(blocking) + bool(waivers.get("error")))
+            if reading_warnings:
+                detail += "; WARNING: %s" % ("reading unrecorded" if any(
+                    w.startswith("reading unrecorded") for w in reading_warnings)
+                    else "reading code differs")
             crit(8, "regression", "no regression against the accepted sweep (gate.py tolerances)",
                  FAIL if (worse or blocking or waivers.get("error")) else PASS, detail,
                  len(regressed) or (1 if waivers.get("error") else None), misses)
             criteria[-1]["waived"] = len(waived)
             criteria[-1]["exempted"] = exempted
             criteria[-1]["readings"] = {"accepted": sweep_reading(accepted[1]),
-                                        "current": sweep_reading(sweeps[acc_kind][1])}
+                                        "current": sweep_reading(sweeps[acc_kind][1]),
+                                        "accepted_source": src_a, "current_source": src_c,
+                                        "warnings": reading_warnings}
             criteria[-1]["waivers"] = verdicts
             criteria[-1]["waiver_file"] = {"path": waivers.get("path"), "release": release,
                                            "entries": len(waivers.get("entries", ())),

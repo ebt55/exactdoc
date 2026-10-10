@@ -390,8 +390,15 @@ def main(argv=None):
     # time wall time (y13 product 147s in a sweep, 76s alone; WP20b,
     # docs/evidence/refine-speed-2026-10-05.json), and the beta bar's speed
     # criterion reads this field to say so.
+    # `reading` is the harness reading every word metric here was scored in
+    # (harness.reading(): HARNESS_READING and a hash of the reading code), so
+    # beta_readiness can refuse to compare two sweeps read differently
+    # (amendment 4 (a)). Imported only now: the workers are done, and the
+    # harness's LibreOffice profile is never touched by asking its reading.
+    import harness
     payload = {"schema": SCHEMA, "gating": False, "adjudicated": False,
                "profile": prof.profile_id(), "corpus": a.corpus,
+               "reading": harness.reading(),
                "jobs": a.jobs,
                "elapsed_s": round(time.time() - t0, 1),
                "summary": summ, "documents": rows}

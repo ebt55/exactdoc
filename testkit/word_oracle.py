@@ -607,6 +607,7 @@ def _score(args):
     row.update({k: res.get(k) for k in ROW_KEYS})
     row["char_recall"], row["char_doc_recall"] = qs.char_recall(src, pdf)
     row["page_dy_p90"] = res.get("page_dy_p90")
+    row["scorer"] = harness.HARNESS_READING      # the reading, as rescore.py records it
     return row
 
 

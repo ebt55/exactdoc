@@ -305,6 +305,12 @@ class Reading(unittest.TestCase):
 PROD = "pdfium/standard/libreoffice/refine3@240dpi"
 
 
+def _last(c):
+    """The last finding, past the "(warning) reading unrecorded" lines these
+    synthetic sweeps draw (they record no reading; tests/test_reading_identity)."""
+    return [m for m in c["misses"] if not m.startswith("(warning)")][-1]
+
+
 class Waivers(unittest.TestCase):
     """Criterion-8 exceptions (testkit/beta_waivers.json): bounded, tied to the
     accepted sweep by name and SHA-256, to a reading and to a release, and
@@ -421,7 +427,7 @@ class Waivers(unittest.TestCase):
     def test_another_release_is_stale(self):
         c, _ = self._read(self._current(), self._waivers(spec=self._spec(release="0.2.0")))
         self.assertEqual((c["status"], c["waivers"][0]["verdict"]), ("FAIL", "stale"))
-        self.assertIn("granted for 0.2.0, this is 0.3.0b1", c["misses"][-1])
+        self.assertIn("granted for 0.2.0, this is 0.3.0b1", _last(c))
         # the same 0.3.0b1 waiver, read for the next release
         c, _ = self._read(self._current(), release="0.3.0b2")
         self.assertEqual((c["status"], c["waivers"][0]["verdict"]), ("FAIL", "stale"))
@@ -438,7 +444,7 @@ class Waivers(unittest.TestCase):
                           rescored={"scorer": "wp29"})
         self.assertEqual((c["status"], c["waivers"][0]["verdict"]), ("FAIL", "stale"))
         self.assertIn("names the wp36 reading, the accepted sweep is read wp29",
-                      c["misses"][-1])
+                      _last(c))
 
     def test_an_unused_waiver_is_a_note_not_a_failure(self):
         c, _ = self._read(self._current(dy=21.0))
@@ -452,13 +458,13 @@ class Waivers(unittest.TestCase):
         c, _ = self._read(self._current(), self._waivers(doc="short.pdf"))
         self.assertEqual(c["status"], "FAIL")
         self.assertEqual(c["waivers"][0]["verdict"], "refused")
-        self.assertIn("short is a promised document", c["misses"][-1])
+        self.assertIn("short is a promised document", _last(c))
 
     def test_an_unbounded_waiver_is_refused(self):
         for spec in (self._spec(ceiling=None), dict(self._spec(), ceiling=None)):
             c, _ = self._read(self._current(), self._waivers(spec=spec))
             self.assertEqual((c["status"], c["waivers"][0]["verdict"]), ("FAIL", "refused"))
-            self.assertIn("unbounded", c["misses"][-1])
+            self.assertIn("unbounded", _last(c))
             self.assertIn("paper dy_p50 20 -> 23 (tolerance 2)", c["misses"])
 
     def test_malformed_entries_and_files_are_refused(self):
@@ -474,7 +480,7 @@ class Waivers(unittest.TestCase):
                              spec)
         c, _ = self._read(self._current(), self._waivers(raw={"schema": "nope"}))
         self.assertEqual((c["status"], c["by"]), ("FAIL", 1))
-        self.assertIn("waiver file refused", c["misses"][-1])
+        self.assertIn("waiver file refused", _last(c))
 
     def test_main_carries_the_verdicts_into_the_json(self):
         cur = self._sweep("cur.sweep.json", self._current())
