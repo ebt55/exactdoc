@@ -20,6 +20,56 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **y12's three pages that could not fit its seams now do (WP40).** With
+  every source seam kept, IRS Publication 15 mapped 1:1 on 56 of its 59
+  pages; three ran over, each from inference reading its page wrongly, not
+  from wrapping. The cover (p1): its 31pt title "(Circular E), " shared a
+  baseline with the contents row "Introduction ... 12" and the exemption
+  forgave the 62pt gap -- a justified line's spaces belong to one size of
+  type, and a 2.5x jump across the gap now ends the line
+  (`parse_pdfium._type_jump`); the next contents row, 44 glyphs 14.7pt
+  above the baseline of "Employer's Tax", had been absorbed as a raised
+  "script" of it -- a line's worth of glyphs set more than a line-split
+  white from the host's last letter is a line (`_set_apart`); and the cover
+  photograph, framed by a ruled table whose empty first row stands for it,
+  was read as wrapped by the contents column beside it and anchored with
+  square wrapping, so the frame could not sit under it -- a picture inside
+  a frame table now floats with no wrap (`infer._float_backgrounds`,
+  `FRAME_PAD_PT`). The checklist page (p8) and p31: four to six lines
+  per page share a baseline with the other column's across the gutter at a
+  real space, each the only crossing at its x, so the repeated-gap gutter
+  never fired; the page's own lines evidence the gutter (the
+  `_column_split` / `_projection_gutters` reading `_build_blocks` uses) and
+  a gap that holds its whole channel is now cut, whatever its width
+  (`_structural_channels`, `_crosses_channel`). p8's checklists then needed
+  three more readings: a page number closing a leader row is not a list
+  marker (`infer._drop_leader_values`; it was glued in front of the other
+  checklist's row), checklist leaders set three spaces apart are leaders
+  (`_LEADER_TAIL`, contents rows `_toc_number_rows`), and a white square
+  under a checkbox's outline is the box's interior, not a second bullet
+  (`dialect._drop_knockouts`; every item opened "•◦", a paragraph of its
+  own). p31 and 119 items through the document: the 12pt bullet beside 10pt
+  items took each item's first line into its own block, at 13.9pt leading
+  -- a rejoined row stays in the block holding the most text
+  (`dialect._host_block`) and a leading marker does not change a line's
+  type size (`parse_pdfium._text_size`); and a paragraph whose first line
+  is indented is not joined to the fragment above it (`infer._mergeable`;
+  "the same wording." + "If a substitute ..." at a 16.95pt leading read
+  off the paragraph gap). Canonical product LibreOffice with every seam kept:
+  y12 61 -> 59 pages for 59, word recall 0.376 -> 0.956, dy_p50 40.5 ->
+  7.7pt, every source page >= 97% on its own rendered page; with WP38's
+  seam rule (wp38 633ea00) 59 -> 59, 0.682 -> 0.956 in LibreOffice and
+  58 -> 59, 0.626 -> 0.957 in Word (dy_p50 60.9 -> 8.0pt). Without that
+  rule the booklet merge still flows y12 (59 pages, 0.682 -> 0.758 in
+  LibreOffice, 0.626 -> 0.718 in Word) and its flow now runs ahead of the
+  source (dy_p50 38.9 -> 77.6pt). Full canonical sweeps against 5f158b7:
+  no gated document moves; y06 139 -> 136 product pages (word recall +0.032),
+  y60 32 -> 29 (dy_p50 67 -> 33pt), y41 +0.018, y59 17 -> 16; y59's dy_p50
+  rises 10pt and y57 (OCR) gains a raw page, neither promised. The Google
+  Docs profile's output changes on 20 expansion documents (probe set
+  C:\lotmp\scr\WP40\gdocs_probe). Evidence:
+  [wp40-y12-fit-2026-10-10.json](docs/evidence/wp40-y12-fit-2026-10-10.json).
+
 - **A line welded across a column gutter is cut there (WP25).** A source-to-
   render page map put y64_bls_release_xpp's first divergent page on p8: a
   left-column paragraph's short last line ("...Statistics (BLS). ", ending x

@@ -248,6 +248,22 @@ class AChecklistKeepsItsRows(unittest.TestCase):
         self.assertEqual([ln.text for b in out for ln in b.lines],
                          ["2Mark the bay positions"])
 
+    def test_leaders_set_three_spaces_apart_make_number_rows(self):
+        from exactdoc.infer import _toc_number_rows
+        items = []
+        for k, (label, num) in enumerate((("Verify work eligibility", "7"),
+                                          ("Ask employees for Form W-4", "7"),
+                                          ("employee's Form W-4", "25"),
+                                          ("and Medicare taxes", "29"))):
+            base = 120.9 + 25.0 * k
+            entry = _line([_span(label + " ", 64.3, 180.0, base, 9.0),
+                           _span(".  .  .  .  .  .  .", 180.0, 256.2, base, 7.2)])
+            n = _line([_span(num, 283.3 - 5.0 * len(num), 283.3, base, 9.0)])
+            items += [("blk", entry.bbox, TextBlock(lines=[entry], bbox=entry.bbox)),
+                      ("blk", n.bbox, TextBlock(lines=[n], bbox=n.bbox))]
+        rows, consumed = _toc_number_rows(items)
+        self.assertEqual(len(rows), 4)
+
     def test_a_checkbox_is_one_marker(self):
         from exactdoc.model import DrawCmd
         white = DrawCmd(kind="fill", shape="rect", bbox=(46.4, 114.6, 52.6, 120.8),
