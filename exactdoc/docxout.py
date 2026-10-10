@@ -5220,7 +5220,6 @@ _JOIN_GAP_CAP_PT = 48.0
 # test's own bar). Paragraphs wrap; these do not.
 _RIGID_SPAN_PT = 240.0
 
-
 def _carries_rigid_spanning_element(pg) -> bool:
     """Does this page hold a table/figure too wide for a booklet column?
 
@@ -5249,6 +5248,212 @@ def _is_booklet(pages) -> bool:
         return False
     n3 = sum(1 for pg in pages if any(c.n_cols >= 3 for c in pg.chunks))
     return n3 >= 10 and n3 >= 0.35 * len(pages)
+
+
+def _block_height(el, col_w: float, metrics, gap_scale: float = 1.0) -> float:
+    """One element's height in a column `col_w` wide, its gap scaled by
+    `gap_scale`: a paragraph at its predicted re-wrap (the source's own line
+    count where the shaper cannot say), anything else at its source box."""
+    sb = max(0.0, getattr(el, "space_before", 0.0) or 0.0) * gap_scale
+    sa = getattr(el, "space_after", 0.0) or 0.0
+    if isinstance(el, Para):
+        n = None
+        if metrics is not None:
+            n = predict_lines_for(el, col_w - el.left_indent -
+                                  (el.right_indent or 0.0), metrics)
+        if n is None:
+            n = max(1, el.src_lines or 1)
+        return sb + n * _line_height(el) + sa
+    if isinstance(el, RuleEl):
+        return sb + 2.0                   # write_rule's exact line
+    h = getattr(el, "height", None)
+    if h is None:
+        bb = getattr(el, "bbox", None) or getattr(el, "clip", None) \
+            or getattr(el, "_bbox", None)
+        h = (bb[3] - bb[1]) if bb is not None else 0.0
+    return sb + max(0.0, h) + sa
+
+
+def _chunk_columns(ch, content_w: float, metrics, gap_scale: float = 1.0,
+                   width: Optional[float] = None) -> List[float]:
+    """The heights of a chunk's columns as its column breaks cut them -- or,
+    with `width`, of the whole chunk set in one column that wide."""
+    if width is not None:
+        return [sum(_block_height(el, width, metrics, gap_scale)
+                    for el in ch.elements if not isinstance(el, ColBreak))]
+    n = max(1, ch.n_cols)
+    gap = ch.col_gap or 0.0
+    widths = list(ch.col_widths) if len(ch.col_widths or ()) == n else \
+        [(content_w - gap * (n - 1)) / n] * n
+    cols, cur = [], 0.0
+    for el in ch.elements:
+        if isinstance(el, ColBreak):
+            cols.append(cur)
+            cur = 0.0
+            continue
+        cur += _block_height(el, widths[min(len(cols), n - 1)], metrics,
+                             gap_scale)
+    cols.append(cur)
+    return cols
+
+
+def _run_shape(pg, booklet: bool):
+    """1 for an all-1-col page (booklet only), else its single multi-col
+    chunk's column count, else None (not a run member)."""
+    multis = [c for c in pg.chunks if c.n_cols >= 2]
+    if len(multis) > 1 or pg.continuation_only:
+        return None
+    # A side-by-side region (infer._side_by_side_chunks: panels in two
+    # columns, a photo beside a masthead) is this page's own structure,
+    # not a column flow continuing from the page before: merged into a
+    # run, its column break was dropped and the page's single-column
+    # lead poured into columns -- y41 p5's right-column lines, indented
+    # 235pt for a full-width body, wrapped one character per line.
+    if any(getattr(c, "_sbs", None) for c in pg.chunks):
+        return None
+    if multis:
+        if booklet and _carries_rigid_spanning_element(pg):
+            # A page holding a table or figure wider than a booklet
+            # column is STRUCTURE, not repetition: run membership would
+            # pull that rigid element into the column flow, and a
+            # table cannot wrap -- it renders across the neighbouring
+            # columns and their text. Measured on y06's source p99: a
+            # 405pt worksheet table spanning a genuinely hybrid page
+            # (full-width worksheet over 3-col instructions), colliding
+            # with column text on 6 rendered pages.
+            return None
+        return multis[0].n_cols
+    return 1 if booklet else None
+
+
+def _seam_excess(pg, lay: DocLayout, metrics) -> float:
+    """How far `pg`, written on a page of its own -- its seam and column
+    breaks kept -- runs past its box with every gap at the refine loop's
+    floor (SPILL_MIN_GAP_SCALE, which is `refine.MIN_GAP_SCALE`). Positive:
+    no correction the loop can make holds the page to its box."""
+    glay = _page_geometry(lay, pg)
+    used = 0.0
+    for ch in pg.chunks:
+        used += max(0.0, ch.pre_gap) * SPILL_MIN_GAP_SCALE + max(
+            _chunk_columns(ch, glay.content_w, metrics, SPILL_MIN_GAP_SCALE))
+    return used - _body_capacity(glay)
+
+
+def _flow_balance(pg, lay: DocLayout, metrics, n_cols: int) -> float:
+    """What `pg` leaves over (> 0) or free (< 0) in an n-column flow, in
+    column-points: its grid's columns end to end, any other chunk set at the
+    column's width (as a merged run pours it), against n columns of box."""
+    glay = _page_geometry(lay, pg)
+    used = 0.0
+    for ch in pg.chunks:
+        if ch.n_cols == n_cols:
+            used += sum(_chunk_columns(ch, glay.content_w, metrics))
+        else:
+            gap = ch.col_gap or 0.0
+            col_w = (glay.content_w - gap * (n_cols - 1)) / n_cols
+            used += _chunk_columns(ch, glay.content_w, metrics, width=col_w)[0]
+    return used - n_cols * _body_capacity(glay)
+
+
+def _plan_flows(lay: DocLayout, output_profile: str = "standard") -> dict:
+    """Which multi-column pages of a closed-loop write keep their seam:
+    `{page number: flows into the next page}`. A page absent from the plan
+    is written as the open-loop merge writes it.
+
+    The open-loop merge (`_merge_grid_page_runs`) joins every run of
+    same-shape multi-column pages into one flow with no page seams, the
+    booklet's trade; outside the booklet signature it was never asked for.
+    A flow has nothing to resynchronise it, so each page's drift carries
+    into every later page of the run, and two renderers drift differently:
+    on IRS Pub 15 (y12) the run of pages 26-44 ended one page AHEAD in Word
+    (pages 44-59 one early, word recall 0.626) and one page BEHIND in
+    LibreOffice. With every multi-column page given its own seam and column
+    breaks, both renderers map 56 of y12's 59 pages one to one; the other
+    three each spill a page and put every later page one late -- the three
+    whose own content overruns the box (the cover's 674pt tail chunk and
+    387pt frame table, the checklist read as a grid with 100-170pt gaps, a
+    paragraph whose leading is read as 16.95pt for 11.5). A seam is only
+    safe behind a page that fits.
+
+    So, page by page, for a non-booklet document under the standard
+    profile:
+
+    - a page that fits its box with every gap at the loop's floor
+      (`_seam_excess` within COL_OVERFLOW_SLACK_PT) keeps its seam: the loop
+      can correct whatever it overruns by;
+    - a page that does not flows into the following pages of its shape, and
+      the flow ends at the first seam where the pages' own free room has
+      absorbed what it carries (`_flow_balance`);
+    - a flow whose run ends before that is a seam that cannot be trusted,
+      and nor can any after it: the plan stops there, and the rest of the
+      document keeps the open-loop merge. On y12 the cover's flow still
+      carries ~980pt where its run ends at page 23; seamed there, both
+      renderers put pages 24-59 one late (LibreOffice 0.682 -> 0.497,
+      Word 0.626 -> 0.526).
+
+    Measured on World Development Report 2024 (y21, the wp33 column split):
+    48 pages at word recall 0.519 in LibreOffice and 50 at 0.419 in Word
+    with the open-loop merge; 49 at 0.883 and 49 at 0.856 planned. BLS
+    Employment Situation (y64) 0.967 -> 0.984 in both; the two-column papers
+    gain their pages back (y39 12 -> 11, word recall 0.76 -> 0.91; y41
+    dy_p50 34 -> 11pt; y26 213 -> 214 of 214).
+
+    The booklet keeps its flow (`_is_booklet`): the seams it drops are its
+    measured fix. The gdocs profile is untouched: Google Docs has its own
+    planner and changes only on live evidence.
+    """
+    pages = lay.pages
+    if output_profile == "gdocs" or _is_booklet(pages):
+        return {}
+    metrics = _text_metrics(output_profile)
+    plan = {}
+    n = len(pages)
+    i = 0
+    while i < n:
+        pg = pages[i]
+        key = _run_shape(pg, False)
+        if key is None:
+            i += 1
+            continue
+        over = _seam_excess(pg, lay, metrics)
+        if over <= COL_OVERFLOW_SLACK_PT:
+            plan[pg.number] = False
+            i += 1
+            continue
+        carried = max(over, _flow_balance(pg, lay, metrics, key))
+        run = [pg]
+        j = i + 1
+        while j < n and carried > 0 and \
+                _run_shape(pages[j], False) == key and \
+                _paper(pages[j]) == _paper(pg):
+            carried += _flow_balance(pages[j], lay, metrics, key)
+            run.append(pages[j])
+            j += 1
+        if carried > 0:
+            return plan
+        for rp in run[:-1]:
+            plan[rp.number] = True
+        plan[run[-1].number] = False
+        i = j
+    return plan
+
+
+def _freeze_flows(lay: DocLayout, output_profile: str = "standard") -> None:
+    """Stamp `PageLayout.flow_next` from `_plan_flows`, once, before the
+    refine loop moves any gap. Only the loop calls this, right after
+    `refine._freeze_seams`, and for the same reason: decided per round, a
+    page the loop had just squeezed changed its form under its own
+    corrections -- y37 rendered 34 pages for 22 that way, against 26 with
+    the merge and 26 with the plan frozen. An open-loop write has nothing
+    to correct a seam with and is never planned."""
+    try:
+        plan = _plan_flows(lay, output_profile)
+        pages = lay.pages
+    except (AttributeError, TypeError):
+        return                  # not a layout the planner can reason about
+    for pg in pages:
+        if pg.number in plan and getattr(pg, "flow_next", None) is None:
+            pg.flow_next = plan[pg.number]
 
 
 def _merge_grid_page_runs(pages):
@@ -5294,6 +5499,12 @@ def _merge_grid_page_runs(pages):
     Deliberately NOT merged: pages whose grids differ in column count, and
     any page with more than one multi-column chunk -- their ladders are
     structure, not repetition.
+
+    **Closed loop.** Outside the booklet signature, a page the refine loop
+    planned (`PageLayout.flow_next`, stamped by `_freeze_flows`) keeps its
+    seam and column breaks, and joins the next page only where the plan
+    says it cannot hold its own box (`_plan_flows`). Unplanned pages -- every
+    open-loop write -- merge as above.
     """
     booklet = _is_booklet(pages)
 
@@ -5315,32 +5526,7 @@ def _merge_grid_page_runs(pages):
                     el.space_before = _JOIN_GAP_CAP_PT
 
     def shape_of(pg):
-        """1 for an all-1-col page (booklet only), else its single
-        multi-col chunk's column count, else None (not a run member)."""
-        multis = [c for c in pg.chunks if c.n_cols >= 2]
-        if len(multis) > 1 or pg.continuation_only:
-            return None
-        # A side-by-side region (infer._side_by_side_chunks: panels in two
-        # columns, a photo beside a masthead) is this page's own structure,
-        # not a column flow continuing from the page before: merged into a
-        # run, its column break was dropped and the page's single-column
-        # lead poured into columns -- y41 p5's right-column lines, indented
-        # 235pt for a full-width body, wrapped one character per line.
-        if any(getattr(c, "_sbs", None) for c in pg.chunks):
-            return None
-        if multis:
-            if booklet and _carries_rigid_spanning_element(pg):
-                # A page holding a table or figure wider than a booklet
-                # column is STRUCTURE, not repetition: run membership would
-                # pull that rigid element into the column flow, and a
-                # table cannot wrap -- it renders across the neighbouring
-                # columns and their text. Measured on y06's source p99: a
-                # 405pt worksheet table spanning a genuinely hybrid page
-                # (full-width worksheet over 3-col instructions), colliding
-                # with column text on 6 rendered pages.
-                return None
-            return multis[0].n_cols
-        return 1 if booklet else None
+        return _run_shape(pg, booklet)
 
     out, i = [], 0
     n = len(pages)
@@ -5353,11 +5539,21 @@ def _merge_grid_page_runs(pages):
             continue
         run = [pg]
         j = i + 1
-        # A run never crosses a change of paper: the writer must open a
-        # NEW_PAGE section there (see _page_geometry).
-        while j < n and shape_of(pages[j]) == key and                 _paper(pages[j]) == _paper(pg):
-            run.append(pages[j])
-            j += 1
+        if not booklet and getattr(pg, "flow_next", None) is not None:
+            # A page the closed loop planned (`_freeze_flows`) keeps its
+            # seam, and flows into the next only where it was stamped to.
+            while j < n and getattr(pages[j - 1], "flow_next", False) and \
+                    shape_of(pages[j]) == key and \
+                    _paper(pages[j]) == _paper(pg):
+                run.append(pages[j])
+                j += 1
+        else:
+            # A run never crosses a change of paper: the writer must open a
+            # NEW_PAGE section there (see _page_geometry).
+            while j < n and shape_of(pages[j]) == key and \
+                    _paper(pages[j]) == _paper(pg):
+                run.append(pages[j])
+                j += 1
         if len(run) == 1:
             out.append(pg)
             i = j

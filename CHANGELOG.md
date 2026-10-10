@@ -82,6 +82,35 @@ one verified fix at a time, each gated against the frozen 16.
   [gdocs-2026-10-10-wp35b-y03.json](docs/evidence/gdocs-2026-10-10-wp35b-y03.json),
   which also records the y21/y22 Docs diagnosis.
 
+- **A refined write keeps the source's page seams between column pages
+  (WP38).** The open-loop merge joined every run of same-shape
+  multi-column pages into one seamless flow -- the booklet's trade, applied
+  to every document -- and a flow has nothing to resynchronise it: on IRS
+  Pub 15 (y12) one run ended a page ahead in Word and a page behind in
+  LibreOffice. With the seams kept, both renderers map every page that fits
+  its box one to one. So under the refine loop, outside the booklet
+  signature and the gdocs profile, `docxout._plan_flows` keeps each
+  multi-column page's seam and column breaks unless the page cannot fit even
+  with every gap at the loop's floor; such a page flows into the following
+  pages until their room absorbs it, and a run that ends still carrying the
+  overflow stops the plan (the rest of the document keeps the merge: a seam
+  behind an unabsorbed overflow is not trusted). The plan is frozen once,
+  before the loop moves any gap (`_freeze_flows`, called beside
+  `refine._freeze_seams`; decided per round, y37 rendered 34 pages for 22).
+  Open-loop writes are untouched: raw and gdocs `word/*.xml` byte-identical
+  over all 95 documents. Product, LibreOffice, on integration + wp33's
+  column split (Carlito image), 7 of 90 documents change, none for the
+  worse: y21 48 -> 49 pages of 48 at word recall 0.519 -> 0.882, y64 0.967
+  -> 0.984, y39 12 -> 11 pages (0.760 -> 0.914), y40 0.852 -> 0.926, y41
+  dy_p50 33.7 -> 11.1, y26 213 -> 214 of 214 (0.984 -> 0.991), y42 dy_p50
+  38.7 -> 35.3; page-exact 71 -> 72. Word, same DOCX: y21 50 -> 49 pages
+  at 0.419 -> 0.856 (criterion 5 now passes in both lanes), y64 0.967 ->
+  0.984, y39 12 -> 11 (0.736 -> 0.906), y26 213 -> 214, y41 dy_p50 41.9 ->
+  11.5; y40 0.804 -> 0.792 inside tolerance (dy_p50 45.4 -> 14.3). y12, y37,
+  y60 and y61 stop the plan and write the merge's DOCX unchanged; y12's
+  cover, p8 checklist and p31 leading are the infer defects that hold it
+  (WP40). Evidence: `docs/evidence/wp38-seams-2026-10-10.json`.
+
 - **EUR-Lex's numbered articles keep their pages in Google Docs (WP35).**
   On Google's exports of the 71558af sweep y18 (the EU AI Act) matched the
   source page for page until page 58, then spilled two pages (146 for 144,
