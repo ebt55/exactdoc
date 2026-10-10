@@ -21,6 +21,16 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 one verified fix at a time, each gated against the frozen 16.
 
 
+- **The Word oracle takes the machine for its batch itself (WP43 item 4).**
+  `word_oracle.sweep` runs inside `WordBatchLock`: a named kernel mutex
+  (`Global\exactdoc-word-oracle`, `Local\` if Global is refused; an
+  abandoned one is taken over) held for the whole batch, plus the old
+  `C:\lotmp\word.lock` for agents on older trees -- a lock file that exists,
+  is under 30 minutes old and is not ours is waited for (up to 3 hours,
+  `EXACTDOC_WORD_LOCK_WAIT_S`), then ours is written with a token, and on
+  exit the file is deleted only if it still carries our token. `WordBusy`
+  when the wait runs out.
+
 - **A worker that dies is the document's crash, unless the pool died (WP43
   item 3).** `quality_sweep.py` recorded any failure out of its process pool
   as "worker: ..." and criterion 1 read all of those as infrastructure, so a
