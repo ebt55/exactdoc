@@ -92,6 +92,7 @@ def main():
             res = harness.evaluate(src, docx, a.out, save_images=False,
                                    rendered_pdf=rendered)
             row.update({k: res.get(k) for k in KEYS})
+            row["scorer"] = harness.HARNESS_READING
             cr = qs.char_recall(src, rendered)
             row["char_recall"], row["char_doc_recall"] = cr
         except Exception as exc:

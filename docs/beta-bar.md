@@ -7,7 +7,12 @@ symbol fonts and maths the same way on both sides (see
 [the amendments](#amendments-2026-10-06-ratified-by-the-owner)). **Amended
 again on 2026-10-10**: placement is measured at the text baseline, and live
 text is read the way the words are (see
-[amendment 3](#amendment-3-2026-10-10-ratified-by-the-owner)).
+[amendment 3](#amendment-3-2026-10-10-ratified-by-the-owner)); **amendment
+4, 2026-10-10** (owner-delegated): a capped dy_p50 rise that comes with more
+words within 2pt is not a criterion-8 regression
+([amendment 4](#amendment-4-2026-10-10-criterion-8s-dy_p50-owner-delegated-decision));
+and a letter-spaced source word reads as the word it spells
+([amendment 5](#amendment-5-2026-10-10-ratified-by-the-owner)).
 
 **0.3.0b1 is not tagged while any gating criterion fails.** Criteria 1–6, 8 and
 10–12 gate the beta. Criteria 7, 9 and 13 are reported for the beta and gate
@@ -188,3 +193,120 @@ The gate's recorded baseline was measured at box tops. Until it is re-recorded
 box top and five at the baseline. The five that leave (a dash, "August"
 twice, two bullets) sit 2.05-3.55pt above their source baseline and were
 inside 2pt only by Helvetica's box-top bias.
+
+## Amendment 4, 2026-10-10: criterion 8's dy_p50 (owner-delegated decision)
+
+The owner delegated this question to an independent decider (Fable 5.1), whose
+decision stands as the owner's for it: "A+cap". The rule, verbatim:
+
+> A document's dy_p50 that is worse than the accepted sweep beyond gate.py's
+> tolerance does not count as a regression when, on the same document against
+> the same accepted row and in the same harness reading, (i) within2pt rose by
+> more than its tolerance (0.05), (ii) within5pt did not fall by more than
+> 0.05, and (iii) the dy_p50 rise is at most max(3pt, 30% of the accepted
+> value). Every other metric, including within2pt, word_recall, doc_recall and
+> page_err, is judged exactly as before. A row without within5pt gets no
+> exemption. The scorecard names each exempted document with its dy_p50,
+> within2pt and within5pt deltas and the cap applied.
+
+Enforced with it:
+
+- **(a) Same reading on both sides.** The final product sweep is compared with
+  an accepted sweep read the same way, named by file and SHA-256. When the two
+  sweeps record different readings (`rescored.scorer`, written by
+  `testkit/rescore.py`), criterion 8 is UNMEASURED: a mixed-reading scorecard
+  is invalid. From WP41c every sweep records its reading itself: `reading` =
+  {`scorer`: `harness.HARNESS_READING`, `source`: a hash of the harness's
+  reading code}, written by `quality_sweep.py` and by `rescore.py` (which also
+  writes `rescored.scorer`). The name is bumped by each amendment that changes
+  the reading, in the same commit. A side that records no reading is compared
+  with a non-blocking warning, "reading unrecorded"; the same name over a
+  different code hash draws a "check the bump" warning. **Transition:** every
+  sweep scored before WP41c and never re-scored (r4-*, wp33-*, wp39-*, …)
+  records nothing and reads with the warning. Re-scoring it with
+  `testkit/rescore.py sweep` records the reading, and any sweep run from this
+  commit on records it, so the final product sweep and its accepted sweep
+  carry no warning.
+- **(b)** y43 is re-checked on the final sweep (its within2pt rise clears the
+  0.05 by 0.0023). A document that no longer meets (i)–(iii) is a plain FAIL,
+  with no waiver to fall back on; the question then goes back to the owner.
+- **(c)** The text above, the rule in `testkit/beta_readiness.py`
+  (`dy_exemption`; constants `c8_dy_*` in `BAR`) and its tests land in one
+  commit, before the final sweep.
+- **(d)** A document is judged by this rule or by a waiver, never both. A
+  document that has a dy_p50 waiver entry is left to the waiver, whatever the
+  waiver's verdict; the rule does not look at it (as decided for y37: on its
+  waiver, not re-based).
+- **(e)** After the beta: the wrap fidelity of y43 and y55, and how criterion 8
+  reads dy_p50 for GA, are revisited.
+
+**Evidence.** The reviewer's rule scripts over 272 same-reading pairs of full
+product sweeps: y18, y33, y43 and y55 exempted (y54's dy_p50 too, but it still
+fails on recall); y26, y59, y61, y21, y37 and the reverse of y18's pair (within5pt
+−0.125) still fail. Re-run with the implemented rule on the sweeps kept in the
+run folder: y18 on wp34-g10 → wp33-a (dy_p50 3.20 → 4.51 under a 3pt cap,
+within2pt +0.122, within5pt −0.021); y33 on wp21-base → wp34-g10 (0.35 → 1.89,
+within2pt +0.268, within5pt +0.464: 30% alone would have flagged this real
+gain, hence the 3pt floor); y43 on wp39-A → wp39-C (8.79 → 10.64, within2pt
++0.0523, within5pt −0.0014); y55 on the same pair (15.56 → 17.26 under a
+4.67pt cap, within2pt +0.0645, within5pt +0.0047). On wp39-A → wp39-C those two
+are the only flags, and both are exempted; on
+`accepted-wp31-prod.rescored` → `wp33-d1-prod` nothing is exempted: y21 and
+y61 still fail, and y37 (within2pt +0.0008) would not meet (i) even if the
+rule looked at it.
+
+*y37:* a dy_p50 exception for 0.3.0b1 was decided (owner-delegated, 2026-10-10)
+but not needed: WP33n (d8e27d6) removed the flag, so no waiver is recorded.
+
+## Exceptions to criterion 8
+
+An owner decision can excuse **one metric on one unpromised document** from
+criterion 8, in the form the Google Docs quality policy already uses for its
+waivers. The entry lives in `testkit/beta_waivers.json` and names the
+document, the metric, a bound (a ceiling for a metric where lower is better,
+a floor where higher is), the release it is granted for, the accepted sweep
+it was measured against by file name **and** SHA-256, the harness reading,
+who decided and when, the evidence, and the conditions. Each exception is
+recorded on this page in the same commit as its entry. No threshold changes.
+
+`testkit/beta_readiness.py` reads it with criterion 8:
+
+- the document is flagged on that metric, the accepted sweep is the one named
+  and the current value is inside the bound → the flag is lifted and the
+  criterion prints the waiver beside its PASS ("PASS (1 waived)");
+- the current value is past the bound → **blocking**, "waiver out of bounds"
+  (a new decision is needed);
+- the accepted sweep (name or SHA-256), the release or the harness reading is
+  not the one the waiver names → **blocking**, "stale waiver": the waiver dies
+  with the sweep it was measured against and is not carried to another
+  release;
+- a waiver for a promised document, or one without a finite bound, is
+  **refused** (blocking): a promised document's bar is the README's promise,
+  and an unbounded waiver is a waiver of anything;
+- the document is no longer flagged → a non-blocking note, "waiver unused,
+  delete it".
+
+Every other metric on a waived document stays gated at full tolerance, and the
+JSON output carries each waiver's verdict.
+
+## Amendment 5, 2026-10-10, ratified by the owner
+
+No threshold changed. **A letter-spaced (tracked) run of glyphs reads as the
+word it spells**, on the source and the render alike (`testkit/harness.py`,
+harness reading `"wp42"`; `tests/test_harness_tracking.py`). A run set with
+tracking has the same extra advance after every glyph, and the text extractor
+synthesises a space wherever a gap looks wide enough: x17_resume_twocol's
+headings (Liberation Sans Bold 9.5pt, 0.146-0.202 em after every glyph) read
+"S UM M ARY", "E X P E RI E NCE" in the source while the DOCX, Word and Docs say
+"SUMMARY". A run joins when every glyph gap in it, inside its tokens and
+between them, is tracking-sized (0.08-0.25 em) and alike (within 0.08 em), and
+no gap holds a space the producer drew. Ordinary words never qualify (their
+glyph boxes touch: 0.036 em at the 99th percentile over the 95 sources), nor
+justified or ordinary word spacing, nor maths.
+
+On saved renders (`testkit/rescore.py`, nothing converted; the previous reading
+recomputed beside the new one equals the recorded rows): x17 word recall
+0.953 -> 0.985 in LibreOffice and Word and 0.889 -> 0.979 in Docs, x18 alike;
+y28 0.993 -> 0.991 in every lane, because its DOCX writes the tracked "Page"
+footer as "P a g e" with real spaces -- a converter defect this reading now
+sees. No other document moves by more than 0.002, and no gated number moves.

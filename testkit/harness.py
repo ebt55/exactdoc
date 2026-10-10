@@ -826,22 +826,25 @@ def _strip_leader_runs(text):
         else m.group(0), text)
 
 
-def match_words(src_pages, out_pages):
-    """Positional matching, page by page.
+def match_pairs(src_pages, out_pages):
+    """[(page_index, src_index, out_index)]: the pairs `match_words` counts.
 
-    Reading-order alignment breaks on multi-column pages (sorting by y
-    interleaves the columns, and a small y shift flips the interleave). So
-    match each source word to the *nearest* output word carrying identical
-    text, greedily by ascending distance, without replacement.
+    Positional matching, page by page. Reading-order alignment breaks on
+    multi-column pages (sorting by y interleaves the columns, and a small y
+    shift flips the interleave). So match each source word to the *nearest*
+    output word carrying identical text, greedily by ascending distance,
+    without replacement. The indices are into `src_pages[page_index]` and
+    `out_pages[page_index]`, in the order the greedy pass accepts them, so a
+    caller can tell WHICH source words two renders both matched
+    (testkit/churn.py) -- `match_words` keeps its return value.
 
     Vertical position is the word's anchor `y` (its baseline; `page_words`),
     or its box top for a bare 5-tuple. Pairing is by text, so the anchor
     changes which equal words pair up only where several are in reach, and
     never how many match.
     """
-    drifts, matched, total = [], 0, 0
+    pairs = []
     for i, sp in enumerate(src_pages):
-        total += len(sp)
         if i >= len(out_pages):
             continue
         by_text = {}
@@ -859,10 +862,23 @@ def match_words(src_pages, out_pages):
             if si in used_s or oj in used_o:
                 continue
             used_s.add(si); used_o.add(oj)
-            s, o = sp[si], out_pages[i][oj]
-            matched += 1
-            drifts.append((o[1] - s[1], _y(o) - _y(s), i + 1, s[0]))
-    return drifts, matched, total
+            pairs.append((i, si, oj))
+    return pairs
+
+
+def match_words(src_pages, out_pages):
+    """(drifts, matched, total) of the positional matching (`match_pairs`).
+
+    `drifts` is [(dx, dy, page_number, text)] per matched source word, page by
+    page in the order the matching accepted them; `total` counts every source
+    word, on pages the render does not have as well.
+    """
+    drifts = []
+    for i, si, oj in match_pairs(src_pages, out_pages):
+        s, o = src_pages[i][si], out_pages[i][oj]
+        drifts.append((o[1] - s[1], _y(o) - _y(s), i + 1, s[0]))
+    total = sum(len(sp) for sp in src_pages)
+    return drifts, len(drifts), total
 
 
 def _y(w):
@@ -936,6 +952,101 @@ def ink_iou(a, b, thr=200):
 # normalisation -- as opposed to page counts, pixels and the DOCX's live text.
 WORD_METRICS = ("src_words", "word_recall", "doc_recall", "dx_p50", "dx_p90",
                 "dy_p50", "dy_p90", "within2pt", "within5pt", "page_dy_p90")
+
+# ------------------------------------------------------------- the reading
+# WHICH reading of a PDF's text this harness gives. Every amendment that
+# changes how text is read bumps it, in the same commit: "wp29" is amendment 2
+# (2026-10-06: leaders, symbol-font PUA, operators); WP36's amendment-3
+# reading (baselines, live text read alike) is "wp36"; "wp42" adds
+# amendment 5 (2026-10-10: a letter-spaced run reads as the word it spells).
+# Sweeps (quality_sweep.py) and re-scores (rescore.py) record it, and
+# testkit/beta_readiness.py refuses to compare two sweeps read differently
+# (amendment 4 (a)) -- so the value is taken from here, never typed into a
+# payload by hand.
+HARNESS_READING = "wp42"
+
+# What the reading IS, for `reading()["source"]`: the top-level definitions
+# that decide which words a page has and how source and render words are
+# matched. Their syntax tree (docstrings and comments stripped, so neither a
+# comment nor a reflow moves it) is hashed; the hash changes when the code
+# does. A hash that differs under the same HARNESS_READING is reported as a
+# warning, not a refusal: a pure refactor changes it too (match_words onto
+# match_pairs did), so it says "check that the name was bumped", nothing more.
+_READING_PARTS = (
+    "_CONTINUA", "_is_continua", "_split_continua", "_INVISIBLE",
+    "_LEADER_WEIGHT", "_LEADER_MIN", "_LEADER_EDGE", "_leader_weight",
+    "_strip_glued_leader", "_leader_runs", "_SYMBOL_ENC", "_ZAPF_ENC",
+    "_MTEXTRA_ENC", "_PUA_LO", "_pua_table", "_has_pua", "_pua_spans",
+    "_read_pua", "_OPERATORS", "_OP_SPLIT", "_split_operators", "page_words",
+    "_LEADER_TEXT", "recall_text", "match_pairs", "match_words",
+    "doc_word_recall", "word_metrics",
+    # amendment 3: the baseline anchor, and live text read like the words
+    "_TOL", "_line_chars", "_holds", "_line_of", "_baseline", "_words",
+    "box_top", "_y", "drift_metrics", "docx_live_text", "_read_run_pua",
+    "pdf_text", "live_text_cov", "_strip_leader_runs",
+    # amendment 5: letter-spaced runs
+    "TRACK_MIN_EM", "TRACK_SPREAD_EM", "TRACK_MAX_EM", "TRACK_LETTERS",
+    "_TRACK_TOKEN", "_glyph_gaps", "_tracked_runs", "_join_tracked")
+
+
+def _canon(x):
+    """A syntax tree as text, the same on every Python 3 this project runs:
+    no positions, no load/store contexts, no empty or None fields (3.12 added
+    `type_params`, 3.13's ast.dump drops empties), no docstrings."""
+    import ast
+    if isinstance(x, ast.expr_context):
+        return ""
+    if isinstance(x, ast.AST):
+        items = []
+        for f in x._fields:
+            v = getattr(x, f, None)
+            if f == "body" and isinstance(x, ast.FunctionDef) and v and \
+                    isinstance(v[0], ast.Expr) and isinstance(v[0].value, ast.Constant) \
+                    and isinstance(v[0].value.value, str):
+                v = v[1:]                                      # the docstring
+            if v is None or v == []:
+                continue
+            items.append("%s=%s" % (f, _canon(v)))
+        return "%s(%s)" % (type(x).__name__, ",".join(items))
+    if isinstance(x, list):
+        return "[%s]" % ",".join(_canon(i) for i in x)
+    return repr(x)
+
+
+def _reading_source_hash(path=None):
+    import ast
+    import hashlib
+    with open(path or os.path.abspath(__file__), encoding="utf-8") as fh:
+        tree = ast.parse(fh.read())
+    parts = {}
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef):
+            names = [node.name]
+        elif isinstance(node, ast.Assign):
+            names = [n.id for t in node.targets for n in ast.walk(t)
+                     if isinstance(n, ast.Name)]
+        else:
+            continue
+        for name in names:
+            if name in _READING_PARTS:
+                parts.setdefault(name, []).append(_canon(node))
+    h = hashlib.sha256()
+    for name in _READING_PARTS:
+        for dumped in parts.get(name, ["<missing>"]):
+            h.update(("%s\n%s\n" % (name, dumped)).encode("utf-8"))
+    return h.hexdigest()[:12]
+
+
+_READING = None
+
+
+def reading():
+    """{"scorer": HARNESS_READING, "source": <12 hex>}: what a sweep records
+    as the reading its word metrics were scored in."""
+    global _READING
+    if _READING is None:
+        _READING = {"scorer": HARNESS_READING, "source": _reading_source_hash()}
+    return dict(_READING)
 
 
 def word_metrics(src_pdf, rendered_pdf, normalise=True, baseline=True, tracked=True):

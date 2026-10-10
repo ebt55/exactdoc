@@ -21,6 +21,26 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 one verified fix at a time, each gated against the frozen 16.
 
 
+- **Letter-spaced source words read as the word they spell: beta-bar
+  amendment 5, ratified by the owner on 2026-10-10 (WP42).** No conversion
+  output changed. x17_resume_twocol's and x18's headings are tracked (every
+  glyph followed by 0.146-0.202 em) and the text extractor broke them into
+  "S UM M ARY", "E X P E RI E NCE" while the DOCX, Word and Docs say
+  "SUMMARY". `harness.page_words` now joins, on the source and the render
+  alike, a run of word-character tokens whose every glyph gap, inside the
+  tokens and between them, is tracking-sized (0.08-0.25 em) and alike (within
+  0.08 em), with no space the producer drew between them (`_tracked_runs`;
+  `tracked=False` is the reading before). Over the 95 sources it joins x17's
+  and x18's six headings each, y28's "Page" footer and 55 tokens of TeX
+  letter-spacing examples; character recall and live text are untouched.
+  Re-scored (wp39 LibreOffice product sweeps, r4 Docs live, r4 and wp39 Word):
+  x17 word recall 0.953 -> 0.985 in LibreOffice and Word, 0.889 -> 0.979 in
+  Docs, x18 alike; y28 0.993 -> 0.991 in every lane, because the converter
+  writes its tracked footer as "P a g e" with real spaces (a converter
+  defect, now visible); nothing else moves by 0.002, and no gated number
+  moves. Harness reading "wp42" (`harness.HARNESS_READING`, pinned in
+  `tests/test_reading_identity.py`); tests: `tests/test_harness_tracking.py`.
+
 - **The refine loop corrects at the baseline (WP39).** The product profile's
   loop measured each page's offset at line tops, and a top is the baseline
   less whatever ascent the PDF's font declares: Word embeds Times New Roman
@@ -82,6 +102,94 @@ one verified fix at a time, each gated against the frozen 16.
   words 2-3.5pt above their source baseline that Helvetica's box top had
   put inside 2pt (`docs/beta-bar.md`, amendment 3;
   `docs/evidence/scorer-baseline-2026-10-10.json`).
+
+- **Sweeps record the harness reading they were scored in (WP41c).**
+  `testkit/harness.py` names its reading, `HARNESS_READING = "wp29"`, bumped
+  by every amendment that changes how text is read, and `harness.reading()`
+  adds a 12-hex hash of the reading code (the top-level definitions that
+  decide a page's words and the matching, as a syntax tree: comments,
+  docstrings and the Python version do not move it; a test pins it, so a
+  change to the reading code fails until the name is bumped or the pin
+  re-recorded). `quality_sweep.py` writes it as `reading` in every payload;
+  `rescore.py` writes it too and takes `rescored.scorer` and the per-row
+  `scorer` from the harness instead of a typed "wp29"; Word-oracle,
+  `gdsweep.py` and `flypairs.py` rows carry `scorer`. In
+  `beta_readiness.py` criterion 8 reads `reading` (or `rescored.scorer`) on
+  both sides: different -> UNMEASURED, "mixed reading"; missing on a side ->
+  compared with a non-blocking "reading unrecorded" warning instead of
+  silently matching; the same name over different code -> a warning to check
+  the bump. Sweeps from before this change read with the warning until
+  re-scored. No conversion code changed.
+
+- **Amendment 4: a capped dy_p50 rise that comes with more words within 2pt
+  is not a criterion-8 regression (WP41b, owner-delegated decision
+  2026-10-10).** In `testkit/beta_readiness.py` a dy_p50 flag is exempt when,
+  same document, same accepted row, same reading, within2pt rose by more than
+  0.05, within5pt fell by no more than 0.05 and dy_p50 rose by at most
+  max(3pt, 30% of the accepted value) (`dy_exemption`; `c8_dy_*` in `BAR`).
+  Each exempted document is printed with its three deltas and the cap, and
+  the JSON carries them (`exempted`); a row without within5pt gets no
+  exemption; every other metric is judged as before. Two sweeps whose
+  recorded readings (`rescored.scorer`) differ are no longer compared:
+  criterion 8 is UNMEASURED, "mixed reading". A document with a dy_p50
+  waiver is judged by its waiver only. On wp39-A -> wp39-C criterion 8 goes
+  FAIL by 2 -> PASS: y43 (8.79 -> 10.64, within2pt +0.0523, within5pt
+  -0.0014, cap 3pt) and y55 (15.56 -> 17.26, +0.0645, +0.0047, cap 4.67pt)
+  were its only flags. On accepted-wp31-prod.rescored -> wp33-d1-prod
+  nothing is exempted: y21, y37 (within2pt +0.0008) and y61 stay flagged
+  there. Of the
+  historical pairs kept in the run folder, y18 (wp34-g10 -> wp33-a) and y33
+  (wp21-base -> wp34-g10, 0.35 -> 1.89: the real gain the 3pt floor is for)
+  are exempted too. The rule text is in `docs/beta-bar.md`, verbatim, with
+  the decider and the evidence. No conversion code changed.
+
+- **Criterion 8 can carry a bounded, self-retiring exception (WP41).**
+  `testkit/beta_readiness.py` reads `testkit/beta_waivers.json`
+  (`exactdoc.beta-waivers.v1`, committed empty): one metric on one
+  unpromised document, with a ceiling (or a floor), the release, the
+  accepted sweep by file name and SHA-256, the harness reading, who decided
+  and when, the evidence and the conditions -- the shape of the gdocs
+  policy's waivers. Flagged and inside the bound, the flag is lifted and the
+  criterion prints "PASS (1 waived)" with the waiver; past the bound it
+  blocks ("waiver out of bounds"); another accepted sweep, release or
+  reading makes it stale, which blocks; a promised document or an unbounded
+  waiver is refused; a waiver nothing needs is a note, "waiver unused,
+  delete it". Every other metric on the document stays gated, and the JSON
+  carries each verdict. `--waivers`, `--release` (default 0.3.0b1). With the
+  empty file the scorecard reads exactly as before. `docs/beta-bar.md`
+  describes the rule; no threshold changed.
+
+- **`testkit/churn.py`: which source words two renders both place (WP41).**
+  A document's dy_p50 is a median over the words the render matched, and two
+  renders match different sets, so it can move with no word moving. `churn.py
+  SOURCE ACCEPTED CURRENT [--json]` splits the matched source words into
+  common, lost and gained, and reports per set the count, dy_p50, within2pt
+  and the |dy| <= 5pt share; the share of common words whose dy changed by
+  more than 2pt; the share of each set made of tokens occurring 20 times or
+  more in the source; and the SHA-256 of the three PDFs. `--require
+  PATH>=X|PATH<=X` and `--check-y37` turn figures into an exit code. The
+  reviewer's diagnostic of 2026-10-10, moved into the repo. Its matching is
+  the harness's own: `harness.match_pairs` returns the (page, source, render)
+  indices `match_words` counts, and `match_words` is now built on it with its
+  return value unchanged -- re-scored before and after on WP33's renders of
+  y37, c2 and y61, both readings, `word_metrics` is identical and reproduces
+  the sweep rows. No conversion code changed.
+
+- **A typewriter table's columns are its typed spaces (WP35b).** y03
+  (FIPS 197) passed criterion 5 in Google Docs by 0.004 (47 pages for 46,
+  word recall 0.854): source page 40 ran a page over, every later page one
+  behind. Its Appendix A key-expansion tables set each row as one Courier
+  string with columns two spaces apart; the rules-table builder put the
+  whole 401pt row in the 55pt column its centre fell in, and Docs wrapped
+  such cells to seven lines. `infer._mono_space_gaps` now cuts a monospaced
+  span where a run of its spaces is wider than a cell gap (RULES_CELL_GAP_EM:
+  two Courier spaces are 1.2em), so the tables read six columns, one line a
+  value. Folding the spilled page back into the base export reads 46 pages
+  at word recall 0.948. Only y03 and y17 (one ABNF row) change, in every
+  profile; LibreOffice product y03 46/46 at the same recall, within-2pt
+  0.198 -> 0.204. Evidence:
+  [gdocs-2026-10-10-wp35b-y03.json](docs/evidence/gdocs-2026-10-10-wp35b-y03.json),
+  which also records the y21/y22 Docs diagnosis.
 
 - **EUR-Lex's numbered articles keep their pages in Google Docs (WP35).**
   On Google's exports of the 71558af sweep y18 (the EU AI Act) matched the

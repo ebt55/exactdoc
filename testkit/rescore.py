@@ -50,7 +50,6 @@ import quality_sweep as qs
 
 READ = harness.WORD_METRICS + ("char_recall", "char_doc_recall")
 LIVE = ("live_text_cov", "raster_frac")
-SCORER = "wp42"
 
 
 def source_of(doc):
@@ -102,7 +101,7 @@ def rescore_row(row, src, pdf, docx=None):
     if "worst_pages_dy90" in row:
         new["worst_pages_dy90"] = sorted((after.get("page_dy_p90") or {}).items(),
                                          key=lambda kv: -kv[1])[:5]
-    new["scorer"] = SCORER
+    new["scorer"] = harness.HARNESS_READING
     return new
 
 
@@ -145,7 +144,8 @@ def rescore_sweep(path, renders, out_path, jobs=4):
     data["documents"] = _rescore_all(items, jobs)
     data["summary"] = qs.summarise(data["documents"])
     data["rescored"] = {"from": os.path.abspath(path), "renders": os.path.abspath(renders),
-                        "scorer": SCORER}
+                        "scorer": harness.HARNESS_READING}
+    data["reading"] = harness.reading()          # replaces the reading it was swept in
     _write_json(out_path, data)
     return data
 
