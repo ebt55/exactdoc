@@ -864,8 +864,9 @@ def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
                 if first_candidate is None:
                     first_candidate = candidate
                 # A candidate whose content is the last round's renders as the
-                # last round did: nothing left to learn from it (y21 wrote the
-                # same document three rounds running, at ~4s a render+measure).
+                # last round did: nothing left to learn from it. (y21's rounds
+                # 1-3 scored identically, which suggested this; timed quietly,
+                # its candidates differed and it still rendered 4 times.)
                 digest = _content_digest(candidate)
                 if rnd > 0 and digest is not None and digest == last_digest \
                         and not probing:
