@@ -20,6 +20,26 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **lshort's examples stand beside their output (WP46).** y22 sets its
+  examples as LaTeX source in monospace beside the typeset result, and
+  inference wrote them one after the other, so each example took both
+  heights. Now a band of code listings (three lines or more) beside typeset
+  text or a picture is a two-sided region (`infer._code_beside`), even where
+  a column path would have read the gutter down the page. A parser block
+  grouped across the gutter is cut first. A list of monospaced terms beside
+  their definitions stays a list. Two related fixes go with it.
+  Picture-environment drawings made from LaTeX's line and circle fonts (nine
+  glyph runs or more) become figures instead of tables of dingbats
+  (`_picture_glyph_draws`). A stroked path is cut to its clip when the clip
+  hides a quarter of it (`parse_pdfium._clip_path_bbox`); that fixes p114's
+  TikZ grid swallowing the page. Fills are left alone because clipping them
+  moved c1 and the RFCs. Effect on y22: raw 173 -> 155 pages (word recall
+  0.32 -> 0.95); LibreOffice product 157 -> 154 (0.75 -> 0.95); Word product
+  157 -> 154 (0.75 -> 0.94). Criterion 5 now passes in LibreOffice and Word.
+  word/*.xml is byte-identical on every other supported document in raw and
+  gdocs. Gate PASS. Docs probe set:
+  `docs/evidence/wp46-y22-examples-2026-10-11.json`.
+
 - **A rule inside a figure just stacked holds the spacing cursor, as one
   inside a table does (land1b).** WP33n's narrower hold (tables only)
   cost y21 a page on the landing set: p39's figure (y 319-505) carries
