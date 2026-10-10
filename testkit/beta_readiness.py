@@ -725,6 +725,35 @@ def mixed_commits(provenances):
                 "%s from %s" % (", ".join(ls), c[:12]) for c, ls in sorted(seen.items())))
 
 
+# Inputs whose age decides the verdict (WP43): everything a gating criterion
+# reads. The accepted sweep is old by design; the gdocs-LO sweep grades nothing.
+GATING_INPUTS = ("raw sweep", "product sweep", "Docs live", "Word lane",
+                 "product serial", "raw serial", "gate")
+
+
+def gate_modified(path):
+    """When a gate's lane verdicts were written (the newest), or None."""
+    times = [os.path.getmtime(p) for p in
+             glob.glob(os.path.join(path, "lane_*", "verdict.json"))]
+    return datetime.datetime.fromtimestamp(max(times)) if times else None
+
+
+def stale_gating_inputs(inputs):
+    """A refusal naming the gating inputs past the freshness window, or None.
+
+    `inputs` are main()'s (label, path, detail, stale) rows; `stale` is "older
+    than the newest input by more than BAR['stale_input_hours']". It was only
+    printed ("[STALE]"); a scorecard over a day-old lane beside today's is
+    two readings, so it now makes the verdict INCOMPLETE (WP43) unless
+    --allow-stale."""
+    old = [label for label, path, _detail, stale in inputs
+           if stale and path and label in GATING_INPUTS]
+    if not old:
+        return None
+    return ("gating input(s) older than the newest input by more than %d h: %s; "
+            "re-measure them (or --allow-stale)" % (BAR["stale_input_hours"], ", ".join(old)))
+
+
 def load_timing(path):
     data = _load_json(path)
     if data.get("schema") != "exactdoc.serial-timing.v1":
@@ -1492,6 +1521,9 @@ def main(argv=None):
     ap.add_argument("--readme", default=os.path.join(PROJECT, "README.md"))
     ap.add_argument("--json", help="also write the evaluation here")
     ap.add_argument("--all", action="store_true", help="list every offending document")
+    ap.add_argument("--allow-stale", action="store_true",
+                    help="read a gating input older than the newest by more than "
+                         "%d h (otherwise the verdict is INCOMPLETE)" % BAR["stale_input_hours"])
     ap.add_argument("--allow-mixed-commits", action="store_true",
                     help="read lanes whose recorded commits differ (otherwise the "
                          "verdict is INCOMPLETE)")
@@ -1533,6 +1565,9 @@ def main(argv=None):
              ("Word lane", word_rows), ("accepted", accepted),
              ("product serial", timings.get("product")), ("raw serial", timings.get("raw"))]
     stamps = [_when(v[0]) for _, v in paths if v and v[0] and os.path.exists(v[0])]
+    gate_when = gate_modified(gate[0]) if gate and gate[0] else None
+    if gate_when:
+        stamps.append(gate_when)
     newest = max(stamps) if stamps else datetime.datetime.now()
     inputs, commits = [], []
     for label, v in paths:
@@ -1555,19 +1590,28 @@ def main(argv=None):
     gate_prov = load_gate_provenance(gate[0]) if gate and gate[0] else None
     if gate:
         commits.append(("gate", (gate_prov or {}).get("git_commit")))
+    gate_stale = bool(gate_when) and \
+        (newest - gate_when).total_seconds() > 3600 * BAR["stale_input_hours"]
     inputs.append(("gate", gate[0] if gate else None,
                    ", ".join("%s %s" % (l, "ok" if v.get("ok") else "FAILED")
                              for l, v in sorted(gate[1].items())) +
-                   "; " + describe_provenance(gate_prov) if gate else None, False))
-    blockers = []
+                   "; " + describe_provenance(gate_prov) +
+                   ("; modified %s" % gate_when.strftime("%Y-%m-%d %H:%M") if gate_when else "")
+                   if gate else None, gate_stale))
+    blockers, allowed = [], []
     mixed = mixed_commits(commits)
-    if mixed and not a.allow_mixed_commits:
-        blockers.append(mixed)
+    if mixed:
+        (allowed if a.allow_mixed_commits else blockers).append(
+            ("--allow-mixed-commits: " if a.allow_mixed_commits else "") + mixed)
+    old = stale_gating_inputs(inputs)
+    if old:
+        (allowed if a.allow_stale else blockers).append(
+            ("--allow-stale: " if a.allow_stale else "") + old)
     result = evaluate(docs, sweeps, lanes, gate, accepted=accepted,
                       docx_dir=docx_dir, readme_path=a.readme, timings=timings,
                       waivers=w, release=a.release, blockers=blockers)
-    if mixed and a.allow_mixed_commits:
-        result["allowed"] = ["--allow-mixed-commits: " + mixed]
+    if allowed:
+        result["allowed"] = allowed
     inputs.append(("kept DOCX", docx_dir, None, False))
     inputs.append(("waivers", a.waivers if os.path.exists(a.waivers) else None,
                    "%d criterion-8 waiver(s) for release %s%s" % (

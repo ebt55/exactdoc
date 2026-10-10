@@ -21,6 +21,15 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 one verified fix at a time, each gated against the frozen 16.
 
 
+- **A stale gating input makes the scorecard INCOMPLETE (WP43 item 6).**
+  `beta_readiness.py` marked an input older than the newest by more than
+  24 h "[STALE]" and read it anyway. Now a stale gating input -- the raw or
+  product sweep, the Docs or Word lane, a serial timing, or the gate (whose
+  lane verdicts now carry their date) -- puts it under "inputs refused" and
+  makes the verdict INCOMPLETE, unless `--allow-stale` (printed as ALLOWED
+  BY FLAG). The accepted sweep is old by design and never counts; the
+  gdocs-LO sweep grades nothing and does not either.
+
 - **A Google Docs drift sentinel flies first in every live run (WP43 item
   5).** `testkit/fixtures_sentinel/`: a one-page memo (`sentinel.pdf`) and
   the gdocs-candidate DOCX made from it once, both pinned by SHA-256 in
