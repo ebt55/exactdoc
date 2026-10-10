@@ -1,0 +1,2998 @@
+{
+ "baseline_rerecord_proposal": {
+  "carlito_only_box_tops": {
+   "aggregates": {
+    "product mean_within2pt": [
+     0.6427,
+     0.7304
+    ],
+    "raw mean_within2pt": [
+     0.4853,
+     0.5466
+    ]
+   },
+   "file": "C:\\lotmp\\scr\\runs\\wp32-rerecord.gate_baseline.json (not committed)",
+   "split_ckpt_code_scorer_round3": [
+    {
+     "code_to_ckpt": 0.0,
+     "doc": "01_whitepaper_market.pdf",
+     "lane": "product",
+     "m": "doc_recall",
+     "new": 0.9652,
+     "old": 0.9677,
+     "round3": 0.0,
+     "scorer": -0.0025,
+     "tol": 0.01,
+     "verdict": "worse"
+    },
+    {
+     "code_to_ckpt": 0.0653,
+     "doc": "01_whitepaper_market.pdf",
+     "lane": "product",
+     "m": "within2pt",
+     "new": 0.7587,
+     "old": 0.6944,
+     "round3": 0.0,
+     "scorer": -0.001,
+     "tol": 0.05,
+     "verdict": "better>tol"
+    },
+    {
+     "code_to_ckpt": 0.0,
+     "doc": "01_whitepaper_market.pdf",
+     "lane": "product",
+     "m": "word_recall",
+     "new": 0.9652,
+     "old": 0.9677,
+     "round3": 0.0,
+     "scorer": -0.0025,
+     "tol": 0.02,
+     "verdict": "worse"
+    },
+    {
+     "code_to_ckpt": 0.0,
+     "doc": "02_research_paper.pdf",
+     "lane": "product",
+     "m": "doc_recall",
+     "new": 0.9557,
+     "old": 0.9586,
+     "round3": 0.0,
+     "scorer": -0.0029,
+     "tol": 0.01,
+     "verdict": "worse"
+    },
+    {
+     "code_to_ckpt": 0.0,
+     "doc": "02_research_paper.pdf",
+     "lane": "product",
+     "m": "within2pt",
+     "new": 0.6049,
+     "old": 0.6168,
+     "round3": 0.0,
+     "scorer": -0.0119,
+     "tol": 0.05,
+     "verdict": "worse"
+    },
+    {
+     "code_to_ckpt": 0.0,
+     "doc": "02_research_paper.pdf",
+     "lane": "product",
+     "m": "word_recall",
+     "new": 0.9557,
+     "old": 0.9586,
+     "round3": 0.0,
+     "scorer": -0.0029,
+     "tol": 0.02,
+     "verdict": "worse"
+    },
+    {
+     "code_to_ckpt": 0.0,
+     "doc": "03_tech_report_code.pdf",
+     "lane": "product",
+     "m": "dy_p50",
+     "new": 1.43,
+     "old": 1.58,
+     "round3": 0.0,
+     "scorer": -0.15,
+     "tol": 0.5,
+     "verdict": "better"
+    },
+    {
+     "code_to_ckpt": 0.2387,
+     "doc": "03_tech_report_code.pdf",
+     "lane": "product",
+     "m": "within2pt",
+     "new": 0.6348,
+     "old": 0.3426,
+     "round3": 0.0,
+     "scorer": 0.0535,
+     "tol": 0.05,
+     "verdict": "better>tol"
+    },
+    {
+     "code_to_ckpt": 0.0,
+     "doc": "04_exec_brief.pdf",
+     "lane": "product",
+     "m": "doc_recall",
+     "new": 0.9239,
+     "old": 0.9337,
+     "round3": 0.0,
+     "scorer": -0.0098,
+     "tol": 0.01,
+     "verdict": "worse"
+    },
+    {
+     "code_to_ckpt": 0.0473,
+     "doc": "04_exec_brief.pdf",
+     "lane": "product",
+     "m": "within2pt",
+     "new": 0.6294,
+     "old": 0.4793,
+     "round3": 0.1059,
+     "scorer": -0.0031,
+     "tol": 0.05,
+     "verdict": "better>tol"
+    },
+    {
+     "code_to_ckpt": 0.0,
+     "doc": "04_exec_brief.pdf",
+     "lane": "product",
+     "m": "word_recall",
+     "new": 0.9239,
+     "old": 0.9337,
+     "round3": 0.0,
+     "scorer": -0.0098,
+     "tol": 0.02,
+     "verdict": "worse"
+    },
+    {
+     "code_to_ckpt": 0.0,
+     "doc": "c2_paper2col.pdf",
+     "lane": "product",
+     "m": "within2pt",
+     "new": 0.5773,
+     "old": 0.574,
+     "round3": 0.0,
+     "scorer": 0.0033,
+     "tol": 0.05,
+     "verdict": "better"
+    },
+    {
+     "code_to_ckpt": 0.7972,
+     "doc": "c3_tables.pdf",
+     "lane": "product",
+     "m": "within2pt",
+     "new": 0.7945,
+     "old": 0.0,
+     "round3": 0.0,
+     "scorer": -0.0027,
+     "tol": 0.05,
+     "verdict": "better>tol"
+    },
+    {
+     "code_to_ckpt": 0.0,
+     "doc": "c4_i18n.pdf",
+     "lane": "product",
+     "m": "doc_recall",
+     "new": 0.9959,
+     "old": 0.9874,
+     "round3": 0.0,
+     "scorer": 0.0085,
+     "tol": 0.01,
+     "verdict": "better"
+    },
+    {
+     "code_to_ckpt": 0.0,
+     "doc": "c4_i18n.pdf",
+     "lane": "product",
+     "m": "within2pt",
+     "new": 0.8724,
+     "old": 0.8723,
+     "round3": 0.0,
+     "scorer": 0.0001,
+     "tol": 0.05,
+     "verdict": "better"
+    },
+    {
+     "code_to_ckpt": 0.0,
+     "doc": "c4_i18n.pdf",
+     "lane": "product",
+     "m": "word_recall",
+     "new": 0.9959,
+     "old": 0.9874,
+     "round3": 0.0,
+     "scorer": 0.0085,
+     "tol": 0.02,
+     "verdict": "better"
+    },
+    {
+     "code_to_ckpt": 0.0,
+     "doc": "c7_code.pdf",
+     "lane": "product",
+     "m": "within2pt",
+     "new": 0.9919,
+     "old": 0.9886,
+     "round3": 0.0,
+     "scorer": 0.0033,
+     "tol": 0.05,
+     "verdict": "better"
+    },
+    {
+     "code_to_ckpt": 0.0242,
+     "doc": "f1_fpdf_brief.pdf",
+     "lane": "product",
+     "m": "within2pt",
+     "new": 0.629,
+     "old": 0.6048,
+     "round3": 0.0,
+     "scorer": 0.0,
+     "tol": 0.05,
+     "verdict": "better"
+    },
+    {
+     "code_to_ckpt": 0.078,
+     "doc": "l1_word_native.pdf",
+     "lane": "product",
+     "m": "within2pt",
+     "new": 0.2482,
+     "old": 0.1702,
+     "round3": 0.0,
+     "scorer": 0.0,
+     "tol": 0.05,
+     "verdict": "better>tol"
+    },
+    {
+     "code_to_ckpt": 0.0,
+     "doc": "r1_reportlab_report.pdf",
+     "lane": "product",
+     "m": "within2pt",
+     "new": 0.4821,
+     "old": 0.4767,
+     "round3": 0.0,
+     "scorer": 0.0054,
+     "tol": 0.05,
+     "verdict": "better"
+    },
+    {
+     "code_to_ckpt": 0.0,
+     "doc": "01_whitepaper_market.pdf",
+     "lane": "raw",
+     "m": "doc_recall",
+     "new": 0.9652,
+     "old": 0.9677,
+     "round3": 0.0,
+     "scorer": -0.0025,
+     "tol": 0.01,
+     "verdict": "worse"
+    },
+    {
+     "code_to_ckpt": 0.0542,
+     "doc": "01_whitepaper_market.pdf",
+     "lane": "raw",
+     "m": "within2pt",
+     "new": 0.3925,
+     "old": 0.3389,
+     "round3": 0.0,
+     "scorer": -0.0006,
+     "tol": 0.05,
+     "verdict": "better>tol"
+    },
+    {
+     "code_to_ckpt": 0.0,
+     "doc": "01_whitepaper_market.pdf",
+     "lane": "raw",
+     "m": "word_recall",
+     "new": 0.9652,
+     "old": 0.9677,
+     "round3": 0.0,
+     "scorer": -0.0025,
+     "tol": 0.02,
+     "verdict": "worse"
+    },
+    {
+     "code_to_ckpt": 0.0,
+     "doc": "02_research_paper.pdf",
+     "lane": "raw",
+     "m": "doc_recall",
+     "new": 0.9557,
+     "old": 0.9586,
+     "round3": 0.0,
+     "scorer": -0.0029,
+     "tol": 0.01,
+     "verdict": "worse"
+    },
+    {
+     "code_to_ckpt": 0.0,
+     "doc": "02_research_paper.pdf",
+     "lane": "raw",
+     "m": "within2pt",
+     "new": 0.5488,
+     "old": 0.5685,
+     "round3": 0.0,
+     "scorer": -0.0197,
+     "tol": 0.05,
+     "verdict": "worse"
+    },
+    {
+     "code_to_ckpt": 0.0,
+     "doc": "02_research_paper.pdf",
+     "lane": "raw",
+     "m": "word_recall",
+     "new": 0.9557,
+     "old": 0.9586,
+     "round3": 0.0,
+     "scorer": -0.0029,
+     "tol": 0.02,
+     "verdict": "worse"
+    },
+    {
+     "code_to_ckpt": 0.1004,
+     "doc": "03_tech_report_code.pdf",
+     "lane": "raw",
+     "m": "within2pt",
+     "new": 0.2493,
+     "old": 0.128,
+     "round3": 0.0,
+     "scorer": 0.0209,
+     "tol": 0.05,
+     "verdict": "better>tol"
+    },
+    {
+     "code_to_ckpt": 0.0,
+     "doc": "04_exec_brief.pdf",
+     "lane": "raw",
+     "m": "doc_recall",
+     "new": 0.9239,
+     "old": 0.9337,
+     "round3": 0.0,
+     "scorer": -0.0098,
+     "tol": 0.01,
+     "verdict": "worse"
+    },
+    {
+     "code_to_ckpt": 0.0,
+     "doc": "04_exec_brief.pdf",
+     "lane": "raw",
+     "m": "within2pt",
+     "new": 0.0529,
+     "old": 0.0533,
+     "round3": 0.0,
+     "scorer": -0.0004,
+     "tol": 0.05,
+     "verdict": "worse"
+    },
+    {
+     "code_to_ckpt": 0.0,
+     "doc": "04_exec_brief.pdf",
+     "lane": "raw",
+     "m": "word_recall",
+     "new": 0.9239,
+     "old": 0.9337,
+     "round3": 0.0,
+     "scorer": -0.0098,
+     "tol": 0.02,
+     "verdict": "worse"
+    },
+    {
+     "code_to_ckpt": 0.0,
+     "doc": "c2_paper2col.pdf",
+     "lane": "raw",
+     "m": "within2pt",
+     "new": 0.0412,
+     "old": 0.0416,
+     "round3": 0.0,
+     "scorer": -0.0004,
+     "tol": 0.05,
+     "verdict": "worse"
+    },
+    {
+     "code_to_ckpt": 0.7972,
+     "doc": "c3_tables.pdf",
+     "lane": "raw",
+     "m": "within2pt",
+     "new": 0.7945,
+     "old": 0.0,
+     "round3": 0.0,
+     "scorer": -0.0027,
+     "tol": 0.05,
+     "verdict": "better>tol"
+    },
+    {
+     "code_to_ckpt": 0.0,
+     "doc": "c4_i18n.pdf",
+     "lane": "raw",
+     "m": "doc_recall",
+     "new": 0.9959,
+     "old": 0.9874,
+     "round3": 0.0,
+     "scorer": 0.0085,
+     "tol": 0.01,
+     "verdict": "better"
+    },
+    {
+     "code_to_ckpt": 0.0,
+     "doc": "c4_i18n.pdf",
+     "lane": "raw",
+     "m": "within2pt",
+     "new": 0.8724,
+     "old": 0.8723,
+     "round3": 0.0,
+     "scorer": 0.0001,
+     "tol": 0.05,
+     "verdict": "better"
+    },
+    {
+     "code_to_ckpt": 0.0,
+     "doc": "c4_i18n.pdf",
+     "lane": "raw",
+     "m": "word_recall",
+     "new": 0.9959,
+     "old": 0.9874,
+     "round3": 0.0,
+     "scorer": 0.0085,
+     "tol": 0.02,
+     "verdict": "better"
+    },
+    {
+     "code_to_ckpt": 0.0,
+     "doc": "c7_code.pdf",
+     "lane": "raw",
+     "m": "within2pt",
+     "new": 0.8947,
+     "old": 0.892,
+     "round3": 0.0,
+     "scorer": 0.0027,
+     "tol": 0.05,
+     "verdict": "better"
+    },
+    {
+     "code_to_ckpt": 0.0242,
+     "doc": "f1_fpdf_brief.pdf",
+     "lane": "raw",
+     "m": "within2pt",
+     "new": 0.629,
+     "old": 0.6048,
+     "round3": 0.0,
+     "scorer": 0.0,
+     "tol": 0.05,
+     "verdict": "better"
+    },
+    {
+     "code_to_ckpt": 0.0,
+     "doc": "r1_reportlab_report.pdf",
+     "lane": "raw",
+     "m": "within2pt",
+     "new": 0.4821,
+     "old": 0.4767,
+     "round3": 0.0,
+     "scorer": 0.0054,
+     "tol": 0.05,
+     "verdict": "better"
+    }
+   ],
+   "tree": "a0029e0",
+   "verify": "PASS both lanes",
+   "worse_beyond_tolerance": []
+  },
+  "image_effect_on_gated": "none (wp32-gate-1 == int-wp27b per document)",
+  "proposed": {
+   "aggregates": {
+    "page_match_count, gate_pass_count, mean_live_text": "unchanged",
+    "product mean_within2pt": [
+     0.6427,
+     0.8156
+    ],
+    "product median_dy_p50": [
+     0.525,
+     0.35
+    ],
+    "raw mean_within2pt": [
+     0.4853,
+     0.6168
+    ],
+    "raw median_dy_p50": [
+     1.245,
+     0.65
+    ]
+   },
+   "file": "C:\\lotmp\\scr\\runs\\wp32-rerecord36.gate_baseline.json (not committed)",
+   "image": "bab1cfc0d2cd",
+   "per_document_committed_boxtop_proposed": [
+    {
+     "carlito_box_tops": 0.9652,
+     "committed": 0.9677,
+     "doc": "01_whitepaper_market.pdf",
+     "lane": "product",
+     "metric": "doc_recall",
+     "proposed": 0.9652,
+     "verdict": "worse, inside tol 0.01"
+    },
+    {
+     "carlito_box_tops": 1.38,
+     "committed": 1.38,
+     "doc": "01_whitepaper_market.pdf",
+     "lane": "product",
+     "metric": "dy_p50",
+     "proposed": 0.4,
+     "verdict": "better > tol"
+    },
+    {
+     "carlito_box_tops": 0.7587,
+     "committed": 0.6944,
+     "doc": "01_whitepaper_market.pdf",
+     "lane": "product",
+     "metric": "within2pt",
+     "proposed": 0.8363,
+     "verdict": "better > tol"
+    },
+    {
+     "carlito_box_tops": 0.9652,
+     "committed": 0.9677,
+     "doc": "01_whitepaper_market.pdf",
+     "lane": "product",
+     "metric": "word_recall",
+     "proposed": 0.9652,
+     "verdict": "worse, inside tol 0.02"
+    },
+    {
+     "carlito_box_tops": 0.9557,
+     "committed": 0.9586,
+     "doc": "02_research_paper.pdf",
+     "lane": "product",
+     "metric": "doc_recall",
+     "proposed": 0.9557,
+     "verdict": "worse, inside tol 0.01"
+    },
+    {
+     "carlito_box_tops": 1.29,
+     "committed": 1.29,
+     "doc": "02_research_paper.pdf",
+     "lane": "product",
+     "metric": "dy_p50",
+     "proposed": 0.25,
+     "verdict": "better > tol"
+    },
+    {
+     "carlito_box_tops": 0.6049,
+     "committed": 0.6168,
+     "doc": "02_research_paper.pdf",
+     "lane": "product",
+     "metric": "within2pt",
+     "proposed": 0.922,
+     "verdict": "better > tol"
+    },
+    {
+     "carlito_box_tops": 0.9557,
+     "committed": 0.9586,
+     "doc": "02_research_paper.pdf",
+     "lane": "product",
+     "metric": "word_recall",
+     "proposed": 0.9557,
+     "verdict": "worse, inside tol 0.02"
+    },
+    {
+     "carlito_box_tops": 1.43,
+     "committed": 1.58,
+     "doc": "03_tech_report_code.pdf",
+     "lane": "product",
+     "metric": "dy_p50",
+     "proposed": 0.3,
+     "verdict": "better > tol"
+    },
+    {
+     "carlito_box_tops": 0.6348,
+     "committed": 0.3426,
+     "doc": "03_tech_report_code.pdf",
+     "lane": "product",
+     "metric": "within2pt",
+     "proposed": 0.8116,
+     "verdict": "better > tol"
+    },
+    {
+     "carlito_box_tops": 0.9239,
+     "committed": 0.9337,
+     "doc": "04_exec_brief.pdf",
+     "lane": "product",
+     "metric": "doc_recall",
+     "proposed": 0.9239,
+     "verdict": "worse, inside tol 0.01"
+    },
+    {
+     "carlito_box_tops": 1.39,
+     "committed": 1.39,
+     "doc": "04_exec_brief.pdf",
+     "lane": "product",
+     "metric": "dy_p50",
+     "proposed": 0.4,
+     "verdict": "better > tol"
+    },
+    {
+     "carlito_box_tops": 0.6294,
+     "committed": 0.4793,
+     "doc": "04_exec_brief.pdf",
+     "lane": "product",
+     "metric": "within2pt",
+     "proposed": 0.6941,
+     "verdict": "better > tol"
+    },
+    {
+     "carlito_box_tops": 0.9239,
+     "committed": 0.9337,
+     "doc": "04_exec_brief.pdf",
+     "lane": "product",
+     "metric": "word_recall",
+     "proposed": 0.9239,
+     "verdict": "worse, inside tol 0.02"
+    },
+    {
+     "carlito_box_tops": 1.39,
+     "committed": 1.39,
+     "doc": "05_memo.pdf",
+     "lane": "product",
+     "metric": "dy_p50",
+     "proposed": 0.95,
+     "verdict": "better"
+    },
+    {
+     "carlito_box_tops": 0.6386,
+     "committed": 0.6386,
+     "doc": "05_memo.pdf",
+     "lane": "product",
+     "metric": "within2pt",
+     "proposed": 0.8795,
+     "verdict": "better > tol"
+    },
+    {
+     "carlito_box_tops": 0.44,
+     "committed": 0.44,
+     "doc": "c1_whitepaper.pdf",
+     "lane": "product",
+     "metric": "dy_p50",
+     "proposed": 0.3,
+     "verdict": "better"
+    },
+    {
+     "carlito_box_tops": 0.5773,
+     "committed": 0.574,
+     "doc": "c2_paper2col.pdf",
+     "lane": "product",
+     "metric": "within2pt",
+     "proposed": 0.5747,
+     "verdict": "better"
+    },
+    {
+     "carlito_box_tops": 0.7945,
+     "committed": 0.0,
+     "doc": "c3_tables.pdf",
+     "lane": "product",
+     "metric": "within2pt",
+     "proposed": 0.7945,
+     "verdict": "better > tol"
+    },
+    {
+     "carlito_box_tops": 0.9959,
+     "committed": 0.9874,
+     "doc": "c4_i18n.pdf",
+     "lane": "product",
+     "metric": "doc_recall",
+     "proposed": 0.9959,
+     "verdict": "better"
+    },
+    {
+     "carlito_box_tops": 0.8724,
+     "committed": 0.8723,
+     "doc": "c4_i18n.pdf",
+     "lane": "product",
+     "metric": "within2pt",
+     "proposed": 0.8724,
+     "verdict": "better"
+    },
+    {
+     "carlito_box_tops": 0.9959,
+     "committed": 0.9874,
+     "doc": "c4_i18n.pdf",
+     "lane": "product",
+     "metric": "word_recall",
+     "proposed": 0.9959,
+     "verdict": "better"
+    },
+    {
+     "carlito_box_tops": 0.9919,
+     "committed": 0.9886,
+     "doc": "c7_code.pdf",
+     "lane": "product",
+     "metric": "within2pt",
+     "proposed": 0.9919,
+     "verdict": "better"
+    },
+    {
+     "carlito_box_tops": 1.2,
+     "committed": 1.2,
+     "doc": "f1_fpdf_brief.pdf",
+     "lane": "product",
+     "metric": "dy_p50",
+     "proposed": 0.5,
+     "verdict": "better > tol"
+    },
+    {
+     "carlito_box_tops": 0.629,
+     "committed": 0.6048,
+     "doc": "f1_fpdf_brief.pdf",
+     "lane": "product",
+     "metric": "within2pt",
+     "proposed": 1.0,
+     "verdict": "better > tol"
+    },
+    {
+     "carlito_box_tops": 0.01,
+     "committed": 0.01,
+     "doc": "l1_word_native.pdf",
+     "lane": "product",
+     "metric": "dy_p50",
+     "proposed": 0.4,
+     "verdict": "worse, inside tol 0.5"
+    },
+    {
+     "carlito_box_tops": 0.2482,
+     "committed": 0.1702,
+     "doc": "l1_word_native.pdf",
+     "lane": "product",
+     "metric": "within2pt",
+     "proposed": 0.2482,
+     "verdict": "better > tol"
+    },
+    {
+     "carlito_box_tops": 1.1,
+     "committed": 1.1,
+     "doc": "r1_reportlab_report.pdf",
+     "lane": "product",
+     "metric": "dy_p50",
+     "proposed": 0.6,
+     "verdict": "better"
+    },
+    {
+     "carlito_box_tops": 0.4821,
+     "committed": 0.4767,
+     "doc": "r1_reportlab_report.pdf",
+     "lane": "product",
+     "metric": "within2pt",
+     "proposed": 0.6,
+     "verdict": "better > tol"
+    },
+    {
+     "carlito_box_tops": 0.9652,
+     "committed": 0.9677,
+     "doc": "01_whitepaper_market.pdf",
+     "lane": "raw",
+     "metric": "doc_recall",
+     "proposed": 0.9652,
+     "verdict": "worse, inside tol 0.01"
+    },
+    {
+     "carlito_box_tops": 2.99,
+     "committed": 2.99,
+     "doc": "01_whitepaper_market.pdf",
+     "lane": "raw",
+     "metric": "dy_p50",
+     "proposed": 0.8,
+     "verdict": "better > tol"
+    },
+    {
+     "carlito_box_tops": 0.3925,
+     "committed": 0.3389,
+     "doc": "01_whitepaper_market.pdf",
+     "lane": "raw",
+     "metric": "within2pt",
+     "proposed": 0.4424,
+     "verdict": "better > tol"
+    },
+    {
+     "carlito_box_tops": 0.9652,
+     "committed": 0.9677,
+     "doc": "01_whitepaper_market.pdf",
+     "lane": "raw",
+     "metric": "word_recall",
+     "proposed": 0.9652,
+     "verdict": "worse, inside tol 0.02"
+    },
+    {
+     "carlito_box_tops": 0.9557,
+     "committed": 0.9586,
+     "doc": "02_research_paper.pdf",
+     "lane": "raw",
+     "metric": "doc_recall",
+     "proposed": 0.9557,
+     "verdict": "worse, inside tol 0.01"
+    },
+    {
+     "carlito_box_tops": 1.29,
+     "committed": 1.29,
+     "doc": "02_research_paper.pdf",
+     "lane": "raw",
+     "metric": "dy_p50",
+     "proposed": 0.25,
+     "verdict": "better > tol"
+    },
+    {
+     "carlito_box_tops": 0.5488,
+     "committed": 0.5685,
+     "doc": "02_research_paper.pdf",
+     "lane": "raw",
+     "metric": "within2pt",
+     "proposed": 0.922,
+     "verdict": "better > tol"
+    },
+    {
+     "carlito_box_tops": 0.9557,
+     "committed": 0.9586,
+     "doc": "02_research_paper.pdf",
+     "lane": "raw",
+     "metric": "word_recall",
+     "proposed": 0.9557,
+     "verdict": "worse, inside tol 0.02"
+    },
+    {
+     "carlito_box_tops": 3.7,
+     "committed": 3.7,
+     "doc": "03_tech_report_code.pdf",
+     "lane": "raw",
+     "metric": "dy_p50",
+     "proposed": 2.55,
+     "verdict": "better > tol"
+    },
+    {
+     "carlito_box_tops": 0.2493,
+     "committed": 0.128,
+     "doc": "03_tech_report_code.pdf",
+     "lane": "raw",
+     "metric": "within2pt",
+     "proposed": 0.3449,
+     "verdict": "better > tol"
+    },
+    {
+     "carlito_box_tops": 0.9239,
+     "committed": 0.9337,
+     "doc": "04_exec_brief.pdf",
+     "lane": "raw",
+     "metric": "doc_recall",
+     "proposed": 0.9239,
+     "verdict": "worse, inside tol 0.01"
+    },
+    {
+     "carlito_box_tops": 4.05,
+     "committed": 4.05,
+     "doc": "04_exec_brief.pdf",
+     "lane": "raw",
+     "metric": "dy_p50",
+     "proposed": 3.2,
+     "verdict": "better > tol"
+    },
+    {
+     "carlito_box_tops": 0.0529,
+     "committed": 0.0533,
+     "doc": "04_exec_brief.pdf",
+     "lane": "raw",
+     "metric": "within2pt",
+     "proposed": 0.2294,
+     "verdict": "better > tol"
+    },
+    {
+     "carlito_box_tops": 0.9239,
+     "committed": 0.9337,
+     "doc": "04_exec_brief.pdf",
+     "lane": "raw",
+     "metric": "word_recall",
+     "proposed": 0.9239,
+     "verdict": "worse, inside tol 0.02"
+    },
+    {
+     "carlito_box_tops": 20.74,
+     "committed": 20.74,
+     "doc": "05_memo.pdf",
+     "lane": "raw",
+     "metric": "dy_p50",
+     "proposed": 18.95,
+     "verdict": "better"
+    },
+    {
+     "carlito_box_tops": 0.1205,
+     "committed": 0.1205,
+     "doc": "05_memo.pdf",
+     "lane": "raw",
+     "metric": "within2pt",
+     "proposed": 0.0602,
+     "verdict": "**WORSE beyond tol 0.05**"
+    },
+    {
+     "carlito_box_tops": 0.44,
+     "committed": 0.44,
+     "doc": "c1_whitepaper.pdf",
+     "lane": "raw",
+     "metric": "dy_p50",
+     "proposed": 0.3,
+     "verdict": "better"
+    },
+    {
+     "carlito_box_tops": 0.0412,
+     "committed": 0.0416,
+     "doc": "c2_paper2col.pdf",
+     "lane": "raw",
+     "metric": "within2pt",
+     "proposed": 0.0412,
+     "verdict": "worse, inside tol 0.05"
+    },
+    {
+     "carlito_box_tops": 0.7945,
+     "committed": 0.0,
+     "doc": "c3_tables.pdf",
+     "lane": "raw",
+     "metric": "within2pt",
+     "proposed": 0.7945,
+     "verdict": "better > tol"
+    },
+    {
+     "carlito_box_tops": 0.9959,
+     "committed": 0.9874,
+     "doc": "c4_i18n.pdf",
+     "lane": "raw",
+     "metric": "doc_recall",
+     "proposed": 0.9959,
+     "verdict": "better"
+    },
+    {
+     "carlito_box_tops": 0.8724,
+     "committed": 0.8723,
+     "doc": "c4_i18n.pdf",
+     "lane": "raw",
+     "metric": "within2pt",
+     "proposed": 0.8724,
+     "verdict": "better"
+    },
+    {
+     "carlito_box_tops": 0.9959,
+     "committed": 0.9874,
+     "doc": "c4_i18n.pdf",
+     "lane": "raw",
+     "metric": "word_recall",
+     "proposed": 0.9959,
+     "verdict": "better"
+    },
+    {
+     "carlito_box_tops": 0.8947,
+     "committed": 0.892,
+     "doc": "c7_code.pdf",
+     "lane": "raw",
+     "metric": "within2pt",
+     "proposed": 0.8947,
+     "verdict": "better"
+    },
+    {
+     "carlito_box_tops": 1.2,
+     "committed": 1.2,
+     "doc": "f1_fpdf_brief.pdf",
+     "lane": "raw",
+     "metric": "dy_p50",
+     "proposed": 0.5,
+     "verdict": "better > tol"
+    },
+    {
+     "carlito_box_tops": 0.629,
+     "committed": 0.6048,
+     "doc": "f1_fpdf_brief.pdf",
+     "lane": "raw",
+     "metric": "within2pt",
+     "proposed": 1.0,
+     "verdict": "better > tol"
+    },
+    {
+     "carlito_box_tops": 3.31,
+     "committed": 3.31,
+     "doc": "l1_word_native.pdf",
+     "lane": "raw",
+     "metric": "dy_p50",
+     "proposed": 2.9,
+     "verdict": "better"
+    },
+    {
+     "carlito_box_tops": 1.1,
+     "committed": 1.1,
+     "doc": "r1_reportlab_report.pdf",
+     "lane": "raw",
+     "metric": "dy_p50",
+     "proposed": 0.6,
+     "verdict": "better"
+    },
+    {
+     "carlito_box_tops": 0.4821,
+     "committed": 0.4767,
+     "doc": "r1_reportlab_report.pdf",
+     "lane": "raw",
+     "metric": "within2pt",
+     "proposed": 0.6,
+     "verdict": "better > tol"
+    }
+   ],
+   "tree": "05e4be9 = switch a0029e0 + merge wp36 (7f556e8, amendment 3), scratch branch wp32-rr",
+   "verify": "plain runall over the proposed record PASS both lanes, 16/16 pages",
+   "worse_beyond_tolerance": [
+    [
+     "raw",
+     "05_memo.pdf",
+     "within2pt",
+     0.1205,
+     0.0602,
+     "amendment 3"
+    ]
+   ]
+  },
+  "write_up": "C:\\lotmp\\scr\\wp32\\rerecord-proposal.md"
+ },
+ "beta_readiness": {
+  "amendment2_accepted_ckpt_prod_A": {
+   "criteria": {
+    "1": {
+     "detail": "0 error(s) in 365 conversions read; 5/5 unsupported refused with typed exit codes",
+     "key": "crash",
+     "misses": [],
+     "status": "PASS"
+    },
+    "10": {
+     "detail": "90 DOCX, 24 families declared; 0 outside the stock set and the README's 13",
+     "key": "fonts",
+     "misses": [],
+     "status": "PASS"
+    },
+    "11": {
+     "detail": "both lanes ok",
+     "key": "gate",
+     "misses": [],
+     "status": "PASS"
+    },
+    "12": {
+     "detail": "9 evidence file(s) cited, 8 dated; 1 stale or contradicted",
+     "key": "readme",
+     "misses": [
+      "README says 57 of 90 live Docs documents page-exact; the latest live rows say 63 of 90"
+     ],
+     "status": "FAIL"
+    },
+    "13": {
+     "detail": "LO product 40/62 = 64.5%; Word 40/62 = 64.5%; Docs live 36/62 = 58.1%; would FAIL by 52 for GA",
+     "key": "gdocs-policy",
+     "misses": [
+      "LO product x01_lo_memo_pageno (dx_p50)",
+      "LO product x02_lo_report_toc (live_text_cov)",
+      "LO product y01_nist_sp80063b (live_text_cov)",
+      "LO product y02_nist_sp800171r2 (live_text_cov)",
+      "LO product y10_nist_fips180 (live_text_cov)",
+      "LO product y12_irs_pub15 (page_match, word_recall, mean_ssim, dx_p50, dy_p50)",
+      "LO product y17_rfc9110 (mean_ssim, dx_p50)",
+      "LO product y18_eurlex_ai_act (mean_ssim, dx_p50)",
+      "LO product y19_scotus_loper (dx_p50, dy_p50)",
+      "LO product y21_worldbank_wdr24 (page_match, doc_recall, word_recall, mean_ssim, dx_p50, dy_p50)",
+      "LO product y22_lshort (page_match, word_recall, dx_p50, dy_p50)",
+      "LO product y24_pandoc_manual (dx_p50)"
+     ],
+     "status": "REPORTED"
+    },
+    "2": {
+     "detail": "product: 4 of 90 over (13 timed serially, the rest from a sweep of 4 at a time); raw: 1 of 90 over (4 timed serially, the rest from a sweep of 6 at a time)",
+     "key": "time",
+     "misses": [
+      "product y06_irs_1040_instructions 271s for 126 pages (limit 189s, serial)",
+      "product y13_irs_pub501 100s for 31 pages (limit 60s, serial)",
+      "product y64_bls_release_xpp 97s for 39 pages (limit 60s, serial)",
+      "product y47_ar_ilo_word365 88s for 57 pages (limit 86s, serial)",
+      "raw y06_irs_1040_instructions 146s for 126 pages (limit 126s, serial)"
+     ],
+     "status": "FAIL"
+    },
+    "3": {
+     "detail": "90 rows; compatibility modes 14 x90",
+     "key": "word-open",
+     "misses": [],
+     "status": "PASS"
+    },
+    "4": {
+     "detail": "LO product 41/41 = 100.0%; Word 41/41 = 100.0%; Docs live 41/41 = 100.0%",
+     "key": "short-exact",
+     "misses": [],
+     "status": "PASS"
+    },
+    "5": {
+     "detail": "LO product 18/21 = 85.7%; Word 16/21 = 76.2%; Docs live 16/21 = 76.2%",
+     "key": "long-close",
+     "misses": [
+      "LO product y12_irs_pub15 (59->60 pages, wr 0.51, cr 0.87, dy50 58.6)",
+      "LO product y21_worldbank_wdr24 (48->49 pages, wr 0.72, cr 0.85, dy50 26.4)",
+      "LO product y22_lshort (153->157 pages, wr 0.75, cr 0.89, dy50 14.3)",
+      "Word y12_irs_pub15 (59->59 pages, wr 0.81, cr 0.94, dy50 34.3)",
+      "Word y18_eurlex_ai_act (144->154 pages, wr 0.47, cr 0.83, dy50 22.6)",
+      "Word y21_worldbank_wdr24 (48->49 pages, wr 0.71, cr 0.85, dy50 27.9)",
+      "Word y22_lshort (153->157 pages, wr 0.75, cr 0.89, dy50 14.4)",
+      "Word y64_bls_release_xpp (39->40 pages, wr 0.39, cr 0.74, dy50 13.6)",
+      "Docs live y12_irs_pub15 (59->69 pages, wr 0.39, cr 0.76, dy50 55.0)",
+      "Docs live y18_eurlex_ai_act (144->146 pages, wr 0.70, cr 0.90, dy50 10.8)",
+      "Docs live y21_worldbank_wdr24 (48->52 pages, wr 0.57, cr 0.73, dy50 51.9)",
+      "Docs live y22_lshort (153->169 pages, wr 0.34, cr 0.69, dy50 14.1)"
+     ],
+     "status": "FAIL"
+    },
+    "6": {
+     "detail": "LO product 62/62 = 100.0%; Word 62/62 = 100.0%; Docs live 62/62 = 100.0%",
+     "key": "catastrophic",
+     "misses": [],
+     "status": "PASS"
+    },
+    "7": {
+     "detail": "LO product 38/41 = 92.7%; Word 38/41 = 92.7%; Docs live 33/41 = 80.5%; would FAIL by 4 for GA",
+     "key": "placement",
+     "misses": [
+      "LO product y31_uk_policy_printtopdf (18->18 pages, wr 0.98, cr 1.00, dy50 17.3)",
+      "LO product y46_cv_twocol_xdvipdfmx (1->1 pages, wr 0.90, cr 0.91, dy50 0.6)",
+      "LO product y62_bill_gpo_linenum (20->20 pages, wr 0.74, cr 0.82, dy50 2.2)",
+      "Word y31_uk_policy_printtopdf (18->18 pages, wr 0.98, cr 1.00, dy50 17.2)",
+      "Word y46_cv_twocol_xdvipdfmx (1->1 pages, wr 0.90, cr 0.91, dy50 2.6)",
+      "Word y62_bill_gpo_linenum (20->20 pages, wr 0.74, cr 0.83, dy50 3.2)",
+      "Docs live x07_chrome_memo_running (3->3 pages, wr 0.99, cr 1.00, dy50 16.4)",
+      "Docs live x17_resume_twocol (2->2 pages, wr 0.89, cr 1.00, dy50 1.2)",
+      "Docs live x18_resume_twocol_tnr (2->2 pages, wr 0.88, cr 1.00, dy50 1.2)",
+      "Docs live y31_uk_policy_printtopdf (18->18 pages, wr 0.98, cr 1.00, dy50 28.2)",
+      "Docs live y44_cv_rendercv_typst (3->3 pages, wr 0.99, cr 1.00, dy50 31.0)",
+      "Docs live y46_cv_twocol_xdvipdfmx (1->1 pages, wr 0.90, cr 0.91, dy50 9.9)"
+     ],
+     "status": "REPORTED"
+    },
+    "8": {
+     "detail": "3 document(s) worse than ckpt-prod.rescored.sweep.json (product flavour)",
+     "key": "regression",
+     "misses": [
+      "y34_census_slides_pptx365 dy_p50 3.39 -> 4.18 (tolerance 0.5)",
+      "y47_ar_ilo_word365 doc_recall 0.7269 -> 0.7168 (tolerance 0.01)",
+      "y61_fedreg_gpo_3col dy_p50 35.91 -> 39.56 (tolerance 3.59)"
+     ],
+     "status": "FAIL"
+    },
+    "9": {
+     "detail": "45/62 = 72.6% pass (LO product sweep); would FAIL by 17 for GA",
+     "key": "editability",
+     "misses": [
+      "03_tech_report_code (one-cell tables 2.50/page)",
+      "c1_whitepaper (one-cell tables 1.50/page)",
+      "c7_code (one-cell tables 2.00/page)",
+      "y01_nist_sp80063b (numpr_frac 0.82)",
+      "y03_nist_fips197 (numpr_frac 0.88)",
+      "y08_nist_sp80088r1 (numpr_frac 0.86)",
+      "y09_nist_sp800207 (numpr_frac 0.63)",
+      "y10_nist_fips180 (numpr_frac 0.74)",
+      "y12_irs_pub15 (numpr_frac 0.83)",
+      "y19_scotus_loper (numpr_frac 0.42)",
+      "y21_worldbank_wdr24 (numpr_frac 0.77)",
+      "y22_lshort (numpr_frac 0.90)"
+     ],
+     "status": "REPORTED"
+    }
+   },
+   "inputs": [
+    {
+     "input": "raw sweep",
+     "path": "C:\\lotmp\\scr\\runs\\r4-new-raw.sweep.json"
+    },
+    {
+     "input": "product sweep",
+     "path": "C:\\lotmp\\scr\\runs\\r4-new-prod.sweep.json"
+    },
+    {
+     "input": "gdocs-lo sweep",
+     "path": null
+    },
+    {
+     "input": "Docs live",
+     "path": "C:\\lotmp\\r4gd\\out\\rows.jsonl"
+    },
+    {
+     "input": "Word lane",
+     "path": "C:\\lotmp\\r4word\\prod\\rows.jsonl"
+    },
+    {
+     "input": "accepted",
+     "path": "C:\\lotmp\\scr\\runs\\ckpt-prod.rescored.sweep.json"
+    },
+    {
+     "input": "product serial",
+     "path": "C:\\lotmp\\scr\\runs\\r4-new-prod-serial.timing.json"
+    },
+    {
+     "input": "raw serial",
+     "path": "C:\\lotmp\\scr\\runs\\r4-new-raw-serial.timing.json"
+    },
+    {
+     "input": "gate",
+     "path": "C:\\lotmp\\scr\\runs\\wp32-gate-1.batch"
+    },
+    {
+     "input": "kept DOCX",
+     "path": "C:\\lotmp\\scr\\runs\\r4-new-raw.docx"
+    }
+   ],
+   "verdict": "NOT READY"
+  },
+  "amendment2_accepted_wp31_prod_rescored": {
+   "criteria": {
+    "1": {
+     "detail": "0 error(s) in 365 conversions read; 5/5 unsupported refused with typed exit codes",
+     "key": "crash",
+     "misses": [],
+     "status": "PASS"
+    },
+    "10": {
+     "detail": "90 DOCX, 24 families declared; 0 outside the stock set and the README's 13",
+     "key": "fonts",
+     "misses": [],
+     "status": "PASS"
+    },
+    "11": {
+     "detail": "both lanes ok",
+     "key": "gate",
+     "misses": [],
+     "status": "PASS"
+    },
+    "12": {
+     "detail": "9 evidence file(s) cited, 8 dated; 1 stale or contradicted",
+     "key": "readme",
+     "misses": [
+      "README says 57 of 90 live Docs documents page-exact; the latest live rows say 63 of 90"
+     ],
+     "status": "FAIL"
+    },
+    "13": {
+     "detail": "LO product 40/62 = 64.5%; Word 40/62 = 64.5%; Docs live 36/62 = 58.1%; would FAIL by 52 for GA",
+     "key": "gdocs-policy",
+     "misses": [
+      "LO product x01_lo_memo_pageno (dx_p50)",
+      "LO product x02_lo_report_toc (live_text_cov)",
+      "LO product y01_nist_sp80063b (live_text_cov)",
+      "LO product y02_nist_sp800171r2 (live_text_cov)",
+      "LO product y10_nist_fips180 (live_text_cov)",
+      "LO product y12_irs_pub15 (page_match, word_recall, mean_ssim, dx_p50, dy_p50)",
+      "LO product y17_rfc9110 (mean_ssim, dx_p50)",
+      "LO product y18_eurlex_ai_act (mean_ssim, dx_p50)",
+      "LO product y19_scotus_loper (dx_p50, dy_p50)",
+      "LO product y21_worldbank_wdr24 (page_match, doc_recall, word_recall, mean_ssim, dx_p50, dy_p50)",
+      "LO product y22_lshort (page_match, word_recall, dx_p50, dy_p50)",
+      "LO product y24_pandoc_manual (dx_p50)"
+     ],
+     "status": "REPORTED"
+    },
+    "2": {
+     "detail": "product: 4 of 90 over (13 timed serially, the rest from a sweep of 4 at a time); raw: 1 of 90 over (4 timed serially, the rest from a sweep of 6 at a time)",
+     "key": "time",
+     "misses": [
+      "product y06_irs_1040_instructions 271s for 126 pages (limit 189s, serial)",
+      "product y13_irs_pub501 100s for 31 pages (limit 60s, serial)",
+      "product y64_bls_release_xpp 97s for 39 pages (limit 60s, serial)",
+      "product y47_ar_ilo_word365 88s for 57 pages (limit 86s, serial)",
+      "raw y06_irs_1040_instructions 146s for 126 pages (limit 126s, serial)"
+     ],
+     "status": "FAIL"
+    },
+    "3": {
+     "detail": "90 rows; compatibility modes 14 x90",
+     "key": "word-open",
+     "misses": [],
+     "status": "PASS"
+    },
+    "4": {
+     "detail": "LO product 41/41 = 100.0%; Word 41/41 = 100.0%; Docs live 41/41 = 100.0%",
+     "key": "short-exact",
+     "misses": [],
+     "status": "PASS"
+    },
+    "5": {
+     "detail": "LO product 18/21 = 85.7%; Word 16/21 = 76.2%; Docs live 16/21 = 76.2%",
+     "key": "long-close",
+     "misses": [
+      "LO product y12_irs_pub15 (59->60 pages, wr 0.51, cr 0.87, dy50 58.6)",
+      "LO product y21_worldbank_wdr24 (48->49 pages, wr 0.72, cr 0.85, dy50 26.4)",
+      "LO product y22_lshort (153->157 pages, wr 0.75, cr 0.89, dy50 14.3)",
+      "Word y12_irs_pub15 (59->59 pages, wr 0.81, cr 0.94, dy50 34.3)",
+      "Word y18_eurlex_ai_act (144->154 pages, wr 0.47, cr 0.83, dy50 22.6)",
+      "Word y21_worldbank_wdr24 (48->49 pages, wr 0.71, cr 0.85, dy50 27.9)",
+      "Word y22_lshort (153->157 pages, wr 0.75, cr 0.89, dy50 14.4)",
+      "Word y64_bls_release_xpp (39->40 pages, wr 0.39, cr 0.74, dy50 13.6)",
+      "Docs live y12_irs_pub15 (59->69 pages, wr 0.39, cr 0.76, dy50 55.0)",
+      "Docs live y18_eurlex_ai_act (144->146 pages, wr 0.70, cr 0.90, dy50 10.8)",
+      "Docs live y21_worldbank_wdr24 (48->52 pages, wr 0.57, cr 0.73, dy50 51.9)",
+      "Docs live y22_lshort (153->169 pages, wr 0.34, cr 0.69, dy50 14.1)"
+     ],
+     "status": "FAIL"
+    },
+    "6": {
+     "detail": "LO product 62/62 = 100.0%; Word 62/62 = 100.0%; Docs live 62/62 = 100.0%",
+     "key": "catastrophic",
+     "misses": [],
+     "status": "PASS"
+    },
+    "7": {
+     "detail": "LO product 38/41 = 92.7%; Word 38/41 = 92.7%; Docs live 33/41 = 80.5%; would FAIL by 4 for GA",
+     "key": "placement",
+     "misses": [
+      "LO product y31_uk_policy_printtopdf (18->18 pages, wr 0.98, cr 1.00, dy50 17.3)",
+      "LO product y46_cv_twocol_xdvipdfmx (1->1 pages, wr 0.90, cr 0.91, dy50 0.6)",
+      "LO product y62_bill_gpo_linenum (20->20 pages, wr 0.74, cr 0.82, dy50 2.2)",
+      "Word y31_uk_policy_printtopdf (18->18 pages, wr 0.98, cr 1.00, dy50 17.2)",
+      "Word y46_cv_twocol_xdvipdfmx (1->1 pages, wr 0.90, cr 0.91, dy50 2.6)",
+      "Word y62_bill_gpo_linenum (20->20 pages, wr 0.74, cr 0.83, dy50 3.2)",
+      "Docs live x07_chrome_memo_running (3->3 pages, wr 0.99, cr 1.00, dy50 16.4)",
+      "Docs live x17_resume_twocol (2->2 pages, wr 0.89, cr 1.00, dy50 1.2)",
+      "Docs live x18_resume_twocol_tnr (2->2 pages, wr 0.88, cr 1.00, dy50 1.2)",
+      "Docs live y31_uk_policy_printtopdf (18->18 pages, wr 0.98, cr 1.00, dy50 28.2)",
+      "Docs live y44_cv_rendercv_typst (3->3 pages, wr 0.99, cr 1.00, dy50 31.0)",
+      "Docs live y46_cv_twocol_xdvipdfmx (1->1 pages, wr 0.90, cr 0.91, dy50 9.9)"
+     ],
+     "status": "REPORTED"
+    },
+    "8": {
+     "detail": "1 document(s) worse than accepted-wp31-prod.rescored.sweep.json (product flavour)",
+     "key": "regression",
+     "misses": [
+      "y61_fedreg_gpo_3col dy_p50 35.91 -> 39.56 (tolerance 3.59)"
+     ],
+     "status": "FAIL"
+    },
+    "9": {
+     "detail": "45/62 = 72.6% pass (LO product sweep); would FAIL by 17 for GA",
+     "key": "editability",
+     "misses": [
+      "03_tech_report_code (one-cell tables 2.50/page)",
+      "c1_whitepaper (one-cell tables 1.50/page)",
+      "c7_code (one-cell tables 2.00/page)",
+      "y01_nist_sp80063b (numpr_frac 0.82)",
+      "y03_nist_fips197 (numpr_frac 0.88)",
+      "y08_nist_sp80088r1 (numpr_frac 0.86)",
+      "y09_nist_sp800207 (numpr_frac 0.63)",
+      "y10_nist_fips180 (numpr_frac 0.74)",
+      "y12_irs_pub15 (numpr_frac 0.83)",
+      "y19_scotus_loper (numpr_frac 0.42)",
+      "y21_worldbank_wdr24 (numpr_frac 0.77)",
+      "y22_lshort (numpr_frac 0.90)"
+     ],
+     "status": "REPORTED"
+    }
+   },
+   "inputs": [
+    {
+     "input": "raw sweep",
+     "path": "C:\\lotmp\\scr\\runs\\r4-new-raw.sweep.json"
+    },
+    {
+     "input": "product sweep",
+     "path": "C:\\lotmp\\scr\\runs\\r4-new-prod.sweep.json"
+    },
+    {
+     "input": "gdocs-lo sweep",
+     "path": null
+    },
+    {
+     "input": "Docs live",
+     "path": "C:\\lotmp\\r4gd\\out\\rows.jsonl"
+    },
+    {
+     "input": "Word lane",
+     "path": "C:\\lotmp\\r4word\\prod\\rows.jsonl"
+    },
+    {
+     "input": "accepted",
+     "path": "C:\\lotmp\\scr\\runs\\accepted-wp31-prod.rescored.sweep.json"
+    },
+    {
+     "input": "product serial",
+     "path": "C:\\lotmp\\scr\\runs\\r4-new-prod-serial.timing.json"
+    },
+    {
+     "input": "raw serial",
+     "path": "C:\\lotmp\\scr\\runs\\r4-new-raw-serial.timing.json"
+    },
+    {
+     "input": "gate",
+     "path": "C:\\lotmp\\scr\\runs\\wp32-gate-1.batch"
+    },
+    {
+     "input": "kept DOCX",
+     "path": "C:\\lotmp\\scr\\runs\\r4-new-raw.docx"
+    }
+   ],
+   "verdict": "NOT READY"
+  },
+  "amendment2_accepted_wp31_raw_rescored": {
+   "criteria": {
+    "1": {
+     "detail": "0 error(s) in 365 conversions read; 5/5 unsupported refused with typed exit codes",
+     "key": "crash",
+     "misses": [],
+     "status": "PASS"
+    },
+    "10": {
+     "detail": "90 DOCX, 24 families declared; 0 outside the stock set and the README's 13",
+     "key": "fonts",
+     "misses": [],
+     "status": "PASS"
+    },
+    "11": {
+     "detail": "both lanes ok",
+     "key": "gate",
+     "misses": [],
+     "status": "PASS"
+    },
+    "12": {
+     "detail": "9 evidence file(s) cited, 8 dated; 1 stale or contradicted",
+     "key": "readme",
+     "misses": [
+      "README says 57 of 90 live Docs documents page-exact; the latest live rows say 63 of 90"
+     ],
+     "status": "FAIL"
+    },
+    "13": {
+     "detail": "LO product 40/62 = 64.5%; Word 40/62 = 64.5%; Docs live 36/62 = 58.1%; would FAIL by 52 for GA",
+     "key": "gdocs-policy",
+     "misses": [
+      "LO product x01_lo_memo_pageno (dx_p50)",
+      "LO product x02_lo_report_toc (live_text_cov)",
+      "LO product y01_nist_sp80063b (live_text_cov)",
+      "LO product y02_nist_sp800171r2 (live_text_cov)",
+      "LO product y10_nist_fips180 (live_text_cov)",
+      "LO product y12_irs_pub15 (page_match, word_recall, mean_ssim, dx_p50, dy_p50)",
+      "LO product y17_rfc9110 (mean_ssim, dx_p50)",
+      "LO product y18_eurlex_ai_act (mean_ssim, dx_p50)",
+      "LO product y19_scotus_loper (dx_p50, dy_p50)",
+      "LO product y21_worldbank_wdr24 (page_match, doc_recall, word_recall, mean_ssim, dx_p50, dy_p50)",
+      "LO product y22_lshort (page_match, word_recall, dx_p50, dy_p50)",
+      "LO product y24_pandoc_manual (dx_p50)"
+     ],
+     "status": "REPORTED"
+    },
+    "2": {
+     "detail": "product: 4 of 90 over (13 timed serially, the rest from a sweep of 4 at a time); raw: 1 of 90 over (4 timed serially, the rest from a sweep of 6 at a time)",
+     "key": "time",
+     "misses": [
+      "product y06_irs_1040_instructions 271s for 126 pages (limit 189s, serial)",
+      "product y13_irs_pub501 100s for 31 pages (limit 60s, serial)",
+      "product y64_bls_release_xpp 97s for 39 pages (limit 60s, serial)",
+      "product y47_ar_ilo_word365 88s for 57 pages (limit 86s, serial)",
+      "raw y06_irs_1040_instructions 146s for 126 pages (limit 126s, serial)"
+     ],
+     "status": "FAIL"
+    },
+    "3": {
+     "detail": "90 rows; compatibility modes 14 x90",
+     "key": "word-open",
+     "misses": [],
+     "status": "PASS"
+    },
+    "4": {
+     "detail": "LO product 41/41 = 100.0%; Word 41/41 = 100.0%; Docs live 41/41 = 100.0%",
+     "key": "short-exact",
+     "misses": [],
+     "status": "PASS"
+    },
+    "5": {
+     "detail": "LO product 18/21 = 85.7%; Word 16/21 = 76.2%; Docs live 16/21 = 76.2%",
+     "key": "long-close",
+     "misses": [
+      "LO product y12_irs_pub15 (59->60 pages, wr 0.51, cr 0.87, dy50 58.6)",
+      "LO product y21_worldbank_wdr24 (48->49 pages, wr 0.72, cr 0.85, dy50 26.4)",
+      "LO product y22_lshort (153->157 pages, wr 0.75, cr 0.89, dy50 14.3)",
+      "Word y12_irs_pub15 (59->59 pages, wr 0.81, cr 0.94, dy50 34.3)",
+      "Word y18_eurlex_ai_act (144->154 pages, wr 0.47, cr 0.83, dy50 22.6)",
+      "Word y21_worldbank_wdr24 (48->49 pages, wr 0.71, cr 0.85, dy50 27.9)",
+      "Word y22_lshort (153->157 pages, wr 0.75, cr 0.89, dy50 14.4)",
+      "Word y64_bls_release_xpp (39->40 pages, wr 0.39, cr 0.74, dy50 13.6)",
+      "Docs live y12_irs_pub15 (59->69 pages, wr 0.39, cr 0.76, dy50 55.0)",
+      "Docs live y18_eurlex_ai_act (144->146 pages, wr 0.70, cr 0.90, dy50 10.8)",
+      "Docs live y21_worldbank_wdr24 (48->52 pages, wr 0.57, cr 0.73, dy50 51.9)",
+      "Docs live y22_lshort (153->169 pages, wr 0.34, cr 0.69, dy50 14.1)"
+     ],
+     "status": "FAIL"
+    },
+    "6": {
+     "detail": "LO product 62/62 = 100.0%; Word 62/62 = 100.0%; Docs live 62/62 = 100.0%",
+     "key": "catastrophic",
+     "misses": [],
+     "status": "PASS"
+    },
+    "7": {
+     "detail": "LO product 38/41 = 92.7%; Word 38/41 = 92.7%; Docs live 33/41 = 80.5%; would FAIL by 4 for GA",
+     "key": "placement",
+     "misses": [
+      "LO product y31_uk_policy_printtopdf (18->18 pages, wr 0.98, cr 1.00, dy50 17.3)",
+      "LO product y46_cv_twocol_xdvipdfmx (1->1 pages, wr 0.90, cr 0.91, dy50 0.6)",
+      "LO product y62_bill_gpo_linenum (20->20 pages, wr 0.74, cr 0.82, dy50 2.2)",
+      "Word y31_uk_policy_printtopdf (18->18 pages, wr 0.98, cr 1.00, dy50 17.2)",
+      "Word y46_cv_twocol_xdvipdfmx (1->1 pages, wr 0.90, cr 0.91, dy50 2.6)",
+      "Word y62_bill_gpo_linenum (20->20 pages, wr 0.74, cr 0.83, dy50 3.2)",
+      "Docs live x07_chrome_memo_running (3->3 pages, wr 0.99, cr 1.00, dy50 16.4)",
+      "Docs live x17_resume_twocol (2->2 pages, wr 0.89, cr 1.00, dy50 1.2)",
+      "Docs live x18_resume_twocol_tnr (2->2 pages, wr 0.88, cr 1.00, dy50 1.2)",
+      "Docs live y31_uk_policy_printtopdf (18->18 pages, wr 0.98, cr 1.00, dy50 28.2)",
+      "Docs live y44_cv_rendercv_typst (3->3 pages, wr 0.99, cr 1.00, dy50 31.0)",
+      "Docs live y46_cv_twocol_xdvipdfmx (1->1 pages, wr 0.90, cr 0.91, dy50 9.9)"
+     ],
+     "status": "REPORTED"
+    },
+    "8": {
+     "detail": "0 document(s) worse than accepted-wp31-raw.rescored.sweep.json (raw flavour)",
+     "key": "regression",
+     "misses": [],
+     "status": "PASS"
+    },
+    "9": {
+     "detail": "45/62 = 72.6% pass (LO product sweep); would FAIL by 17 for GA",
+     "key": "editability",
+     "misses": [
+      "03_tech_report_code (one-cell tables 2.50/page)",
+      "c1_whitepaper (one-cell tables 1.50/page)",
+      "c7_code (one-cell tables 2.00/page)",
+      "y01_nist_sp80063b (numpr_frac 0.82)",
+      "y03_nist_fips197 (numpr_frac 0.88)",
+      "y08_nist_sp80088r1 (numpr_frac 0.86)",
+      "y09_nist_sp800207 (numpr_frac 0.63)",
+      "y10_nist_fips180 (numpr_frac 0.74)",
+      "y12_irs_pub15 (numpr_frac 0.83)",
+      "y19_scotus_loper (numpr_frac 0.42)",
+      "y21_worldbank_wdr24 (numpr_frac 0.77)",
+      "y22_lshort (numpr_frac 0.90)"
+     ],
+     "status": "REPORTED"
+    }
+   },
+   "inputs": [
+    {
+     "input": "raw sweep",
+     "path": "C:\\lotmp\\scr\\runs\\r4-new-raw.sweep.json"
+    },
+    {
+     "input": "product sweep",
+     "path": "C:\\lotmp\\scr\\runs\\r4-new-prod.sweep.json"
+    },
+    {
+     "input": "gdocs-lo sweep",
+     "path": null
+    },
+    {
+     "input": "Docs live",
+     "path": "C:\\lotmp\\r4gd\\out\\rows.jsonl"
+    },
+    {
+     "input": "Word lane",
+     "path": "C:\\lotmp\\r4word\\prod\\rows.jsonl"
+    },
+    {
+     "input": "accepted",
+     "path": "C:\\lotmp\\scr\\runs\\accepted-wp31-raw.rescored.sweep.json"
+    },
+    {
+     "input": "product serial",
+     "path": "C:\\lotmp\\scr\\runs\\r4-new-prod-serial.timing.json"
+    },
+    {
+     "input": "raw serial",
+     "path": "C:\\lotmp\\scr\\runs\\r4-new-raw-serial.timing.json"
+    },
+    {
+     "input": "gate",
+     "path": "C:\\lotmp\\scr\\runs\\wp32-gate-1.batch"
+    },
+    {
+     "input": "kept DOCX",
+     "path": "C:\\lotmp\\scr\\runs\\r4-new-raw.docx"
+    }
+   ],
+   "verdict": "NOT READY"
+  },
+  "amendment3_rescored3_accepted_wp31_prod": {
+   "criteria": {
+    "1": {
+     "detail": "0 error(s) in 365 conversions read; 5/5 unsupported refused with typed exit codes",
+     "key": "crash",
+     "misses": [],
+     "status": "PASS"
+    },
+    "10": {
+     "detail": "90 DOCX, 24 families declared; 0 outside the stock set and the README's 13",
+     "key": "fonts",
+     "misses": [],
+     "status": "PASS"
+    },
+    "11": {
+     "detail": "both lanes ok",
+     "key": "gate",
+     "misses": [],
+     "status": "PASS"
+    },
+    "12": {
+     "detail": "9 evidence file(s) cited, 8 dated; 1 stale or contradicted",
+     "key": "readme",
+     "misses": [
+      "README says 57 of 90 live Docs documents page-exact; the latest live rows say 63 of 90"
+     ],
+     "status": "FAIL"
+    },
+    "13": {
+     "detail": "LO product 45/62 = 72.6%; Word 40/62 = 64.5%; Docs live 36/62 = 58.1%; would FAIL by 47 for GA",
+     "key": "gdocs-policy",
+     "misses": [
+      "LO product x01_lo_memo_pageno (dx_p50)",
+      "LO product y02_nist_sp800171r2 (live_text_cov)",
+      "LO product y12_irs_pub15 (page_match, word_recall, mean_ssim, dx_p50, dy_p50)",
+      "LO product y17_rfc9110 (mean_ssim, dx_p50, dy_p50)",
+      "LO product y18_eurlex_ai_act (mean_ssim, dx_p50)",
+      "LO product y19_scotus_loper (dx_p50, dy_p50)",
+      "LO product y21_worldbank_wdr24 (page_match, doc_recall, word_recall, mean_ssim, dx_p50, dy_p50)",
+      "LO product y22_lshort (page_match, word_recall, dx_p50, dy_p50)",
+      "LO product y24_pandoc_manual (dx_p50)",
+      "LO product y26_bash_reference (page_match, mean_ssim, dx_p50, dy_p50)",
+      "LO product y27_rfc9000 (mean_ssim, dx_p50, dy_p50)",
+      "LO product y28_doe_oig_word365 (mean_ssim, dx_p50)"
+     ],
+     "status": "REPORTED"
+    },
+    "2": {
+     "detail": "product: 4 of 90 over (13 timed serially, the rest from a sweep of 4 at a time); raw: 1 of 90 over (4 timed serially, the rest from a sweep of 6 at a time)",
+     "key": "time",
+     "misses": [
+      "product y06_irs_1040_instructions 271s for 126 pages (limit 189s, serial)",
+      "product y13_irs_pub501 100s for 31 pages (limit 60s, serial)",
+      "product y64_bls_release_xpp 97s for 39 pages (limit 60s, serial)",
+      "product y47_ar_ilo_word365 88s for 57 pages (limit 86s, serial)",
+      "raw y06_irs_1040_instructions 146s for 126 pages (limit 126s, serial)"
+     ],
+     "status": "FAIL"
+    },
+    "3": {
+     "detail": "90 rows; compatibility modes 14 x90",
+     "key": "word-open",
+     "misses": [],
+     "status": "PASS"
+    },
+    "4": {
+     "detail": "LO product 41/41 = 100.0%; Word 41/41 = 100.0%; Docs live 41/41 = 100.0%",
+     "key": "short-exact",
+     "misses": [],
+     "status": "PASS"
+    },
+    "5": {
+     "detail": "LO product 18/21 = 85.7%; Word 16/21 = 76.2%; Docs live 16/21 = 76.2%",
+     "key": "long-close",
+     "misses": [
+      "LO product y12_irs_pub15 (59->60 pages, wr 0.51, cr 0.87, dy50 58.4)",
+      "LO product y21_worldbank_wdr24 (48->49 pages, wr 0.72, cr 0.85, dy50 26.3)",
+      "LO product y22_lshort (153->157 pages, wr 0.75, cr 0.89, dy50 13.5)",
+      "Word y12_irs_pub15 (59->59 pages, wr 0.81, cr 0.94, dy50 34.3)",
+      "Word y18_eurlex_ai_act (144->154 pages, wr 0.47, cr 0.83, dy50 22.6)",
+      "Word y21_worldbank_wdr24 (48->49 pages, wr 0.71, cr 0.85, dy50 27.9)",
+      "Word y22_lshort (153->157 pages, wr 0.75, cr 0.89, dy50 14.4)",
+      "Word y64_bls_release_xpp (39->40 pages, wr 0.39, cr 0.74, dy50 13.6)",
+      "Docs live y12_irs_pub15 (59->69 pages, wr 0.39, cr 0.76, dy50 55.0)",
+      "Docs live y18_eurlex_ai_act (144->146 pages, wr 0.70, cr 0.90, dy50 10.8)",
+      "Docs live y21_worldbank_wdr24 (48->52 pages, wr 0.57, cr 0.73, dy50 51.9)",
+      "Docs live y22_lshort (153->169 pages, wr 0.34, cr 0.69, dy50 14.1)"
+     ],
+     "status": "FAIL"
+    },
+    "6": {
+     "detail": "LO product 62/62 = 100.0%; Word 62/62 = 100.0%; Docs live 62/62 = 100.0%",
+     "key": "catastrophic",
+     "misses": [],
+     "status": "PASS"
+    },
+    "7": {
+     "detail": "LO product 38/41 = 92.7%; Word 38/41 = 92.7%; Docs live 33/41 = 80.5%; would FAIL by 4 for GA",
+     "key": "placement",
+     "misses": [
+      "LO product y31_uk_policy_printtopdf (18->18 pages, wr 0.98, cr 1.00, dy50 17.5)",
+      "LO product y46_cv_twocol_xdvipdfmx (1->1 pages, wr 0.90, cr 0.91, dy50 2.7)",
+      "LO product y62_bill_gpo_linenum (20->20 pages, wr 0.74, cr 0.82, dy50 3.1)",
+      "Word y31_uk_policy_printtopdf (18->18 pages, wr 0.98, cr 1.00, dy50 17.2)",
+      "Word y46_cv_twocol_xdvipdfmx (1->1 pages, wr 0.90, cr 0.91, dy50 2.6)",
+      "Word y62_bill_gpo_linenum (20->20 pages, wr 0.74, cr 0.83, dy50 3.2)",
+      "Docs live x07_chrome_memo_running (3->3 pages, wr 0.99, cr 1.00, dy50 16.4)",
+      "Docs live x17_resume_twocol (2->2 pages, wr 0.89, cr 1.00, dy50 1.2)",
+      "Docs live x18_resume_twocol_tnr (2->2 pages, wr 0.88, cr 1.00, dy50 1.2)",
+      "Docs live y31_uk_policy_printtopdf (18->18 pages, wr 0.98, cr 1.00, dy50 28.2)",
+      "Docs live y44_cv_rendercv_typst (3->3 pages, wr 0.99, cr 1.00, dy50 31.0)",
+      "Docs live y46_cv_twocol_xdvipdfmx (1->1 pages, wr 0.90, cr 0.91, dy50 9.9)"
+     ],
+     "status": "REPORTED"
+    },
+    "8": {
+     "detail": "0 document(s) worse than wp31-prod.rescored3.sweep.json (product flavour)",
+     "key": "regression",
+     "misses": [],
+     "status": "PASS"
+    },
+    "9": {
+     "detail": "45/62 = 72.6% pass (LO product sweep); would FAIL by 17 for GA",
+     "key": "editability",
+     "misses": [
+      "03_tech_report_code (one-cell tables 2.50/page)",
+      "c1_whitepaper (one-cell tables 1.50/page)",
+      "c7_code (one-cell tables 2.00/page)",
+      "y01_nist_sp80063b (numpr_frac 0.82)",
+      "y03_nist_fips197 (numpr_frac 0.88)",
+      "y08_nist_sp80088r1 (numpr_frac 0.86)",
+      "y09_nist_sp800207 (numpr_frac 0.63)",
+      "y10_nist_fips180 (numpr_frac 0.74)",
+      "y12_irs_pub15 (numpr_frac 0.83)",
+      "y19_scotus_loper (numpr_frac 0.42)",
+      "y21_worldbank_wdr24 (numpr_frac 0.77)",
+      "y22_lshort (numpr_frac 0.90)"
+     ],
+     "status": "REPORTED"
+    }
+   },
+   "inputs": [
+    {
+     "input": "raw sweep",
+     "path": "C:\\lotmp\\scr\\runs\\r4-new-raw.rescored3.sweep.json"
+    },
+    {
+     "input": "product sweep",
+     "path": "C:\\lotmp\\scr\\runs\\r4-new-prod.rescored3.sweep.json"
+    },
+    {
+     "input": "gdocs-lo sweep",
+     "path": null
+    },
+    {
+     "input": "Docs live",
+     "path": "C:\\lotmp\\r4gd\\out\\rows.jsonl"
+    },
+    {
+     "input": "Word lane",
+     "path": "C:\\lotmp\\r4word\\prod\\rows.jsonl"
+    },
+    {
+     "input": "accepted",
+     "path": "C:\\lotmp\\scr\\runs\\wp31-prod.rescored3.sweep.json"
+    },
+    {
+     "input": "product serial",
+     "path": "C:\\lotmp\\scr\\runs\\r4-new-prod-serial.timing.json"
+    },
+    {
+     "input": "raw serial",
+     "path": "C:\\lotmp\\scr\\runs\\r4-new-raw-serial.timing.json"
+    },
+    {
+     "input": "gate",
+     "path": "C:\\lotmp\\scr\\runs\\wp32-gate-1.batch"
+    },
+    {
+     "input": "kept DOCX",
+     "path": "C:\\lotmp\\scr\\runs\\r4-new-raw.docx"
+    }
+   ],
+   "verdict": "NOT READY"
+  }
+ },
+ "claim": "The canonical image is switched to WP31's Carlito/Caladea layer with no gated movement; round 3's code made one document worse beyond tolerance (y61 product dy_p50, WP28) and the image two (y34 dy_p50, y47 doc_recall, both product, both unpromised); the proposed baseline re-record is prepared for the owner and not committed.",
+ "code_effect_new_image": {
+  "product": {
+   "after": "C:\\lotmp\\scr\\runs\\r4-new-prod.sweep.json",
+   "before": "C:\\lotmp\\scr\\runs\\accepted-wp31-prod.rescored.sweep.json",
+   "better_beyond_tolerance": {
+    "04_exec_brief.pdf": [
+     "within2pt 0.5235 -> 0.6294 (tol 0.05)",
+     "mean_ssim 0.9122 -> 0.9181"
+    ],
+    "y33_nz_paper_powerpdf.pdf": [
+     "word_recall 0.8954 -> 0.9955 (tol 0.02)",
+     "doc_recall 0.8954 -> 0.9955 (tol 0.01)",
+     "live_text_cov 0.8616 -> 0.9518 (tol 0.01)",
+     "mean_ssim 0.8486 -> 0.8625",
+     "char_recall 0.9055 -> 1.0"
+    ]
+   },
+   "identical_on_judged_metrics": 84,
+   "moved_within_tolerance": [
+    "y02_nist_sp800171r2.pdf",
+    "y03_nist_fips197.pdf",
+    "y24_pandoc_manual.pdf"
+   ],
+   "worse_beyond_tolerance": {
+    "y61_fedreg_gpo_3col.pdf": [
+     "dy_p50 35.91 -> 39.56 (tol 3.59)",
+     "mean_ssim 0.2208 -> 0.2201"
+    ]
+   }
+  },
+  "raw": {
+   "after": "C:\\lotmp\\scr\\runs\\r4-new-raw.sweep.json",
+   "before": "C:\\lotmp\\scr\\runs\\accepted-wp31-raw.rescored.sweep.json",
+   "better_beyond_tolerance": {
+    "y02_nist_sp800171r2.pdf": [
+     "pages 118 -> 117 (src 114)",
+     "mean_ssim 0.6568 -> 0.6616",
+     "char_recall 0.8795 -> 0.8771"
+    ],
+    "y24_pandoc_manual.pdf": [
+     "pages 181 -> 180 (src 180)",
+     "word_recall 0.4856 -> 0.9937 (tol 0.02)",
+     "within2pt 0.0929 -> 0.1621 (tol 0.05)",
+     "dy_p50 17.26 -> 2.08 (tol 1.73)",
+     "mean_ssim 0.7564 -> 0.8134",
+     "char_recall 0.7952 -> 0.9997"
+    ],
+    "y33_nz_paper_powerpdf.pdf": [
+     "pages 63 -> 60 (src 60)",
+     "word_recall 0.4892 -> 0.9955 (tol 0.02)",
+     "doc_recall 0.8954 -> 0.9955 (tol 0.01)",
+     "live_text_cov 0.8616 -> 0.9518 (tol 0.01)",
+     "within2pt 0.3627 -> 0.425 (tol 0.05)",
+     "mean_ssim 0.6744 -> 0.791",
+     "char_recall 0.7645 -> 1.0"
+    ],
+    "y61_fedreg_gpo_3col.pdf": [
+     "dy_p50 35.42 -> 31.01 (tol 3.54)",
+     "mean_ssim 0.1877 -> 0.1871",
+     "char_recall 0.5915 -> 0.5913"
+    ]
+   },
+   "identical_on_judged_metrics": 84,
+   "moved_within_tolerance": [
+    "04_exec_brief.pdf",
+    "y03_nist_fips197.pdf"
+   ],
+   "worse_beyond_tolerance": {}
+  }
+ },
+ "code_effect_new_image_amendment3": {
+  "product": {
+   "after": "C:\\lotmp\\scr\\runs\\r4-new-prod.rescored3.sweep.json",
+   "before": "C:\\lotmp\\scr\\runs\\wp31-prod.rescored3.sweep.json",
+   "better_beyond_tolerance": {
+    "04_exec_brief.pdf": [
+     "within2pt 0.5588 -> 0.6941 (tol 0.05)",
+     "mean_ssim 0.9122 -> 0.9181"
+    ],
+    "y33_nz_paper_powerpdf.pdf": [
+     "word_recall 0.8954 -> 0.9955 (tol 0.02)",
+     "doc_recall 0.8954 -> 0.9955 (tol 0.01)",
+     "live_text_cov 0.9032 -> 0.9976 (tol 0.01)",
+     "mean_ssim 0.8486 -> 0.8625",
+     "char_recall 0.9055 -> 1.0"
+    ]
+   },
+   "identical_on_judged_metrics": 84,
+   "moved_within_tolerance": [
+    "y02_nist_sp800171r2.pdf",
+    "y03_nist_fips197.pdf",
+    "y24_pandoc_manual.pdf",
+    "y61_fedreg_gpo_3col.pdf"
+   ],
+   "worse_beyond_tolerance": {}
+  },
+  "raw": {
+   "after": "C:\\lotmp\\scr\\runs\\r4-new-raw.rescored3.sweep.json",
+   "before": "C:\\lotmp\\scr\\runs\\wp31-raw.rescored3.sweep.json",
+   "better_beyond_tolerance": {
+    "y02_nist_sp800171r2.pdf": [
+     "pages 118 -> 117 (src 114)",
+     "mean_ssim 0.6568 -> 0.6616",
+     "char_recall 0.8795 -> 0.8771"
+    ],
+    "y24_pandoc_manual.pdf": [
+     "pages 181 -> 180 (src 180)",
+     "word_recall 0.4856 -> 0.9937 (tol 0.02)",
+     "within2pt 0.0864 -> 0.1671 (tol 0.05)",
+     "dy_p50 16.29 -> 1.45 (tol 1.63)",
+     "mean_ssim 0.7564 -> 0.8134",
+     "char_recall 0.7952 -> 0.9997"
+    ],
+    "y33_nz_paper_powerpdf.pdf": [
+     "pages 63 -> 60 (src 60)",
+     "word_recall 0.4892 -> 0.9955 (tol 0.02)",
+     "doc_recall 0.8954 -> 0.9955 (tol 0.01)",
+     "live_text_cov 0.9032 -> 0.9976 (tol 0.01)",
+     "within2pt 0.3718 -> 0.4397 (tol 0.05)",
+     "mean_ssim 0.6744 -> 0.791",
+     "char_recall 0.7645 -> 1.0"
+    ],
+    "y61_fedreg_gpo_3col.pdf": [
+     "dy_p50 36.29 -> 31.92 (tol 3.63)",
+     "mean_ssim 0.1877 -> 0.1871",
+     "char_recall 0.5915 -> 0.5913"
+    ]
+   },
+   "identical_on_judged_metrics": 84,
+   "moved_within_tolerance": [
+    "04_exec_brief.pdf",
+    "y03_nist_fips197.pdf"
+   ],
+   "worse_beyond_tolerance": {}
+  }
+ },
+ "code_effect_old_image": {
+  "docx_word_xml": "84/90 identical in both flavours; differ: 04, y02, y03, y33 (WP27), y24 (WP26), y61 (WP28)",
+  "product": {
+   "after": "C:\\lotmp\\scr\\runs\\r4-old-prod.sweep.json",
+   "before": "C:\\lotmp\\scr\\runs\\ckpt-prod.rescored.sweep.json",
+   "better_beyond_tolerance": {
+    "04_exec_brief.pdf": [
+     "within2pt 0.5235 -> 0.6294 (tol 0.05)",
+     "mean_ssim 0.9122 -> 0.9181"
+    ],
+    "y33_nz_paper_powerpdf.pdf": [
+     "word_recall 0.8952 -> 0.9951 (tol 0.02)",
+     "doc_recall 0.8952 -> 0.9951 (tol 0.01)",
+     "live_text_cov 0.8616 -> 0.9518 (tol 0.01)",
+     "mean_ssim 0.766 -> 0.7652",
+     "char_recall 0.9055 -> 1.0"
+    ]
+   },
+   "identical_on_judged_metrics": 84,
+   "moved_within_tolerance": [
+    "y02_nist_sp800171r2.pdf",
+    "y03_nist_fips197.pdf",
+    "y24_pandoc_manual.pdf"
+   ],
+   "worse_beyond_tolerance": {
+    "y61_fedreg_gpo_3col.pdf": [
+     "dy_p50 35.91 -> 39.56 (tol 3.59)",
+     "mean_ssim 0.2208 -> 0.2201"
+    ]
+   }
+  },
+  "raw": {
+   "after": "C:\\lotmp\\scr\\runs\\r4-old-raw.sweep.json",
+   "before": "C:\\lotmp\\scr\\runs\\ckpt-raw.rescored.sweep.json",
+   "better_beyond_tolerance": {
+    "y02_nist_sp800171r2.pdf": [
+     "pages 120 -> 119 (src 114)",
+     "mean_ssim 0.601 -> 0.6058",
+     "char_recall 0.7715 -> 0.772"
+    ],
+    "y24_pandoc_manual.pdf": [
+     "pages 181 -> 180 (src 180)",
+     "word_recall 0.4856 -> 0.9937 (tol 0.02)",
+     "within2pt 0.0929 -> 0.1621 (tol 0.05)",
+     "dy_p50 17.26 -> 2.08 (tol 1.73)",
+     "mean_ssim 0.7564 -> 0.8134",
+     "char_recall 0.7952 -> 0.9997"
+    ],
+    "y33_nz_paper_powerpdf.pdf": [
+     "pages 62 -> 60 (src 60)",
+     "word_recall 0.4972 -> 0.9951 (tol 0.02)",
+     "doc_recall 0.8952 -> 0.9951 (tol 0.01)",
+     "live_text_cov 0.8616 -> 0.9518 (tol 0.01)",
+     "mean_ssim 0.6695 -> 0.74",
+     "char_recall 0.7699 -> 1.0"
+    ],
+    "y61_fedreg_gpo_3col.pdf": [
+     "dy_p50 35.42 -> 31.01 (tol 3.54)",
+     "mean_ssim 0.1877 -> 0.1871",
+     "char_recall 0.5915 -> 0.5913"
+    ]
+   },
+   "identical_on_judged_metrics": 84,
+   "moved_within_tolerance": [
+    "04_exec_brief.pdf",
+    "y03_nist_fips197.pdf"
+   ],
+   "worse_beyond_tolerance": {}
+  }
+ },
+ "date": "2026-10-10",
+ "image_effect": {
+  "docx_word_xml": {
+   "product": "77/90 identical; the refine loop reads a different render on y01 y02 y08 y17 y20 y21 y27 y30 y33 y34 y46 y47 y55",
+   "raw": "90/90 identical"
+  },
+  "product": {
+   "after": "C:\\lotmp\\scr\\runs\\r4-new-prod.sweep.json",
+   "before": "C:\\lotmp\\scr\\runs\\r4-old-prod.sweep.json",
+   "better_beyond_tolerance": {
+    "y02_nist_sp800171r2.pdf": [
+     "within2pt 0.174 -> 0.3291 (tol 0.05)",
+     "dy_p50 3.32 -> 2.22 (tol 0.5)",
+     "mean_ssim 0.6914 -> 0.7251"
+    ],
+    "y17_rfc9110.pdf": [
+     "dy_p50 13.44 -> 9.57 (tol 1.34)",
+     "mean_ssim 0.6743 -> 0.6831"
+    ],
+    "y20_typst_report.pdf": [
+     "within2pt 0.0392 -> 0.4544 (tol 0.05)",
+     "dy_p50 2.42 -> 0.54 (tol 0.5)",
+     "mean_ssim 0.8428 -> 0.8627"
+    ],
+    "y30_nz_guideline_word365.pdf": [
+     "within2pt 0.2174 -> 0.7236 (tol 0.05)",
+     "mean_ssim 0.746 -> 0.774"
+    ],
+    "y33_nz_paper_powerpdf.pdf": [
+     "within2pt 0.1539 -> 0.7257 (tol 0.05)",
+     "mean_ssim 0.7652 -> 0.8625"
+    ],
+    "y46_cv_twocol_xdvipdfmx.pdf": [
+     "within2pt 0.1748 -> 0.2718 (tol 0.05)",
+     "mean_ssim 0.6733 -> 0.6653"
+    ],
+    "y55_th_pages_quartz.pdf": [
+     "doc_recall 0.8413 -> 0.8611 (tol 0.01)",
+     "mean_ssim 0.6907 -> 0.6919"
+    ]
+   },
+   "identical_on_judged_metrics": 75,
+   "moved_within_tolerance": [
+    "y01_nist_sp80063b.pdf",
+    "y08_nist_sp80088r1.pdf",
+    "y21_worldbank_wdr24.pdf",
+    "y27_rfc9000.pdf",
+    "y28_doe_oig_word365.pdf",
+    "y35_uk_rates_excel365.pdf"
+   ],
+   "worse_beyond_tolerance": {
+    "y34_census_slides_pptx365.pdf": [
+     "dy_p50 3.39 -> 4.18 (tol 0.5)",
+     "mean_ssim 0.8781 -> 0.9027"
+    ],
+    "y47_ar_ilo_word365.pdf": [
+     "doc_recall 0.7269 -> 0.7168 (tol 0.01)"
+    ]
+   }
+  },
+  "raw": {
+   "after": "C:\\lotmp\\scr\\runs\\r4-new-raw.sweep.json",
+   "before": "C:\\lotmp\\scr\\runs\\r4-old-raw.sweep.json",
+   "better_beyond_tolerance": {
+    "y02_nist_sp800171r2.pdf": [
+     "pages 119 -> 117 (src 114)",
+     "word_recall 0.3169 -> 0.7438 (tol 0.02)",
+     "within2pt 0.044 -> 0.1884 (tol 0.05)",
+     "dy_p50 34.26 -> 9.64 (tol 3.43)",
+     "mean_ssim 0.6058 -> 0.6616",
+     "char_recall 0.772 -> 0.8771"
+    ],
+    "y20_typst_report.pdf": [
+     "within2pt 0.0371 -> 0.4439 (tol 0.05)",
+     "dy_p50 15.56 -> 0.59 (tol 1.56)",
+     "mean_ssim 0.8422 -> 0.8588"
+    ],
+    "y27_rfc9000.pdf": [
+     "dy_p50 22.26 -> 12.35 (tol 2.23)",
+     "mean_ssim 0.6526 -> 0.6617"
+    ],
+    "y30_nz_guideline_word365.pdf": [
+     "within2pt 0.1213 -> 0.3184 (tol 0.05)",
+     "mean_ssim 0.7571 -> 0.8351"
+    ],
+    "y33_nz_paper_powerpdf.pdf": [
+     "within2pt 0.0614 -> 0.425 (tol 0.05)",
+     "dy_p50 2.73 -> 1.87 (tol 0.5)",
+     "mean_ssim 0.74 -> 0.791"
+    ],
+    "y46_cv_twocol_xdvipdfmx.pdf": [
+     "within2pt 0.1521 -> 0.2718 (tol 0.05)",
+     "mean_ssim 0.6477 -> 0.6653"
+    ],
+    "y55_th_pages_quartz.pdf": [
+     "doc_recall 0.8413 -> 0.8611 (tol 0.01)",
+     "mean_ssim 0.6961 -> 0.6964"
+    ]
+   },
+   "identical_on_judged_metrics": 74,
+   "moved_within_tolerance": [
+    "y01_nist_sp80063b.pdf",
+    "y08_nist_sp80088r1.pdf",
+    "y21_worldbank_wdr24.pdf",
+    "y35_uk_rates_excel365.pdf",
+    "y37_plos_one_dvipdfmx.pdf",
+    "y49_he_word2016.pdf"
+   ],
+   "worse_beyond_tolerance": {
+    "y17_rfc9110.pdf": [
+     "pages 194 -> 195 (src 194)",
+     "word_recall 0.9845 -> 0.9162 (tol 0.02)",
+     "also: dy_p50 19.34 -> 13.04 (tol 1.93)",
+     "mean_ssim 0.6695 -> 0.6679",
+     "char_recall 0.9999 -> 0.9736"
+    ],
+    "y34_census_slides_pptx365.pdf": [
+     "dy_p50 3.42 -> 4.41 (tol 0.5)",
+     "mean_ssim 0.8844 -> 0.9079"
+    ],
+    "y47_ar_ilo_word365.pdf": [
+     "doc_recall 0.7282 -> 0.7181 (tol 0.01)",
+     "mean_ssim 0.3586 -> 0.3585"
+    ]
+   }
+  }
+ },
+ "parity_dry_run": {
+  "expansion_candidate": {
+   "x01_lo_memo_pageno.pdf": {
+    "floors_vs_old_vs_new": {
+     "dy_p50": [
+      1.35,
+      0.9,
+      0.9
+     ],
+     "live_text_cov": [
+      0.9665,
+      0.9673,
+      0.9673
+     ],
+     "raster_frac": [
+      0.0335,
+      0.0327,
+      0.0327
+     ],
+     "within2pt": [
+      0.316,
+      0.4494,
+      0.4494
+     ]
+    },
+    "image_candidate": {},
+    "image_reference": {},
+    "recorded_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "verdict_new_image": "better",
+    "verdict_old_image": "better"
+   },
+   "x03_lo_lists_nested.pdf": {
+    "floors_vs_old_vs_new": {
+     "dy_p50": [
+      0.4,
+      0.8,
+      0.8
+     ],
+     "within2pt": [
+      1.0,
+      0.7407,
+      0.7407
+     ]
+    },
+    "image_candidate": {},
+    "image_reference": {},
+    "recorded_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "verdict_new_image": "MAJOR",
+    "verdict_old_image": "MAJOR"
+   },
+   "x07_chrome_memo_running.pdf": {
+    "floors_vs_old_vs_new": {
+     "doc_recall": [
+      0.9786,
+      0.9917,
+      0.9917
+     ],
+     "dy_p50": [
+      20.8,
+      3.0,
+      3.0
+     ],
+     "live_text_cov": [
+      0.9834,
+      0.9898,
+      0.9898
+     ],
+     "raster_frac": [
+      0.0166,
+      0.0102,
+      0.0102
+     ],
+     "within2pt": [
+      0.0085,
+      0.3189,
+      0.3189
+     ],
+     "word_recall": [
+      0.9786,
+      0.9917,
+      0.9917
+     ]
+    },
+    "image_candidate": {},
+    "image_reference": {},
+    "recorded_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "verdict_new_image": "minor",
+    "verdict_old_image": "minor"
+   },
+   "x10_chrome_tables_plain.pdf": {
+    "floors_vs_old_vs_new": {
+     "doc_recall": [
+      0.9963,
+      1.0,
+      1.0
+     ],
+     "dy_p50": [
+      17.2,
+      14.5,
+      14.5
+     ],
+     "within2pt": [
+      0.015,
+      0.1594,
+      0.1594
+     ],
+     "word_recall": [
+      0.9963,
+      1.0,
+      1.0
+     ]
+    },
+    "image_candidate": {},
+    "image_reference": {},
+    "recorded_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "verdict_new_image": "MAJOR",
+    "verdict_old_image": "MAJOR"
+   },
+   "y01_nist_sp80063b.pdf": {
+    "floors_vs_old_vs_new": {
+     "doc_recall": [
+      0.9288,
+      0.9688,
+      0.9688
+     ],
+     "dy_p50": [
+      55.3,
+      30.9,
+      44.17
+     ],
+     "live_text_cov": [
+      0.916,
+      0.924,
+      0.924
+     ],
+     "page_err": [
+      26,
+      9,
+      10
+     ],
+     "raster_frac": [
+      0.084,
+      0.076,
+      0.076
+     ],
+     "within2pt": [
+      0.0004,
+      0.1081,
+      0.0685
+     ],
+     "word_recall": [
+      0.1939,
+      0.3583,
+      0.2967
+     ]
+    },
+    "image_candidate": {
+     "dy_p50": [
+      30.9,
+      44.17
+     ],
+     "page_err": [
+      9,
+      10
+     ],
+     "within2pt": [
+      0.1081,
+      0.0685
+     ],
+     "word_recall": [
+      0.3583,
+      0.2967
+     ]
+    },
+    "image_reference": {
+     "dy_p50": [
+      40.31,
+      43.69
+     ],
+     "page_err": [
+      11,
+      12
+     ],
+     "within2pt": [
+      0.0009,
+      0.0007
+     ],
+     "word_recall": [
+      0.2803,
+      0.2675
+     ]
+    },
+    "recorded_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "verdict_new_image": "better",
+    "verdict_old_image": "better"
+   },
+   "y03_nist_fips197.pdf": {
+    "floors_vs_old_vs_new": {
+     "doc_recall": [
+      0.9139,
+      0.9507,
+      0.9507
+     ],
+     "dy_p50": [
+      76.99,
+      9.76,
+      9.76
+     ],
+     "live_text_cov": [
+      0.9205,
+      0.9189,
+      0.9189
+     ],
+     "page_err": [
+      28,
+      3,
+      3
+     ],
+     "raster_frac": [
+      0.0795,
+      0.0811,
+      0.0811
+     ],
+     "within2pt": [
+      0.0082,
+      0.0664,
+      0.0664
+     ],
+     "word_recall": [
+      0.1399,
+      0.4308,
+      0.4308
+     ]
+    },
+    "image_candidate": {},
+    "image_reference": {},
+    "recorded_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "verdict_new_image": "MAJOR",
+    "verdict_old_image": "MAJOR"
+   },
+   "y06_irs_1040_instructions.pdf": {
+    "floors_vs_old_vs_new": {
+     "doc_recall": [
+      0.8769,
+      0.947,
+      0.947
+     ],
+     "dy_p50": [
+      53.59,
+      59.59,
+      59.59
+     ],
+     "live_text_cov": [
+      0.9579,
+      0.9496,
+      0.9496
+     ],
+     "page_err": [
+      220,
+      38,
+      38
+     ],
+     "raster_frac": [
+      0.0421,
+      0.0504,
+      0.0504
+     ],
+     "within2pt": [
+      0.0007,
+      0.002,
+      0.002
+     ],
+     "word_recall": [
+      0.1073,
+      0.2154,
+      0.2154
+     ]
+    },
+    "image_candidate": {},
+    "image_reference": {},
+    "recorded_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "verdict_new_image": "MAJOR",
+    "verdict_old_image": "MAJOR"
+   },
+   "y09_nist_sp800207.pdf": {
+    "floors_vs_old_vs_new": {
+     "doc_recall": [
+      0.9541,
+      0.976,
+      0.976
+     ],
+     "dy_p50": [
+      59.15,
+      2.4,
+      2.4
+     ],
+     "live_text_cov": [
+      0.9473,
+      0.9472,
+      0.9472
+     ],
+     "page_err": [
+      8,
+      1,
+      1
+     ],
+     "raster_frac": [
+      0.0527,
+      0.0528,
+      0.0528
+     ],
+     "within2pt": [
+      0.0009,
+      0.2791,
+      0.2791
+     ],
+     "word_recall": [
+      0.241,
+      0.9181,
+      0.9181
+     ]
+    },
+    "image_candidate": {},
+    "image_reference": {},
+    "recorded_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "verdict_new_image": "minor",
+    "verdict_old_image": "minor"
+   },
+   "y12_irs_pub15.pdf": {
+    "floors_vs_old_vs_new": {
+     "doc_recall": [
+      0.9561,
+      0.9576,
+      0.9576
+     ],
+     "dy_p50": [
+      49.8,
+      54.55,
+      54.55
+     ],
+     "live_text_cov": [
+      0.9761,
+      0.9809,
+      0.9809
+     ],
+     "page_err": [
+      68,
+      15,
+      15
+     ],
+     "raster_frac": [
+      0.0239,
+      0.0191,
+      0.0191
+     ],
+     "within2pt": [
+      0.0003,
+      0.0009,
+      0.0009
+     ],
+     "word_recall": [
+      0.1981,
+      0.3788,
+      0.3788
+     ]
+    },
+    "image_candidate": {},
+    "image_reference": {},
+    "recorded_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "verdict_new_image": "MAJOR",
+    "verdict_old_image": "MAJOR"
+   },
+   "y13_irs_pub501.pdf": {
+    "floors_vs_old_vs_new": {
+     "doc_recall": [
+      0.9636,
+      0.9506,
+      0.9506
+     ],
+     "dy_p50": [
+      38.5,
+      36.27,
+      36.27
+     ],
+     "live_text_cov": [
+      0.9705,
+      0.9709,
+      0.9709
+     ],
+     "page_err": [
+      51,
+      28,
+      28
+     ],
+     "raster_frac": [
+      0.0295,
+      0.0291,
+      0.0291
+     ],
+     "within2pt": [
+      0.0007,
+      0.0009,
+      0.0009
+     ],
+     "word_recall": [
+      0.1543,
+      0.2249,
+      0.2249
+     ]
+    },
+    "image_candidate": {},
+    "image_reference": {},
+    "recorded_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "verdict_new_image": "MAJOR",
+    "verdict_old_image": "MAJOR"
+   },
+   "y17_rfc9110.pdf": {
+    "floors_vs_old_vs_new": {
+     "doc_recall": [
+      0.9511,
+      0.9852,
+      0.9852
+     ],
+     "dy_p50": [
+      67.3,
+      48.1,
+      48.1
+     ],
+     "live_text_cov": [
+      0.9643,
+      0.948,
+      0.948
+     ],
+     "page_err": [
+      13,
+      0,
+      0
+     ],
+     "raster_frac": [
+      0.0357,
+      0.052,
+      0.052
+     ],
+     "within2pt": [
+      0.0006,
+      0.0061,
+      0.0061
+     ],
+     "word_recall": [
+      0.5313,
+      0.9845,
+      0.9845
+     ]
+    },
+    "image_candidate": {},
+    "image_reference": {},
+    "recorded_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "verdict_new_image": "minor",
+    "verdict_old_image": "minor"
+   }
+  },
+  "gated_moved_by_image": {},
+  "parity_policy_candidate": {
+   "01_whitepaper_market.pdf": {
+    "floors_vs_old_vs_new": {
+     "doc_recall": [
+      0.9677,
+      0.9652,
+      0.9652
+     ],
+     "dy_p50": [
+      7.89,
+      3.3,
+      3.3
+     ],
+     "within2pt": [
+      0.0028,
+      0.2191,
+      0.2191
+     ],
+     "word_recall": [
+      0.9677,
+      0.9652,
+      0.9652
+     ]
+    },
+    "image_candidate": {},
+    "image_reference": {},
+    "recorded_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "verdict_new_image": "ratified",
+    "verdict_old_image": "ratified"
+   },
+   "05_memo.pdf": {
+    "floors_vs_old_vs_new": {
+     "dy_p50": [
+      4.64,
+      1.29,
+      1.29
+     ],
+     "within2pt": [
+      0.3253,
+      0.7229,
+      0.7229
+     ]
+    },
+    "image_candidate": {},
+    "image_reference": {},
+    "recorded_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "verdict_new_image": "ratified",
+    "verdict_old_image": "ratified"
+   },
+   "c4_i18n.pdf": {
+    "floors_vs_old_vs_new": {
+     "doc_recall": [
+      0.9832,
+      0.9836,
+      0.9836
+     ],
+     "dy_p50": [
+      1.84,
+      0.45,
+      0.45
+     ],
+     "live_text_cov": [
+      0.9091,
+      0.9008,
+      0.9008
+     ],
+     "raster_frac": [
+      0.0909,
+      0.0992,
+      0.0992
+     ],
+     "within2pt": [
+      0.2137,
+      0.4708,
+      0.4708
+     ],
+     "word_recall": [
+      0.9832,
+      0.9836,
+      0.9836
+     ]
+    },
+    "image_candidate": {},
+    "image_reference": {},
+    "recorded_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "verdict_new_image": "ratified",
+    "verdict_old_image": "ratified"
+   },
+   "l1_word_native.pdf": {
+    "floors_vs_old_vs_new": {
+     "dy_p50": [
+      9.89,
+      12.69,
+      12.69
+     ],
+     "within2pt": [
+      0.0142,
+      0.0071,
+      0.0071
+     ]
+    },
+    "image_candidate": {},
+    "image_reference": {},
+    "recorded_fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "verdict_new_image": "ratified",
+    "verdict_old_image": "ratified"
+   }
+  }
+ },
+ "schema": 1,
+ "serial_timing": {
+  "r4-new-prod-serial": {
+   "documents": {
+    "y01_nist_sp80063b.pdf": {
+     "all_s": [
+      95.92,
+      97.15
+     ],
+     "convert_s": 95.92,
+     "outputs_agree": true,
+     "src_pages": 80
+    },
+    "y02_nist_sp800171r2.pdf": {
+     "all_s": [
+      58.62,
+      57.97
+     ],
+     "convert_s": 57.97,
+     "outputs_agree": true,
+     "src_pages": 114
+    },
+    "y06_irs_1040_instructions.pdf": {
+     "all_s": [
+      291.23,
+      270.8
+     ],
+     "convert_s": 270.8,
+     "outputs_agree": true,
+     "src_pages": 126
+    },
+    "y12_irs_pub15.pdf": {
+     "all_s": [
+      69.81,
+      65.29
+     ],
+     "convert_s": 65.29,
+     "outputs_agree": true,
+     "src_pages": 59
+    },
+    "y13_irs_pub501.pdf": {
+     "all_s": [
+      99.73,
+      130.28
+     ],
+     "convert_s": 99.73,
+     "outputs_agree": true,
+     "src_pages": 31
+    },
+    "y17_rfc9110.pdf": {
+     "all_s": [
+      132.68,
+      106.09
+     ],
+     "convert_s": 106.09,
+     "outputs_agree": true,
+     "src_pages": 194
+    },
+    "y18_eurlex_ai_act.pdf": {
+     "all_s": [
+      216.45,
+      188.06
+     ],
+     "convert_s": 188.06,
+     "outputs_agree": true,
+     "src_pages": 144
+    },
+    "y22_lshort.pdf": {
+     "all_s": [
+      63.87,
+      99.79
+     ],
+     "convert_s": 63.87,
+     "outputs_agree": true,
+     "src_pages": 153
+    },
+    "y24_pandoc_manual.pdf": {
+     "all_s": [
+      144.26,
+      144.35
+     ],
+     "convert_s": 144.26,
+     "outputs_agree": true,
+     "src_pages": 180
+    },
+    "y26_bash_reference.pdf": {
+     "all_s": [
+      286.85,
+      209.83
+     ],
+     "convert_s": 209.83,
+     "outputs_agree": true,
+     "src_pages": 214
+    },
+    "y27_rfc9000.pdf": {
+     "all_s": [
+      144.75,
+      111.34
+     ],
+     "convert_s": 111.34,
+     "outputs_agree": true,
+     "src_pages": 151
+    },
+    "y47_ar_ilo_word365.pdf": {
+     "all_s": [
+      87.73,
+      119.82
+     ],
+     "convert_s": 87.73,
+     "outputs_agree": true,
+     "src_pages": 57
+    },
+    "y64_bls_release_xpp.pdf": {
+     "all_s": [
+      101.82,
+      97.15
+     ],
+     "convert_s": 97.15,
+     "outputs_agree": true,
+     "src_pages": 39
+    }
+   },
+   "profile": "pdfium/standard/libreoffice/refine3@240dpi",
+   "repeat": 2
+  },
+  "r4-new-raw-serial": {
+   "documents": {
+    "x13_rl_report_running.pdf": {
+     "all_s": [
+      0.5,
+      0.69,
+      0.59
+     ],
+     "convert_s": 0.5,
+     "outputs_agree": true,
+     "src_pages": 2
+    },
+    "x14_rl_statement_lines.pdf": {
+     "all_s": [
+      1.28,
+      0.25,
+      0.3
+     ],
+     "convert_s": 0.25,
+     "outputs_agree": true,
+     "src_pages": 1
+    },
+    "y06_irs_1040_instructions.pdf": {
+     "all_s": [
+      145.99,
+      200.85,
+      189.01
+     ],
+     "convert_s": 145.99,
+     "outputs_agree": true,
+     "src_pages": 126
+    },
+    "y55_th_pages_quartz.pdf": {
+     "all_s": [
+      0.85,
+      0.71,
+      0.89
+     ],
+     "convert_s": 0.71,
+     "outputs_agree": true,
+     "src_pages": 3
+    }
+   },
+   "profile": "pdfium/standard/none/refine0@240dpi",
+   "repeat": 3
+  }
+ },
+ "serial_timing_note": "NOT a valid criterion-2 reading: both serial runs overlapped 3-7 other agents' sweep and gate containers (docker stats: 13-25 cores busy). Serial times ran 1.1-3.5x the quiet 2026-10-05 checkpoint serial run (y06 155 -> 271s, y13 42 -> 100s, y64 27 -> 97s) and mostly SLOWER than the 4-way sweep of the same code (y24 64s swept, 144s serial). The sweeps show no slowdown against the checkpoint (y06 312 -> 289s, y13 66 -> 63s, y64 52 -> 46s). Every serial conversion's word/*.xml equals the sweep's kept DOCX and both repeats agree.",
+ "sweeps": {
+  "accepted-wp31-raw.rescored": "wp31-raw (checkpoint code + WP31, Carlito image) re-read by testkit/rescore.py; 0 control mismatches",
+  "comparison": "criterion 8's metrics (page_err, word/doc recall, live text, within2pt, dy_p50) with gate.tolerance",
+  "r4-new-prod": "a0029e0, image bab1cfc0d2cd, product, jobs 4, 90 documents, KEEP_DOCX",
+  "r4-new-raw": "a0029e0, image bab1cfc0d2cd, raw, jobs 6, 90 documents, KEEP_DOCX",
+  "r4-old-prod": "71558af, image 390a910873d6, product, jobs 4, 90 documents, KEEP_DOCX",
+  "r4-old-raw": "71558af, image 390a910873d6, raw, jobs 6, 90 documents, KEEP_DOCX"
+ },
+ "switch": {
+  "canonical_env": {
+   "equals_wp31_proposed": "byte-identical; canonical_env.proposed.json deleted",
+   "families": 16,
+   "fingerprint": "9cb0bc17cbf88970c790ce9cfb6577e5c016c45a370642d093fa86209b0d41ec",
+   "font_files": 43,
+   "libreoffice": "24.2.7.2",
+   "python": "3.12.3",
+   "recorded_with": "scripts/dev/record_env.sh wp32-env . canonical_env.json"
+  },
+  "commit": "a0029e0 (merge of 71558af and wp31 d5db458)",
+  "gate": {
+   "pagematch": "16/16 both lanes",
+   "per_document_vs_int-wp27b_old_image": "identical on every metric in both lanes",
+   "result": "Ran 1675 tests OK (skipped=1); FAILED_STEPS=0; runall PASS both lanes vs the unchanged baseline",
+   "run": "wp32-gate-1 (switched tree, new boot)",
+   "within2pt": {
+    "product": 0.7304,
+    "raw": 0.5466
+   }
+  },
+  "retag": {
+   "exactdoc-gate:boot": "bab1cfc0d2cd (was 390a910873d6)",
+   "exactdoc-gate:boot-carlito": "bab1cfc0d2cd",
+   "exactdoc-gate:boot-pre-carlito": "390a910873d6"
+  }
+ },
+ "word_lane": {
+  "product": {
+   "after": "C:\\lotmp\\scr\\wp32\\w-r4new-prod.json",
+   "before": "C:\\lotmp\\scr\\wp32\\w-ckpt-prod.json",
+   "better_beyond_tolerance": {
+    "04_exec_brief.pdf": [
+     "within2pt 0.5235 -> 0.6294 (tol 0.05)",
+     "mean_ssim 0.9143 -> 0.9202"
+    ],
+    "y02_nist_sp800171r2.pdf": [
+     "pages 115 -> 114 (src 114)",
+     "word_recall 0.8564 -> 0.9664 (tol 0.02)",
+     "dy_p50 7.51 -> 2.73 (tol 0.751)",
+     "mean_ssim 0.6777 -> 0.7327",
+     "char_recall 0.9174 -> 0.9624"
+    ],
+    "y17_rfc9110.pdf": [
+     "dy_p50 13.26 -> 9.44 (tol 1.33)",
+     "mean_ssim 0.6712 -> 0.6864"
+    ],
+    "y20_typst_report.pdf": [
+     "within2pt 0.0646 -> 0.4449 (tol 0.05)",
+     "dy_p50 16.47 -> 0.51 (tol 1.65)",
+     "mean_ssim 0.8381 -> 0.8625"
+    ],
+    "y27_rfc9000.pdf": [
+     "pages 152 -> 151 (src 151)",
+     "word_recall 0.8876 -> 0.9746 (tol 0.02)",
+     "mean_ssim 0.649 -> 0.6743",
+     "char_recall 0.968 -> 0.9965"
+    ],
+    "y61_fedreg_gpo_3col.pdf": [
+     "dy_p50 57.77 -> 51.36 (tol 5.78)",
+     "mean_ssim 0.1431 -> 0.1442",
+     "char_recall 0.4263 -> 0.4262"
+    ]
+   },
+   "identical_on_judged_metrics": 73,
+   "moved_within_tolerance": [
+    "y01_nist_sp80063b.pdf",
+    "y03_nist_fips197.pdf",
+    "y08_nist_sp80088r1.pdf",
+    "y21_worldbank_wdr24.pdf",
+    "y24_pandoc_manual.pdf",
+    "y34_census_slides_pptx365.pdf",
+    "y47_ar_ilo_word365.pdf",
+    "y55_th_pages_quartz.pdf"
+   ],
+   "note": "against the checkpoint Word rows (ckpt-prod DOCX, re-scored). y30 and y46 have no round-3 code change, so their within-2pt drop is the image's: the refine loop now moves page-top gaps by ~0.6pt (12 twips) for a Carlito render, which Word (real Calibri) does not need",
+   "rows": "C:\\lotmp\\r4word\\prod\\rows.jsonl",
+   "worse_beyond_tolerance": {
+    "y30_nz_guideline_word365.pdf": [
+     "within2pt 0.458 -> 0.2134 (tol 0.05)",
+     "mean_ssim 0.7637 -> 0.7734"
+    ],
+    "y33_nz_paper_powerpdf.pdf": [
+     "within2pt 0.3941 -> 0.1825 (tol 0.05)",
+     "also: word_recall 0.8968 -> 0.9957 (tol 0.02); doc_recall 0.8968 -> 0.9957 (tol 0.01); live_text_cov 0.8616 -> 0.9518 (tol 0.01)",
+     "mean_ssim 0.8202 -> 0.886",
+     "char_recall 0.9055 -> 1.0"
+    ],
+    "y46_cv_twocol_xdvipdfmx.pdf": [
+     "within2pt 0.2621 -> 0.1068 (tol 0.05)",
+     "dy_p50 1.35 -> 2.62 (tol 0.5)",
+     "mean_ssim 0.7077 -> 0.6676"
+    ]
+   }
+  },
+  "raw": {
+   "after": "C:\\lotmp\\scr\\wp32\\w-r4new-raw.json",
+   "before": "C:\\lotmp\\scr\\wp32\\w-ckpt-raw.json",
+   "better_beyond_tolerance": {
+    "y02_nist_sp800171r2.pdf": [
+     "pages 120 -> 117 (src 114)",
+     "mean_ssim 0.6512 -> 0.6669",
+     "char_recall 0.876 -> 0.8771"
+    ],
+    "y24_pandoc_manual.pdf": [
+     "pages 181 -> 180 (src 180)",
+     "word_recall 0.4831 -> 0.9861 (tol 0.02)",
+     "within2pt 0.0889 -> 0.1547 (tol 0.05)",
+     "dy_p50 17.32 -> 2.12 (tol 1.73)",
+     "mean_ssim 0.7572 -> 0.8112",
+     "char_recall 0.7957 -> 0.9999"
+    ],
+    "y33_nz_paper_powerpdf.pdf": [
+     "pages 63 -> 60 (src 60)",
+     "word_recall 0.4893 -> 0.9957 (tol 0.02)",
+     "doc_recall 0.8968 -> 0.9957 (tol 0.01)",
+     "live_text_cov 0.8616 -> 0.9518 (tol 0.01)",
+     "within2pt 0.086 -> 0.1578 (tol 0.05)",
+     "mean_ssim 0.6803 -> 0.8045",
+     "char_recall 0.7644 -> 1.0"
+    ]
+   },
+   "identical_on_judged_metrics": 84,
+   "moved_within_tolerance": [
+    "04_exec_brief.pdf",
+    "y03_nist_fips197.pdf",
+    "y61_fedreg_gpo_3col.pdf"
+   ],
+   "note": "raw DOCX are identical in both images, so this is code effect only",
+   "rows": "C:\\lotmp\\r4word\\raw\\rows.jsonl",
+   "worse_beyond_tolerance": {}
+  }
+ },
+ "work_package": "WP32"
+}
