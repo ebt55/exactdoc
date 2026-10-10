@@ -481,6 +481,28 @@ one verified fix at a time, each gated against the frozen 16.
   y37, c2 and y61, both readings, `word_metrics` is identical and reproduces
   the sweep rows. No conversion code changed.
 
+- **A form's label opens its field; paragraphs a little apart stay apart
+  (WP35d).** Inference, every lane. (1) y65 (an NRC meeting notice) sets
+  "Purpose:" at x 50 and its six-line field at x 145 on one baseline; the
+  label, alone in its block, became a paragraph of its own and the field
+  started a line lower in every renderer (Docs dy_p50 10.2, criterion 7
+  missed). A label alone in its block, on the baseline of a field set at
+  least 2em away in a column of its own, now opens the field's paragraph:
+  label, tab, field, hanging at the field's column (`infer._field_labels`).
+  (2) y44's intro sets four short paragraphs 15.7pt apart over a 12.7pt line
+  pitch, and with most steps at 15.7 they read as one paragraph; a baseline
+  step 2pt (0.2em) wider than the block's tightest pitch now ends a
+  paragraph after a line that ends short (PARA_STEP_PT). (3) The ladder sets
+  a hanging row's tab-separated labels (a resume's dates) in the hang; it had
+  predicted each such row a line long. LibreOffice raw on the landing set
+  (64a6c47): y65 dy_p50 10.07 -> 1.48, y44 29.56 -> 1.88, y02 115 -> 114
+  pages for 114 (word recall 0.754 -> 0.966); product y44 2.34 -> 0.67, y02
+  2.40 -> 0.71; Word product y44 2.45 -> 0.48, y02 2.73 -> 2.52, the rest
+  equal or better; no page count of a promised document moves, no promised
+  row worse by more than 0.01pt. 21 of 90 documents change in the gdocs
+  build (y20, y44, y65 of the short promised).
+  Evidence: [gdocs-2026-10-11-wp35d-fields.json](docs/evidence/gdocs-2026-10-11-wp35d-fields.json).
+
 - **Short documents in Google Docs: hanging tables and letter-spaced text
   (WP35c).** Two gdocs-only rules, read off Google's exports of the 71558af
   sweep. (1) Word hangs a table's border left of its text column by the
