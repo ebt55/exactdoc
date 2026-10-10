@@ -116,6 +116,32 @@ def _source_lines(p: Para) -> int:
     return max(1, p.src_lines or 0, forced)
 
 
+def _hang_body(p: Para):
+    """The runs of a hanging paragraph that are set in its body, or None.
+
+    A paragraph with a hanging indent sets what precedes its hang tab -- a
+    list marker, a resume's date column -- out in the hang, and starts its
+    first line's text at the left indent; `predict_lines` skips tabs and
+    measures that text as part of the line. The hang tab is the last tab
+    whose stop lies at or before the left indent (Word and LibreOffice set an
+    implicit one there when the paragraph names none). Measured on y44 p1:
+    two rows "<tab>Sept 2018 - May 2023<tab>Princeton University, ..." (stops
+    118.7 right and 128.9 left, left indent 128.9), one line each in the
+    source and in both renderers, predicted at two lines each with the date
+    counted into the 385pt line; the page claimed at risk by 1.3pt had 38.8pt
+    to spare in the render."""
+    if p.first_indent >= 0 or getattr(p, "rtl", False):
+        return None
+    tabs = [i for i, r in enumerate(p.runs) if r.is_tab]
+    if not tabs:
+        return None
+    k = sum(1 for st in (p.tab_stops or ()) if st and st[0] <= p.left_indent + 0.5)
+    cut = tabs[min(max(1, k), len(tabs)) - 1]
+    if any("\n" in (r.text or "") for r in p.runs[:cut]):
+        return None
+    return p.runs[cut + 1:]
+
+
 def para_lines(p: Para, avail: float, metrics) -> int:
     """How many lines the renderer sets `p` in at `avail` points.
 
@@ -132,7 +158,14 @@ def para_lines(p: Para, avail: float, metrics) -> int:
         return src
     segs = _segments(p)
     if segs is None:
-        n = predict_lines_for(p, avail, metrics)
+        body = _hang_body(p)
+        if body is not None:
+            # the hang's content sits outside the line (`_hang_body`)
+            n = predict_lines_for(dataclasses.replace(
+                p, runs=body, first_indent=0.0), avail, metrics) \
+                if any((r.text or "").strip() for r in body) else 1
+        else:
+            n = predict_lines_for(p, avail, metrics)
         if n is None:
             return src
     else:
@@ -369,8 +402,10 @@ def plan_page(pg, content_w: float, lay, notes_h: float, body_line: float,
               drop_first_gap: bool = False, memo: Optional[dict] = None) -> dict:
     """`fit_page` as the writer asks it. Open-loop (`memo` None) every write
     plans afresh. Under the refine loop (`memo` the loop layout's own) a page
-    is planned once, on its first write, and every later round takes the same
-    points off the same gaps of the layout as the loop has corrected it.
+    is planned once, on its first write, and in every later round each gap
+    the plan took from is written at the smaller of the plan's value and the
+    loop's: the two never compound, and the loop's own corrections elsewhere
+    on the page stand.
 
     Re-planned each round, the planner undid the loop's corrections: the loop
     pushes a page whose render sits high down by its first gap, within the
@@ -378,9 +413,10 @@ def plan_page(pg, content_w: float, lay, notes_h: float, body_line: float,
     -- read the push as a page at risk and took it back from the foot. y44 p1
     paid 16 -> 49 -> 64pt over three rounds and the loop stopped on an
     offset of 15.6 (0.1 with the planner off); y33's round 1 spilled and the
-    loop published its round 0 (product within-2pt 0.73 -> 0.41). The plan
-    held fixed, the loop measures and corrects on top of it as it does on
-    top of the source spacing."""
+    loop published its round 0 (product within-2pt 0.73 -> 0.41). Held as
+    points taken off whatever the loop left, the plan compounded with the
+    loop's own reductions on a page that spilled with it all the same (y53
+    p11, product dy_p50 3.54 -> 4.71); held as a ceiling, 3.96."""
     if memo is None:
         return fit_page(pg, content_w, lay, notes_h, body_line, plan,
                         output_profile, drop_first_gap=drop_first_gap)
@@ -394,17 +430,10 @@ def plan_page(pg, content_w: float, lay, notes_h: float, body_line: float,
                        output_profile, drop_first_gap=drop_first_gap)
         held = {}
         if out is not plan:
-            for k, el in enumerate(els):
-                if id(el) in out:
-                    held[k] = (getattr(el, "space_before", 0.0) or 0.0) - \
-                        out[id(el)]
+            held = {k: out[id(el)] for k, el in enumerate(els) if id(el) in out}
         memo[key] = held
         return out
     if not held:
         return plan
-    out = {}
-    for k, d in held.items():
-        if k < len(els):
-            gap = getattr(els[k], "space_before", 0.0) or 0.0
-            out[id(els[k])] = max(0.0, math.floor((gap - d) * 10 + 1e-6) / 10)
-    return out
+    return {id(els[k]): min(getattr(els[k], "space_before", 0.0) or 0.0, v)
+            for k, v in held.items() if k < len(els)}

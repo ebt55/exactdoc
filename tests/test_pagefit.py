@@ -23,7 +23,8 @@ from exactdoc.docxout import (SPILL_GAP_FLOOR_PT, SPILL_MIN_GAP_SCALE,
 from exactdoc.layout import (Chunk, ColBreak, DocLayout, PageLayout, Para,
                              RuleEl, Run)
 from exactdoc.pagefit import (PAGEFIT_GENTLE_GAP_SCALE, PAGEFIT_SAFETY_PT,
-                              fit_page, page_model, para_lines, plan_page)
+                              _hang_body, fit_page, page_model, para_lines,
+                              plan_page)
 
 LEAD = 12.0
 BODY = 12.0          # the body line every test page passes in
@@ -133,6 +134,37 @@ class TheLineCount(unittest.TestCase):
         p = Para(runs=[_run("word " * 200, font="Helvetica")], leading=12,
                  src_lines=1)
         self.assertGreater(para_lines(p, CW, self.m), 3)
+
+    def _row(self, date, body, stops):
+        tab = Run(text="\t", font="Helvetica", size=10.0, color="#000000",
+                  is_tab=True)
+        return Para(runs=[tab, _run(date, font="Helvetica"), tab,
+                          _run(body, font="Helvetica")],
+                    leading=12, src_lines=1, left_indent=128.9,
+                    first_indent=-128.9, tab_stops=stops)
+
+    def test_a_hanging_row_is_its_body_after_the_hang(self):
+        # y44 p1: "<tab>Sept 2018 - May 2023<tab>Princeton University, ..."
+        # with its date out in the hang (stops 118.7 right, 128.9 left) was
+        # predicted at two lines with the date counted into the line; one
+        # line in the source and in both renderers.
+        date = "Sept 2018 - May 2023"
+        words = "Princeton University PhD in Computer Science Princeton NJ"
+        p = self._row(date, words, [(118.7, "right"), (128.9, "left")])
+        avail = CW - p.left_indent
+        from exactdoc.docxout import predict_lines_for
+        whole = predict_lines_for(Para(runs=[_run(date + " " + words,
+                                                  font="Helvetica")],
+                                       leading=12), avail - 60.0, self.m)
+        self.assertEqual(para_lines(p, avail - 60.0, self.m), 1)
+        self.assertEqual(whole, 2)          # the date counted in: two lines
+
+    def test_the_hang_tab_defaults_to_the_first_tab(self):
+        # "1.<tab>text": no stop named, the implicit one at the left indent
+        p = self._row("1.", "alpha", [])
+        p.runs = p.runs[1:]
+        self.assertEqual(_hang_body(p)[0].text, "alpha")
+        self.assertIsNone(_hang_body(_para()))           # no hang, no tab
 
     def test_no_width_table_is_the_source_count(self):
         p = _para(lines=4)
@@ -263,9 +295,10 @@ class ThePlan(unittest.TestCase):
 
 class UnderTheLoop(unittest.TestCase):
     """`plan_page`: open-loop every write plans afresh; under the refine loop
-    a page is planned on its first write and later rounds take the same
-    points off the same gaps, so a push the loop makes from its render is not
-    taken back by the model (y44 p1 paid 16 -> 49 -> 64pt re-planned)."""
+    a page is planned on its first write and later rounds hold each planned
+    gap as a ceiling, so a push the loop makes from its render is not taken
+    back by the model (y44 p1 paid 16 -> 49 -> 64pt re-planned), and a gap
+    the loop reduces further is the loop's (y53 p11)."""
 
     def _plan(self, pg, lay, memo, plan=None):
         return plan_page(pg, CW, lay, 0.0, BODY,
@@ -289,18 +322,28 @@ class UnderTheLoop(unittest.TestCase):
         # the loop moves the page down 20pt by its first gap
         els[0].space_before += 20.0
         second = self._plan(pg, lay, memo)
-        self.assertEqual(set(second), set(first))
+        self.assertEqual(second, first)
         self.assertNotIn(id(els[0]), second)
-        for el in els:
-            if id(el) in second:
-                self.assertAlmostEqual(second[id(el)],
-                                       el.space_before - taken[id(el)],
-                                       delta=0.11)
         # re-planned, the model would have taken the push back
         fresh = self._plan(pg, lay, None)
         self.assertGreater(sum(el.space_before - fresh.get(id(el), el.space_before)
                                for el in els),
                            sum(taken.values()) + 15.0)
+
+    def test_the_loop_and_the_plan_never_compound(self):
+        lay = _lay()
+        els = _fill(lay, spare=3.0)
+        pg = _page(els)
+        memo = {}
+        first = self._plan(pg, lay, memo)
+        k = max(i for i, el in enumerate(els) if id(el) in first)
+        # the loop, reading a spill, takes half of the last gap
+        els[k].space_before *= 0.5
+        second = self._plan(pg, lay, memo)
+        self.assertEqual(second[id(els[k])],
+                         min(els[k].space_before, first[id(els[k])]))
+        self.assertGreaterEqual(second[id(els[k])],
+                                els[k].space_before - 1e-9)
 
     def test_a_page_left_alone_first_stays_the_callers(self):
         lay = _lay()
