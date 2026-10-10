@@ -16,11 +16,19 @@ docker rm -f "$C" >/dev/null 2>&1
 IMAGE="${EXACTDOC_GATE_IMAGE:-exactdoc-gate:boot}"
 docker run -d --name "$C" -w /work "$IMAGE" sleep infinity >/dev/null || exit 99
 ( cd "$SRC" && tar --exclude=./.git --exclude=./.venv --exclude=./.scratch --exclude='*.pyc' --exclude=__pycache__ --exclude=./testkit/batch -cf - . ) | docker exec -i "$C" tar -xf - -C /work
-E="docker exec -e FONTCONFIG_FILE=/work/scripts/fonts.conf -e EXACTDOC_BASE_IMAGE_DIGEST=sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90 $C"
+# Baseline binding (WP43): runall fails a lane whose baseline was recorded in
+# another environment or harness reading. EXACTDOC_GATE_ALLOW_STALE_BASELINE=1
+# (set by the coordinator until the owner-approved re-record) downgrades that to
+# a WARNING; it is passed into the container only when set, and the mode is the
+# first thing in the log.
+ALLOW=""
+if [ "${EXACTDOC_GATE_ALLOW_STALE_BASELINE:-}" = "1" ]; then ALLOW="-e EXACTDOC_GATE_ALLOW_STALE_BASELINE=1"; MODE="TRANSITIONAL ALLOWANCE (EXACTDOC_GATE_ALLOW_STALE_BASELINE=1): a stale baseline is a WARNING"; else MODE="strict: a stale baseline FAILS the gate"; fi
+E="docker exec -e FONTCONFIG_FILE=/work/scripts/fonts.conf -e EXACTDOC_BASE_IMAGE_DIGEST=sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90 $ALLOW $C"
 P="/work/.venv/bin/python"
 fails=0
 : > "$LOG"
 echo "=== IMAGE $IMAGE $(docker image inspect -f '{{.Id}}' "$IMAGE")" >> "$LOG"
+echo "=== BASELINE BINDING $MODE" >> "$LOG"
 run() { echo "=== STEP $1" >> "$LOG"; $E bash -c "set -o pipefail; cd /work && $2" >> "$LOG" 2>&1; rc=$?; echo "=== RC $1 = $rc" >> "$LOG"; [ $rc -ne 0 ] && fails=$((fails+1)); }
 $E bash -c "cd /work && $P -m pip install -q -e . 2>/dev/null; true" >/dev/null 2>&1
 run manifest "$P testkit/corpus_manifest.py verify"
@@ -32,5 +40,6 @@ case ",$STEPS," in *,gate,*) run gate "$P testkit/runall.py";; esac
 mkdir -p "$SCR/runs/$NAME.batch"
 docker cp "$C:/work/testkit/batch/." "$SCR/runs/$NAME.batch/" >/dev/null 2>&1
 docker rm -f "$C" >/dev/null 2>&1
+echo "BASELINE_BINDING=$( [ -n "$ALLOW" ] && echo allow-stale || echo strict )" >> "$LOG"
 echo "FAILED_STEPS=$fails" >> "$LOG"
 exit $fails

@@ -21,6 +21,21 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 one verified fix at a time, each gated against the frozen 16.
 
 
+- **The gate binds its baseline to the environment and the reading (WP43
+  item 1).** `gate.check` (from `runall.py`) fails a lane, "re-record needed
+  (owner approval)", when the baseline was recorded under another environment
+  fingerprint or harness reading, or records neither; `save_lanes` now stores
+  the reading (`harness.reading()`) beside the fingerprint. The committed
+  baseline (fingerprint 3ca438f1, recorded before WP29, no reading) therefore
+  fails in the Carlito image until the owner-approved re-record. Meanwhile
+  `EXACTDOC_GATE_ALLOW_STALE_BASELINE=1`, set by the coordinator, downgrades
+  the mismatch to a WARNING note; `runall.py` prints "BASELINE BINDING:
+  strict | TRANSITIONAL ALLOWANCE | recording" first, `gate_full.sh` passes
+  the variable through only when set and logs the mode at the top and as
+  `BASELINE_BINDING=` at the end, and `verdict.json` carries
+  `baseline_binding` (mode, mismatches, both fingerprints and readings). A
+  differing reading-code hash under the same name is a note, not a failure.
+
 - **Sweeps record the harness reading they were scored in (WP41c).**
   `testkit/harness.py` names its reading, `HARNESS_READING = "wp29"`, bumped
   by every amendment that changes how text is read, and `harness.reading()`
