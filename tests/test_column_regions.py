@@ -16,7 +16,8 @@ WP25. Measured with a source-to-render page map on the LibreOffice raw lane:
 import unittest
 
 from exactdoc.infer import _position_chunks
-from exactdoc.layout import Chunk, DocLayout, Para, RuleEl, Run, TableEl
+from exactdoc.layout import (Chunk, DocLayout, FigureEl, Para, RuleEl, Run,
+                             TableEl)
 from exactdoc.parse_pdfium import _Char, _build_lines
 
 
@@ -122,6 +123,40 @@ class ARuleInsideTheStackedSpan(unittest.TestCase):
         _position_chunks(chunks, DocLayout(), page_top=50.0)
         # 280 - 274: the gap under the table, not 280 - 80
         self.assertAlmostEqual(note.space_before, 6.0, places=1)
+
+    def _after(self, first, rule_box, text_top):
+        rule = RuleEl(width_pct=90.0, thickness=0.8, color="#cccccc",
+                      length=463.0)
+        rule._bbox = rule_box
+        text = Para(runs=[Run(text="Accept = [ ( media-range", font="Courier",
+                              size=9.5, color="#222222")],
+                    bbox=(75.0, text_top, 500.0, text_top + 10.0))
+        _position_chunks([Chunk(n_cols=1, elements=[first, rule, text])],
+                         DocLayout(), page_top=50.0)
+        return text
+
+    def test_a_picture_does_not_hold_the_cursor(self):
+        # y17 p174: a code panel (y 142-696) set behind its text in the
+        # gdocs profile, then the rule along its top edge, then the first
+        # code line at 150.9. The picture is not known to take its box in
+        # the flow, so the rule moves the cursor as it always did.
+        panel = FigureEl(page_no=174, clip=(65.9, 141.6, 529.4, 695.6),
+                         width=463.5, height=554.0)
+        text = self._after(panel, (65.9, 141.6, 529.4, 142.4), 150.9)
+        self.assertAlmostEqual(text.space_before, 8.5, places=1)
+
+    def test_a_paragraph_does_not_hold_the_cursor(self):
+        # a rule drawn under a paragraph's lines, above its box's foot
+        para = Para(runs=[Run(text="intro", font="Arial", size=10.0,
+                              color="#000000")], bbox=(75.0, 100.0, 500.0, 130.0))
+        text = self._after(para, (75.0, 120.0, 500.0, 120.8), 140.0)
+        self.assertAlmostEqual(text.space_before, 19.2, places=1)
+
+    def test_only_a_rule_inside_the_table_is_held(self):
+        # a rule that starts above the table just stacked is not inside it
+        table = TableEl(bbox=(36.0, 67.0, 575.0, 274.0))
+        text = self._after(table, (36.0, 60.0, 575.0, 60.8), 280.0)
+        self.assertAlmostEqual(text.space_before, 219.2, places=1)
 
 
 if __name__ == "__main__":
