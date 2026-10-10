@@ -629,6 +629,8 @@ def _apply(lay: DocLayout, m, state=None) -> bool:
     led = state["ledger"]
     needs = m.get("need") or []
     frees = m.get("notes_free") or []
+    exact = m.get("out_pages") is not None and \
+        m.get("out_pages") == m.get("src_pages")
     changed = False
     if any(m["spill"]):
         changed = _lower_footers(lay)
@@ -653,6 +655,13 @@ def _apply(lay: DocLayout, m, state=None) -> bool:
             elif nf is not None:
                 want = min(_note_cap(lay, pl),
                            max(0.0, lift_now + nf - NOTE_HEAD_PT))
+                if not exact:
+                    # Room is read off a render whose pages map one to one,
+                    # or not at all: y47 (65 pages for 57) lifted a page
+                    # whose body then left it whole, and its last three
+                    # pages' text was gone from the render (char recall
+                    # 0.92 -> 0.87). A lift may still be given back.
+                    want = min(want, lift_now)
                 if abs(want - lift_now) >= 0.5:
                     pl.note_lift_pt = want
                     changed = True

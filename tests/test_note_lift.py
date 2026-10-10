@@ -108,10 +108,12 @@ def _page(lift=0.0, cap_bottom=720.0):
 
 
 class Apply(unittest.TestCase):
-    def _apply(self, pl, spill=0, need=None, free=None, offset=0.0, room=None):
+    def _apply(self, pl, spill=0, need=None, free=None, offset=0.0, room=None,
+               out_pages=1):
         lay = DocLayout(pages=[pl])
         m = {"spill": [spill], "offset": [offset], "need": [need],
-             "room": [room], "notes_free": [free]}
+             "room": [room], "notes_free": [free],
+             "out_pages": out_pages, "src_pages": 1}
         with unittest.mock.patch.object(R, "_note_cap", lambda lay, pl: 43.5), \
                 unittest.mock.patch.object(R, "_page_elements", lambda pl: []):
             return R._apply(lay, m)
@@ -125,6 +127,16 @@ class Apply(unittest.TestCase):
         pl = _page()
         self.assertTrue(self._apply(pl, free=R.NOTE_HEAD_PT + 12.0))
         self.assertAlmostEqual(pl.note_lift_pt, 12.0)
+
+    def test_a_render_off_by_pages_lifts_nothing_more(self):
+        # y47, 65 pages for 57: a lift there emptied a page and the render
+        # lost its last three pages' text
+        pl = _page()
+        self.assertFalse(self._apply(pl, free=86.0, out_pages=2))
+        self.assertEqual(pl.note_lift_pt, 0.0)
+        pl = _page(lift=30.0)
+        self.assertTrue(self._apply(pl, free=R.NOTE_HEAD_PT - 8.0, out_pages=2))
+        self.assertAlmostEqual(pl.note_lift_pt, 22.0)    # given back all the same
 
     def test_a_body_that_closed_in_takes_the_lift_back(self):
         pl = _page(lift=30.0)
@@ -145,7 +157,8 @@ class Apply(unittest.TestCase):
         pl.chunks = [Chunk(elements=[first])]
         lay = DocLayout(pages=[pl])
         m = {"spill": [0], "offset": [-12.0], "need": [None],
-             "room": [32.0], "notes_free": [50.0]}
+             "room": [32.0], "notes_free": [50.0],
+             "out_pages": 1, "src_pages": 1}
         with unittest.mock.patch.object(R, "_note_cap", lambda lay, pl: 43.5):
             R._apply(lay, m)
         self.assertAlmostEqual(pl.note_lift_pt, 43.5)
@@ -158,7 +171,8 @@ class Apply(unittest.TestCase):
         pl.chunks = [Chunk(elements=[first])]
         lay = DocLayout(pages=[pl])
         m = {"spill": [0], "offset": [-12.0], "need": [None],
-             "room": [32.0], "notes_free": [None]}
+             "room": [32.0], "notes_free": [None],
+             "out_pages": 1, "src_pages": 1}
         R._apply(lay, m)
         self.assertEqual(first.space_before, 18.0)
 
