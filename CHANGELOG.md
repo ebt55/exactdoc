@@ -179,7 +179,13 @@ one verified fix at a time, each gated against the frozen 16.
   2.40 -> 0.71; Word product y44 2.45 -> 0.48, y02 2.73 -> 2.52, the rest
   equal or better; no page count of a promised document moves, no promised
   row worse by more than 0.01pt. 21 of 90 documents change in the gdocs
-  build (y20, y44, y65 of the short promised).
+  build (y20, y44, y65 of the short promised). Live in Docs, y65 10.16 ->
+  1.28 and y44 31.0 -> 2.00, but y20 5.18 -> 18.05. The paragraph step had
+  split y20's heading off its body at +2.20pt, exactly the 0.2em bar. Docs
+  then set the body a line longer. A step at the bar now has to recur in
+  its block; a step taken once must clear 0.3em (PARA_STEP_ALONE_EM). That
+  returns y20 to its 64a6c47 DOCX in every lane and keeps y44, y65, y02 and
+  y39 as they were (WP35e).
   Evidence: [gdocs-2026-10-11-wp35d-fields.json](docs/evidence/gdocs-2026-10-11-wp35d-fields.json).
 
 - **Short documents in Google Docs: hanging tables and letter-spaced text
