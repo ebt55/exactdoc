@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Usage: gate_full.sh <name> <srcdir> [steps]
 #   steps: comma list of: suite,scripts,golden,gate  (default: all)
-# Creates a fresh container from exactdoc-gate:boot (bootstrapped venv inside),
+# Creates a fresh container from $EXACTDOC_GATE_IMAGE (default exactdoc-gate:boot,
+# the bootstrapped canonical snapshot; e.g. exactdoc-gate:boot-carlito for the
+# WP31 candidate, see scripts/dev/README.md),
 # copies <srcdir> (minus .git/.venv) over /work, runs the CI steps, writes
 # <scratch>/runs/<name>.log, removes the container. Exit code = number of failed steps.
 export MSYS_NO_PATHCONV=1
@@ -11,12 +13,14 @@ mkdir -p "$SCR/runs"
 LOG="$SCR/runs/$NAME.log"
 C="exg-$NAME"
 docker rm -f "$C" >/dev/null 2>&1
-docker run -d --name "$C" -w /work exactdoc-gate:boot sleep infinity >/dev/null || exit 99
+IMAGE="${EXACTDOC_GATE_IMAGE:-exactdoc-gate:boot}"
+docker run -d --name "$C" -w /work "$IMAGE" sleep infinity >/dev/null || exit 99
 ( cd "$SRC" && tar --exclude=./.git --exclude=./.venv --exclude=./.scratch --exclude='*.pyc' --exclude=__pycache__ --exclude=./testkit/batch -cf - . ) | docker exec -i "$C" tar -xf - -C /work
 E="docker exec -e FONTCONFIG_FILE=/work/scripts/fonts.conf -e EXACTDOC_BASE_IMAGE_DIGEST=sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90 $C"
 P="/work/.venv/bin/python"
 fails=0
 : > "$LOG"
+echo "=== IMAGE $IMAGE $(docker image inspect -f '{{.Id}}' "$IMAGE")" >> "$LOG"
 run() { echo "=== STEP $1" >> "$LOG"; $E bash -c "set -o pipefail; cd /work && $2" >> "$LOG" 2>&1; rc=$?; echo "=== RC $1 = $rc" >> "$LOG"; [ $rc -ne 0 ] && fails=$((fails+1)); }
 $E bash -c "cd /work && $P -m pip install -q -e . 2>/dev/null; true" >/dev/null 2>&1
 run manifest "$P testkit/corpus_manifest.py verify"

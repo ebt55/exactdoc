@@ -1221,6 +1221,42 @@ def _gdocs_typed_leader(p: Para) -> Para:
                                tab_stops=stops)
 
 
+# Google Docs sets the text after a list label at the item's indent start --
+# w:ind left, the end of the hanging indent -- and ignores the paragraph's own
+# tab stops there. An item with no hanging indent sets its label and its text
+# from one left edge, and Word finds the text's place at the paragraph's tab
+# stop; Docs has no indent start past the label and sets the text at the next
+# half inch. Measured on Google's exports of the 71558af sweep (r4gd, word
+# boxes, label to first word): EUR-Lex's run-in "1.<tab>" article paragraphs
+# (y18) set their text 36pt past the label against the source's 22 (363 of
+# 374 items with a 21.5pt stop) and 27 (25 of 25 with a 26.6pt stop), while
+# every hanging list in the corpus set it at its indent (22, 26, 27, 14, 17:
+# 1:1 with the source). The first line 14pt short re-wrapped 19 paragraphs a
+# line longer than the planner modelled them, and two pages spilled (146 for
+# 144, word recall 0.697). Typed, the item keeps its stop in Docs: y18's own
+# 27 typed "N.<tab>" items set their text at the source's 89.0 (89.2), y01's
+# and y09's 24pt contents tabs at 96.0 exactly, y02's 86.4 and 135.9pt stops
+# to 0.2pt. A hanging indent under this is none (infer rounds to 0.1pt).
+GDOCS_LIST_MIN_HANGING_PT = 0.5
+
+
+def _gdocs_list_defs(lay: DocLayout, defs: dict) -> dict:
+    """`defs` (structures.numbering_plan) without the lists Google Docs would
+    set past their tab stops: any with an item whose first line hangs less
+    than GDOCS_LIST_MIN_HANGING_PT (see above). A list is all or nothing, as
+    the plan is: those stay typed whole."""
+    from .layout import page_sequences
+    out = dict(defs)
+    for pg in lay.pages:
+        for els in page_sequences(pg):
+            for el in els:
+                num = getattr(el, "numbering", None) if isinstance(el, Para) else None
+                if num is not None and num.list_id in out and \
+                        -(el.first_indent or 0.0) < GDOCS_LIST_MIN_HANGING_PT:
+                    del out[num.list_id]
+    return out
+
+
 def write_para(container, p: Para, content_w: float, par=None, ctx=None,
                space_before: Optional[float] = None,
                page_break_before: bool = False):
@@ -3493,6 +3529,221 @@ def _gdocs_last_baseline(p: Para) -> Optional[float]:
     return b1 + (max(1, n) - 1) * p.leading
 
 
+# A filled panel Word shades paragraph by paragraph reaches the PDF as one
+# filled rectangle per line, and inference builds one box per rectangle: the
+# NIST notice on the copyright page of y01, y08 and y09 is thirteen one-line
+# boxes. Written so (`_write_box_paragraphs`), every line is a paragraph with
+# its own top and bottom border, and Google Docs sets each line 1.5pt taller
+# than the source -- the borders' widths -- (y09: 13.14pt pitch against the
+# source's 11.46-11.52, measured on Google's export of the 71558af sweep), and
+# re-wraps every one-line paragraph its own line cannot hold: the source
+# justified those lines tighter than Times sets them (natural 471-473pt for a
+# 468.5pt column), and Docs put "accordance", "methodologies," and "to" on
+# lines of their own -- 197.1pt first to last baseline for the source's 146.9,
+# and the rest of the page that much low. Written as the one panel it is -- a
+# single four-side box, each source paragraph one flowing paragraph -- it is
+# the form y02's notice panel takes (inferred whole from its one stroked
+# rectangle), whose lines
+# Docs set within 0.3pt of the source (171.1pt first to last baseline for
+# 170.8). A line box joins the one above it when they abut (within
+# GDOCS_LINE_BOX_JOIN_PT), share their edges, fill and borders, and carry no
+# gap of their own; a line joins the paragraph above it at the panel's line
+# pitch (within GDOCS_LINE_BOX_PITCH_PT) when the line above runs to the
+# panel's text edge (within GDOCS_LINE_BOX_FULL_PT). Measured on the three
+# panels: the boxes abut to 0.00pt; a paragraph's lines step 10.32-11.52pt and
+# a paragraph boundary 16.56-17.52 (5pt more); every line but a paragraph's
+# last ends within 1.1pt of the edge and a paragraph's last 338-380pt short.
+# The panel is written only where the width tables set each joined paragraph
+# in its source line count (`_gdocs_lines`): a box's height is modelled from
+# its source rectangle, so a re-wrap there would be unpaid.
+GDOCS_LINE_BOX_JOIN_PT = 0.6
+GDOCS_LINE_BOX_PITCH_PT = 2.0
+GDOCS_LINE_BOX_FULL_PT = 15.0
+
+
+def _gdocs_line_box(el) -> Optional[Para]:
+    """The one paragraph of a one-line box (see above), or None."""
+    if not isinstance(el, TableEl) or el.role != "box" or el.bbox is None or \
+            len(el.rows) != 1 or len(el.rows[0]) != 1 or el.rows[0][0] is None:
+        return None
+    cell = el.rows[0][0]
+    if len(cell.paras) != 1 or cell.blocks:
+        return None
+    p = cell.paras[0]
+    if not isinstance(p, Para) or (p.src_lines or 1) != 1 or p.line_breaks or \
+            p.gdocs_rows or p.numbering is not None or p.leader_text or \
+            p.bbox is None or getattr(p, "_b1", None) is None or \
+            not (p.leading and p.leading > 1) or getattr(p, "_bookmark", None) or \
+            not p.runs or not _gdocs_measured(p):
+        return None
+    return p
+
+
+def _gdocs_line_boxes_join(a: TableEl, b: TableEl) -> bool:
+    """Is line box `b` the continuation of the panel line box `a` ends?"""
+    ca, cb = a.rows[0][0], b.rows[0][0]
+    return abs(a.bbox[0] - b.bbox[0]) <= 0.5 and abs(a.bbox[2] - b.bbox[2]) <= 0.5 \
+        and abs(b.bbox[1] - a.bbox[3]) <= GDOCS_LINE_BOX_JOIN_PT \
+        and (b.space_before or 0.0) <= 0.5 and (a.space_after or 0.0) <= 0.5 \
+        and ca.shading == cb.shading and ca.borders == cb.borders \
+        and abs((a.left_indent or 0.0) - (b.left_indent or 0.0)) < 0.05 \
+        and getattr(b, "_bookmark", None) is None
+
+
+def _gdocs_panel(boxes: List[TableEl], content_w: float) -> Optional[TableEl]:
+    """One four-side box of `boxes` (abutting one-line boxes, top to bottom),
+    each source paragraph one flowing paragraph; None where the lines cannot
+    be joined as written (a line that ends on a hyphen) or a joined paragraph
+    would not keep its source line count in Docs. Builds copies."""
+    metrics = _text_metrics("gdocs")
+    if metrics is None:
+        return None
+    lines = [b.rows[0][0].paras[0] for b in boxes]
+    if any(r.text.endswith("-") for p in lines[:-1] for r in p.runs[-1:]):
+        return None
+    pitches = [q._b1 - p._b1 for p, q in zip(lines, lines[1:])]
+    pitch = min(pitches)
+    if pitch <= 0:
+        return None
+    edge = max(p.bbox[2] for p in lines)
+    # the text width `_write_box_paragraphs` will give each paragraph
+    t0 = boxes[0]
+    pad_right = max(0.0, min(31.0, t0.bbox[2] - edge))
+    col_right = (t0.bbox[0] - t0.left_indent) + content_w
+    right = max(0.0, min(pad_right, col_right - edge))
+    groups = [[lines[0]]]
+    for p, q, d in zip(lines, lines[1:], pitches):
+        prev = groups[-1][-1]
+        if d <= pitch + GDOCS_LINE_BOX_PITCH_PT and \
+                p.bbox[2] >= edge - GDOCS_LINE_BOX_FULL_PT and \
+                abs(q.left_indent - prev.left_indent) < 0.5 and \
+                abs(_dominant_run(q)[0] - _dominant_run(prev)[0]) < 0.05:
+            groups[-1].append(q)
+        else:
+            groups.append([q])
+    def joined(g, lead):
+        """The lines of `g` as one paragraph at pitch `lead` (a copy)."""
+        runs = []
+        for k, p in enumerate(g):
+            row = [dataclasses.replace(r) for r in p.runs]
+            if k and runs and not runs[-1].is_tab and \
+                    not runs[-1].text.endswith(" "):
+                runs[-1] = dataclasses.replace(runs[-1], text=runs[-1].text + " ")
+            runs.extend(row)
+        q = copy.copy(g[0])
+        q.runs = runs
+        q.leading = lead
+        # justified where the source justified: two or more lines run to one
+        # edge before the last
+        full = [p.bbox[2] for p in g[:-1]]
+        if len(g) > 2 and max(full) - min(full) <= 1.5:
+            q.align = "justify"
+        return q
+
+    def keeps(q, n):
+        avail = content_w - max(0.0, t0.left_indent + q.left_indent) - right
+        return predict_lines_for(q, avail, metrics) == n
+
+    # Each paragraph joined where Docs keeps its source line count; else its
+    # lines one paragraph each at the paragraph's pitch, where each holds its
+    # line; else the run stays as written.
+    units = []
+    for g in groups:
+        bls = [p._b1 for p in g]
+        steps = sorted(y - x for x, y in zip(bls, bls[1:]))
+        lead = round(steps[len(steps) // 2], 2) if steps else g[0].leading
+        if len(g) > 1 and keeps(joined(g, lead), len(g)):
+            units.append((g, lead))
+            continue
+        for p in g:
+            if not keeps(joined([p], p.leading), 1):
+                return None
+            units.append(([p], lead if len(g) > 1 else p.leading))
+    paras = []
+    last_bl = None
+    for g, lead in units:
+        q = joined(g, lead)
+        n = len(g)
+        bls = [p._b1 for p in g]
+        q.src_lines = n
+        q._vis_lines = n
+        q.src_widths = [w for p in g for w in (p.src_widths or [])]
+        q.bbox = (min(p.bbox[0] for p in g), min(p.bbox[1] for p in g),
+                  max(p.bbox[2] for p in g), max(p.bbox[3] for p in g))
+        if last_bl is not None:
+            # Word-terms gap between the paragraphs, as infer anchors one
+            # (`_gdocs_para_box`: a top `leading - descent` above the first
+            # baseline, a bottom `descent` below the last)
+            d0 = GDOCS_WRITER_DESCENT_EM * (getattr(paras[-1], "_size1", None)
+                                            or _dominant_run(paras[-1])[0])
+            d1 = GDOCS_WRITER_DESCENT_EM * (getattr(q, "_size1", None)
+                                            or _dominant_run(q)[0])
+            q.space_before = round(max(0.0, (bls[0] - (q.leading - d1)) -
+                                       (last_bl + d0)), 1)
+        else:
+            q.space_before = g[0].space_before or 0.0
+        last_bl = bls[0] + (n - 1) * q.leading
+        paras.append(q)
+    first, last = boxes[0], boxes[-1]
+    cell = copy.copy(first.rows[0][0])
+    pad0, padn = first.rows[0][0].pad, last.rows[0][0].pad
+    cell.pad = (pad0[0], pad0[1], padn[2], pad0[3]) if len(pad0) >= 4 and \
+        len(padn) >= 4 else pad0
+    cell.paras = paras
+    out = copy.copy(first)
+    out.rows = [[cell]]
+    out.bbox = (min(b.bbox[0] for b in boxes), first.bbox[1],
+                max(b.bbox[2] for b in boxes), last.bbox[3])
+    out.row_heights = [out.bbox[3] - out.bbox[1]]
+    out.space_after = last.space_after
+    return out
+
+
+def _gdocs_line_boxes(pg, content_w: float):
+    """`pg` with each run of two or more abutting one-line boxes in a
+    one-column region written as the one panel it is (see
+    GDOCS_LINE_BOX_JOIN_PT); `pg` itself where there is none. A copy: the
+    layout is never mutated (`_absorb_page_spill`)."""
+    chunks = []
+    changed = False
+    for ch in pg.chunks:
+        if ch.n_cols != 1:
+            chunks.append(ch)
+            continue
+        out, run = [], []
+
+        def flush():
+            nonlocal changed
+            panel = _gdocs_panel(run, content_w) if len(run) >= 2 else None
+            if panel is not None:
+                out.append(panel)
+                changed = True
+            else:
+                out.extend(run)
+            run.clear()
+
+        for el in ch.elements:
+            if _gdocs_line_box(el) is not None and \
+                    (not run or _gdocs_line_boxes_join(run[-1], el)):
+                run.append(el)
+                continue
+            flush()
+            if _gdocs_line_box(el) is not None:
+                run.append(el)
+            else:
+                out.append(el)
+        flush()
+        if len(out) != len(ch.elements):
+            ch = copy.copy(ch)
+            ch.elements = out
+        chunks.append(ch)
+    if not changed:
+        return pg
+    pg = copy.copy(pg)
+    pg.chunks = chunks
+    return pg
+
+
 def _gdocs_box_spaces(t: TableEl, bw_top: float, bw_bot: float,
                       space_top: float, space_bot: float):
     """(top, bottom) border spaces that put a box's text where the source
@@ -5296,8 +5547,10 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
     # written whole is written typed, never half-converted.
     from .structures import footnote_plan, numbering_plan
     if ctx.numbering and lay.lists:
-        ctx = dataclasses.replace(ctx, list_defs=numbering_plan(
-            lay, tab_only=ctx.output_profile == "gdocs"))
+        defs = numbering_plan(lay, tab_only=ctx.output_profile == "gdocs")
+        if ctx.output_profile == "gdocs":
+            defs = _gdocs_list_defs(lay, defs)
+        ctx = dataclasses.replace(ctx, list_defs=defs)
     note_ids = footnote_plan(lay) if ctx.footnotes and not ctx.notes_vetoed \
         else {}
     if note_ids:
@@ -5635,6 +5888,10 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                 pending_break[0] = True
         cw_ctx = (lay.page_w - 2 * band_bleed) if (has_cover and pi == 0) \
             else glay.content_w
+        if ctx.output_profile == "gdocs" and not booklet and \
+                not (has_cover and pi == 0):
+            # a panel shaded line by line is one box (`_gdocs_line_boxes`)
+            pg = _gdocs_line_boxes(pg, cw_ctx)
         # A one- or two-line spill is absorbed into this page rather than
         # stranded on one of its own by the break that follows. The plan is
         # `{id(element): gap}` and is applied at write time only: `lay` is
