@@ -20,7 +20,6 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
-<<<<<<< HEAD
 - **A tracked word between drawn spaces stays one word (WP45).** y28's
   running footer is Word's `1 | Page` with "Page" expanded by 3pt (0.248em
   after each letter at 12pt Arial; the spaces around `|` drawn, 0.278em).
@@ -37,7 +36,7 @@ one verified fix at a time, each gated against the frozen 16.
   LibreOffice product and raw and 0.9882 -> 0.9906 in Word, 21/21 pages
   everywhere, within-2pt unchanged; a Docs probe set is at
   `C:\lotmp\scr\wp45\gdocs_probe` (`docs/evidence/wp45-2026-10-11.json`).
-=======
+
 - **A rule inside a figure just stacked holds the spacing cursor, as one
   inside a table does (land1b).** WP33n's narrower hold (tables only)
   cost y21 a page on the landing set: p39's figure (y 319-505) carries
@@ -49,7 +48,6 @@ one verified fix at a time, each gated against the frozen 16.
   for 48 in LibreOffice product (0.882) and Word (0.855); it moves only the
   ten documents with such rules (y01 y06 y08 y09 y21 y22 y38 y47 y54 y59).
   Evidence: [land1b-2026-10-11.json](docs/evidence/land1b-2026-10-11.json).
->>>>>>> claude/exactdoc-pdf-docx-tool-d4bf20
 
 - **y12's three pages that could not fit its seams now do (WP40).** With
   every source seam kept, IRS Publication 15 mapped 1:1 on 56 of its 59
