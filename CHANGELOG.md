@@ -21,6 +21,22 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 one verified fix at a time, each gated against the frozen 16.
 
 
+- **Criterion 8 can carry a bounded, self-retiring exception (WP41).**
+  `testkit/beta_readiness.py` reads `testkit/beta_waivers.json`
+  (`exactdoc.beta-waivers.v1`, committed empty): one metric on one
+  unpromised document, with a ceiling (or a floor), the release, the
+  accepted sweep by file name and SHA-256, the harness reading, who decided
+  and when, the evidence and the conditions -- the shape of the gdocs
+  policy's waivers. Flagged and inside the bound, the flag is lifted and the
+  criterion prints "PASS (1 waived)" with the waiver; past the bound it
+  blocks ("waiver out of bounds"); another accepted sweep, release or
+  reading makes it stale, which blocks; a promised document or an unbounded
+  waiver is refused; a waiver nothing needs is a note, "waiver unused,
+  delete it". Every other metric on the document stays gated, and the JSON
+  carries each verdict. `--waivers`, `--release` (default 0.3.0b1). With the
+  empty file the scorecard reads exactly as before. `docs/beta-bar.md`
+  describes the rule; no threshold changed.
+
 - **`testkit/churn.py`: which source words two renders both place (WP41).**
   A document's dy_p50 is a median over the words the render matched, and two
   renders match different sets, so it can move with no word moving. `churn.py

@@ -302,5 +302,197 @@ class Reading(unittest.TestCase):
         self.assertIsNone(B._profile_kind("pdfium/standard/libreoffice/refine1@240dpi"))
 
 
+PROD = "pdfium/standard/libreoffice/refine3@240dpi"
+
+
+class Waivers(unittest.TestCase):
+    """Criterion-8 exceptions (testkit/beta_waivers.json): bounded, tied to the
+    accepted sweep by name and SHA-256, to a reading and to a release, and
+    self-retiring. paper.pdf is unpromised; its dy_p50 goes 20 -> 23 against a
+    tolerance of max(0.5, 10% x 20) = 2, so it is flagged; the waiver's
+    ceiling is 25."""
+
+    def setUp(self):
+        self._td = tempfile.TemporaryDirectory()
+        self.dir = self._td.name
+        self.rows = [_row("short.pdf", 3, 3), _row("short2.pdf", 2, 2),
+                     _row("long.pdf", 50, 50), _row("paper.pdf", 8, 8, dy=20.0)]
+        self.acc = self._sweep("accepted-x.sweep.json", self.rows,
+                               rescored={"scorer": "wp29"})
+        import hashlib
+        with open(self.acc, "rb") as fh:
+            self.sha = hashlib.sha256(fh.read()).hexdigest()
+
+    def tearDown(self):
+        self._td.cleanup()
+
+    def _sweep(self, name, rows, **extra):
+        path = os.path.join(self.dir, name)
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(dict({"schema": "exactdoc.quality-sweep.v1", "profile": PROD,
+                            "corpus": "both", "documents": rows}, **extra), fh)
+        return path
+
+    def _spec(self, **over):
+        spec = {"ceiling": 25.0, "release": "0.3.0b1",
+                "accepted_sweep": {"name": "accepted-x.sweep.json", "sha256": self.sha},
+                "reading": "wp29",
+                "measured": {"accepted": 20.0, "current": 23.0, "sweep": "cur.sweep.json"},
+                "decided_by": "the owner", "decided_on": "2026-10-10",
+                "evidence": "docs/beta-bar.md#exceptions", "conditions": "a-g"}
+        for k, v in over.items():
+            if v is None:
+                spec.pop(k, None)
+            else:
+                spec[k] = v
+        return spec
+
+    def _waivers(self, doc="paper.pdf", metric="dy_p50", spec=None, raw=None):
+        path = os.path.join(self.dir, "beta_waivers.json")
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(raw if raw is not None else {
+                "schema": B.WAIVERS_SCHEMA,
+                "regression": {doc: {metric: spec if spec is not None else self._spec()}}}, fh)
+        return path
+
+    def _read(self, current_rows, waivers_path=None, release=B.RELEASE, **extra):
+        cur = self._sweep("cur.sweep.json", current_rows, **extra)
+        sweeps = {"product": (cur, B.load_sweep(cur))}
+        res = B.evaluate(DOCS, sweeps, {"lo": current_rows, "word": None, "docs": None},
+                         None, accepted=(self.acc, B.load_sweep(self.acc)),
+                         waivers=B.load_waivers(waivers_path or self._waivers()),
+                         release=release)
+        return {c["key"]: c for c in res["criteria"]}["regression"], res
+
+    def _current(self, dy=23.0, **kw):
+        return self.rows[:3] + [_row("paper.pdf", 8, 8, dy=dy, **kw)]
+
+    def test_without_a_waiver_the_flag_fails(self):
+        path = self._waivers(raw={"schema": B.WAIVERS_SCHEMA, "regression": {}})
+        c, _ = self._read(self._current(), path)
+        self.assertEqual((c["status"], c["by"]), ("FAIL", 1))
+        self.assertIn("paper dy_p50 20 -> 23 (tolerance 2)", c["misses"])
+        self.assertEqual(c["waivers"], [])
+
+    def test_in_bounds_passes_and_prints_the_waiver(self):
+        c, res = self._read(self._current())
+        self.assertEqual(c["status"], "PASS")
+        self.assertEqual(c["waived"], 1)
+        self.assertIn("1 waived: paper dy_p50 20->23 <= ceiling 25.0, owner exception "
+                      "2026-10-10", c["detail"])
+        (v,) = c["waivers"]
+        self.assertEqual((v["verdict"], v["blocking"]), ("waived", False))
+        self.assertEqual((v["accepted"], v["current"], v["tolerance"]), (20.0, 23.0, 2.0))
+        self.assertEqual(v["accepted_sweep"]["sha256"], self.sha)
+        self.assertIn(" 8 PASS (1 waived)", B.render(res, []))
+
+    def test_every_other_metric_on_the_waived_document_stays_gated(self):
+        c, _ = self._read(self._current(wr=0.90, doc_recall=0.99))
+        self.assertEqual((c["status"], c["by"]), ("FAIL", 1))
+        self.assertEqual(c["waived"], 1)
+        self.assertEqual([m for m in c["misses"] if not m.startswith("(")],
+                         ["paper word_recall 0.99 -> 0.9 (tolerance 0.02)"])
+
+    def test_out_of_bounds_blocks(self):
+        c, _ = self._read(self._current(dy=25.5))
+        self.assertEqual((c["status"], c["by"]), ("FAIL", 1))
+        self.assertEqual(c["waived"], 0)
+        self.assertEqual(c["waivers"][0]["verdict"], "out-of-bounds")
+        self.assertIn("paper dy_p50 20 -> 25.5 (tolerance 2)", c["misses"])
+        self.assertTrue(any(m.startswith("waiver out of bounds: paper dy_p50 20->25.5 > "
+                                         "ceiling 25.0") for m in c["misses"]))
+
+    def test_a_stale_accepted_sweep_blocks(self):
+        for named in ({"name": "accepted-x.sweep.json", "sha256": "0" * 64},
+                      {"name": "accepted-y.sweep.json", "sha256": self.sha}):
+            c, _ = self._read(self._current(),
+                              self._waivers(spec=self._spec(accepted_sweep=named)))
+            self.assertEqual(c["status"], "FAIL", named)
+            self.assertEqual(c["waivers"][0]["verdict"], "stale")
+            self.assertTrue(any(m.startswith("stale waiver: paper dy_p50 names %s"
+                                             % named["name"]) for m in c["misses"]))
+            # the flag is not lifted by a stale waiver
+            self.assertIn("paper dy_p50 20 -> 23 (tolerance 2)", c["misses"])
+        # stale even when the document is no longer flagged: it dies with its sweep
+        c, _ = self._read(self._current(dy=20.0), self._waivers(spec=self._spec(
+            accepted_sweep={"name": "accepted-x.sweep.json", "sha256": "0" * 64})))
+        self.assertEqual((c["status"], c["by"]), ("FAIL", 1))
+
+    def test_another_release_is_stale(self):
+        c, _ = self._read(self._current(), self._waivers(spec=self._spec(release="0.2.0")))
+        self.assertEqual((c["status"], c["waivers"][0]["verdict"]), ("FAIL", "stale"))
+        self.assertIn("granted for 0.2.0, this is 0.3.0b1", c["misses"][-1])
+        # the same 0.3.0b1 waiver, read for the next release
+        c, _ = self._read(self._current(), release="0.3.0b2")
+        self.assertEqual((c["status"], c["waivers"][0]["verdict"]), ("FAIL", "stale"))
+
+    def test_another_reading_is_not_like_for_like(self):
+        c, _ = self._read(self._current(), rescored={"scorer": "wp36"})
+        self.assertEqual((c["status"], c["waivers"][0]["verdict"]), ("FAIL", "stale"))
+        self.assertIn("not like for like", c["misses"][-1])
+
+    def test_an_unused_waiver_is_a_note_not_a_failure(self):
+        c, _ = self._read(self._current(dy=21.0))
+        self.assertEqual(c["status"], "PASS")
+        self.assertEqual((c["waivers"][0]["verdict"], c["waivers"][0]["blocking"]),
+                         ("unused", False))
+        self.assertTrue(any(m.startswith("(note) waiver unused, delete it: paper dy_p50")
+                            for m in c["misses"]))
+
+    def test_a_promised_document_is_refused(self):
+        c, _ = self._read(self._current(), self._waivers(doc="short.pdf"))
+        self.assertEqual(c["status"], "FAIL")
+        self.assertEqual(c["waivers"][0]["verdict"], "refused")
+        self.assertIn("short is a promised document", c["misses"][-1])
+
+    def test_an_unbounded_waiver_is_refused(self):
+        for spec in (self._spec(ceiling=None), dict(self._spec(), ceiling=None)):
+            c, _ = self._read(self._current(), self._waivers(spec=spec))
+            self.assertEqual((c["status"], c["waivers"][0]["verdict"]), ("FAIL", "refused"))
+            self.assertIn("unbounded", c["misses"][-1])
+            self.assertIn("paper dy_p50 20 -> 23 (tolerance 2)", c["misses"])
+
+    def test_malformed_entries_and_files_are_refused(self):
+        bad = [self._spec(decided_by=None),                      # unattributed
+               self._spec(decided_on="yesterday"),
+               self._spec(accepted_sweep={"name": "accepted-x.sweep.json"}),
+               self._spec(ceiling=22.0),                         # does not admit 23
+               self._spec(ceiling=19.0),                         # relaxes nothing
+               dict(self._spec(), floor=10.0)]                   # wrong kind of bound
+        for spec in bad:
+            c, _ = self._read(self._current(), self._waivers(spec=spec))
+            self.assertEqual((c["status"], c["waivers"][0]["verdict"]), ("FAIL", "refused"),
+                             spec)
+        c, _ = self._read(self._current(), self._waivers(raw={"schema": "nope"}))
+        self.assertEqual((c["status"], c["by"]), ("FAIL", 1))
+        self.assertIn("waiver file refused", c["misses"][-1])
+
+    def test_main_carries_the_verdicts_into_the_json(self):
+        cur = self._sweep("cur.sweep.json", self._current())
+        out = os.path.join(self.dir, "res.json")
+        with mock.patch("sys.stdout", new=io.StringIO()) as printed, \
+                mock.patch.object(B, "corpus", return_value=DOCS):
+            B.main(["--product", cur, "--accepted", self.acc, "--json", out,
+                    "--waivers", self._waivers(), "--runs", os.path.join(self.dir, "none")])
+        with open(out, encoding="utf-8") as fh:
+            res = json.load(fh)
+        c = {c["key"]: c for c in res["criteria"]}["regression"]
+        self.assertEqual(res["release"], "0.3.0b1")
+        self.assertEqual([(v["document"], v["metric"], v["verdict"]) for v in c["waivers"]],
+                         [("paper.pdf", "dy_p50", "waived")])
+        self.assertEqual(c["waiver_file"]["entries"], 1)
+        self.assertIn("1 criterion-8 waiver(s) for release 0.3.0b1", printed.getvalue())
+
+    def test_the_committed_waiver_file(self):
+        w = B.load_waivers(B.WAIVERS)
+        self.assertIsNone(w["error"])
+        import gate
+        docs = B.corpus()
+        for doc, metric, spec in w["entries"]:
+            self.assertIsNone(B._waiver_refusal(doc, metric, spec, docs, gate.METRICS),
+                              (doc, metric))
+            self.assertEqual(spec["release"], B.RELEASE)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -110,3 +110,34 @@ date on, so numbers before and after it are compared only through
 and keeps the old reading beside the new
 ([evidence](evidence/scorer-2026-10-06.json)). The gate's recorded baseline was
 measured with the old reading; re-recording it is a separate owner decision.
+
+## Exceptions to criterion 8
+
+An owner decision can excuse **one metric on one unpromised document** from
+criterion 8, in the form the Google Docs quality policy already uses for its
+waivers. The entry lives in `testkit/beta_waivers.json` and names the
+document, the metric, a bound (a ceiling for a metric where lower is better,
+a floor where higher is), the release it is granted for, the accepted sweep
+it was measured against by file name **and** SHA-256, the harness reading,
+who decided and when, the evidence, and the conditions. Each exception is
+recorded on this page in the same commit as its entry. No threshold changes.
+
+`testkit/beta_readiness.py` reads it with criterion 8:
+
+- the document is flagged on that metric, the accepted sweep is the one named
+  and the current value is inside the bound → the flag is lifted and the
+  criterion prints the waiver beside its PASS ("PASS (1 waived)");
+- the current value is past the bound → **blocking**, "waiver out of bounds"
+  (a new decision is needed);
+- the accepted sweep (name or SHA-256), the release or the harness reading is
+  not the one the waiver names → **blocking**, "stale waiver": the waiver dies
+  with the sweep it was measured against and is not carried to another
+  release;
+- a waiver for a promised document, or one without a finite bound, is
+  **refused** (blocking): a promised document's bar is the README's promise,
+  and an unbounded waiver is a waiver of anything;
+- the document is no longer flagged → a non-blocking note, "waiver unused,
+  delete it".
+
+Every other metric on a waived document stays gated at full tolerance, and the
+JSON output carries each waiver's verdict.
