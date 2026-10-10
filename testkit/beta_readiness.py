@@ -69,6 +69,16 @@ holds the raw profile to its own time limit; (2) the harness reads leader runs,
 symbol-font PUA and maths operators symmetrically (testkit/harness.py), so the
 same renders read differently from 2026-10-06 on. No threshold changed.
 
+**Amendment 4** (owner-delegated decision, 2026-10-10; docs/beta-bar.md): in
+criterion 8 a dy_p50 flag is not a regression when, on the same document
+against the same accepted row in the same reading, within2pt rose by more than
+0.05, within5pt fell by no more than 0.05 and dy_p50 rose by at most max(3pt,
+30% of the accepted value) (`dy_exemption`, constants `c8_dy_*` in BAR). Each
+exempted document is printed with its deltas and cap. Two sweeps whose
+recorded readings (`rescored.scorer`) differ are not compared: criterion 8 is
+UNMEASURED. A document with a dy_p50 waiver is judged by the waiver, never
+also by the rule.
+
 **Criterion-8 exceptions** (testkit/beta_waivers.json, `--waivers`): an owner
 decision may excuse ONE metric on ONE unpromised document from criterion 8, up
 to a stated bound, against the accepted sweep it names by file and SHA-256, in
@@ -125,6 +135,24 @@ BAR = {
     # 8. no regression against the accepted sweep, with gate.py's tolerances
     "regression_metrics": ("page_err", "word_recall", "doc_recall",
                            "live_text_cov", "within2pt", "dy_p50"),
+    #    Amendment 4 (owner-delegated decision 2026-10-10, docs/beta-bar.md):
+    #    a dy_p50 flag is not a regression when, same document, same accepted
+    #    row, same reading, within2pt rose by MORE than this (gate.py's
+    #    within2pt tolerance) ...
+    "c8_dy_within2pt_rise": 0.05,
+    #    ... within5pt fell by NO more than this ...
+    "c8_dy_within5pt_fall": 0.05,
+    #    ... and dy_p50 rose by at most max(cap_pt, cap_frac x accepted). The
+    #    evidence: the reviewer's c8rules2.py / c8rules.py over 272 same-reading
+    #    pairs of full product sweeps -- y18, y33, y43, y55 exempted (y54's dy
+    #    too, still FAIL on recall); y26, y59, y61, y21, y37 and reverse-y18
+    #    (within5pt -0.125) still FAIL. 30% alone would flag y33's real gain
+    #    (wp21-base -> wp34-g10: dy 0.35 -> 1.89, within2pt 0.14 -> 0.41),
+    #    hence the 3pt floor; 30% keeps the cap proportional at large drifts
+    #    (y55, wp39-A -> wp39-C: 15.56 -> 17.26 under a 4.67pt cap). y43's
+    #    within2pt rise there is +0.0523, 0.0023 over the bar.
+    "c8_dy_cap_pt": 3.0,
+    "c8_dy_cap_frac": 0.30,
     # 9. editability on promised documents -- reported for beta, GA gate
     "edit_textbox_frac": 0.05,
     "edit_one_cell_tables_per_page": 1.0,
@@ -153,6 +181,9 @@ BAR = {
     "lo_flavour": "product",
     "amended": "owner, 2026-10-06 (lanes graded on the product DOCX; "
                "symmetric leader/symbol/operator reading in the harness)",
+    "amendment_4": "owner-delegated decision, 2026-10-10 (criterion 8: a dy_p50 "
+                   "flag with within2pt up, within5pt held and a capped rise is "
+                   "not a regression; same reading on both sides)",
 }
 
 # 10. Font families every Windows 10/11 + Microsoft 365 install has, or that
@@ -494,6 +525,34 @@ def _waiver_refusal(doc, metric, spec, docs, metrics):
         return ("%s is a promised document: its bar is the README's promise, and "
                 "no exception is recorded against it" % _short(doc))
     return None
+
+
+def dy_exemption(acc, cur):
+    """Amendment 4: why a flagged dy_p50 is not a regression, or None.
+
+    `acc` and `cur` are one document's accepted and current rows, read the
+    same way. Exempt when within2pt rose by more than `c8_dy_within2pt_rise`,
+    within5pt fell by no more than `c8_dy_within5pt_fall`, and dy_p50 rose by
+    at most max(`c8_dy_cap_pt`, `c8_dy_cap_frac` x accepted). A row without
+    within5pt (or within2pt) on either side gets no exemption.
+    """
+    vals = [r.get(k) for r in (acc, cur) for k in ("dy_p50", "within2pt", "within5pt")]
+    if not all(_finite(v) for v in vals):
+        return None
+    dy0, w20, w50, dy1, w21, w51 = vals
+    cap = max(BAR["c8_dy_cap_pt"], BAR["c8_dy_cap_frac"] * dy0)
+    rise, w2d, w5d = dy1 - dy0, w21 - w20, w51 - w50
+    if not (w2d > BAR["c8_dy_within2pt_rise"] + 1e-12
+            and w5d >= -BAR["c8_dy_within5pt_fall"] - 1e-12 and rise <= cap + 1e-12):
+        return None
+    return {"dy_p50": [dy0, dy1], "within2pt": [w20, w21], "within5pt": [w50, w51],
+            "dy_rise": round(rise, 4), "within2pt_delta": round(w2d, 4),
+            "within5pt_delta": round(w5d, 4), "cap": round(cap, 4),
+            "detail": "%s dy_p50 %.4g -> %.4g (+%.2f, cap %.2fpt = max(%gpt, %d%% of "
+                      "%.4g)); within2pt %.4f -> %.4f (%+.4f); within5pt %.4f -> %.4f (%+.4f)"
+                      % (_short(acc.get("document", "?")), dy0, dy1, rise, cap,
+                         BAR["c8_dy_cap_pt"], round(100 * BAR["c8_dy_cap_frac"]), dy0,
+                         w20, w21, w2d, w50, w51, w5d)}
 
 
 def judge_waivers(waivers, flags, measured_both, accepted, current, docs, metrics,
@@ -910,6 +969,18 @@ def evaluate(docs, sweeps, lanes, gate, accepted=None, docx_dir=None,
              "(%d); name a full-corpus accepted %s sweep"
              % (acc_kind, os.path.basename(accepted[0]),
                 len(accepted[1].get("documents", ())), want, acc_kind))
+    elif None not in (sweep_reading(accepted[1]), sweep_reading(sweeps[acc_kind][1])) and \
+            sweep_reading(accepted[1]) != sweep_reading(sweeps[acc_kind][1]):
+        # Amendment 4 (a): the two sides must be read the same way. A sweep
+        # records its reading only when testkit/rescore.py re-read it
+        # (`rescored.scorer`); a sweep scored as it ran records none, and is
+        # taken to be in the reading of the accepted sweep it is compared with.
+        crit(8, "regression", "no regression against the accepted sweep (gate.py tolerances)",
+             UNMEASURED, "mixed reading: the accepted sweep %s is read %s, the current %s "
+             "sweep %s is read %s; rescore one side (testkit/rescore.py) so both are read "
+             "alike" % (os.path.basename(accepted[0]), sweep_reading(accepted[1]), acc_kind,
+                        os.path.basename(sweeps[acc_kind][0]),
+                        sweep_reading(sweeps[acc_kind][1])))
     else:
         try:
             sys.path.insert(0, HERE)
@@ -924,6 +995,12 @@ def evaluate(docs, sweeps, lanes, gate, accepted=None, docx_dir=None,
         else:
             base = {r["document"]: r for r in accepted[1].get("documents", ())}
             worse, flags, both = [], {}, set()     # worse: (doc, metric|None, text)
+            waivers = waivers or {"path": None, "entries": [], "error": None}
+            # Amendment 4 (d): a document is judged by the rule OR by a waiver,
+            # never both. A document with a dy_p50 waiver entry (whatever its
+            # verdict) is left to the waiver; the rule does not look at it.
+            by_waiver = {d for d, m, _ in waivers.get("entries", ()) if m == "dy_p50"}
+            exempted = []
             for r in sweeps[acc_kind][1].get("documents", ()):
                 b = base.get(r.get("document"))
                 if not b:
@@ -950,13 +1027,17 @@ def evaluate(docs, sweeps, lanes, gate, accepted=None, docx_dir=None,
                     tol = tolerance(spec, ref)
                     delta = (ref - cur) if spec["dir"] == "higher" else (cur - ref)
                     if delta > tol + 1e-12:
+                        ex = (dy_exemption(b, r) if m == "dy_p50"
+                              and r["document"] not in by_waiver else None)
+                        if ex:
+                            exempted.append(dict(ex, document=r["document"], tolerance=tol))
+                            continue
                         flags[(r["document"], m)] = (ref, cur, tol)
                         worse.append((r["document"], m, "%s %s %.4g -> %.4g (tolerance %.3g)"
                                       % (_short(r["document"]), m, ref, cur, tol)))
             # Criterion-8 waivers (testkit/beta_waivers.json): a `waived` verdict
             # lifts exactly its own (document, metric) flag; every other verdict
             # leaves the flag where it is, and the blocking ones add their own.
-            waivers = waivers or {"path": None, "entries": [], "error": None}
             verdicts = (judge_waivers(waivers, flags, both, accepted, sweeps[acc_kind],
                                       docs, metrics, release)
                         if not waivers.get("error") else [])
@@ -975,21 +1056,28 @@ def evaluate(docs, sweeps, lanes, gate, accepted=None, docx_dir=None,
             waived = [v for v in verdicts if v["verdict"] == "waived"]
             detail = "%d document(s) worse than %s (%s flavour)" % (
                 len({w[0] for w in worse}), os.path.basename(accepted[0]), acc_kind)
+            misses += ["(exempt, amendment 4) " + e["detail"] for e in exempted]
             if waived:
                 detail += "; %d waived: %s" % (len(waived), "; ".join(v["detail"] for v in waived))
+            if exempted:
+                detail += "; %d dy_p50 flag(s) exempt under amendment 4: %s" % (
+                    len(exempted), ", ".join(_short(e["document"]) for e in exempted))
             if blocking or waivers.get("error"):
                 detail += "; %d waiver(s) blocking" % (len(blocking) + bool(waivers.get("error")))
             crit(8, "regression", "no regression against the accepted sweep (gate.py tolerances)",
                  FAIL if (worse or blocking or waivers.get("error")) else PASS, detail,
                  len(regressed) or (1 if waivers.get("error") else None), misses)
             criteria[-1]["waived"] = len(waived)
+            criteria[-1]["exempted"] = exempted
+            criteria[-1]["readings"] = {"accepted": sweep_reading(accepted[1]),
+                                        "current": sweep_reading(sweeps[acc_kind][1])}
             criteria[-1]["waivers"] = verdicts
             criteria[-1]["waiver_file"] = {"path": waivers.get("path"), "release": release,
                                            "entries": len(waivers.get("entries", ())),
                                            "error": waivers.get("error"), "evaluated": True}
     if "waivers" not in criteria[-1]:
         # Criterion 8 unmeasured: no waiver can be judged, and none is applied.
-        criteria[-1].update(waived=0, waivers=[], waiver_file={
+        criteria[-1].update(waived=0, exempted=[], waivers=[], waiver_file={
             "path": (waivers or {}).get("path"), "release": release,
             "entries": len((waivers or {}).get("entries", ())),
             "error": (waivers or {}).get("error"), "evaluated": False})
@@ -1246,6 +1334,8 @@ def render(result, inputs, show=8):
         st = c["status"] + (" by %d" % c["by"] if c["status"] == FAIL and c["by"] else "")
         if c.get("waived"):
             st += " (%d waived)" % c["waived"]
+        if c.get("exempted"):
+            st += " (%d exempt, amendment 4)" % len(c["exempted"])
         lines.append("  %2d %-11s %s" % (c["num"], st, c["criterion"]))
         lines.append("  %2s %-11s %s" % ("", "", c["detail"]))
         for m in c["misses"][:show]:

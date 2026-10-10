@@ -4,7 +4,10 @@
 review's proposal, adopted exactly). **Amended by the owner on 2026-10-06**:
 the lanes are graded on the product DOCX, and the harness reads leaders,
 symbol fonts and maths the same way on both sides (see
-[the amendments](#amendments-2026-10-06-ratified-by-the-owner)).
+[the amendments](#amendments-2026-10-06-ratified-by-the-owner)). **Amendment
+4, 2026-10-10** (owner-delegated): a capped dy_p50 rise that comes with more
+words within 2pt is not a criterion-8 regression
+([amendment 4](#amendment-4-2026-10-10-criterion-8s-dy_p50-owner-delegated-decision)).
 
 **0.3.0b1 is not tagged while any gating criterion fails.** Criteria 1–6, 8 and
 10–12 gate the beta. Criteria 7, 9 and 13 are reported for the beta and gate
@@ -110,6 +113,57 @@ date on, so numbers before and after it are compared only through
 and keeps the old reading beside the new
 ([evidence](evidence/scorer-2026-10-06.json)). The gate's recorded baseline was
 measured with the old reading; re-recording it is a separate owner decision.
+
+## Amendment 4, 2026-10-10: criterion 8's dy_p50 (owner-delegated decision)
+
+The owner delegated this question to an independent decider (Fable 5.1), whose
+decision stands as the owner's for it: "A+cap". The rule, verbatim:
+
+> A document's dy_p50 that is worse than the accepted sweep beyond gate.py's
+> tolerance does not count as a regression when, on the same document against
+> the same accepted row and in the same harness reading, (i) within2pt rose by
+> more than its tolerance (0.05), (ii) within5pt did not fall by more than
+> 0.05, and (iii) the dy_p50 rise is at most max(3pt, 30% of the accepted
+> value). Every other metric, including within2pt, word_recall, doc_recall and
+> page_err, is judged exactly as before. A row without within5pt gets no
+> exemption. The scorecard names each exempted document with its dy_p50,
+> within2pt and within5pt deltas and the cap applied.
+
+Enforced with it:
+
+- **(a) Same reading on both sides.** The final product sweep is compared with
+  an accepted sweep read the same way, named by file and SHA-256. When the two
+  sweeps record different readings (`rescored.scorer`, written by
+  `testkit/rescore.py`), criterion 8 is UNMEASURED: a mixed-reading scorecard
+  is invalid. A sweep scored as it ran records no reading and is taken to be
+  in the reading of the sweep it is compared with.
+- **(b)** y43 is re-checked on the final sweep (its within2pt rise clears the
+  0.05 by 0.0023). A document that no longer meets (i)–(iii) is a plain FAIL,
+  with no waiver to fall back on; the question then goes back to the owner.
+- **(c)** The text above, the rule in `testkit/beta_readiness.py`
+  (`dy_exemption`; constants `c8_dy_*` in `BAR`) and its tests land in one
+  commit, before the final sweep.
+- **(d)** A document is judged by this rule or by a waiver, never both. A
+  document that has a dy_p50 waiver entry is left to the waiver, whatever the
+  waiver's verdict; the rule does not look at it (y37 stays on its waiver and
+  is not re-based).
+- **(e)** After the beta: the wrap fidelity of y43 and y55, and how criterion 8
+  reads dy_p50 for GA, are revisited.
+
+**Evidence.** The reviewer's rule scripts over 272 same-reading pairs of full
+product sweeps: y18, y33, y43 and y55 exempted (y54's dy_p50 too, but it still
+fails on recall); y26, y59, y61, y21, y37 and the reverse of y18's pair (within5pt
+−0.125) still fail. Re-run with the implemented rule on the sweeps kept in the
+run folder: y18 on wp34-g10 → wp33-a (dy_p50 3.20 → 4.51 under a 3pt cap,
+within2pt +0.122, within5pt −0.021); y33 on wp21-base → wp34-g10 (0.35 → 1.89,
+within2pt +0.268, within5pt +0.464: 30% alone would have flagged this real
+gain, hence the 3pt floor); y43 on wp39-A → wp39-C (8.79 → 10.64, within2pt
++0.0523, within5pt −0.0014); y55 on the same pair (15.56 → 17.26 under a
+4.67pt cap, within2pt +0.0645, within5pt +0.0047). On wp39-A → wp39-C those two
+are the only flags, and both are exempted; on
+`accepted-wp31-prod.rescored` → `wp33-d1-prod` nothing is exempted: y21 and
+y61 still fail, and y37 (within2pt +0.0008) would not meet (i) even if the
+rule looked at it.
 
 ## Exceptions to criterion 8
 

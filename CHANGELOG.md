@@ -21,6 +21,28 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 one verified fix at a time, each gated against the frozen 16.
 
 
+- **Amendment 4: a capped dy_p50 rise that comes with more words within 2pt
+  is not a criterion-8 regression (WP41b, owner-delegated decision
+  2026-10-10).** In `testkit/beta_readiness.py` a dy_p50 flag is exempt when,
+  same document, same accepted row, same reading, within2pt rose by more than
+  0.05, within5pt fell by no more than 0.05 and dy_p50 rose by at most
+  max(3pt, 30% of the accepted value) (`dy_exemption`; `c8_dy_*` in `BAR`).
+  Each exempted document is printed with its three deltas and the cap, and
+  the JSON carries them (`exempted`); a row without within5pt gets no
+  exemption; every other metric is judged as before. Two sweeps whose
+  recorded readings (`rescored.scorer`) differ are no longer compared:
+  criterion 8 is UNMEASURED, "mixed reading". A document with a dy_p50
+  waiver is judged by its waiver only. On wp39-A -> wp39-C criterion 8 goes
+  FAIL by 2 -> PASS: y43 (8.79 -> 10.64, within2pt +0.0523, within5pt
+  -0.0014, cap 3pt) and y55 (15.56 -> 17.26, +0.0645, +0.0047, cap 4.67pt)
+  were its only flags. On accepted-wp31-prod.rescored -> wp33-d1-prod
+  nothing is exempted: y21 and y61 still fail, and y37 (within2pt +0.0008)
+  stays with its waiver while it has one. Of the
+  historical pairs kept in the run folder, y18 (wp34-g10 -> wp33-a) and y33
+  (wp21-base -> wp34-g10, 0.35 -> 1.89: the real gain the 3pt floor is for)
+  are exempted too. The rule text is in `docs/beta-bar.md`, verbatim, with
+  the decider and the evidence. No conversion code changed.
+
 - **y37's dy_p50 is an owner-accepted exception to criterion 8 for 0.3.0b1
   (WP41, owner-delegated decision 2026-10-10).** The one entry in
   `testkit/beta_waivers.json`: `y37_plos_one_dvipdfmx.pdf` (unpromised),
