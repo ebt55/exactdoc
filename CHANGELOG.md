@@ -20,6 +20,19 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **The gate baseline is re-recorded (2026-10-11).** This is a deliberate re-record, approved
+  by the owner-delegated dual review (Fable 5.1 and Opus 5.5). `testkit/gate_baseline.json`
+  (SHA-256 `c00ae596...21db`) now carries:
+  - the Carlito image's environment (fingerprint 9cb0bc17);
+  - harness reading `wp42` (`ca563181d6ad`), which covers scorer amendments 2, 3 and 5;
+  - the round-3 and round-4 converter code.
+
+  Recorded on final1 7b0d9d6, it is the same file byte for byte as on 86f0d02 and 26f7475, and
+  a strict runall over it passes both lanes. One number got worse beyond tolerance: raw 05_memo
+  within-2pt 0.1205 -> 0.0602, from amendment 3. With this record, gates no longer need
+  `EXACTDOC_GATE_ALLOW_STALE_BASELINE`. The record step by step, document by document, is in
+  `docs/evidence/rerecord-2026-10-11.md` and `.json`, with the reviewers' corrections.
+
 - **Real footnotes stand where the source's ended (final1).** A renderer
   stacks a page's real notes at the foot of the body box, and the bottom
   reserve is relaxed to the footer's top, because re-wrapped body text

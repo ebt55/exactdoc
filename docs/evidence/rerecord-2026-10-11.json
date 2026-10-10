@@ -1,0 +1,896 @@
+{
+ "columns": [
+  "committed",
+  "A_carlito_wp29",
+  "B_amendment3",
+  "C_round4_code",
+  "proposed"
+ ],
+ "lanes": {
+  "product": {
+   "rows": [
+    {
+     "doc": "01_whitepaper_market.pdf",
+     "metric": "word_recall",
+     "values": [
+      0.9677,
+      0.9652,
+      0.9652,
+      0.9652,
+      0.9652
+     ],
+     "vs_committed": "worse, inside tol 0.02",
+     "moved_by": "round-3 code + WP29 scorer"
+    },
+    {
+     "doc": "01_whitepaper_market.pdf",
+     "metric": "doc_recall",
+     "values": [
+      0.9677,
+      0.9652,
+      0.9652,
+      0.9652,
+      0.9652
+     ],
+     "vs_committed": "worse, inside tol 0.01",
+     "moved_by": "round-3 code + WP29 scorer"
+    },
+    {
+     "doc": "01_whitepaper_market.pdf",
+     "metric": "within2pt",
+     "values": [
+      0.6944,
+      0.7587,
+      0.8363,
+      0.8128,
+      0.8128
+     ],
+     "vs_committed": "better > tol",
+     "moved_by": "round-3 code + WP29 scorer, amendment 3, round-4 code"
+    },
+    {
+     "doc": "01_whitepaper_market.pdf",
+     "metric": "dy_p50",
+     "values": [
+      1.38,
+      1.38,
+      0.4,
+      0.0,
+      0.0
+     ],
+     "vs_committed": "better > tol",
+     "moved_by": "amendment 3, round-4 code"
+    },
+    {
+     "doc": "02_research_paper.pdf",
+     "metric": "word_recall",
+     "values": [
+      0.9586,
+      0.9557,
+      0.9557,
+      0.9557,
+      0.9557
+     ],
+     "vs_committed": "worse, inside tol 0.02",
+     "moved_by": "round-3 code + WP29 scorer"
+    },
+    {
+     "doc": "02_research_paper.pdf",
+     "metric": "doc_recall",
+     "values": [
+      0.9586,
+      0.9557,
+      0.9557,
+      0.9557,
+      0.9557
+     ],
+     "vs_committed": "worse, inside tol 0.01",
+     "moved_by": "round-3 code + WP29 scorer"
+    },
+    {
+     "doc": "02_research_paper.pdf",
+     "metric": "within2pt",
+     "values": [
+      0.6168,
+      0.6049,
+      0.922,
+      0.922,
+      0.922
+     ],
+     "vs_committed": "better > tol",
+     "moved_by": "round-3 code + WP29 scorer, amendment 3"
+    },
+    {
+     "doc": "02_research_paper.pdf",
+     "metric": "dy_p50",
+     "values": [
+      1.29,
+      1.29,
+      0.25,
+      0.25,
+      0.25
+     ],
+     "vs_committed": "better > tol",
+     "moved_by": "amendment 3"
+    },
+    {
+     "doc": "03_tech_report_code.pdf",
+     "metric": "within2pt",
+     "values": [
+      0.3426,
+      0.6348,
+      0.8116,
+      0.8116,
+      0.8116
+     ],
+     "vs_committed": "better > tol",
+     "moved_by": "round-3 code + WP29 scorer, amendment 3"
+    },
+    {
+     "doc": "03_tech_report_code.pdf",
+     "metric": "dy_p50",
+     "values": [
+      1.58,
+      1.43,
+      0.3,
+      0.3,
+      0.3
+     ],
+     "vs_committed": "better > tol",
+     "moved_by": "round-3 code + WP29 scorer, amendment 3"
+    },
+    {
+     "doc": "04_exec_brief.pdf",
+     "metric": "word_recall",
+     "values": [
+      0.9337,
+      0.9239,
+      0.9239,
+      0.9239,
+      0.9239
+     ],
+     "vs_committed": "worse, inside tol 0.02",
+     "moved_by": "round-3 code + WP29 scorer"
+    },
+    {
+     "doc": "04_exec_brief.pdf",
+     "metric": "doc_recall",
+     "values": [
+      0.9337,
+      0.9239,
+      0.9239,
+      0.9239,
+      0.9239
+     ],
+     "vs_committed": "worse, inside tol 0.01",
+     "moved_by": "round-3 code + WP29 scorer"
+    },
+    {
+     "doc": "04_exec_brief.pdf",
+     "metric": "within2pt",
+     "values": [
+      0.4793,
+      0.6294,
+      0.6941,
+      0.6941,
+      0.6941
+     ],
+     "vs_committed": "better > tol",
+     "moved_by": "round-3 code + WP29 scorer, amendment 3"
+    },
+    {
+     "doc": "04_exec_brief.pdf",
+     "metric": "dy_p50",
+     "values": [
+      1.39,
+      1.39,
+      0.4,
+      0.3,
+      0.3
+     ],
+     "vs_committed": "better > tol",
+     "moved_by": "amendment 3, round-4 code"
+    },
+    {
+     "doc": "05_memo.pdf",
+     "metric": "within2pt",
+     "values": [
+      0.6386,
+      0.6386,
+      0.8795,
+      0.8795,
+      0.8795
+     ],
+     "vs_committed": "better > tol",
+     "moved_by": "amendment 3"
+    },
+    {
+     "doc": "05_memo.pdf",
+     "metric": "dy_p50",
+     "values": [
+      1.39,
+      1.39,
+      0.95,
+      0.55,
+      0.55
+     ],
+     "vs_committed": "better > tol",
+     "moved_by": "amendment 3, round-4 code"
+    },
+    {
+     "doc": "c1_whitepaper.pdf",
+     "metric": "dy_p50",
+     "values": [
+      0.44,
+      0.44,
+      0.3,
+      0.3,
+      0.3
+     ],
+     "vs_committed": "better",
+     "moved_by": "amendment 3"
+    },
+    {
+     "doc": "c2_paper2col.pdf",
+     "metric": "within2pt",
+     "values": [
+      0.574,
+      0.5773,
+      0.5747,
+      0.5747,
+      0.5747
+     ],
+     "vs_committed": "better",
+     "moved_by": "round-3 code + WP29 scorer, amendment 3"
+    },
+    {
+     "doc": "c3_tables.pdf",
+     "metric": "within2pt",
+     "values": [
+      0.0,
+      0.7945,
+      0.7945,
+      0.7945,
+      0.7945
+     ],
+     "vs_committed": "better > tol",
+     "moved_by": "round-3 code + WP29 scorer"
+    },
+    {
+     "doc": "c4_i18n.pdf",
+     "metric": "word_recall",
+     "values": [
+      0.9874,
+      0.9959,
+      0.9959,
+      0.9959,
+      0.9959
+     ],
+     "vs_committed": "better",
+     "moved_by": "round-3 code + WP29 scorer"
+    },
+    {
+     "doc": "c4_i18n.pdf",
+     "metric": "doc_recall",
+     "values": [
+      0.9874,
+      0.9959,
+      0.9959,
+      0.9959,
+      0.9959
+     ],
+     "vs_committed": "better",
+     "moved_by": "round-3 code + WP29 scorer"
+    },
+    {
+     "doc": "c4_i18n.pdf",
+     "metric": "within2pt",
+     "values": [
+      0.8723,
+      0.8724,
+      0.8724,
+      0.8724,
+      0.8724
+     ],
+     "vs_committed": "better",
+     "moved_by": "round-3 code + WP29 scorer"
+    },
+    {
+     "doc": "c7_code.pdf",
+     "metric": "within2pt",
+     "values": [
+      0.9886,
+      0.9919,
+      0.9919,
+      0.9919,
+      0.9919
+     ],
+     "vs_committed": "better",
+     "moved_by": "round-3 code + WP29 scorer"
+    },
+    {
+     "doc": "f1_fpdf_brief.pdf",
+     "metric": "within2pt",
+     "values": [
+      0.6048,
+      0.629,
+      1.0,
+      1.0,
+      1.0
+     ],
+     "vs_committed": "better > tol",
+     "moved_by": "round-3 code + WP29 scorer, amendment 3"
+    },
+    {
+     "doc": "f1_fpdf_brief.pdf",
+     "metric": "dy_p50",
+     "values": [
+      1.2,
+      1.2,
+      0.5,
+      0.5,
+      0.5
+     ],
+     "vs_committed": "better > tol",
+     "moved_by": "amendment 3"
+    },
+    {
+     "doc": "l1_word_native.pdf",
+     "metric": "within2pt",
+     "values": [
+      0.1702,
+      0.2482,
+      0.2482,
+      0.2482,
+      0.2482
+     ],
+     "vs_committed": "better > tol",
+     "moved_by": "round-3 code + WP29 scorer"
+    },
+    {
+     "doc": "l1_word_native.pdf",
+     "metric": "dy_p50",
+     "values": [
+      0.01,
+      0.01,
+      0.4,
+      0.0,
+      0.0
+     ],
+     "vs_committed": "better",
+     "moved_by": "amendment 3, round-4 code"
+    },
+    {
+     "doc": "r1_reportlab_report.pdf",
+     "metric": "within2pt",
+     "values": [
+      0.4767,
+      0.4821,
+      0.6,
+      0.6,
+      0.6
+     ],
+     "vs_committed": "better > tol",
+     "moved_by": "round-3 code + WP29 scorer, amendment 3"
+    },
+    {
+     "doc": "r1_reportlab_report.pdf",
+     "metric": "dy_p50",
+     "values": [
+      1.1,
+      1.1,
+      0.6,
+      0.6,
+      0.6
+     ],
+     "vs_committed": "better",
+     "moved_by": "amendment 3"
+    }
+   ],
+   "aggregate": {
+    "gate_pass_count": [
+     13,
+     13,
+     13,
+     13
+    ],
+    "mean_live_text": [
+     0.9784,
+     0.9784,
+     0.9784,
+     0.9784
+    ],
+    "mean_within2pt": [
+     0.6427,
+     0.7304,
+     0.8156,
+     0.8142
+    ],
+    "median_dy_p50": [
+     0.525,
+     0.525,
+     0.35,
+     0.3
+    ],
+    "n": [
+     16,
+     16,
+     16,
+     16
+    ],
+    "page_match_count": [
+     16,
+     16,
+     16,
+     16
+    ]
+   },
+   "environment": [
+    "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "9cb0bc17cbf88970c790ce9cfb6577e5c016c45a370642d093fa86209b0d41ec"
+   ],
+   "reading": [
+    null,
+    {
+     "scorer": "wp42",
+     "source": "ca563181d6ad"
+    }
+   ],
+   "profile_id": [
+    "pdfium/standard/libreoffice/refine3@240dpi",
+    "pdfium/standard/libreoffice/refine3@240dpi"
+   ],
+   "shortfall_defects": [
+    {
+     "04_exec_brief.pdf": "D10",
+     "c3_tables.pdf": "D3",
+     "c4_i18n.pdf": "D10",
+     "c5_graphics.pdf": "D10"
+    },
+    {
+     "04_exec_brief.pdf": "D10",
+     "c3_tables.pdf": "D3",
+     "c4_i18n.pdf": "D10",
+     "c5_graphics.pdf": "D10"
+    }
+   ]
+  },
+  "raw": {
+   "rows": [
+    {
+     "doc": "01_whitepaper_market.pdf",
+     "metric": "word_recall",
+     "values": [
+      0.9677,
+      0.9652,
+      0.9652,
+      0.9652,
+      0.9652
+     ],
+     "vs_committed": "worse, inside tol 0.02",
+     "moved_by": "round-3 code + WP29 scorer"
+    },
+    {
+     "doc": "01_whitepaper_market.pdf",
+     "metric": "doc_recall",
+     "values": [
+      0.9677,
+      0.9652,
+      0.9652,
+      0.9652,
+      0.9652
+     ],
+     "vs_committed": "worse, inside tol 0.01",
+     "moved_by": "round-3 code + WP29 scorer"
+    },
+    {
+     "doc": "01_whitepaper_market.pdf",
+     "metric": "within2pt",
+     "values": [
+      0.3389,
+      0.3925,
+      0.4424,
+      0.4424,
+      0.4424
+     ],
+     "vs_committed": "better > tol",
+     "moved_by": "round-3 code + WP29 scorer, amendment 3"
+    },
+    {
+     "doc": "01_whitepaper_market.pdf",
+     "metric": "dy_p50",
+     "values": [
+      2.99,
+      2.99,
+      0.8,
+      0.8,
+      0.8
+     ],
+     "vs_committed": "better > tol",
+     "moved_by": "amendment 3"
+    },
+    {
+     "doc": "02_research_paper.pdf",
+     "metric": "word_recall",
+     "values": [
+      0.9586,
+      0.9557,
+      0.9557,
+      0.9557,
+      0.9557
+     ],
+     "vs_committed": "worse, inside tol 0.02",
+     "moved_by": "round-3 code + WP29 scorer"
+    },
+    {
+     "doc": "02_research_paper.pdf",
+     "metric": "doc_recall",
+     "values": [
+      0.9586,
+      0.9557,
+      0.9557,
+      0.9557,
+      0.9557
+     ],
+     "vs_committed": "worse, inside tol 0.01",
+     "moved_by": "round-3 code + WP29 scorer"
+    },
+    {
+     "doc": "02_research_paper.pdf",
+     "metric": "within2pt",
+     "values": [
+      0.5685,
+      0.5488,
+      0.922,
+      0.922,
+      0.922
+     ],
+     "vs_committed": "better > tol",
+     "moved_by": "round-3 code + WP29 scorer, amendment 3"
+    },
+    {
+     "doc": "02_research_paper.pdf",
+     "metric": "dy_p50",
+     "values": [
+      1.29,
+      1.29,
+      0.25,
+      0.25,
+      0.25
+     ],
+     "vs_committed": "better > tol",
+     "moved_by": "amendment 3"
+    },
+    {
+     "doc": "03_tech_report_code.pdf",
+     "metric": "within2pt",
+     "values": [
+      0.128,
+      0.2493,
+      0.3449,
+      0.3449,
+      0.3449
+     ],
+     "vs_committed": "better > tol",
+     "moved_by": "round-3 code + WP29 scorer, amendment 3"
+    },
+    {
+     "doc": "03_tech_report_code.pdf",
+     "metric": "dy_p50",
+     "values": [
+      3.7,
+      3.7,
+      2.55,
+      2.55,
+      2.55
+     ],
+     "vs_committed": "better > tol",
+     "moved_by": "amendment 3"
+    },
+    {
+     "doc": "04_exec_brief.pdf",
+     "metric": "word_recall",
+     "values": [
+      0.9337,
+      0.9239,
+      0.9239,
+      0.9239,
+      0.9239
+     ],
+     "vs_committed": "worse, inside tol 0.02",
+     "moved_by": "round-3 code + WP29 scorer"
+    },
+    {
+     "doc": "04_exec_brief.pdf",
+     "metric": "doc_recall",
+     "values": [
+      0.9337,
+      0.9239,
+      0.9239,
+      0.9239,
+      0.9239
+     ],
+     "vs_committed": "worse, inside tol 0.01",
+     "moved_by": "round-3 code + WP29 scorer"
+    },
+    {
+     "doc": "04_exec_brief.pdf",
+     "metric": "within2pt",
+     "values": [
+      0.0533,
+      0.0529,
+      0.2294,
+      0.2294,
+      0.2294
+     ],
+     "vs_committed": "better > tol",
+     "moved_by": "round-3 code + WP29 scorer, amendment 3"
+    },
+    {
+     "doc": "04_exec_brief.pdf",
+     "metric": "dy_p50",
+     "values": [
+      4.05,
+      4.05,
+      3.2,
+      3.2,
+      3.2
+     ],
+     "vs_committed": "better > tol",
+     "moved_by": "amendment 3"
+    },
+    {
+     "doc": "05_memo.pdf",
+     "metric": "within2pt",
+     "values": [
+      0.1205,
+      0.1205,
+      0.0602,
+      0.0602,
+      0.0602
+     ],
+     "vs_committed": "WORSE beyond tol 0.05",
+     "moved_by": "amendment 3"
+    },
+    {
+     "doc": "05_memo.pdf",
+     "metric": "dy_p50",
+     "values": [
+      20.74,
+      20.74,
+      18.95,
+      18.95,
+      18.95
+     ],
+     "vs_committed": "better",
+     "moved_by": "amendment 3"
+    },
+    {
+     "doc": "c1_whitepaper.pdf",
+     "metric": "dy_p50",
+     "values": [
+      0.44,
+      0.44,
+      0.3,
+      0.3,
+      0.3
+     ],
+     "vs_committed": "better",
+     "moved_by": "amendment 3"
+    },
+    {
+     "doc": "c2_paper2col.pdf",
+     "metric": "within2pt",
+     "values": [
+      0.0416,
+      0.0412,
+      0.0412,
+      0.0412,
+      0.0412
+     ],
+     "vs_committed": "worse, inside tol 0.05",
+     "moved_by": "round-3 code + WP29 scorer"
+    },
+    {
+     "doc": "c3_tables.pdf",
+     "metric": "within2pt",
+     "values": [
+      0.0,
+      0.7945,
+      0.7945,
+      0.7945,
+      0.7945
+     ],
+     "vs_committed": "better > tol",
+     "moved_by": "round-3 code + WP29 scorer"
+    },
+    {
+     "doc": "c4_i18n.pdf",
+     "metric": "word_recall",
+     "values": [
+      0.9874,
+      0.9959,
+      0.9959,
+      0.9959,
+      0.9959
+     ],
+     "vs_committed": "better",
+     "moved_by": "round-3 code + WP29 scorer"
+    },
+    {
+     "doc": "c4_i18n.pdf",
+     "metric": "doc_recall",
+     "values": [
+      0.9874,
+      0.9959,
+      0.9959,
+      0.9959,
+      0.9959
+     ],
+     "vs_committed": "better",
+     "moved_by": "round-3 code + WP29 scorer"
+    },
+    {
+     "doc": "c4_i18n.pdf",
+     "metric": "within2pt",
+     "values": [
+      0.8723,
+      0.8724,
+      0.8724,
+      0.8724,
+      0.8724
+     ],
+     "vs_committed": "better",
+     "moved_by": "round-3 code + WP29 scorer"
+    },
+    {
+     "doc": "c7_code.pdf",
+     "metric": "within2pt",
+     "values": [
+      0.892,
+      0.8947,
+      0.8947,
+      0.8947,
+      0.8947
+     ],
+     "vs_committed": "better",
+     "moved_by": "round-3 code + WP29 scorer"
+    },
+    {
+     "doc": "f1_fpdf_brief.pdf",
+     "metric": "within2pt",
+     "values": [
+      0.6048,
+      0.629,
+      1.0,
+      1.0,
+      1.0
+     ],
+     "vs_committed": "better > tol",
+     "moved_by": "round-3 code + WP29 scorer, amendment 3"
+    },
+    {
+     "doc": "f1_fpdf_brief.pdf",
+     "metric": "dy_p50",
+     "values": [
+      1.2,
+      1.2,
+      0.5,
+      0.5,
+      0.5
+     ],
+     "vs_committed": "better > tol",
+     "moved_by": "amendment 3"
+    },
+    {
+     "doc": "l1_word_native.pdf",
+     "metric": "dy_p50",
+     "values": [
+      3.31,
+      3.31,
+      2.9,
+      2.9,
+      2.9
+     ],
+     "vs_committed": "better",
+     "moved_by": "amendment 3"
+    },
+    {
+     "doc": "r1_reportlab_report.pdf",
+     "metric": "within2pt",
+     "values": [
+      0.4767,
+      0.4821,
+      0.6,
+      0.6,
+      0.6
+     ],
+     "vs_committed": "better > tol",
+     "moved_by": "round-3 code + WP29 scorer, amendment 3"
+    },
+    {
+     "doc": "r1_reportlab_report.pdf",
+     "metric": "dy_p50",
+     "values": [
+      1.1,
+      1.1,
+      0.6,
+      0.6,
+      0.6
+     ],
+     "vs_committed": "better",
+     "moved_by": "amendment 3"
+    }
+   ],
+   "aggregate": {
+    "gate_pass_count": [
+     13,
+     13,
+     13,
+     13
+    ],
+    "mean_live_text": [
+     0.9784,
+     0.9784,
+     0.9784,
+     0.9784
+    ],
+    "mean_within2pt": [
+     0.4853,
+     0.5466,
+     0.6168,
+     0.6168
+    ],
+    "median_dy_p50": [
+     1.245,
+     1.245,
+     0.65,
+     0.65
+    ],
+    "n": [
+     16,
+     16,
+     16,
+     16
+    ],
+    "page_match_count": [
+     16,
+     16,
+     16,
+     16
+    ]
+   },
+   "environment": [
+    "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "9cb0bc17cbf88970c790ce9cfb6577e5c016c45a370642d093fa86209b0d41ec"
+   ],
+   "reading": [
+    null,
+    {
+     "scorer": "wp42",
+     "source": "ca563181d6ad"
+    }
+   ],
+   "profile_id": [
+    "pdfium/standard/none/refine0@240dpi",
+    "pdfium/standard/none/refine0@240dpi"
+   ],
+   "shortfall_defects": [
+    {
+     "04_exec_brief.pdf": "D10",
+     "c1_whitepaper.pdf": "D4",
+     "c3_tables.pdf": "D3",
+     "c4_i18n.pdf": "D10",
+     "c5_graphics.pdf": "D10"
+    },
+    {
+     "04_exec_brief.pdf": "D10",
+     "c1_whitepaper.pdf": "D4",
+     "c3_tables.pdf": "D3",
+     "c4_i18n.pdf": "D10",
+     "c5_graphics.pdf": "D10"
+    }
+   ]
+  }
+ }
+}
