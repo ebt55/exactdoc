@@ -562,6 +562,13 @@ if __name__ == "__main__":
                          "as the definition of `canonical`. Refused off Linux, "
                          "without the repository's fonts.conf applied, or with "
                          "any oracle or font digest missing.")
+    ap.add_argument("--record-to", default=CANONICAL_REF, metavar="PATH",
+                    help="with --record-canonical, write the record HERE instead "
+                         "of testkit/canonical_env.json -- a PROPOSED canonical "
+                         "environment (e.g. testkit/canonical_env.proposed.json) "
+                         "that can be reviewed beside the live one before a "
+                         "deliberate switch. Same refusals; nothing compares "
+                         "against it until it is moved into place.")
     ap.add_argument("--force", action="store_true",
                     help="with --record-canonical, replace an existing record. "
                          "Redefining canonical invalidates every recorded "
@@ -595,9 +602,10 @@ if __name__ == "__main__":
             for r in refuse:
                 print("  - %s" % r)
             raise SystemExit(2)
-        if os.path.exists(CANONICAL_REF) and not a.force:
-            old = canonical_reference() or {}
-            print("REFUSED -- %s already exists." % CANONICAL_REF)
+        target = os.path.abspath(a.record_to)
+        if os.path.exists(target) and not a.force:
+            old = canonical_reference(target) or {}
+            print("REFUSED -- %s already exists." % target)
             print("  recorded fingerprint %s" % (old.get("fingerprint") or "?")[:16])
             print("  this environment     %s" % env["fingerprint"][:16])
             if (old.get("fingerprint") or "") == env["fingerprint"]:
@@ -617,9 +625,9 @@ if __name__ == "__main__":
         env.pop("canonical_mismatches", None)
         env["recorded_by"] = "evidence.py --record-canonical"
         env["recorded_at_commit"] = (git_state() or {}).get("commit")
-        with open(CANONICAL_REF, "w") as f:
+        with open(target, "w", newline="\n") as f:
             json.dump(env, f, indent=1, sort_keys=True)
-        print("recorded %s" % CANONICAL_REF)
+        print("recorded %s" % target)
         print("  fingerprint  %s" % env["fingerprint"])
         print("  LibreOffice  %s" % (env["oracles"] or {}).get("soffice_version"))
         print("  python       %s" % env["python"])

@@ -21,6 +21,22 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 one verified fix at a time, each gated against the frozen 16.
 
 
+- **The canonical image is now the Carlito image (WP32, owner decision
+  2026-10-10).** WP31 merged; `exactdoc-gate:boot` retagged to the Carlito/
+  Caladea layer (bab1cfc0d2cd), the old snapshot kept as
+  `exactdoc-gate:boot-pre-carlito` (390a910873d6).
+  `testkit/canonical_env.json` was recorded inside the switched image:
+  fingerprint 9cb0bc17, byte-identical to WP31's proposed record (deleted).
+  The full gate on the switched tree in the new image PASSes against the
+  unchanged baseline: 1675 tests OK, both lanes PASS, 16/16 pages, within-2pt
+  0.7304 product / 0.5466 raw -- every gated per-document number equal to
+  integration's last gate in the old image. The baseline is not
+  re-recorded yet: the owner sees the per-document proposal first. The
+  parity floors were not remeasured (dry run only). From this commit on, a
+  gate is valid only in the new `boot` and only on a tree containing it.
+  `exactdoc/fonts.py`: two docstrings now say Calibri and Cambria render as
+  Carlito and Caladea (comment only).
+
 - **y33's footnotes stay on their pages (WP27).** The pages whose notes
   spilled (LibreOffice raw p22 and p24) had lost their footnote references
   to pictures: y33 (Kofax Power PDF) sets each consultation question as a
@@ -289,6 +305,39 @@ one verified fix at a time, each gated against the frozen 16.
   Google Docs is to be flown (probe set prepared; the LibreOffice proxy of
   the same gdocs DOCX goes 181 -> 180).
   (`docs/evidence/wp26-cut-tables-2026-10-06.json`)
+
+- **A candidate gate image with Carlito and Caladea (WP31; not yet canonical).**
+  The standard profile writes Calibri and Cambria by name, and the canonical
+  LibreOffice had neither clone, so it drew both in FreeSerif.
+  `docker/gate-carlito.Dockerfile` layers the two families onto
+  `exactdoc-gate:boot` as `exactdoc-gate:boot-carlito`, so only the fonts
+  differ; `scripts/fonts.conf` maps Calibri to Carlito and Cambria to
+  Caladea. The builds are the 2013 Crosextra releases from the jammy pool,
+  pinned by `.deb` and `.ttf` SHA-256. They are byte-identical to the files
+  `_clone_widths.py` was generated from. Noble's own Caladea 20200211 was
+  rejected: its figures are proportional where Cambria's are tabular, so 135
+  to 173 WinAnsi advances per face differ. Measured in the candidate image:
+  the gate PASSes with 1589 tests, and every gated per-document number
+  equals the canonical image's run of the same code (0 changes; within-2pt
+  stays 0.7209 product and 0.5463 raw). Raw DOCX are byte-identical 90/90,
+  and 13 of 90 renders move. y02 (82% Calibri) goes from 120 to 118 pages
+  of 114, word_recall 0.303 to 0.741 and within-2pt 0.048 to 0.190. y20,
+  y30, y33 and y46 within-2pt rise by 0.12 to 0.55 across the two lanes.
+  Against
+  `ckpt-raw`, four documents move beyond tolerance in the raw lane: y17
+  (194 to 195 pages, word_recall 0.976 to 0.909), y33 (63 pages), y34
+  (dy_p50 3.43 to 4.41) and y47 (doc_recall -0.010). For y17 and y33 that
+  is LibreOffice now agreeing with Word on the same DOCX (Word raw: 195 and
+  63 pages, word_recall 0.909). Across the 90, the mean |word_recall| gap
+  to Word narrows from 0.025 to 0.019. Product: 13 DOCX differ because the
+  refine loop reads a different render; regressions are y34 and y47 only.
+  The canonical record, baseline and parity floors are untouched.
+  `testkit/canonical_env.proposed.json` (`evidence.py --record-to`) holds
+  the new fingerprint 9cb0bc17. The switch is an owner-approved migration;
+  the procedure is in `scripts/dev/README.md`.
+  `EXACTDOC_GATE_IMAGE` selects the image for `gate_full.sh`, `sweep.sh`,
+  `rerecord.sh`, `record_env.sh` and `canon.sh`.
+  Evidence: `docs/evidence/carlito-2026-10-06.json`.
 
 - **The product profile meets the beta's time bar, byte for byte (WP20c).**
   The refine loop no longer reads the source PDF a second time: the parse
