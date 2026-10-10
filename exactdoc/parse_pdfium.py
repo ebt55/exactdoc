@@ -358,7 +358,7 @@ def _meet(a, b):
 
 class _Char:
     __slots__ = ("u", "x0", "y0", "x1", "y1", "ox", "oy", "size", "font",
-                 "flags", "color", "gen", "sup", "link", "dest", "tracked", "vi",
+                 "flags", "color", "gen", "sup", "link", "dest", "tracked", "track_em", "vi",
                  "ix0", "ix1", "turned")
 
     def __init__(self):
@@ -371,6 +371,7 @@ class _Char:
         self.link = None
         self.dest = None
         self.tracked = False
+        self.track_em = 0.0
         self.vi = -1
         # Whether the glyph's own text matrix turns it off the page's reading
         # direction (see _line_number_column). None: the matrix was not read,
@@ -818,40 +819,92 @@ def _drop_tracking_spaces(chars: List[_Char]) -> List[_Char]:
             cur.append(c)
         if cur:
             runs.append(cur)
-        for run in runs:
-            glyphs = [c for c in run if not c.u.isspace()]
-            if len(glyphs) < 4:
-                continue
-            gaps = [(b.x0 - a.x1) / max(a.size, 1.0)
-                    for a, b in zip(glyphs, glyphs[1:])]
-            t = sorted(gaps)[len(gaps) // 2]
-            if not TRACK_MIN_EM <= t < TRACK_MAX_EM:
-                continue
-            alpha = sum(1 for c in glyphs if c.u.isalpha())
-            if alpha < TRACK_MIN_ALPHA * len(glyphs):
-                continue
-            near = sum(1 for g in gaps if abs(g - t) <= TRACK_UNIFORM_EM)
-            if near < TRACK_UNIFORM_SHARE * len(gaps):
-                continue
-            # The measurement is worth keeping, not just acting on: a
-            # letter-spaced line among un-letter-spaced ones is a heading, and
-            # infer._split_lines_to_paras uses exactly this to end the paragraph
-            # before the body that follows.
-            for c in run:
-                c.tracked = True
-            for i, c in enumerate(run):
-                if not (c.gen and c.u.isspace()):
-                    continue
-                prev = next((g for g in reversed(run[:i]) if not g.u.isspace()), None)
-                nxt = next((g for g in run[i + 1:] if not g.u.isspace()), None)
-                if prev is None or nxt is None:
-                    continue
-                gap = (nxt.x0 - prev.x1) / max(prev.size, 1.0)
-                if gap - t < SPACE_GAP_EM:
-                    drop.add(id(c))
+        for whole in runs:
+            for run, t, worded in _tracked_parts(whole):
+                # The measurement is worth keeping, not just acting on: a
+                # letter-spaced line among un-letter-spaced ones is a heading,
+                # and infer._split_lines_to_paras uses exactly this to end the
+                # paragraph before the body that follows.
+                for c in run:
+                    c.tracked = True
+                    if worded:
+                        # one word between drawn spaces: _gap_spaces must not
+                        # put back the spaces its tracking gaps are not
+                        c.track_em = t
+                for i, c in enumerate(run):
+                    if not (c.gen and c.u.isspace()):
+                        continue
+                    prev = next((g for g in reversed(run[:i]) if not g.u.isspace()), None)
+                    nxt = next((g for g in run[i + 1:] if not g.u.isspace()), None)
+                    if prev is None or nxt is None:
+                        continue
+                    gap = (nxt.x0 - prev.x1) / max(prev.size, 1.0)
+                    if gap - t < SPACE_GAP_EM:
+                        drop.add(id(c))
     if not drop:
         return chars
     return [c for c in chars if id(c) not in drop]
+
+
+def _run_tracking(glyphs, cap):
+    """The tracking t (em) of `glyphs` if they are letter-spaced, else None:
+    the median gap in [TRACK_MIN_EM, cap), mostly alphabetic, and uniform."""
+    if len(glyphs) < 4:
+        return None
+    gaps = [(b.x0 - a.x1) / max(a.size, 1.0) for a, b in zip(glyphs, glyphs[1:])]
+    t = sorted(gaps)[len(gaps) // 2]
+    if not TRACK_MIN_EM <= t < cap:
+        return None
+    if sum(1 for c in glyphs if c.u.isalpha()) < TRACK_MIN_ALPHA * len(glyphs):
+        return None
+    if sum(1 for g in gaps if abs(g - t) <= TRACK_UNIFORM_EM) < TRACK_UNIFORM_SHARE * len(gaps):
+        return None
+    return t
+
+
+# A tracked WORD inside a line its producer spaced with drawn spaces. Word sets
+# y28_doe_oig_word365's running footer `1 | Page` with "Page" expanded by 3pt
+# (12pt Arial: 0.248em after each of its letters) and draws the spaces around
+# `|`. Taken as one style run with the header text sharing its baseline the
+# median gap is 0, and taken alone its tracking is past TRACK_MAX_EM (0.24), so
+# PDFium's synthesised spaces stayed and the DOCX said `P a g e`. But a producer
+# that draws its word spaces has said where its words end: between two drawn
+# spaces, a synthesised space is not a word break unless its gap is as wide as
+# the run's own drawn space. So a run holding drawn spaces is also read word by
+# word, between them, with the cap at the width of its drawn space (y28: 0.278em,
+# against the footer's 0.248em tracking); every other condition is unchanged.
+def _tracked_parts(run):
+    """[(chars, t, worded)] of `run` (one style run of a row, sorted by x) that are
+    letter-spaced: the whole run, as before; or, when it is not and the run
+    holds spaces its producer drew, each stretch between them that is."""
+    glyphs = [c for c in run if not c.u.isspace()]
+    t = _run_tracking(glyphs, TRACK_MAX_EM)
+    if t is not None:
+        return [(run, t, False)]
+    drawn = [c for c in run if c.u.isspace() and not c.gen]
+    if not drawn:
+        return []
+    widths = sorted((c.x1 - c.x0) / max(c.size, 1.0) for c in drawn if c.x1 > c.x0)
+    if not widths:
+        return []
+    cap = widths[len(widths) // 2]
+    out, seg = [], []
+    for c in run + [None]:
+        if c is None or (c.u.isspace() and not c.gen):
+            seg_glyphs = [g for g in seg if not g.u.isspace()]
+            # Only a word PDFium broke: one with a synthesised space between
+            # its glyphs. InDesign's justification letter-spaces whole lines
+            # (y60's A Garamond, 0.054-0.107em) and y21's tracked CallunaSans
+            # heading (0.087em) arrive whole; marking them tracked would only
+            # move paragraph breaks (measured: y60's references re-split).
+            ts = _run_tracking(seg_glyphs, cap) if any(
+                g.gen and g.u.isspace() for g in seg) else None
+            if ts is not None:
+                out.append((seg, ts, True))
+            seg = []
+        else:
+            seg.append(c)
+    return out
 
 
 def _restore_soft_hyphens(chars: List[_Char]) -> int:
@@ -2359,6 +2412,11 @@ def _gap_spaces(prev: _Char, c: _Char, boundary: bool = False,
     gap = c.x0 - prev.x1
     size = max(min(prev.size, c.size), 1.0)
     bar = BOUNDARY_SPACE_EM if boundary else SPACE_GAP_EM
+    if prev.track_em and c.track_em and not boundary:
+        # Inside one tracked word between drawn spaces (_tracked_parts) every
+        # gap is the tracking; only a space's worth beyond it is a space, as
+        # _drop_tracking_spaces reads it (y28's "Page": 0.248em gaps).
+        bar += prev.track_em
     if gap <= bar * size or not prev.u or _is_cjk(prev.u[-1]) \
             or _is_cjk(c.u):
         return 0
@@ -2517,6 +2575,12 @@ def _span_tracking(cs) -> tuple:
                 all(abs(g - med) <= TRACK_UNIFORM_EM * size for g in spaced):
             return round(med, 3), True
         return 0.0, False
+    if tight and all(c.track_em for c in inked) and \
+            len(tight) >= SPACED_MIN_LETTERS - 1:
+        # One tracked word between drawn spaces (_tracked_parts): already
+        # measured uniform there, so its few gaps are enough -- y28's "Page"
+        # has three, each 2.97pt, Word's "expanded by 3pt".
+        return round(sum(tight) / len(tight), 3), False
     if len(tight) < TRACK_EMIT_MIN_GAPS:
         return 0.0, False
     tight.sort()

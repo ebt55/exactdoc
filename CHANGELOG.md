@@ -32,6 +32,23 @@ one verified fix at a time, each gated against the frozen 16.
   ten documents with such rules (y01 y06 y08 y09 y21 y22 y38 y47 y54 y59).
   Evidence: [land1b-2026-10-11.json](docs/evidence/land1b-2026-10-11.json).
 
+- **A tracked word between drawn spaces stays one word (WP45).** y28's
+  running footer is Word's `1 | Page` with "Page" expanded by 3pt (0.248em
+  after each letter at 12pt Arial; the spaces around `|` drawn, 0.278em).
+  PDFium synthesises a space in every tracking gap, the whole-run tracking
+  rule never saw the word (the header text on its baseline made the median
+  gap 0, and alone it sat past the 0.24em cap), and the DOCX said `P a g e`
+  on every footer. A style run holding drawn spaces is now also read word
+  by word between them (`parse_pdfium._tracked_parts`): a word PDFium broke
+  -- a synthesised space inside it -- whose gaps are uniform tracking under
+  the width of the run's own drawn space loses those spaces, keeps its
+  tracking as w:spacing (60 twips), and `_gap_spaces` does not put them back.
+  word/*.xml over the 95 documents, raw and gdocs: y28 alone changes (its
+  footer). y28, harness reading wp42: word recall 0.9909 -> 0.9933 in
+  LibreOffice product and raw and 0.9882 -> 0.9906 in Word, 21/21 pages
+  everywhere, within-2pt unchanged; a Docs probe set is at
+  `C:\lotmp\scr\wp45\gdocs_probe` (`docs/evidence/wp45-2026-10-11.json`).
+
 - **y12's three pages that could not fit its seams now do (WP40).** With
   every source seam kept, IRS Publication 15 mapped 1:1 on 56 of its 59
   pages; three ran over, each from inference reading its page wrongly, not
