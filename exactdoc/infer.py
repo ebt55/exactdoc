@@ -270,6 +270,21 @@ FURN_EXT_FRAC = 0.2
 # enough that 60% of one parity's pages is still evidence: 10 pages give 4-5
 # pages per class, and the per-class bar is never below 3 pages.
 PARITY_MIN_PAGES = 10
+# A varying running HEAD found by geometry alone (detect_hf) stands clear of
+# the body below it by at least a line of its own type: median clearance over
+# its pages (_furniture_clearance) >= GEO_CLEAR_LINES x its size, a line at the
+# usual 120% leading. Census of every head signature the geometry pass
+# qualified, over both corpora (2026-10-10): the running heads clear by 19.8pt
+# (y24's chapter head, 11pt: 1.8 lines), 38.7 (y34's slide titles, 24pt) and
+# 40.0 (y26's folios); what it ate besides is body text touching the line
+# below -- y64's table titles 1.4pt, y17's and y27's first RFC lines 0.2,
+# y55's paragraph lines 9.9 and 10.3 (11pt: 0.78 lines), y54's 8.1 and below.
+# FEET are not held to it, though the same census splits them as cleanly
+# (y23's folios 40.5, y02's chapter foot 48.7 against y18's last EUR-Lex line
+# 0.7, y14's form line -0.4, y47's notes 4.1): written back, those last lines
+# are pages the render does not make room for -- y18 raw 156 -> 174 pages
+# (144 in the source), product placement dy_p50 2.8 -> 4.5pt; y47 raw 86 -> 93.
+GEO_CLEAR_LINES = 1.2
 # A drawing covering this much of the sheet is a background, not a margin.
 PAGE_COVER_FRAC = 0.9
 
@@ -1812,6 +1827,56 @@ def _no_furniture() -> dict:
     }
 
 
+def _furniture_clearance(ir: DocIR, res: dict, qualified) -> dict:
+    """id(line) -> the white between a running-furniture candidate and the
+    body it frames, in points: for a head, from its bottom to the top of the
+    first line below it; for a foot, from the bottom of the last line above it
+    to its top. `qualified` is the geometry pass's [(sig, [(page, block index,
+    line), ...])]; a page with nothing on the body side measures infinity.
+
+    The candidates stack: a line on the body side that is itself a candidate
+    (a running head's second row) is not the body, and the stack is measured
+    from its innermost row. Lines the text-signature pass already consumed are
+    furniture, not body, and are skipped the same way.
+
+    Real varying running heads stand clear of the body below them, and a
+    table's title does not -- the census behind GEO_CLEAR_LINES, which
+    detect_hf applies to heads; feet are measured the same way and recorded
+    there, not held to it."""
+    cands = defaultdict(list)        # page -> [(zone, line)]
+    for sig, occs in qualified:
+        for pg, bi, ln in occs:
+            cands[pg].append((sig[0], ln))
+    out = {}
+    for p in ir.pages:
+        mine = cands.get(p.number)
+        if not mine:
+            continue
+        ct = res["consumed_text"][p.number]
+        ids = {id(ln) for _, ln in mine}
+        body = [ln.bbox for bi, blk in enumerate(p.blocks) for ln in blk.lines
+                if ln.text.strip() and id(ln) not in ids
+                and (bi, id(ln)) not in ct]
+        for zone in ("top", "bot"):
+            # (near, far) extents measured from the zone's paper edge, so a
+            # foot reads exactly as a head does
+            def depth(bb, foot=(zone == "bot"), h=p.height):
+                return (h - bb[3], h - bb[1]) if foot else (bb[1], bb[3])
+            rows = [(depth(ln.bbox), ln) for z, ln in mine if z == zone]
+            lines = [depth(bb) for bb in body]
+            for (near, far), ln in rows:
+                inward = [b for b in lines if (b[0] + b[1]) / 2 > far]
+                if not inward:
+                    out[id(ln)] = float("inf")
+                    continue
+                first = min(inward)
+                mid = (first[0] + first[1]) / 2
+                inner = max([far] + [r[1] for r, _ in rows
+                                     if r[0] >= near and (r[0] + r[1]) / 2 < mid])
+                out[id(ln)] = first[0] - inner
+    return out
+
+
 def detect_hf(ir: DocIR):
     n = len(ir.pages)
     H = ir.pages[0].height if ir.pages else 792
@@ -2004,6 +2069,7 @@ def detect_hf(ir: DocIR):
                     geo[(zone, round(ln.bbox[1] / 3), round(size))].append(
                         (p.number, bi, ln))
         geo_need = max(2, int(round(0.6 * (n - 1))))
+        qualified = []
         for sig, occ in geo.items():
             per_page = defaultdict(list)
             for pg, bi, ln in occ:
@@ -2011,8 +2077,22 @@ def detect_hf(ir: DocIR):
             single = [pg for pg, v in per_page.items() if len(v) == 1]
             if len(single) < geo_need:
                 continue
-            for pg in single:
-                bi, ln = per_page[pg][0]
+            qualified.append((sig, [(pg,) + tuple(per_page[pg][0])
+                                    for pg in single]))
+        # ...and furniture stands clear of the body it frames. A table's
+        # title set at one place and size on every table page holds the
+        # geometry too: y64_bls_release_xpp's "HOUSEHOLD DATA" over
+        # "Table A-n. ..." on 31 of its 38 later pages, 1.4pt above the
+        # table, both consumed and neither written. So does the first line
+        # of a page set on a fixed grid (an RFC's, y17: 0.2pt above the
+        # next). See GEO_CLEAR_LINES for the census.
+        clear = _furniture_clearance(ir, res, qualified)
+        for sig, occs in qualified:
+            if sig[0] == "top" and median(
+                    clear[id(ln)] for _, _, ln in occs) < \
+                    GEO_CLEAR_LINES * sig[2]:
+                continue
+            for pg, bi, ln in occs:
                 res["consumed_text"][pg].add((bi, id(ln)))
                 res["var_lines"][pg].append((sig[0], bi, ln))
 
@@ -4706,6 +4786,55 @@ def _text_columns(blocks, rect: BBox, consumed) -> List[float]:
     return _cluster(xs, 7.0)
 
 
+_SPACE_RUN = re.compile(r" {2,}")
+
+
+def _mono_space_gaps(ln: Line) -> Line:
+    """`ln` with each monospaced span cut where a run of its own spaces is
+    wider than a cell gap (RULES_CELL_GAP_EM): a typewriter table's columns.
+
+    FIPS 197's key-expansion tables (y03, Appendix A) set each row as one
+    Courier string, its columns two spaces apart ('0914dff4  14dff409
+    fa9ebf01 ...'); the parser keeps literal spaces as text, so the row
+    reached the rules-table builder as ONE span 401pt wide, and the builder put
+    it in the column its centre fell in -- a 55pt cell, which Word,
+    LibreOffice and Google Docs all wrapped to seven lines (y03's page 40
+    spilled a page in Docs and in both raw lanes). A space in a monospaced
+    face is a known advance (the span's width over its characters, 0.6em in
+    Courier), so the run is the same gap the parser cuts a line at when it is
+    drawn as white rather than typed: two Courier spaces are 1.2em. Each piece
+    keeps the span's style; its box is its own characters' advance. A span
+    with no such run, or not monospaced, is kept as it is."""
+    out, changed = [], False
+    for s in ln.spans:
+        t = s.text
+        if not s.mono or len(t) < 3 or not _SPACE_RUN.search(t.strip(" ")):
+            out.append(s)
+            continue
+        adv = (s.bbox[2] - s.bbox[0]) / len(t)
+        if adv <= 0 or not any(len(m.group(0)) * adv > RULES_CELL_GAP_EM * max(s.size, 1.0)
+                               for m in _SPACE_RUN.finditer(t.strip(" "))):
+            out.append(s)
+            continue
+        pos = 0
+        for m in list(_SPACE_RUN.finditer(t)) + [None]:
+            if m is not None and len(m.group(0)) * adv <= RULES_CELL_GAP_EM * max(s.size, 1.0):
+                continue
+            end = m.start() if m is not None else len(t)
+            piece = t[pos:end]
+            core = piece.strip(" ")
+            if core:
+                x0 = s.bbox[0] + (pos + len(piece) - len(piece.lstrip(" "))) * adv
+                out.append(replace(s, text=core, origin=(x0, s.origin[1]),
+                                   bbox=(x0, s.bbox[1], x0 + len(core) * adv, s.bbox[3])))
+            if m is not None:
+                pos = m.end()
+        changed = True
+    if not changed:
+        return ln
+    return Line(spans=out, dir=ln.dir, bbox=ln.bbox)
+
+
 def _split_at_span_gaps(ln: Line) -> List[Line]:
     """A Line cut into the pieces separated by a gap wider than the line
     splitter's own (LINE_SPLIT_EM): table cells the parser kept on one line.
@@ -5136,7 +5265,8 @@ def build_rules_table(hgroup: List[DrawCmd], blocks, consumed,
     # read as four columns of indentation and no numbers at all.
     lines, joined = [], False
     for ln in whole:
-        frags = _split_at_span_gaps(ln)
+        # (a typewriter table's columns are typed spaces: _mono_space_gaps)
+        frags = _split_at_span_gaps(_mono_space_gaps(ln))
         joined = joined or len(frags) > 1
         lines.extend(frags)
     rows = _group_lines_by_row(lines)
@@ -6816,6 +6946,21 @@ def _float_backgrounds(elements, blocks, lay: DocLayout, page_w: float,
         if under or bleeds:
             floats.append(FloatEl(el=e, bbox=tuple(bb), behind=under))
             continue
+        if any(isinstance(o, TableEl) and o.bbox and
+               contains(o.bbox, bb, pad=FRAME_PAD_PT) for o in elements):
+            # A picture inside a frame the source drew around it: the frame
+            # is a table in the flow, and its cell keeps the picture's room.
+            # y12's cover sets its photograph in a ruled frame over the "Get
+            # forms" box; the photo was read as wrapped by the contents
+            # column beside it (another column, not a wrap) and anchored
+            # with square wrapping, so the frame's first row, which already
+            # stands for it, could not sit under it -- pushed below the
+            # photograph, the frame left the column and the cover ran a page
+            # over. Anchored with no wrap, it lies on its own empty cell.
+            e.align = "left"
+            e.left_indent = max(0.0, round(bb[0] - lay.margin_l, 1))
+            floats.append(FloatEl(el=e, bbox=tuple(bb)))
+            continue
         wrap = _wrapped_by_text(bb, lines)
         if wrap is not None or _on_text_line(bb, lines):
             # Placed in the flow's terms too, as `_to_flow` places a picture:
@@ -6880,6 +7025,10 @@ WRAP_REACH_LINES = 2.0
 
 # A picture this far into the top or bottom margin is set in it (pt).
 MARGIN_BLEED_PT = 2.0
+# A picture inside a table's box to within this much (pt) is framed by it: the
+# frame's rule sits on the picture's edge, and a stroke's half-width and the
+# rule's own thickness put y12's cover frame (2pt rules) 1-2pt outside it.
+FRAME_PAD_PT = 3.0
 # A picture is set ON a text line (`_on_text_line`) when a line beside it shares
 # at least this share of its height with the picture's band, and the picture is
 # no taller than this many of those lines. Measured: NIST's withdrawal-notice
@@ -7788,7 +7937,10 @@ def _toc_number_rows(items):
     out, cur = [], []
 
     def close(grp):
-        led = sum(1 for e, _ in grp if _TRAILING_LEADER_RE.match(e.text.strip()))
+        # y12's checklists space their dots wider than a contents page's
+        # (".  .  ."); _LEADER_TAIL reads both (see _drop_leader_values)
+        led = sum(1 for e, _ in grp if _TRAILING_LEADER_RE.match(e.text.strip())
+                  or _LEADER_TAIL.search(e.text.rstrip()))
         if len(grp) >= TOC_ROW_MIN and 2 * led >= len(grp):
             edge = max(n.bbox[2] for _, n in grp)
             out.extend((e, n, edge) for e, n in grp)
@@ -7930,6 +8082,12 @@ def _toc_number_para(entry: Line, num: Line, edge: float, col_l: float,
     runs = [r for r in runs_from_spans(entry.spans) if r.text]
     while runs and not runs[-1].text.strip():
         runs.pop()
+    if len(runs) >= 2 and runs[0].text.strip() in BULLET_CHARS and \
+            not runs[0].text.endswith((" ", "\t")) and \
+            not runs[1].text.startswith((" ", "\t")):
+        # a marker glued to its entry (`_merge_list_markers`) keeps the white
+        # the source set after it: y12's checklist rows, "◦Verify ..."
+        runs[0] = replace(runs[0], text=runs[0].text + " ")
     if runs:
         runs[-1] = replace(runs[-1], text=runs[-1].text.rstrip(" "))
     ref = runs[-1] if runs else Run(text="", font=num.spans[0].font,
@@ -8781,6 +8939,15 @@ def _mergeable(a: Para, b: Para, col_l: Optional[float] = None,
     # and a paragraph the source opened by hand (`_forced_break`).
     if getattr(b, "_note", False) or getattr(b, "_forced", False):
         return False
+    # ...and one whose first line is INDENTED from its others: that indent is
+    # how the source opened it. A fragment continuing `a` begins on a wrapped
+    # line, flush with its paragraph. y12 p31: the column's last words, "the
+    # same wording.", cut from a line welded across the gutter, sat 2.7pt of
+    # box above "If a substitute ...", indented 12pt and 6pt lower than a line
+    # pitch, and the join made one paragraph of the two whose leading was
+    # read off that gap -- 16.95pt for 11.5pt lines, 44pt over nine lines.
+    if b.first_indent > 1.0 and b.align in ("left", "justify"):
+        return False
     # Paragraphs continue each other only in one direction, and a
     # right-to-left paragraph continues at its START, which is its right
     # edge: its ragged last line ends anywhere on the left (see _rtl_lines).
@@ -8996,6 +9163,40 @@ def _has_item_beside(ln: Line, own, flow_blocks, opens_block: bool = False) -> b
 MARKER_LEFT_TOL_EM = 1.0
 
 
+_LEADER_TAIL = re.compile(r"[^.·…\s][ \t]*(?:[.·…][ \t]{0,3}){4,}$")
+
+
+def _drop_leader_values(marker_lines, flow_blocks):
+    """`marker_lines` without the bare numbers that CLOSE a leadered line on
+    their own baseline: those are a leader row's value -- a page reference,
+    an amount -- standing at its end, not a marker opening the next item.
+
+    `_is_marker_line` accepts bare digits for step lists, and the glue
+    takes whatever text starts within 60pt to their right. y12_irs_pub15 p8
+    sets two checklists side by side, each row "Verify work eligibility of
+    new employees . . . . . . ." with its page number ("7", "25", "44") at
+    the left list's edge, 20-30pt short of the right list's checkboxes and
+    items: every number was glued in front of the other list's row -- "7•◦",
+    "File Form 944 ... 7not required" -- and those rows, reaching across the
+    page's gutter, were laid out under both columns. The same evidence
+    `_leadered_numbers` reads for a contents page's number column: a line
+    ending in dots on the number's baseline, left of it -- dots set up to
+    three spaces apart, as y12 sets them (".  .  ."), where the contents
+    page's own pattern stops at one."""
+    leadered = [l for b in flow_blocks for l in b.lines
+                if _LEADER_TAIL.search(l.text.rstrip())]
+    if not leadered:
+        return marker_lines
+    out = []
+    for ln, b in marker_lines:
+        if ln.text.strip().isdigit() and any(
+                abs(o.baseline - ln.baseline) < 2.0 and
+                o.bbox[2] <= ln.bbox[0] + 1.0 for o in leadered):
+            continue
+        out.append((ln, b))
+    return out
+
+
 def _merge_list_markers(flow_blocks):
     """Some producers (WeasyPrint) emit list markers as separate blocks —
     sometimes several markers stacked in ONE block. Glue each marker line back
@@ -9034,6 +9235,7 @@ def _merge_list_markers(flow_blocks):
             # number opened the block of the item's LAST lines ("2.
             # criteria:", two lines) and the first line stood alone above it.
             marker_lines.append((b.lines[0], b))
+    marker_lines = _drop_leader_values(marker_lines, flow_blocks)
     marker_ids = {id(l) for l, _ in marker_lines}
     consumed = set()
     for ln, b in marker_lines:
@@ -10385,9 +10587,12 @@ def _position_chunks(chunks: List[Chunk], lay: DocLayout,
                 top = base + ch.pre_gap
         cursor = top
         maxy = top
+        held = None         # the table or figure the cursor stands at the foot of
+        held_fig = False
         for el in ch.elements:
             if isinstance(el, ColBreak):
                 cursor = top
+                held = None
                 continue
             bb = _el_bbox(el)
             if bb is None:
@@ -10396,9 +10601,54 @@ def _position_chunks(chunks: List[Chunk], lay: DocLayout,
                 t, h = _para_box(el)
                 el.space_before = max(0.0, round(t - cursor, 1))
                 cursor = t + h
+                held = None
             else:
                 el.space_before = max(0.0, round(bb[1] - cursor, 1))
-                cursor = bb[3]
+                # A rule that ends above the cursor inside the table just
+                # stacked lies in the span that table already took -- BLS's
+                # column-group rule under "Seasonally
+                # adjusted" (y 80) flowed after its table (y 67-274) -- and
+                # does not move the cursor back up: the note under the
+                # table took 200pt of space before from it and left its
+                # page (y64 p22/p23, each a page in LibreOffice). Only a
+                # table just stacked holds the cursor so. A picture may be
+                # anchored out of the flow: y17 p174's code panel (y
+                # 142-696, behind its text in the gdocs profile) held it
+                # past the rule along its own top edge, and the first code
+                # line lost its 9.7pt of space before. A paragraph's box is
+                # its lines, not a span the flow has taken: held behind
+                # three rules drawn under y37's lines, the cursor moved its
+                # later pages (criterion 8: dy_p50 27.4 -> 31.0). And only a
+                # rule: a table or picture set inside the table's span is
+                # stacked after it in the flow with its own height --
+                # y59's InDesign panels (23 tables and 4 pictures inside a
+                # table just stacked) held there put Word at 25 pages for
+                # 6 against 23.
+                #
+                # A drawn figure just stacked holds a rule inside its span
+                # the same way: the figure is always in the flow (only raster
+                # pictures float, `_float_backgrounds`), and its height is
+                # already counted. y21 p39 sets a figure at y 319-505 with
+                # three rules inside it (y 338, 386, 480): released, the
+                # first pulled the cursor back to 338 and the rest took
+                # 47.9, 93.4 and 23.8pt of space before -- 165pt counted
+                # twice, the page ran over, and every page after it was a
+                # page late (49 -> 50 pages for 48, word recall 0.88 ->
+                # 0.80). Inside means inside both spans: a rule on the
+                # figure's top edge, or wider than the figure, is not in it
+                # -- under the gdocs profile y17 p174's code panel keeps its
+                # 4.8pt side bar (x 527-531, y 140-698) in the flow as a
+                # figure, and its full-width top rule (x 66-529) must still
+                # release the cursor for the first code line.
+                inside = held is not None and isinstance(el, RuleEl) and \
+                    bb[1] >= held[1] and bb[3] <= cursor and \
+                    (not held_fig or (bb[1] > held[1] and
+                                      bb[0] >= held[0] - 1.0 and
+                                      bb[2] <= held[2] + 1.0))
+                if not inside:
+                    cursor = bb[3]
+                    held = bb if isinstance(el, (TableEl, FigureEl)) else None
+                    held_fig = isinstance(el, FigureEl)
             maxy = max(maxy, cursor)
         base = maxy
     return chunks

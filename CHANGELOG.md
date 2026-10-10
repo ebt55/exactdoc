@@ -20,6 +20,208 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **A rule inside a figure just stacked holds the spacing cursor, as one
+  inside a table does (land1b).** WP33n's narrower hold (tables only)
+  cost y21 a page on the landing set: p39's figure (y 319-505) carries
+  three rules inside it, and released, they counted 165pt of the figure
+  twice (50 pages for 48, word recall 0.80). A rule inside both of a
+  figure's spans now holds the cursor at the figure's foot
+  (`infer._position_chunks`); a rule on its edge or wider than it does not
+  (y17's gdocs code panel). Canonical, land1b against land1: y21 49 pages
+  for 48 in LibreOffice product (0.882) and Word (0.855); it moves only the
+  ten documents with such rules (y01 y06 y08 y09 y21 y22 y38 y47 y54 y59).
+  Evidence: [land1b-2026-10-11.json](docs/evidence/land1b-2026-10-11.json).
+
+- **y12's three pages that could not fit its seams now do (WP40).** With
+  every source seam kept, IRS Publication 15 mapped 1:1 on 56 of its 59
+  pages; three ran over, each from inference reading its page wrongly, not
+  from wrapping. The cover (p1): its 31pt title "(Circular E), " shared a
+  baseline with the contents row "Introduction ... 12" and the exemption
+  forgave the 62pt gap -- a justified line's spaces belong to one size of
+  type, and a 2.5x jump across the gap now ends the line
+  (`parse_pdfium._type_jump`); the next contents row, 44 glyphs 14.7pt
+  above the baseline of "Employer's Tax", had been absorbed as a raised
+  "script" of it -- a line's worth of glyphs set more than a line-split
+  white from the host's last letter is a line (`_set_apart`); and the cover
+  photograph, framed by a ruled table whose empty first row stands for it,
+  was read as wrapped by the contents column beside it and anchored with
+  square wrapping, so the frame could not sit under it -- a picture inside
+  a frame table now floats with no wrap (`infer._float_backgrounds`,
+  `FRAME_PAD_PT`). The checklist page (p8) and p31: four to six lines
+  per page share a baseline with the other column's across the gutter at a
+  real space, each the only crossing at its x, so the repeated-gap gutter
+  never fired; the page's own lines evidence the gutter (the
+  `_column_split` / `_projection_gutters` reading `_build_blocks` uses) and
+  a gap that holds its whole channel is now cut, whatever its width
+  (`_structural_channels`, `_crosses_channel`). p8's checklists then needed
+  three more readings: a page number closing a leader row is not a list
+  marker (`infer._drop_leader_values`; it was glued in front of the other
+  checklist's row), checklist leaders set three spaces apart are leaders
+  (`_LEADER_TAIL`, contents rows `_toc_number_rows`), and a white square
+  under a checkbox's outline is the box's interior, not a second bullet
+  (`dialect._drop_knockouts`; every item opened "•◦", a paragraph of its
+  own). p31 and 119 items through the document: the 12pt bullet beside 10pt
+  items took each item's first line into its own block, at 13.9pt leading
+  -- a rejoined row stays in the block holding the most text
+  (`dialect._host_block`) and a leading marker does not change a line's
+  type size (`parse_pdfium._text_size`); and a paragraph whose first line
+  is indented is not joined to the fragment above it (`infer._mergeable`;
+  "the same wording." + "If a substitute ..." at a 16.95pt leading read
+  off the paragraph gap). Canonical product LibreOffice with every seam kept:
+  y12 61 -> 59 pages for 59, word recall 0.376 -> 0.956, dy_p50 40.5 ->
+  7.7pt, every source page >= 97% on its own rendered page; with WP38's
+  seam rule (wp38 633ea00) 59 -> 59, 0.682 -> 0.956 in LibreOffice and
+  58 -> 59, 0.626 -> 0.957 in Word (dy_p50 60.9 -> 8.0pt). Without that
+  rule the booklet merge still flows y12 (59 pages, 0.682 -> 0.758 in
+  LibreOffice, 0.626 -> 0.718 in Word) and its flow now runs ahead of the
+  source (dy_p50 38.9 -> 77.6pt). Full canonical sweeps against 5f158b7:
+  no gated document moves; y06 139 -> 136 product pages (word recall +0.032),
+  y60 32 -> 29 (dy_p50 67 -> 33pt), y41 +0.018, y59 17 -> 16; y59's dy_p50
+  rises 10pt and y57 (OCR) gains a raw page, neither promised. The Google
+  Docs profile's output changes on 20 expansion documents (probe set
+  C:\lotmp\scr\WP40\gdocs_probe). Evidence:
+  [wp40-y12-fit-2026-10-10.json](docs/evidence/wp40-y12-fit-2026-10-10.json).
+
+- **Columns welded at the gutter are cut there, and y64's table titles are
+  written (WP33, from WP25).** Three rules. *Gutter channels*
+  (`parse_pdfium._gutter_channels`): a forgiven same-baseline gap that holds
+  a recurring gutter's whole white channel -- from the column's measure (p90
+  of the line ends before it) to the next column's start (p10 of the starts
+  after it) -- is a column break: y64_bls_release_xpp p8's "...Statistics
+  (BLS). " (ending x 223) beside the right column's indented "Establishment
+  survey" (x 339) across a 298-317 gutter, and the ragged-right welds of
+  y21, y12 and y61 whose midpoints miss the gutter by a few points. Not
+  between two glyphs of one monospace face: y17 p39's ABNF aligns "=" in a
+  column whose gaps sit off the cell grid, and cut there three rules lost
+  their alignment spaces. *Spacing cursor* (`infer._position_chunks`, WP33n):
+  a rule that starts inside the table just stacked and ends above the
+  cursor no longer moves it back up (BLS's column-group rule flowed after its
+  table; the note under it took 200-312pt of space before). After a
+  paragraph or a picture it moves as before: held there too (WP25's form),
+  it moved y37's later pages (criterion 8, dy_p50 27.4 -> 31.0) and a y17
+  code line 9.7pt in Google Docs; held by y59's tables inside a table, it
+  put Word at 25 pages for 6 (23 before). *Heads must clear the body* (`detect_hf`,
+  `_furniture_clearance`, `GEO_CLEAR_LINES` = 1.2 lines of the head's own
+  size): the geometry pass consumed y64's "HOUSEHOLD DATA / Table A-n" titles
+  (one line at one place and size on 31 of 38 later pages, 1.4pt above the
+  table) without writing them. A census of every signature that pass
+  qualifies, both corpora: running heads clear the body by 19.8 (y24), 38.7
+  (y34), 40.0pt (y26); what else it took touches the line below (y64 1.4,
+  y17/y27 0.2, y55 9.9-10.3, y54 <= 8.1). Feet split as cleanly (y23 40.5,
+  y02 48.7 against y18 0.7, y14 -0.4, y47 4.1) but are not held to the bar:
+  written back, y18's last lines are pages the render has no room for (raw
+  156 -> 174 for 144). Measured in the Carlito image against r4-new: LO
+  product y64 wr 0.930 -> 0.967 (doc recall 0.958 -> 0.984), y12 0.514 ->
+  0.564, y06 147 -> 138 (0.216 -> 0.297), y13 49 -> 45, y38 49 -> 47, y61
+  6 -> 5 (0.451 -> 0.579); LO raw y64 44 -> 39 (0.343 -> 0.967), y06 163 ->
+  151, y13 58 -> 50, y12 66 -> 63, y21 57 -> 51. Word product: y64 40 -> 39
+  pages, 0.389 -> 0.967 (criterion 5), y61 10 -> 7, y13 62 -> 54, y06 168 ->
+  151. Google Docs, live (2026-10-10, flown on WP25's cursor form): y64 40 -> 39,
+  0.389 -> 0.966 (criterion 5), y12 69 -> 64, y13 66 -> 56, y06 178 -> 156,
+  y61 10 -> 7 (dy_p50 47.8 -> 27.7); y17, y18, y27 and the controls
+  identical. Scorecard criterion 5: LO 18/21, Word 16 -> 17, Docs 16 -> 17
+  (PASS). Worse, beyond gate tolerance: y21 (LO product 0.719 -> 0.519, Word
+  0.707 -> 0.420, Docs 0.571 -> 0.536) and y12 in Word (59 -> 58 pages,
+  0.808 -> 0.626) -- the split is right, but it turns their 2-col pages into
+  single-grid pages that `_merge_grid_page_runs` flows across seams (y21
+  p13-17 and p25-42; y12 p26-44), left to WP38's seam rule; y61 dy_p50
+  39.6 -> 43.6 (one merged 3-col flow); raw
+  dy_p50 on y21/y61/y64 over a larger matched population (y64's words
+  matched in both: 12.51 -> 12.35). Gate PASS in both lanes (1706 tests),
+  the gated 16 byte-identical; wp33n gate 1710 tests, same lane numbers
+  (`docs/evidence/wp33-columns-2026-10-10.json`,
+  `docs/evidence/wp33n-cursor-2026-10-10.json`).
+
+- **The page-fit planner is on for LibreOffice and Word (WP34).**
+  `pagefit.PAGEFIT_ENABLED` is True for the standard profile; the gdocs
+  profile never asks it (95 fixtures' word/*.xml byte-identical). Three
+  changes made it safe. *The cap* is now a gentle-plan rule: a page the
+  model puts more than 10 body lines over is paid only if the gentle tier
+  (every gap kept at 60% or more) pays it. Over the 240 pages the uncapped
+  planner paid (raw, off and on renders read per source page), 8 of the 11
+  claims past 8 lines that needed the refine floors fitted unpaid anyway --
+  y59 p1, 11.1 lines claimed, one 233pt gap cut to 70pt -- and both past 8
+  lines the gentle tier could pay were real spills; the flat cap of 10 left
+  one of them (y21 p6) spilling and y21's dy_p50 51.96 -> 65.32. *A hanging
+  row is its body* (`_hang_body`): the predictor counted a date or marker
+  out in the hang into the line (y44 p1, a page claimed 1.3pt over with
+  38.8pt to spare); 30 plans change, all on pages that fitted unpaid but
+  for y03 p33 (still fits) and four scan pages. *Under the refine loop* a
+  page is planned once, from the gentle tier only, and held as a ceiling:
+  re-planned each round the model undid the loop's render-measured pushes
+  (y44 p1 paid 16 -> 49 -> 64pt; product within-2pt y18 0.156 -> 0.008, y33
+  0.73 -> 0.41), and plans to the floors compounded with the loop's own
+  (y53 dy_p50 3.54 -> 4.71, y47 65 -> 66 pages). Against the round's
+  planner-off sweeps (Carlito image): raw y18 156 -> 144 pages (word recall
+  0.40 -> 0.98), y03 51 -> 47, y21 57 -> 53, y02 117 -> 115, y64 44 -> 41,
+  page-exact 60 -> 62, criterion 5 in LibreOffice raw 14 -> 16 of 21;
+  product 22 documents moved, none worse beyond the gate tolerances (y18
+  within-2pt 0.156 -> 0.181, dy_p50 2.82 -> 1.08); Word, product DOCX,
+  y18 154 -> 144 pages (0.468 -> 0.986). The 16 gated documents are
+  byte-identical in raw. `docs/evidence/pagefit-2026-10-10.json`.
+
+- **Short documents in Google Docs: hanging tables and letter-spaced text
+  (WP35c).** Two gdocs-only rules, read off Google's exports of the 71558af
+  sweep. (1) Word hangs a table's border left of its text column by the
+  first cell's margin; the gdocs writer put the edge on the column, so every
+  such table's text landed the hang to the right in Docs (c3 +7.00pt on
+  every line, within-2pt 0.000; x04, 03, l1, 01, f1, x16, 02 likewise). A
+  gdocs table now stands at `left_indent - hang_left`
+  (`docxout._gdocs_table_hang`); Docs honours negative table indents to the
+  point. (2) Docs drops letter-spacing, so a paragraph Chrome tracked sets a
+  line short (8 of x07's 21; dy_p50 16.4, criterion 7 failed). The writer
+  narrows such a paragraph to the width at which the untracked width tables
+  set its source line count, and the planner models that width
+  (`_gdocs_tracking_indent`). Separate commits; the standard profile is
+  byte-identical (raw and product, all 90). Evidence:
+  [gdocs-2026-10-10-wp35c-short.json](docs/evidence/gdocs-2026-10-10-wp35c-short.json),
+  with the full criterion-7 diagnosis and WP35b's live flight (y03 46/46,
+  word recall 0.948).
+
+- **A typewriter table's columns are its typed spaces (WP35b).** y03
+  (FIPS 197) passed criterion 5 in Google Docs by 0.004 (47 pages for 46,
+  word recall 0.854): source page 40 ran a page over, every later page one
+  behind. Its Appendix A key-expansion tables set each row as one Courier
+  string with columns two spaces apart; the rules-table builder put the
+  whole 401pt row in the 55pt column its centre fell in, and Docs wrapped
+  such cells to seven lines. `infer._mono_space_gaps` now cuts a monospaced
+  span where a run of its spaces is wider than a cell gap (RULES_CELL_GAP_EM:
+  two Courier spaces are 1.2em), so the tables read six columns, one line a
+  value. Folding the spilled page back into the base export reads 46 pages
+  at word recall 0.948. Only y03 and y17 (one ABNF row) change, in every
+  profile; LibreOffice product y03 46/46 at the same recall, within-2pt
+  0.198 -> 0.204. Evidence:
+  [gdocs-2026-10-10-wp35b-y03.json](docs/evidence/gdocs-2026-10-10-wp35b-y03.json),
+  which also records the y21/y22 Docs diagnosis.
+
+- **A refined write keeps the source's page seams between column pages
+  (WP38).** The open-loop merge joined every run of same-shape
+  multi-column pages into one seamless flow -- the booklet's trade, applied
+  to every document -- and a flow has nothing to resynchronise it: on IRS
+  Pub 15 (y12) one run ended a page ahead in Word and a page behind in
+  LibreOffice. With the seams kept, both renderers map every page that fits
+  its box one to one. So under the refine loop, outside the booklet
+  signature and the gdocs profile, `docxout._plan_flows` keeps each
+  multi-column page's seam and column breaks unless the page cannot fit even
+  with every gap at the loop's floor; such a page flows into the following
+  pages until their room absorbs it, and a run that ends still carrying the
+  overflow stops the plan (the rest of the document keeps the merge: a seam
+  behind an unabsorbed overflow is not trusted). The plan is frozen once,
+  before the loop moves any gap (`_freeze_flows`, called beside
+  `refine._freeze_seams`; decided per round, y37 rendered 34 pages for 22).
+  Open-loop writes are untouched: raw and gdocs `word/*.xml` byte-identical
+  over all 95 documents. Product, LibreOffice, on integration + wp33's
+  column split (Carlito image), 7 of 90 documents change, none for the
+  worse: y21 48 -> 49 pages of 48 at word recall 0.519 -> 0.882, y64 0.967
+  -> 0.984, y39 12 -> 11 pages (0.760 -> 0.914), y40 0.852 -> 0.926, y41
+  dy_p50 33.7 -> 11.1, y26 213 -> 214 of 214 (0.984 -> 0.991), y42 dy_p50
+  38.7 -> 35.3; page-exact 71 -> 72. Word, same DOCX: y21 50 -> 49 pages
+  at 0.419 -> 0.856 (criterion 5 now passes in both lanes), y64 0.967 ->
+  0.984, y39 12 -> 11 (0.736 -> 0.906), y26 213 -> 214, y41 dy_p50 41.9 ->
+  11.5; y40 0.804 -> 0.792 inside tolerance (dy_p50 45.4 -> 14.3). y12, y37,
+  y60 and y61 stop the plan and write the merge's DOCX unchanged; y12's
+  cover, p8 checklist and p31 leading are the infer defects that hold it
+  (WP40). Evidence: `docs/evidence/wp38-seams-2026-10-10.json`.
 
 - **The refine loop corrects at the baseline (WP39).** The product profile's
   loop measured each page's offset at line tops, and a top is the baseline
@@ -306,7 +508,11 @@ one verified fix at a time, each gated against the frozen 16.
   Word, planner on: raw DOCX 11 -> 13 of 21 (y18 168 -> 144, y33 63 -> 60);
   product DOCX 15 -> 16 (y18 154 -> 144, word recall 0.462 -> 0.986; y27
   152 -> 151), but y64 40 -> 41. The LibreOffice product lane is unchanged
-  on the 21 (17 of 21). Gate PASS with it off; not yet gated on
+  on the 21 (17 of 21). A cap (`PAGEFIT_MAX_OVER_LINES`) leaves a page
+  the model puts more than N body lines over as spaced: at 3 or 5 lines
+  y59 is restored but y18 and y33 lose their gains; at 10 all of y59, y18
+  144, y33 60 and y03 47 hold (y22 173, y64 41) -- with one line of margin
+  to y59's page. Gate PASS with it off; not yet gated on
   (`docs/evidence/pagefit-2026-10-06.json`).
 
 

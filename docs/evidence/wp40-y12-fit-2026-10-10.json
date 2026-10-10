@@ -1,0 +1,921 @@
+{
+ "schema": "exactdoc.evidence.v1",
+ "wp": "WP40",
+ "date": "2026-10-10",
+ "image": "exactdoc-gate:boot (Carlito) sha256:bab1cfc0d2cd",
+ "trees": {
+  "before": "5f158b7 (wp33 d879a12 + integration e906ad4)",
+  "after": "248320a + 4cb6017 (WP40 on 5f158b7); merged with integration c3cb767 as 7333618",
+  "wp38": "branch wp38 633ea00: docxout.py + refine.py copied onto both trees"
+ },
+ "y12_every_seam_kept_lo_product": {
+  "how": "docxout._write_docx with _merge_grid_page_runs replaced by identity (scratch only)",
+  "before": {
+   "src_pages": 59,
+   "out_pages": 61,
+   "word_recall": 0.3761,
+   "within2pt": 0.0086,
+   "dy_p50": 40.5,
+   "mean_ssim": 0.3393
+  },
+  "after": {
+   "src_pages": 59,
+   "out_pages": 59,
+   "word_recall": 0.9559,
+   "within2pt": 0.0756,
+   "dy_p50": 7.7,
+   "mean_ssim": 0.3818
+  },
+  "after_pages_mapped_ge_97pct_to_own_page": 59
+ },
+ "y12_with_wp38_rule_lo_product": {
+  "before": {
+   "src_pages": 59,
+   "out_pages": 59,
+   "word_recall": 0.6821,
+   "within2pt": 0.0408,
+   "dy_p50": 38.9,
+   "mean_ssim": 0.3583
+  },
+  "after": {
+   "src_pages": 59,
+   "out_pages": 59,
+   "word_recall": 0.9556,
+   "within2pt": 0.0747,
+   "dy_p50": 8.3,
+   "mean_ssim": 0.3805
+  }
+ },
+ "y12_word_product": {
+  "every_seam_kept": {
+   "before": {
+    "src_pages": 59,
+    "out_pages": 61,
+    "word_recall": 0.3781,
+    "within2pt": 0.0083,
+    "dy_p50": 41.41,
+    "mean_ssim": 0.3374
+   },
+   "after": {
+    "src_pages": 59,
+    "out_pages": 59,
+    "word_recall": 0.957,
+    "within2pt": 0.0932,
+    "dy_p50": 7.65,
+    "mean_ssim": 0.3844
+   }
+  },
+  "with_wp38_rule": {
+   "before": {
+    "src_pages": 59,
+    "out_pages": 58,
+    "word_recall": 0.6263,
+    "within2pt": 0.0103,
+    "dy_p50": 60.94,
+    "mean_ssim": 0.3255
+   },
+   "after": {
+    "src_pages": 59,
+    "out_pages": 59,
+    "word_recall": 0.9568,
+    "within2pt": 0.092,
+    "dy_p50": 7.96,
+    "mean_ssim": 0.3831
+   }
+  }
+ },
+ "full_sweeps_moved": {
+  "raw_lo": {
+   "y02_nist_sp800171r2.pdf": {
+    "before": {
+     "src_pages": 114,
+     "out_pages": 117,
+     "word_recall": 0.7439,
+     "within2pt": 0.1883,
+     "dy_p50": 9.7,
+     "mean_ssim": 0.6607
+    },
+    "after": {
+     "src_pages": 114,
+     "out_pages": 117,
+     "word_recall": 0.7439,
+     "within2pt": 0.1883,
+     "dy_p50": 9.7,
+     "mean_ssim": 0.6605
+    }
+   },
+   "y06_irs_1040_instructions.pdf": {
+    "before": {
+     "src_pages": 126,
+     "out_pages": 149,
+     "word_recall": 0.2189,
+     "within2pt": 0.0008,
+     "dy_p50": 53.39,
+     "mean_ssim": 0.3528
+    },
+    "after": {
+     "src_pages": 126,
+     "out_pages": 148,
+     "word_recall": 0.2204,
+     "within2pt": 0.0007,
+     "dy_p50": 52.59,
+     "mean_ssim": 0.3552
+    }
+   },
+   "y10_nist_fips180.pdf": {
+    "before": {
+     "src_pages": 36,
+     "out_pages": 36,
+     "word_recall": 0.9405,
+     "within2pt": 0.4073,
+     "dy_p50": 0.52,
+     "mean_ssim": 0.8594
+    },
+    "after": {
+     "src_pages": 36,
+     "out_pages": 36,
+     "word_recall": 0.941,
+     "within2pt": 0.4071,
+     "dy_p50": 0.52,
+     "mean_ssim": 0.8594
+    }
+   },
+   "y12_irs_pub15.pdf": {
+    "before": {
+     "src_pages": 59,
+     "out_pages": 63,
+     "word_recall": 0.4349,
+     "within2pt": 0.001,
+     "dy_p50": 52.5,
+     "mean_ssim": 0.3108
+    },
+    "after": {
+     "src_pages": 59,
+     "out_pages": 59,
+     "word_recall": 0.758,
+     "within2pt": 0.0019,
+     "dy_p50": 77.6,
+     "mean_ssim": 0.3325
+    }
+   },
+   "y13_irs_pub501.pdf": {
+    "before": {
+     "src_pages": 31,
+     "out_pages": 50,
+     "word_recall": 0.2245,
+     "within2pt": 0.0014,
+     "dy_p50": 36.75,
+     "mean_ssim": 0.2471
+    },
+    "after": {
+     "src_pages": 31,
+     "out_pages": 50,
+     "word_recall": 0.2522,
+     "within2pt": 0.0015,
+     "dy_p50": 34.85,
+     "mean_ssim": 0.2513
+    }
+   },
+   "y19_scotus_loper.pdf": {
+    "before": {
+     "src_pages": 114,
+     "out_pages": 114,
+     "word_recall": 0.9355,
+     "within2pt": 0.0253,
+     "dy_p50": 13.25,
+     "mean_ssim": 0.7512
+    },
+    "after": {
+     "src_pages": 114,
+     "out_pages": 114,
+     "word_recall": 0.9355,
+     "within2pt": 0.0253,
+     "dy_p50": 13.25,
+     "mean_ssim": 0.7511
+    }
+   },
+   "y28_doe_oig_word365.pdf": {
+    "before": {
+     "src_pages": 21,
+     "out_pages": 21,
+     "word_recall": 0.9931,
+     "within2pt": 0.2585,
+     "dy_p50": 1.78,
+     "mean_ssim": 0.6853
+    },
+    "after": {
+     "src_pages": 21,
+     "out_pages": 21,
+     "word_recall": 0.9934,
+     "within2pt": 0.2995,
+     "dy_p50": 1.76,
+     "mean_ssim": 0.689
+    }
+   },
+   "y38_elife_arbortext_gs.pdf": {
+    "before": {
+     "src_pages": 33,
+     "out_pages": 50,
+     "word_recall": 0.2196,
+     "within2pt": 0.0005,
+     "dy_p50": 39.71,
+     "mean_ssim": 0.388
+    },
+    "after": {
+     "src_pages": 33,
+     "out_pages": 50,
+     "word_recall": 0.2193,
+     "within2pt": 0.0005,
+     "dy_p50": 39.71,
+     "mean_ssim": 0.3888
+    }
+   },
+   "y40_frontiers_dvips_gs.pdf": {
+    "before": {
+     "src_pages": 10,
+     "out_pages": 12,
+     "word_recall": 0.601,
+     "within2pt": 0.0506,
+     "dy_p50": 24.51,
+     "mean_ssim": 0.5207
+    },
+    "after": {
+     "src_pages": 10,
+     "out_pages": 12,
+     "word_recall": 0.601,
+     "within2pt": 0.0506,
+     "dy_p50": 24.51,
+     "mean_ssim": 0.5211
+    }
+   },
+   "y47_ar_ilo_word365.pdf": {
+    "before": {
+     "src_pages": 57,
+     "out_pages": 86,
+     "word_recall": 0.1512,
+     "within2pt": 0.001,
+     "dy_p50": 51.59,
+     "mean_ssim": 0.3587
+    },
+    "after": {
+     "src_pages": 57,
+     "out_pages": 84,
+     "word_recall": 0.1551,
+     "within2pt": 0.0017,
+     "dy_p50": 50.76,
+     "mean_ssim": 0.364
+    }
+   },
+   "y56_scan_usda1921_lura.pdf": {
+    "before": {
+     "src_pages": 10,
+     "out_pages": 14,
+     "word_recall": 0.4476,
+     "within2pt": 0.0112,
+     "dy_p50": 29.89,
+     "mean_ssim": 0.4875
+    },
+    "after": {
+     "src_pages": 10,
+     "out_pages": 14,
+     "word_recall": 0.4476,
+     "within2pt": 0.0112,
+     "dy_p50": 29.88,
+     "mean_ssim": 0.4869
+    }
+   },
+   "y57_scan_usda1950_ia.pdf": {
+    "before": {
+     "src_pages": 16,
+     "out_pages": 26,
+     "word_recall": 0.0883,
+     "within2pt": 0.018,
+     "dy_p50": 56.88,
+     "mean_ssim": 0.4265
+    },
+    "after": {
+     "src_pages": 16,
+     "out_pages": 27,
+     "word_recall": 0.0883,
+     "within2pt": 0.018,
+     "dy_p50": 56.88,
+     "mean_ssim": 0.4107
+    }
+   },
+   "y59_cms_notice_inddcs4.pdf": {
+    "before": {
+     "src_pages": 6,
+     "out_pages": 18,
+     "word_recall": 0.0896,
+     "within2pt": 0.061,
+     "dy_p50": 31.97,
+     "mean_ssim": 0.2182
+    },
+    "after": {
+     "src_pages": 6,
+     "out_pages": 16,
+     "word_recall": 0.1178,
+     "within2pt": 0.0429,
+     "dy_p50": 39.29,
+     "mean_ssim": 0.2416
+    }
+   },
+   "y60_cdc_mmwr_indd19.pdf": {
+    "before": {
+     "src_pages": 24,
+     "out_pages": 34,
+     "word_recall": 0.3173,
+     "within2pt": 0.0168,
+     "dy_p50": 50.92,
+     "mean_ssim": 0.3386
+    },
+    "after": {
+     "src_pages": 24,
+     "out_pages": 32,
+     "word_recall": 0.3275,
+     "within2pt": 0.0165,
+     "dy_p50": 54.2,
+     "mean_ssim": 0.3498
+    }
+   },
+   "y64_bls_release_xpp.pdf": {
+    "before": {
+     "src_pages": 39,
+     "out_pages": 39,
+     "word_recall": 0.9672,
+     "within2pt": 0.0625,
+     "dy_p50": 19.45,
+     "mean_ssim": 0.6209
+    },
+    "after": {
+     "src_pages": 39,
+     "out_pages": 39,
+     "word_recall": 0.9673,
+     "within2pt": 0.0625,
+     "dy_p50": 19.45,
+     "mean_ssim": 0.6208
+    }
+   }
+  },
+  "product_lo": {
+   "y02_nist_sp800171r2.pdf": {
+    "before": {
+     "src_pages": 114,
+     "out_pages": 114,
+     "word_recall": 0.966,
+     "within2pt": 0.3291,
+     "dy_p50": 2.27,
+     "mean_ssim": 0.7252
+    },
+    "after": {
+     "src_pages": 114,
+     "out_pages": 114,
+     "word_recall": 0.966,
+     "within2pt": 0.3291,
+     "dy_p50": 2.29,
+     "mean_ssim": 0.7251
+    }
+   },
+   "y06_irs_1040_instructions.pdf": {
+    "before": {
+     "src_pages": 126,
+     "out_pages": 139,
+     "word_recall": 0.2464,
+     "within2pt": 0.0027,
+     "dy_p50": 57.89,
+     "mean_ssim": 0.3708
+    },
+    "after": {
+     "src_pages": 126,
+     "out_pages": 136,
+     "word_recall": 0.2786,
+     "within2pt": 0.0075,
+     "dy_p50": 52.62,
+     "mean_ssim": 0.3797
+    }
+   },
+   "y10_nist_fips180.pdf": {
+    "before": {
+     "src_pages": 36,
+     "out_pages": 36,
+     "word_recall": 0.9405,
+     "within2pt": 0.0968,
+     "dy_p50": 2.38,
+     "mean_ssim": 0.8281
+    },
+    "after": {
+     "src_pages": 36,
+     "out_pages": 36,
+     "word_recall": 0.941,
+     "within2pt": 0.0968,
+     "dy_p50": 2.38,
+     "mean_ssim": 0.8281
+    }
+   },
+   "y12_irs_pub15.pdf": {
+    "before": {
+     "src_pages": 59,
+     "out_pages": 59,
+     "word_recall": 0.6821,
+     "within2pt": 0.0408,
+     "dy_p50": 38.9,
+     "mean_ssim": 0.3583
+    },
+    "after": {
+     "src_pages": 59,
+     "out_pages": 59,
+     "word_recall": 0.758,
+     "within2pt": 0.0019,
+     "dy_p50": 77.6,
+     "mean_ssim": 0.3325
+    }
+   },
+   "y13_irs_pub501.pdf": {
+    "before": {
+     "src_pages": 31,
+     "out_pages": 45,
+     "word_recall": 0.2932,
+     "within2pt": 0.0016,
+     "dy_p50": 33.14,
+     "mean_ssim": 0.2673
+    },
+    "after": {
+     "src_pages": 31,
+     "out_pages": 45,
+     "word_recall": 0.2929,
+     "within2pt": 0.0007,
+     "dy_p50": 32.3,
+     "mean_ssim": 0.2688
+    }
+   },
+   "y19_scotus_loper.pdf": {
+    "before": {
+     "src_pages": 114,
+     "out_pages": 114,
+     "word_recall": 0.9355,
+     "within2pt": 0.0268,
+     "dy_p50": 13.54,
+     "mean_ssim": 0.7438
+    },
+    "after": {
+     "src_pages": 114,
+     "out_pages": 114,
+     "word_recall": 0.9355,
+     "within2pt": 0.0262,
+     "dy_p50": 14.36,
+     "mean_ssim": 0.7424
+    }
+   },
+   "y22_lshort.pdf": {
+    "before": {
+     "src_pages": 153,
+     "out_pages": 156,
+     "word_recall": 0.7634,
+     "within2pt": 0.0706,
+     "dy_p50": 14.01,
+     "mean_ssim": 0.7558
+    },
+    "after": {
+     "src_pages": 153,
+     "out_pages": 156,
+     "word_recall": 0.7635,
+     "within2pt": 0.0707,
+     "dy_p50": 14.01,
+     "mean_ssim": 0.7558
+    }
+   },
+   "y28_doe_oig_word365.pdf": {
+    "before": {
+     "src_pages": 21,
+     "out_pages": 21,
+     "word_recall": 0.9931,
+     "within2pt": 0.0492,
+     "dy_p50": 2.4,
+     "mean_ssim": 0.656
+    },
+    "after": {
+     "src_pages": 21,
+     "out_pages": 21,
+     "word_recall": 0.9934,
+     "within2pt": 0.0556,
+     "dy_p50": 2.4,
+     "mean_ssim": 0.6598
+    }
+   },
+   "y38_elife_arbortext_gs.pdf": {
+    "before": {
+     "src_pages": 33,
+     "out_pages": 47,
+     "word_recall": 0.2849,
+     "within2pt": 0.0023,
+     "dy_p50": 31.41,
+     "mean_ssim": 0.4081
+    },
+    "after": {
+     "src_pages": 33,
+     "out_pages": 47,
+     "word_recall": 0.2833,
+     "within2pt": 0.0021,
+     "dy_p50": 30.27,
+     "mean_ssim": 0.4083
+    }
+   },
+   "y40_frontiers_dvips_gs.pdf": {
+    "before": {
+     "src_pages": 10,
+     "out_pages": 10,
+     "word_recall": 0.8516,
+     "within2pt": 0.0183,
+     "dy_p50": 39.8,
+     "mean_ssim": 0.6093
+    },
+    "after": {
+     "src_pages": 10,
+     "out_pages": 10,
+     "word_recall": 0.8516,
+     "within2pt": 0.0178,
+     "dy_p50": 40.32,
+     "mean_ssim": 0.6086
+    }
+   },
+   "y41_arxiv_ieeetran.pdf": {
+    "before": {
+     "src_pages": 8,
+     "out_pages": 9,
+     "word_recall": 0.6827,
+     "within2pt": 0.0188,
+     "dy_p50": 33.69,
+     "mean_ssim": 0.4116
+    },
+    "after": {
+     "src_pages": 8,
+     "out_pages": 9,
+     "word_recall": 0.701,
+     "within2pt": 0.019,
+     "dy_p50": 23.65,
+     "mean_ssim": 0.4169
+    }
+   },
+   "y47_ar_ilo_word365.pdf": {
+    "before": {
+     "src_pages": 57,
+     "out_pages": 65,
+     "word_recall": 0.2365,
+     "within2pt": 0.0015,
+     "dy_p50": 45.09,
+     "mean_ssim": 0.4362
+    },
+    "after": {
+     "src_pages": 57,
+     "out_pages": 65,
+     "word_recall": 0.2363,
+     "within2pt": 0.0016,
+     "dy_p50": 45.13,
+     "mean_ssim": 0.4363
+    }
+   },
+   "y56_scan_usda1921_lura.pdf": {
+    "before": {
+     "src_pages": 10,
+     "out_pages": 12,
+     "word_recall": 0.6262,
+     "within2pt": 0.0665,
+     "dy_p50": 13.45,
+     "mean_ssim": 0.5567
+    },
+    "after": {
+     "src_pages": 10,
+     "out_pages": 12,
+     "word_recall": 0.6202,
+     "within2pt": 0.0663,
+     "dy_p50": 13.06,
+     "mean_ssim": 0.5566
+    }
+   },
+   "y58_ssa_statement_indd20.pdf": {
+    "before": {
+     "src_pages": 2,
+     "out_pages": 2,
+     "word_recall": 0.8909,
+     "within2pt": 0.1236,
+     "dy_p50": 2.64,
+     "mean_ssim": 0.4834
+    },
+    "after": {
+     "src_pages": 2,
+     "out_pages": 2,
+     "word_recall": 0.8909,
+     "within2pt": 0.1236,
+     "dy_p50": 2.64,
+     "mean_ssim": 0.4897
+    }
+   },
+   "y59_cms_notice_inddcs4.pdf": {
+    "before": {
+     "src_pages": 6,
+     "out_pages": 17,
+     "word_recall": 0.0896,
+     "within2pt": 0.0563,
+     "dy_p50": 28.84,
+     "mean_ssim": 0.2317
+    },
+    "after": {
+     "src_pages": 6,
+     "out_pages": 16,
+     "word_recall": 0.1178,
+     "within2pt": 0.0429,
+     "dy_p50": 39.29,
+     "mean_ssim": 0.2416
+    }
+   },
+   "y60_cdc_mmwr_indd19.pdf": {
+    "before": {
+     "src_pages": 24,
+     "out_pages": 32,
+     "word_recall": 0.3295,
+     "within2pt": 0.021,
+     "dy_p50": 66.95,
+     "mean_ssim": 0.3492
+    },
+    "after": {
+     "src_pages": 24,
+     "out_pages": 29,
+     "word_recall": 0.3463,
+     "within2pt": 0.0203,
+     "dy_p50": 32.56,
+     "mean_ssim": 0.3643
+    }
+   },
+   "y64_bls_release_xpp.pdf": {
+    "before": {
+     "src_pages": 39,
+     "out_pages": 39,
+     "word_recall": 0.9666,
+     "within2pt": 0.1001,
+     "dy_p50": 13.75,
+     "mean_ssim": 0.6275
+    },
+    "after": {
+     "src_pages": 39,
+     "out_pages": 39,
+     "word_recall": 0.9667,
+     "within2pt": 0.1002,
+     "dy_p50": 13.75,
+     "mean_ssim": 0.6274
+    }
+   }
+  }
+ },
+ "word_product_promised_moved": {
+  "y02_nist_sp800171r2.pdf": {
+   "before": {
+    "src_pages": 114,
+    "out_pages": 114,
+    "word_recall": 0.9664,
+    "within2pt": 0.1528,
+    "dy_p50": 2.74,
+    "mean_ssim": 0.7326
+   },
+   "after": {
+    "src_pages": 114,
+    "out_pages": 114,
+    "word_recall": 0.9664,
+    "within2pt": 0.1528,
+    "dy_p50": 2.74,
+    "mean_ssim": 0.7326
+   }
+  },
+  "y10_nist_fips180.pdf": {
+   "before": {
+    "src_pages": 36,
+    "out_pages": 36,
+    "word_recall": 0.9404,
+    "within2pt": 0.1101,
+    "dy_p50": 2.52,
+    "mean_ssim": 0.8286
+   },
+   "after": {
+    "src_pages": 36,
+    "out_pages": 36,
+    "word_recall": 0.9404,
+    "within2pt": 0.1101,
+    "dy_p50": 2.52,
+    "mean_ssim": 0.8286
+   }
+  },
+  "y12_irs_pub15.pdf": {
+   "before": {
+    "src_pages": 59,
+    "out_pages": 58,
+    "word_recall": 0.6263,
+    "within2pt": 0.0103,
+    "dy_p50": 60.94,
+    "mean_ssim": 0.3255
+   },
+   "after": {
+    "src_pages": 59,
+    "out_pages": 59,
+    "word_recall": 0.7181,
+    "within2pt": 0.0014,
+    "dy_p50": 61.73,
+    "mean_ssim": 0.337
+   }
+  },
+  "y19_scotus_loper.pdf": {
+   "before": {
+    "src_pages": 114,
+    "out_pages": 114,
+    "word_recall": 0.9246,
+    "within2pt": 0.026,
+    "dy_p50": 13.9,
+    "mean_ssim": 0.745
+   },
+   "after": {
+    "src_pages": 114,
+    "out_pages": 114,
+    "word_recall": 0.9246,
+    "within2pt": 0.0254,
+    "dy_p50": 14.58,
+    "mean_ssim": 0.7436
+   }
+  },
+  "y22_lshort.pdf": {
+   "before": {
+    "src_pages": 153,
+    "out_pages": 157,
+    "word_recall": 0.7517,
+    "within2pt": 0.0676,
+    "dy_p50": 14.14,
+    "mean_ssim": 0.7515
+   },
+   "after": {
+    "src_pages": 153,
+    "out_pages": 157,
+    "word_recall": 0.7517,
+    "within2pt": 0.0676,
+    "dy_p50": 14.17,
+    "mean_ssim": 0.7515
+   }
+  },
+  "y28_doe_oig_word365.pdf": {
+   "before": {
+    "src_pages": 21,
+    "out_pages": 21,
+    "word_recall": 0.9904,
+    "within2pt": 0.0334,
+    "dy_p50": 2.55,
+    "mean_ssim": 0.6532
+   },
+   "after": {
+    "src_pages": 21,
+    "out_pages": 21,
+    "word_recall": 0.9907,
+    "within2pt": 0.0398,
+    "dy_p50": 2.49,
+    "mean_ssim": 0.6563
+   }
+  },
+  "y64_bls_release_xpp.pdf": {
+   "before": {
+    "src_pages": 39,
+    "out_pages": 39,
+    "word_recall": 0.9667,
+    "within2pt": 0.0954,
+    "dy_p50": 16.9,
+    "mean_ssim": 0.6249
+   },
+   "after": {
+    "src_pages": 39,
+    "out_pages": 39,
+    "word_recall": 0.9669,
+    "within2pt": 0.0955,
+    "dy_p50": 16.9,
+    "mean_ssim": 0.6249
+   }
+  }
+ },
+ "censuses": {
+  "forgiven_gaps": "5915 over both corpora; last-ink size ratio >= 2.5: y12 p1 (3.1x), y59 p2 x3 (4.1x), y57 x7 (OCR); next 2.4x (y57), 2.17x (y12 p32, gutter-cut), 2.14x (y59 p5)",
+  "absorptions_12plus_glyphs": "194 measurable; set against host <= 0.91em (y13 bullets); set apart >= 1.25em: y12 p1, y59 page-picture text, y38 labels, y19 rules, y06 x2, y60 URL, y57 OCR",
+  "ir_blast_radius": "normalized IR differs on 22 documents (no gated fixture): y06 30+ pages, y12 34, y13 11, others 1-6"
+ },
+ "google_docs_live_2026_10_10": {
+  "how": "coordinator's flight of C:\\lotmp\\scr\\WP40\\gdocs_probe (scripts/dev/flypairs.py); base = the probe base (WP40's three files at 5f158b7 on 7333618)",
+  "rows": {
+   "y02_nist_sp800171r2": {
+    "before": {
+     "src_pages": 114,
+     "out_pages": 114,
+     "word_recall": 0.9656,
+     "within2pt": 0.1457,
+     "dy_p50": 8.58,
+     "char_recall": 0.9626
+    },
+    "after": {
+     "src_pages": 114,
+     "out_pages": 114,
+     "word_recall": 0.9656,
+     "within2pt": 0.1451,
+     "dy_p50": 8.66,
+     "char_recall": 0.9627
+    }
+   },
+   "y12_irs_pub15": {
+    "before": {
+     "src_pages": 59,
+     "out_pages": 64,
+     "word_recall": 0.424,
+     "within2pt": 0.0015,
+     "dy_p50": 51.9,
+     "char_recall": 0.8272
+    },
+    "after": {
+     "src_pages": 59,
+     "out_pages": 61,
+     "word_recall": 0.807,
+     "within2pt": 0.0072,
+     "dy_p50": 54.03,
+     "char_recall": 0.9402
+    }
+   },
+   "y13_irs_pub501": {
+    "before": {
+     "src_pages": 31,
+     "out_pages": 56,
+     "word_recall": 0.2619,
+     "within2pt": 0.0014,
+     "dy_p50": 34.95,
+     "char_recall": 0.5183
+    },
+    "after": {
+     "src_pages": 31,
+     "out_pages": 57,
+     "word_recall": 0.2621,
+     "within2pt": 0.0013,
+     "dy_p50": 34.98,
+     "char_recall": 0.5189
+    }
+   },
+   "y21_worldbank_wdr24": {
+    "before": {
+     "src_pages": 48,
+     "out_pages": 52,
+     "word_recall": 0.5359,
+     "within2pt": 0.0036,
+     "dy_p50": 64.39,
+     "char_recall": 0.6724
+    },
+    "after": {
+     "src_pages": 48,
+     "out_pages": 52,
+     "word_recall": 0.5359,
+     "within2pt": 0.0036,
+     "dy_p50": 64.39,
+     "char_recall": 0.6724
+    }
+   },
+   "y28_doe_oig_word365": {
+    "before": {
+     "src_pages": 21,
+     "out_pages": 21,
+     "word_recall": 0.9902,
+     "within2pt": 0.252,
+     "dy_p50": 0.83,
+     "char_recall": 0.9956
+    },
+    "after": {
+     "src_pages": 21,
+     "out_pages": 21,
+     "word_recall": 0.9902,
+     "within2pt": 0.2894,
+     "dy_p50": 0.82,
+     "char_recall": 0.9956
+    }
+   },
+   "y60_cdc_mmwr_indd19": {
+    "before": {
+     "src_pages": 24,
+     "out_pages": 34,
+     "word_recall": 0.2928,
+     "within2pt": 0.0134,
+     "dy_p50": 44.61,
+     "char_recall": 0.5631
+    },
+    "after": {
+     "src_pages": 24,
+     "out_pages": 31,
+     "word_recall": 0.3011,
+     "within2pt": 0.0132,
+     "dy_p50": 59.01,
+     "char_recall": 0.5687
+    }
+   }
+  },
+  "notes": [
+   "y12 64 -> 61 pages (criterion 6 clear), word recall 0.424 -> 0.807",
+   "y13 56 -> 57 pages at the same word recall (not promised): the one loss",
+   "y60 34 -> 31 pages, dy_p50 44.6 -> 59.0 (not promised); y02, y21 unchanged; y28 within2pt 0.252 -> 0.289",
+   "y12 p1 photograph: Docs draws it at the same place in base and WP40 (top of the right half, beside the title), not inside its frame; the frame rule neither causes nor cures that"
+  ]
+ }
+}
