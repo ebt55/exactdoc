@@ -5978,9 +5978,12 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                 d: n for d, n in ctx.dest_anchors.items() if n not in gone})
     # {source page: height of the footnote area its notes occupy}
     notes_h = {}
+    note_lifts = {}
     if note_ids:
-        from .notes import footnote_areas
+        from .notes import footnote_areas, footnote_lifts
         notes_h = footnote_areas(
+            lay, lambda pl: _body_foot(_page_geometry(lay, pl)))
+        note_lifts = footnote_lifts(
             lay, lambda pl: _body_foot(_page_geometry(lay, pl)))
     # the clearance a page-closing element keeps (_guard_page_tail)
     body_line = _body_line_pt(lay)
@@ -6612,7 +6615,7 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
             return _write_docx(src_lay, out_path, dataclasses.replace(
                 ctx, note_ids={}, notes_vetoed=True))
         from .structures import write_footnotes
-        write_footnotes(doc, lay, ctx, write_para)
+        write_footnotes(doc, lay, ctx, write_para, note_lifts)
     _release_keeps_before_seams(body)
     _declare_fonts(doc)
     if ctx.output_profile == "standard":

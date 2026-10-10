@@ -20,6 +20,29 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **Real footnotes stand where the source's ended (final1).** A renderer
+  stacks a page's real notes at the foot of the body box, and the bottom
+  reserve is relaxed to the footer's top, because re-wrapped body text
+  overruns the source's body box. Once y02's notes bound (WP27, round 3),
+  each of its 24 note pages set them ~45pt below the source's (p20: 712 ->
+  761, p97: 718 -> 761), and the refine loop, reading a quarter of the page
+  that far low, pulled the headings up. Nothing was lost from the page. The
+  writer now closes a page's last note with an empty line of
+  `PageLayout.note_lift_pt` (a space after the note is not honoured at the
+  area's foot; an empty line is). Only the refine loop sets that lift. It
+  never lifts past where the source's notes ended (`notes.note_lift_cap`)
+  or by more than the render shows free between the body and the notes
+  (`refine._notes_free`, measured on the note lines alone, not the footer
+  under them). A page that spills gives its lift back first, and a lift is
+  never room for a push. Lifting every page open-loop rendered y02 115
+  pages for 114 and the spill cascaded, so raw and open-loop output is
+  byte-identical (14 documents with notes, word/*.xml). LibreOffice
+  product, harness reading wp42, against final1 fc15b59: y02 dy_p50 1.03 ->
+  0.74 and within-2pt 0.357 -> 0.393; its p20 has 0.01 of its words >5pt
+  off, from 0.23 (accepted: 0.01), and p97 0.54, from 0.92 (accepted 0.82).
+  y18 0.60 -> 0.46. y03 1.23 -> 1.43 is inside tolerance. No page count
+  moves, and the gated 16 are unchanged.
+
 - **A tracked word between drawn spaces stays one word (WP45).** y28's
   running footer is Word's `1 | Page` with "Page" expanded by 3pt (0.248em
   after each letter at 12pt Arial; the spaces around `|` drawn, 0.278em).
