@@ -31,10 +31,13 @@ one verified fix at a time, each gated against the frozen 16.
   y21, y12 and y61 whose midpoints miss the gutter by a few points. Not
   between two glyphs of one monospace face: y17 p39's ABNF aligns "=" in a
   column whose gaps sit off the cell grid, and cut there three rules lost
-  their alignment spaces. *Spacing cursor* (`infer._position_chunks`): a
-  rule or picture ending above the cursor no longer moves it back up (BLS's
-  column-group rule flowed after its table; the note under it took 200-312pt
-  of space before). *Heads must clear the body* (`detect_hf`,
+  their alignment spaces. *Spacing cursor* (`infer._position_chunks`, WP33n):
+  an element that starts inside the table just stacked and ends above the
+  cursor no longer moves it back up (BLS's column-group rule flowed after its
+  table; the note under it took 200-312pt of space before). After a
+  paragraph or a picture it moves as before: held there too (WP25's form),
+  it moved y37's later pages (criterion 8, dy_p50 27.4 -> 31.0) and a y17
+  code line 9.7pt in Google Docs. *Heads must clear the body* (`detect_hf`,
   `_furniture_clearance`, `GEO_CLEAR_LINES` = 1.2 lines of the head's own
   size): the geometry pass consumed y64's "HOUSEHOLD DATA / Table A-n" titles
   (one line at one place and size on 31 of 38 later pages, 1.4pt above the
@@ -45,12 +48,12 @@ one verified fix at a time, each gated against the frozen 16.
   y02 48.7 against y18 0.7, y14 -0.4, y47 4.1) but are not held to the bar:
   written back, y18's last lines are pages the render has no room for (raw
   156 -> 174 for 144). Measured in the Carlito image against r4-new: LO
-  product y64 wr 0.930 -> 0.967 (doc recall 0.958 -> 0.984), y12 60 -> 59
-  pages (0.514 -> 0.682, dy_p50 58.6 -> 38.9), y06 147 -> 139, y13 49 -> 45,
-  y38 49 -> 47, y61 6 -> 5 (0.451 -> 0.579); LO raw y64 44 -> 39 (0.343 ->
-  0.967), y06 163 -> 149, y13 58 -> 50, y12 66 -> 63, y21 57 -> 51. Word
-  product: y64 40 -> 39 pages, 0.389 -> 0.967 (criterion 5), y61 10 -> 7,
-  y13 62 -> 54, y06 168 -> 149. Google Docs, live (2026-10-10): y64 40 -> 39,
+  product y64 wr 0.930 -> 0.967 (doc recall 0.958 -> 0.984), y12 0.514 ->
+  0.564, y06 147 -> 138 (0.216 -> 0.297), y13 49 -> 45, y38 49 -> 47, y61
+  6 -> 5 (0.451 -> 0.579); LO raw y64 44 -> 39 (0.343 -> 0.967), y06 163 ->
+  151, y13 58 -> 50, y12 66 -> 63, y21 57 -> 51. Word product: y64 40 -> 39
+  pages, 0.389 -> 0.967 (criterion 5), y61 10 -> 7, y13 62 -> 54, y06 168 ->
+  151. Google Docs, live (2026-10-10, flown on WP25's cursor form): y64 40 -> 39,
   0.389 -> 0.966 (criterion 5), y12 69 -> 64, y13 66 -> 56, y06 178 -> 156,
   y61 10 -> 7 (dy_p50 47.8 -> 27.7); y17, y18, y27 and the controls
   identical. Scorecard criterion 5: LO 18/21, Word 16 -> 17, Docs 16 -> 17
@@ -59,12 +62,13 @@ one verified fix at a time, each gated against the frozen 16.
   0.808 -> 0.626) -- the split is right, but it turns their 2-col pages into
   single-grid pages that `_merge_grid_page_runs` flows across seams (y21
   p13-17 and p25-42; y12 p26-44), left to WP38's seam rule; y61 dy_p50
-  39.6 -> 43.6 (one merged 3-col flow); y37 dy_p50 27.4 -> 31.0 (cursor
-  rule; the words matched in both renders 21.34 -> 21.36, the rise is 695
-  more words on the right page); y59 in Word 23 -> 25 pages for 6; raw
+  39.6 -> 43.6 (one merged 3-col flow); y59 in Word 23 -> 25 pages for 6
+  (its cursor holds are all inside tables); raw
   dy_p50 on y21/y61/y64 over a larger matched population (y64's words
   matched in both: 12.51 -> 12.35). Gate PASS in both lanes (1706 tests),
-  the gated 16 byte-identical (`docs/evidence/wp33-columns-2026-10-10.json`).
+  the gated 16 byte-identical; wp33n gate 1709 tests, same lane numbers
+  (`docs/evidence/wp33-columns-2026-10-10.json`,
+  `docs/evidence/wp33n-cursor-2026-10-10.json`).
 
 - **EUR-Lex's numbered articles keep their pages in Google Docs (WP35).**
   On Google's exports of the 71558af sweep y18 (the EU AI Act) matched the
