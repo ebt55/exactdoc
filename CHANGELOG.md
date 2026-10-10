@@ -21,6 +21,12 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 one verified fix at a time, each gated against the frozen 16.
 
 
+- **`churn.py` reads dy where the harness does (WP41).** It read a matched
+  word's drift at the box top while the sweep, from amendment 3 on, reads it
+  at the baseline (`harness._y`), so its "all" figures did not reproduce the
+  wp42 sweep's (y37 27.64 / 32.00). It now takes the harness's own anchor
+  (`harness._y`, else the token's baseline field, else its box top).
+
 - **The drift sentinel's expected row is recorded, and compared like for
   like (WP43).** The coordinator flew the sentinel from 587d47b on
   2026-10-10: 1/1 pages, word recall 1.0, within-2pt 0.8544, dy_p50 1.84pt,

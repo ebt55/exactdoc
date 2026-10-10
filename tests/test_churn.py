@@ -94,6 +94,32 @@ class Churn(unittest.TestCase):
         self.assertEqual(r["within2pt"]["drop"],
                          round(r["within2pt"]["accepted"] - r["within2pt"]["current"], 4))
 
+    def test_the_all_figures_follow_the_harness_anchor_when_ascent_differs(self):
+        # the same words on the same baselines, the render in a font with a
+        # different ascent: box tops move, baselines do not
+        cur = os.path.join(self.dir, "times.pdf")
+        doc = fitz.open()
+        page = doc.new_page(width=612, height=792)
+        for i, w in enumerate(WORDS):
+            page.insert_text((72, 100 + 30 * i), w, fontname="tiro", fontsize=10)
+        doc.save(cur)
+        doc.close()
+        r = churn.churn(self.src, self.acc, cur)
+        h = harness.word_metrics(self.src, cur)
+        self.assertEqual(r["dy_p50"]["current"], h["dy_p50"])
+        self.assertEqual(r["within2pt"]["current"], h["within2pt"])
+
+    def test_dy_is_read_at_the_harness_anchor(self):
+        # tokens carrying a baseline (the amendment-3 harness: 6-tuples and
+        # harness._y): churn reads dy there, not at the box top
+        src = [[("alpha", 72.0, 90.0, 100.0, 100.0, 100.0)]]
+        out = [[("alpha", 72.0, 93.0, 100.0, 103.0, 100.0)]]     # box +3, baseline 0
+        with mock.patch.object(harness, "_y", lambda w: w[5], create=True):
+            self.assertEqual(churn.matched(src, out), {(0, 0): (0.0, 0.0)})
+        with mock.patch.object(churn.harness, "_y", None, create=True):
+            self.assertEqual(churn._y(out[0][0]), 100.0)          # the token's own anchor
+            self.assertEqual(churn._y(("alpha", 1, 93.0, 2, 3)), 93.0)
+
     def test_frequent_tokens_and_hashes(self):
         with mock.patch.object(churn, "FREQUENT", 1):        # every token is frequent
             r = churn.churn(self.src, self.acc, self.cur)

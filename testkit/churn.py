@@ -88,13 +88,25 @@ def sha256(path):
     return h.hexdigest()
 
 
+def _y(w):
+    """Where a word sits vertically, as the harness reads it: `harness._y`
+    (the baseline, amendment 3) when the harness has one, else what the token
+    carries -- its 6th field if present, its box top otherwise. Reading dy at
+    the box top while the sweep reads the baseline made the "all" figures
+    differ from the sweep's (y37 wp42: 27.64 / 32.00)."""
+    anchor = getattr(harness, "_y", None)
+    if anchor is not None:
+        return anchor(w)
+    return w[5] if len(w) > 5 else w[2]
+
+
 def matched(src_words, render_words):
     """{(page_index, src_index): (dx, dy)} for every source word the render
-    matched, by the harness's own matching."""
+    matched, by the harness's own matching and the harness's own anchor."""
     out = {}
     for i, si, oj in harness.match_pairs(src_words, render_words):
         s, o = src_words[i][si], render_words[i][oj]
-        out[(i, si)] = (o[1] - s[1], o[2] - s[2])
+        out[(i, si)] = (o[1] - s[1], _y(o) - _y(s))
     return out
 
 
