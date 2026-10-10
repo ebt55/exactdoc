@@ -52,6 +52,52 @@
      "mean_ssim": 0.6536
     }
    }
+  },
+  "lanes_word_office2024": {
+   "word_product": {
+    "before_r4word": {
+     "src_pages": 46,
+     "out_pages": 46,
+     "word_recall": 0.9674,
+     "within2pt": 0.0545,
+     "dy_p50": 3.14,
+     "char_recall": 0.9879,
+     "opened": true,
+     "repair_prompt": false
+    },
+    "after_wp35b": {
+     "src_pages": 46,
+     "out_pages": 46,
+     "word_recall": 0.9674,
+     "within2pt": 0.1723,
+     "dy_p50": 2.05,
+     "char_recall": 0.9879,
+     "opened": true,
+     "repair_prompt": false
+    }
+   },
+   "word_raw": {
+    "before_r4word": {
+     "src_pages": 46,
+     "out_pages": 51,
+     "word_recall": 0.4184,
+     "within2pt": 0.1004,
+     "dy_p50": 12.17,
+     "char_recall": 0.6469,
+     "opened": true,
+     "repair_prompt": false
+    },
+    "after_wp35b": {
+     "src_pages": 46,
+     "out_pages": 51,
+     "word_recall": 0.4184,
+     "within2pt": 0.1156,
+     "dy_p50": 11.97,
+     "char_recall": 0.6446,
+     "opened": true,
+     "repair_prompt": false
+    }
+   }
   }
  },
  "y17_side_effect": {
@@ -95,7 +141,54 @@
     "char_recall": 0.9736,
     "mean_ssim": 0.6679
    }
-  }
+  },
+  "word": {
+   "word_product": {
+    "before_r4word": {
+     "src_pages": 194,
+     "out_pages": 194,
+     "word_recall": 0.9848,
+     "within2pt": 0.0514,
+     "dy_p50": 9.85,
+     "char_recall": 0.9999,
+     "opened": true,
+     "repair_prompt": false
+    },
+    "after_wp35b": {
+     "src_pages": 194,
+     "out_pages": 194,
+     "word_recall": 0.9848,
+     "within2pt": 0.0606,
+     "dy_p50": 9.44,
+     "char_recall": 0.9999,
+     "opened": true,
+     "repair_prompt": false
+    }
+   },
+   "word_raw": {
+    "before_r4word": {
+     "src_pages": 194,
+     "out_pages": 195,
+     "word_recall": 0.9166,
+     "within2pt": 0.0334,
+     "dy_p50": 14.09,
+     "char_recall": 0.9736,
+     "opened": true,
+     "repair_prompt": false
+    },
+    "after_wp35b": {
+     "src_pages": 194,
+     "out_pages": 195,
+     "word_recall": 0.9166,
+     "within2pt": 0.0235,
+     "dy_p50": 12.89,
+     "char_recall": 0.9736,
+     "opened": true,
+     "repair_prompt": false
+    }
+   }
+  },
+  "note": "Word raw within-2pt 0.033 -> 0.024 (dy_p50 14.1 -> 12.9) at the same pages and recall; LibreOffice reads the same DOCX change as no movement"
  },
  "byte_identity_word_xml": {
   "gdocs_c3cb767_vs_wp35b": "88 of 90 identical; changed y03, y17",
