@@ -10,7 +10,10 @@ code (`infer.SBS_CODE_MONO`) and whose other side is typeset text, or a
 picture, is a two-sided region (`infer._code_beside`, evidence "example"),
 and a text block the parser grouped across the gutter is cut into its two
 sides first (`infer._part_code_beside`). A list of monospaced terms beside
-their definitions, row by row, stays a list.
+their definitions, row by row, stays a list. A page of examples is read as
+one-column regions even where a column path would have taken the gutter
+down it (y22 p47). And a picture LaTeX drew in its line and circle fonts is
+a drawing, not a table of dingbats (`infer._picture_glyph_draws`).
 
     python -m unittest tests.test_code_beside_output
 """
@@ -66,6 +69,29 @@ def _example_pdf(path, frame=True):
     for i in range(4):
         c.drawString(142, H - (top + 160 + 14 * i),
                      "After the example the text goes on in one column, %d." % i)
+    c.showPage()
+    c.save()
+
+
+def _examples_page_pdf(path):
+    """y22 p47's shape: a heading, three examples down the page with short
+    headings and prose between them -- a gutter all the way down."""
+    c = _canvas.Canvas(path, pagesize=(W, H))
+    top = 120.0
+    for k in range(3):
+        c.setFont("Times-Bold", 12)
+        c.drawString(94, H - top, "2.11.%d Environment number %d" % (k + 3, k))
+        top += 26
+        c.setFont("Courier", 10)
+        for i, t in enumerate(CODE[:7]):
+            c.drawString(94, H - (top + 12 * i), t)
+        c.setFont("Times-Roman", 10)
+        for i, t in enumerate(RESULT[:3]):
+            c.drawString(288, H - (top + 16 + 13 * i), t)
+        top += 12 * 7 + 30
+        c.setFont("Times-Roman", 11)
+        c.drawString(94, H - top, "Prose between the examples, one line of it.")
+        top += 34
     c.showPage()
     c.save()
 
@@ -185,6 +211,36 @@ class TheBlockCut(unittest.TestCase):
         self.assertIs(I._part_code_beside(items), items)
 
 
+class PictureGlyphs(unittest.TestCase):
+    """LaTeX picture-mode fonts draw lines and arcs as glyphs (y22 p105's
+    \\line fan: 58 runs read as a table of dingbats)."""
+
+    def _glyph(self, x, y, font="LINE10"):
+        s = _span("☞✔", x, y, False)
+        s.font = font
+        return s
+
+    def test_a_picture_of_glyphs_becomes_one_drawing(self):
+        label = _line(_span("beta = v/c", 300, 150, False))
+        glyph_lines = [_line(self._glyph(300 + 6 * i, 160 + 4 * i)) for i in range(12)]
+        blocks = [TextBlock(lines=[label] + glyph_lines, bbox=(300, 140, 400, 220))]
+        draws = I._picture_glyph_draws(blocks)
+        self.assertEqual(len(draws), 1)
+        self.assertEqual([ln.text for b in blocks for ln in b.lines], ["beta = v/c"])
+
+    def test_a_few_arrowheads_stay_as_read(self):
+        glyph_lines = [_line(self._glyph(300 + 6 * i, 160, "LCIRCLE10")) for i in range(5)]
+        blocks = [TextBlock(lines=list(glyph_lines), bbox=(300, 150, 340, 165))]
+        self.assertEqual(I._picture_glyph_draws(blocks), [])
+        self.assertEqual(len(blocks[0].lines), 5)
+
+    def test_letters_in_a_picture_font_are_text(self):
+        s = _span("abc", 300, 160, False)
+        s.font = "LINE10"
+        blocks = [TextBlock(lines=[_line(s)] * 10, bbox=(300, 150, 340, 165))]
+        self.assertEqual(I._picture_glyph_draws(blocks), [])
+
+
 @unittest.skipIf(_canvas is None, "reportlab not installed")
 class EndToEnd(unittest.TestCase):
     def test_the_example_is_one_region_at_its_source_height(self):
@@ -210,6 +266,24 @@ class EndToEnd(unittest.TestCase):
             lay = _infer(p)
         self.assertTrue(any(isinstance(el, TableEl) and getattr(el, "_sbs", None) == "example"
                             for el in _els(lay)))
+
+    def test_a_page_of_examples_is_read_in_its_order(self):
+        # the column paths read the gutter down such a page as two columns
+        # (y22 p47): the examples are regions of a one-column page
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "page.pdf")
+            _examples_page_pdf(p)
+            lay = _infer(p)
+        self.assertTrue(all(ch.n_cols == 1 for ch in lay.pages[0].chunks))
+        els = _els(lay)
+        ex = [i for i, el in enumerate(els)
+              if isinstance(el, TableEl) and getattr(el, "_sbs", None) == "example"]
+        self.assertEqual(len(ex), 3)
+        from exactdoc.layout import iter_paras
+        text = " ".join(p.text for p in iter_paras(lay))
+        at = [text.find("Environment number %d" % k) for k in range(3)]
+        self.assertTrue(all(a >= 0 for a in at))
+        self.assertEqual(at, sorted(at))
 
     def test_a_term_list_stays_a_list(self):
         with tempfile.TemporaryDirectory() as d:

@@ -4855,6 +4855,86 @@ def _split_at_span_gaps(ln: Line) -> List[Line]:
             for sp in out]
 
 
+# LaTeX's picture environment draws \line and \vector segments and \circle
+# arcs as glyphs of its line and circle fonts (line10, linew10, lcircle10,
+# lcirclew10). As text they are dingbats on lines of their own: y22 (lshort)
+# p105's \line fan came out as 170 such glyph runs, read as a 23-row table of
+# dingbats that wrapped in every renderer and ran its page onto the next
+# (p105 and p107 spilled in LibreOffice product, every later page one
+# behind). Runs in one of these fonts with no letter or digit in them, at
+# least PICTURE_MIN_GLYPHS of them within PICTURE_GLYPH_REACH of each other,
+# are a picture drawn in glyphs: taken out of the text, they stand as one
+# drawing, which the figure pass clusters with the picture's strokes and
+# rasterises with its labels. Measured over y22's pages with such runs (as
+# the parser groups them), the groups hold 58 (p105), 23 (p107), 18, 16,
+# 13, 9, 8, 8 runs and fewer; one of the 8s is the arrowheads and circled
+# numbers of p129's page-layout diagram, drawn in strokes, whose fragment
+# rasterised alone was stacked in the flow and ran the page 143pt over. The
+# bar is above it.
+PICTURE_FONT_RE = re.compile(r"^(?:[A-Z]{6}\+)?L(?:INE|CIRCLE?)W?\d+$", re.I)
+PICTURE_GLYPH_REACH = 24.0
+PICTURE_MIN_GLYPHS = 9
+
+
+def _picture_glyph_draws(blocks) -> list:
+    """A DrawCmd per picture drawn in LaTeX picture-font glyphs (see
+    PICTURE_FONT_RE), its glyph runs taken out of `blocks` in place: a line
+    left with no span is dropped, a block left with no line too."""
+    runs = []                     # (span, line)
+    for b in blocks:
+        for ln in b.lines:
+            for sp in ln.spans:
+                if PICTURE_FONT_RE.match(sp.font or "") and sp.text.strip() and \
+                        not any(ch.isalnum() for ch in sp.text):
+                    runs.append((sp, ln))
+    if len(runs) < PICTURE_MIN_GLYPHS:
+        return []
+    # group the runs: every pair within reach is one picture
+    uf = _UF(len(runs))
+    for i in range(len(runs)):
+        ei = _expand(runs[i][0].bbox, PICTURE_GLYPH_REACH)
+        for j in range(i + 1, len(runs)):
+            if bbox_overlap(ei, runs[j][0].bbox) > 0:
+                uf.union(i, j)
+    groups = defaultdict(list)
+    for i in range(len(runs)):
+        groups[uf.find(i)].append(i)
+    taken, out = set(), []
+    for members in groups.values():
+        if len(members) < PICTURE_MIN_GLYPHS:
+            continue
+        bb = None
+        for i in members:
+            bb = bbox_union(bb, runs[i][0].bbox)
+        for i in members:
+            taken.add(id(runs[i][0]))
+        out.append(DrawCmd(kind="stroke", shape="complex", bbox=bb, fill=None,
+                           stroke="#000000", width=0.4, opacity=1.0, n_items=1))
+    if not taken:
+        return []
+    for b in list(blocks):
+        keep = []
+        for ln in b.lines:
+            rest = [sp for sp in ln.spans if id(sp) not in taken]
+            if len(rest) != len(ln.spans):
+                if not any(sp.text.strip() for sp in rest):
+                    continue
+                ln.spans = rest
+                ln.bbox = (min(sp.bbox[0] for sp in rest), min(sp.bbox[1] for sp in rest),
+                           max(sp.bbox[2] for sp in rest), max(sp.bbox[3] for sp in rest))
+            keep.append(ln)
+        if len(keep) != len(b.lines):
+            if keep:
+                b.lines = keep
+                bb = None
+                for ln in keep:
+                    bb = bbox_union(bb, ln.bbox)
+                b.bbox = bb
+            else:
+                blocks.remove(b)
+    return out
+
+
 def _box_candidate(d) -> bool:
     """A drawn rectangle the leftover pass would build a box from."""
     return d.shape == "rect" and bool(d.fill or d.stroke) and \
@@ -6302,6 +6382,10 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
         elements: List[Any] = []
         draws = [(i, d) for i, d in enumerate(p.drawings)
                  if i not in cd and d.opacity > 0.05]
+        # Glyphs of LaTeX's picture-mode fonts are line segments and arcs:
+        # drawings, read as such (`_picture_glyph_draws`), with negative
+        # indices -- they are not p.drawings'.
+        draws += [(-1 - k, d) for k, d in enumerate(_picture_glyph_draws(blocks))]
         cuts = _split_lines_at_box_edges(blocks, [d.bbox for _, d in draws if _box_candidate(d)])
         # This runs before drawing clustering because a row-regular table is
         # otherwise split into alternating filled-card clusters and bare flow
@@ -9584,10 +9668,14 @@ SBS_RULE_COVER = 0.5
 # 2-398pt (WP35's Docs diagnosis, docs/evidence/gdocs-2026-10-10-wp35b-y03.json).
 # A side is code when this share of its characters is monospaced -- the
 # share build_box reads a code box by -- and typeset when no more than
-# 1 - SBS_CODE_MONO is. Two lines of code at least: one monospaced line
-# beside text is a term and its definition, not an example.
+# 1 - SBS_CODE_MONO is. The code is listings: runs of three lines at least,
+# each within SBS_CODE_MAX_PITCH of its font size below the last (a blank
+# line inside a listing is two pitches). A monospaced option beside its
+# definition and the next command's name 33pt under it (y26 p119: "-N",
+# "popd") are not one.
 SBS_CODE_MONO = 0.7
-SBS_CODE_MIN_LINES = 2
+SBS_CODE_MIN_LINES = 3
+SBS_CODE_MAX_PITCH = 2.5
 # A list of monospaced terms and their definitions sets every term on the
 # baseline of its definition's first line; an example's source runs on its
 # own, and its \begin/\end lines stand beside nothing. Baseline coincidence
@@ -9648,6 +9736,23 @@ def _part_code_beside(items):
     return sorted(out, key=lambda t: (t[1][1], t[1][0]))
 
 
+def _listing(lines) -> bool:
+    """Are these lines listings -- runs of SBS_CODE_MIN_LINES lines or more,
+    each line at most SBS_CODE_MAX_PITCH of its size below the one before?
+    One band can hold several examples (y22 p58's first two share one)."""
+    ls = sorted(lines, key=lambda l: l.baseline)
+    run = 1
+    for a, b in zip(ls, ls[1:]):
+        size = max([s.size for s in a.spans + b.spans] or [10.0])
+        if b.baseline - a.baseline > SBS_CODE_MAX_PITCH * size:
+            if run < SBS_CODE_MIN_LINES:
+                return False
+            run = 1
+        else:
+            run += 1
+    return run >= SBS_CODE_MIN_LINES
+
+
 def _textless_table(o) -> bool:
     """A table with no word in any cell: a line drawing the rules pass read
     as a grid, a picture all the same. y22's picture-environment figures
@@ -9669,7 +9774,8 @@ def _code_beside(left, right) -> bool:
     definitions does (SBS_CODE_ROW_SHARE)."""
     for code, other in ((left, right), (right, left)):
         cl = _side_lines(code)
-        if len(cl) < SBS_CODE_MIN_LINES or _mono_share(cl) < SBS_CODE_MONO:
+        if len(cl) < SBS_CODE_MIN_LINES or _mono_share(cl) < SBS_CODE_MONO or \
+                not _listing([l for l in cl if _mono_share([l]) >= SBS_CODE_MONO]):
             continue
         ol = _side_lines(other)
         if ol:
@@ -10468,6 +10574,16 @@ def _gutter_chunks(elements, flow_blocks, lay: DocLayout, gutter,
     return _position_chunks(chunks, lay, page_top)
 
 
+def _page_items(elements, flow_blocks, content_l: float, content_r: float):
+    """The page's flow items, blocks and built elements, in reading order."""
+    items = [("blk", b.bbox, b) for b in flow_blocks]
+    for e in elements:
+        bb = _el_bbox(e)
+        items.append(("el", bb or (content_l, 0, content_r, 0), e))
+    items.sort(key=lambda t: (t[1][1], t[1][0]))
+    return items
+
+
 def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
                      page_top: Optional[float] = None) -> List[Chunk]:
     content_l, content_r = lay.margin_l, lay.page_w - lay.margin_r
@@ -10563,6 +10679,21 @@ def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
     if gutter is not None and not twocol and \
             gutter[2] < TWO_COL_MIN_EXTENT_FRAC * max(1.0, body_h):
         gutter = None                    # an inset beside the text, not a column
+    if gutter is not None or twocol:
+        # A page of side-by-side examples has a gutter all the way down its
+        # examples, and both column paths read it as two columns of text: y22
+        # p47's three examples, their headings and the prose between them
+        # were set as one two-column section, the prose after it and the
+        # section heading below the columns. The examples are regions of a
+        # one-column page (`_code_beside`); every other page keeps its path.
+        # (Read first, built only then: building a region sets its elements'
+        # indents, and a page that is not one goes on to its column path.)
+        its = _page_items(elements, flow_blocks, content_l, content_r)
+        if any(r[0] == "band" and r[2] == "example" for r in
+               _sbs_regions(_part_code_beside(its), page, content_l, content_r)):
+            ex = _side_by_side_chunks(its, lay, page, content_l, content_r, lay_rows)
+            if ex:
+                return _position_chunks(ex, lay, page_top)
     if gutter is not None:
         gutter = gutter[:2]
         # The block clusters agree with the white band on every page they
@@ -10577,11 +10708,7 @@ def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
                                       content_l, content_r)):
         twocol = False
 
-    items = [("blk", b.bbox, b) for b in flow_blocks]
-    for e in elements:
-        bb = _el_bbox(e)
-        items.append(("el", bb or (content_l, 0, content_r, 0), e))
-    items.sort(key=lambda t: (t[1][1], t[1][0]))
+    items = _page_items(elements, flow_blocks, content_l, content_r)
 
     if not twocol:
         # Only where the two-column path above did not fire: every page it
