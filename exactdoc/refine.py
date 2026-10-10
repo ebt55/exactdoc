@@ -625,9 +625,9 @@ def _apply(lay: DocLayout, m, state=None) -> bool:
                 if push > OFFSET_DEADBAND:
                     _set_gap(els[0], _gap_of(els[0]) + push)
                     # the render's room bounds the push, so the writer's
-                    # open-loop spill planner must not take it back
-                    # (docxout._absorb_page_spill)
-                    pl.loop_pushed = True
+                    # open-loop spill planner plans the page without it and
+                    # adds it back (docxout._absorb_page_spill)
+                    pl.loop_push_pt = (getattr(pl, "loop_push_pt", 0.0) or 0.0) + push
                     changed = True
             else:
                 # Content sits too low, so `off` points must be *removed*. The

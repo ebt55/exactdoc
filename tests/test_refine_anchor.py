@@ -72,10 +72,12 @@ class BaselineAnchor(unittest.TestCase):
 
 
 class PushedPagesAreTheRendersToAnswer(unittest.TestCase):
-    """A page the loop moved down within its measured room is not re-planned
-    by the writer's open-loop spill prediction (y44_cv_rendercv_typst p1: the
-    prediction planned 34.2pt of cuts against a 30.6pt push the render had
-    room for, and the page came out 34pt high)."""
+    """A page the loop moved down within its measured room is planned by the
+    writer's open-loop spill prediction as it was before the push, and the
+    push is added back. Re-planned with the push, y44_cv_rendercv_typst p1
+    took the push back (34pt high); not planned at all (WP39's first guard),
+    y18_eurlex_ai_act p15 lost the cuts its measured render had and spilled
+    (WP39b)."""
 
     def _page(self, gap=10.0):
         from exactdoc.layout import Chunk, PageLayout, Para, Run
@@ -85,37 +87,70 @@ class PushedPagesAreTheRendersToAnswer(unittest.TestCase):
                for _ in range(6)]
         return PageLayout(number=1, chunks=[Chunk(elements=els)]), els
 
-    def test_a_push_marks_the_page(self):
+    def test_a_push_records_its_points(self):
         from exactdoc.layout import DocLayout
         pg, els = self._page()
-        self.assertFalse(pg.loop_pushed)
-        R._apply(DocLayout(pages=[pg]), {"spill": [0], "offset": [-6.0],
-                                         "need": [None], "room": [40.0]})
+        self.assertEqual(pg.loop_push_pt, 0.0)
+        lay = DocLayout(pages=[pg])
+        R._apply(lay, {"spill": [0], "offset": [-6.0], "need": [None], "room": [40.0]})
         self.assertAlmostEqual(els[0].space_before, 16.0)
-        self.assertTrue(pg.loop_pushed)
+        self.assertAlmostEqual(pg.loop_push_pt, 6.0)
+        R._apply(lay, {"spill": [0], "offset": [-2.0], "need": [None], "room": [30.0]})
+        self.assertAlmostEqual(pg.loop_push_pt, 8.0)
 
     def test_a_pull_or_a_spill_does_not(self):
         from exactdoc.layout import DocLayout
         pulled, _ = self._page()
         R._apply(DocLayout(pages=[pulled]), {"spill": [0], "offset": [5.0],
                                              "need": [None], "room": [40.0]})
-        self.assertFalse(pulled.loop_pushed)
+        self.assertEqual(pulled.loop_push_pt, 0.0)
         spilled, _ = self._page()
         R._apply(DocLayout(pages=[spilled]), {"spill": [1], "offset": [0.0],
                                               "need": [None], "room": [None]})
-        self.assertFalse(spilled.loop_pushed)
+        self.assertEqual(spilled.loop_push_pt, 0.0)
 
-    def test_the_writer_leaves_a_pushed_page_alone(self):
+    def _model(self, base_over):
+        """A spill prediction that reads the first gap: `base_over` points over
+        at the unpushed 10pt, plus whatever the first gap gained."""
+        def spill(pg, *_a, **_k):
+            first = pg.chunks[0].elements[0]
+            over = base_over + (first.space_before - 10.0)
+            return (over, 2 if over > 0 else 0)
+        return spill
+
+    def test_a_push_is_not_taken_back(self):
+        # y44 p1: unpushed the page fits by the model, so nothing is planned;
+        # a 30pt push must not read as 30pt over
         from unittest import mock
         from exactdoc import docxout
         from exactdoc.layout import DocLayout
-        pg, _ = self._page()
+        pg, els = self._page()
         lay = DocLayout(pages=[pg])
-        # whatever the prediction says: two lines stranded, 20pt over
-        with mock.patch.object(docxout, "_page_spill", return_value=(20.0, 2)):
-            self.assertTrue(docxout._absorb_page_spill(pg, 468.0, lay))
-            pg.loop_pushed = True
+        els[0].space_before, pg.loop_push_pt = 40.0, 30.0
+        with mock.patch.object(docxout, "_page_spill", side_effect=self._model(-1.6)):
             self.assertEqual(docxout._absorb_page_spill(pg, 468.0, lay), {})
+        self.assertEqual(els[0].space_before, 40.0)          # restored
+
+    def test_the_cuts_the_render_was_measured_with_stay(self):
+        # y18 p15: unpushed the model plans cuts the round-0 render fitted
+        # with; after a push the same cuts are planned, the push on top
+        from unittest import mock
+        from exactdoc import docxout
+        from exactdoc.layout import DocLayout
+        pg, els = self._page()
+        lay = DocLayout(pages=[pg])
+        with mock.patch.object(docxout, "_page_spill", side_effect=self._model(5.0)):
+            before = docxout._absorb_page_spill(pg, 468.0, lay)
+            self.assertTrue(before)
+            els[0].space_before, pg.loop_push_pt = 14.7, 4.7
+            after = docxout._absorb_page_spill(pg, 468.0, lay)
+        self.assertEqual(set(after), set(before))
+        for el in els[1:]:
+            if id(el) in before:
+                self.assertEqual(after[id(el)], before[id(el)])
+        if id(els[0]) in before:
+            self.assertAlmostEqual(after[id(els[0])], before[id(els[0])] + 4.7, places=1)
+        self.assertEqual(els[0].space_before, 14.7)
 
 
 if __name__ == "__main__":

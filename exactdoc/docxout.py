@@ -2255,17 +2255,39 @@ def _absorb_page_spill(pg, content_w: float, lay: DocLayout,
     paragraph gaps cannot cover the overflow in full is left alone: a partial
     payment spends the spacing and still loses the page.
 
-    Nor is a page the refine loop pushed down (`PageLayout.loop_pushed`): the
-    push is bounded by the room the render measured at the page's foot, so the
-    render has already answered the question this prediction asks, and the
-    prediction would take the push back. Measured on y44_cv_rendercv_typst
-    p1 (product, Carlito image): the render left 38.8pt free while this model
-    predicted 1.6pt over; the loop pushed the body down 30.6pt to its source
-    position, the model then predicted 32.2pt over on two stranded lines and
-    planned 34.2pt of cuts -- the page came out 34pt high instead of 0.
+    A page the refine loop pushed down (`PageLayout.loop_push_pt`) is planned
+    as it was before the push, and the push is added back: the push is bounded
+    by the room the render measured at the page's foot -- a render of the page
+    WITH this plan -- so the prediction must neither take the push back nor
+    drop the cuts that render was measured with. Both happened. Re-planned
+    with the push in it, y44_cv_rendercv_typst p1 (the render 38.8pt free, the
+    model 1.6pt over) read the 30.6pt push as 32.2pt over on two stranded
+    lines and planned 34.2pt of cuts: the page came out 34pt high instead of
+    0. Not planned at all (WP39's first guard), y18_eurlex_ai_act p15 lost the
+    cuts its round-0 render had fitted with 28pt to spare, spilled on a 4.7pt
+    push, and the loop published its uncorrected round 0 (within-2pt
+    0.145 -> 0.009 once WP34's planner was in).
     """
-    if getattr(pg, "loop_pushed", False):
-        return {}
+    push = getattr(pg, "loop_push_pt", 0.0) or 0.0
+    first = next((el for ch in pg.chunks for el in ch.elements), None) \
+        if push > 0.0 else None
+    if first is None or not hasattr(first, "space_before"):
+        return _absorb_unpushed(pg, content_w, lay, notes_h, output_profile)
+    pushed = first.space_before or 0.0
+    first.space_before = max(0.0, pushed - push)
+    try:
+        plan = _absorb_unpushed(pg, content_w, lay, notes_h, output_profile)
+    finally:
+        first.space_before = pushed
+    if id(first) in plan:
+        plan = dict(plan)
+        plan[id(first)] = round(plan[id(first)] + push, 1)
+    return plan
+
+
+def _absorb_unpushed(pg, content_w: float, lay: DocLayout, notes_h: float,
+                     output_profile: str) -> dict:
+    """`_absorb_page_spill` for the page as it stands (no loop push)."""
     got = _page_spill(pg, content_w, lay, notes_h, output_profile)
     if got is None:
         return {}
