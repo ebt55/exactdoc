@@ -793,6 +793,16 @@ def classify_failure(r):
     err = str(err)
     if err.split(":", 1)[0] in _REFUSAL_CODES:
         return "refusal"
+    # A worker's death is the document's crash unless the pool itself died
+    # (WP43). quality_sweep.py records `worker_failure` from now on and runs a
+    # dying pool's documents again alone, so only an unrecoverable pool reads
+    # as infrastructure; older rows said "worker: <exception>" for both, and
+    # only the BrokenProcessPool ones were the pool.
+    wf = r.get("worker_failure")
+    if isinstance(wf, dict):
+        return "infra" if wf.get("pool_broken") else "crash"
+    if err.startswith("worker: "):
+        return "infra" if "BrokenProcessPool" in err or "pool died" in err else "crash"
     if err.startswith(_INFRA) or "round trip failed" in err:
         return "infra"
     return "crash"

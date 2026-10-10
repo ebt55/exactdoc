@@ -21,6 +21,18 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 one verified fix at a time, each gated against the frozen 16.
 
 
+- **A worker that dies is the document's crash, unless the pool died (WP43
+  item 3).** `quality_sweep.py` recorded any failure out of its process pool
+  as "worker: ..." and criterion 1 read all of those as infrastructure, so a
+  document that killed its worker never counted. Now a worker that raises is
+  that document's crash ("worker crashed: Type: ..."); a pool that dies
+  (BrokenProcessPool takes every document in flight) has those documents run
+  again, each in a process of its own: the one whose process dies alone is
+  the crash, with its exit code, and the others get their real rows (marked
+  `retried_alone`). Rows carry `worker_failure` {type, pool_broken, exitcode};
+  `beta_readiness` reads it (pool_broken -> infra, else crash) and, for older
+  rows, takes only "worker: BrokenProcessPool..." as infra.
+
 - **Measurements record what they were made from (WP43 item 2).** The
   containers get the tree without `.git`, so `sweep.sh` and `gate_full.sh`
   read the commit (and dirty flag, branch) on the host and pass it in with
