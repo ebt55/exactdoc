@@ -3037,6 +3037,23 @@ def _gdocs_min_col_widths(widths: List[float], t: TableEl = None,
     return ws
 
 
+def _gdocs_table_hang(t: TableEl, ctx) -> float:
+    """How far left of its column a gdocs table's edge stands: the hang Word
+    draws a table with, its border out by the first cell's left margin and
+    its text on the column (`TableEl.hang_left`, infer). The standard profile
+    places the edge so (`_lead_pad`); the gdocs profile set it on the column,
+    and every table's text landed the hang to the right in Google Docs --
+    c3_tables +7.00pt on every table line (within-2pt 0.000), x04 +6.5 and
+    +5.5, 03's code boxes and tables +6.1 to +6.9, l1 +5.7, 01's cover band
+    +5.95 (r4gd exports, 71558af). Docs honours a negative table indent to
+    the point: y58's cell text at 105.0 for the source's 105.2 (indent
+    -10.7pt), y28's at 252.0 for 252.0 (-31.5pt). 0.0 for every other
+    profile and every table that does not hang."""
+    if getattr(ctx, "output_profile", "") != "gdocs":
+        return 0.0
+    return max(0.0, getattr(t, "hang_left", 0.0) or 0.0)
+
+
 def _gdocs_paragraph_form(t: TableEl, ctx) -> bool:
     """True when the gdocs profile writes this table as bordered paragraphs."""
     return ctx.output_profile == "gdocs" and _gdocs_block_form(t)
@@ -3150,10 +3167,11 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
             ind.set(qn("w:type"), "dxa")
             tblPr.append(ind)
     # Negative too: a panel the source bled into the margin (infer's
-    # side-by-side columns) keeps its x. Nothing else asks for one.
-    elif frame is None and abs(t.left_indent) > 0.5:
+    # side-by-side columns) keeps its x; so does a gdocs table that hangs
+    # (`_gdocs_table_hang`).
+    elif frame is None and abs(t.left_indent - _gdocs_table_hang(t, ctx)) > 0.5:
         ind = OxmlElement("w:tblInd")
-        ind.set(qn("w:w"), str(int(round(t.left_indent * 20))))
+        ind.set(qn("w:w"), str(int(round((t.left_indent - _gdocs_table_hang(t, ctx)) * 20))))
         ind.set(qn("w:type"), "dxa")
         tblPr.append(ind)
     # no default borders / spacing; zero default cell margins (but the left
