@@ -126,7 +126,7 @@ class EndToEnd(unittest.TestCase):
 
     def test_a_synthetic_footer_line_converts_to_Page_with_spacing(self):
         import fitz
-        from exactdoc import convert
+        from exactdoc.convert import convert
         from exactdoc import options as O
         with tempfile.TemporaryDirectory() as td:
             src, out = os.path.join(td, "s.pdf"), os.path.join(td, "o.docx")
