@@ -1,0 +1,540 @@
+{
+ "what": "WP35 offline evidence: why y18 spilled two pages in Google Docs and why the NIST notice panels stand tall, read off Google's own exports of the 71558af sweep; what the two gdocs rules change",
+ "date": "2026-10-10",
+ "exports": "C:/lotmp/r4gd/out/<doc>.gdocs.pdf (live sweep of integration 71558af; the uploaded DOCX are word/*.xml-identical to this branch's base build on all 90 converted documents)",
+ "y18_list_label_to_text_pt": {
+  "hanging 0.0, stops [21.5]": {
+   "docs 36 / source 22": 363,
+   "docs 22 / source 22": 10,
+   "docs 26 / source 26": 2
+  },
+  "hanging 26.9, stops []": {
+   "docs 27 / source 27": 70,
+   "docs 15 / source 15": 2,
+   "docs 12 / source 11": 1
+  },
+  "hanging 21.5, stops []": {
+   "docs 22 / source 22": 47,
+   "docs 36 / source 22": 3,
+   "docs 15 / source 15": 1
+  },
+  "hanging 0.0, stops [26.6]": {
+   "docs 36 / source 27": 25,
+   "docs 36 / source 22": 4
+  },
+  "hanging 16.9, stops []": {
+   "docs 17 / source 17": 26
+  },
+  "hanging 14.2, stops []": {
+   "docs 14 / source 14": 14,
+   "docs 11 / source 12": 2,
+   "docs 12 / source 13": 2
+  },
+  "hanging 26.2, stops []": {
+   "docs 26 / source 26": 11
+  },
+  "hanging 14.1, stops []": {
+   "docs 14 / source 14": 10
+  },
+  "hanging 19.5, stops []": {
+   "docs 20 / source 20": 9
+  }
+ },
+ "y18_spills": {
+  "finding": "export pages 1-58 match the source 1:1 (recall 0.92-1.00 a page); source page 58's last paragraph and page 60's last line spill onto export pages 59 and 62 (nearly empty), every later page two behind. Every paragraph that grew a line on those pages is a run-in numbered item (hanging 0, 21.5pt stop): '5. To the extent' 5->6 lines, '3. The Commission' 2->3 on p58; '1. High-risk AI systems', '4. For the purpose' 2->3 on p60. Over the whole export, paragraphs Docs set longer than the planner modelled: 19 run-in numbered items, 4 others.",
+  "recall_if_the_two_spills_fold_back": {
+   "export_pages": 146,
+   "folded_pages": 144,
+   "source_pages": 144,
+   "word_recall": 0.6974,
+   "word_recall_folded": 0.9858
+  }
+ },
+ "typed_tab_stops_in_docs": {
+  "y18 typed 'N.<tab>' items, stop 21.5pt": "text at x 89.2 for the source's 89.0; the 6 measurable ones (8+ words, unique opening) each set in the source's line count",
+  "y01/y09 contents entries, stop 24pt": "96.0 for 96.0",
+  "y02 glossary/reference rows, stops 86.4 and 135.9pt": "176.2/225.8 for 176.4/225.9"
+ },
+ "notice_panels": {
+  "finding": "infer builds the NIST notice (one filled rectangle per line, Word's paragraph shading) as 13 one-line boxes; written as 13 four-side bordered paragraphs, Docs sets each 1.5pt taller (its own top and bottom border) and re-wraps the lines the source justified tighter than Times sets them (natural 471-473pt in a 468.5pt column)",
+  "y09_p3_source": {
+   "lines": 13,
+   "first_to_last": 146.88,
+   "pitches": [
+    11.46,
+    11.52,
+    11.52,
+    17.46,
+    11.52,
+    11.52,
+    11.46,
+    11.52,
+    11.52,
+    16.62,
+    10.38,
+    10.38
+   ],
+   "short_lines": []
+  },
+  "y09_p3_docs_base": {
+   "lines": 16,
+   "first_to_last": 197.14,
+   "pitches": [
+    13.14,
+    13.14,
+    13.15,
+    18.39,
+    11.64,
+    11.65,
+    11.64,
+    11.64,
+    11.64,
+    11.65,
+    13.14,
+    18.39,
+    11.64,
+    13.15,
+    13.14
+   ],
+   "short_lines": [
+    "accordance",
+    "methodologies,",
+    "to"
+   ]
+  },
+  "y02_p4_docs_same_text_one_box": "first to last baseline 171.1pt for the source's 170.8 (inferred whole from one stroked rectangle; the form wp35 writes)"
+ },
+ "byte_identity_word_xml": {
+  "gdocs_profile_base_vs_wp35": {
+   "identical": 85,
+   "changed": [
+    "y01_nist_sp80063b",
+    "y08_nist_sp80088r1",
+    "y09_nist_sp800207",
+    "y18_eurlex_ai_act",
+    "y64_bls_release_xpp"
+   ]
+  },
+  "standard_profile_RAW_base_vs_wp35": {
+   "identical": 90,
+   "changed": []
+  },
+  "note": "90 of the 95 convert (y07, y14 are refused forms; y11, y23, y25 exceed the page limit), in both trees alike; base = 71558af, word/*.xml equal to r4gd's uploaded DOCX on all 90"
+ },
+ "side_finding_not_fixed": {
+  "y18_page_bottom_body_lines_dropped": "the converter drops the last body line of a full EUR-Lex page (baseline 798.9pt, 14pt above the running footer) on at least 15 of y18's pages, in BOTH profiles (absent from the raw and gdocs DOCX): p7, p45, p47, p49, p58 ('necessary to assess the compliance of the system ...'), p59, p80, p89, p91, p94 ... -- an inference (running-furniture band) defect outside WP35's files; it costs doc recall in every lane, not pages"
+ },
+ "probe_set": "C:\\lotmp\\scr\\wp35\\gdocs_probe (PROBE.md); synthetic sources probe_runin_lists.pdf, probe_line_panel.pdf in its parent",
+ "live_flight": {
+  "label": "live Google Docs flight 2026-10-10, base = 71558af gdocs output",
+  "rows": "C:/lotmp/wp35live/run.jsonl",
+  "exports": "C:/lotmp/wp35live/<doc>.<base|wp35>/",
+  "flown_by": "coordinator (the probe set C:/lotmp/scr/wp35/gdocs_probe)",
+  "per_document": {
+   "01_whitepaper_market": {
+    "base": {
+     "out_pages": 3,
+     "src_pages": 3,
+     "word_recall": 0.9665,
+     "char_recall": 0.9811,
+     "within2pt": 0.392,
+     "dy_p50": 1.88,
+     "mean_ssim": 0.823
+    },
+    "wp35": {
+     "out_pages": 3,
+     "src_pages": 3,
+     "word_recall": 0.9665,
+     "char_recall": 0.9811,
+     "within2pt": 0.392,
+     "dy_p50": 1.88,
+     "mean_ssim": 0.823
+    }
+   },
+   "c1_whitepaper": {
+    "base": {
+     "out_pages": 2,
+     "src_pages": 2,
+     "word_recall": 1.0,
+     "char_recall": 1.0,
+     "within2pt": 0.3758,
+     "dy_p50": 0.62,
+     "mean_ssim": 0.8684
+    },
+    "wp35": {
+     "out_pages": 2,
+     "src_pages": 2,
+     "word_recall": 1.0,
+     "char_recall": 1.0,
+     "within2pt": 0.3758,
+     "dy_p50": 0.62,
+     "mean_ssim": 0.8684
+    }
+   },
+   "probe_line_panel": {
+    "base": {
+     "out_pages": 1,
+     "src_pages": 1,
+     "word_recall": 1.0,
+     "char_recall": 1.0,
+     "within2pt": 0.0088,
+     "dy_p50": 3.34,
+     "mean_ssim": 0.9189
+    },
+    "wp35": {
+     "out_pages": 1,
+     "src_pages": 1,
+     "word_recall": 1.0,
+     "char_recall": 1.0,
+     "within2pt": 0.5702,
+     "dy_p50": 1.65,
+     "mean_ssim": 0.961
+    }
+   },
+   "probe_runin_lists": {
+    "base": {
+     "out_pages": 1,
+     "src_pages": 1,
+     "word_recall": 1.0,
+     "char_recall": 1.0,
+     "within2pt": 0.3152,
+     "dy_p50": 1.62,
+     "mean_ssim": 0.9409
+    },
+    "wp35": {
+     "out_pages": 1,
+     "src_pages": 1,
+     "word_recall": 1.0,
+     "char_recall": 1.0,
+     "within2pt": 0.3804,
+     "dy_p50": 1.62,
+     "mean_ssim": 0.9461
+    }
+   },
+   "x03_lo_lists_nested": {
+    "base": {
+     "out_pages": 2,
+     "src_pages": 2,
+     "word_recall": 0.9492,
+     "char_recall": 0.9905,
+     "within2pt": 1.0,
+     "dy_p50": 0.25,
+     "mean_ssim": 0.9761
+    },
+    "wp35": {
+     "out_pages": 2,
+     "src_pages": 2,
+     "word_recall": 0.9492,
+     "char_recall": 0.9905,
+     "within2pt": 1.0,
+     "dy_p50": 0.25,
+     "mean_ssim": 0.9761
+    }
+   },
+   "x09_chrome_lists_nested": {
+    "base": {
+     "out_pages": 2,
+     "src_pages": 2,
+     "word_recall": 1.0,
+     "char_recall": 1.0,
+     "within2pt": 0.272,
+     "dy_p50": 0.14,
+     "mean_ssim": 0.9267
+    },
+    "wp35": {
+     "out_pages": 2,
+     "src_pages": 2,
+     "word_recall": 1.0,
+     "char_recall": 1.0,
+     "within2pt": 0.272,
+     "dy_p50": 0.14,
+     "mean_ssim": 0.9267
+    }
+   },
+   "y01_nist_sp80063b": {
+    "base": {
+     "out_pages": 80,
+     "src_pages": 80,
+     "word_recall": 0.9671,
+     "char_recall": 0.9586,
+     "within2pt": 0.2837,
+     "dy_p50": 2.17,
+     "mean_ssim": 0.7905
+    },
+    "wp35": {
+     "out_pages": 80,
+     "src_pages": 80,
+     "word_recall": 0.9671,
+     "char_recall": 0.9586,
+     "within2pt": 0.2837,
+     "dy_p50": 2.17,
+     "mean_ssim": 0.7908
+    }
+   },
+   "y02_nist_sp800171r2": {
+    "base": {
+     "out_pages": 114,
+     "src_pages": 114,
+     "word_recall": 0.9656,
+     "char_recall": 0.9623,
+     "within2pt": 0.1472,
+     "dy_p50": 8.22,
+     "mean_ssim": 0.6927
+    },
+    "wp35": {
+     "out_pages": 114,
+     "src_pages": 114,
+     "word_recall": 0.9656,
+     "char_recall": 0.9623,
+     "within2pt": 0.1472,
+     "dy_p50": 8.22,
+     "mean_ssim": 0.6927
+    }
+   },
+   "y03_nist_fips197": {
+    "base": {
+     "out_pages": 47,
+     "src_pages": 46,
+     "word_recall": 0.8543,
+     "char_recall": 0.9185,
+     "within2pt": 0.1151,
+     "dy_p50": 2.78,
+     "mean_ssim": 0.7293
+    },
+    "wp35": {
+     "out_pages": 47,
+     "src_pages": 46,
+     "word_recall": 0.8543,
+     "char_recall": 0.9185,
+     "within2pt": 0.1151,
+     "dy_p50": 2.78,
+     "mean_ssim": 0.7293
+    }
+   },
+   "y08_nist_sp80088r1": {
+    "base": {
+     "out_pages": 65,
+     "src_pages": 65,
+     "word_recall": 0.9906,
+     "char_recall": 0.9993,
+     "within2pt": 0.3085,
+     "dy_p50": 1.81,
+     "mean_ssim": 0.7619
+    },
+    "wp35": {
+     "out_pages": 65,
+     "src_pages": 65,
+     "word_recall": 0.9906,
+     "char_recall": 0.9993,
+     "within2pt": 0.3147,
+     "dy_p50": 1.78,
+     "mean_ssim": 0.763
+    }
+   },
+   "y09_nist_sp800207": {
+    "base": {
+     "out_pages": 59,
+     "src_pages": 59,
+     "word_recall": 0.9734,
+     "char_recall": 0.9639,
+     "within2pt": 0.4376,
+     "dy_p50": 1.83,
+     "mean_ssim": 0.7524
+    },
+    "wp35": {
+     "out_pages": 59,
+     "src_pages": 59,
+     "word_recall": 0.9734,
+     "char_recall": 0.9639,
+     "within2pt": 0.4627,
+     "dy_p50": 1.82,
+     "mean_ssim": 0.7527
+    }
+   },
+   "y10_nist_fips180": {
+    "base": {
+     "out_pages": 36,
+     "src_pages": 36,
+     "word_recall": 0.9325,
+     "char_recall": 0.9992,
+     "within2pt": 0.3047,
+     "dy_p50": 1.82,
+     "mean_ssim": 0.8587
+    },
+    "wp35": {
+     "out_pages": 36,
+     "src_pages": 36,
+     "word_recall": 0.9325,
+     "char_recall": 0.9992,
+     "within2pt": 0.3047,
+     "dy_p50": 1.82,
+     "mean_ssim": 0.8587
+    }
+   },
+   "y17_rfc9110": {
+    "base": {
+     "out_pages": 196,
+     "src_pages": 194,
+     "word_recall": 0.914,
+     "char_recall": 0.9705,
+     "within2pt": 0.4227,
+     "dy_p50": 0.15,
+     "mean_ssim": 0.7305
+    },
+    "wp35": {
+     "out_pages": 196,
+     "src_pages": 194,
+     "word_recall": 0.914,
+     "char_recall": 0.9705,
+     "within2pt": 0.4227,
+     "dy_p50": 0.15,
+     "mean_ssim": 0.7305
+    }
+   },
+   "y18_eurlex_ai_act": {
+    "base": {
+     "out_pages": 146,
+     "src_pages": 144,
+     "word_recall": 0.6974,
+     "char_recall": 0.8964,
+     "within2pt": 0.0084,
+     "dy_p50": 10.82,
+     "mean_ssim": 0.534
+    },
+    "wp35": {
+     "out_pages": 144,
+     "src_pages": 144,
+     "word_recall": 0.9873,
+     "char_recall": 0.9878,
+     "within2pt": 0.0079,
+     "dy_p50": 3.05,
+     "mean_ssim": 0.5737
+    }
+   },
+   "y26_bash_reference": {
+    "base": {
+     "out_pages": 214,
+     "src_pages": 214,
+     "word_recall": 0.8852,
+     "char_recall": 0.9648,
+     "within2pt": 0.0456,
+     "dy_p50": 5.52,
+     "mean_ssim": 0.6807
+    },
+    "wp35": {
+     "out_pages": 214,
+     "src_pages": 214,
+     "word_recall": 0.8852,
+     "char_recall": 0.9648,
+     "within2pt": 0.0456,
+     "dy_p50": 5.52,
+     "mean_ssim": 0.6807
+    }
+   },
+   "y28_doe_oig_word365": {
+    "base": {
+     "out_pages": 21,
+     "src_pages": 21,
+     "word_recall": 0.9902,
+     "char_recall": 0.9956,
+     "within2pt": 0.252,
+     "dy_p50": 0.83,
+     "mean_ssim": 0.6993
+    },
+    "wp35": {
+     "out_pages": 21,
+     "src_pages": 21,
+     "word_recall": 0.9902,
+     "char_recall": 0.9956,
+     "within2pt": 0.252,
+     "dy_p50": 0.83,
+     "mean_ssim": 0.6993
+    }
+   },
+   "y36_lo_writer_guide": {
+    "base": {
+     "out_pages": 25,
+     "src_pages": 25,
+     "word_recall": 0.9931,
+     "char_recall": 1.0,
+     "within2pt": 0.4029,
+     "dy_p50": 2.06,
+     "mean_ssim": 0.7365
+    },
+    "wp35": {
+     "out_pages": 25,
+     "src_pages": 25,
+     "word_recall": 0.9931,
+     "char_recall": 1.0,
+     "within2pt": 0.4029,
+     "dy_p50": 2.06,
+     "mean_ssim": 0.7365
+    }
+   },
+   "y46_cv_twocol_xdvipdfmx": {
+    "base": {
+     "out_pages": 1,
+     "src_pages": 1,
+     "word_recall": 0.8983,
+     "char_recall": 0.9077,
+     "within2pt": 0.0615,
+     "dy_p50": 9.92,
+     "mean_ssim": 0.5881
+    },
+    "wp35": {
+     "out_pages": 1,
+     "src_pages": 1,
+     "word_recall": 0.8983,
+     "char_recall": 0.9077,
+     "within2pt": 0.0615,
+     "dy_p50": 9.92,
+     "mean_ssim": 0.5881
+    }
+   },
+   "y64_bls_release_xpp": {
+    "base": {
+     "out_pages": 40,
+     "src_pages": 39,
+     "word_recall": 0.3885,
+     "char_recall": 0.741,
+     "within2pt": 0.0745,
+     "dy_p50": 16.07,
+     "mean_ssim": 0.5871
+    },
+    "wp35": {
+     "out_pages": 40,
+     "src_pages": 39,
+     "word_recall": 0.3885,
+     "char_recall": 0.741,
+     "within2pt": 0.0745,
+     "dy_p50": 16.07,
+     "mean_ssim": 0.5871
+    }
+   }
+  },
+  "summary": {
+   "y18_eurlex_ai_act": "146/144 wr 0.6974 -> 144/144 wr 0.9873 (char 0.988), dy_p50 10.82 -> 3.05pt: the offline projection (0.986) confirmed",
+   "y09_nist_sp800207": "59/59, wr 0.9734 both; within-2pt 0.4376 -> 0.4627 (the notice panel)",
+   "y08_nist_sp80088r1": "65/65, wr 0.9906 both; within-2pt 0.3085 -> 0.3147",
+   "y01_nist_sp80063b": "80/80, wr 0.9671, within-2pt 0.2837: unchanged",
+   "probe_line_panel": "within-2pt 0.0088 -> 0.5702, dy_p50 3.34 -> 1.65pt",
+   "probe_runin_lists": "within-2pt 0.3152 -> 0.3804",
+   "y64_bls_release_xpp": "40/39, wr 0.3885, within-2pt 0.0745: identical to base (two dash rows typed; WP33 owns y64)",
+   "byte_identical_controls_reproduced_base_exactly": [
+    "01_whitepaper_market",
+    "c1_whitepaper",
+    "x03_lo_lists_nested",
+    "x09_chrome_lists_nested",
+    "y02_nist_sp800171r2",
+    "y03_nist_fips197",
+    "y10_nist_fips180",
+    "y17_rfc9110",
+    "y26_bash_reference",
+    "y28_doe_oig_word365",
+    "y36_lo_writer_guide",
+    "y46_cv_twocol_xdvipdfmx"
+   ],
+   "pending_when_written": []
+  }
+ }
+}
