@@ -1,0 +1,1990 @@
+{
+ "what": "WP33: gutter channels (parse_pdfium._gutter_channels, from WP25, plus a monospace guard), the spacing cursor (infer._position_chunks, from WP25), and a 'must clear the body' bar for running heads found by geometry alone (infer.detect_hf / _furniture_clearance / GEO_CLEAR_LINES). Measured in the canonical Carlito image against the round's before (r4-new-*, integration 71558af/e906ad4).",
+ "tree": {
+  "branch": "wp33",
+  "from": "wp25 ab98f63",
+  "commits": {
+   "merge_71558af": "89280c5",
+   "furniture_bar": "8f66127",
+   "heads_only": "2da1841",
+   "monospace_guard": "d879a12",
+   "merge_e906ad4_carlito": "e400f11",
+   "merge_c3cb767": "a35496d"
+  },
+  "measured": "sweeps and Word on e400f11; gate on a35496d (c3cb767 is gdocs-only)"
+ },
+ "gate": {
+  "run": "C:\\lotmp\\scr\\runs\\wp33-gate2.log (a35496d, exactdoc-gate:boot = Carlito bab1cfc0)",
+  "suite": "Ran 1706 tests OK (skipped=1)",
+  "lanes": {
+   "product": "PASS 16/16, within-2pt 0.7304, live 0.9784, dy50 0.525",
+   "raw": "PASS 16/16, within-2pt 0.5466, live 0.9784, dy50 1.245"
+  },
+  "failed_steps": 0,
+  "gated_16_docx": "byte-identical (word/*.xml) to r4-new in both lanes"
+ },
+ "docx_identity_vs_r4_new": {
+  "product_changed": [
+   "y01",
+   "y02",
+   "y03",
+   "y06",
+   "y09",
+   "y12",
+   "y13",
+   "y21",
+   "y22",
+   "y28",
+   "y30",
+   "y37",
+   "y38",
+   "y42",
+   "y47",
+   "y49",
+   "y53",
+   "y54",
+   "y59",
+   "y60",
+   "y61",
+   "y64"
+  ],
+  "raw_changed_additionally": [
+   "x07",
+   "y08"
+  ],
+  "identical": "the other 68 (product) / 66 (raw), the gated 16 among them"
+ },
+ "y21_diagnosis": "The channel rule's y21 splits are true welds (ragged-right 2-col prose, channel x 281-297; midpoints 3-6pt off the gutter_xs cluster). With the welds left in, each welded line cut its page's 2-col grid into 2+ multi-col chunks, so docxout._merge_grid_page_runs.shape_of returned None and the page kept its seam. Cut, p13-17 and p25-42 become single-grid pages and merge into flowing runs (33 -> 24 layout pages), their full-width figure/table tails poured into the columns; LibreOffice runs a page short from p16 (p16 -> out 15, p17 -> 16 ... p48 -> 47): product word recall 0.719 -> 0.519 at 48 pages for 48. Seams kept for non-booklet docs (experiment, not shipped): 0.771, dy_p50 26.6 -> 14.1. y12's Word loss (0.808 -> 0.626) is the same mechanism (run 26-36 + 40-44 becomes 26-44). Both belong to WP38's seam rule (coordinator, 2026-10-10); with the split disabled y12 and y21 measure exactly the before in LO and Word.",
+ "y17_monospace": "The channel rule cut three ABNF lines on y17 p39 (RobotoMono, gaps off the cell grid) at an alignment column; the DOCX lost their alignment spaces. Guard: no channel cut between two glyphs of one monospace face. y17 product/raw DOCX now byte-identical to before.",
+ "furniture_census": {
+  "how": "every signature detect_hf's geometry pass qualified (one line at one place and size on >= 60% of later pages, TOPZ/BOTZ), both corpora, clearance = white between the line (stack of candidate rows measured from its inner row) and the first body line on the body side; median over its pages",
+  "heads_real": {
+   "y24_pandoc_manual": 19.8,
+   "y34_census_slides": 38.7,
+   "y26_bash_reference": 40.0
+  },
+  "heads_body": {
+   "y64_bls_release_xpp": 1.4,
+   "y17_rfc9110": 0.2,
+   "y27_rfc9000": 0.2,
+   "y55_th_pages_quartz": [
+    9.9,
+    10.3
+   ],
+   "y54_hi_gdocs": "8.1 and below (one signature at 23.0: a strip-band misread, unchanged)"
+  },
+  "feet_real": {
+   "y23_luatex": 40.5,
+   "y02_nist_sp800171r2": 48.7
+  },
+  "feet_body": {
+   "y18_eurlex_ai_act": 0.7,
+   "y14_irs_fw9_form": -0.4,
+   "y47_ar_ilo_word365": 4.1
+  },
+  "bar": "GEO_CLEAR_LINES = 1.2 x the signature's size, heads only",
+  "feet_not_held": "applied to feet in 8f66127: y18 raw 156 -> 174 pages (144 src), product dy_p50 2.82 -> 4.51; y47 raw 86 -> 93 (old image, vs r4-old). Withdrawn in 2da1841.",
+  "y17_y27": "their qualified heads are consumed later by the strip-band pass anyway: no output change",
+  "per_signature": "see census_signatures",
+  "census_signatures": {
+   "y02_nist_sp800171r2.pdf": [
+    {
+     "zone": "bot",
+     "y": 744,
+     "size": 9,
+     "pages": 101,
+     "of": 114,
+     "median_clearance_pt": 48.7,
+     "min_clearance_pt": 24.0,
+     "texts": [
+      "CHAPTER ONE",
+      "CHAPTER TWO"
+     ]
+    }
+   ],
+   "y14_irs_fw9_form.pdf": [
+    {
+     "zone": "bot",
+     "y": 738,
+     "size": 8,
+     "pages": 3,
+     "of": 6,
+     "median_clearance_pt": -0.4,
+     "min_clearance_pt": -1.3,
+     "texts": [
+      "after 1983 only).",
+      "be a disregarded entity. The name on lin"
+     ]
+    }
+   ],
+   "y17_rfc9110.pdf": [
+    {
+     "zone": "top",
+     "y": 72,
+     "size": 10,
+     "pages": 132,
+     "of": 194,
+     "median_clearance_pt": 0.2,
+     "min_clearance_pt": 0.1,
+     "texts": [
+      "This document is subject to BCP 78 and t",
+      "associated with a specific type of clien"
+     ]
+    },
+    {
+     "zone": "top",
+     "y": 84,
+     "size": 10,
+     "pages": 130,
+     "of": 194,
+     "median_clearance_pt": 0.2,
+     "min_clearance_pt": 0.1,
+     "texts": [
+      "Documents ( https://trustee.ietf.org/lic",
+      "allows general-purpose implementations t"
+     ]
+    }
+   ],
+   "y24_pandoc_manual.pdf": [
+    {
+     "zone": "top",
+     "y": 30,
+     "size": 11,
+     "pages": 138,
+     "of": 180,
+     "median_clearance_pt": 19.8,
+     "min_clearance_pt": 18.6,
+     "texts": [
+      "Contents",
+      "Description"
+     ]
+    }
+   ],
+   "y18_eurlex_ai_act.pdf": [
+    {
+     "zone": "bot",
+     "y": 789,
+     "size": 10,
+     "pages": 101,
+     "of": 144,
+     "median_clearance_pt": 0.7,
+     "min_clearance_pt": 0.7,
+     "texts": [
+      "through either Union or national law dir",
+      "safeguards with respect to the protectio"
+     ]
+    }
+   ],
+   "y23_luatex.pdf": [
+    {
+     "zone": "bot",
+     "y": 795,
+     "size": 10,
+     "pages": 324,
+     "of": 328,
+     "median_clearance_pt": 40.5,
+     "min_clearance_pt": 29.8,
+     "texts": [
+      "1",
+      "2"
+     ]
+    }
+   ],
+   "y27_rfc9000.pdf": [
+    {
+     "zone": "top",
+     "y": 72,
+     "size": 10,
+     "pages": 94,
+     "of": 151,
+     "median_clearance_pt": 0.2,
+     "min_clearance_pt": 0.2,
+     "texts": [
+      "with respect to this document. Code Comp",
+      "QUIC is a connection-oriented protocol t"
+     ]
+    }
+   ],
+   "y34_census_slides_pptx365.pdf": [
+    {
+     "zone": "top",
+     "y": 63,
+     "size": 24,
+     "pages": 27,
+     "of": 40,
+     "median_clearance_pt": 38.7,
+     "min_clearance_pt": -1.0,
+     "texts": [
+      "Before We Start",
+      "Speakers"
+     ]
+    }
+   ],
+   "y26_bash_reference.pdf": [
+    {
+     "zone": "top",
+     "y": 51,
+     "size": 11,
+     "pages": 212,
+     "of": 214,
+     "median_clearance_pt": 40.0,
+     "min_clearance_pt": 11.8,
+     "texts": [
+      "i",
+      "ii"
+     ]
+    }
+   ],
+   "y54_hi_gdocs.pdf": [
+    {
+     "zone": "top",
+     "y": 66,
+     "size": 11,
+     "pages": 2,
+     "of": 4,
+     "median_clearance_pt": 8.1,
+     "min_clearance_pt": 7.1,
+     "texts": [
+      "DeepSeek: चीन का वयं का एआई मॉडल, जिसे D",
+      "भारत को चीन क तरह स  त डेटा सुर  ा कानून"
+     ]
+    },
+    {
+     "zone": "top",
+     "y": 81,
+     "size": 11,
+     "pages": 2,
+     "of": 4,
+     "median_clearance_pt": 8.1,
+     "min_clearance_pt": 7.1,
+     "texts": [
+      "यह मॉडल LLM (Large Language Model) आधारि",
+      "विदेशी कंपनिय को भारतीय डेटा के उपयोग पर"
+     ]
+    },
+    {
+     "zone": "top",
+     "y": 96,
+     "size": 11,
+     "pages": 2,
+     "of": 4,
+     "median_clearance_pt": 1.6,
+     "min_clearance_pt": -3.8,
+     "texts": [
+      "चीन ने डेटा सुर  ा सुननििश्चि  त करते हु",
+      "चीन म सरकार ने एआई टार्टअ स को अरब डॉलर "
+     ]
+    },
+    {
+     "zone": "top",
+     "y": 150,
+     "size": 11,
+     "pages": 2,
+     "of": 4,
+     "median_clearance_pt": 23.0,
+     "min_clearance_pt": 8.3,
+     "texts": [
+      "ांस, जर्र्मम नी और ब्रिटेन अपने-अपने एआई",
+      "सार्र्वव जनिक और निजी े मिलकर रिसर्च लै "
+     ]
+    },
+    {
+     "zone": "top",
+     "y": 165,
+     "size": 11,
+     "pages": 2,
+     "of": 4,
+     "median_clearance_pt": 4.0,
+     "min_clearance_pt": -0.3,
+     "texts": [
+      "बनाए रखना ैह।",
+      "चीन ने स  त डेटा संर   ण कानून बनाए ताकि"
+     ]
+    },
+    {
+     "zone": "top",
+     "y": 222,
+     "size": 17,
+     "pages": 2,
+     "of": 4,
+     "median_clearance_pt": 4.0,
+     "min_clearance_pt": -0.3,
+     "texts": [
+      "3. भारत का एआई म पिछड़ना (India's Lag in",
+      "5. भारत को वदेशी एआई य विकसित करना चाहिए"
+     ]
+    },
+    {
+     "zone": "top",
+     "y": 255,
+     "size": 11,
+     "pages": 2,
+     "of": 4,
+     "median_clearance_pt": 2.2,
+     "min_clearance_pt": -3.8,
+     "texts": [
+      "भारत म एआई विकास क गति अ  य मुख देश क तु",
+      "पिछड़ना चिंताजनक ैह। चीन का DeepSeek मॉड"
+     ]
+    },
+    {
+     "zone": "top",
+     "y": 312,
+     "size": 11,
+     "pages": 2,
+     "of": 4,
+     "median_clearance_pt": -7.9,
+     "min_clearance_pt": -14.4,
+     "texts": [
+      "भारत म एआई के लिए पर्या  त शोध एवं विकास",
+      "●"
+     ]
+    },
+    {
+     "zone": "top",
+     "y": 327,
+     "size": 11,
+     "pages": 2,
+     "of": 4,
+     "median_clearance_pt": 3.9,
+     "min_clearance_pt": -3.8,
+     "texts": [
+      "विदेशी निवेशक भारत म एआई टार्टअ स को उतन",
+      "●"
+     ]
+    },
+    {
+     "zone": "top",
+     "y": 411,
+     "size": 11,
+     "pages": 2,
+     "of": 4,
+     "median_clearance_pt": 3.9,
+     "min_clearance_pt": -3.8,
+     "texts": [
+      "भारत का डेटा बडी़ मा  ा म विदेशी एआई कंप",
+      "●"
+     ]
+    }
+   ],
+   "y55_th_pages_quartz.pdf": [
+    {
+     "zone": "top",
+     "y": 522,
+     "size": 11,
+     "pages": 2,
+     "of": 3,
+     "median_clearance_pt": 9.9,
+     "min_clearance_pt": 2.7,
+     "texts": [
+      "ทางจิตวิญญาณ”—ชีวิตไร้แก่นแท้ในภาพลวงของ",
+      "พระภิกษุยุคใหม่อาจไม่ได้อยู่ในวัด แต่อยู"
+     ]
+    },
+    {
+     "zone": "top",
+     "y": 591,
+     "size": 11,
+     "pages": 2,
+     "of": 3,
+     "median_clearance_pt": 10.3,
+     "min_clearance_pt": 3.4,
+     "texts": [
+      "คิด—ช่วยลดเอนโทรปีในระบบรับรู้อย่างชัดเจ",
+      "ทิม บาสส์ เป็นวิศวกร เทรดเดอร์ออปชัน และ"
+     ]
+    }
+   ],
+   "y47_ar_ilo_word365.pdf": [
+    {
+     "zone": "bot",
+     "y": 780,
+     "size": 10,
+     "pages": 38,
+     "of": 57,
+     "median_clearance_pt": 4.1,
+     "min_clearance_pt": 0.4,
+     "texts": [
+      "ومستداماً وقادراً على الصمود، 2021، الفق",
+      "العمل الدولي، الملحق الأول، القسم 4 ."
+     ]
+    }
+   ],
+   "y64_bls_release_xpp.pdf": [
+    {
+     "zone": "top",
+     "y": 36,
+     "size": 10,
+     "pages": 31,
+     "of": 39,
+     "median_clearance_pt": 1.4,
+     "min_clearance_pt": -0.2,
+     "texts": [
+      "HOUSEHOLD DATA",
+      "ESTABLISHMENT DATA"
+     ]
+    },
+    {
+     "zone": "top",
+     "y": 45,
+     "size": 10,
+     "pages": 31,
+     "of": 39,
+     "median_clearance_pt": 1.4,
+     "min_clearance_pt": -0.2,
+     "texts": [
+      "Summary table A. Household data, seasona",
+      "Summary table B. Establishment data, sea"
+     ]
+    }
+   ]
+  }
+ },
+ "criterion_8": {
+  "reading_a2": {
+   "accepted": "accepted-wp31-prod.rescored.sweep.json",
+   "flags": {
+    "y21": "word_recall 0.7192 -> 0.519 (tol 0.02)",
+    "y37": "dy_p50 27.38 -> 30.96 (tol 2.74)",
+    "y61": "dy_p50 35.91 -> 43.61 (tol 3.59)"
+   },
+   "before_r4_new_flags": {
+    "y61": "dy_p50 35.91 -> 39.56"
+   }
+  },
+  "reading_a3": {
+   "accepted": "wp31-prod.rescored3.sweep.json",
+   "rescored_with": "wp36 7f556e8 harness.py + rescore.py, scratch tree; C:\\lotmp\\wp33\\wp33-d1-prod.rescored3.sweep.json",
+   "flags": {
+    "y21": "word_recall 0.7192 -> 0.519",
+    "y37": "dy_p50 27.64 -> 31.60 (tol 2.76)",
+    "y61": "dy_p50 37.00 -> 44.46 (tol 3.70)"
+   },
+   "before_r4_new_flags": {}
+  },
+  "common_words": {
+   "y61": {
+    "pages_src_accepted_wp33": [
+     4,
+     6,
+     5
+    ],
+    "a2": "1764 words 31.84 -> 38.78",
+    "a3": "1765 words 32.87 -> 37.73",
+    "newly_matched": "870 words at 65pt"
+   },
+   "y37": {
+    "pages_src_accepted_wp33": [
+     22,
+     27,
+     26
+    ],
+    "a2": "2335 words 21.34 -> 21.36",
+    "a3": "2335 words 21.13 -> 21.75",
+    "newly_matched": "1856 words at 51-52pt",
+    "cause": "the cursor rule (3 rules ending above the paragraph that set the cursor); y37 has no split line"
+   }
+  },
+  "decision": "coordinator: y21 fixed by WP38 in the landing set; y37 with an owner-delegated decider; y61 with WP38's render-informed plan. No code change here for them."
+ },
+ "raw_dy_population": {
+  "how": "dy_p50 over the source words matched in BOTH renders (before r4-old-raw vs after), old image",
+  "y64": "5759 words 12.51 -> 12.35 (all: 12.55 -> 19.45; 11110 newly matched words at 24.7)",
+  "y21": "2372 words 50.50 -> 53.05 (all 51.9 -> 70.4)",
+  "y61": "1631 words 30.24 -> 37.99 (all 31.0 -> 42.1)"
+ },
+ "docs_live": {
+  "before": "C:\\lotmp\\wp33\\live-base.jsonl",
+  "after": "C:\\lotmp\\wp33\\live-wp33.jsonl",
+  "documents_compared": 12,
+  "regressed": [
+   "y21_worldbank_wdr24"
+  ],
+  "per_document": {
+   "01_whitepaper_market": {
+    "before": {
+     "src_pages": 3,
+     "out_pages": 3,
+     "word_recall": 0.9665,
+     "within2pt": 0.392,
+     "dy_p50": 1.88,
+     "live_text_cov": 0.9595
+    },
+    "after": {
+     "src_pages": 3,
+     "out_pages": 3,
+     "word_recall": 0.9665,
+     "within2pt": 0.392,
+     "dy_p50": 1.88,
+     "live_text_cov": 0.9595
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": []
+   },
+   "c2_paper2col": {
+    "before": {
+     "src_pages": 1,
+     "out_pages": 1,
+     "word_recall": 1.0,
+     "within2pt": 0.8608,
+     "dy_p50": 0.98,
+     "live_text_cov": 1.0
+    },
+    "after": {
+     "src_pages": 1,
+     "out_pages": 1,
+     "word_recall": 1.0,
+     "within2pt": 0.8608,
+     "dy_p50": 0.98,
+     "live_text_cov": 1.0
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": []
+   },
+   "x17_resume_twocol": {
+    "before": {
+     "src_pages": 2,
+     "out_pages": 2,
+     "word_recall": 0.8889,
+     "within2pt": 0.1844,
+     "dy_p50": 1.16,
+     "live_text_cov": 1.0
+    },
+    "after": {
+     "src_pages": 2,
+     "out_pages": 2,
+     "word_recall": 0.8889,
+     "within2pt": 0.1844,
+     "dy_p50": 1.16,
+     "live_text_cov": 1.0
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": []
+   },
+   "y06_irs_1040_instructions": {
+    "before": {
+     "src_pages": 126,
+     "out_pages": 178,
+     "word_recall": 0.1866,
+     "within2pt": 0.0021,
+     "dy_p50": 58.49,
+     "live_text_cov": 0.9496
+    },
+    "after": {
+     "src_pages": 126,
+     "out_pages": 156,
+     "word_recall": 0.1933,
+     "within2pt": 0.0009,
+     "dy_p50": 56.5,
+     "live_text_cov": 0.9512
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": [
+     "page_err"
+    ]
+   },
+   "y12_irs_pub15": {
+    "before": {
+     "src_pages": 59,
+     "out_pages": 69,
+     "word_recall": 0.3852,
+     "within2pt": 0.0006,
+     "dy_p50": 55.05,
+     "live_text_cov": 0.9809
+    },
+    "after": {
+     "src_pages": 59,
+     "out_pages": 64,
+     "word_recall": 0.424,
+     "within2pt": 0.0015,
+     "dy_p50": 51.9,
+     "live_text_cov": 0.9809
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": [
+     "page_err",
+     "word_recall"
+    ]
+   },
+   "y13_irs_pub501": {
+    "before": {
+     "src_pages": 31,
+     "out_pages": 66,
+     "word_recall": 0.2424,
+     "within2pt": 0.0013,
+     "dy_p50": 36.08,
+     "live_text_cov": 0.9709
+    },
+    "after": {
+     "src_pages": 31,
+     "out_pages": 56,
+     "word_recall": 0.2619,
+     "within2pt": 0.0014,
+     "dy_p50": 34.95,
+     "live_text_cov": 0.9732
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": [
+     "page_err"
+    ]
+   },
+   "y17_rfc9110": {
+    "before": {
+     "src_pages": 194,
+     "out_pages": 196,
+     "word_recall": 0.914,
+     "within2pt": 0.4227,
+     "dy_p50": 0.15,
+     "live_text_cov": 0.948
+    },
+    "after": {
+     "src_pages": 194,
+     "out_pages": 196,
+     "word_recall": 0.914,
+     "within2pt": 0.4227,
+     "dy_p50": 0.15,
+     "live_text_cov": 0.948
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": []
+   },
+   "y18_eurlex_ai_act": {
+    "before": {
+     "src_pages": 144,
+     "out_pages": 146,
+     "word_recall": 0.6974,
+     "within2pt": 0.0084,
+     "dy_p50": 10.82,
+     "live_text_cov": 0.9683
+    },
+    "after": {
+     "src_pages": 144,
+     "out_pages": 146,
+     "word_recall": 0.6974,
+     "within2pt": 0.0084,
+     "dy_p50": 10.82,
+     "live_text_cov": 0.9683
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": []
+   },
+   "y21_worldbank_wdr24": {
+    "before": {
+     "src_pages": 48,
+     "out_pages": 52,
+     "word_recall": 0.571,
+     "within2pt": 0.0053,
+     "dy_p50": 51.93,
+     "live_text_cov": 0.9155
+    },
+    "after": {
+     "src_pages": 48,
+     "out_pages": 52,
+     "word_recall": 0.5359,
+     "within2pt": 0.0036,
+     "dy_p50": 64.39,
+     "live_text_cov": 0.9145
+    },
+    "worse_beyond_tol": [
+     "word_recall",
+     "dy_p50"
+    ],
+    "better_beyond_tol": []
+   },
+   "y27_rfc9000": {
+    "before": {
+     "src_pages": 151,
+     "out_pages": 151,
+     "word_recall": 0.9736,
+     "within2pt": 0.6965,
+     "dy_p50": 0.08,
+     "live_text_cov": 0.9394
+    },
+    "after": {
+     "src_pages": 151,
+     "out_pages": 151,
+     "word_recall": 0.9736,
+     "within2pt": 0.6965,
+     "dy_p50": 0.08,
+     "live_text_cov": 0.9394
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": []
+   },
+   "y61_fedreg_gpo_3col": {
+    "before": {
+     "src_pages": 4,
+     "out_pages": 10,
+     "word_recall": 0.3329,
+     "within2pt": 0.0059,
+     "dy_p50": 47.78,
+     "live_text_cov": 0.9395
+    },
+    "after": {
+     "src_pages": 4,
+     "out_pages": 7,
+     "word_recall": 0.412,
+     "within2pt": 0.0037,
+     "dy_p50": 27.71,
+     "live_text_cov": 0.9593
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": [
+     "page_err",
+     "word_recall",
+     "live_text_cov",
+     "dy_p50"
+    ]
+   },
+   "y64_bls_release_xpp": {
+    "before": {
+     "src_pages": 39,
+     "out_pages": 40,
+     "word_recall": 0.3885,
+     "within2pt": 0.0745,
+     "dy_p50": 16.07,
+     "live_text_cov": 0.9669
+    },
+    "after": {
+     "src_pages": 39,
+     "out_pages": 39,
+     "word_recall": 0.9664,
+     "within2pt": 0.0628,
+     "dy_p50": 8.93,
+     "live_text_cov": 0.9889
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": [
+     "page_err",
+     "word_recall",
+     "live_text_cov",
+     "dy_p50"
+    ]
+   }
+  }
+ },
+ "beta_readiness": {
+  "before": "r4-new raw/product, r4gd Docs, r4word product, gate wp32-gate-2, accepted wp31-prod.rescored: NOT READY 6 pass / 4 fail (2 time, 5, 8, 12)",
+  "after": "wp33-d1 raw/product, Docs = r4gd rows with the 12 flown documents replaced, Word = r4word rows with 24 re-rendered documents replaced, gate wp33-gate2: NOT READY 7 pass / 3 fail (2 time, 8, 12)",
+  "criterion_5": "before LO 18/21, Word 16/21, Docs 16/21 (FAIL by 2) -> after LO 18/21, Word 17/21, Docs 17/21 (PASS); +y64 in Word and Docs",
+  "criterion_2_note": "after's 15+8 overs are sweep timings taken at 100% CPU with 12 containers on the machine (coordinator's load notice); the serially timed documents read the same files as before"
+ },
+ "lo_raw": {
+  "before": "C:\\lotmp\\scr\\runs\\r4-new-raw.sweep.json",
+  "after": "C:\\lotmp\\scr\\runs\\wp33-d1-raw.sweep.json",
+  "documents_compared": 90,
+  "regressed": [
+   "y21_worldbank_wdr24",
+   "y61_fedreg_gpo_3col",
+   "y64_bls_release_xpp"
+  ],
+  "per_document": {
+   "y02_nist_sp800171r2": {
+    "before": {
+     "src_pages": 114,
+     "out_pages": 117,
+     "word_recall": 0.7438,
+     "doc_recall": 0.9662,
+     "within2pt": 0.1884,
+     "dy_p50": 9.64,
+     "live_text_cov": 0.8785
+    },
+    "after": {
+     "src_pages": 114,
+     "out_pages": 117,
+     "word_recall": 0.7439,
+     "doc_recall": 0.9662,
+     "within2pt": 0.1883,
+     "dy_p50": 9.7,
+     "live_text_cov": 0.8797
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": []
+   },
+   "y03_nist_fips197": {
+    "before": {
+     "src_pages": 46,
+     "out_pages": 51,
+     "word_recall": 0.556,
+     "doc_recall": 0.9718,
+     "within2pt": 0.151,
+     "dy_p50": 4.43,
+     "live_text_cov": 0.9188
+    },
+    "after": {
+     "src_pages": 46,
+     "out_pages": 51,
+     "word_recall": 0.5564,
+     "doc_recall": 0.9722,
+     "within2pt": 0.1522,
+     "dy_p50": 3.98,
+     "live_text_cov": 0.9189
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": []
+   },
+   "y06_irs_1040_instructions": {
+    "before": {
+     "src_pages": 126,
+     "out_pages": 163,
+     "word_recall": 0.2306,
+     "doc_recall": 0.9492,
+     "within2pt": 0.0018,
+     "dy_p50": 53.39,
+     "live_text_cov": 0.9496
+    },
+    "after": {
+     "src_pages": 126,
+     "out_pages": 149,
+     "word_recall": 0.2189,
+     "doc_recall": 0.9499,
+     "within2pt": 0.0008,
+     "dy_p50": 53.39,
+     "live_text_cov": 0.9512
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": [
+     "page_err"
+    ]
+   },
+   "y12_irs_pub15": {
+    "before": {
+     "src_pages": 59,
+     "out_pages": 66,
+     "word_recall": 0.3929,
+     "doc_recall": 0.9575,
+     "within2pt": 0.001,
+     "dy_p50": 52.0,
+     "live_text_cov": 0.9809
+    },
+    "after": {
+     "src_pages": 59,
+     "out_pages": 63,
+     "word_recall": 0.4349,
+     "doc_recall": 0.9572,
+     "within2pt": 0.001,
+     "dy_p50": 52.5,
+     "live_text_cov": 0.9809
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": [
+     "page_err",
+     "word_recall"
+    ]
+   },
+   "y13_irs_pub501": {
+    "before": {
+     "src_pages": 31,
+     "out_pages": 58,
+     "word_recall": 0.2261,
+     "doc_recall": 0.9499,
+     "within2pt": 0.0018,
+     "dy_p50": 36.85,
+     "live_text_cov": 0.9709
+    },
+    "after": {
+     "src_pages": 31,
+     "out_pages": 50,
+     "word_recall": 0.2245,
+     "doc_recall": 0.9538,
+     "within2pt": 0.0014,
+     "dy_p50": 36.75,
+     "live_text_cov": 0.9732
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": [
+     "page_err"
+    ]
+   },
+   "y21_worldbank_wdr24": {
+    "before": {
+     "src_pages": 48,
+     "out_pages": 57,
+     "word_recall": 0.1934,
+     "doc_recall": 0.8997,
+     "within2pt": 0.0008,
+     "dy_p50": 51.96,
+     "live_text_cov": 0.9155
+    },
+    "after": {
+     "src_pages": 48,
+     "out_pages": 51,
+     "word_recall": 0.2701,
+     "doc_recall": 0.8961,
+     "within2pt": 0.0011,
+     "dy_p50": 69.58,
+     "live_text_cov": 0.9145
+    },
+    "worse_beyond_tol": [
+     "dy_p50"
+    ],
+    "better_beyond_tol": [
+     "page_err",
+     "word_recall"
+    ]
+   },
+   "y22_lshort": {
+    "before": {
+     "src_pages": 153,
+     "out_pages": 178,
+     "word_recall": 0.327,
+     "doc_recall": 0.9736,
+     "within2pt": 0.0562,
+     "dy_p50": 15.51,
+     "live_text_cov": 0.9703
+    },
+    "after": {
+     "src_pages": 153,
+     "out_pages": 174,
+     "word_recall": 0.3248,
+     "doc_recall": 0.9735,
+     "within2pt": 0.0567,
+     "dy_p50": 15.2,
+     "live_text_cov": 0.9703
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": [
+     "page_err"
+    ]
+   },
+   "y37_plos_one_dvipdfmx": {
+    "before": {
+     "src_pages": 22,
+     "out_pages": 34,
+     "word_recall": 0.2844,
+     "doc_recall": 0.9126,
+     "within2pt": 0.0079,
+     "dy_p50": 36.91,
+     "live_text_cov": 0.8747
+    },
+    "after": {
+     "src_pages": 22,
+     "out_pages": 33,
+     "word_recall": 0.2884,
+     "doc_recall": 0.9137,
+     "within2pt": 0.0078,
+     "dy_p50": 37.06,
+     "live_text_cov": 0.8747
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": [
+     "page_err"
+    ]
+   },
+   "y38_elife_arbortext_gs": {
+    "before": {
+     "src_pages": 33,
+     "out_pages": 53,
+     "word_recall": 0.2189,
+     "doc_recall": 0.9711,
+     "within2pt": 0.0005,
+     "dy_p50": 39.33,
+     "live_text_cov": 0.9547
+    },
+    "after": {
+     "src_pages": 33,
+     "out_pages": 50,
+     "word_recall": 0.2196,
+     "doc_recall": 0.9711,
+     "within2pt": 0.0005,
+     "dy_p50": 39.71,
+     "live_text_cov": 0.9547
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": [
+     "page_err"
+    ]
+   },
+   "y42_arxiv_acmart": {
+    "before": {
+     "src_pages": 5,
+     "out_pages": 7,
+     "word_recall": 0.347,
+     "doc_recall": 0.885,
+     "within2pt": 0.0057,
+     "dy_p50": 35.07,
+     "live_text_cov": 0.9157
+    },
+    "after": {
+     "src_pages": 5,
+     "out_pages": 7,
+     "word_recall": 0.347,
+     "doc_recall": 0.885,
+     "within2pt": 0.0057,
+     "dy_p50": 35.88,
+     "live_text_cov": 0.9157
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": []
+   },
+   "y47_ar_ilo_word365": {
+    "before": {
+     "src_pages": 57,
+     "out_pages": 86,
+     "word_recall": 0.1511,
+     "doc_recall": 0.7181,
+     "within2pt": 0.001,
+     "dy_p50": 52.08,
+     "live_text_cov": 0.8289
+    },
+    "after": {
+     "src_pages": 57,
+     "out_pages": 86,
+     "word_recall": 0.1512,
+     "doc_recall": 0.7181,
+     "within2pt": 0.001,
+     "dy_p50": 51.59,
+     "live_text_cov": 0.8289
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": []
+   },
+   "y54_hi_gdocs": {
+    "before": {
+     "src_pages": 4,
+     "out_pages": 4,
+     "word_recall": 0.7036,
+     "doc_recall": 0.7036,
+     "within2pt": 0.0301,
+     "dy_p50": 6.11,
+     "live_text_cov": 0.7193
+    },
+    "after": {
+     "src_pages": 4,
+     "out_pages": 4,
+     "word_recall": 0.7036,
+     "doc_recall": 0.7036,
+     "within2pt": 0.0387,
+     "dy_p50": 6.03,
+     "live_text_cov": 0.7193
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": []
+   },
+   "y60_cdc_mmwr_indd19": {
+    "before": {
+     "src_pages": 24,
+     "out_pages": 34,
+     "word_recall": 0.3174,
+     "doc_recall": 0.9745,
+     "within2pt": 0.0166,
+     "dy_p50": 51.0,
+     "live_text_cov": 0.9466
+    },
+    "after": {
+     "src_pages": 24,
+     "out_pages": 34,
+     "word_recall": 0.3173,
+     "doc_recall": 0.9745,
+     "within2pt": 0.0168,
+     "dy_p50": 50.92,
+     "live_text_cov": 0.9465
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": []
+   },
+   "y61_fedreg_gpo_3col": {
+    "before": {
+     "src_pages": 4,
+     "out_pages": 7,
+     "word_recall": 0.4123,
+     "doc_recall": 0.9569,
+     "within2pt": 0.0048,
+     "dy_p50": 31.01,
+     "live_text_cov": 0.9395
+    },
+    "after": {
+     "src_pages": 4,
+     "out_pages": 6,
+     "word_recall": 0.5649,
+     "doc_recall": 0.962,
+     "within2pt": 0.0035,
+     "dy_p50": 42.08,
+     "live_text_cov": 0.9593
+    },
+    "worse_beyond_tol": [
+     "dy_p50"
+    ],
+    "better_beyond_tol": [
+     "page_err",
+     "word_recall",
+     "live_text_cov"
+    ]
+   },
+   "y64_bls_release_xpp": {
+    "before": {
+     "src_pages": 39,
+     "out_pages": 44,
+     "word_recall": 0.3426,
+     "doc_recall": 0.9584,
+     "within2pt": 0.0959,
+     "dy_p50": 12.55,
+     "live_text_cov": 0.9669
+    },
+    "after": {
+     "src_pages": 39,
+     "out_pages": 39,
+     "word_recall": 0.9672,
+     "doc_recall": 0.9841,
+     "within2pt": 0.0625,
+     "dy_p50": 19.45,
+     "live_text_cov": 0.9889
+    },
+    "worse_beyond_tol": [
+     "dy_p50"
+    ],
+    "better_beyond_tol": [
+     "page_err",
+     "word_recall",
+     "doc_recall",
+     "live_text_cov"
+    ]
+   }
+  }
+ },
+ "lo_product": {
+  "before": "C:\\lotmp\\scr\\runs\\r4-new-prod.sweep.json",
+  "after": "C:\\lotmp\\scr\\runs\\wp33-d1-prod.sweep.json",
+  "documents_compared": 90,
+  "regressed": [
+   "y21_worldbank_wdr24",
+   "y37_plos_one_dvipdfmx",
+   "y61_fedreg_gpo_3col"
+  ],
+  "per_document": {
+   "y02_nist_sp800171r2": {
+    "before": {
+     "src_pages": 114,
+     "out_pages": 114,
+     "word_recall": 0.966,
+     "doc_recall": 0.9662,
+     "within2pt": 0.3291,
+     "dy_p50": 2.22,
+     "live_text_cov": 0.8785
+    },
+    "after": {
+     "src_pages": 114,
+     "out_pages": 114,
+     "word_recall": 0.966,
+     "doc_recall": 0.9662,
+     "within2pt": 0.3291,
+     "dy_p50": 2.27,
+     "live_text_cov": 0.8797
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": []
+   },
+   "y03_nist_fips197": {
+    "before": {
+     "src_pages": 46,
+     "out_pages": 46,
+     "word_recall": 0.9682,
+     "doc_recall": 0.9709,
+     "within2pt": 0.198,
+     "dy_p50": 1.45,
+     "live_text_cov": 0.9188
+    },
+    "after": {
+     "src_pages": 46,
+     "out_pages": 46,
+     "word_recall": 0.9687,
+     "doc_recall": 0.9714,
+     "within2pt": 0.2017,
+     "dy_p50": 1.26,
+     "live_text_cov": 0.9189
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": []
+   },
+   "y06_irs_1040_instructions": {
+    "before": {
+     "src_pages": 126,
+     "out_pages": 147,
+     "word_recall": 0.216,
+     "doc_recall": 0.9491,
+     "within2pt": 0.0018,
+     "dy_p50": 55.35,
+     "live_text_cov": 0.9496
+    },
+    "after": {
+     "src_pages": 126,
+     "out_pages": 139,
+     "word_recall": 0.2464,
+     "doc_recall": 0.9498,
+     "within2pt": 0.0027,
+     "dy_p50": 57.89,
+     "live_text_cov": 0.9512
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": [
+     "page_err",
+     "word_recall"
+    ]
+   },
+   "y12_irs_pub15": {
+    "before": {
+     "src_pages": 59,
+     "out_pages": 60,
+     "word_recall": 0.5143,
+     "doc_recall": 0.9575,
+     "within2pt": 0.0064,
+     "dy_p50": 58.6,
+     "live_text_cov": 0.9809
+    },
+    "after": {
+     "src_pages": 59,
+     "out_pages": 59,
+     "word_recall": 0.6821,
+     "doc_recall": 0.9572,
+     "within2pt": 0.0408,
+     "dy_p50": 38.9,
+     "live_text_cov": 0.9809
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": [
+     "page_err",
+     "word_recall",
+     "dy_p50"
+    ]
+   },
+   "y13_irs_pub501": {
+    "before": {
+     "src_pages": 31,
+     "out_pages": 49,
+     "word_recall": 0.2758,
+     "doc_recall": 0.9496,
+     "within2pt": 0.0005,
+     "dy_p50": 35.53,
+     "live_text_cov": 0.9709
+    },
+    "after": {
+     "src_pages": 31,
+     "out_pages": 45,
+     "word_recall": 0.2932,
+     "doc_recall": 0.9537,
+     "within2pt": 0.0016,
+     "dy_p50": 33.14,
+     "live_text_cov": 0.9732
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": [
+     "page_err"
+    ]
+   },
+   "y21_worldbank_wdr24": {
+    "before": {
+     "src_pages": 48,
+     "out_pages": 49,
+     "word_recall": 0.7192,
+     "doc_recall": 0.8996,
+     "within2pt": 0.0143,
+     "dy_p50": 26.4,
+     "live_text_cov": 0.9155
+    },
+    "after": {
+     "src_pages": 48,
+     "out_pages": 48,
+     "word_recall": 0.519,
+     "doc_recall": 0.8961,
+     "within2pt": 0.0097,
+     "dy_p50": 28.11,
+     "live_text_cov": 0.9145
+    },
+    "worse_beyond_tol": [
+     "word_recall"
+    ],
+    "better_beyond_tol": [
+     "page_err"
+    ]
+   },
+   "y22_lshort": {
+    "before": {
+     "src_pages": 153,
+     "out_pages": 157,
+     "word_recall": 0.7531,
+     "doc_recall": 0.9734,
+     "within2pt": 0.0667,
+     "dy_p50": 14.26,
+     "live_text_cov": 0.9703
+    },
+    "after": {
+     "src_pages": 153,
+     "out_pages": 156,
+     "word_recall": 0.7634,
+     "doc_recall": 0.9734,
+     "within2pt": 0.0706,
+     "dy_p50": 14.01,
+     "live_text_cov": 0.9703
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": [
+     "page_err"
+    ]
+   },
+   "y37_plos_one_dvipdfmx": {
+    "before": {
+     "src_pages": 22,
+     "out_pages": 27,
+     "word_recall": 0.3268,
+     "doc_recall": 0.9128,
+     "within2pt": 0.0009,
+     "dy_p50": 27.38,
+     "live_text_cov": 0.8747
+    },
+    "after": {
+     "src_pages": 22,
+     "out_pages": 26,
+     "word_recall": 0.3917,
+     "doc_recall": 0.9126,
+     "within2pt": 0.0017,
+     "dy_p50": 30.96,
+     "live_text_cov": 0.8747
+    },
+    "worse_beyond_tol": [
+     "dy_p50"
+    ],
+    "better_beyond_tol": [
+     "page_err",
+     "word_recall"
+    ]
+   },
+   "y38_elife_arbortext_gs": {
+    "before": {
+     "src_pages": 33,
+     "out_pages": 49,
+     "word_recall": 0.2849,
+     "doc_recall": 0.9711,
+     "within2pt": 0.0021,
+     "dy_p50": 31.41,
+     "live_text_cov": 0.9547
+    },
+    "after": {
+     "src_pages": 33,
+     "out_pages": 47,
+     "word_recall": 0.2849,
+     "doc_recall": 0.9711,
+     "within2pt": 0.0023,
+     "dy_p50": 31.41,
+     "live_text_cov": 0.9547
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": [
+     "page_err"
+    ]
+   },
+   "y42_arxiv_acmart": {
+    "before": {
+     "src_pages": 5,
+     "out_pages": 6,
+     "word_recall": 0.3594,
+     "doc_recall": 0.885,
+     "within2pt": 0.0012,
+     "dy_p50": 36.35,
+     "live_text_cov": 0.9157
+    },
+    "after": {
+     "src_pages": 5,
+     "out_pages": 6,
+     "word_recall": 0.3594,
+     "doc_recall": 0.885,
+     "within2pt": 0.0012,
+     "dy_p50": 38.72,
+     "live_text_cov": 0.9157
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": []
+   },
+   "y47_ar_ilo_word365": {
+    "before": {
+     "src_pages": 57,
+     "out_pages": 65,
+     "word_recall": 0.2365,
+     "doc_recall": 0.7168,
+     "within2pt": 0.0014,
+     "dy_p50": 44.98,
+     "live_text_cov": 0.8289
+    },
+    "after": {
+     "src_pages": 57,
+     "out_pages": 65,
+     "word_recall": 0.2365,
+     "doc_recall": 0.7168,
+     "within2pt": 0.0015,
+     "dy_p50": 45.09,
+     "live_text_cov": 0.8289
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": []
+   },
+   "y49_he_word2016": {
+    "before": {
+     "src_pages": 28,
+     "out_pages": 29,
+     "word_recall": 0.6148,
+     "doc_recall": 0.9017,
+     "within2pt": 0.0079,
+     "dy_p50": 15.42,
+     "live_text_cov": 0.957
+    },
+    "after": {
+     "src_pages": 28,
+     "out_pages": 29,
+     "word_recall": 0.6148,
+     "doc_recall": 0.9017,
+     "within2pt": 0.0076,
+     "dy_p50": 15.11,
+     "live_text_cov": 0.957
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": []
+   },
+   "y54_hi_gdocs": {
+    "before": {
+     "src_pages": 4,
+     "out_pages": 4,
+     "word_recall": 0.7036,
+     "doc_recall": 0.7036,
+     "within2pt": 0.1605,
+     "dy_p50": 2.73,
+     "live_text_cov": 0.7193
+    },
+    "after": {
+     "src_pages": 4,
+     "out_pages": 4,
+     "word_recall": 0.7036,
+     "doc_recall": 0.7036,
+     "within2pt": 0.1648,
+     "dy_p50": 2.66,
+     "live_text_cov": 0.7193
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": []
+   },
+   "y59_cms_notice_inddcs4": {
+    "before": {
+     "src_pages": 6,
+     "out_pages": 17,
+     "word_recall": 0.0905,
+     "doc_recall": 0.8574,
+     "within2pt": 0.0558,
+     "dy_p50": 35.94,
+     "live_text_cov": 0.8246
+    },
+    "after": {
+     "src_pages": 6,
+     "out_pages": 17,
+     "word_recall": 0.0896,
+     "doc_recall": 0.8574,
+     "within2pt": 0.0563,
+     "dy_p50": 28.84,
+     "live_text_cov": 0.8246
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": [
+     "dy_p50"
+    ]
+   },
+   "y60_cdc_mmwr_indd19": {
+    "before": {
+     "src_pages": 24,
+     "out_pages": 32,
+     "word_recall": 0.3292,
+     "doc_recall": 0.9734,
+     "within2pt": 0.0208,
+     "dy_p50": 67.42,
+     "live_text_cov": 0.9466
+    },
+    "after": {
+     "src_pages": 24,
+     "out_pages": 32,
+     "word_recall": 0.3295,
+     "doc_recall": 0.9733,
+     "within2pt": 0.021,
+     "dy_p50": 66.95,
+     "live_text_cov": 0.9465
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": []
+   },
+   "y61_fedreg_gpo_3col": {
+    "before": {
+     "src_pages": 4,
+     "out_pages": 6,
+     "word_recall": 0.4512,
+     "doc_recall": 0.9567,
+     "within2pt": 0.0044,
+     "dy_p50": 39.56,
+     "live_text_cov": 0.9395
+    },
+    "after": {
+     "src_pages": 4,
+     "out_pages": 5,
+     "word_recall": 0.5794,
+     "doc_recall": 0.962,
+     "within2pt": 0.0038,
+     "dy_p50": 43.61,
+     "live_text_cov": 0.9593
+    },
+    "worse_beyond_tol": [
+     "dy_p50"
+    ],
+    "better_beyond_tol": [
+     "page_err",
+     "word_recall",
+     "live_text_cov"
+    ]
+   },
+   "y64_bls_release_xpp": {
+    "before": {
+     "src_pages": 39,
+     "out_pages": 39,
+     "word_recall": 0.9297,
+     "doc_recall": 0.9584,
+     "within2pt": 0.0957,
+     "dy_p50": 13.27,
+     "live_text_cov": 0.9669
+    },
+    "after": {
+     "src_pages": 39,
+     "out_pages": 39,
+     "word_recall": 0.9666,
+     "doc_recall": 0.9841,
+     "within2pt": 0.1001,
+     "dy_p50": 13.75,
+     "live_text_cov": 0.9889
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": [
+     "word_recall",
+     "doc_recall",
+     "live_text_cov"
+    ]
+   }
+  }
+ },
+ "word_product": {
+  "before": "C:\\lotmp\\r4word\\prod\\rows.jsonl",
+  "after": "C:\\lotmp\\wp33\\word-d1\\rows.jsonl",
+  "documents_compared": 24,
+  "regressed": [
+   "y12_irs_pub15",
+   "y21_worldbank_wdr24",
+   "y37_plos_one_dvipdfmx",
+   "y59_cms_notice_inddcs4",
+   "y64_bls_release_xpp"
+  ],
+  "per_document": {
+   "y02_nist_sp800171r2": {
+    "before": {
+     "src_pages": 114,
+     "out_pages": 114,
+     "word_recall": 0.9664,
+     "doc_recall": 0.9667,
+     "within2pt": 0.1534,
+     "dy_p50": 2.73,
+     "live_text_cov": 0.8785
+    },
+    "after": {
+     "src_pages": 114,
+     "out_pages": 114,
+     "word_recall": 0.9664,
+     "doc_recall": 0.9667,
+     "within2pt": 0.1528,
+     "dy_p50": 2.74,
+     "live_text_cov": 0.8797
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": []
+   },
+   "y03_nist_fips197": {
+    "before": {
+     "src_pages": 46,
+     "out_pages": 46,
+     "word_recall": 0.9674,
+     "doc_recall": 0.9694,
+     "within2pt": 0.1684,
+     "dy_p50": 2.48,
+     "live_text_cov": 0.9188
+    },
+    "after": {
+     "src_pages": 46,
+     "out_pages": 46,
+     "word_recall": 0.9681,
+     "doc_recall": 0.9698,
+     "within2pt": 0.1719,
+     "dy_p50": 2.07,
+     "live_text_cov": 0.9189
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": []
+   },
+   "y06_irs_1040_instructions": {
+    "before": {
+     "src_pages": 126,
+     "out_pages": 168,
+     "word_recall": 0.192,
+     "doc_recall": 0.958,
+     "within2pt": 0.0006,
+     "dy_p50": 59.09,
+     "live_text_cov": 0.9496
+    },
+    "after": {
+     "src_pages": 126,
+     "out_pages": 149,
+     "word_recall": 0.1915,
+     "doc_recall": 0.9622,
+     "within2pt": 0.0028,
+     "dy_p50": 54.36,
+     "live_text_cov": 0.9512
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": [
+     "page_err"
+    ]
+   },
+   "y12_irs_pub15": {
+    "before": {
+     "src_pages": 59,
+     "out_pages": 59,
+     "word_recall": 0.8077,
+     "doc_recall": 0.9726,
+     "within2pt": 0.0314,
+     "dy_p50": 34.26,
+     "live_text_cov": 0.9809
+    },
+    "after": {
+     "src_pages": 59,
+     "out_pages": 58,
+     "word_recall": 0.6263,
+     "doc_recall": 0.9734,
+     "within2pt": 0.0103,
+     "dy_p50": 60.94,
+     "live_text_cov": 0.9809
+    },
+    "worse_beyond_tol": [
+     "page_err",
+     "word_recall",
+     "dy_p50"
+    ],
+    "better_beyond_tol": []
+   },
+   "y13_irs_pub501": {
+    "before": {
+     "src_pages": 31,
+     "out_pages": 62,
+     "word_recall": 0.2452,
+     "doc_recall": 0.9535,
+     "within2pt": 0.0013,
+     "dy_p50": 36.55,
+     "live_text_cov": 0.9709
+    },
+    "after": {
+     "src_pages": 31,
+     "out_pages": 54,
+     "word_recall": 0.2864,
+     "doc_recall": 0.9625,
+     "within2pt": 0.0017,
+     "dy_p50": 33.66,
+     "live_text_cov": 0.9732
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": [
+     "page_err",
+     "word_recall"
+    ]
+   },
+   "y21_worldbank_wdr24": {
+    "before": {
+     "src_pages": 48,
+     "out_pages": 49,
+     "word_recall": 0.7067,
+     "doc_recall": 0.8855,
+     "within2pt": 0.0107,
+     "dy_p50": 27.88,
+     "live_text_cov": 0.9155
+    },
+    "after": {
+     "src_pages": 48,
+     "out_pages": 50,
+     "word_recall": 0.4195,
+     "doc_recall": 0.8803,
+     "within2pt": 0.0084,
+     "dy_p50": 27.78,
+     "live_text_cov": 0.9145
+    },
+    "worse_beyond_tol": [
+     "page_err",
+     "word_recall"
+    ],
+    "better_beyond_tol": []
+   },
+   "y22_lshort": {
+    "before": {
+     "src_pages": 153,
+     "out_pages": 157,
+     "word_recall": 0.7508,
+     "doc_recall": 0.9749,
+     "within2pt": 0.0614,
+     "dy_p50": 14.39,
+     "live_text_cov": 0.9703
+    },
+    "after": {
+     "src_pages": 153,
+     "out_pages": 157,
+     "word_recall": 0.7517,
+     "doc_recall": 0.9749,
+     "within2pt": 0.0676,
+     "dy_p50": 14.14,
+     "live_text_cov": 0.9703
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": []
+   },
+   "y37_plos_one_dvipdfmx": {
+    "before": {
+     "src_pages": 22,
+     "out_pages": 27,
+     "word_recall": 0.324,
+     "doc_recall": 0.9208,
+     "within2pt": 0.0,
+     "dy_p50": 26.98,
+     "live_text_cov": 0.8747
+    },
+    "after": {
+     "src_pages": 22,
+     "out_pages": 26,
+     "word_recall": 0.3921,
+     "doc_recall": 0.9202,
+     "within2pt": 0.0024,
+     "dy_p50": 30.22,
+     "live_text_cov": 0.8747
+    },
+    "worse_beyond_tol": [
+     "dy_p50"
+    ],
+    "better_beyond_tol": [
+     "page_err",
+     "word_recall"
+    ]
+   },
+   "y38_elife_arbortext_gs": {
+    "before": {
+     "src_pages": 33,
+     "out_pages": 49,
+     "word_recall": 0.2844,
+     "doc_recall": 0.968,
+     "within2pt": 0.0026,
+     "dy_p50": 31.99,
+     "live_text_cov": 0.9547
+    },
+    "after": {
+     "src_pages": 33,
+     "out_pages": 47,
+     "word_recall": 0.2844,
+     "doc_recall": 0.968,
+     "within2pt": 0.0028,
+     "dy_p50": 32.23,
+     "live_text_cov": 0.9547
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": [
+     "page_err"
+    ]
+   },
+   "y42_arxiv_acmart": {
+    "before": {
+     "src_pages": 5,
+     "out_pages": 6,
+     "word_recall": 0.3598,
+     "doc_recall": 0.8808,
+     "within2pt": 0.0012,
+     "dy_p50": 38.16,
+     "live_text_cov": 0.9157
+    },
+    "after": {
+     "src_pages": 5,
+     "out_pages": 6,
+     "word_recall": 0.3598,
+     "doc_recall": 0.8808,
+     "within2pt": 0.0012,
+     "dy_p50": 40.08,
+     "live_text_cov": 0.9157
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": []
+   },
+   "y47_ar_ilo_word365": {
+    "before": {
+     "src_pages": 57,
+     "out_pages": 64,
+     "word_recall": 0.2677,
+     "doc_recall": 0.836,
+     "within2pt": 0.006,
+     "dy_p50": 44.46,
+     "live_text_cov": 0.8289
+    },
+    "after": {
+     "src_pages": 57,
+     "out_pages": 64,
+     "word_recall": 0.2678,
+     "doc_recall": 0.836,
+     "within2pt": 0.006,
+     "dy_p50": 44.47,
+     "live_text_cov": 0.8289
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": []
+   },
+   "y49_he_word2016": {
+    "before": {
+     "src_pages": 28,
+     "out_pages": 28,
+     "word_recall": 0.8985,
+     "doc_recall": 0.9063,
+     "within2pt": 0.0243,
+     "dy_p50": 9.6,
+     "live_text_cov": 0.957
+    },
+    "after": {
+     "src_pages": 28,
+     "out_pages": 28,
+     "word_recall": 0.8985,
+     "doc_recall": 0.9063,
+     "within2pt": 0.0227,
+     "dy_p50": 9.6,
+     "live_text_cov": 0.957
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": []
+   },
+   "y54_hi_gdocs": {
+    "before": {
+     "src_pages": 4,
+     "out_pages": 4,
+     "word_recall": 0.6008,
+     "doc_recall": 0.6008,
+     "within2pt": 0.1477,
+     "dy_p50": 3.16,
+     "live_text_cov": 0.7193
+    },
+    "after": {
+     "src_pages": 4,
+     "out_pages": 4,
+     "word_recall": 0.6008,
+     "doc_recall": 0.6008,
+     "within2pt": 0.1594,
+     "dy_p50": 2.17,
+     "live_text_cov": 0.7193
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": [
+     "dy_p50"
+    ]
+   },
+   "y59_cms_notice_inddcs4": {
+    "before": {
+     "src_pages": 6,
+     "out_pages": 23,
+     "word_recall": 0.0879,
+     "doc_recall": 0.8317,
+     "within2pt": 0.0813,
+     "dy_p50": 34.6,
+     "live_text_cov": 0.8246
+    },
+    "after": {
+     "src_pages": 6,
+     "out_pages": 25,
+     "word_recall": 0.0871,
+     "doc_recall": 0.8275,
+     "within2pt": 0.0821,
+     "dy_p50": 26.15,
+     "live_text_cov": 0.8246
+    },
+    "worse_beyond_tol": [
+     "page_err"
+    ],
+    "better_beyond_tol": [
+     "dy_p50"
+    ]
+   },
+   "y60_cdc_mmwr_indd19": {
+    "before": {
+     "src_pages": 24,
+     "out_pages": 31,
+     "word_recall": 0.3327,
+     "doc_recall": 0.9648,
+     "within2pt": 0.0186,
+     "dy_p50": 59.35,
+     "live_text_cov": 0.9466
+    },
+    "after": {
+     "src_pages": 24,
+     "out_pages": 31,
+     "word_recall": 0.3326,
+     "doc_recall": 0.9648,
+     "within2pt": 0.0187,
+     "dy_p50": 59.45,
+     "live_text_cov": 0.9465
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": []
+   },
+   "y61_fedreg_gpo_3col": {
+    "before": {
+     "src_pages": 4,
+     "out_pages": 10,
+     "word_recall": 0.3373,
+     "doc_recall": 0.9477,
+     "within2pt": 0.0052,
+     "dy_p50": 51.36,
+     "live_text_cov": 0.9395
+    },
+    "after": {
+     "src_pages": 4,
+     "out_pages": 7,
+     "word_recall": 0.4026,
+     "doc_recall": 0.9571,
+     "within2pt": 0.0049,
+     "dy_p50": 39.33,
+     "live_text_cov": 0.9593
+    },
+    "worse_beyond_tol": [],
+    "better_beyond_tol": [
+     "page_err",
+     "word_recall",
+     "live_text_cov",
+     "dy_p50"
+    ]
+   },
+   "y64_bls_release_xpp": {
+    "before": {
+     "src_pages": 39,
+     "out_pages": 40,
+     "word_recall": 0.3894,
+     "doc_recall": 0.9587,
+     "within2pt": 0.109,
+     "dy_p50": 13.64,
+     "live_text_cov": 0.9669
+    },
+    "after": {
+     "src_pages": 39,
+     "out_pages": 39,
+     "word_recall": 0.9667,
+     "doc_recall": 0.9843,
+     "within2pt": 0.0954,
+     "dy_p50": 16.9,
+     "live_text_cov": 0.9889
+    },
+    "worse_beyond_tol": [
+     "dy_p50"
+    ],
+    "better_beyond_tol": [
+     "page_err",
+     "word_recall",
+     "doc_recall",
+     "live_text_cov"
+    ]
+   }
+  }
+ }
+}

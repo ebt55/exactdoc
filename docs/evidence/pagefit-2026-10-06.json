@@ -806,5 +806,277 @@
   "product": "PASS pagematch 16/16 within2pt 0.7209",
   "raw": "PASS pagematch 16/16 within2pt 0.5463",
   "failed_steps": 0
+ },
+ "cap": {
+  "what": "PAGEFIT_MAX_OVER_LINES: pay a page back only if the model puts it at most N body lines over",
+  "method": "raw lane, canonical container, planner on, --only y59 y03 y22 y18 y33 y64; ckpt = ckpt-raw (before), nocap = wp30-c, capN = wp30b-capN sweeps",
+  "documents": {
+   "y59_cms_notice_inddcs4.pdf": {
+    "ckpt": {
+     "pages": 18,
+     "src": 6,
+     "word_recall": 0.0884,
+     "dy_p50": 30.07,
+     "within2pt": 0.0631
+    },
+    "nocap": {
+     "pages": 17,
+     "src": 6,
+     "word_recall": 0.1232,
+     "dy_p50": 46.35,
+     "within2pt": 0.0453
+    },
+    "cap3": {
+     "pages": 18,
+     "src": 6,
+     "word_recall": 0.0884,
+     "dy_p50": 30.07,
+     "within2pt": 0.0631
+    },
+    "cap5": {
+     "pages": 18,
+     "src": 6,
+     "word_recall": 0.0884,
+     "dy_p50": 30.07,
+     "within2pt": 0.0631
+    },
+    "cap8": {
+     "pages": 18,
+     "src": 6,
+     "word_recall": 0.0884,
+     "dy_p50": 30.07,
+     "within2pt": 0.0631
+    },
+    "cap10": {
+     "pages": 18,
+     "src": 6,
+     "word_recall": 0.0884,
+     "dy_p50": 30.07,
+     "within2pt": 0.0631
+    }
+   },
+   "y03_nist_fips197.pdf": {
+    "ckpt": {
+     "pages": 51,
+     "src": 46,
+     "word_recall": 0.5677,
+     "dy_p50": 1.8,
+     "within2pt": 0.1971
+    },
+    "nocap": {
+     "pages": 47,
+     "src": 46,
+     "word_recall": 0.8452,
+     "dy_p50": 1.89,
+     "within2pt": 0.1895
+    },
+    "cap3": {
+     "pages": 48,
+     "src": 46,
+     "word_recall": 0.5741,
+     "dy_p50": 1.83,
+     "within2pt": 0.19
+    },
+    "cap5": {
+     "pages": 47,
+     "src": 46,
+     "word_recall": 0.8452,
+     "dy_p50": 1.89,
+     "within2pt": 0.1895
+    },
+    "cap8": {
+     "pages": 47,
+     "src": 46,
+     "word_recall": 0.8452,
+     "dy_p50": 1.89,
+     "within2pt": 0.1895
+    },
+    "cap10": {
+     "pages": 47,
+     "src": 46,
+     "word_recall": 0.8452,
+     "dy_p50": 1.89,
+     "within2pt": 0.1895
+    }
+   },
+   "y22_lshort.pdf": {
+    "ckpt": {
+     "pages": 178,
+     "src": 153,
+     "word_recall": 0.3861,
+     "dy_p50": 5.13,
+     "within2pt": 0.125
+    },
+    "nocap": {
+     "pages": 172,
+     "src": 153,
+     "word_recall": 0.3855,
+     "dy_p50": 4.87,
+     "within2pt": 0.1252
+    },
+    "cap3": {
+     "pages": 176,
+     "src": 153,
+     "word_recall": 0.3869,
+     "dy_p50": 5.29,
+     "within2pt": 0.1246
+    },
+    "cap5": {
+     "pages": 174,
+     "src": 153,
+     "word_recall": 0.3865,
+     "dy_p50": 5.1,
+     "within2pt": 0.1249
+    },
+    "cap8": {
+     "pages": 173,
+     "src": 153,
+     "word_recall": 0.3856,
+     "dy_p50": 4.85,
+     "within2pt": 0.1253
+    },
+    "cap10": {
+     "pages": 173,
+     "src": 153,
+     "word_recall": 0.3856,
+     "dy_p50": 4.85,
+     "within2pt": 0.1253
+    }
+   },
+   "y18_eurlex_ai_act.pdf": {
+    "ckpt": {
+     "pages": 156,
+     "src": 144,
+     "word_recall": 0.3925,
+     "dy_p50": 39.1,
+     "within2pt": 0.0013
+    },
+    "nocap": {
+     "pages": 144,
+     "src": 144,
+     "word_recall": 0.9858,
+     "dy_p50": 2.47,
+     "within2pt": 0.0494
+    },
+    "cap3": {
+     "pages": 148,
+     "src": 144,
+     "word_recall": 0.4333,
+     "dy_p50": 40.06,
+     "within2pt": 0.0016
+    },
+    "cap5": {
+     "pages": 147,
+     "src": 144,
+     "word_recall": 0.442,
+     "dy_p50": 40.78,
+     "within2pt": 0.0015
+    },
+    "cap8": {
+     "pages": 145,
+     "src": 144,
+     "word_recall": 0.8787,
+     "dy_p50": 4.85,
+     "within2pt": 0.0515
+    },
+    "cap10": {
+     "pages": 144,
+     "src": 144,
+     "word_recall": 0.9858,
+     "dy_p50": 2.37,
+     "within2pt": 0.0506
+    }
+   },
+   "y33_nz_paper_powerpdf.pdf": {
+    "ckpt": {
+     "pages": 62,
+     "src": 60,
+     "word_recall": 0.4938,
+     "dy_p50": 3.03,
+     "within2pt": 0.0705
+    },
+    "nocap": {
+     "pages": 60,
+     "src": 60,
+     "word_recall": 0.893,
+     "dy_p50": 2.63,
+     "within2pt": 0.0669
+    },
+    "cap3": {
+     "pages": 61,
+     "src": 60,
+     "word_recall": 0.5203,
+     "dy_p50": 3.36,
+     "within2pt": 0.0678
+    },
+    "cap5": {
+     "pages": 61,
+     "src": 60,
+     "word_recall": 0.5203,
+     "dy_p50": 3.36,
+     "within2pt": 0.0678
+    },
+    "cap8": {
+     "pages": 60,
+     "src": 60,
+     "word_recall": 0.893,
+     "dy_p50": 2.63,
+     "within2pt": 0.0669
+    },
+    "cap10": {
+     "pages": 60,
+     "src": 60,
+     "word_recall": 0.893,
+     "dy_p50": 2.63,
+     "within2pt": 0.0669
+    }
+   },
+   "y64_bls_release_xpp.pdf": {
+    "ckpt": {
+     "pages": 44,
+     "src": 39,
+     "word_recall": 0.3432,
+     "dy_p50": 11.17,
+     "within2pt": 0.1041
+    },
+    "nocap": {
+     "pages": 40,
+     "src": 39,
+     "word_recall": 0.4203,
+     "dy_p50": 11.82,
+     "within2pt": 0.1009
+    },
+    "cap3": {
+     "pages": 44,
+     "src": 39,
+     "word_recall": 0.3432,
+     "dy_p50": 11.17,
+     "within2pt": 0.1041
+    },
+    "cap5": {
+     "pages": 43,
+     "src": 39,
+     "word_recall": 0.346,
+     "dy_p50": 11.21,
+     "within2pt": 0.1033
+    },
+    "cap8": {
+     "pages": 41,
+     "src": 39,
+     "word_recall": 0.375,
+     "dy_p50": 11.27,
+     "within2pt": 0.1074
+    },
+    "cap10": {
+     "pages": 41,
+     "src": 39,
+     "word_recall": 0.375,
+     "dy_p50": 11.27,
+     "within2pt": 0.1074
+    }
+   }
+  },
+  "reading": "N=3 and N=5 restore y59 but lose y18 (148/147 pages for 144), y33 (61 for 60) and, at 3, y03 (48, wr 0.574); N=8 restores y59, keeps y33/y03, y18 145 (wr 0.879); N=10 restores y59 and keeps y18 144, y33 60, y03 47 (wr 0.845), y22 173 and y64 41 against 172 and 40 uncapped. y59's page is 11.1 body lines over: one line of margin.",
+  "shipped": "PAGEFIT_MAX_OVER_LINES = 10, planner still off (PAGEFIT_ENABLED = False)"
  }
 }

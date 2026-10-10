@@ -776,6 +776,8 @@ def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
     # pages after round 1 that way against 174 with the decision held, and
     # finished on 153 against 147.
     _freeze_seams(lay)
+    from .docxout import _freeze_flows
+    _freeze_flows(lay, output_profile)
     best_path, best_score = None, None
     first_candidate = None
     failure = None
