@@ -21,6 +21,24 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 one verified fix at a time, each gated against the frozen 16.
 
 
+- **Short documents in Google Docs: hanging tables and letter-spaced text
+  (WP35c).** Two gdocs-only rules, read off Google's exports of the 71558af
+  sweep. (1) Word hangs a table's border left of its text column by the
+  first cell's margin; the gdocs writer put the edge on the column, so every
+  such table's text landed the hang to the right in Docs (c3 +7.00pt on
+  every line, within-2pt 0.000; x04, 03, l1, 01, f1, x16, 02 likewise). A
+  gdocs table now stands at `left_indent - hang_left`
+  (`docxout._gdocs_table_hang`); Docs honours negative table indents to the
+  point. (2) Docs drops letter-spacing, so a paragraph Chrome tracked sets a
+  line short (8 of x07's 21; dy_p50 16.4, criterion 7 failed). The writer
+  narrows such a paragraph to the width at which the untracked width tables
+  set its source line count, and the planner models that width
+  (`_gdocs_tracking_indent`). Separate commits; the standard profile is
+  byte-identical (raw and product, all 90). Evidence:
+  [gdocs-2026-10-10-wp35c-short.json](docs/evidence/gdocs-2026-10-10-wp35c-short.json),
+  with the full criterion-7 diagnosis and WP35b's live flight (y03 46/46,
+  word recall 0.948).
+
 - **A typewriter table's columns are its typed spaces (WP35b).** y03
   (FIPS 197) passed criterion 5 in Google Docs by 0.004 (47 pages for 46,
   word recall 0.854): source page 40 ran a page over, every later page one
