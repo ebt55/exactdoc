@@ -10587,7 +10587,8 @@ def _position_chunks(chunks: List[Chunk], lay: DocLayout,
                 top = base + ch.pre_gap
         cursor = top
         maxy = top
-        held = None         # the table the cursor stands at the foot of
+        held = None         # the table or figure the cursor stands at the foot of
+        held_fig = False
         for el in ch.elements:
             if isinstance(el, ColBreak):
                 cursor = top
@@ -10623,10 +10624,24 @@ def _position_chunks(chunks: List[Chunk], lay: DocLayout,
                 # y59's InDesign panels (23 tables and 4 pictures inside a
                 # table just stacked) held there put Word at 25 pages for
                 # 6 against 23.
-                if held is None or not isinstance(el, RuleEl) or \
-                        bb[1] < held[1] or bb[3] > cursor:
+                #
+                # A drawn figure just stacked holds a rule inside its span
+                # the same way: the figure is always in the flow (only raster
+                # pictures float, `_float_backgrounds`), and its height is
+                # already counted. y21 p39 sets a figure at y 319-505 with
+                # three rules inside it (y 338, 386, 480): released, the
+                # first pulled the cursor back to 338 and the rest took
+                # 47.9, 93.4 and 23.8pt of space before -- 165pt counted
+                # twice, the page ran over, and every page after it was a
+                # page late (49 -> 50 pages for 48, word recall 0.88 ->
+                # 0.80). A rule on the figure's top edge is not inside it.
+                inside = held is not None and isinstance(el, RuleEl) and \
+                    bb[1] >= held[1] and bb[3] <= cursor and \
+                    (not held_fig or bb[1] > held[1])
+                if not inside:
                     cursor = bb[3]
-                    held = bb if isinstance(el, TableEl) else None
+                    held = bb if isinstance(el, (TableEl, FigureEl)) else None
+                    held_fig = isinstance(el, FigureEl)
             maxy = max(maxy, cursor)
         base = maxy
     return chunks
