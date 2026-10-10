@@ -259,6 +259,19 @@ class EndToEnd(unittest.TestCase):
         # the region is the band's height, not the two sides stacked
         self.assertLess(t.bbox[3] - t.bbox[1], 12 * len(CODE) + 20)
 
+    def test_the_gdocs_profile_keeps_the_stacked_form(self):
+        # live in Docs (2026-10-11) the regions cost y22 9 pages: Docs drops
+        # the letter-spacing that keeps a source line to its cell
+        from exactdoc.dialect import normalize
+        from exactdoc.parse_pdfium import parse_pdf
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "ex.pdf")
+            _example_pdf(p)
+            lay = I.infer(normalize(parse_pdf(p, keep_image_data=True)),
+                          examples=False)
+        self.assertFalse(any(isinstance(el, TableEl) and getattr(el, "_sbs", None) == "example"
+                             for el in _els(lay)))
+
     def test_without_a_frame_too(self):
         with tempfile.TemporaryDirectory() as d:
             p = os.path.join(d, "ex.pdf")

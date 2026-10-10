@@ -4346,15 +4346,13 @@ def _page_paths(objs: List[_PObj], frame) -> List[DrawCmd]:
             # or bleed furniture. A reader never sees it, and inference would
             # anchor margins and furniture zones on it.
             continue
-        if kind == "stroke":
-            # (strokes only: Chromium draws a box's borders and a band's
-            # shading as fills clipped to the strip they show, and c1's and
-            # the RFCs' structure is read from those fills as drawn)
-            clipped = _clip_path_bbox(bbox, _meet(ob.clip, _clip_box(po, ob.ctm, frame)))
-            if clipped is False:
-                continue        # wholly outside its clip: never drawn
-            if clipped is not None:
-                bbox = clipped
+        # The box a stroke shows through its clip (`_clip_path_bbox`; strokes
+        # only: Chromium draws a box's borders and a band's shading as fills
+        # clipped to the strip they show, and c1's and the RFCs' structure is
+        # read from those fills as drawn). Carried beside the drawn box, not
+        # over it: inference takes it per output profile (infer.clip_strokes).
+        clipped = _clip_path_bbox(bbox, _meet(ob.clip, _clip_box(po, ob.ctm, frame))) \
+            if kind == "stroke" else None
         w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
         fill = _hexcol(fr.value, fg.value, fb.value) if has_fill else None
         stroke_c = _hexcol(sr.value, sg.value, sb.value) if has_stroke else None
@@ -4397,10 +4395,15 @@ def _page_paths(objs: List[_PObj], frame) -> List[DrawCmd]:
                 shape = "hline"
             elif w <= 2.5 and h > 8:
                 shape = "vline"
-        out.append(DrawCmd(
+        d = DrawCmd(
             kind=kind, shape=shape, bbox=bbox, fill=fill, stroke=stroke_c,
             width=stroke_w, opacity=opacity, n_items=max(1, len(pts)),
-            rounded=rounded is not None))
+            rounded=rounded is not None)
+        if clipped is False:
+            d._clip_hidden = True
+        elif clipped is not None:
+            d._clip_bbox = clipped
+        out.append(d)
     return out
 
 

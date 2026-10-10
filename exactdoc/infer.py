@@ -1,4 +1,5 @@
 """Structure inference: PageIR -> DocLayout (semantic, writer-ready)."""
+import contextvars
 import copy
 import math
 import re
@@ -5668,8 +5669,39 @@ def _figure_in_budget(cl_ds, blocks, images, consumed, page, text_area):
 
 
 # ------------------------------------------------------------------ main
+# WP46's three readings -- a source listing beside what it typesets is one
+# region (`_code_beside`), picture-font glyphs are drawings
+# (`_picture_glyph_draws`), a stroke is read at the box its clip shows
+# (`_clipped_strokes`) -- are the standard profile's. Under the gdocs
+# profile y22 (lshort), the one document they move, was flown live
+# (2026-10-11, C:\lotmp\wp46live): 169 -> 178 pages for 153 (word recall
+# 0.339 -> 0.381). Docs drops the letter-spacing that holds a monospaced
+# line to its source measure, so in a cell beside its output every source
+# line of the example wraps ("Add $a$ squared and $b$ / squared") and the
+# table outgrows the stacked form it replaced. LibreOffice and Word keep
+# the spacing: y22 154 pages for 153 in both. `infer(examples=...)`.
+_EXAMPLES = contextvars.ContextVar("exactdoc_infer_examples", default=True)
+
+
+def _clipped_strokes(ir: DocIR) -> None:
+    """Each page's strokes at the box their clip shows, and a stroke wholly
+    outside its clip dropped (parse_pdfium._clip_path_bbox)."""
+    for p in ir.pages:
+        if not any(hasattr(d, "_clip_bbox") or hasattr(d, "_clip_hidden")
+                   for d in p.drawings):
+            continue
+        out = []
+        for d in p.drawings:
+            if getattr(d, "_clip_hidden", False):
+                continue
+            cb = getattr(d, "_clip_bbox", None)
+            out.append(replace(d, bbox=cb) if cb is not None else d)
+        p.drawings = out
+
+
 def infer(ir: DocIR, anchored: bool = True,
-          anchor_pictures: Optional[bool] = None) -> DocLayout:
+          anchor_pictures: Optional[bool] = None,
+          examples: bool = True) -> DocLayout:
     """DocIR -> DocLayout.
 
     The document's hyphenation evidence is built first and made current for
@@ -5686,12 +5718,19 @@ def infer(ir: DocIR, anchored: bool = True,
     or printed into a margin leaves the flow for its own position
     (`_on_text_line`, `_wrapped_by_text`; options capability
     "anchor_pictures"); by default whatever `anchored` is.
+
+    `examples`: WP46's readings (see _EXAMPLES); False under the gdocs
+    profile.
     """
+    if examples:
+        _clipped_strokes(ir)
     token = hyphen.activate(hyphen.HyphenEvidence.from_ir(ir) if ir.pages else None)
+    ex_token = _EXAMPLES.set(examples)
     try:
         lay = _infer(ir, anchored,
                      anchored if anchor_pictures is None else anchor_pictures)
     finally:
+        _EXAMPLES.reset(ex_token)
         hyphen.deactivate(token)
     hyphen.mark_unhyphenated(lay)
     from .layout import iter_paras
@@ -6385,7 +6424,8 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
         # Glyphs of LaTeX's picture-mode fonts are line segments and arcs:
         # drawings, read as such (`_picture_glyph_draws`), with negative
         # indices -- they are not p.drawings'.
-        draws += [(-1 - k, d) for k, d in enumerate(_picture_glyph_draws(blocks))]
+        if _EXAMPLES.get():
+            draws += [(-1 - k, d) for k, d in enumerate(_picture_glyph_draws(blocks))]
         cuts = _split_lines_at_box_edges(blocks, [d.bbox for _, d in draws if _box_candidate(d)])
         # This runs before drawing clustering because a row-regular table is
         # otherwise split into alternating filled-card clusters and bare flow
@@ -9704,6 +9744,8 @@ def _part_code_beside(items):
     when every monospaced piece (`_split_at_span_gaps`; SBS_CODE_MONO) lies
     on one side of a gutter of SBS_MIN_GUTTER and every other piece on the
     other, with SBS_CODE_MIN_LINES of code."""
+    if not _EXAMPLES.get():
+        return items
     out, cut = [], False
     for it in items:
         if it[0] != "blk":
@@ -9928,7 +9970,7 @@ def _side_evidence(left, right, gl: float, gr: float, page: PageIR,
             if min(fb[2] - fb[0], fb[3] - fb[1]) >= SBS_FIG_MIN_PT and \
                     min(fb[3], oy1) - max(fb[1], oy0) >= 0.5 * (oy1 - oy0):
                 return "figure"
-    if _code_beside(left, right):
+    if _EXAMPLES.get() and _code_beside(left, right):
         return "example"
     if max(it[1][3] for it in left + right) - min(it[1][1] for it in left + right) \
             < SBS_MIN_BAND_PT:
@@ -10679,7 +10721,7 @@ def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
     if gutter is not None and not twocol and \
             gutter[2] < TWO_COL_MIN_EXTENT_FRAC * max(1.0, body_h):
         gutter = None                    # an inset beside the text, not a column
-    if gutter is not None or twocol:
+    if (gutter is not None or twocol) and _EXAMPLES.get():
         # A page of side-by-side examples has a gutter all the way down its
         # examples, and both column paths read it as two columns of text: y22
         # p47's three examples, their headings and the prose between them
