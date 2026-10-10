@@ -1713,11 +1713,11 @@ def _type_jump(fragment: List[_Char], current: _Char) -> bool:
     last one before the gap and the one after it): a space carries whatever
     size the stream gave it (Word's right-to-left spaces, y47, at 2-3pt beside
     9pt text). Census of every gap the exemption forgives, both corpora
-    (2026-10-10): 5915 gaps; at 2.5x or more, the y12 cover above, three on
-    y59's InDesign notice (13pt text, 3.2pt glyphs 84-217pt away) and the OCR
-    debris of the scanned y57; the largest jump between two words of one
-    line is 2.2x (y12 p32, a 4.6pt mark beside 10pt text -- already split at
-    its page's gutter)."""
+    (2026-10-10): 5915 gaps; at 2.5x or more, the y12 cover above (3.1x),
+    three on y59's InDesign notice (13pt text, 3.2pt glyphs 84-217pt away,
+    4.1x) and seven in the OCR debris of the scanned y57; below it the
+    largest are 2.4x (y57 again), 2.17x (y12 p32, a 4.6pt mark beside 10pt
+    text, already cut at its page's gutter) and 2.14x (y59 p5)."""
     if current.u.isspace():
         return False
     last = next((c for c in reversed(fragment) if not c.u.isspace()), None)
@@ -2008,10 +2008,15 @@ def _set_apart(frag, host, fx0, fsz) -> bool:
     baseline of the 31pt title "Employer's Tax", inside the title's em box
     and within reach of its trailing space, so the whole contents row was
     absorbed as a raised "script" of the title, 18.3pt to the right of its
-    last letter (1.8em at 10pt). Census of every absorption of 12 or more
-    glyphs over both corpora (2026-10-10): FIPS 197's long exponents and the
-    item text beside y12's 12pt bullets start 0.0-6.3pt from the glyph before
-    them (at most 0.63em); the cover row is the one set apart."""
+    last letter (1.8em at 10pt). Census of the absorptions of 12 or more
+    glyphs over both corpora (2026-10-10, 194 measurable): those set against
+    their host -- FIPS 197's long exponents, the item text beside the IRS
+    booklets' larger bullets -- start at most 0.91em from the glyph before
+    them (y13's items beside 9.6pt bullets); the next is 1.25em, and every
+    one from there up is a line of its own: this cover row, the text of the
+    page picture on y59's notice (9-47em), eLife's figure labels (y38), the
+    Supreme Court's rule lines (y19), two y06 form lines, a CDC footnote URL
+    and OCR debris (y57)."""
     best = None
     for c in host:
         if c.u.strip() and c.x0 < fx0 and (best is None or c.x1 > best.x1):
