@@ -39,13 +39,20 @@ render does not predict Docs (THEORY 6; CHANGELOG #4 is the precedent: Consolas
 was switched only after Docs' own export showed it honoured).
 
 **What the canonical renderer has.** The gate container's pinned fontconfig
-(`scripts/fonts.conf`) holds Liberation, DejaVu, FreeFont, WenQuanYi and IPA
-Gothic only, and every other family -- Calibri, Cambria, Consolas, Noto Serif,
-Georgia -- renders there as FreeSerif (probed 2026-10-04 with a DOCX naming 61
-families: LibreOffice ignores the fontTable's family/pitch/altName hints when
-it falls back). That is why core targets stay Arial / Times New Roman /
-Courier New wherever a class decision is involved: they are the only families
-whose rendering every reader, including the measurement, agrees on.
+(`scripts/fonts.conf`) holds Liberation, DejaVu, FreeFont, WenQuanYi, IPA
+Gothic and, since the canonical image switched on 2026-10-10 (WP31's layer,
+`docker/gate-carlito.Dockerfile`), Carlito and Caladea -- the 2013 Crosextra
+builds `_clone_widths.py` was generated from. fonts.conf maps Calibri onto
+Carlito and Cambria onto Caladea exactly as it maps Arial onto Liberation
+Sans, so those two render at their own advance widths. Every other family --
+Calibri Light, Consolas, Noto Serif, Georgia -- still renders there as
+FreeSerif (probed 2026-10-04 with a DOCX naming 61 families: LibreOffice
+ignores the fontTable's family/pitch/altName hints when it falls back; fc-match
+in the switched image, docs/evidence/carlito-2026-10-06.json). Before the
+switch Calibri and Cambria fell to FreeSerif too. That is why core targets
+stay Arial / Times New Roman / Courier New wherever a class decision is
+involved: they are the families whose rendering every reader, including the
+measurement, has always agreed on.
 """
 import functools
 import re
@@ -836,9 +843,14 @@ def writer_family(pdf_font: str, mono: bool = False, serif: bool = False,
     11% narrower than Cambria's measure of a wide serif). Noto Serif, Noto
     Sans, Roboto, Roboto Mono, Open Sans, Figtree, Ubuntu, Vollkorn and
     Source Code Pro were named on 8 of 93 corpus DOCX. The canonical
-    LibreOffice has neither these nor Cambria and Calibri and draws all of
-    them as FreeSerif, so its proportional text does not move; Roboto Mono
-    and Source Code Pro advance 0.600em (median glyph pitch in y27's and
+    LibreOffice has none of these families; before the 2026-10-10 image
+    switch it had no Cambria or Calibri clone either and drew all of them as
+    FreeSerif, so this mapping did not move its proportional text. Since the
+    switch it draws the Cambria and Calibri this names in Caladea and
+    Carlito, their metric clones, as Word draws Cambria and Calibri (WP31:
+    y02 120 -> 118 pages of 114, LibreOffice's word recall moving towards
+    Word's on y17 and y33; docs/evidence/carlito-2026-10-06.json). Roboto
+    Mono and Source Code Pro advance 0.600em (median glyph pitch in y27's and
     y45's own spans), Courier New's exact width, now monospaced there too.
 
     Applied at write time only: the ladder and the width scale keep reading

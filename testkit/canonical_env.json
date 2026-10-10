@@ -11,11 +11,43 @@
   "python-docx": "1.2.0",
   "reportlab": "5.0.0"
  },
- "fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+ "fingerprint": "9cb0bc17cbf88970c790ce9cfb6577e5c016c45a370642d093fa86209b0d41ec",
  "font_files": {
-  "count": 35,
-  "digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+  "count": 43,
+  "digest": "12c91205b834c6e37b8216f7ab08315bf423658be1c73f96712ed1f7389c8a5a",
   "files": [
+   {
+    "file": "Caladea-Bold.ttf",
+    "sha256": "74eda4fc5ffba0d8dc4aa76d41499f5ab76168d9ed6141c6417064c6244db9b6"
+   },
+   {
+    "file": "Caladea-BoldItalic.ttf",
+    "sha256": "f47a35ad6cd0efa9914d93f9d03c93e30c55da43674bccfabac73b3c0d522c01"
+   },
+   {
+    "file": "Caladea-Italic.ttf",
+    "sha256": "9c968bf60ba1e851cdfea77c71e3540c57792f77482dd241acc29d1425569c4e"
+   },
+   {
+    "file": "Caladea-Regular.ttf",
+    "sha256": "d2f6cad33f191e65b68bd74e6d4f7708080a41b32db635866109df3090265d91"
+   },
+   {
+    "file": "Carlito-Bold.ttf",
+    "sha256": "0f62ab34ad5d079a0a28fac01bcf7c7a724a4db4d6cb99cab9cabff382fbb80f"
+   },
+   {
+    "file": "Carlito-BoldItalic.ttf",
+    "sha256": "380764b6898d7b73ceae6384b2958b196d2a0428962ef3adf138d27947228666"
+   },
+   {
+    "file": "Carlito-Italic.ttf",
+    "sha256": "718a0663864d37a4868220a19b9668a5fe10a46197f6df367b4c2c30c04c026c"
+   },
+   {
+    "file": "Carlito-Regular.ttf",
+    "sha256": "b4ff23ba370cc95a3c349336b73f9c28514a1371210f89832efc85c4b1ea7131"
+   },
    {
     "file": "DejaVuSans-Bold.ttf",
     "sha256": "5c1247acef7f2b8522a31742c76d6adcb5569bacc0be7ceaa4dc39dd252ce895"
@@ -162,9 +194,9 @@
  "fonts_conf": {
   "active_is_repo_conf": true,
   "active_path": "/work/scripts/fonts.conf",
-  "active_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+  "active_sha256": "bbeb510b4812d8838847323187521162655435982c6ec1a5438ada1a7b7e501e",
   "repo_path": "/work/scripts/fonts.conf",
-  "repo_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528"
+  "repo_sha256": "bbeb510b4812d8838847323187521162655435982c6ec1a5438ada1a7b7e501e"
  },
  "image": {
   "base_digest": "sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90",
@@ -174,9 +206,11 @@
  "machine": "x86_64",
  "oracles": {
   "chrome_path": "/usr/local/bin/chrome-headless-shell",
-  "chrome_version": "Google Chrome for Testing 149.0.7827.55",
-  "font_count": 14,
+  "chrome_version": "Google Chrome for Testing 153.0.8010.12",
+  "font_count": 16,
   "font_families": [
+   "Caladea",
+   "Carlito",
    "DejaVu Sans",
    "DejaVu Sans Mono",
    "DejaVu Serif",
