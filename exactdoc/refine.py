@@ -821,7 +821,12 @@ def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
     with Workspace() as workspace:
         td = workspace.path
         try:
-            for rnd in range(rounds + 1):
+            # The first render is the seam plan's probe (`docxout.
+            # _replan_flows`): if it changes the plan, it is not a candidate
+            # and round 0 is written again from the new plan.
+            rnd, probing = -1, True
+            while rnd < rounds:
+                rnd += 1
                 if progress is not None:
                     progress("refine", {"round": rnd, "rounds": rounds + 1})
                 row = {"round": rnd}
@@ -887,6 +892,14 @@ def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
                              row["write_ms"] / 1000.0,
                              row["render_ms"] / 1000.0,
                              row["measure_ms"] / 1000.0))
+                if probing:
+                    probing = False
+                    from .docxout import _replan_flows
+                    if _replan_flows(lay, m, output_profile, rounds):
+                        row["probe"] = True
+                        first_candidate = None
+                        rnd = -1
+                        continue
                 if best_score is None or score < best_score:
                     stalled = _stalled(best_score, score) if rnd > 0 else False
                     best_score = score

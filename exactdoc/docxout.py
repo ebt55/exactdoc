@@ -5366,7 +5366,8 @@ def _flow_balance(pg, lay: DocLayout, metrics, n_cols: int) -> float:
     return used - n_cols * _body_capacity(glay)
 
 
-def _plan_flows(lay: DocLayout, output_profile: str = "standard") -> dict:
+def _plan_flows(lay: DocLayout, output_profile: str = "standard",
+                held: Optional[dict] = None) -> dict:
     """Which multi-column pages of a closed-loop write keep their seam:
     `{page number: flows into the next page}`. A page absent from the plan
     is written as the open-loop merge writes it.
@@ -5412,6 +5413,10 @@ def _plan_flows(lay: DocLayout, output_profile: str = "standard") -> dict:
     The booklet keeps its flow (`_is_booklet`): the seams it drops are its
     measured fix. The gdocs profile is untouched: Google Docs has its own
     planner and changes only on live evidence.
+
+    `held`, `{page number: measured excess}`, replaces the model's verdict
+    for the pages a render has judged (`_replan_flows`): <= 0 holds its box,
+    > 0 ran over by that much more than the loop can take back.
     """
     pages = lay.pages
     if output_profile == "gdocs" or _is_booklet(pages):
@@ -5427,11 +5432,14 @@ def _plan_flows(lay: DocLayout, output_profile: str = "standard") -> dict:
             i += 1
             continue
         over = _seam_excess(pg, lay, metrics)
-        if over <= COL_OVERFLOW_SLACK_PT:
+        measured = (held or {}).get(pg.number)
+        if (measured is None and over <= COL_OVERFLOW_SLACK_PT) or \
+                (measured is not None and measured <= 0):
             plan[pg.number] = False
             i += 1
             continue
-        carried = max(over, _flow_balance(pg, lay, metrics, key))
+        carried = max(over, _flow_balance(pg, lay, metrics, key),
+                      measured if measured is not None else 0.0)
         run = [pg]
         j = i + 1
         while j < n and carried > 0 and \
@@ -5455,16 +5463,115 @@ def _freeze_flows(lay: DocLayout, output_profile: str = "standard") -> None:
     `refine._freeze_seams`, and for the same reason: decided per round, a
     page the loop had just squeezed changed its form under its own
     corrections -- y37 rendered 34 pages for 22 that way, against 26 with
-    the merge and 26 with the plan frozen. An open-loop write has nothing
-    to correct a seam with and is never planned."""
+    the plan frozen. An open-loop write has nothing to correct a seam with
+    and is never planned.
+
+    Where the layout model stops the plan, the pages from the stop on are
+    stamped as a PROBE (`flow_probe`): seamed, so the loop's first render
+    can say whether they hold, which the model cannot (`_replan_flows`)."""
     try:
-        plan = _plan_flows(lay, output_profile)
         pages = lay.pages
+        plan = _plan_flows(lay, output_profile)
+        if output_profile == "gdocs" or _is_booklet(pages):
+            return
     except (AttributeError, TypeError):
         return                  # not a layout the planner can reason about
     for pg in pages:
-        if pg.number in plan and getattr(pg, "flow_next", None) is None:
+        if getattr(pg, "flow_next", None) is not None or \
+                _run_shape(pg, False) is None:
+            continue
+        if pg.number in plan:
             pg.flow_next = plan[pg.number]
+        else:
+            pg.flow_next = False
+            pg.flow_probe = True
+
+
+def _lever_room(pg, rounds: int = 3) -> float:
+    """What the refine loop can take from a page in `rounds` correction
+    rounds, by its own rules (`refine._apply`): each round half of the page's
+    gap total, largest gaps first, none below max(2pt, MIN_GAP_SCALE of
+    itself) -- SPILL_MIN_GAP_SCALE and SPILL_GAP_FLOOR_PT are those numbers
+    -- and its line pitch by `refine.MAX_LEADING_SQUEEZE`."""
+    from .refine import MAX_LEADING_SQUEEZE
+    gaps = [max(0.0, ch.pre_gap) for ch in pg.chunks]
+    pitch = 0.0
+    for ch in pg.chunks:
+        for el in ch.elements:
+            gaps.append(max(0.0, getattr(el, "space_before", 0.0) or 0.0))
+            if isinstance(el, Para) and el.leading and el.leading > 1.0:
+                pitch += max(1, el.src_lines or 1) * el.leading
+    taken = 0.0
+    for _ in range(max(0, rounds)):
+        gaps.sort(reverse=True)
+        want = sum(gaps) * 0.5
+        for k, g in enumerate(gaps):
+            if want <= 0.05:
+                break
+            floor = max(SPILL_GAP_FLOOR_PT, g * SPILL_MIN_GAP_SCALE)
+            take = min(max(0.0, g - floor), want)
+            gaps[k] = g - take
+            want -= take
+            taken += take
+    return taken + pitch * MAX_LEADING_SQUEEZE
+
+
+def _replan_flows(lay: DocLayout, measured: dict,
+                  output_profile: str = "standard", rounds: int = 3) -> bool:
+    """Read the probe (`_freeze_flows`) off the loop's first render.
+
+    The layout model cannot see what a renderer does with the text: it reads
+    the Federal Register's first page (y61) as 729pt over its box, and
+    seamed, refined, the page holds; it reads Pub 15's cover (y12) as 77pt
+    over, and seamed, the cover takes most of a second page. So where the
+    model stopped the plan, each probe page is judged by the render: it
+    holds if it did not spill, or spilled by no more than the loop can take
+    back from it in its rounds (`_lever_room`); otherwise what it ran over
+    by, less that, is its measured excess. `_plan_flows` then plans again
+    with those verdicts in place of its model, flows and stop rule as
+    before -- on y12 the cover still cannot be held and the plan stops where
+    it did. A probe page the new plan leaves out loses its stamp (open-loop
+    merge). Where the render cannot be read page by page, the model's stop
+    stands.
+
+    True if a stamp changed: the probe is then not a candidate, and the
+    loop writes round 0 again from the new plan. False otherwise -- no probe
+    (every document whose plan did not stop) or a probe that held as
+    written, which is then round 0 itself."""
+    try:
+        pages = lay.pages
+        probe = [pg for pg in pages if getattr(pg, "flow_probe", False)]
+    except (AttributeError, TypeError):
+        return False
+    if not probe:
+        return False
+    for pg in probe:
+        pg.flow_probe = False
+    spill = measured.get("spill") or []
+    need = measured.get("need") or []
+    if len(spill) != len(pages) or len(need) != len(pages) or \
+            not measured.get("anchors"):
+        for pg in probe:
+            pg.flow_next = None
+        return True
+    index = {pg.number: k for k, pg in enumerate(pages)}
+    held = {}
+    for pg in probe:
+        k = index[pg.number]
+        if spill[k] <= 0:
+            held[pg.number] = -1.0
+            continue
+        over = need[k] if need[k] is not None else \
+            spill[k] * _body_capacity(_page_geometry(lay, pg))
+        held[pg.number] = over - _lever_room(pg, rounds)
+    plan = _plan_flows(lay, output_profile, held=held)
+    changed = False
+    for pg in probe:
+        new = plan.get(pg.number)
+        if new is not False:
+            changed = True
+        pg.flow_next = new
+    return changed
 
 
 def _merge_grid_page_runs(pages):
