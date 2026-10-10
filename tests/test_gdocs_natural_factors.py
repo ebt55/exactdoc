@@ -52,8 +52,6 @@ class CalibriFamily(unittest.TestCase):
         p = Para(runs=[Run(text="Calibri body text in a Word document.",
                            font="Calibri", size=11.0, color="#000000")],
                  leading=11.0 * 1.2207)
-        # two source lines: a one-line paragraph takes the separate 0.38pt
-        # single-line lever (docxout.write_para), which is not under test here
         p.src_lines = 2
         lay = DocLayout(pages=[PageLayout(1, [Chunk(elements=[p])])])
         with tempfile.TemporaryDirectory() as td:

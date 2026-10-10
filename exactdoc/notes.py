@@ -18,6 +18,8 @@ This module finds the pairing and refuses to guess it:
   a separate small raised fragment just left of the line (SCOTUS, LibreOffice:
   the parser returns "5" at 6pt as a line of its own, 2.5pt above and 1.1pt
   left of the note's first line); or a plain mark followed by a space.
+  A separate fragment may also stand ABOVE the text, flush with it, when the
+  note's first word could not share its line (`_stacked_host`).
 * A REFERENCE is a superscript span outside the zone that reads as a mark
   (digits, or one of `SYMBOL_MARKS`).
 * The page is accepted only if every note's mark has EXACTLY ONE reference on
@@ -142,6 +144,38 @@ def _frag_host(frag: Line, lines: List[Line]) -> Optional[Line]:
     return best
 
 
+# A note whose text cannot start on its mark's line -- one unbreakable URL
+# wider than what is left of it -- prints its mark on a line of its own and the
+# text from the next line, flush with the mark (y33 p45, Word: "35" 6.5pt at
+# 726.0-733.9, the URL at 9.96pt from 738.4, both at x 70.9). Measured gap
+# 4.5pt; the mark is at most this share of the text's size (6.48 / 9.96 = 0.65;
+# a lone 8.5pt continuation line under 8.5pt text is 1.0).
+STACKED_MARK_MAX_RATIO = 0.8
+STACKED_GAP_MAX_EM = 0.6
+
+
+def _stacked_host(frag: Line, lines: List[Line]) -> Optional[Line]:
+    """The line a lone mark printed ABOVE its note's text belongs to."""
+    t = frag.text.strip()
+    if not MARK_RE.match(t) or len(frag.spans) != 1:
+        return None
+    best = None
+    for ln in lines:
+        if ln is frag or _is_separator_text(ln) or not ln.text.strip():
+            continue
+        hs = _size(ln)
+        if frag.spans[0].size > STACKED_MARK_MAX_RATIO * hs:
+            continue
+        gap = ln.bbox[1] - frag.bbox[3]
+        if not (-0.5 <= gap <= STACKED_GAP_MAX_EM * hs):
+            continue
+        if abs(ln.bbox[0] - frag.bbox[0]) > 1.5:
+            continue             # the text starts under the mark, flush
+        if best is None or gap < best[1]:
+            best = (ln, gap)
+    return best[0] if best else None
+
+
 def _frag_gap(frag: Line, ln: Line) -> float:
     """Gap between a mark fragment and the START of `ln`: its left edge, or
     for a right-to-left line its right edge, where an RTL note's mark stands."""
@@ -193,7 +227,7 @@ def find_page_notes(flow_lines: List[Line], drawings, body_size: float,
     # Note starts inside the run, mark fragments resolved to their hosts.
     frags = {}
     for ln in run:
-        h = _frag_host(ln, run)
+        h = _frag_host(ln, run) or _stacked_host(ln, run)
         if h is not None:
             frags[id(ln)] = h
     starts = {}
@@ -235,15 +269,21 @@ def find_page_notes(flow_lines: List[Line], drawings, body_size: float,
     zone_first_top = run[first_i].bbox[1] if sep_i is None else run[sep_i].bbox[3]
     # A right-to-left document starts its separator at the RIGHT edge (y49).
     rtl_zone = sum(1 for l in run if getattr(l, "rtl", False)) * 2 > len(run)
+    # The separator is the qualifying rule NEAREST the notes, not the first
+    # one drawn. `body_bottom` sees only the flow's lines, so text a table has
+    # already taken does not bound the search: on y33 p32 and p40 the
+    # 27pt white hairline under a question badge (a table above the notes)
+    # was taken for the separator, the zone opened 110-470pt above the notes
+    # and straddled the table, and the page's notes stayed typed.
     for d in drawings or ():
         w = d.bbox[2] - d.bbox[0]
         if d.shape in ("hline", "rect") and (d.bbox[3] - d.bbox[1]) <= 1.5 \
                 and SEP_RULE_MIN_W <= w <= SEP_RULE_MAX_FRAC * (col_r - col_l) \
                 and (abs(d.bbox[0] - col_l) <= SEP_RULE_X_TOL or
                      (rtl_zone and abs(d.bbox[2] - col_r) <= SEP_RULE_X_TOL)) \
-                and body_bottom - 1.0 <= d.bbox[1] <= zone_first_top + 1.0:
+                and body_bottom - 1.0 <= d.bbox[1] <= zone_first_top + 1.0 \
+                and (sep_rule is None or d.bbox[1] > sep_rule[1]):
             sep_rule = d.bbox
-            break
     # Lines between the separator and the first note continue a note from
     # the previous page; without a separator they are small BODY text (a
     # table note, a caption) and stay out of the zone.

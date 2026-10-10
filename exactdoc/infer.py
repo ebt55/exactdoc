@@ -4199,6 +4199,37 @@ def _tile_bands(clusters, blocks, consumed):
             seen.add(key)
         return len(rows)
 
+    def one_texted_row(cl):
+        """A cluster that is ONE row of abutting tiles, every tile holding
+        text: a one-row table drawn as fills. y33's consultation questions
+        are a numbered badge (a teal tile holding "8") flush against a tinted
+        panel holding the question; stacked two to a band they were already a
+        table (above), but a question standing alone was classified a figure
+        (four substantial fills), and the figure, grown from a 454pt-wide seed,
+        swallowed the body lines above it within its reach -- prose
+        rasterised on 20 of 60 pages, footnote references with it, so those
+        pages' notes could not bind and spilled as typed text (LibreOffice
+        raw 62 pages for 60, word recall 0.49 -> 0.99 with this rule). Every
+        tile must hold text and the tiles must touch: a row of cards keeps
+        its gutters (c1: 9.3pt) and stays cards, and a tile row with an empty
+        tile is decoration. 04's KPI tiles (66-546pt, abutting) read this
+        way too, at their source x (12pt right of it as cards)."""
+        tiles = sorted(_cell_tiles([d for _, d in cl if d.fill and d.shape == "rect"
+                                    and not _is_glyphlike(d)]),
+                       key=lambda t: t.bbox[0])
+        if len(tiles) < 2 or len(_cluster([t.bbox[1] for t in tiles], 2.0)) != 1 \
+                or len(_cluster([t.bbox[3] for t in tiles], 2.0)) != 1:
+            return False
+        if any(abs(b.bbox[0] - a.bbox[2]) > GRID_EDGE_TOL
+               for a, b in zip(tiles, tiles[1:])):
+            return False
+        if not all(has_text(t.bbox) for t in tiles):
+            return False
+        # A shaded header over unruled body rows is the headed table's
+        # (build_headed_table, x04/x10's 'Table 3'), which reads the rows
+        # under it; probed on a copy, as it claims lines when it accepts.
+        return build_headed_table(cl, blocks, set(consumed)) is None
+
     def close(cur, bands):
         # trailing rule-only frames belong to whatever follows, not here
         while cur and not cur[-1][2]:
@@ -4211,7 +4242,8 @@ def _tile_bands(clusters, blocks, consumed):
         # was refused by the figure budget, each tile became a box, and the
         # boxes a one-row 'cards' table per row with its rules as paragraphs
         # between them -- 110pt over the page.
-        if len(tiled_cls) >= 2 or (len(tiled_cls) == 1 and tile_rows(tiled_cls[0]) >= 2):
+        if len(tiled_cls) >= 2 or (len(tiled_cls) == 1 and (
+                tile_rows(tiled_cls[0]) >= 2 or one_texted_row(tiled_cls[0]))):
             bands.append([c for _, c, _ in cur])
 
     bands, cur = [], []
@@ -5426,7 +5458,8 @@ def _figure_in_budget(cl_ds, blocks, images, consumed, page, text_area):
 
 
 # ------------------------------------------------------------------ main
-def infer(ir: DocIR, anchored: bool = True) -> DocLayout:
+def infer(ir: DocIR, anchored: bool = True,
+          anchor_pictures: Optional[bool] = None) -> DocLayout:
     """DocIR -> DocLayout.
 
     The document's hyphenation evidence is built first and made current for
@@ -5438,10 +5471,16 @@ def infer(ir: DocIR, anchored: bool = True) -> DocLayout:
     capability "anchored"), so a slide's pictures leave the flow
     (`_deck_pages`). False keeps every graphic in the flow, as the Google Docs
     profile always has.
+
+    `anchor_pictures`: a picture set on a text line, wrapped by a paragraph
+    or printed into a margin leaves the flow for its own position
+    (`_on_text_line`, `_wrapped_by_text`; options capability
+    "anchor_pictures"); by default whatever `anchored` is.
     """
     token = hyphen.activate(hyphen.HyphenEvidence.from_ir(ir) if ir.pages else None)
     try:
-        lay = _infer(ir, anchored)
+        lay = _infer(ir, anchored,
+                     anchored if anchor_pictures is None else anchor_pictures)
     finally:
         hyphen.deactivate(token)
     hyphen.mark_unhyphenated(lay)
@@ -5513,7 +5552,8 @@ def _balance_brackets(runs) -> int:
     return flips
 
 
-def _infer(ir: DocIR, anchored: bool = True) -> DocLayout:
+def _infer(ir: DocIR, anchored: bool = True,
+           anchor_pictures: bool = True) -> DocLayout:
     lay = DocLayout(src_path=ir.path)
     lay.font_advances = getattr(ir, "font_advances", None) or {}
     if not ir.pages:
@@ -5549,7 +5589,8 @@ def _infer(ir: DocIR, anchored: bool = True) -> DocLayout:
         # point of flow drift sent one slide in two onto a page of its own.
         for g in [lay] + list(own_geometry.values()):
             g.margin_b = min(g.margin_b, DECK_MARGIN_B)
-    _infer_body(lay, ir, hf, n_pages, own_geometry, deck, anchored)
+    _infer_body(lay, ir, hf, n_pages, own_geometry, deck, anchored,
+                anchor_pictures)
     return lay
 
 
@@ -5881,7 +5922,7 @@ def _geometry(lay: DocLayout, own: Optional[DocLayout]) -> DocLayout:
 def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
                 own_geometry: Dict[int, DocLayout],
                 deck: frozenset = frozenset(),
-                anchored: bool = True) -> None:
+                anchored: bool = True, anchor_pictures: bool = True) -> None:
     # Was the source set with hyphenation? This was `>= 6` hyphenated line
     # pairs anywhere, a count that cannot tell a hyphenating document from a
     # long one full of compounds: SP 800-63B reached it on `Out-of-/Band` and
@@ -6460,6 +6501,10 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
                 elements, pl.floats = _float_backgrounds(elements, blocks,
                                                          lay, p.width, p.height)
                 pl.floats = rule_floats + list(pl.floats)
+            elif anchor_pictures:
+                elements, floated = _float_backgrounds(
+                    elements, blocks, lay, p.width, p.height, pictures_only=True)
+                pl.floats = list(pl.floats or ()) + floated
             elements = _merge_graphic_rows(elements, blocks, p.number)
 
         # rebuild flow blocks from unconsumed lines (contiguous runs)
@@ -6710,10 +6755,22 @@ def _float_graphics(elements, blocks, page_w: float, page_h: float):
 
 # Text lines a picture must hold, whole, to be the page's background.
 BACKGROUND_MIN_LINES = 1
+# A picture under the page's text that spans the paper's width is a page
+# background element -- a full-bleed strip or panel -- even under the
+# `pictures_only` capability (gdocs), where a background otherwise stays in
+# the flow. Same share as the full-page rule (FULL_PAGE_FRAC, d630b33), in
+# width only: y33's cover strips are 594.8 x 280.6pt and its p3/p4 tinted
+# panel 594.0 x 93.5 / 654.4 / 93.1pt on 595.2pt paper (0.998-0.999).
+# Stacked in the flow they put y33 at 65 pages for 60 in live Docs (onset
+# p2); anchored behind the text at their page position, live Docs read 60
+# for 60, word recall 0.271 -> 0.992, within-2pt 0.314, SSIM 0.61 -> 0.74
+# (WP27 probe wp27bg, 2026-10-06). A picture inside the margins -- a figure
+# a caption is set on -- is narrower and keeps the flow.
+PAGE_BACKGROUND_WIDTH_FRAC = FULL_PAGE_FRAC
 
 
 def _float_backgrounds(elements, blocks, lay: DocLayout, page_w: float,
-                       page_h: float):
+                       page_h: float, pictures_only: bool = False):
     """(flow elements, [FloatEl]): a picture the page's text is set ON leaves
     the flow for its own position, behind the text.
 
@@ -6732,6 +6789,14 @@ def _float_backgrounds(elements, blocks, lay: DocLayout, page_w: float,
     over the page and took a page of its own.
 
     A full-page picture is left to the writer's own rule (FULL_PAGE_FRAC).
+
+    `pictures_only`: the pictures set on a text line, wrapped by a paragraph
+    or printed into a margin leave the flow (the capability "anchor_pictures",
+    for a profile that does not position graphics otherwise); a background
+    the text is set on stays in it unless it spans the paper's width
+    (PAGE_BACKGROUND_WIDTH_FRAC: y33's strips and panels). DOE OIG's highlights picture (y28 page 3,
+    320x390pt beside the findings, running off the paper's foot) is the
+    margin case.
     """
     lines = [l.bbox for l in _all_lines(blocks)]
     keep, floats = [], []
@@ -6744,6 +6809,10 @@ def _float_backgrounds(elements, blocks, lay: DocLayout, page_w: float,
             BACKGROUND_MIN_LINES
         bleeds = bb[1] < lay.margin_t - MARGIN_BLEED_PT or \
             bb[3] > page_h - lay.margin_b + MARGIN_BLEED_PT
+        if under and pictures_only and \
+                (bb[2] - bb[0]) < PAGE_BACKGROUND_WIDTH_FRAC * page_w:
+            keep.append(e)
+            continue
         if under or bleeds:
             floats.append(FloatEl(el=e, bbox=tuple(bb), behind=under))
             continue

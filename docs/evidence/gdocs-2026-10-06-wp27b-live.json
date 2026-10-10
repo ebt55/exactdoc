@@ -1,0 +1,60 @@
+{
+ "what": "WP27b (full-bleed page backgrounds anchored behind text under gdocs) flown live through Google Docs before merge",
+ "date": "2026-10-06",
+ "base": "24926d9 (wp27 + integration 09d3fdd, without the rule)",
+ "candidate": "WP27b 7f1ff06",
+ "rows": [
+  {
+   "doc": "04_exec_brief",
+   "v": "base",
+   "src_pages": 2,
+   "out_pages": 2,
+   "word_recall": 0.9239,
+   "within2pt": 0.0529,
+   "dy_p50": 3.21,
+   "mean_ssim": 0.9183,
+   "live_text_cov": 0.9406,
+   "char_recall": 0.9509
+  },
+  {
+   "doc": "04_exec_brief",
+   "v": "wp27b",
+   "src_pages": 2,
+   "out_pages": 2,
+   "word_recall": 0.9239,
+   "within2pt": 0.0529,
+   "dy_p50": 3.21,
+   "mean_ssim": 0.9183,
+   "live_text_cov": 0.9406,
+   "char_recall": 0.9509
+  },
+  {
+   "doc": "y33_nz_paper_powerpdf",
+   "v": "base",
+   "src_pages": 60,
+   "out_pages": 63,
+   "word_recall": 0.3005,
+   "within2pt": 0.0222,
+   "dy_p50": 55.86,
+   "mean_ssim": 0.6263,
+   "live_text_cov": 0.9959,
+   "char_recall": 0.7664
+  },
+  {
+   "doc": "y33_nz_paper_powerpdf",
+   "v": "wp27b",
+   "src_pages": 60,
+   "out_pages": 60,
+   "word_recall": 0.9945,
+   "within2pt": 0.5407,
+   "dy_p50": 0.78,
+   "mean_ssim": 0.7844,
+   "live_text_cov": 0.9959,
+   "char_recall": 1.0
+  }
+ ],
+ "notes": [
+  "y33 63 -> 60 pages for 60, word recall 0.300 -> 0.994, within-2pt 0.022 -> 0.541, SSIM 0.626 -> 0.784: criterion 5 PASS in Docs",
+  "04 control byte-identical"
+ ]
+}
