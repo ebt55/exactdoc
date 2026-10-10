@@ -1,5 +1,17 @@
 # `dy_p50`, glyph tops, and the base-14 ascent artifact
 
+> **Superseded on 2026-10-10 by amendment 3 to the beta bar**
+> ([beta-bar.md](beta-bar.md#amendment-3-2026-10-10-ratified-by-the-owner)).
+> The harness now measures `dy_p50`, `dy_p90` and within-2pt at the text
+> baseline on both sides (`testkit/harness.py`), so the ascent convention
+> described below no longer reaches the metric, and the decision to keep glyph
+> tops is reversed. The cost this record weighed -- re-recording the gate
+> baseline, the parity policy's floors and the live-pass records -- is now
+> being paid deliberately (the gate baseline is re-recorded with the owner;
+> `parity_policy.json`'s `dy_absolute_exemption` is left for its own
+> re-record, see the WP39 evidence). The record is kept as history: its
+> numbers were read at glyph tops.
+
 **Decision record for task #22.** Small `dy_p50` differences between the two
 parser backends are a measurement convention, not a placement error. This
 records why, what was decided, and what was deliberately *not* done.

@@ -68,6 +68,13 @@ already was -- criteria 4-9 and 13 read the product sweep, criterion 2 still
 holds the raw profile to its own time limit; (2) the harness reads leader runs,
 symbol-font PUA and maths operators symmetrically (testkit/harness.py), so the
 same renders read differently from 2026-10-06 on. No threshold changed.
+
+**Amendment 3, ratified by the owner on 2026-10-10** (docs/beta-bar.md):
+within-2pt, dy_p50 and dy_p90 -- criteria 7, 8 and 13 here -- are measured at
+the text baseline instead of the word box top, and live_text_cov (criterion
+13) reads leaders and symbol-font PUA as the words do. The same renders read
+differently from 2026-10-10 on, so inputs from either side of that date are
+compared only through testkit/rescore.py. No threshold changed.
 """
 import argparse
 import datetime
