@@ -242,6 +242,20 @@ one verified fix at a time, each gated against the frozen 16.
   put inside 2pt (`docs/beta-bar.md`, amendment 3;
   `docs/evidence/scorer-baseline-2026-10-10.json`).
 
+- **The final measurement set is one command (WP44).**
+  `scripts/dev/final_set.sh <tree> <name> --accepted <sweep>` runs, in
+  order and resumably: a preflight that refuses a dirty tree or anyone
+  else's running container; the strict gate; product and raw sweeps (both
+  corpora, DOCX kept, two containers); Word on the product and the raw DOCX;
+  the live Docs command, printed for the coordinator; serial timing of the
+  documents criterion 2 needs, each after the machine has been quiet (no
+  other container, host CPU < 20% for 60 s) with the load recorded beside
+  it; and `beta_readiness --release 0.3.0b1` wrapped with every input's and
+  the accepted sweep's SHA-256 into `docs/evidence/beta-readiness-<date>.json`.
+  `--dry-run` prints every command. Tried end to end on three documents
+  (gate, sweeps, Word, scorecard); the gate reports the stale baseline
+  binding until the owner's re-record. Scripts only.
+
 - **The drift sentinel's expected row is recorded, and compared like for
   like (WP43).** The coordinator flew the sentinel from 587d47b on
   2026-10-10: 1/1 pages, word recall 1.0, within-2pt 0.8544, dy_p50 1.84pt,
