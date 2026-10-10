@@ -1,0 +1,2180 @@
+{
+ "schema": "exactdoc.evidence.v1",
+ "what": "WP34: the standard-profile page-fit planner switched on (pagefit.PAGEFIT_ENABLED), with the cap made a gentle-plan rule, a hanging row measured as its body, and the plan held as a ceiling under the refine loop",
+ "image": "exactdoc-gate:boot = bab1cfc0d2cd (Carlito), LibreOffice 24.2.7.2; Word 16 (Office 2024) via testkit/word_oracle.py",
+ "before": {
+  "raw": "C:/lotmp/scr/runs/r4-new-raw.sweep.json",
+  "product": "C:/lotmp/scr/runs/r4-new-prod.sweep.json",
+  "word_product": "C:/lotmp/r4word/prod/rows.jsonl"
+ },
+ "pages": {
+  "method": "every page the planner was asked about, uncapped (PAGEFIT_MAX_OVER_LINES None), raw lane, canonical Carlito image: the writer hooked at pagefit.fit_page for the model's claim, the reclaimable gap per tier and the plan; the planner-off render (r4-new-raw) and the uncapped render (wp34-nocap-raw) each read per source page with refine._measure. All 90 DOCX reproduced the uncapped sweep's word/document.xml byte for byte. Measured before the hang-body fix (see hang_body).",
+  "at_risk_pages": 319,
+  "planned_pages": 240,
+  "outcomes": {
+   "fitted_unpaid_anyway": 186,
+   "spilled_either_way": 16,
+   "saved": 38
+  },
+  "by_lines_over_and_tier": [
+   {
+    "lines_over": [
+     null,
+     0
+    ],
+    "gentle_tier_pays": {
+     "fitted_unpaid_anyway": 81,
+     "saved": 2,
+     "spilled_either_way": 1,
+     "pages": 84
+    },
+    "needs_the_floors": {
+     "fitted_unpaid_anyway": 4,
+     "pages": 4
+    }
+   },
+   {
+    "lines_over": [
+     0,
+     1
+    ],
+    "gentle_tier_pays": {
+     "spilled_either_way": 1,
+     "fitted_unpaid_anyway": 24,
+     "saved": 8,
+     "pages": 33
+    },
+    "needs_the_floors": {
+     "pages": 0
+    }
+   },
+   {
+    "lines_over": [
+     1,
+     2
+    ],
+    "gentle_tier_pays": {
+     "fitted_unpaid_anyway": 22,
+     "saved": 2,
+     "spilled_either_way": 4,
+     "pages": 28
+    },
+    "needs_the_floors": {
+     "fitted_unpaid_anyway": 2,
+     "pages": 2
+    }
+   },
+   {
+    "lines_over": [
+     2,
+     3
+    ],
+    "gentle_tier_pays": {
+     "fitted_unpaid_anyway": 12,
+     "saved": 4,
+     "pages": 16
+    },
+    "needs_the_floors": {
+     "saved": 1,
+     "fitted_unpaid_anyway": 3,
+     "spilled_either_way": 3,
+     "pages": 7
+    }
+   },
+   {
+    "lines_over": [
+     3,
+     5
+    ],
+    "gentle_tier_pays": {
+     "fitted_unpaid_anyway": 19,
+     "saved": 6,
+     "spilled_either_way": 3,
+     "pages": 28
+    },
+    "needs_the_floors": {
+     "saved": 3,
+     "fitted_unpaid_anyway": 3,
+     "spilled_either_way": 3,
+     "pages": 9
+    }
+   },
+   {
+    "lines_over": [
+     5,
+     8
+    ],
+    "gentle_tier_pays": {
+     "saved": 6,
+     "fitted_unpaid_anyway": 8,
+     "pages": 14
+    },
+    "needs_the_floors": {
+     "saved": 1,
+     "spilled_either_way": 1,
+     "pages": 2
+    }
+   },
+   {
+    "lines_over": [
+     8,
+     10
+    ],
+    "gentle_tier_pays": {
+     "saved": 1,
+     "pages": 1
+    },
+    "needs_the_floors": {
+     "fitted_unpaid_anyway": 3,
+     "pages": 3
+    }
+   },
+   {
+    "lines_over": [
+     10,
+     12
+    ],
+    "gentle_tier_pays": {
+     "saved": 1,
+     "pages": 1
+    },
+    "needs_the_floors": {
+     "fitted_unpaid_anyway": 5,
+     "saved": 1,
+     "pages": 6
+    }
+   },
+   {
+    "lines_over": [
+     12,
+     null
+    ],
+    "gentle_tier_pays": {
+     "pages": 0
+    },
+    "needs_the_floors": {
+     "saved": 2,
+     "pages": 2
+    }
+   }
+  ],
+  "claims_over_8_lines": [
+   {
+    "doc": "y18_eurlex_ai_act",
+    "page": 36,
+    "lines_over": 8.0,
+    "over_pt": 84.4,
+    "gentle_pt": 59.5,
+    "floor_pt": 104.2,
+    "paid_pt": 97.0,
+    "max_cut_pt": 32.4,
+    "gaps": 5,
+    "outcome": "fitted_unpaid_anyway"
+   },
+   {
+    "doc": "y18_eurlex_ai_act",
+    "page": 106,
+    "lines_over": 8.1,
+    "over_pt": 85.0,
+    "gentle_pt": 102.9,
+    "floor_pt": 179.8,
+    "paid_pt": 98.2,
+    "max_cut_pt": 14.7,
+    "gaps": 15,
+    "outcome": "saved"
+   },
+   {
+    "doc": "y18_eurlex_ai_act",
+    "page": 11,
+    "lines_over": 8.7,
+    "over_pt": 91.2,
+    "gentle_pt": 66.6,
+    "floor_pt": 116.6,
+    "paid_pt": 103.8,
+    "max_cut_pt": 18.3,
+    "gaps": 8,
+    "outcome": "fitted_unpaid_anyway"
+   },
+   {
+    "doc": "y18_eurlex_ai_act",
+    "page": 12,
+    "lines_over": 9.1,
+    "over_pt": 95.3,
+    "gentle_pt": 90.2,
+    "floor_pt": 157.9,
+    "paid_pt": 108.1,
+    "max_cut_pt": 30.0,
+    "gaps": 7,
+    "outcome": "fitted_unpaid_anyway"
+   },
+   {
+    "doc": "y18_eurlex_ai_act",
+    "page": 14,
+    "lines_over": 10.0,
+    "over_pt": 104.9,
+    "gentle_pt": 79.8,
+    "floor_pt": 139.6,
+    "paid_pt": 117.5,
+    "max_cut_pt": 33.1,
+    "gaps": 6,
+    "outcome": "fitted_unpaid_anyway"
+   },
+   {
+    "doc": "y43_arxiv_neurips",
+    "page": 1,
+    "lines_over": 10.1,
+    "over_pt": 110.0,
+    "gentle_pt": 87.3,
+    "floor_pt": 151.9,
+    "paid_pt": 123.2,
+    "max_cut_pt": 23.0,
+    "gaps": 15,
+    "outcome": "saved"
+   },
+   {
+    "doc": "y18_eurlex_ai_act",
+    "page": 5,
+    "lines_over": 10.6,
+    "over_pt": 111.0,
+    "gentle_pt": 66.1,
+    "floor_pt": 115.7,
+    "paid_pt": 115.9,
+    "max_cut_pt": 36.2,
+    "gaps": 5,
+    "outcome": "fitted_unpaid_anyway"
+   },
+   {
+    "doc": "y21_worldbank_wdr24",
+    "page": 6,
+    "lines_over": 10.9,
+    "over_pt": 144.9,
+    "gentle_pt": 164.9,
+    "floor_pt": 288.6,
+    "paid_pt": 160.4,
+    "max_cut_pt": 117.9,
+    "gaps": 19,
+    "outcome": "saved"
+   },
+   {
+    "doc": "y18_eurlex_ai_act",
+    "page": 22,
+    "lines_over": 11.0,
+    "over_pt": 115.2,
+    "gentle_pt": 79.3,
+    "floor_pt": 138.7,
+    "paid_pt": 127.9,
+    "max_cut_pt": 43.9,
+    "gaps": 5,
+    "outcome": "fitted_unpaid_anyway"
+   },
+   {
+    "doc": "y59_cms_notice_inddcs4",
+    "page": 1,
+    "lines_over": 11.1,
+    "over_pt": 178.2,
+    "gentle_pt": 119.0,
+    "floor_pt": 208.2,
+    "paid_pt": 196.2,
+    "max_cut_pt": 163.1,
+    "gaps": 4,
+    "outcome": "fitted_unpaid_anyway"
+   },
+   {
+    "doc": "y57_scan_usda1950_ia",
+    "page": 3,
+    "lines_over": 11.9,
+    "over_pt": 120.5,
+    "gentle_pt": 119.0,
+    "floor_pt": 206.1,
+    "paid_pt": 132.8,
+    "max_cut_pt": 83.0,
+    "gaps": 9,
+    "outcome": "fitted_unpaid_anyway"
+   },
+   {
+    "doc": "y22_lshort",
+    "page": 115,
+    "lines_over": 14.1,
+    "over_pt": 191.0,
+    "gentle_pt": 120.9,
+    "floor_pt": 211.5,
+    "paid_pt": 206.8,
+    "max_cut_pt": 116.8,
+    "gaps": 11,
+    "outcome": "saved"
+   },
+   {
+    "doc": "y64_bls_release_xpp",
+    "page": 19,
+    "lines_over": 16.6,
+    "over_pt": 160.1,
+    "gentle_pt": 129.6,
+    "floor_pt": 226.9,
+    "paid_pt": 171.8,
+    "max_cut_pt": 163.4,
+    "gaps": 6,
+    "outcome": "saved"
+   }
+  ],
+  "rules": {
+   "uncapped": {
+    "paid": 240,
+    "outcomes": {
+     "fitted_unpaid_anyway": 186,
+     "spilled_either_way": 16,
+     "saved": 38
+    },
+    "saved_pages_lost": []
+   },
+   "flat_cap_10": {
+    "paid": 232,
+    "outcomes": {
+     "fitted_unpaid_anyway": 182,
+     "spilled_either_way": 16,
+     "saved": 34
+    },
+    "saved_pages_lost": [
+     "y21 p6",
+     "y22 p115",
+     "y43 p1",
+     "y64 p19"
+    ]
+   },
+   "cap_10_unless_gentle (shipped)": {
+    "paid": 233,
+    "outcomes": {
+     "fitted_unpaid_anyway": 182,
+     "spilled_either_way": 16,
+     "saved": 35
+    },
+    "saved_pages_lost": [
+     "y22 p115",
+     "y43 p1",
+     "y64 p19"
+    ]
+   },
+   "cap_8_unless_gentle": {
+    "paid": 229,
+    "outcomes": {
+     "fitted_unpaid_anyway": 178,
+     "spilled_either_way": 16,
+     "saved": 35
+    },
+    "saved_pages_lost": [
+     "y22 p115",
+     "y43 p1",
+     "y64 p19"
+    ]
+   },
+   "gentle_always": {
+    "paid": 205,
+    "outcomes": {
+     "fitted_unpaid_anyway": 166,
+     "spilled_either_way": 9,
+     "saved": 30
+    },
+    "saved_pages_lost": [
+     "y02 p66",
+     "y02 p70",
+     "y03 p33",
+     "y21 p24",
+     "y22 p115",
+     "y37 p20",
+     "y43 p1",
+     "y64 p19"
+    ]
+   }
+  }
+ },
+ "raw_cap_variants_vs_r4_new_raw": {
+  "uncapped": {
+   "before": "C:/lotmp/scr/runs/r4-new-raw.sweep.json",
+   "after": "C:/lotmp/scr/runs/wp34-nocap-raw.sweep.json",
+   "page_exact": [
+    60,
+    62
+   ],
+   "regressions_beyond_gate_tolerance": {
+    "y59_cms_notice_inddcs4.pdf": [
+     "dy_p50 31.97 -> 48.15 (tolerance 3.2)"
+    ],
+    "y64_bls_release_xpp.pdf": [
+     "dy_p50 12.55 -> 15.23 (tolerance 1.26)"
+    ]
+   }
+  },
+  "flat_cap_10": {
+   "before": "C:/lotmp/scr/runs/r4-new-raw.sweep.json",
+   "after": "C:/lotmp/scr/runs/wp34-cap10-raw.sweep.json",
+   "page_exact": [
+    60,
+    62
+   ],
+   "regressions_beyond_gate_tolerance": {
+    "y21_worldbank_wdr24.pdf": [
+     "dy_p50 51.96 -> 65.32 (tolerance 5.2)"
+    ]
+   }
+  },
+  "cap_10_unless_gentle": {
+   "before": "C:/lotmp/scr/runs/r4-new-raw.sweep.json",
+   "after": "C:/lotmp/scr/runs/wp34-g10-raw.sweep.json",
+   "page_exact": [
+    60,
+    62
+   ],
+   "regressions_beyond_gate_tolerance": {}
+  }
+ },
+ "refine_loop": {
+  "finding": "re-planned on every write, the planner fought the refine loop: the loop pushes a page that renders high down by its first gap (bounded by the room the render measured) and the model read the push as a page at risk and paid it back from the foot",
+  "probe": {
+   "y44 p1 paid per round": [
+    16.4,
+    49.0,
+    64.5
+   ],
+   "y44 published offset": [
+    15.6,
+    "0.1 planner off"
+   ],
+   "y33": "round 1 spilled (61 pages); the loop kept round 0 (offset 133.8)"
+  },
+  "product_variants_vs_r4_new_prod": {
+   "replan_every_round (full 90)": {
+    "page_exact": [
+     69,
+     70
+    ],
+    "regressions_beyond_gate_tolerance": {
+     "y18_eurlex_ai_act.pdf": [
+      "within2pt 0.1556 -> 0.0083 (tolerance 0.05)"
+     ],
+     "y33_nz_paper_powerpdf.pdf": [
+      "within2pt 0.7257 -> 0.4111 (tolerance 0.05)",
+      "dy_p50 0.25 -> 1.89 (tolerance 0.5)"
+     ],
+     "y44_cv_rendercv_typst.pdf": [
+      "within2pt 0.1857 -> 0.0784 (tolerance 0.05)",
+      "dy_p50 2.34 -> 24.69 (tolerance 0.5)"
+     ]
+    }
+   },
+   "held_points_off (full 90)": {
+    "page_exact": [
+     69,
+     70
+    ],
+    "regressions_beyond_gate_tolerance": {
+     "y44_cv_rendercv_typst.pdf": [
+      "dy_p50 2.34 -> 7.67 (tolerance 0.5)"
+     ],
+     "y53_ko_word2016.pdf": [
+      "dy_p50 3.54 -> 4.71 (tolerance 0.5)"
+     ],
+     "y56_scan_usda1921_lura.pdf": [
+      "dy_p50 13.45 -> 15.42 (tolerance 1.34)"
+     ],
+     "y57_scan_usda1950_ia.pdf": [
+      "dy_p50 63 -> 72.74 (tolerance 6.3)"
+     ]
+    }
+   },
+   "held_release_on_push (15 docs)": {
+    "page_exact": [
+     9,
+     10
+    ],
+    "regressions_beyond_gate_tolerance": {
+     "y03_nist_fips197.pdf": [
+      "dy_p50 1.45 -> 2.12 (tolerance 0.5)"
+     ],
+     "y18_eurlex_ai_act.pdf": [
+      "within2pt 0.1556 -> 0.0083 (tolerance 0.05)"
+     ],
+     "y33_nz_paper_powerpdf.pdf": [
+      "within2pt 0.7257 -> 0.4111 (tolerance 0.05)",
+      "dy_p50 0.25 -> 1.89 (tolerance 0.5)"
+     ],
+     "y53_ko_word2016.pdf": [
+      "dy_p50 3.54 -> 4.71 (tolerance 0.5)"
+     ],
+     "y56_scan_usda1921_lura.pdf": [
+      "dy_p50 13.45 -> 15.42 (tolerance 1.34)"
+     ],
+     "y57_scan_usda1950_ia.pdf": [
+      "dy_p50 63 -> 72.74 (tolerance 6.3)"
+     ]
+    }
+   },
+   "held_release_on_any_change (15 docs)": {
+    "page_exact": [
+     9,
+     9
+    ],
+    "regressions_beyond_gate_tolerance": {
+     "y02_nist_sp800171r2.pdf": [
+      "page_err 0 -> 1 (tolerance 0)",
+      "word_recall 0.966 -> 0.754 (tolerance 0.02)",
+      "within2pt 0.3291 -> 0.1893 (tolerance 0.05)",
+      "dy_p50 2.22 -> 9.91 (tolerance 0.5)"
+     ],
+     "y03_nist_fips197.pdf": [
+      "dy_p50 1.45 -> 2.13 (tolerance 0.5)"
+     ],
+     "y18_eurlex_ai_act.pdf": [
+      "within2pt 0.1556 -> 0.0083 (tolerance 0.05)"
+     ],
+     "y33_nz_paper_powerpdf.pdf": [
+      "within2pt 0.7257 -> 0.4111 (tolerance 0.05)",
+      "dy_p50 0.25 -> 1.89 (tolerance 0.5)"
+     ]
+    }
+   },
+   "held_no_body_line_margin (15 docs)": {
+    "page_exact": [
+     9,
+     10
+    ],
+    "regressions_beyond_gate_tolerance": {
+     "y53_ko_word2016.pdf": [
+      "dy_p50 3.54 -> 4.71 (tolerance 0.5)"
+     ],
+     "y57_scan_usda1950_ia.pdf": [
+      "dy_p50 63 -> 72.74 (tolerance 6.3)"
+     ]
+    }
+   },
+   "hang_fix + held_points_off (17 docs)": {
+    "page_exact": [
+     10,
+     11
+    ],
+    "regressions_beyond_gate_tolerance": {
+     "y53_ko_word2016.pdf": [
+      "dy_p50 3.54 -> 4.71 (tolerance 0.5)"
+     ],
+     "y57_scan_usda1950_ia.pdf": [
+      "dy_p50 63 -> 72.74 (tolerance 6.3)"
+     ]
+    }
+   },
+   "hang_fix + held_ceiling (6 docs)": {
+    "page_exact": [
+     3,
+     3
+    ],
+    "regressions_beyond_gate_tolerance": {}
+   }
+  },
+  "word_y18_product": {
+   "before (r4word/prod)": "154/144 wr 0.468",
+   "replan_every_round": "144/144 wr 0.9855 within2pt 0.007",
+   "held_points_off": "144/144 wr 0.9855 within2pt 0.153",
+   "held_no_body_line_margin": "146/144 wr 0.733 (fails criterion 5)",
+   "hang_fix + held_ceiling": "144/144 wr 0.9855 within2pt 0.155"
+  }
+ },
+ "hang_body": {
+  "what": "pagefit._hang_body: a hanging paragraph's hang content (before the hang tab) is not measured into its first line",
+  "evidence": "y44 p1: rows '<tab>date<tab>institution...' (stops 118.7 right, 128.9 left; left indent 128.9) predicted at 2 lines, 1 in the source and both renderers; page claimed 1.3pt over, 38.8pt to spare in the planner-off render",
+  "census_planned_pages_raw": {
+   "before": 233,
+   "after": 226
+  },
+  "pages_whose_plan_changed": 30,
+  "their_render_outcome": "all fitted unpaid (planner-off render) except y03 p33 (still paid enough, fits) and four scan pages (y56 p6-p8, y57 p5) that spilled either way"
+ },
+ "final": {
+  "raw": {
+   "before": "C:/lotmp/scr/runs/r4-new-raw.sweep.json",
+   "after": "C:/lotmp/scr/runs/wp34-fin1-raw.sweep.json",
+   "page_exact": [
+    60,
+    62
+   ],
+   "documents_changed": [
+    {
+     "doc": "y01_nist_sp80063b.pdf",
+     "src_pages": 80,
+     "pages": [
+      80,
+      80
+     ],
+     "word_recall": [
+      0.9688,
+      0.9688
+     ],
+     "within2pt": [
+      0.5986,
+      0.5988
+     ],
+     "dy_p50": [
+      1.73,
+      1.73
+     ]
+    },
+    {
+     "doc": "y02_nist_sp800171r2.pdf",
+     "src_pages": 114,
+     "pages": [
+      117,
+      115
+     ],
+     "word_recall": [
+      0.7438,
+      0.754
+     ],
+     "within2pt": [
+      0.1884,
+      0.1893
+     ],
+     "dy_p50": [
+      9.64,
+      9.91
+     ]
+    },
+    {
+     "doc": "y03_nist_fips197.pdf",
+     "src_pages": 46,
+     "pages": [
+      51,
+      47
+     ],
+     "word_recall": [
+      0.556,
+      0.8571
+     ],
+     "within2pt": [
+      0.151,
+      0.1671
+     ],
+     "dy_p50": [
+      4.43,
+      3.12
+     ]
+    },
+    {
+     "doc": "y09_nist_sp800207.pdf",
+     "src_pages": 59,
+     "pages": [
+      59,
+      59
+     ],
+     "word_recall": [
+      0.9759,
+      0.9759
+     ],
+     "within2pt": [
+      0.725,
+      0.7167
+     ],
+     "dy_p50": [
+      1.45,
+      1.45
+     ]
+    },
+    {
+     "doc": "y10_nist_fips180.pdf",
+     "src_pages": 36,
+     "pages": [
+      36,
+      36
+     ],
+     "word_recall": [
+      0.9405,
+      0.9405
+     ],
+     "within2pt": [
+      0.4073,
+      0.4123
+     ],
+     "dy_p50": [
+      0.52,
+      0.54
+     ]
+    },
+    {
+     "doc": "y17_rfc9110.pdf",
+     "src_pages": 194,
+     "pages": [
+      195,
+      195
+     ],
+     "word_recall": [
+      0.9162,
+      0.9162
+     ],
+     "within2pt": [
+      0.0238,
+      0.0239
+     ],
+     "dy_p50": [
+      13.04,
+      13.04
+     ]
+    },
+    {
+     "doc": "y18_eurlex_ai_act.pdf",
+     "src_pages": 144,
+     "pages": [
+      156,
+      144
+     ],
+     "word_recall": [
+      0.401,
+      0.9844
+     ],
+     "within2pt": [
+      0.0023,
+      0.0526
+     ],
+     "dy_p50": [
+      38.81,
+      2.31
+     ]
+    },
+    {
+     "doc": "y19_scotus_loper.pdf",
+     "src_pages": 114,
+     "pages": [
+      114,
+      114
+     ],
+     "word_recall": [
+      0.9355,
+      0.9355
+     ],
+     "within2pt": [
+      0.0253,
+      0.0249
+     ],
+     "dy_p50": [
+      13.25,
+      13.25
+     ]
+    },
+    {
+     "doc": "y21_worldbank_wdr24.pdf",
+     "src_pages": 48,
+     "pages": [
+      57,
+      53
+     ],
+     "word_recall": [
+      0.1934,
+      0.4992
+     ],
+     "within2pt": [
+      0.0008,
+      0.0081
+     ],
+     "dy_p50": [
+      51.96,
+      40.9
+     ]
+    },
+    {
+     "doc": "y22_lshort.pdf",
+     "src_pages": 153,
+     "pages": [
+      178,
+      173
+     ],
+     "word_recall": [
+      0.327,
+      0.3243
+     ],
+     "within2pt": [
+      0.0562,
+      0.0568
+     ],
+     "dy_p50": [
+      15.51,
+      15.19
+     ]
+    },
+    {
+     "doc": "y24_pandoc_manual.pdf",
+     "src_pages": 180,
+     "pages": [
+      180,
+      180
+     ],
+     "word_recall": [
+      0.9937,
+      0.9937
+     ],
+     "within2pt": [
+      0.1621,
+      0.1628
+     ],
+     "dy_p50": [
+      2.08,
+      2.07
+     ]
+    },
+    {
+     "doc": "y28_doe_oig_word365.pdf",
+     "src_pages": 21,
+     "pages": [
+      21,
+      21
+     ],
+     "word_recall": [
+      0.9931,
+      0.9931
+     ],
+     "within2pt": [
+      0.2585,
+      0.2581
+     ],
+     "dy_p50": [
+      1.78,
+      1.78
+     ]
+    },
+    {
+     "doc": "y32_uk_response_gdocs.pdf",
+     "src_pages": 37,
+     "pages": [
+      37,
+      37
+     ],
+     "word_recall": [
+      0.9992,
+      0.9992
+     ],
+     "within2pt": [
+      0.4772,
+      0.4569
+     ],
+     "dy_p50": [
+      1.12,
+      1.13
+     ]
+    },
+    {
+     "doc": "y33_nz_paper_powerpdf.pdf",
+     "src_pages": 60,
+     "pages": [
+      60,
+      60
+     ],
+     "word_recall": [
+      0.9955,
+      0.9955
+     ],
+     "within2pt": [
+      0.425,
+      0.4233
+     ],
+     "dy_p50": [
+      1.87,
+      1.88
+     ]
+    },
+    {
+     "doc": "y37_plos_one_dvipdfmx.pdf",
+     "src_pages": 22,
+     "pages": [
+      34,
+      32
+     ],
+     "word_recall": [
+      0.2844,
+      0.288
+     ],
+     "within2pt": [
+      0.0079,
+      0.0078
+     ],
+     "dy_p50": [
+      36.91,
+      38.31
+     ]
+    },
+    {
+     "doc": "y38_elife_arbortext_gs.pdf",
+     "src_pages": 33,
+     "pages": [
+      53,
+      53
+     ],
+     "word_recall": [
+      0.2189,
+      0.2189
+     ],
+     "within2pt": [
+      0.0005,
+      0.0005
+     ],
+     "dy_p50": [
+      39.33,
+      39.47
+     ]
+    },
+    {
+     "doc": "y39_copernicus_npg_2col.pdf",
+     "src_pages": 11,
+     "pages": [
+      12,
+      11
+     ],
+     "word_recall": [
+      0.7597,
+      0.8804
+     ],
+     "within2pt": [
+      0.0131,
+      0.0072
+     ],
+     "dy_p50": [
+      38.21,
+      40.32
+     ]
+    },
+    {
+     "doc": "y40_frontiers_dvips_gs.pdf",
+     "src_pages": 10,
+     "pages": [
+      12,
+      12
+     ],
+     "word_recall": [
+      0.601,
+      0.6012
+     ],
+     "within2pt": [
+      0.0506,
+      0.0495
+     ],
+     "dy_p50": [
+      24.51,
+      24.08
+     ]
+    },
+    {
+     "doc": "y43_arxiv_neurips.pdf",
+     "src_pages": 15,
+     "pages": [
+      19,
+      18
+     ],
+     "word_recall": [
+      0.2944,
+      0.3137
+     ],
+     "within2pt": [
+      0.0,
+      0.0019
+     ],
+     "dy_p50": [
+      33.75,
+      35.22
+     ]
+    },
+    {
+     "doc": "y47_ar_ilo_word365.pdf",
+     "src_pages": 57,
+     "pages": [
+      86,
+      85
+     ],
+     "word_recall": [
+      0.1511,
+      0.1842
+     ],
+     "within2pt": [
+      0.001,
+      0.0013
+     ],
+     "dy_p50": [
+      52.08,
+      43.74
+     ]
+    },
+    {
+     "doc": "y50_fa_word2016.pdf",
+     "src_pages": 15,
+     "pages": [
+      19,
+      19
+     ],
+     "word_recall": [
+      0.2124,
+      0.2139
+     ],
+     "within2pt": [
+      0.0213,
+      0.0219
+     ],
+     "dy_p50": [
+      58.73,
+      58.12
+     ]
+    },
+    {
+     "doc": "y53_ko_word2016.pdf",
+     "src_pages": 28,
+     "pages": [
+      32,
+      32
+     ],
+     "word_recall": [
+      0.6679,
+      0.6694
+     ],
+     "within2pt": [
+      0.1059,
+      0.0992
+     ],
+     "dy_p50": [
+      8.52,
+      8.57
+     ]
+    },
+    {
+     "doc": "y56_scan_usda1921_lura.pdf",
+     "src_pages": 10,
+     "pages": [
+      14,
+      14
+     ],
+     "word_recall": [
+      0.4476,
+      0.4511
+     ],
+     "within2pt": [
+      0.0112,
+      0.0089
+     ],
+     "dy_p50": [
+      29.89,
+      23.14
+     ]
+    },
+    {
+     "doc": "y57_scan_usda1950_ia.pdf",
+     "src_pages": 16,
+     "pages": [
+      26,
+      25
+     ],
+     "word_recall": [
+      0.0883,
+      0.0899
+     ],
+     "within2pt": [
+      0.018,
+      0.0294
+     ],
+     "dy_p50": [
+      56.88,
+      56.37
+     ]
+    },
+    {
+     "doc": "y63_court_pleading_word365.pdf",
+     "src_pages": 5,
+     "pages": [
+      5,
+      5
+     ],
+     "word_recall": [
+      0.9959,
+      0.9959
+     ],
+     "within2pt": [
+      0.1669,
+      0.1669
+     ],
+     "dy_p50": [
+      8.72,
+      8.82
+     ]
+    },
+    {
+     "doc": "y64_bls_release_xpp.pdf",
+     "src_pages": 39,
+     "pages": [
+      44,
+      41
+     ],
+     "word_recall": [
+      0.3426,
+      0.3562
+     ],
+     "within2pt": [
+      0.0959,
+      0.0917
+     ],
+     "dy_p50": [
+      12.55,
+      13.11
+     ]
+    }
+   ],
+   "regressions_beyond_gate_tolerance": {}
+  },
+  "product": {
+   "before": "C:/lotmp/scr/runs/r4-new-prod.sweep.json",
+   "after": "C:/lotmp/scr/runs/wp34-fin4-prod.sweep.json",
+   "page_exact": [
+    69,
+    69
+   ],
+   "documents_changed": [
+    {
+     "doc": "y01_nist_sp80063b.pdf",
+     "src_pages": 80,
+     "pages": [
+      80,
+      80
+     ],
+     "word_recall": [
+      0.9688,
+      0.9688
+     ],
+     "within2pt": [
+      0.7995,
+      0.7982
+     ],
+     "dy_p50": [
+      0.23,
+      0.23
+     ]
+    },
+    {
+     "doc": "y02_nist_sp800171r2.pdf",
+     "src_pages": 114,
+     "pages": [
+      114,
+      114
+     ],
+     "word_recall": [
+      0.966,
+      0.966
+     ],
+     "within2pt": [
+      0.3291,
+      0.3277
+     ],
+     "dy_p50": [
+      2.22,
+      2.37
+     ]
+    },
+    {
+     "doc": "y03_nist_fips197.pdf",
+     "src_pages": 46,
+     "pages": [
+      46,
+      46
+     ],
+     "word_recall": [
+      0.9682,
+      0.9682
+     ],
+     "within2pt": [
+      0.198,
+      0.1887
+     ],
+     "dy_p50": [
+      1.45,
+      1.8
+     ]
+    },
+    {
+     "doc": "y08_nist_sp80088r1.pdf",
+     "src_pages": 65,
+     "pages": [
+      65,
+      65
+     ],
+     "word_recall": [
+      0.9909,
+      0.9909
+     ],
+     "within2pt": [
+      0.414,
+      0.4108
+     ],
+     "dy_p50": [
+      0.15,
+      0.16
+     ]
+    },
+    {
+     "doc": "y09_nist_sp800207.pdf",
+     "src_pages": 59,
+     "pages": [
+      59,
+      59
+     ],
+     "word_recall": [
+      0.9759,
+      0.9759
+     ],
+     "within2pt": [
+      0.827,
+      0.8114
+     ],
+     "dy_p50": [
+      0.05,
+      0.05
+     ]
+    },
+    {
+     "doc": "y10_nist_fips180.pdf",
+     "src_pages": 36,
+     "pages": [
+      36,
+      36
+     ],
+     "word_recall": [
+      0.9405,
+      0.9405
+     ],
+     "within2pt": [
+      0.0968,
+      0.0946
+     ],
+     "dy_p50": [
+      2.38,
+      2.38
+     ]
+    },
+    {
+     "doc": "y17_rfc9110.pdf",
+     "src_pages": 194,
+     "pages": [
+      194,
+      194
+     ],
+     "word_recall": [
+      0.9846,
+      0.9846
+     ],
+     "within2pt": [
+      0.0606,
+      0.0605
+     ],
+     "dy_p50": [
+      9.57,
+      9.57
+     ]
+    },
+    {
+     "doc": "y18_eurlex_ai_act.pdf",
+     "src_pages": 144,
+     "pages": [
+      144,
+      144
+     ],
+     "word_recall": [
+      0.9844,
+      0.9844
+     ],
+     "within2pt": [
+      0.1556,
+      0.1806
+     ],
+     "dy_p50": [
+      2.82,
+      1.08
+     ]
+    },
+    {
+     "doc": "y19_scotus_loper.pdf",
+     "src_pages": 114,
+     "pages": [
+      114,
+      114
+     ],
+     "word_recall": [
+      0.9355,
+      0.9355
+     ],
+     "within2pt": [
+      0.0268,
+      0.0263
+     ],
+     "dy_p50": [
+      13.54,
+      13.54
+     ]
+    },
+    {
+     "doc": "y21_worldbank_wdr24.pdf",
+     "src_pages": 48,
+     "pages": [
+      49,
+      49
+     ],
+     "word_recall": [
+      0.7192,
+      0.7192
+     ],
+     "within2pt": [
+      0.0143,
+      0.0141
+     ],
+     "dy_p50": [
+      26.4,
+      26.03
+     ]
+    },
+    {
+     "doc": "y22_lshort.pdf",
+     "src_pages": 153,
+     "pages": [
+      157,
+      157
+     ],
+     "word_recall": [
+      0.7531,
+      0.7531
+     ],
+     "within2pt": [
+      0.0667,
+      0.0707
+     ],
+     "dy_p50": [
+      14.26,
+      14.14
+     ]
+    },
+    {
+     "doc": "y24_pandoc_manual.pdf",
+     "src_pages": 180,
+     "pages": [
+      180,
+      180
+     ],
+     "word_recall": [
+      0.9937,
+      0.9937
+     ],
+     "within2pt": [
+      0.2003,
+      0.1988
+     ],
+     "dy_p50": [
+      0.61,
+      0.61
+     ]
+    },
+    {
+     "doc": "y28_doe_oig_word365.pdf",
+     "src_pages": 21,
+     "pages": [
+      21,
+      21
+     ],
+     "word_recall": [
+      0.9931,
+      0.9931
+     ],
+     "within2pt": [
+      0.0492,
+      0.0497
+     ],
+     "dy_p50": [
+      2.4,
+      2.4
+     ]
+    },
+    {
+     "doc": "y32_uk_response_gdocs.pdf",
+     "src_pages": 37,
+     "pages": [
+      37,
+      37
+     ],
+     "word_recall": [
+      0.9992,
+      0.9992
+     ],
+     "within2pt": [
+      0.6803,
+      0.6621
+     ],
+     "dy_p50": [
+      0.04,
+      0.04
+     ]
+    },
+    {
+     "doc": "y33_nz_paper_powerpdf.pdf",
+     "src_pages": 60,
+     "pages": [
+      60,
+      60
+     ],
+     "word_recall": [
+      0.9955,
+      0.9955
+     ],
+     "within2pt": [
+      0.7257,
+      0.7347
+     ],
+     "dy_p50": [
+      0.25,
+      0.25
+     ]
+    },
+    {
+     "doc": "y37_plos_one_dvipdfmx.pdf",
+     "src_pages": 22,
+     "pages": [
+      27,
+      27
+     ],
+     "word_recall": [
+      0.3268,
+      0.3268
+     ],
+     "within2pt": [
+      0.0009,
+      0.0009
+     ],
+     "dy_p50": [
+      27.38,
+      26.88
+     ]
+    },
+    {
+     "doc": "y38_elife_arbortext_gs.pdf",
+     "src_pages": 33,
+     "pages": [
+      49,
+      49
+     ],
+     "word_recall": [
+      0.2849,
+      0.2849
+     ],
+     "within2pt": [
+      0.0021,
+      0.0021
+     ],
+     "dy_p50": [
+      31.41,
+      31.6
+     ]
+    },
+    {
+     "doc": "y43_arxiv_neurips.pdf",
+     "src_pages": 15,
+     "pages": [
+      15,
+      15
+     ],
+     "word_recall": [
+      0.9799,
+      0.9799
+     ],
+     "within2pt": [
+      0.1203,
+      0.0908
+     ],
+     "dy_p50": [
+      9.54,
+      8.18
+     ]
+    },
+    {
+     "doc": "y50_fa_word2016.pdf",
+     "src_pages": 15,
+     "pages": [
+      15,
+      15
+     ],
+     "word_recall": [
+      0.6867,
+      0.6867
+     ],
+     "within2pt": [
+      0.0066,
+      0.0056
+     ],
+     "dy_p50": [
+      14.75,
+      14.81
+     ]
+    },
+    {
+     "doc": "y56_scan_usda1921_lura.pdf",
+     "src_pages": 10,
+     "pages": [
+      12,
+      12
+     ],
+     "word_recall": [
+      0.6262,
+      0.6262
+     ],
+     "within2pt": [
+      0.0665,
+      0.0673
+     ],
+     "dy_p50": [
+      13.45,
+      13.45
+     ]
+    },
+    {
+     "doc": "y62_bill_gpo_linenum.pdf",
+     "src_pages": 20,
+     "pages": [
+      20,
+      20
+     ],
+     "word_recall": [
+      0.7444,
+      0.7444
+     ],
+     "within2pt": [
+      0.1014,
+      0.0942
+     ],
+     "dy_p50": [
+      2.21,
+      2.49
+     ]
+    },
+    {
+     "doc": "y63_court_pleading_word365.pdf",
+     "src_pages": 5,
+     "pages": [
+      5,
+      5
+     ],
+     "word_recall": [
+      0.9959,
+      0.9959
+     ],
+     "within2pt": [
+      0.0834,
+      0.0593
+     ],
+     "dy_p50": [
+      4.61,
+      4.64
+     ]
+    }
+   ],
+   "regressions_beyond_gate_tolerance": {}
+  },
+  "word_product": {
+   "before": "C:/lotmp/r4word/prod/rows.jsonl",
+   "after": "C:/lotmp/wp34/word/fin1/rows.jsonl",
+   "page_exact": [
+    22,
+    23
+   ],
+   "documents_changed": [
+    {
+     "doc": "x16_fpdf_bulletin.pdf",
+     "src_pages": 1,
+     "pages": [
+      1,
+      1
+     ],
+     "word_recall": [
+      1.0,
+      1.0
+     ],
+     "within2pt": [
+      0.9098,
+      0.9201
+     ],
+     "dy_p50": [
+      1.81,
+      1.81
+     ]
+    },
+    {
+     "doc": "y01_nist_sp80063b.pdf",
+     "src_pages": 80,
+     "pages": [
+      80,
+      80
+     ],
+     "word_recall": [
+      0.969,
+      0.969
+     ],
+     "within2pt": [
+      0.7825,
+      0.7819
+     ],
+     "dy_p50": [
+      0.28,
+      0.28
+     ]
+    },
+    {
+     "doc": "y02_nist_sp800171r2.pdf",
+     "src_pages": 114,
+     "pages": [
+      114,
+      114
+     ],
+     "word_recall": [
+      0.9664,
+      0.9664
+     ],
+     "within2pt": [
+      0.1534,
+      0.1545
+     ],
+     "dy_p50": [
+      2.73,
+      2.73
+     ]
+    },
+    {
+     "doc": "y03_nist_fips197.pdf",
+     "src_pages": 46,
+     "pages": [
+      46,
+      46
+     ],
+     "word_recall": [
+      0.9674,
+      0.9674
+     ],
+     "within2pt": [
+      0.1684,
+      0.1683
+     ],
+     "dy_p50": [
+      2.48,
+      2.39
+     ]
+    },
+    {
+     "doc": "y08_nist_sp80088r1.pdf",
+     "src_pages": 65,
+     "pages": [
+      65,
+      65
+     ],
+     "word_recall": [
+      0.9916,
+      0.9916
+     ],
+     "within2pt": [
+      0.4072,
+      0.4043
+     ],
+     "dy_p50": [
+      0.17,
+      0.17
+     ]
+    },
+    {
+     "doc": "y09_nist_sp800207.pdf",
+     "src_pages": 59,
+     "pages": [
+      59,
+      59
+     ],
+     "word_recall": [
+      0.9761,
+      0.9761
+     ],
+     "within2pt": [
+      0.8252,
+      0.8096
+     ],
+     "dy_p50": [
+      0.1,
+      0.1
+     ]
+    },
+    {
+     "doc": "y10_nist_fips180.pdf",
+     "src_pages": 36,
+     "pages": [
+      36,
+      36
+     ],
+     "word_recall": [
+      0.9404,
+      0.9404
+     ],
+     "within2pt": [
+      0.1101,
+      0.1064
+     ],
+     "dy_p50": [
+      2.52,
+      2.52
+     ]
+    },
+    {
+     "doc": "y17_rfc9110.pdf",
+     "src_pages": 194,
+     "pages": [
+      194,
+      194
+     ],
+     "word_recall": [
+      0.9848,
+      0.9848
+     ],
+     "within2pt": [
+      0.0606,
+      0.0605
+     ],
+     "dy_p50": [
+      9.44,
+      9.44
+     ]
+    },
+    {
+     "doc": "y18_eurlex_ai_act.pdf",
+     "src_pages": 144,
+     "pages": [
+      154,
+      144
+     ],
+     "word_recall": [
+      0.468,
+      0.9855
+     ],
+     "within2pt": [
+      0.0244,
+      0.1571
+     ],
+     "dy_p50": [
+      22.6,
+      2.62
+     ]
+    },
+    {
+     "doc": "y19_scotus_loper.pdf",
+     "src_pages": 114,
+     "pages": [
+      114,
+      114
+     ],
+     "word_recall": [
+      0.9246,
+      0.9246
+     ],
+     "within2pt": [
+      0.026,
+      0.0255
+     ],
+     "dy_p50": [
+      13.9,
+      13.9
+     ]
+    },
+    {
+     "doc": "y21_worldbank_wdr24.pdf",
+     "src_pages": 48,
+     "pages": [
+      49,
+      49
+     ],
+     "word_recall": [
+      0.7067,
+      0.7067
+     ],
+     "within2pt": [
+      0.0107,
+      0.0106
+     ],
+     "dy_p50": [
+      27.88,
+      27.52
+     ]
+    },
+    {
+     "doc": "y22_lshort.pdf",
+     "src_pages": 153,
+     "pages": [
+      157,
+      157
+     ],
+     "word_recall": [
+      0.7508,
+      0.7508
+     ],
+     "within2pt": [
+      0.0614,
+      0.0655
+     ],
+     "dy_p50": [
+      14.39,
+      14.27
+     ]
+    },
+    {
+     "doc": "y24_pandoc_manual.pdf",
+     "src_pages": 180,
+     "pages": [
+      180,
+      180
+     ],
+     "word_recall": [
+      0.9861,
+      0.9861
+     ],
+     "within2pt": [
+      0.1873,
+      0.1858
+     ],
+     "dy_p50": [
+      0.72,
+      0.72
+     ]
+    },
+    {
+     "doc": "y28_doe_oig_word365.pdf",
+     "src_pages": 21,
+     "pages": [
+      21,
+      21
+     ],
+     "word_recall": [
+      0.9904,
+      0.9904
+     ],
+     "within2pt": [
+      0.0334,
+      0.033
+     ],
+     "dy_p50": [
+      2.55,
+      2.55
+     ]
+    },
+    {
+     "doc": "y32_uk_response_gdocs.pdf",
+     "src_pages": 37,
+     "pages": [
+      37,
+      37
+     ],
+     "word_recall": [
+      0.999,
+      0.999
+     ],
+     "within2pt": [
+      0.7769,
+      0.7566
+     ],
+     "dy_p50": [
+      0.09,
+      0.09
+     ]
+    },
+    {
+     "doc": "y33_nz_paper_powerpdf.pdf",
+     "src_pages": 60,
+     "pages": [
+      60,
+      60
+     ],
+     "word_recall": [
+      0.9957,
+      0.9957
+     ],
+     "within2pt": [
+      0.1825,
+      0.184
+     ],
+     "dy_p50": [
+      2.2,
+      2.23
+     ]
+    },
+    {
+     "doc": "y37_plos_one_dvipdfmx.pdf",
+     "src_pages": 22,
+     "pages": [
+      27,
+      27
+     ],
+     "word_recall": [
+      0.324,
+      0.324
+     ],
+     "within2pt": [
+      0.0,
+      0.0
+     ],
+     "dy_p50": [
+      26.98,
+      26.81
+     ]
+    },
+    {
+     "doc": "y38_elife_arbortext_gs.pdf",
+     "src_pages": 33,
+     "pages": [
+      49,
+      49
+     ],
+     "word_recall": [
+      0.2844,
+      0.2844
+     ],
+     "within2pt": [
+      0.0026,
+      0.0024
+     ],
+     "dy_p50": [
+      31.99,
+      31.97
+     ]
+    },
+    {
+     "doc": "y40_frontiers_dvips_gs.pdf",
+     "src_pages": 10,
+     "pages": [
+      11,
+      11
+     ],
+     "word_recall": [
+      0.8036,
+      0.8036
+     ],
+     "within2pt": [
+      0.0116,
+      0.0114
+     ],
+     "dy_p50": [
+      45.42,
+      45.42
+     ]
+    },
+    {
+     "doc": "y43_arxiv_neurips.pdf",
+     "src_pages": 15,
+     "pages": [
+      15,
+      15
+     ],
+     "word_recall": [
+      0.9732,
+      0.9732
+     ],
+     "within2pt": [
+      0.1312,
+      0.1076
+     ],
+     "dy_p50": [
+      9.77,
+      8.94
+     ]
+    },
+    {
+     "doc": "y47_ar_ilo_word365.pdf",
+     "src_pages": 57,
+     "pages": [
+      64,
+      64
+     ],
+     "word_recall": [
+      0.2677,
+      0.2677
+     ],
+     "within2pt": [
+      0.006,
+      0.006
+     ],
+     "dy_p50": [
+      44.46,
+      44.45
+     ]
+    },
+    {
+     "doc": "y50_fa_word2016.pdf",
+     "src_pages": 15,
+     "pages": [
+      15,
+      15
+     ],
+     "word_recall": [
+      0.7075,
+      0.7075
+     ],
+     "within2pt": [
+      0.0064,
+      0.0055
+     ],
+     "dy_p50": [
+      15.34,
+      15.57
+     ]
+    },
+    {
+     "doc": "y56_scan_usda1921_lura.pdf",
+     "src_pages": 10,
+     "pages": [
+      12,
+      12
+     ],
+     "word_recall": [
+      0.6262,
+      0.6262
+     ],
+     "within2pt": [
+      0.0617,
+      0.0625
+     ],
+     "dy_p50": [
+      13.34,
+      13.34
+     ]
+    },
+    {
+     "doc": "y57_scan_usda1950_ia.pdf",
+     "src_pages": 16,
+     "pages": [
+      23,
+      22
+     ],
+     "word_recall": [
+      0.092,
+      0.092
+     ],
+     "within2pt": [
+      0.0,
+      0.0
+     ],
+     "dy_p50": [
+      62.95,
+      62.95
+     ]
+    },
+    {
+     "doc": "y62_bill_gpo_linenum.pdf",
+     "src_pages": 20,
+     "pages": [
+      20,
+      20
+     ],
+     "word_recall": [
+      0.741,
+      0.741
+     ],
+     "within2pt": [
+      0.0848,
+      0.0844
+     ],
+     "dy_p50": [
+      3.17,
+      3.28
+     ]
+    },
+    {
+     "doc": "y63_court_pleading_word365.pdf",
+     "src_pages": 5,
+     "pages": [
+      5,
+      5
+     ],
+     "word_recall": [
+      0.9959,
+      0.9959
+     ],
+     "within2pt": [
+      0.0764,
+      0.0593
+     ],
+     "dy_p50": [
+      4.68,
+      4.74
+     ]
+    }
+   ],
+   "regressions_beyond_gate_tolerance": {}
+  }
+ },
+ "criterion5_long_promised": {
+  "lo_raw": [
+   14,
+   16
+  ],
+  "lo_product": [
+   18,
+   18
+  ],
+  "word_product": [
+   16,
+   17
+  ]
+ },
+ "gdocs_identity": {
+  "documents": 95,
+  "converted": 93,
+  "typed_refusals": [
+   "y07_irs_f1040_form",
+   "y14_irs_fw9_form"
+  ],
+  "word_xml_parts_compared": 1339,
+  "differ": 0,
+  "method": "PDFIUM_GDOCS_CANDIDATE, integration e906ad4 vs this branch, same interpreter, sha256 of every word/*.xml"
+ },
+ "gate": {
+  "tree": "wp34 9893c42 (integration e906ad4 merged)",
+  "image": "exactdoc-gate:boot bab1cfc0d2cd",
+  "suite": "Ran 1688 tests OK (skipped=1)",
+  "failed_steps": 0,
+  "product": "PASS pagematch 16/16 within2pt 0.7304 live 0.9784 dy50 0.525",
+  "raw": "PASS pagematch 16/16 within2pt 0.5466 live 0.9784 dy50 1.245",
+  "gated_16": "word/*.xml byte-identical to r4-new in both the raw and the product sweep"
+ },
+ "word_lane": {
+  "what": "Word 16 (Office 2024), testkit/word_oracle.py, product DOCX of wp34-fin4-prod: the 21 promised long documents, y59, and every other document whose product DOCX changed (34 in all)",
+  "rows": "C:/lotmp/wp34/word/fin1/rows.jsonl",
+  "failed": 0
+ },
+ "planner_cost": {
+  "method": "RAW conversion in-process on Windows, planner off/on alternated twice, min of two",
+  "seconds_off_on": {
+   "y06_irs_1040_instructions": [
+    80.2,
+    81.4
+   ],
+   "y18_eurlex_ai_act": [
+    28.7,
+    27.9
+   ],
+   "y22_lshort": [
+    19.0,
+    19.2
+   ]
+  },
+  "note": "criterion 2 read FAIL by 15 on these sweeps (FAIL by 3 on r4-new): they ran with 12 containers on 24 threads (y06 product 792s against 289s); the planner itself costs nothing measurable"
+ },
+ "beta_readiness": {
+  "inputs_after": "--raw wp34-fin1-raw --product wp34-fin4-prod --word r4word/prod with the 34 WP34 rows --gdocs r4gd --gate wp34-gate-final.batch --accepted accepted-wp31-prod.rescored (WP29 reading)",
+  "inputs_before": "--raw r4-new-raw --product r4-new-prod --word r4word/prod --gdocs r4gd --gate wp32-gate-1.batch --accepted accepted-wp31-prod.rescored",
+  "criterion_5": {
+   "before": "FAIL by 2: LO product 18/21, Word 16/21, Docs 16/21",
+   "after": "FAIL by 1: LO product 18/21, Word 17/21, Docs 16/21"
+  },
+  "criterion_8": {
+   "before": "FAIL by 1 (y61 dy_p50 35.91 -> 39.56)",
+   "after": "FAIL by 1 (y61, unchanged: its DOCX is byte-identical)"
+  },
+  "criterion_2": {
+   "before": "FAIL by 3",
+   "after": "FAIL by 15 (machine load; see planner_cost)"
+  },
+  "verdict": {
+   "before": "NOT READY 6 pass 4 fail",
+   "after": "NOT READY 6 pass 4 fail"
+  }
+ }
+}

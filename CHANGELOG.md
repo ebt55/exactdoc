@@ -21,6 +21,34 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 one verified fix at a time, each gated against the frozen 16.
 
 
+- **The page-fit planner is on for LibreOffice and Word (WP34).**
+  `pagefit.PAGEFIT_ENABLED` is True for the standard profile; the gdocs
+  profile never asks it (95 fixtures' word/*.xml byte-identical). Three
+  changes made it safe. *The cap* is now a gentle-plan rule: a page the
+  model puts more than 10 body lines over is paid only if the gentle tier
+  (every gap kept at 60% or more) pays it. Over the 240 pages the uncapped
+  planner paid (raw, off and on renders read per source page), 8 of the 11
+  claims past 8 lines that needed the refine floors fitted unpaid anyway --
+  y59 p1, 11.1 lines claimed, one 233pt gap cut to 70pt -- and both past 8
+  lines the gentle tier could pay were real spills; the flat cap of 10 left
+  one of them (y21 p6) spilling and y21's dy_p50 51.96 -> 65.32. *A hanging
+  row is its body* (`_hang_body`): the predictor counted a date or marker
+  out in the hang into the line (y44 p1, a page claimed 1.3pt over with
+  38.8pt to spare); 30 plans change, all on pages that fitted unpaid but
+  for y03 p33 (still fits) and four scan pages. *Under the refine loop* a
+  page is planned once, from the gentle tier only, and held as a ceiling:
+  re-planned each round the model undid the loop's render-measured pushes
+  (y44 p1 paid 16 -> 49 -> 64pt; product within-2pt y18 0.156 -> 0.008, y33
+  0.73 -> 0.41), and plans to the floors compounded with the loop's own
+  (y53 dy_p50 3.54 -> 4.71, y47 65 -> 66 pages). Against the round's
+  planner-off sweeps (Carlito image): raw y18 156 -> 144 pages (word recall
+  0.40 -> 0.98), y03 51 -> 47, y21 57 -> 53, y02 117 -> 115, y64 44 -> 41,
+  page-exact 60 -> 62, criterion 5 in LibreOffice raw 14 -> 16 of 21;
+  product 22 documents moved, none worse beyond the gate tolerances (y18
+  within-2pt 0.156 -> 0.181, dy_p50 2.82 -> 1.08); Word, product DOCX,
+  y18 154 -> 144 pages (0.468 -> 0.986). The 16 gated documents are
+  byte-identical in raw. `docs/evidence/pagefit-2026-10-10.json`.
+
 - **The canonical image is now the Carlito image (WP32, owner decision
   2026-10-10).** WP31 merged; `exactdoc-gate:boot` retagged to the Carlito/
   Caladea layer (bab1cfc0d2cd), the old snapshot kept as
