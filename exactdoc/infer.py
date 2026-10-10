@@ -8848,15 +8848,15 @@ def _propagate_list_hangs(paras):
 # set in a column of its own: y65 (an NRC meeting notice, JasperReports) sets
 # "Purpose:" at x 50 and "Members of the NRC staff will present..." at x 145
 # on one baseline, the field's next five lines under it at 145. The parser
-# keeps them two lines (the white is 55pt, 5.5em at 10pt), and inference read
-# them two ways, both wrong: a label alone in its block became a paragraph of
-# its own and its field started a line lower in every renderer (+11.5pt from
-# there down, y65's dy_p50 10.2 in Google Docs, criterion 7's 10pt missed); a
-# label sharing a block with its field's first line was joined to it by a
-# space ("Category: This is an Information Meeting...") and the field's words
-# moved 51pt left. Such a pair is one paragraph: the label, a tab, the field,
-# its lines hanging at the field's column (a typed hanging tab lands to the
-# point in Word, LibreOffice and Google Docs). y65's label/field whites are
+# keeps them two lines (the white is 55pt, 5.5em at 10pt), and a label alone
+# in its block became a paragraph of its own: its field started a line lower
+# in every renderer (+11.5pt from there down, y65's dy_p50 10.2 in Google
+# Docs, criterion 7's 10pt missed). Such a pair is one paragraph: the label, a
+# tab, the field, its lines hanging at the field's column (a typed hanging tab
+# lands to the point in Word, LibreOffice and Google Docs). A label sharing
+# its field's block ("Category: This is an Information Meeting...") is
+# already set on its field's line, joined by a space -- its words off by the
+# white, its lines right -- and is left so. y65's label/field whites are
 # 40-73pt (4-7.3em); a pair is read so from FIELD_GAP_EM, wider than any word
 # space and than the parser's own line split (parse_pdfium.LINE_SPLIT_EM 1.1),
 # when the label sits in the column's left part and nothing else shares its
@@ -8900,9 +8900,13 @@ def _field_labels(items, col_l: float, col_r: float) -> Dict[int, Line]:
                 any(ln.bbox[0] < fld.bbox[0] - 2.0 for ln in fb
                     if ln is not lab and ln is not fld):
             continue
-        # nothing else of the label's block stands at the label's x
-        if any(ln is not lab and ln is not fld and ln.bbox[0] < fld.bbox[0] - 2.0
-               for ln in blocks[bi]):
+        # the label stands alone in its block: the case that costs a line. A
+        # label already sharing its field's block is set on the field's line
+        # (joined by a space -- its words off by the white, its lines right),
+        # and is left so: y03's and y02's glossaries are rows of that kind,
+        # and read as hanging paragraphs they moved their pages' Docs model by
+        # up to 144pt
+        if len(blocks[bi]) != 1:
             continue
         out[id(fld)] = lab
         used.update((id(lab), id(fld)))
@@ -8926,6 +8930,9 @@ def _with_field_label(p: Para, lab: Line, col_l: float) -> Para:
     p.left_indent = round(field_x, 1)
     p.first_indent = round((lab.bbox[0] - col_l) - field_x, 1)
     p.tab_stops = [(p.left_indent, "left")]
+    # the label sits in the hang: a re-wrap prediction gives the field's first
+    # line the whole of its column (ladder.predict_lines)
+    p._hanging_label = True
     if p.bbox is not None:
         p.bbox = bbox_union(p.bbox, lab.bbox)
     if p.src_widths:

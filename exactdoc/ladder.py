@@ -222,7 +222,14 @@ def predict_lines(p: Para, avail: float, metrics=None) -> Optional[int]:
         from .metrics import NullMetrics
         metrics = NullMetrics()
     words = []
-    for r in p.runs:
+    runs = p.runs
+    if getattr(p, "_hanging_label", False):
+        # a form label and its tab sit in the hang (infer._with_field_label):
+        # the field's text starts at the left indent with the column's room
+        k = next((i for i, r in enumerate(runs) if r.is_tab), None)
+        if k is not None:
+            runs = runs[k + 1:]
+    for r in runs:
         if r.is_tab or not r.text:
             continue
         fam = map_font(r.font, mono=r.mono, serif=r.serif)
