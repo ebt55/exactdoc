@@ -294,6 +294,32 @@ one verified fix at a time, each gated against the frozen 16.
   (gate, sweeps, Word, scorecard); the gate reports the stale baseline
   binding until the owner's re-record. Scripts only.
 
+- **y37's dy_p50 is a bounded criterion-8 exception for 0.3.0b1 -- the
+  second time (owner decision 2026-10-11, by delegation).** WP38b's
+  render-judged probe re-flags y37 in the wp42 reading: 27.64 -> 32.00 against
+  `accepted-wp31-prod.rescored5.sweep.json` (SHA-256 fcb8ca97..., verified),
+  past a 2.76 tolerance. `testkit/beta_waivers.json` names it: dy_p50 only,
+  ceiling 33.0, release 0.3.0b1, reading wp42. The first exception (WP33's
+  split) was reverted unused after WP33n. `churn.py --check-y37` now checks
+  condition d': word recall >= 0.37, common-word dy_p50 <= 1.1 x the
+  accepted common, within-2pt drop <= 0.05, and LibreOffice out_pages < 27
+  read from `--current-sweep` (`--require` now takes > and < too). Measured on
+  wp38b-L1-prod re-scored in wp42: recall 0.3268 -> 0.3900, common dy_p50
+  25.20 -> 24.97, pages 27 -> 24, all d' bounds met; 387 words lost and 1,064
+  gained, 38% of common words moved > 2pt, common |dy| <= 5pt 0.182 -> 0.172,
+  dy_p90 244 -> 303, doc recall 0.913 -> 0.905 -- no evidence of a real loss
+  in the median; the tail widened. `docs/beta-bar.md`, "Exceptions for
+  0.3.0b1", records it with the void conditions, and amendment 4(e) -- a
+  paired, common-word reading of criterion 8's dy_p50 -- becomes a
+  pre-0.3.0b2 item. Evidence:
+  [churn-y37-2026-10-11.json](docs/evidence/churn-y37-2026-10-11.json).
+
+- **`churn.py` reads dy where the harness does (WP41).** It read a matched
+  word's drift at the box top while the sweep, from amendment 3 on, reads it
+  at the baseline (`harness._y`), so its "all" figures did not reproduce the
+  wp42 sweep's (y37 27.64 / 32.00). It now takes the harness's own anchor
+  (`harness._y`, else the token's baseline field, else its box top).
+
 - **The drift sentinel's expected row is recorded, and compared like for
   like (WP43).** The coordinator flew the sentinel from 587d47b on
   2026-10-10: 1/1 pages, word recall 1.0, within-2pt 0.8544, dy_p50 1.84pt,

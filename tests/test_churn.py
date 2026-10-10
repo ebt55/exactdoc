@@ -94,6 +94,32 @@ class Churn(unittest.TestCase):
         self.assertEqual(r["within2pt"]["drop"],
                          round(r["within2pt"]["accepted"] - r["within2pt"]["current"], 4))
 
+    def test_the_all_figures_follow_the_harness_anchor_when_ascent_differs(self):
+        # the same words on the same baselines, the render in a font with a
+        # different ascent: box tops move, baselines do not
+        cur = os.path.join(self.dir, "times.pdf")
+        doc = fitz.open()
+        page = doc.new_page(width=612, height=792)
+        for i, w in enumerate(WORDS):
+            page.insert_text((72, 100 + 30 * i), w, fontname="tiro", fontsize=10)
+        doc.save(cur)
+        doc.close()
+        r = churn.churn(self.src, self.acc, cur)
+        h = harness.word_metrics(self.src, cur)
+        self.assertEqual(r["dy_p50"]["current"], h["dy_p50"])
+        self.assertEqual(r["within2pt"]["current"], h["within2pt"])
+
+    def test_dy_is_read_at_the_harness_anchor(self):
+        # tokens carrying a baseline (the amendment-3 harness: 6-tuples and
+        # harness._y): churn reads dy there, not at the box top
+        src = [[("alpha", 72.0, 90.0, 100.0, 100.0, 100.0)]]
+        out = [[("alpha", 72.0, 93.0, 100.0, 103.0, 100.0)]]     # box +3, baseline 0
+        with mock.patch.object(harness, "_y", lambda w: w[5], create=True):
+            self.assertEqual(churn.matched(src, out), {(0, 0): (0.0, 0.0)})
+        with mock.patch.object(churn.harness, "_y", None, create=True):
+            self.assertEqual(churn._y(out[0][0]), 100.0)          # the token's own anchor
+            self.assertEqual(churn._y(("alpha", 1, 93.0, 2, 3)), 93.0)
+
     def test_frequent_tokens_and_hashes(self):
         with mock.patch.object(churn, "FREQUENT", 1):        # every token is frequent
             r = churn.churn(self.src, self.acc, self.cur)
@@ -111,17 +137,53 @@ class Churn(unittest.TestCase):
         r = churn.churn(self.src, self.acc, self.cur)
         self.assertEqual(churn.parse_require("word_recall.current>=0.347"),
                          ("word_recall.current", ">=", 0.347))
+        self.assertEqual(churn.parse_require("sweep.out_pages < 27"),
+                         ("sweep.out_pages", "<", 27.0))
         with self.assertRaises(ValueError):
-            churn.parse_require("word_recall.current > 0.3")
+            churn.parse_require("word_recall.current == 0.3")
         got = churn.check(r, [("word_recall.current", ">=", 0.6),
                               ("dy_p50.gained", "<=", 5.0),
                               ("no.such.figure", "<=", 1.0)])
         self.assertEqual([c["ok"] for c in got], [True, False, False])
-        # the y37 preset is DECISION.md condition d, the tolerance read from gate.py
+        # the y37 preset is DECISION_y37b condition d'; the tolerance from gate.py
         paths = [(p, op, bound) for p, op, bound, _why in churn.y37_requirements()]
-        self.assertEqual(paths, [("word_recall.current", ">=", 0.347),
-                                 ("dy_p50.common_current", "<=", 23.5),
-                                 ("within2pt.drop", "<=", 0.05)])
+        self.assertEqual(paths, [("word_recall.current", ">=", 0.37),
+                                 ("dy_p50.common_ratio", "<=", 1.1),
+                                 ("within2pt.drop", "<=", 0.05),
+                                 ("sweep.out_pages", "<", 27)])
+
+    def test_the_y37_bounds(self):
+        # y37 measured in the wp42 reading on WP38b's render (L1) against wp31-prod
+        report = {"word_recall": {"current": 0.39}, "within2pt": {"drop": 0.0001},
+                  "dy_p50": {"common_ratio": round(24.97 / 25.20, 4)},
+                  "sweep": {"out_pages": 24}}
+        self.assertTrue(all(c["ok"] for c in churn.check(report, churn.y37_requirements())))
+        for path, bad in (("word_recall", {"current": 0.369}),
+                          ("dy_p50", {"common_ratio": 1.11}),
+                          ("within2pt", {"drop": 0.06}),
+                          ("sweep", {"out_pages": 27})):
+            got = churn.check(dict(report, **{path: bad}), churn.y37_requirements())
+            self.assertEqual(sum(not c["ok"] for c in got), 1, path)
+        # without the sweep row the page bound cannot be read, and fails
+        got = churn.check({k: v for k, v in report.items() if k != "sweep"},
+                          churn.y37_requirements())
+        self.assertFalse(got[-1]["ok"])
+
+    def test_the_current_sweep_row(self):
+        path = os.path.join(self.dir, "cur.sweep.json")
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump({"documents": [{"document": "src.pdf", "out_pages": 1, "dy_p90": 3.0,
+                                      "convert_s": 9.9}]}, fh)
+        self.assertEqual(churn.sweep_row(path, "src.pdf"),
+                         {"out_pages": 1, "dy_p90": 3.0, "sweep": "cur.sweep.json"})
+        self.assertIsNone(churn.sweep_row(path, "other.pdf"))
+        out = os.path.join(self.dir, "c.json")
+        with mock.patch("sys.stdout", new=io.StringIO()):
+            churn.main([self.src, self.acc, self.cur, "--current-sweep", path, "--json", out,
+                        "--require", "sweep.out_pages<2"])
+        with open(out, encoding="utf-8") as fh:
+            rep = json.load(fh)
+        self.assertEqual((rep["sweep"]["out_pages"], rep["checks"][0]["ok"]), (1, True))
 
     def test_main_exit_code_and_json(self):
         out = os.path.join(self.dir, "churn.json")
@@ -135,7 +197,8 @@ class Churn(unittest.TestCase):
         self.assertNotIn(b"\r\n", raw)
         self.assertEqual(json.loads(raw)["checks"][0]["ok"], True)
         with mock.patch("sys.stdout", new=io.StringIO()):
-            self.assertEqual(churn.main([self.src, self.acc, self.cur, "--check-y37"]), 0)
+            # no sweep row, and a common dy_p50 of 0 has no ratio: d' cannot pass
+            self.assertEqual(churn.main([self.src, self.acc, self.cur, "--check-y37"]), 1)
             self.assertEqual(churn.main([self.src, self.acc, self.cur,
                                          "--require", "dy_p50.gained<=5"]), 1)
 
