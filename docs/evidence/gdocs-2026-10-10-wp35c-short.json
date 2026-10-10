@@ -1,0 +1,329 @@
+{
+ "what": "WP35c: short promised documents in Google Docs -- diagnosis of the criterion-7 misses and two gdocs-only rules (table hang; tracked paragraphs' wrap width)",
+ "date": "2026-10-10",
+ "exports": "C:/lotmp/r4gd/out/<doc>.gdocs.pdf (live sweep of 71558af)",
+ "criterion_7_docs_before": "33/41 (fails: x07, x17, x18, y31, y44, y46, y62, y65)",
+ "diagnosis": {
+  "x07": "drift: Docs drops w:spacing; Chrome tracks 0.25-0.35pt a glyph, 8 of 21 paragraphs set a line short and, the page full, everything below steps up 15.6pt a paragraph (dy_p50 16.4). x08-x12 lose lines too (6/16, 1/6, 2/4, 4/15) but have room for the planner's re-wrap gap",
+  "x17_x18": "scorer: the source's letter-spaced headings read as 'S UM M ARY' / 'E X P E RI E NCE' against Docs' 'SUMMARY': 40 of 360 words; dy ~1pt",
+  "y65": "inference: a label sharing a baseline with its field's first line ('Purpose:' at x50, text at x145) is written as its own paragraph: +11.5pt from there down, every renderer",
+  "y44": "inference: four short paragraphs 4pt apart merged into one; Docs reflows it two lines shorter and the page lands 33pt high",
+  "y46": "inference: the section headings (EDUCATION, WORK EXPERIENCE, PROJECTS...) are inside 6 picture regions, not text (recall 0.898)",
+  "y31": "fonts: an embedded subset with no family name ('CIDFont+F1', a wide geometric sans) maps to Times New Roman; every paragraph loses lines (-13.4pt each)",
+  "tables": "gdocs writer: a hanging table's edge set on the column; text lands the hang right (c3 +7.00 every line, within-2pt 0.000; x04 +6.5/+5.5; 03 +6.1..6.9; l1 +5.7; 01 +5.95). Hanging tables: x04, x16, 01, 02, 03, 04, f1, l1, c3",
+  "y20": "Typst hyphenates, the DOCX/Docs do not: paragraphs a line longer (dy 5.2, passes)"
+ },
+ "rule_1_table_hang": {
+  "commit": "d744111",
+  "rule": "gdocs: tblInd = left_indent - hang_left (_gdocs_table_hang)",
+  "docs_honour_negative_table_indents": {
+   "y58": "105.0 for 105.2 at -10.7pt",
+   "y28": "252.0 for 252.0 at -31.5pt"
+  },
+  "changed_documents": [
+   "01_whitepaper_market",
+   "02_research_paper",
+   "03_tech_report_code",
+   "c3_tables",
+   "f1_fpdf_brief",
+   "l1_word_native",
+   "x04_lo_tables_plain",
+   "x16_fpdf_bulletin",
+   "y01_nist_sp80063b",
+   "y08_nist_sp80088r1",
+   "y10_nist_fips180",
+   "y33_nz_paper_powerpdf",
+   "y34_census_slides_pptx365",
+   "y42_arxiv_acmart",
+   "y64_bls_release_xpp"
+  ],
+  "difference": "w:tblInd only (document.xml identical with tblInd removed, on all 15)"
+ },
+ "rule_2_tracked_wrap": {
+  "commit": "5c22eb1",
+  "rule": "gdocs: a tracked paragraph's wrap width narrowed by the tracking's share, to the nearest width at which the untracked width tables set its source line count; the planner models the same width (_gdocs_tracking_indent)",
+  "x07_model": "all 21 paragraphs at their source line count (base: 8 a line short, as Docs set them)",
+  "changed_documents": [
+   "x07_chrome_memo_running",
+   "x08_chrome_print_default",
+   "x09_chrome_lists_nested",
+   "x10_chrome_tables_plain",
+   "x11_chrome_toc_headings",
+   "y06_irs_1040_instructions"
+  ]
+ },
+ "byte_identity_word_xml": {
+  "gdocs_e4b41d0_vs_wp35c": "69 of 90 identical; 15 changed by rule 1, 6 by rule 2",
+  "standard_raw_e4b41d0_vs_wp35c": "90 of 90 identical (Windows RAW builds)",
+  "standard_product_vs_integration": "90 of 90 identical: wp35c-prod (Carlito boot, full LibreOffice refine sweep, 0 errors) equals r4-new-prod on 88 and WP35b's own product build (wp35b-v1-prod) on y03 and y17, the two documents WP35b changed",
+  "note": "the 5 others of the 95 are refused alike (forms, page limit)"
+ },
+ "probe_set": "C:\\lotmp\\scr\\wp35c\\gdocs_probe (PROBE.md)",
+ "wp35b_live_flight": {
+  "label": "live Google Docs flight of WP35b's probe set, base = c3cb767 gdocs output",
+  "rows": "C:/lotmp/wp35blive/rows.json",
+  "summary": "y03 47/46 wr 0.854 -> 46/46 wr 0.9483 (within-2pt 0.115 -> 0.123), as predicted (0.948); y17 and the controls identical",
+  "per_document": {
+   "01_whitepaper_market": {
+    "base": {
+     "out_pages": 3,
+     "src_pages": 3,
+     "word_recall": 0.9665,
+     "char_recall": 0.9811,
+     "within2pt": 0.392,
+     "dy_p50": 1.88,
+     "mean_ssim": 0.823
+    },
+    "wp35b": {
+     "out_pages": 3,
+     "src_pages": 3,
+     "word_recall": 0.9665,
+     "char_recall": 0.9811,
+     "within2pt": 0.392,
+     "dy_p50": 1.88,
+     "mean_ssim": 0.823
+    }
+   },
+   "c1_whitepaper": {
+    "base": {
+     "out_pages": 2,
+     "src_pages": 2,
+     "word_recall": 1.0,
+     "char_recall": 1.0,
+     "within2pt": 0.3758,
+     "dy_p50": 0.62,
+     "mean_ssim": 0.8684
+    },
+    "wp35b": {
+     "out_pages": 2,
+     "src_pages": 2,
+     "word_recall": 1.0,
+     "char_recall": 1.0,
+     "within2pt": 0.3758,
+     "dy_p50": 0.62,
+     "mean_ssim": 0.8684
+    }
+   },
+   "probe_mono_table": {
+    "base": {
+     "out_pages": 1,
+     "src_pages": 1,
+     "word_recall": 1.0,
+     "char_recall": 1.0,
+     "within2pt": 0.0,
+     "dy_p50": 1.86,
+     "mean_ssim": 0.9314
+    },
+    "wp35b": {
+     "out_pages": 1,
+     "src_pages": 1,
+     "word_recall": 1.0,
+     "char_recall": 1.0,
+     "within2pt": 0.0,
+     "dy_p50": 1.86,
+     "mean_ssim": 0.9322
+    }
+   },
+   "x04_lo_tables_plain": {
+    "base": {
+     "out_pages": 1,
+     "src_pages": 1,
+     "word_recall": 0.9928,
+     "char_recall": 1.0,
+     "within2pt": 0.5162,
+     "dy_p50": 0.26,
+     "mean_ssim": 0.8438
+    },
+    "wp35b": {
+     "out_pages": 1,
+     "src_pages": 1,
+     "word_recall": 0.9928,
+     "char_recall": 1.0,
+     "within2pt": 0.5162,
+     "dy_p50": 0.26,
+     "mean_ssim": 0.8438
+    }
+   },
+   "x10_chrome_tables_plain": {
+    "base": {
+     "out_pages": 2,
+     "src_pages": 2,
+     "word_recall": 1.0,
+     "char_recall": 1.0,
+     "within2pt": 0.2971,
+     "dy_p50": 0.21,
+     "mean_ssim": 0.8939
+    },
+    "wp35b": {
+     "out_pages": 2,
+     "src_pages": 2,
+     "word_recall": 1.0,
+     "char_recall": 1.0,
+     "within2pt": 0.2971,
+     "dy_p50": 0.21,
+     "mean_ssim": 0.8939
+    }
+   },
+   "y01_nist_sp80063b": {
+    "base": {
+     "out_pages": 80,
+     "src_pages": 80,
+     "word_recall": 0.9671,
+     "char_recall": 0.9586,
+     "within2pt": 0.2837,
+     "dy_p50": 2.17,
+     "mean_ssim": 0.7908
+    },
+    "wp35b": {
+     "out_pages": 80,
+     "src_pages": 80,
+     "word_recall": 0.9671,
+     "char_recall": 0.9586,
+     "within2pt": 0.2837,
+     "dy_p50": 2.17,
+     "mean_ssim": 0.7908
+    }
+   },
+   "y02_nist_sp800171r2": {
+    "base": {
+     "out_pages": 114,
+     "src_pages": 114,
+     "word_recall": 0.9656,
+     "char_recall": 0.9623,
+     "within2pt": 0.1472,
+     "dy_p50": 8.22,
+     "mean_ssim": 0.6927
+    },
+    "wp35b": {
+     "out_pages": 114,
+     "src_pages": 114,
+     "word_recall": 0.9656,
+     "char_recall": 0.9623,
+     "within2pt": 0.1472,
+     "dy_p50": 8.22,
+     "mean_ssim": 0.6927
+    }
+   },
+   "y03_nist_fips197": {
+    "base": {
+     "out_pages": 47,
+     "src_pages": 46,
+     "word_recall": 0.8543,
+     "char_recall": 0.9185,
+     "within2pt": 0.1151,
+     "dy_p50": 2.78,
+     "mean_ssim": 0.7293
+    },
+    "wp35b": {
+     "out_pages": 46,
+     "src_pages": 46,
+     "word_recall": 0.9483,
+     "char_recall": 0.9875,
+     "within2pt": 0.1233,
+     "dy_p50": 2.35,
+     "mean_ssim": 0.7561
+    }
+   },
+   "y10_nist_fips180": {
+    "base": {
+     "out_pages": 36,
+     "src_pages": 36,
+     "word_recall": 0.9325,
+     "char_recall": 0.9992,
+     "within2pt": 0.3047,
+     "dy_p50": 1.82,
+     "mean_ssim": 0.8587
+    },
+    "wp35b": {
+     "out_pages": 36,
+     "src_pages": 36,
+     "word_recall": 0.9325,
+     "char_recall": 0.9992,
+     "within2pt": 0.3047,
+     "dy_p50": 1.82,
+     "mean_ssim": 0.8587
+    }
+   },
+   "y17_rfc9110": {
+    "base": {
+     "out_pages": 196,
+     "src_pages": 194,
+     "word_recall": 0.914,
+     "char_recall": 0.9705,
+     "within2pt": 0.4227,
+     "dy_p50": 0.15,
+     "mean_ssim": 0.7305
+    },
+    "wp35b": {
+     "out_pages": 196,
+     "src_pages": 194,
+     "word_recall": 0.914,
+     "char_recall": 0.9705,
+     "within2pt": 0.4227,
+     "dy_p50": 0.15,
+     "mean_ssim": 0.7305
+    }
+   },
+   "y18_eurlex_ai_act": {
+    "base": {
+     "out_pages": 144,
+     "src_pages": 144,
+     "word_recall": 0.9873,
+     "char_recall": 0.9878,
+     "within2pt": 0.0079,
+     "dy_p50": 3.05,
+     "mean_ssim": 0.5737
+    },
+    "wp35b": {
+     "out_pages": 144,
+     "src_pages": 144,
+     "word_recall": 0.9873,
+     "char_recall": 0.9878,
+     "within2pt": 0.0079,
+     "dy_p50": 3.05,
+     "mean_ssim": 0.5737
+    }
+   },
+   "y26_bash_reference": {
+    "base": {
+     "out_pages": 214,
+     "src_pages": 214,
+     "word_recall": 0.8852,
+     "char_recall": 0.9648,
+     "within2pt": 0.0456,
+     "dy_p50": 5.52,
+     "mean_ssim": 0.6807
+    },
+    "wp35b": {
+     "out_pages": 214,
+     "src_pages": 214,
+     "word_recall": 0.8852,
+     "char_recall": 0.9648,
+     "within2pt": 0.0456,
+     "dy_p50": 5.52,
+     "mean_ssim": 0.6807
+    }
+   },
+   "y46_cv_twocol_xdvipdfmx": {
+    "base": {
+     "out_pages": 1,
+     "src_pages": 1,
+     "word_recall": 0.8983,
+     "char_recall": 0.9077,
+     "within2pt": 0.0615,
+     "dy_p50": 9.92,
+     "mean_ssim": 0.5881
+    },
+    "wp35b": {
+     "out_pages": 1,
+     "src_pages": 1,
+     "word_recall": 0.8983,
+     "char_recall": 0.9077,
+     "within2pt": 0.0615,
+     "dy_p50": 9.92,
+     "mean_ssim": 0.5881
+    }
+   }
+  }
+ }
+}
