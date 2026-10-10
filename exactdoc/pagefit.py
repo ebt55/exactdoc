@@ -57,20 +57,26 @@ from .layout import ColBreak, FigureEl, ImageEl, Para, RuleEl, TableEl
 # over, is paid back into its box. Word, on: product DOCX 15 -> 16 of 21
 # (y18 154 -> 144) but y64 40 -> 41. With it off the writer is byte-identical
 # to the code before the planner. `docs/evidence/pagefit-2026-10-06.json`.
-PAGEFIT_ENABLED = False
-# A page the model puts more than this many body lines past its box is not a
-# spill of a line or two but a page that does not fit, and paying it back from
-# its gaps is the guess the model is least sure of (spare < -20pt: 60% spilled,
-# so 40% did not). y59's first page, 178pt (11.1 body lines of 16pt) over,
-# was such a page: paid back, its dy_p50 went 30.07 -> 46.35. Measured on the
-# raw lane, planner on (docs/evidence/pagefit-2026-10-06.json, "cap"): at 3
-# and 5 lines y59 is restored but y18 (147-148 pages for 144), y33 (61 for
-# 60) and at 3 y03 lose their gains -- their saved pages run 3-8 lines over
-# (y33 p22 5.2, y03 p21 4.7); at 8, y18 is 145; at 10 y59 is restored and
-# y18, y33 and y03 keep every gain (144, 60, 47 pages), y22 173 and y64 41
-# against 172 and 40 uncapped. The margin to y59 is one line: a cap in lines
-# separates these six documents, it is not yet shown to be the right
-# discriminator.
+PAGEFIT_ENABLED = True
+# A page the model puts more than this many body lines past its box is paid
+# only by a plan that keeps every gap at least PAGEFIT_GENTLE_GAP_SCALE of
+# itself; one that would have to go to the refine floors is left as spaced.
+# A claim that large is the guess the model is least sure of, and to the
+# floors a wrong one costs the most placement. Measured over every page the
+# uncapped planner paid (240 pages of the 90 documents, raw lane, Carlito
+# image, the off and on renders read per source page with refine._measure;
+# docs/evidence/pagefit-2026-10-10.json "pages"): of the 11 pages claimed
+# more than 8 lines over whose plan needed the floors, 8 fitted in the render
+# unpaid (the claim was wrong) and paying them only moved their lines --
+# y59 p1, 11.1 lines (178pt) claimed, fitted all the same, and its plan cut
+# one 233pt gap to 70pt (dy_p50 31.97 -> 48.15); of the pages the gentle
+# tier could pay, every one past 8 lines was a real spill and was saved --
+# y21 p6, 10.9 lines, which a flat cap of 10 left spilling (y21 dy_p50
+# 51.96 -> 65.32 with it, 40.90 without). Under 10 lines the floors stay
+# open: y02 p66 (7.4 lines) and p70, y03 p33 were real spills only the
+# floors could pay. The old image's cap measurements
+# (docs/evidence/pagefit-2026-10-06.json "cap": 3, 5 and 8 lost y18, y33 and
+# y03 pages) keep the threshold at 10.
 PAGEFIT_MAX_OVER_LINES = 10
 # Sizes are half-points, gaps tenths and the exact line a tenth of a point: a
 # plan that lands exactly on its target can still be a point out. The value
@@ -331,8 +337,12 @@ def fit_page(pg, content_w: float, lay, notes_h: float, body_line: float,
     if over > 0 and total < over + PAGEFIT_SAFETY_PT:
         return plan            # cannot be saved by its spacing: as shipped
     if PAGEFIT_MAX_OVER_LINES is not None and \
-            over > PAGEFIT_MAX_OVER_LINES * max(0.0, body_line):
-        return plan            # not a spill but a page that does not fit
+            over > PAGEFIT_MAX_OVER_LINES * max(0.0, body_line) and \
+            sum(tiers[0]) < need - 0.05:
+        # a claim this large is paid only by a plan that keeps every gap at
+        # least PAGEFIT_GENTLE_GAP_SCALE of itself; to the floors it is the
+        # guess the model is least sure of (PAGEFIT_MAX_OVER_LINES)
+        return plan
     pay = min(need, total)
     take = [0.0] * len(gaps)
     # From the foot of the page up, each tier in turn: a gap taken low on the
@@ -351,4 +361,50 @@ def fit_page(pg, content_w: float, lay, notes_h: float, body_line: float,
         if t > 0.05:
             # tenths of a point, rounded down: the page never pays less
             out[id(el)] = max(0.0, math.floor((gap - t) * 10 + 1e-6) / 10)
+    return out
+
+
+def plan_page(pg, content_w: float, lay, notes_h: float, body_line: float,
+              plan: dict, output_profile: str = "standard",
+              drop_first_gap: bool = False, memo: Optional[dict] = None) -> dict:
+    """`fit_page` as the writer asks it. Open-loop (`memo` None) every write
+    plans afresh. Under the refine loop (`memo` the loop layout's own) a page
+    is planned once, on its first write, and every later round takes the same
+    points off the same gaps of the layout as the loop has corrected it.
+
+    Re-planned each round, the planner undid the loop's corrections: the loop
+    pushes a page whose render sits high down by its first gap, within the
+    room the render measured, and the model -- which does not see the render
+    -- read the push as a page at risk and took it back from the foot. y44 p1
+    paid 16 -> 49 -> 64pt over three rounds and the loop stopped on an
+    offset of 15.6 (0.1 with the planner off); y33's round 1 spilled and the
+    loop published its round 0 (product within-2pt 0.73 -> 0.41). The plan
+    held fixed, the loop measures and corrects on top of it as it does on
+    top of the source spacing."""
+    if memo is None:
+        return fit_page(pg, content_w, lay, notes_h, body_line, plan,
+                        output_profile, drop_first_gap=drop_first_gap)
+    els = [el for ch in pg.chunks for el in ch.elements]
+    # the notes area is part of the key: a write retried with its notes typed
+    # into the body (`_write_docx`, notes_vetoed) is a different page
+    key = (pg.number, round(notes_h, 1))
+    held = memo.get(key)
+    if held is None:
+        out = fit_page(pg, content_w, lay, notes_h, body_line, plan,
+                       output_profile, drop_first_gap=drop_first_gap)
+        held = {}
+        if out is not plan:
+            for k, el in enumerate(els):
+                if id(el) in out:
+                    held[k] = (getattr(el, "space_before", 0.0) or 0.0) - \
+                        out[id(el)]
+        memo[key] = held
+        return out
+    if not held:
+        return plan
+    out = {}
+    for k, d in held.items():
+        if k < len(els):
+            gap = getattr(els[k], "space_before", 0.0) or 0.0
+            out[id(els[k])] = max(0.0, math.floor((gap - d) * 10 + 1e-6) / 10)
     return out

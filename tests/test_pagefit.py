@@ -23,7 +23,7 @@ from exactdoc.docxout import (SPILL_GAP_FLOOR_PT, SPILL_MIN_GAP_SCALE,
 from exactdoc.layout import (Chunk, ColBreak, DocLayout, PageLayout, Para,
                              RuleEl, Run)
 from exactdoc.pagefit import (PAGEFIT_GENTLE_GAP_SCALE, PAGEFIT_SAFETY_PT,
-                              fit_page, page_model, para_lines)
+                              fit_page, page_model, para_lines, plan_page)
 
 LEAD = 12.0
 BODY = 12.0          # the body line every test page passes in
@@ -191,22 +191,45 @@ class ThePlan(unittest.TestCase):
         self.assertTrue(rep["at_risk"])
         self.assertGreater(rep["short"], 0.0)
 
-    def test_the_cap_leaves_a_page_many_lines_over_as_spaced(self):
-        # PAGEFIT_MAX_OVER_LINES: y59's first page, 11 body lines over by
-        # the model, was paid back into its box and its placement fell
+    def _capped(self, lines, *pages):
         from exactdoc import pagefit
-        lay = _lay()
-        far = _page(_fill(lay, spare=-4 * BODY))
-        near = _page(_fill(lay, spare=-2 * BODY))
         was = pagefit.PAGEFIT_MAX_OVER_LINES
-        pagefit.PAGEFIT_MAX_OVER_LINES = 3
+        pagefit.PAGEFIT_MAX_OVER_LINES = lines
         try:
-            given = {}
-            self.assertIs(self._plan(far, lay, given), given)
-            self.assertTrue(self._plan(near, lay))
+            return [self._plan(pg, lay, given) for pg, lay, given in pages]
         finally:
             pagefit.PAGEFIT_MAX_OVER_LINES = was
-        self.assertTrue(self._plan(far, lay))
+
+    def test_the_cap_leaves_a_page_many_lines_over_as_spaced(self):
+        # PAGEFIT_MAX_OVER_LINES: y59's first page, 11 body lines over by
+        # the model, fitted in the render all the same; paid back to the
+        # floors (one 233pt gap cut to 70pt) its placement fell. Six lines
+        # over here, the gentle tier holds 76.8pt against the 86pt the page
+        # needs.
+        lay = _lay()
+        far = _page(_fill(lay, spare=-6 * BODY))
+        near = _page(_fill(lay, spare=-2 * BODY))
+        given = {}
+        far_plan, near_plan = self._capped(3, (far, lay, given),
+                                           (near, lay, {}))
+        self.assertIs(far_plan, given)
+        self.assertTrue(near_plan)
+        self.assertTrue(self._plan(far, lay))          # 6 lines < 10
+
+    def test_past_the_cap_a_gentle_plan_is_still_paid(self):
+        # y21 p6, 10.9 body lines over, whose gaps pay it without going
+        # under 60% of any of them, was a real spill: paid, the page fitted
+        # (planner sweep 2026-10-10). Four lines over here, the gentle tier
+        # (76.8pt) covers the 62pt the page needs.
+        lay = _lay()
+        els = _fill(lay, spare=-4 * BODY)
+        plan, = self._capped(3, (_page(els), lay, {}))
+        self.assertTrue(plan)
+        for el in els:
+            gentle = max(SPILL_GAP_FLOOR_PT,
+                         el.space_before * PAGEFIT_GENTLE_GAP_SCALE)
+            self.assertGreaterEqual(plan.get(id(el), el.space_before),
+                                    gentle - 0.1 - 1e-6)
 
     def test_no_gap_goes_below_the_refine_floor(self):
         lay = _lay()
@@ -238,6 +261,85 @@ class ThePlan(unittest.TestCase):
         self.assertEqual(self._plan(pg, lay), {})
 
 
+class UnderTheLoop(unittest.TestCase):
+    """`plan_page`: open-loop every write plans afresh; under the refine loop
+    a page is planned on its first write and later rounds take the same
+    points off the same gaps, so a push the loop makes from its render is not
+    taken back by the model (y44 p1 paid 16 -> 49 -> 64pt re-planned)."""
+
+    def _plan(self, pg, lay, memo, plan=None):
+        return plan_page(pg, CW, lay, 0.0, BODY,
+                         plan if plan is not None else {}, memo=memo)
+
+    def test_open_loop_is_fit_page(self):
+        lay = _lay()
+        pg = _page(_fill(lay, spare=3.0))
+        self.assertEqual(self._plan(pg, lay, None),
+                         fit_page(pg, CW, lay, 0.0, BODY, {}))
+
+    def test_a_push_by_the_loop_is_kept(self):
+        lay = _lay()
+        els = _fill(lay, spare=3.0)
+        pg = _page(els)
+        memo = {}
+        first = self._plan(pg, lay, memo)
+        self.assertTrue(first)
+        taken = {id(el): el.space_before - first[id(el)]
+                 for el in els if id(el) in first}
+        # the loop moves the page down 20pt by its first gap
+        els[0].space_before += 20.0
+        second = self._plan(pg, lay, memo)
+        self.assertEqual(set(second), set(first))
+        self.assertNotIn(id(els[0]), second)
+        for el in els:
+            if id(el) in second:
+                self.assertAlmostEqual(second[id(el)],
+                                       el.space_before - taken[id(el)],
+                                       delta=0.11)
+        # re-planned, the model would have taken the push back
+        fresh = self._plan(pg, lay, None)
+        self.assertGreater(sum(el.space_before - fresh.get(id(el), el.space_before)
+                               for el in els),
+                           sum(taken.values()) + 15.0)
+
+    def test_a_page_left_alone_first_stays_the_callers(self):
+        lay = _lay()
+        els = _fill(lay, spare=40.0)
+        pg = _page(els)
+        memo = {}
+        self.assertEqual(self._plan(pg, lay, memo), {})
+        els[0].space_before += 35.0          # now inside a body line
+        given = {"sentinel": 1.0}
+        self.assertIs(self._plan(pg, lay, memo, given), given)
+
+    def test_the_writer_holds_the_plan_on_the_loop_layout(self):
+        from exactdoc import pagefit
+        was = pagefit.PAGEFIT_ENABLED
+        pagefit.PAGEFIT_ENABLED = True
+        try:
+            lay = _lay()
+            first = _page([_para(gap=0.0)], number=1)
+            full = _page(_fill(lay, spare=3.0))
+            lay.pages = [first, full]
+            for pg in lay.pages:
+                pg.top_gap_fits = True           # as refine._freeze_seams
+            one = _befores(lay)
+            self.assertIn("_pagefit_memo", lay.__dict__)
+            full.chunks[0].elements[0].space_before += 10.0
+            two = _befores(lay)
+            # the pushed first gap is written as pushed; nothing else moved
+            diff = [b - a for a, b in zip(one, two) if a != b]
+            self.assertEqual(diff, [200])
+            # open-loop, nothing is held on the layout
+            lay2 = _lay()
+            lay2.pages = [_page([_para(gap=0.0)], number=1),
+                          _page(_fill(lay2, spare=3.0))]
+            _befores(lay2)
+            self.assertNotIn("_pagefit_memo", lay2.__dict__)
+        finally:
+            pagefit.PAGEFIT_ENABLED = was
+
+
 def _befores(lay, profile="standard"):
     with tempfile.TemporaryDirectory() as d:
         path = os.path.join(d, "o.docx")
@@ -248,8 +350,8 @@ def _befores(lay, profile="standard"):
 
 
 class _On(unittest.TestCase):
-    """The planner is shipped off (`pagefit.PAGEFIT_ENABLED`); these tests
-    switch it on for themselves."""
+    """The planner is shipped on (`pagefit.PAGEFIT_ENABLED`, WP34); these
+    tests pin it on for themselves, whatever the switch says."""
 
     def setUp(self):
         from exactdoc import pagefit
@@ -262,16 +364,49 @@ class _On(unittest.TestCase):
 
 
 class TheSwitch(unittest.TestCase):
-    def test_off_by_default_and_then_the_writer_is_as_before(self):
-        from exactdoc import pagefit
-        self.assertFalse(pagefit.PAGEFIT_ENABLED)
+    def _lay(self):
         lay = _lay()
         full = _page(_fill(lay, spare=3.0))
         lay.pages = [_page([_para(gap=0.0)], number=1), full]
+        return lay, full
+
+    def _xml(self, lay, profile, planner):
+        from exactdoc import pagefit
+        was = pagefit.PAGEFIT_ENABLED
+        pagefit.PAGEFIT_ENABLED = planner
+        try:
+            with tempfile.TemporaryDirectory() as d:
+                path = os.path.join(d, "o.docx")
+                write_docx(lay, path, output_profile=profile)
+                with zipfile.ZipFile(path) as z:
+                    return {n: z.read(n) for n in z.namelist()
+                            if n.startswith("word/") and n.endswith(".xml")}
+        finally:
+            pagefit.PAGEFIT_ENABLED = was
+
+    def test_on_for_the_standard_profile(self):
+        from exactdoc import pagefit
+        self.assertTrue(pagefit.PAGEFIT_ENABLED)
+        lay, full = self._lay()
+        asked = sum(el.space_before for el in full.chunks[0].elements)
+        self.assertLess(sum(_befores(lay)) / 20.0, asked)
+
+    def test_off_the_writer_is_as_before(self):
+        lay, full = self._lay()
         asked = [round(el.space_before * 20) for el in full.chunks[0].elements]
-        got = _befores(lay)
+        xml = self._xml(lay, "standard", False)["word/document.xml"]
+        got = [int(v) for v in re.findall(r'w:before="(\d+)"', xml.decode())]
         for v in asked:
             self.assertIn(v, got)
+
+    def test_the_gdocs_profile_never_asks_it(self):
+        # gdocs pages are planned by `_gdocs_page_plan` on Docs' own metrics;
+        # the switch must not move one byte of a gdocs DOCX.
+        lay, _full = self._lay()
+        self.assertEqual(self._xml(lay, "gdocs", True),
+                         self._xml(lay, "gdocs", False))
+        self.assertNotEqual(self._xml(lay, "standard", True),
+                            self._xml(lay, "standard", False))
 
 
 class TheWriter(_On):
