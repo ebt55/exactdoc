@@ -1,0 +1,220 @@
+{
+ "what": "WP35b: y03's Docs margin (47/46 at word recall 0.854, 0.004 above the bar) -- the cause, the fix, and every lane measured; plus the y21/y22 Docs diagnosis",
+ "date": "2026-10-10",
+ "y03": {
+  "drift": "Google's exports (r4gd = the WP35 flight's base, word/*.xml identical DOCX): 1:1 to source page 39; source page 40 runs one page over (export page 41 holds only key-expansion rows 15-22), every later page one behind",
+  "cause": "FIPS 197 Appendix A sets each key-expansion row as ONE Courier string, columns two spaces apart; the rules-table builder took a row as one 401pt span and put it in the 55pt column its centre fell in, the rows' other pieces in a 12-column grid matching no source column. Docs wrapped rows i=8 and i=16 to seven lines each and every two-digit row to two.",
+  "fix": "infer._mono_space_gaps, called once in infer.build_rules_table: a monospaced span is cut where a run of its own spaces is wider than RULES_CELL_GAP_EM (1.10em; two Courier spaces are 1.2em). The table becomes six columns, every value one line.",
+  "docs_recall_if_page_41_folds_back": {
+   "export_pages": 47,
+   "folded_pages": 46,
+   "word_recall": 0.8543,
+   "word_recall_folded": 0.948
+  },
+  "lanes_carlito_boot": {
+   "libreoffice_product": {
+    "before_r4-new-prod": {
+     "src_pages": 46,
+     "out_pages": 46,
+     "word_recall": 0.9682,
+     "within2pt": 0.198,
+     "dy_p50": 1.45,
+     "char_recall": 0.9879,
+     "mean_ssim": 0.7464
+    },
+    "after_wp35b-v1-prod": {
+     "src_pages": 46,
+     "out_pages": 46,
+     "word_recall": 0.9682,
+     "within2pt": 0.2038,
+     "dy_p50": 1.38,
+     "char_recall": 0.9879,
+     "mean_ssim": 0.7502
+    }
+   },
+   "libreoffice_raw": {
+    "before_r4-new-raw": {
+     "src_pages": 46,
+     "out_pages": 51,
+     "word_recall": 0.556,
+     "within2pt": 0.151,
+     "dy_p50": 4.43,
+     "char_recall": 0.7149,
+     "mean_ssim": 0.6524
+    },
+    "after_wp35b-v1-raw": {
+     "src_pages": 46,
+     "out_pages": 51,
+     "word_recall": 0.556,
+     "within2pt": 0.151,
+     "dy_p50": 4.42,
+     "char_recall": 0.7126,
+     "mean_ssim": 0.6536
+    }
+   }
+  },
+  "lanes_word_office2024": {
+   "word_product": {
+    "before_r4word": {
+     "src_pages": 46,
+     "out_pages": 46,
+     "word_recall": 0.9674,
+     "within2pt": 0.0545,
+     "dy_p50": 3.14,
+     "char_recall": 0.9879,
+     "opened": true,
+     "repair_prompt": false
+    },
+    "after_wp35b": {
+     "src_pages": 46,
+     "out_pages": 46,
+     "word_recall": 0.9674,
+     "within2pt": 0.1723,
+     "dy_p50": 2.05,
+     "char_recall": 0.9879,
+     "opened": true,
+     "repair_prompt": false
+    }
+   },
+   "word_raw": {
+    "before_r4word": {
+     "src_pages": 46,
+     "out_pages": 51,
+     "word_recall": 0.4184,
+     "within2pt": 0.1004,
+     "dy_p50": 12.17,
+     "char_recall": 0.6469,
+     "opened": true,
+     "repair_prompt": false
+    },
+    "after_wp35b": {
+     "src_pages": 46,
+     "out_pages": 51,
+     "word_recall": 0.4184,
+     "within2pt": 0.1156,
+     "dy_p50": 11.97,
+     "char_recall": 0.6446,
+     "opened": true,
+     "repair_prompt": false
+    }
+   }
+  }
+ },
+ "y17_side_effect": {
+  "what": "one ABNF row of a two-column rules table ('field-content  = field-vchar') now cut into the table's two columns like its four sibling rows",
+  "libreoffice_product": {
+   "before": {
+    "src_pages": 194,
+    "out_pages": 194,
+    "word_recall": 0.9846,
+    "within2pt": 0.0606,
+    "dy_p50": 9.57,
+    "char_recall": 0.9999,
+    "mean_ssim": 0.6831
+   },
+   "after": {
+    "src_pages": 194,
+    "out_pages": 194,
+    "word_recall": 0.9846,
+    "within2pt": 0.0606,
+    "dy_p50": 9.57,
+    "char_recall": 0.9999,
+    "mean_ssim": 0.6831
+   }
+  },
+  "libreoffice_raw": {
+   "before": {
+    "src_pages": 194,
+    "out_pages": 195,
+    "word_recall": 0.9162,
+    "within2pt": 0.0238,
+    "dy_p50": 13.04,
+    "char_recall": 0.9736,
+    "mean_ssim": 0.6679
+   },
+   "after": {
+    "src_pages": 194,
+    "out_pages": 195,
+    "word_recall": 0.9162,
+    "within2pt": 0.0238,
+    "dy_p50": 13.04,
+    "char_recall": 0.9736,
+    "mean_ssim": 0.6679
+   }
+  },
+  "word": {
+   "word_product": {
+    "before_r4word": {
+     "src_pages": 194,
+     "out_pages": 194,
+     "word_recall": 0.9848,
+     "within2pt": 0.0514,
+     "dy_p50": 9.85,
+     "char_recall": 0.9999,
+     "opened": true,
+     "repair_prompt": false
+    },
+    "after_wp35b": {
+     "src_pages": 194,
+     "out_pages": 194,
+     "word_recall": 0.9848,
+     "within2pt": 0.0606,
+     "dy_p50": 9.44,
+     "char_recall": 0.9999,
+     "opened": true,
+     "repair_prompt": false
+    }
+   },
+   "word_raw": {
+    "before_r4word": {
+     "src_pages": 194,
+     "out_pages": 195,
+     "word_recall": 0.9166,
+     "within2pt": 0.0334,
+     "dy_p50": 14.09,
+     "char_recall": 0.9736,
+     "opened": true,
+     "repair_prompt": false
+    },
+    "after_wp35b": {
+     "src_pages": 194,
+     "out_pages": 195,
+     "word_recall": 0.9166,
+     "within2pt": 0.0235,
+     "dy_p50": 12.89,
+     "char_recall": 0.9736,
+     "opened": true,
+     "repair_prompt": false
+    }
+   }
+  },
+  "note": "Word raw within-2pt 0.033 -> 0.024 (dy_p50 14.1 -> 12.9) at the same pages and recall; LibreOffice reads the same DOCX change as no movement"
+ },
+ "byte_identity_word_xml": {
+  "gdocs_c3cb767_vs_wp35b": "88 of 90 identical; changed y03, y17",
+  "standard_raw_c3cb767_vs_wp35b": "88 of 90 identical; changed y03, y17",
+  "note": "the 5 others of the 95 are refused alike (forms, page limit)"
+ },
+ "diagnosis_y21_y22_docs": {
+  "y21_worldbank_wdr24": {
+   "docs": "52/48, word recall 0.571 (r4gd)",
+   "onset": "covers p1 and p3 (recall 0.18, 0.48: a full-bleed figure page the model already sets 819-820pt for a 710pt body) and from p13 every two-column page (recall 0.6-0.93 on the same page index; offset +1 by p25, +3 by p41)",
+   "classes": [
+    "30 of 48 pages are two-column (chunks [2], [1,2], [2,1], [1,2,1,2]); the gdocs planner does not model columns (_gdocs_flow None -> the shipped form), so nothing pays Docs' column re-wraps; on p13 Docs' left column ends 20% early and the right one carries blank gaps",
+    "full-width tables/figures inside two-column regions are set in column 2 (p16: Table O.1 inside the right column)",
+    "4 one-column pages over capacity in the model itself (p1 820/710, p3 819/710, p38 991/710, p48 786/710)"
+   ],
+   "gdocs_rule": "no small one: it needs a per-column Docs model (ColBreak-aware stacking) and full-width elements placed outside the column section -- a docxout gdocs project of its own, overlapping WP33 (columns) and WP38 (y21 seams/flow, product)"
+  },
+  "y22_lshort": {
+   "docs": "169/153, word recall 0.338 (r4gd)",
+   "onset": "p33 (+1), then +2 at p48, +4 at p60, +5 at p62, accumulating to +16",
+   "classes": [
+    "22 one-column pages over capacity in the model itself by 2-398pt (p46 +112, p58 +222, p64 +92, p69 +209, p77 +245, p105 +131, p108 +153, p110 +242, p114 +398, p115 +208, p145 +131, p146 +201 ...): lshort's side-by-side examples (LaTeX source in a ruled box on the left, its typeset result on the right) are written one after the other, the source code paragraph (16 lines on p58) then the result, roughly doubling the example's height",
+    "9 pages where inference did read the example as two columns ([1,2,1]) are unmodelled by the gdocs planner"
+   ],
+   "gdocs_rule": "none: the height is lost before the writer -- inference must read a side-by-side example as a two-sided region (infer._layout_table already does so on p66) so it stands at its source height in every renderer"
+  }
+ },
+ "probe_set": "C:\\lotmp\\scr\\wp35b\\gdocs_probe (PROBE.md); synthetic source probe_mono_table.pdf in its parent"
+}
