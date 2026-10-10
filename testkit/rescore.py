@@ -8,7 +8,8 @@
 A measurement, never a gate and never a re-record. The harness's reading of a
 PDF changed (WP29, 2026-10-06: leader runs, symbol-font PUA, brackets and
 operators; amendment 3, 2026-10-10: a word's vertical position is its baseline
-and live text is read the same way -- see `harness.page_words` and
+and live text is read the same way; amendment 5, 2026-10-10: a letter-spaced
+run reads as the word it spells -- see `harness.page_words` and
 `harness.live_text_cov`); a render made before a change is still a valid
 render, so its numbers can be re-read without converting or rendering
 anything. Only the metrics that depend on the reading are replaced:
@@ -18,8 +19,8 @@ anything. Only the metrics that depend on the reading are replaced:
 editability are copied as they were.
 
 Each re-scored row also carries `before` ({metric: value as recorded}) and
-`control` -- the reading in force before the newest amendment (WP29's, word
-box tops and live text read raw), recomputed here from the same extraction --
+`control` -- the reading in force before the newest amendment (amendment 3's:
+letter-spaced runs as the extractor broke them), recomputed here --
 so `after - control` is what the newest amendment alone moved, and a
 difference between machines or PyMuPDF builds shows as `control` against a
 row recorded under that reading instead of being credited to the new one.
@@ -49,7 +50,7 @@ import quality_sweep as qs
 
 READ = harness.WORD_METRICS + ("char_recall", "char_doc_recall")
 LIVE = ("live_text_cov", "raster_frac")
-SCORER = "wp36"
+SCORER = "wp42"
 
 
 def source_of(doc):
@@ -65,18 +66,21 @@ def source_of(doc):
 
 def reread(src, pdf, docx=None):
     """(after, control): the current reading of one render and the reading
-    before amendment 3, the word metrics of both from one extraction."""
-    sw, ow = harness.page_words(src), harness.page_words(pdf)
-    after = harness.drift_metrics(sw, ow)
-    control = harness.drift_metrics(harness.box_top(sw), harness.box_top(ow))
-    chars = qs.char_recall(src, pdf)           # amendment 3 does not touch it
+    before amendment 5 (letter-spaced runs left as the extractor broke them;
+    baselines and WP29's normalisation as now). Character recall and live
+    text do not depend on where a token ends, so amendment 5 leaves them
+    alike in both."""
+    after = harness.drift_metrics(harness.page_words(src), harness.page_words(pdf))
+    control = harness.drift_metrics(harness.page_words(src, tracked=False),
+                                    harness.page_words(pdf, tracked=False))
+    chars = qs.char_recall(src, pdf)
     for d in (after, control):
         d["char_recall"], d["char_doc_recall"] = chars
     if docx:
-        after["live_text_cov"] = harness.live_text_cov(src, docx)
-        control["live_text_cov"] = harness.live_text_cov(src, docx, normalise=False)
+        live = harness.live_text_cov(src, docx)
         for d in (after, control):
-            d["raster_frac"] = round(1 - d["live_text_cov"], 4)
+            d["live_text_cov"] = live
+            d["raster_frac"] = round(1 - live, 4)
     return after, control
 
 

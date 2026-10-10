@@ -562,8 +562,9 @@ _TOL = 0.01                                  # pt; boxes are unions of the same 
 
 
 def _line_chars(raw):
-    """{block number: [(line bbox, horizontal, [x centre], [(-size, origin y)])]}
-    from a rawdict, the characters of each line sorted left to right."""
+    """{block number: [(line bbox, horizontal, [x centre], [(-size, origin y)],
+    [(x0, x1)])]} from a rawdict, the characters of each line sorted left to
+    right (the last list: each character's box, for `_tracked_runs`)."""
     out = {}
     for b in raw.get("blocks", ()):
         if b.get("type", 0) != 0 or "number" not in b:
@@ -572,11 +573,15 @@ def _line_chars(raw):
         for ln in b.get("lines", ()):
             d = ln.get("dir", (1.0, 0.0))
             chars = sorted(((c["bbox"][0] + c["bbox"][2]) / 2, -s.get("size", 0.0),
-                            c["origin"][1])
+                            c["origin"][1], c["bbox"][0], c["bbox"][2])
                            for s in ln.get("spans", ()) for c in s.get("chars", ())
                            if "origin" in c and not c.get("c", " ").isspace())
+            drawn = sorted((c["bbox"][0] + c["bbox"][2]) / 2
+                           for s in ln.get("spans", ()) for c in s.get("chars", ())
+                           if c.get("c", "x").isspace() and c.get("synthetic") is False)
             lines.append((ln.get("bbox"), abs(d[1]) < 1e-3,
-                          [c[0] for c in chars], [c[1:] for c in chars]))
+                          [c[0] for c in chars], [c[1:3] for c in chars],
+                          [c[3:] for c in chars], drawn))
         out[b["number"]] = lines
     return out
 
@@ -586,12 +591,17 @@ def _holds(box, w):
             and w[2] <= box[2] + _TOL and w[3] <= box[3] + _TOL)
 
 
+def _line_of(w, by_block):
+    """The `_line_chars` line holding fitz word `w`, or None."""
+    lines = by_block.get(w[5], ())
+    return lines[w[6]] if w[6] < len(lines) and _holds(lines[w[6]][0], w) else \
+        next((ln for ln in lines if _holds(ln[0], w)), None)
+
+
 def _baseline(w, by_block):
     """The baseline of fitz word `w` (x0,y0,x1,y1,text,block,line,wordno), or
     its box top when it has none (see above)."""
-    lines = by_block.get(w[5], ())
-    line = lines[w[6]] if w[6] < len(lines) and _holds(lines[w[6]][0], w) else \
-        next((ln for ln in lines if _holds(ln[0], w)), None)
+    line = _line_of(w, by_block)
     if line is None or not line[1]:
         return w[1]
     xs, sized = line[2], line[3]
@@ -599,29 +609,155 @@ def _baseline(w, by_block):
     return min(chars, key=lambda c: c[0])[1] if chars else w[1]
 
 
-def _words(page, baseline):
-    """fitz word tuples, each with its vertical anchor appended (w[8])."""
-    if not baseline:
-        return [tuple(w) + (w[1],) for w in page.get_text("words")]
+def _words(page, baseline, chars=False):
+    """(fitz word tuples, each with its vertical anchor appended (w[8]),
+    the page's characters by line (`_line_chars`) or None)."""
+    if not baseline and not chars:
+        return [tuple(w) + (w[1],) for w in page.get_text("words")], None
     tp = page.get_textpage(flags=fitz.TEXTFLAGS_WORDS)   # what "words" builds
     ws = page.get_text("words", textpage=tp)
     by_block = _line_chars(page.get_text("rawdict", textpage=tp))
-    return [tuple(w) + (_baseline(w, by_block),) for w in ws]
+    return [tuple(w) + ((_baseline(w, by_block) if baseline else w[1]),)
+            for w in ws], by_block
 
 
-def page_words(pdf_path, normalise=True, baseline=True):
+# 4. Letter-spaced (tracked) text -- amendment 5, ratified by the owner
+#    2026-10-10. A run set with tracking has the same extra advance after
+#    every glyph, and a text extractor that synthesises a space wherever a gap
+#    looks wide enough breaks the word apart at some of them: the resume
+#    headings of x17_resume_twocol and x18_resume_twocol_tnr read
+#    "S UM M ARY", "E X P E RI E NCE", "S KI L L S" in the source (Liberation
+#    Sans Bold 9.5pt, every glyph followed by 1.39-1.92pt: 0.146-0.202 em, the
+#    positions on a 0.75pt grid), while the DOCX, Word and Docs say "SUMMARY".
+#    So a run of tokens on one line is read as the one word it spells when
+#    the evidence of tracking is on the page itself: every glyph gap in the
+#    run -- inside the tokens as well as between them -- is at least
+#    TRACK_MIN_EM, they agree within TRACK_SPREAD_EM, and none reaches
+#    TRACK_MAX_EM. Inside an ordinary word the glyph boxes touch (kerning
+#    only): over the 95 sources the intra-token gap is 0.000 em at the median
+#    and 0.036 at p99, and 0.4% reach 0.08. A word space is wider and is not
+#    repeated inside the words: inter-token gaps are 0.260 em at the median
+#    and justified lines widen them, so a tracked chain must show the same
+#    gap inside a token (at least one token of two or more glyphs) as between
+#    tokens -- or be TRACK_LETTERS single glyphs or more, which is how a
+#    renderer's tracked heading reads (LibreOffice and Word draw x17's
+#    "SUMMARY", written with w:spacing, as seven one-glyph tokens 1.64pt
+#    apart). And a gap holding a space the producer DREW is a word space
+#    however narrow: tracked gaps hold only spaces the extractor synthesised
+#    (x17's source, its LibreOffice and Word renders), while Docs' export of
+#    x06_lo_euro_scripts sets its spaced Greek and Cyrillic letters with real
+#    spaces under TRACK_MAX_EM that would otherwise join. Only word-character
+#    tokens join (an optional trailing . , ; :), so maths set with gaps
+#    ("n -1", "b >=a" in y22/y37/y40) is left to the operator split. Over the
+#    95 sources the rule joins x17's and x18's six headings each (28 of x17's
+#    360 tokens fold into them), y28's "Page" footer (Word, 2.97pt between
+#    letters at 12pt, 16 times), and 55 tokens of TeX letter-spacing
+#    examples in y23 and y25; over the renders, x17's and x18's headings and
+#    letter-spaced lines of y06 and y49 in LibreOffice and Word, and nothing
+#    in Docs' exports.
+TRACK_MIN_EM = 0.08       # above the p99 of intra-word glyph gaps (0.036 em)
+TRACK_SPREAD_EM = 0.08    # x17's spread is 0.056 em; its 0.75pt grid is 0.079 em at 9.5pt
+TRACK_MAX_EM = 0.25       # below the median word space (0.260 em); x17's widest gap 0.202
+TRACK_LETTERS = 4         # one-glyph tokens that join with no split token; "Page" (y28) is 4
+_TRACK_TOKEN = re.compile(r"^[^\W_]+[.,;:]?$")
+
+
+def _glyph_gaps(w, line):
+    """(size, [gap in em between consecutive glyphs of fitz word `w`])."""
+    xs, sized, boxes = line[2], line[3], line[4]
+    a, z = bisect.bisect_left(xs, w[0] - _TOL), bisect.bisect_right(xs, w[2] + _TOL)
+    if a >= z:
+        return None, []
+    size = max(-s for s, _ in sized[a:z]) or 1.0
+    return size, [(b[0] - c[1]) / size for c, b in zip(boxes[a:z], boxes[a + 1:z])]
+
+
+def _tracked_runs(ws, by_block, drop=()):
+    """[[indices]] of `ws` (fitz word tuples) that spell one tracked word each,
+    by the rule above, in left-to-right order."""
+    if not by_block:
+        return []
+    lines = {}
+    for i, w in enumerate(ws):
+        if i not in drop:
+            lines.setdefault((w[5], w[6]), []).append(i)
+    runs = []
+    for idx in lines.values():
+        if len(idx) < 2:
+            continue
+        idx.sort(key=lambda i: ws[i][0])
+        line = _line_of(ws[idx[0]], by_block)
+        if line is None or not line[1] or len(line) < 6:
+            continue
+        drawn = line[5]
+        ok = [bool(_TRACK_TOKEN.match(ws[i][4])) for i in idx]
+        info = [_glyph_gaps(ws[i], line) for i in idx]
+        k = 0
+        while k < len(idx):
+            size, gaps = info[k]
+            if not ok[k] or not size:
+                k += 1
+                continue
+            chain, inner = [idx[k]], bool(gaps)
+            gaps = list(gaps)
+            m = k
+            while m + 1 < len(idx) and ok[m + 1] and info[m + 1][0] and \
+                    abs(info[m + 1][0] - size) < 0.01:
+                left, right = ws[idx[m]][2], ws[idx[m + 1]][0]
+                gap = (right - left) / size
+                if gap >= TRACK_MAX_EM:
+                    break
+                # a space the producer drew is a word space, however narrow
+                k0 = bisect.bisect_left(drawn, left - _TOL)
+                if k0 < len(drawn) and drawn[k0] <= right + _TOL:
+                    break
+                gaps += [gap] + info[m + 1][1]
+                inner = inner or bool(info[m + 1][1])
+                chain.append(idx[m + 1])
+                m += 1
+            if (len(chain) > 1 and inner or len(chain) >= TRACK_LETTERS) and \
+                    min(gaps) >= TRACK_MIN_EM and \
+                    max(gaps) - min(gaps) <= TRACK_SPREAD_EM and max(gaps) < TRACK_MAX_EM:
+                runs.append(chain)
+                k = m + 1
+            else:
+                k += 1
+    return runs
+
+
+def _join_tracked(ws, by_block, drop):
+    """`ws` with each tracked run read as one word (at its first token's
+    place), and `drop` grown by the tokens folded into it."""
+    runs = _tracked_runs(ws, by_block, drop)
+    if not runs:
+        return ws, drop
+    ws, drop = list(ws), set(drop)
+    for run in runs:
+        parts = [ws[i] for i in run]
+        first = parts[0]
+        ws[run[0]] = (first[0], min(p[1] for p in parts), parts[-1][2],
+                      max(p[3] for p in parts), "".join(p[4] for p in parts)) + \
+            tuple(first[5:])
+        drop.update(run[1:])
+    return ws, drop
+
+
+def page_words(pdf_path, normalise=True, baseline=True, tracked=True):
     """Per page, [(text, x0, y0, x1, y1, y)] in reading order: the word's box
     and `y`, where it sits vertically -- its baseline (amendment 3).
 
-    `baseline=False` anchors `y` at the box top `y0`, the reading before
-    2026-10-10; `normalise=False` is the reading before WP29 (2026-10-06): no
-    leader, symbol-font or operator normalisation. They exist so a re-score can
-    report every reading of the same render; nothing gates on them.
+    `tracked=False` leaves letter-spaced runs as the extractor broke them, the
+    reading before amendment 5 (2026-10-10); `baseline=False` anchors `y` at
+    the box top `y0`, the reading before amendment 3; `normalise=False` is
+    the reading before WP29 (2026-10-06): no leader, symbol-font, operator or
+    tracking normalisation. They exist so a re-score can report every reading
+    of the same render; nothing gates on them.
     """
     doc = fitz.open(pdf_path)
     pages = []
     for p in doc:
-        ws = _words(p, baseline)           # x0,y0,x1,y1,word,block,line,wordno,y
+        # x0,y0,x1,y1,word,block,line,wordno,y
+        ws, by_block = _words(p, baseline, chars=normalise and tracked)
         ws.sort(key=lambda w: (round(w[1], 1), w[0]))
         spans, drop = None, ()
         if normalise:
@@ -631,6 +767,8 @@ def page_words(pdf_path, normalise=True, baseline=True):
                 ws = [w[:4] + (_read_pua(w[4], w[:4], spans),) + tuple(w[5:])
                       for w in ws]
             drop = _leader_runs(ws)
+            if tracked:
+                ws, drop = _join_tracked(ws, by_block, drop)
         out = []
         for i, w in enumerate(ws):
             if i in drop:
@@ -800,13 +938,13 @@ WORD_METRICS = ("src_words", "word_recall", "doc_recall", "dx_p50", "dx_p90",
                 "dy_p50", "dy_p90", "within2pt", "within5pt", "page_dy_p90")
 
 
-def word_metrics(src_pdf, rendered_pdf, normalise=True, baseline=True):
+def word_metrics(src_pdf, rendered_pdf, normalise=True, baseline=True, tracked=True):
     """The word-level half of `evaluate`: recall on the right page and
     anywhere, and the drift of the matched words. Separate so a saved render
     can be re-scored without converting or rendering anything again.
-    `normalise` and `baseline` select the reading (see `page_words`)."""
-    return drift_metrics(page_words(src_pdf, normalise=normalise, baseline=baseline),
-                         page_words(rendered_pdf, normalise=normalise, baseline=baseline))
+    `normalise`, `baseline` and `tracked` select the reading (`page_words`)."""
+    kw = dict(normalise=normalise, baseline=baseline, tracked=tracked)
+    return drift_metrics(page_words(src_pdf, **kw), page_words(rendered_pdf, **kw))
 
 
 def drift_metrics(sw, ow):

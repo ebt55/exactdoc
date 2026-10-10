@@ -241,12 +241,15 @@ class Rescore(unittest.TestCase):
             row = {"document": "s2.pdf", "within2pt": 0.1, "dy_p50": 9.0,
                    "live_text_cov": 0.5, "word_recall": 0.2}
             new = rescore.rescore_row(row, src, out, docx)
-            self.assertEqual(new["scorer"], "wp36")
+            self.assertEqual(new["scorer"], "wp42")
             self.assertEqual(new["before"]["within2pt"], 0.1)
             self.assertEqual(new["dy_p50"], 0.0)
-            self.assertEqual(new["control"]["within2pt"], 0.0)
+            self.assertEqual(new["within2pt"], 1.0)
             self.assertEqual(new["live_text_cov"], 1.0)
-            self.assertLess(new["control"]["live_text_cov"], 1.0)
+            # the control is the reading before amendment 5: nothing here is
+            # letter-spaced, so it agrees
+            self.assertEqual(new["control"]["within2pt"], 1.0)
+            self.assertEqual(new["control"]["live_text_cov"], 1.0)
             self.assertNotIn("live_text_copied", new)
             kept = rescore.rescore_row(row, src, out, None)
             self.assertEqual(kept["live_text_cov"], 0.5)
