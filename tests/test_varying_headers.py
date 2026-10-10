@@ -167,17 +167,24 @@ class FurnitureClearsTheBody(unittest.TestCase):
         self.assertTrue(set(self.TABLES) <= consumed)
         self.assertTrue({"Chapter %d" % k for k in range(4)} <= consumed)
 
-    def test_a_foot_touching_the_body_is_body(self):
+    def test_feet_are_not_held_to_the_bar(self):
         # y18's last EUR-Lex line sits 0.7pt below the line above it, the
-        # one inside the foot band (BOTZ), the other just outside it
+        # one inside the foot band (BOTZ), the other just outside it. The
+        # census separates it from real feet, but written back it is a line
+        # the render has no room for (GEO_CLEAR_LINES): still consumed.
         ir, res = self._doc(lambda i, t: [
             ("body", 718.3, 728.3), (t, 729.0, 739.0)])
-        self.assertEqual(_consumed_texts(res, ir), set())
-
-    def test_a_foot_clear_of_the_body_is_consumed(self):
-        ir, res = self._doc(lambda i, t: [
-            ("body", 700.0, 711.0), (t, 760.0, 770.0)])
         self.assertTrue(set(self.TABLES) <= _consumed_texts(res, ir))
+
+    def test_a_foot_is_measured_like_a_head(self):
+        from exactdoc.infer import _furniture_clearance
+        from exactdoc.infer import _no_furniture
+        page = _stack_page(2, [("body", 718.3, 728.3),
+                               ("foot", 729.0, 739.0)])
+        ln = page.blocks[1].lines[0]
+        clear = _furniture_clearance(
+            _ir([page]), _no_furniture(), [(("bot", 243, 10), [(2, 1, ln)])])
+        self.assertAlmostEqual(clear[id(ln)], 0.7, places=3)
 
     def test_a_page_with_no_body_counts_as_clear(self):
         ir, res = self._doc(lambda i, t: [(t, 29.4, 40.3)])

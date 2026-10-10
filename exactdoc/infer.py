@@ -270,17 +270,20 @@ FURN_EXT_FRAC = 0.2
 # enough that 60% of one parity's pages is still evidence: 10 pages give 4-5
 # pages per class, and the per-class bar is never below 3 pages.
 PARITY_MIN_PAGES = 10
-# Varying furniture found by geometry alone (detect_hf) stands clear of the
-# body it frames by at least a line of its own type: median clearance over its
-# pages (_furniture_clearance) >= GEO_CLEAR_LINES x its size, a line at the
-# usual 120% leading. Census of every signature the geometry pass qualified,
-# over both corpora (2026-10-10): the running furniture clears by 19.8pt
-# (y24's chapter head, 11pt: 1.8 lines), 38.7 (y34's slide titles, 24pt),
-# 40.0 (y26's folios), 40.5 (y23's), 48.7 (y02's chapter foot); what it ate
-# besides is body text touching its neighbours -- y64's table titles 1.4pt,
-# y17's and y27's first RFC lines 0.2, y18's last EUR-Lex line 0.7, y14's form
-# line -0.4, y47's notes 4.1, y55's paragraph lines 9.9 and 10.3 (11pt: 0.78
-# lines), y54's 8.1 and below.
+# A varying running HEAD found by geometry alone (detect_hf) stands clear of
+# the body below it by at least a line of its own type: median clearance over
+# its pages (_furniture_clearance) >= GEO_CLEAR_LINES x its size, a line at the
+# usual 120% leading. Census of every head signature the geometry pass
+# qualified, over both corpora (2026-10-10): the running heads clear by 19.8pt
+# (y24's chapter head, 11pt: 1.8 lines), 38.7 (y34's slide titles, 24pt) and
+# 40.0 (y26's folios); what it ate besides is body text touching the line
+# below -- y64's table titles 1.4pt, y17's and y27's first RFC lines 0.2,
+# y55's paragraph lines 9.9 and 10.3 (11pt: 0.78 lines), y54's 8.1 and below.
+# FEET are not held to it, though the same census splits them as cleanly
+# (y23's folios 40.5, y02's chapter foot 48.7 against y18's last EUR-Lex line
+# 0.7, y14's form line -0.4, y47's notes 4.1): written back, those last lines
+# are pages the render does not make room for -- y18 raw 156 -> 174 pages
+# (144 in the source), product placement dy_p50 2.8 -> 4.5pt; y47 raw 86 -> 93.
 GEO_CLEAR_LINES = 1.2
 # A drawing covering this much of the sheet is a background, not a margin.
 PAGE_COVER_FRAC = 0.9
@@ -1837,7 +1840,9 @@ def _furniture_clearance(ir: DocIR, res: dict, qualified) -> dict:
     furniture, not body, and are skipped the same way.
 
     Real varying running heads stand clear of the body below them, and a
-    table's title does not -- the census behind GEO_CLEAR_PT."""
+    table's title does not -- the census behind GEO_CLEAR_LINES, which
+    detect_hf applies to heads; feet are measured the same way and recorded
+    there, not held to it."""
     cands = defaultdict(list)        # page -> [(zone, line)]
     for sig, occs in qualified:
         for pg, bi, ln in occs:
@@ -2083,7 +2088,8 @@ def detect_hf(ir: DocIR):
         # next). See GEO_CLEAR_LINES for the census.
         clear = _furniture_clearance(ir, res, qualified)
         for sig, occs in qualified:
-            if median(clear[id(ln)] for _, _, ln in occs) < \
+            if sig[0] == "top" and median(
+                    clear[id(ln)] for _, _, ln in occs) < \
                     GEO_CLEAR_LINES * sig[2]:
                 continue
             for pg, bi, ln in occs:
