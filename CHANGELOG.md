@@ -21,6 +21,30 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 one verified fix at a time, each gated against the frozen 16.
 
 
+- **EUR-Lex's numbered articles keep their pages in Google Docs (WP35).**
+  On Google's exports of the 71558af sweep y18 (the EU AI Act) matched the
+  source page for page until page 58, then spilled two pages (146 for 144,
+  word recall 0.697). Every paragraph that grew a line there is a run-in
+  numbered article paragraph ("5.<tab>text": label at the margin, text at a
+  21.5pt stop, continuation lines at the margin). Docs sets the text after a
+  list label at the item's indent start and ignores the paragraph's own tab
+  stops, so with no hanging indent it went to the next half inch: 36pt past
+  the label for the source's 22 on 363 of 374 items. Under the gdocs profile
+  such lists now stay typed (`docxout._gdocs_list_defs`); typed stops land
+  exactly in Docs (y18's own typed items 89.2 for 89.0). Folding the two
+  spill pages back into the base export reads 144 pages at word recall
+  0.986. Also under gdocs, a panel Word shaded line by line -- the NIST notice
+  on y01, y08 and y09, thirteen one-line boxes that Docs set 1.5pt taller a
+  line and re-wrapped (197pt for the source's 147) -- is written as the one
+  box it is, a paragraph per source paragraph (`_gdocs_line_boxes`), the form
+  y02's notice takes and Docs sets within 0.3pt. Only y18, y01, y08, y09 and
+  y64 change; the standard profile is byte-identical on all 90 documents.
+  Flown live (2026-10-10, base = 71558af): y18 146 -> 144 pages for 144,
+  word recall 0.697 -> 0.987, dy_p50 10.8 -> 3.05pt; within-2pt y09 0.438
+  -> 0.463, y08 0.309 -> 0.315, y01 unchanged pages and recall; every
+  byte-identical control reproduced its base exactly.
+  Evidence: [gdocs-2026-10-10-wp35-offline.json](docs/evidence/gdocs-2026-10-10-wp35-offline.json).
+
 - **The canonical image is now the Carlito image (WP32, owner decision
   2026-10-10).** WP31 merged; `exactdoc-gate:boot` retagged to the Carlito/
   Caladea layer (bab1cfc0d2cd), the old snapshot kept as
