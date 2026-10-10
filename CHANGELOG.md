@@ -59,6 +59,188 @@ one verified fix at a time, each gated against the frozen 16.
   y61 raw stays at 7 pages with dy_p50 33.6; with only the channels y21
   product falls to 0.519. Next: why splitting y21's welded lines moves its
   words to the wrong pages; the cursor change can ship alone meanwhile.
+
+- **y33's footnotes stay on their pages (WP27).** The pages whose notes
+  spilled (LibreOffice raw p22 and p24) had lost their footnote references
+  to pictures: y33 (Kofax Power PDF) sets each consultation question as a
+  teal number badge flush against a tinted panel, and a question standing
+  alone was classified a figure that, grown from the panel's 454pt seed,
+  rasterised the body lines above it -- on 20 of 60 pages. With a
+  reference inside a picture the page's notes could not bind and stayed
+  typed. A cluster that is one row of abutting tiles, every tile holding
+  text, is now a one-row table (`_tile_bands`; cards with gutters, a row
+  with an empty tile and a shaded header over body rows -- the headed
+  table's -- are not). Notes: the separator is the qualifying rule nearest
+  the notes, not the first drawn (a question badge's white hairline opened
+  the zone over a table on p32 and p40); and a mark printed alone above its
+  note's text -- a note that is one unbreakable URL, p45 -- opens the note
+  under it. Every y33 page with notes now binds them (23 pages). Canonical
+  LibreOffice raw, against ckpt-raw over all 90 swept documents: y33 62 ->
+  60 pages, word recall 0.494 -> 0.993, char recall 0.780 -> 1.000, doc
+  recall 0.893 -> 0.993, within-2pt 0.071 -> 0.063; y02 120 -> 119 pages
+  (114; word recall -0.0004); 04's KPI tiles at their source x (SSIM +0.001);
+  y03 +0.0001; the rest identical (beta criterion 5, LibreOffice raw: y33
+  passes, 11 -> 12 of 21; 13 with WP26's y24). Word, raw DOCX: y33 63 -> 60 pages, word
+  recall 0.486 -> 0.993, within-2pt 0.087 -> 0.159. Google Docs is not
+  changed by proxy evidence: y33's Docs onset (p2) is its page-background
+  pictures, stacked in the flow because the gdocs profile has no `anchored`
+  capability. Live, the probe with those backgrounds anchored behind the
+  text read y33 60 for 60 pages (word recall 0.271 -> 0.992, within-2pt
+  0.314, SSIM 0.61 -> 0.74), so under the gdocs profile's
+  `anchor_pictures` a picture the text is set on that spans the paper's
+  width (>= 0.97, `PAGE_BACKGROUND_WIDTH_FRAC`) now leaves the flow for
+  its page position, behind the text (WP27b); the standard profile is
+  unchanged. Tests: `tests/test_question_panels.py`,
+  `tests/test_page_backgrounds.py`.
+
+- **WP19b's live flight, read line by line (WP24).** Probe 3 flew WP19b on
+  all 62 promised documents; Google's exports, aligned with the sources
+  baseline by baseline (`docs/evidence/gdocs-2026-10-06-wp24-offline.json`),
+  say what its blockers were:
+  - The "uniform 2-3pt offset" on 03, 04, x15, r1 and x13 is the metric's
+    reference point, not placement: the harness scores a word's box top,
+    and MuPDF draws an unembedded Helvetica's 1.075 em above the baseline
+    where Docs' Arial says 0.905. Scored at the baseline, WP19b raised them
+    (03 0.356 -> 0.457, 04 0.218 -> 0.547, x15 0.310 -> 0.934, r1 0.135 ->
+    0.679, x13 0.343 -> 0.625) as the harness's numbers fell.
+  - A page the line model cannot add up (columns, a column break) got the
+    corrected line heights without the moves: y46 1 -> 2 pages, 02's
+    columns 0.647 -> 0.114 at the baseline. Such a page is written in the
+    shipped form again, byte for byte (`WriteCtx.gdocs_calibrated`;
+    `GDOCS_UNMODELLED_SHIPPED`, which the probe flies both ways for y12).
+  - A data table stands taller in Docs than the source -- first line
+    +1.23pt (n=53), +0.68 a row (n=70), the line after +0.93 (n=33) -- and
+    nothing paid it, so every line under a five-row table sat ~5pt low (01,
+    x04, f1, r1, x13, x10). Its spacer pays its top, the gaps under it the
+    rest. The cover page's rules and pictures pay their excess (01's body
+    sat 2.9pt low under one); a quote's space after rides on the next gap
+    (04's heading 6.5pt high); a re-wrap the width tables cannot see
+    (Cyrillic, Greek) gives no line to the gap under it (x06 stepped down
+    14.5, 28.8 and 43.4pt); a box standing past the column keeps its widest
+    line's room (03's warning box, one line set as two).
+
+  Replayed against the probe-3 exports (lines within 2pt of the source
+  baseline, an estimate; the live probe decides): 01 0.424 -> 0.970, 04
+  0.857 -> 1.000, x04 0.290 -> 1.000, x06 0.565 -> 1.000, f1 0.750 -> 1.000,
+  r1 0.667 -> 0.905, x13 0.677 -> 0.984, x10 0.207 -> 0.828, c1 0.571 ->
+  0.857. y46 and c2 are again identical to integration.
+
+  Flown live (`docs/evidence/gdocs-2026-10-06-wp24-live.json`): every short
+  document flown page-exact; mean within-2pt 0.278 -> 0.462 and SSIM
+  0.828 -> 0.887 over the first 15 (x03 0.288 -> 1.000, c6 0.341 -> 0.899,
+  c8 0.098 -> 0.850, x04 0.271 -> 0.513, x10 0.022 -> 0.280, c1 0.154 ->
+  0.376); 03, 04, r1, x13 and x15 lose harness within-2pt as their SSIM
+  rises (the reference point above); y03 50 -> 47 pages (word recall 0.577
+  -> 0.849). Two decisions from it:
+  - **`anchor_pictures` granted to gdocs**: WP23's pictures on a line,
+    wrapped or in a margin, anchored without the rest of `anchored`. Docs
+    keeps them where they are put: y01 81 -> 80 pages for 80 (word recall
+    0.409 -> 0.962), y28 22 -> 21 for 21 (0.396 -> 0.990), the synthetic set
+    (`testkit/gdocs_probe_anchors.py`) 6 -> 5 for 5.
+  - **Unmodelled pages, per page**: all shipped, y12 took 71 pages for 59
+    (criterion 6 fails); all calibrated, 69, but y46 went 1 -> 2. A page
+    whose columns leave less than a body line free is written calibrated --
+    the shipped form's lines run ~0.5% tall in Docs, which a full column
+    cannot absorb -- and any other keeps the shipped form
+    (`_gdocs_unmodelled_tight`; y46 26pt spare, 02 21, c2 197). Flown next
+    (variant wp24d).
+
+  The standard profile is byte-identical on all 90 convertible documents;
+  gate PASS in both lanes at the recorded numbers.
+
+- **Google Docs sets every line where the source drew it: Docs' own line
+  placement on every page, the box and quote gaps it dropped, the page-top
+  holder on (WP19b).** WP19 calibrated only pages at risk, because the
+  shipped form's errors cancel on pages that fit. Google's own exports of the
+  probe-1 documents, aligned line by line with the sources
+  (`docs/evidence/gdocs-2026-10-05-wp19b-offline.json`), say what cancelled:
+  - Docs sets a paragraph's first baseline (ascent + gap) x size below its
+    top, all of the leading's extra below it; infer anchored every gap in
+    Word terms, the extra above. The error changes wherever the leading
+    does: heading -> body -2.50pt median, body -> heading +2.09, body ->
+    list +1.86 over 1,268 boundaries; with the model the residual is 0.00
+    (p10 -0.06, p90 +0.09). Every gap is now moved by it
+    (`_gdocs_baseline_gaps`), from the source's own page top where infer
+    clamped a first gap (x07, x08: 3.69pt), under a first line's tallest run.
+  - A quote or callout box in the paragraph form never wrote the table's
+    gap: c1's callouts sat 9.9 and 9.4pt high (the "-9.7pt" its lines' drift
+    had cancelled), y02's notice boxes 21-25pt. The gap is written, and a
+    box's border spaces follow Docs' border model (width outside the
+    padding; y02's boxes within 0.3pt; 01's 3pt-bordered boxes set the text after them 5.9pt low).
+  - Lever [E]'s 0.38pt shave on one-line paragraphs left each 0.39pt short
+    of the source in Docs (248 boundaries); it is gone.
+
+  The planner models all of that, predicts a soft-broken paragraph a line
+  at a time with its indentation (y26's code listings were 2-5 lines short),
+  may spend a table's spacer, and pays a page its spacing brings within a
+  body line of fitting. `GDOCS_PAGE_TOP_HOLDER` is on: probe 2's wp19h
+  variant raised within-2pt on all eight documents at the same page counts
+  (y19's median offset 24.3 -> 11.5pt).
+
+  Replayed against the exports (lines within 2pt, an offline estimate; the
+  live probe decides): probe 1 -> now c1 0.214 -> 0.714, 01 0.439 -> 0.788,
+  x05 0.200 -> 1.000, x09 0.088 -> 0.971, y19 0.002 -> 0.882, y26 0.035 ->
+  0.519; the shipped form -> now x02 0.923 -> 1.000, 04 0.381 -> 0.810, c1
+  0.321 -> 0.643, y35 0.175 -> 0.866, but 01 0.455 -> 0.424 (its striped
+  table still grows 0.75pt a row in Docs, and its post-rule body sits 1pt
+  low). Pages replayed against probe 2's exports: 14 lost -> 14,
+  y26's page 77 recovered (its first loss moves from page 77 to 172). The
+  standard profile is byte-identical for all 90 convertible documents.
+
+- **y33's footnotes stay on their pages (WP27).** The pages whose notes
+  spilled (LibreOffice raw p22 and p24) had lost their footnote references
+  to pictures: y33 (Kofax Power PDF) sets each consultation question as a
+  teal number badge flush against a tinted panel, and a question standing
+  alone was classified a figure that, grown from the panel's 454pt seed,
+  rasterised the body lines above it -- on 20 of 60 pages. With a
+  reference inside a picture the page's notes could not bind and stayed
+  typed. A cluster that is one row of abutting tiles, every tile holding
+  text, is now a one-row table (`_tile_bands`; cards with gutters, a row
+  with an empty tile and a shaded header over body rows -- the headed
+  table's -- are not). Notes: the separator is the qualifying rule nearest
+  the notes, not the first drawn (a question badge's white hairline opened
+  the zone over a table on p32 and p40); and a mark printed alone above its
+  note's text -- a note that is one unbreakable URL, p45 -- opens the note
+  under it. Every y33 page with notes now binds them (23 pages). Canonical
+  LibreOffice raw, against ckpt-raw over all 90 swept documents: y33 62 ->
+  60 pages, word recall 0.494 -> 0.993, char recall 0.780 -> 1.000, doc
+  recall 0.893 -> 0.993, within-2pt 0.071 -> 0.063; y02 120 -> 119 pages
+  (114; word recall -0.0004); 04's KPI tiles at their source x (SSIM +0.001);
+  y03 +0.0001; the rest identical (beta criterion 5, LibreOffice raw: y33
+  passes, 11 -> 12 of 21; 13 with WP26's y24). Word, raw DOCX: y33 63 -> 60 pages, word
+  recall 0.486 -> 0.993, within-2pt 0.087 -> 0.159. Google Docs is not
+  changed by proxy evidence: y33's Docs onset (p2) is its page-background
+  pictures, stacked in the flow because the gdocs profile has no `anchored`
+  capability; a probe set (with and without those backgrounds anchored)
+  awaits a live pass. Tests: `tests/test_question_panels.py`.
+
+- **A page-fit planner for LibreOffice and Word, built and measured, shipped
+  off (WP30).** `exactdoc/pagefit.py` models each single-column page as the
+  standard profile writes it -- the ladder's re-wrap per forced line (a
+  verbatim line padded with spaces never fewer lines than the source), the
+  exact line, and tables at their source box plus the rows their cells wrap
+  into (`table_growth`; a line within 2pt of its cell's edge counts as
+  wrapping) -- and a page left with less than a body line plus 2pt to spare
+  is paid from its own gaps, gently first, foot up, within the refine
+  floors, as WP19's Docs planner does; a page that fits is written as
+  before. Measured against the checkpoint's LibreOffice renders (2,092
+  pages): pages predicted to keep 0-15pt spilled 6-10%, past 20pt 2-3%, and
+  the model is within a point of the render at the median. With it on, raw
+  sweep against ckpt-raw: y18 156 -> 144 pages (word recall 0.393 -> 0.986)
+  and y33 62 -> 60 (0.494 -> 0.893), both page-exact, so criterion 5 in
+  LibreOffice 11 -> 13 of 21; y03 51 -> 47 (0.568 -> 0.845; a table whose
+  cells were mis-partitioned overruns p40 by 150pt), y64 44 -> 40, y21 57
+  -> 53, y02 120 -> 117; page-exact 59 -> 62; the 16 gated documents
+  byte-identical. It is off (`pagefit.PAGEFIT_ENABLED`) because y59 (not
+  promised; 6 pages rendered as 18) regresses dy_p50 30.07 -> 46.35 when its
+  first page, 11 body lines over by the model, is paid back into its box.
+  Word, planner on: raw DOCX 11 -> 13 of 21 (y18 168 -> 144, y33 63 -> 60);
+  product DOCX 15 -> 16 (y18 154 -> 144, word recall 0.462 -> 0.986; y27
+  152 -> 151), but y64 40 -> 41. The LibreOffice product lane is unchanged
+  on the 21 (17 of 21). Gate PASS with it off; not yet gated on
+  (`docs/evidence/pagefit-2026-10-06.json`).
+
+
 - **Beta criteria 8 and 12 (WP28).** *Criterion 8* (no document worse than
   the accepted wp18-m2 sweep) failed on two documents; both bisect to WP22
   (aeb98fb; every merge from 92c542c to 738bd2e measured the accepted values).
@@ -87,6 +269,38 @@ one verified fix at a time, each gated against the frozen 16.
   yet at the bar (11, 15 and 10 of the 17 needed)
   ([evidence](docs/evidence/checkpoint-2026-10-05-lo-sweeps.json),
   [WP28](docs/evidence/wp28-2026-10-06.json)).
+
+- **The measuring instrument, amended by the owner on 2026-10-06 (WP29).**
+  No conversion output changed (`exactdoc/` identical to integration;
+  `word/*.xml` byte-identical for the 95 documents in the raw and gdocs
+  profiles). *Amendment 1:* the scorecard grades the LibreOffice lane on the
+  product DOCX, as Word already was (`beta_readiness.py`: criteria 4-7, 9 and
+  13 read the product sweep; criterion 2 still times raw; criterion 8
+  compares the accepted sweep with the current sweep of its own profile, and
+  an accepted sweep that does not cover the corpus is UNMEASURED --
+  `wp18-m2-prod` ran 13 documents, so a full accepted product sweep must be
+  named). *Amendment 2:* `harness.page_words` and character recall read the
+  source and the render the same way: runs of three or more leader dots are
+  not words, symbol-font private-use code points (Symbol, ZapfDingbats, MT
+  Extra) read as the characters they encode by the span's font, and brackets
+  and maths operators are their own tokens. One function reads both sides, so
+  lost text still counts. y26's criterion-8 "regression" was 2,243 leader
+  dots (doc recall 0.9712 -> 0.9915 re-read); y10 is 36/36 pages at word
+  recall 0.7844 -> 0.9405; y24 FALLS 0.5493 -> 0.4856, because its 6,732
+  leader dots had matched 6,729 times. `testkit/rescore.py` re-reads saved
+  renders without converting, keeping the old value and a recomputed control
+  (equal to the recorded value on all 450 checkpoint lane rows). Checkpoint
+  scorecard, 6 pass / 4 fail before and after: criterion 5 FAIL by 15 ->
+  9 (amendment 1: LO product 17/21) -> 8 (both: LO product 18/21, Word 16/21,
+  Docs 10/21); the only criterion-5 flip is y10, fail -> pass, in LibreOffice
+  and Word in both flavours, and nothing flips the other way; criterion 8
+  against `wp18-m2-raw` 2 documents -> 1 (y61's dy_p50 remains), and PASS
+  (7 pass / 3 fail) if the owner names the checkpoint's product sweep as the
+  accepted one. The gate's kept renders re-read: both lanes PASS against
+  the unchanged baseline (largest move 04_exec_brief word recall 0.9337 ->
+  0.9239, a lost chart label "(thousands)" now three tokens); the baseline
+  is not re-recorded (`docs/evidence/scorer-2026-10-06.json`,
+  `docs/beta-bar.md` "Amendments").
 
 - **A table cut by a page break stays a table (WP26).** The pandoc manual
   (y24) sets its defaults-file tables as LaTeX longtables: a table at a page

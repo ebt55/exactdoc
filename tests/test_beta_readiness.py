@@ -5,17 +5,21 @@ Word rows, lane verdicts, an accepted sweep, a kept DOCX and a README. What is
 pinned is the reading -- a missing input is UNMEASURED and never PASS, a typed
 refusal is not a crash, an upload failure is not the converter's, REPORTED
 criteria do not gate, "FAIL by N" counts what it says -- and which criteria
-gate, as the owner ratified them on 2026-10-05. One test reads the real manifests:
+gate, as the owner ratified them on 2026-10-05 and amended them on 2026-10-06
+(the LibreOffice lane reads the product DOCX; the accepted sweep is compared in
+its own flavour). One test reads the real manifests:
 the gated tiers come from the ratified policy, so ordinary_digital is 72.
 
     python -m unittest tests.test_beta_readiness
 """
+import io
 import json
 import os
 import sys
 import tempfile
 import unittest
 import zipfile
+from unittest import mock
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "testkit"))
@@ -94,7 +98,8 @@ class Reading(unittest.TestCase):
         self._sweep("r.sweep.json", "pdfium/standard/none/refine0@240dpi", raw)
         self._sweep("p.sweep.json", "pdfium/standard/libreoffice/refine3@240dpi",
                     [_row("short.pdf", 3, 3, conv=61.0),     # over 60s at 3 pages
-                     _row("short2.pdf", 2, 2), _row("long.pdf", 50, 50, conv=70.0),
+                     _row("short2.pdf", 2, 2),
+                     _row("long.pdf", 50, 50, conv=70.0, dy=5.0),
                      _row("form.pdf", 2, 2, conv=999.0)])    # unsupported: not timed
         self._jsonl("rows.jsonl", [
             {"doc": "short.pdf", "src_pages": 3, "out_pages": 4, "char_recall": 0.99,
@@ -108,8 +113,9 @@ class Reading(unittest.TestCase):
             {"doc": "short2", "word_version": "16.0", "out_pages": 2, "ok": True,
              "repair_prompt": True, "compat": 15}])
         self._gate()
-        accepted = self._sweep("accepted.json", "pdfium/standard/none/refine0@240dpi",
-                               [_row("short.pdf", 3, 3), _row("long.pdf", 50, 50)])
+        accepted = self._sweep("accepted.json", "pdfium/standard/libreoffice/refine3@240dpi",
+                               [_row("short.pdf", 3, 3), _row("short2.pdf", 2, 2),
+                                _row("long.pdf", 50, 50), _row("paper.pdf", 8, 8)])
         os.makedirs(os.path.join(self.dir, "kept", "short"))
         with zipfile.ZipFile(os.path.join(self.dir, "kept", "short", "short.docx"), "w") as z:
             z.writestr("word/document.xml",
@@ -128,7 +134,8 @@ class Reading(unittest.TestCase):
         word_rows = B.find_rows([self.dir], DOCS, "word")
         self.assertTrue(docs_rows[0].endswith("rows.jsonl"))
         self.assertTrue(word_rows[0].endswith("word_rows.jsonl"))
-        lanes = {"lo": sweeps["raw"][1]["documents"],
+        # amendment 1 (2026-10-06): the LibreOffice lane is the product sweep
+        lanes = {"lo": sweeps["product"][1]["documents"],
                  "docs": [r for r in docs_rows[1] if B.row_lane(r) == "docs"],
                  "word": [r for r in word_rows[1] if B.row_lane(r) == "word"]}
         res = B.evaluate(DOCS, sweeps, lanes, B.find_gate([self.dir]),
@@ -149,16 +156,20 @@ class Reading(unittest.TestCase):
         self.assertEqual((c["short-exact"]["status"], c["short-exact"]["by"]), ("FAIL", 1))
         self.assertEqual(c["short-exact"]["misses"], ["Docs live short (3->4 pages, "
                                                       "wr 0.95, cr 0.99, dy50 2.0)"])
-        # long.pdf 50->51 is within max(1, 2%): LO passes; Word/Docs have no row
-        self.assertIn("LO raw 1/1", c["long-close"]["detail"])
+        # long.pdf is 50->50 in the product sweep; Word/Docs have no row
+        self.assertIn("LO product 1/1", c["long-close"]["detail"])
         # Docs' 3->4 is +33%; paper.pdf's 0.3 char recall is unpromised, so unread
         self.assertEqual((c["catastrophic"]["status"], c["catastrophic"]["by"]), ("FAIL", 1))
         self.assertNotIn("paper", " ".join(c["catastrophic"]["misses"]))
         self.assertEqual(c["placement"]["status"], "REPORTED")
         self.assertIn("would FAIL", c["placement"]["detail"])
-        # long.pdf page_err 0 -> 1 against the accepted sweep (tolerance 0)
+        # long.pdf dy_p50 1.0 -> 5.0 against the accepted PRODUCT sweep; the raw
+        # sweep's 50 -> 51 is not read, because the accepted sweep is product
         self.assertEqual((c["regression"]["status"], c["regression"]["by"]), ("FAIL", 1))
+        self.assertIn("long dy_p50 1 -> 5", c["regression"]["misses"][0])
+        self.assertIn("(product flavour)", c["regression"]["detail"])
         self.assertEqual(c["editability"]["status"], "REPORTED")
+        self.assertIn("LO product sweep", c["editability"]["detail"])
         self.assertEqual((c["fonts"]["status"], c["fonts"]["by"]), ("FAIL", 1))
         self.assertIn("Fancy Grotesk", c["fonts"]["misses"][0])
         self.assertEqual(c["gate"]["status"], "PASS")
@@ -166,12 +177,12 @@ class Reading(unittest.TestCase):
         self.assertEqual((c["readme"]["status"], c["readme"]["by"]), ("FAIL", 2))
         self.assertEqual(c["gdocs-policy"]["status"], "REPORTED")
         # criterion 13 reads every lane, not Docs alone
-        for lane in ("LO raw", "Word", "Docs live"):
+        for lane in ("LO product", "Word", "Docs live"):
             self.assertIn(lane, c["gdocs-policy"]["detail"])
-        self.assertTrue(any(m.startswith("LO raw ") for m in c["gdocs-policy"]["misses"]))
+        self.assertTrue(any(m.startswith("LO product ") for m in c["gdocs-policy"]["misses"]))
         self.assertEqual(res["verdict"], "NOT READY")
         text = B.render(res, [("raw sweep", "r.sweep.json", "x", False)])
-        self.assertIn("ratified by the owner on 2026-10-05", text)
+        self.assertIn("ratified by the owner on 2026-10-05, amended 2026-10-06", text)
         self.assertIn("0.3.0b1 is not tagged while any gating criterion fails", text)
         self.assertIn(" 2 FAIL by 1 ", text)
 
@@ -227,6 +238,54 @@ class Reading(unittest.TestCase):
             self.assertIs(docs[not_yet]["promised"], False, not_yet)
         self.assertEqual([d for d, s in docs.items() if s["promised"] is None], [])
         self.assertEqual(sum(1 for d in docs.values() if d["promised"]), 62)
+
+    def test_amendment_1_the_libreoffice_lane_is_the_product_docx(self):
+        # raw gains a page on short.pdf, product does not: the lane reads product
+        raw = self._sweep("r.sweep.json", "pdfium/standard/none/refine0@240dpi",
+                          [_row("short.pdf", 3, 4), _row("short2.pdf", 2, 2),
+                           _row("long.pdf", 50, 50)])
+        prod = self._sweep("p.sweep.json", "pdfium/standard/libreoffice/refine3@240dpi",
+                           [_row("short.pdf", 3, 3), _row("short2.pdf", 2, 2),
+                            _row("long.pdf", 50, 50, conv=200.0)])
+        out = os.path.join(self.dir, "res.json")
+        with mock.patch("sys.stdout", new=io.StringIO()), \
+                mock.patch.object(B, "corpus", return_value=DOCS):
+            B.main(["--raw", raw, "--product", prod, "--json", out,
+                    "--runs", os.path.join(self.dir, "none")])
+        with open(out, encoding="utf-8") as fh:
+            c = self._by_key(json.load(fh))
+        self.assertIn("LO product 2/2 = 100.0%", c["short-exact"]["detail"])
+        # criterion 2 still times both profiles: long.pdf 200s > 1.5 x 50 (product)
+        self.assertIn("product long 200s", " ".join(c["time"]["misses"]))
+        self.assertEqual(B.BAR["lo_flavour"], "product")
+        self.assertIn("2026-10-06", B.BAR["amended"])
+
+    def test_the_accepted_sweep_is_compared_in_its_own_flavour(self):
+        rows = [_row("short.pdf", 3, 3), _row("short2.pdf", 2, 2),
+                _row("long.pdf", 50, 50), _row("paper.pdf", 8, 8)]
+        raw = self._sweep("r.sweep.json", "pdfium/standard/none/refine0@240dpi",
+                          rows[:2] + [_row("long.pdf", 50, 52)] + rows[3:])
+        prod = self._sweep("p.sweep.json", "pdfium/standard/libreoffice/refine3@240dpi",
+                           rows)
+        sweeps = {"raw": (raw, B.load_sweep(raw)), "product": (prod, B.load_sweep(prod))}
+        lanes = {"lo": rows, "word": None, "docs": None}
+
+        def reading(accepted_rows, profile):
+            acc = self._sweep("acc-%s.json" % profile.split("/")[2], profile, accepted_rows)
+            res = B.evaluate(DOCS, sweeps, lanes, None, accepted=(acc, B.load_sweep(acc)))
+            return self._by_key(res)["regression"]
+
+        # a product accepted sweep: the product sweep matches it
+        c = reading(rows, "pdfium/standard/libreoffice/refine3@240dpi")
+        self.assertEqual(c["status"], "PASS")
+        # a raw accepted sweep (the pre-amendment reading): long.pdf 50 -> 52 raw
+        c = reading(rows, "pdfium/standard/none/refine0@240dpi")
+        self.assertEqual((c["status"], c["by"]), ("FAIL", 1))
+        self.assertIn("(raw flavour)", c["detail"])
+        # wp18-m2-prod ran 13 documents: it cannot say "no document worse"
+        c = reading(rows[:1], "pdfium/standard/libreoffice/refine3@240dpi")
+        self.assertEqual(c["status"], "UNMEASURED")
+        self.assertIn("covers 1 documents", c["detail"])
 
     def test_the_ratified_split(self):
         self.assertEqual(set(B.BAR["reported_only"]),

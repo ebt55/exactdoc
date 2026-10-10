@@ -185,7 +185,9 @@ def convert_result(pdf_path: str, out_path: Optional[str] = None,
         from .tracking import measure_advance_scales
         scales = measure_advance_scales(ir, get_metrics())
     from .options import capabilities
-    lay = infer(ir, anchored="anchored" in capabilities(opts.output_profile))
+    caps = capabilities(opts.output_profile)
+    lay = infer(ir, anchored="anchored" in caps,
+                anchor_pictures="anchored" in caps or "anchor_pictures" in caps)
     if scales:
         from .metrics import get_metrics
         from .tracking import apply_advance_tracking
