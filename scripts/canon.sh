@@ -21,7 +21,10 @@ export MSYS_NO_PATHCONV=1
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${CANON_OUT:-$ROOT/testkit/canon_runs}"
 DIGEST="sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90"
-BOOT="exactdoc-gate:boot"
+# $EXACTDOC_GATE_IMAGE runs gate/sweep in another bootstrapped snapshot (e.g. the
+# exactdoc-gate:boot-carlito candidate, docker/gate-carlito.Dockerfile).
+SNAPSHOT="exactdoc-gate:boot"           # what `image` writes, always
+BOOT="${EXACTDOC_GATE_IMAGE:-$SNAPSHOT}"
 mkdir -p "$OUT"
 
 _copy_in() {   # container
@@ -44,8 +47,8 @@ image)
     docker run -d --name "$c" -w /work exactdoc-gate:dev sleep infinity >/dev/null || exit 1
     _copy_in "$c"
     _exec "$c" "bash scripts/bootstrap.sh --strict" || { docker rm -f "$c"; exit 1; }
-    docker commit "$c" "$BOOT" >/dev/null && docker rm -f "$c" >/dev/null
-    echo "bootstrapped snapshot: $BOOT"
+    docker commit "$c" "$SNAPSHOT" >/dev/null && docker rm -f "$c" >/dev/null
+    echo "bootstrapped snapshot: $SNAPSHOT"
     ;;
 gate)
     name="$2"; steps="${3:-suite,scripts,golden,gate}"
