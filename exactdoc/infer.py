@@ -8894,9 +8894,12 @@ def _field_labels(items, col_l: float, col_r: float) -> Dict[int, Line]:
         # number across the white is a contents line's page, not a field
         if _is_marker_text(lab.text) or _FIELD_NUMBER_RE.fullmatch(fld.text.strip()):
             continue
-        # the field's block opens with it and keeps to its column
+        # the field's block opens with it, runs on below it -- a column of its
+        # own, not one more word across the white (two items on a baseline are
+        # two items) -- and keeps to its column
         fb = blocks[bj]
-        if any(ln.bbox[1] < fld.bbox[1] - 0.5 for ln in fb if ln is not lab) or \
+        if len([ln for ln in fb if ln is not lab]) < 2 or \
+                any(ln.bbox[1] < fld.bbox[1] - 0.5 for ln in fb if ln is not lab) or \
                 any(ln.bbox[0] < fld.bbox[0] - 2.0 for ln in fb
                     if ln is not lab and ln is not fld):
             continue

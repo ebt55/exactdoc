@@ -317,8 +317,11 @@ class DoubleSpacedParagraphs(unittest.TestCase):
                        123.0, 290.0, size=9.5, baseline=133.0),
                  _line("to the case of a nonlinear model.", 56.0, 135.0, 200.0,
                        size=9.5, baseline=145.0)]
-        # the splitter leaves this block exactly as it did before the rule
-        self.assertEqual([len(g) for g in I._split_lines_to_paras(lines)], [3])
+        # the double-spacing rule does not fire; since WP35d the paragraph
+        # step does (PARA_STEP_PT: 23pt after a short line over a 12pt pitch),
+        # setting the heading apart from its body, which stays together
+        # (y39 LibreOffice product dy_p50 10.12 -> 9.80, recall 0.914 kept)
+        self.assertEqual([len(g) for g in I._split_lines_to_paras(lines)], [1, 2])
         self.assertFalse(I._author_break(lines[0], lines[1], 290.0, 12.0, 3))
 
     def test_two_lines_carry_no_pitch(self):
