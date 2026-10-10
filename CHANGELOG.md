@@ -34,7 +34,9 @@ one verified fix at a time, each gated against the frozen 16.
   or by more than the render shows free between the body and the notes
   (`refine._notes_free`, measured on the note lines alone, not the footer
   under them). A page that spills gives its lift back first, and a lift is
-  never room for a push. Lifting every page open-loop rendered y02 115
+  never room for a push. Room is read only off a render whose pages map one
+  to one: y47 is 65 pages for 57, and a lift there emptied a page and lost
+  its last three pages' text from the render (char recall 0.92 -> 0.87). Lifting every page open-loop rendered y02 115
   pages for 114 and the spill cascaded, so raw and open-loop output is
   byte-identical (14 documents with notes, word/*.xml). LibreOffice
   product, harness reading wp42, against final1 fc15b59: y02 dy_p50 1.03 ->
