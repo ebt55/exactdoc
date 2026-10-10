@@ -86,6 +86,104 @@ class VaryingFurniture(unittest.TestCase):
                         "machinery and is emitted")
 
 
+def _line(text, y0, y1, size=10.0, x0=38.0, x1=300.0):
+    s = Span(text, "Helvetica", size, "#000000", False, False, False,
+             False, False, (x0, y0, x1, y1), (x0, y1 - 2.0))
+    return Line([s], s.bbox)
+
+
+def _stack_page(number, rows, height=792.0):
+    """A page of (text, y0, y1) lines, one block each."""
+    blocks = [TextBlock([_line(t, y0, y1)], (38.0, y0, 300.0, y1))
+              for t, y0, y1 in rows]
+    return PageIR(number=number, width=612.0, height=height, blocks=blocks)
+
+
+def _consumed_texts(res, ir):
+    out = set()
+    for p in ir.pages:
+        ct = res["consumed_text"][p.number]
+        for bi, blk in enumerate(p.blocks):
+            for ln in blk.lines:
+                if (bi, id(ln)) in ct:
+                    out.add(ln.text)
+    return out
+
+
+class FurnitureClearsTheBody(unittest.TestCase):
+    """Geometry alone is not furniture: what it finds must stand clear of the
+    body by a line of its own type (GEO_CLEAR_LINES). y64_bls_release_xpp
+    sets "HOUSEHOLD DATA" over "Table A-n. ..." at one place and size on 31
+    of its 38 later pages, the title 1.4pt above the table: the geometry
+    pass consumed both and wrote neither."""
+
+    TABLES = ["Table A-%d. %s" % (i + 1, t) for i, t in enumerate((
+        "Employment status by sex", "Employment status by race",
+        "Hispanic or Latino population", "Educational attainment",
+        "Veterans by period of service", "Persons with a disability",
+        "Foreign-born and native-born", "Selected employment indicators",
+        "Duration of unemployment"))]
+
+    def _doc(self, rows_for):
+        pages = [_stack_page(1, [("Cover", 300.0, 311.0)])]
+        pages += [_stack_page(i + 2, rows_for(i, t))
+                  for i, t in enumerate(self.TABLES)]
+        ir = _ir(pages)
+        return ir, detect_hf(ir)
+
+    def test_a_table_title_touching_its_table_is_body(self):
+        ir, res = self._doc(lambda i, t: [
+            (t, 46.3, 55.8),                       # 1.4pt above the table
+            ("[Numbers in thousands]", 57.2, 65.8),
+            ("body", 100.0, 110.0)])
+        consumed = _consumed_texts(res, ir)
+        self.assertFalse(any(t in consumed for t in self.TABLES), consumed)
+        self.assertFalse(any(res["var_lines"].values()))
+
+    def test_a_stacked_title_is_measured_from_its_inner_row(self):
+        # the row above a candidate that touches the body is not clear of
+        # the body either: "HOUSEHOLD DATA" stays with its table title
+        ir, res = self._doc(lambda i, t: [
+            ("HOUSEHOLD DATA" if i < 5 else "ESTABLISHMENT DATA", 35.3, 44.8),
+            (t, 46.3, 55.8),
+            ("[Numbers in thousands]", 57.2, 65.8)])
+        self.assertEqual(_consumed_texts(res, ir), set())
+
+    def test_a_running_head_clear_of_the_body_is_consumed(self):
+        # y24's chapter head clears its page by 19.8pt (1.8 lines at 11pt)
+        ir, res = self._doc(lambda i, t: [
+            (t, 29.4, 40.3), ("body", 60.1, 71.6)])
+        self.assertTrue(set(self.TABLES) <= _consumed_texts(res, ir))
+        self.assertEqual(sum(len(v) for v in res["var_lines"].values()),
+                         len(self.TABLES))
+
+    def test_a_two_row_head_clear_of_the_body_is_consumed_whole(self):
+        # each row varies; the upper row's own neighbour is the lower row,
+        # which is furniture too -- the stack clears the body by 40pt
+        ir, res = self._doc(lambda i, t: [
+            ("Chapter %d" % (i // 2), 20.0, 30.0),
+            (t, 32.0, 42.0), ("body", 82.0, 93.0)])
+        consumed = _consumed_texts(res, ir)
+        self.assertTrue(set(self.TABLES) <= consumed)
+        self.assertTrue({"Chapter %d" % k for k in range(4)} <= consumed)
+
+    def test_a_foot_touching_the_body_is_body(self):
+        # y18's last EUR-Lex line sits 0.7pt below the line above it, the
+        # one inside the foot band (BOTZ), the other just outside it
+        ir, res = self._doc(lambda i, t: [
+            ("body", 718.3, 728.3), (t, 729.0, 739.0)])
+        self.assertEqual(_consumed_texts(res, ir), set())
+
+    def test_a_foot_clear_of_the_body_is_consumed(self):
+        ir, res = self._doc(lambda i, t: [
+            ("body", 700.0, 711.0), (t, 760.0, 770.0)])
+        self.assertTrue(set(self.TABLES) <= _consumed_texts(res, ir))
+
+    def test_a_page_with_no_body_counts_as_clear(self):
+        ir, res = self._doc(lambda i, t: [(t, 29.4, 40.3)])
+        self.assertTrue(set(self.TABLES) <= _consumed_texts(res, ir))
+
+
 if __name__ == "__main__":
     unittest.main()
 

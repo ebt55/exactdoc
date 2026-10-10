@@ -270,6 +270,18 @@ FURN_EXT_FRAC = 0.2
 # enough that 60% of one parity's pages is still evidence: 10 pages give 4-5
 # pages per class, and the per-class bar is never below 3 pages.
 PARITY_MIN_PAGES = 10
+# Varying furniture found by geometry alone (detect_hf) stands clear of the
+# body it frames by at least a line of its own type: median clearance over its
+# pages (_furniture_clearance) >= GEO_CLEAR_LINES x its size, a line at the
+# usual 120% leading. Census of every signature the geometry pass qualified,
+# over both corpora (2026-10-10): the running furniture clears by 19.8pt
+# (y24's chapter head, 11pt: 1.8 lines), 38.7 (y34's slide titles, 24pt),
+# 40.0 (y26's folios), 40.5 (y23's), 48.7 (y02's chapter foot); what it ate
+# besides is body text touching its neighbours -- y64's table titles 1.4pt,
+# y17's and y27's first RFC lines 0.2, y18's last EUR-Lex line 0.7, y14's form
+# line -0.4, y47's notes 4.1, y55's paragraph lines 9.9 and 10.3 (11pt: 0.78
+# lines), y54's 8.1 and below.
+GEO_CLEAR_LINES = 1.2
 # A drawing covering this much of the sheet is a background, not a margin.
 PAGE_COVER_FRAC = 0.9
 
@@ -1812,6 +1824,54 @@ def _no_furniture() -> dict:
     }
 
 
+def _furniture_clearance(ir: DocIR, res: dict, qualified) -> dict:
+    """id(line) -> the white between a running-furniture candidate and the
+    body it frames, in points: for a head, from its bottom to the top of the
+    first line below it; for a foot, from the bottom of the last line above it
+    to its top. `qualified` is the geometry pass's [(sig, [(page, block index,
+    line), ...])]; a page with nothing on the body side measures infinity.
+
+    The candidates stack: a line on the body side that is itself a candidate
+    (a running head's second row) is not the body, and the stack is measured
+    from its innermost row. Lines the text-signature pass already consumed are
+    furniture, not body, and are skipped the same way.
+
+    Real varying running heads stand clear of the body below them, and a
+    table's title does not -- the census behind GEO_CLEAR_PT."""
+    cands = defaultdict(list)        # page -> [(zone, line)]
+    for sig, occs in qualified:
+        for pg, bi, ln in occs:
+            cands[pg].append((sig[0], ln))
+    out = {}
+    for p in ir.pages:
+        mine = cands.get(p.number)
+        if not mine:
+            continue
+        ct = res["consumed_text"][p.number]
+        ids = {id(ln) for _, ln in mine}
+        body = [ln.bbox for bi, blk in enumerate(p.blocks) for ln in blk.lines
+                if ln.text.strip() and id(ln) not in ids
+                and (bi, id(ln)) not in ct]
+        for zone in ("top", "bot"):
+            # (near, far) extents measured from the zone's paper edge, so a
+            # foot reads exactly as a head does
+            def depth(bb, foot=(zone == "bot"), h=p.height):
+                return (h - bb[3], h - bb[1]) if foot else (bb[1], bb[3])
+            rows = [(depth(ln.bbox), ln) for z, ln in mine if z == zone]
+            lines = [depth(bb) for bb in body]
+            for (near, far), ln in rows:
+                inward = [b for b in lines if (b[0] + b[1]) / 2 > far]
+                if not inward:
+                    out[id(ln)] = float("inf")
+                    continue
+                first = min(inward)
+                mid = (first[0] + first[1]) / 2
+                inner = max([far] + [r[1] for r, _ in rows
+                                     if r[0] >= near and (r[0] + r[1]) / 2 < mid])
+                out[id(ln)] = first[0] - inner
+    return out
+
+
 def detect_hf(ir: DocIR):
     n = len(ir.pages)
     H = ir.pages[0].height if ir.pages else 792
@@ -2004,6 +2064,7 @@ def detect_hf(ir: DocIR):
                     geo[(zone, round(ln.bbox[1] / 3), round(size))].append(
                         (p.number, bi, ln))
         geo_need = max(2, int(round(0.6 * (n - 1))))
+        qualified = []
         for sig, occ in geo.items():
             per_page = defaultdict(list)
             for pg, bi, ln in occ:
@@ -2011,8 +2072,21 @@ def detect_hf(ir: DocIR):
             single = [pg for pg, v in per_page.items() if len(v) == 1]
             if len(single) < geo_need:
                 continue
-            for pg in single:
-                bi, ln = per_page[pg][0]
+            qualified.append((sig, [(pg,) + tuple(per_page[pg][0])
+                                    for pg in single]))
+        # ...and furniture stands clear of the body it frames. A table's
+        # title set at one place and size on every table page holds the
+        # geometry too: y64_bls_release_xpp's "HOUSEHOLD DATA" over
+        # "Table A-n. ..." on 31 of its 38 later pages, 1.4pt above the
+        # table, both consumed and neither written. So does the first line
+        # of a page set on a fixed grid (an RFC's, y17: 0.2pt above the
+        # next). See GEO_CLEAR_LINES for the census.
+        clear = _furniture_clearance(ir, res, qualified)
+        for sig, occs in qualified:
+            if median(clear[id(ln)] for _, _, ln in occs) < \
+                    GEO_CLEAR_LINES * sig[2]:
+                continue
+            for pg, bi, ln in occs:
                 res["consumed_text"][pg].add((bi, id(ln)))
                 res["var_lines"][pg].append((sig[0], bi, ln))
 
