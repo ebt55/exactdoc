@@ -10,14 +10,18 @@ our win. So every live run (scripts/dev/gdsweep.py, scripts/dev/flypairs.py)
 first flies the SAME bytes -- testkit/fixtures_sentinel/sentinel.gdocs.docx,
 converted once from sentinel.pdf and frozen by SHA-256 -- and compares the
 export's pages, word_recall, within2pt and dy_p50 with the row recorded the
-first time (`expected` in sentinel.json), each inside a tight tolerance. A
-difference is DRIFT: printed loudly, recorded in the run's rows (the sentinel
-row carries `drift`), and the run continues -- its numbers are then read with
-that in mind, not thrown away.
+first time, each inside a tight tolerance. A difference is DRIFT: printed
+loudly, recorded in the run's rows (the sentinel row carries `drift`), and the
+run continues -- its numbers are then read with that in mind, not thrown away.
 
-The expected row is recorded by flying it once with `fly --record` (the
-coordinator, who holds the Google credentials). Until then a run reports
-"sentinel: no expected row recorded" and compares nothing.
+Like for like only: the numbers depend on the harness reading
+(harness.HARNESS_READING) as much as on Google, so `expected` in sentinel.json
+is keyed by reading -- {"wp29": row, "wp42": row, ...} -- and a run is compared
+with the row recorded under ITS reading. A run whose reading has no recorded
+row says "sentinel reading mismatch: re-record under <reading>" (a warning,
+not DRIFT). A row is recorded by flying it once with `fly --record` (the
+coordinator, who holds the Google credentials); that adds or replaces the row
+for the current reading and leaves the others.
 """
 import argparse
 import datetime
@@ -33,6 +37,7 @@ DIR = os.path.join(HERE, "fixtures_sentinel")
 SPEC = os.path.join(DIR, "sentinel.json")
 SOURCE = os.path.join(DIR, "sentinel.pdf")
 DOCX = os.path.join(DIR, "sentinel.gdocs.docx")
+SCHEMA = "exactdoc.docs-sentinel.v2"     # v2: `expected` keyed by harness reading
 DOC = "_sentinel.pdf"          # the row's "doc": never a corpus document's name
 KEYS = ("src_pages", "out_pages", "word_recall", "within2pt", "dy_p50",
         "doc_recall", "mean_ssim")
@@ -70,14 +75,27 @@ def verify(spec=None):
     return bad
 
 
+def expected_rows(spec):
+    """{reading: expected row} from a spec."""
+    exp = spec.get("expected") or {}
+    return {k: v for k, v in exp.items() if isinstance(v, dict)}
+
+
 def compare(row, spec=None):
-    """(status, [drift]): status "ok", "DRIFT", "unrecorded" or "error"."""
+    """(status, [drift]): "ok", "DRIFT", "unrecorded", "reading-mismatch" or
+    "error". Compared only with the row recorded under the run's reading."""
     spec = spec or load()
     if "error" in row:
         return "error", ["the sentinel did not fly: %s" % row["error"]]
-    expected = spec.get("expected")
-    if not expected:
+    rows = expected_rows(spec)
+    if not rows:
         return "unrecorded", []
+    reading = row.get("scorer")
+    expected = rows.get(reading)
+    if expected is None:
+        return "reading-mismatch", [
+            "sentinel reading mismatch: re-record under %s (recorded under %s)"
+            % (reading or "an unrecorded reading", ", ".join(sorted(rows)))]
     tol = dict(TOLERANCE, **(spec.get("tolerance") or {}))
     drift = []
     for key, limit in sorted(tol.items()):
@@ -107,6 +125,9 @@ def announce(row, spec=None, say=print):
             "--record)")
     elif status == "error":
         say("sentinel: %s" % drift[0])
+    elif status == "reading-mismatch":
+        say("WARNING %s (python testkit/docs_sentinel.py fly OUT --record); this run's "
+            "sentinel is not compared" % drift[0])
     else:
         say("sentinel: ok, Google Docs renders the frozen sentinel as recorded")
     return status
@@ -144,8 +165,14 @@ def record(row, path=None):
     if "error" in row:
         raise SystemExit("refusing to record a sentinel row that did not fly: %s"
                          % row["error"])
-    spec["expected"] = {k: row.get(k) for k in KEYS}
-    spec["recorded"] = {"utc": row.get("utc"), "scorer": row.get("scorer")}
+    reading = row.get("scorer")
+    if not reading:
+        raise SystemExit("refusing to record a sentinel row with no harness reading")
+    exp = expected_rows(spec)
+    exp[reading] = dict({k: row.get(k) for k in KEYS}, utc=row.get("utc"))
+    spec["expected"] = exp
+    spec.pop("recorded", None)
+    spec["schema"] = SCHEMA
     with open(path, "w", encoding="utf-8", newline="\n") as fh:
         json.dump(spec, fh, indent=1, sort_keys=True)
         fh.write("\n")
@@ -197,11 +224,11 @@ def make(force=False):
     from exactdoc import options as O
     from exactdoc.convert import convert
     convert(SOURCE, DOCX, options=O.PDFIUM_GDOCS_CANDIDATE)
-    spec = {"schema": "exactdoc.docs-sentinel.v1",
+    spec = {"schema": SCHEMA,
             "source": {"file": os.path.basename(SOURCE), "sha256": sha256(SOURCE)},
             "docx": {"file": os.path.basename(DOCX), "sha256": sha256(DOCX),
                      "profile": O.PDFIUM_GDOCS_CANDIDATE.profile_id()},
-            "tolerance": dict(TOLERANCE), "expected": None, "recorded": None}
+            "tolerance": dict(TOLERANCE), "expected": {}}
     with open(SPEC, "w", encoding="utf-8", newline="\n") as fh:
         json.dump(spec, fh, indent=1, sort_keys=True)
         fh.write("\n")
@@ -233,14 +260,15 @@ def main(argv=None):
         if not found:
             print("no sentinel row in %s" % a.rows)
             return 2
-        return 0 if announce(dict(found[-1])) in ("ok", "unrecorded") else 1
+        return 0 if announce(dict(found[-1])) in ("ok", "unrecorded",
+                                                   "reading-mismatch") else 1
     import gdocs_oracle as go
     row = first(go._service(interactive=False), a.out)
     print(json.dumps(row, indent=1))
     if a.record:
         record(row)
         print("recorded the expected sentinel row in %s" % SPEC)
-    return 0 if row.get("sentinel") in ("ok", "unrecorded") else 1
+    return 0 if row.get("sentinel") in ("ok", "unrecorded", "reading-mismatch") else 1
 
 
 if __name__ == "__main__":

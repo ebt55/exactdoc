@@ -35,11 +35,17 @@ import gdocs_oracle as go  # noqa: E402
 class TheFixture(unittest.TestCase):
     def test_frozen_and_pinned(self):
         spec = S.load()
-        self.assertEqual(spec["schema"], "exactdoc.docs-sentinel.v1")
+        self.assertEqual(spec["schema"], "exactdoc.docs-sentinel.v2")
         self.assertEqual(S.verify(spec), [])
         self.assertEqual(spec["docx"]["profile"], "pdfium/gdocs/none/refine0@240dpi")
         with fitz.open(S.SOURCE) as doc:
             self.assertEqual(doc.page_count, 1)
+
+    def test_the_recorded_row(self):
+        # flown by the coordinator from 587d47b, 2026-10-10, reading wp29
+        wp29 = S.load()["expected"]["wp29"]
+        self.assertEqual((wp29["out_pages"], wp29["word_recall"], wp29["within2pt"],
+                          wp29["dy_p50"]), (1, 1.0, 0.8544, 1.84))
 
     def test_a_changed_fixture_is_named(self):
         spec = dict(S.load(), docx={"file": "x", "sha256": "0" * 64})
@@ -51,7 +57,9 @@ class Flying(unittest.TestCase):
         self._td = tempfile.TemporaryDirectory()
         self.dir = self._td.name
         self.spec_path = os.path.join(self.dir, "sentinel.json")
-        shutil.copyfile(S.SPEC, self.spec_path)
+        spec = dict(S.load(), expected={})           # nothing recorded yet
+        with open(self.spec_path, "w", encoding="utf-8") as fh:
+            json.dump(spec, fh)
 
     def tearDown(self):
         self._td.cleanup()
@@ -81,7 +89,8 @@ class Flying(unittest.TestCase):
         self.assertIn("no expected row recorded", lines[0])
         S.record(row, path=self.spec_path)
         expected = S.load(self.spec_path)["expected"]
-        self.assertEqual(expected["out_pages"], 1)
+        self.assertEqual(list(expected), [row["scorer"]])          # keyed by reading
+        self.assertEqual(expected[row["scorer"]]["out_pages"], 1)
         row, lines = self._fly(S.SOURCE)
         self.assertEqual(row["sentinel"], "ok")
 
@@ -94,10 +103,29 @@ class Flying(unittest.TestCase):
         self.assertTrue(any(l.startswith("DRIFT: Google Docs no longer renders") for l in lines))
         self.assertTrue(any("this run continues" in l for l in lines))
 
+    def test_another_reading_is_a_mismatch_not_drift(self):
+        import harness
+        row, _ = self._fly(S.SOURCE)
+        S.record(row, path=self.spec_path)               # under this harness's reading
+        with mock.patch.object(harness, "HARNESS_READING", "wp42"):
+            row, lines = self._fly(self._two_pages())    # would be DRIFT like for like
+            self.assertEqual(row["sentinel"], "reading-mismatch")
+            self.assertTrue(row["drift"][0].startswith(
+                "sentinel reading mismatch: re-record under wp42"))
+            self.assertTrue(any(l.startswith("WARNING sentinel reading mismatch") for l in lines))
+            self.assertFalse(any(l.startswith("DRIFT") for l in lines))
+            # recording under wp42 adds that reading's row and keeps the first
+            row, _ = self._fly(S.SOURCE)
+            S.record(row, path=self.spec_path)
+        self.assertEqual(sorted(S.load(self.spec_path)["expected"]),
+                         sorted([harness.HARNESS_READING, "wp42"]))
+
     def test_tolerances(self):
-        spec = {"expected": {"out_pages": 1, "word_recall": 0.95, "within2pt": 0.50,
-                             "dy_p50": 2.0}, "tolerance": dict(S.TOLERANCE)}
-        ok = {"out_pages": 1, "word_recall": 0.954, "within2pt": 0.515, "dy_p50": 2.4}
+        spec = {"expected": {"wp29": {"out_pages": 1, "word_recall": 0.95,
+                                      "within2pt": 0.50, "dy_p50": 2.0}},
+                "tolerance": dict(S.TOLERANCE)}
+        ok = {"out_pages": 1, "word_recall": 0.954, "within2pt": 0.515, "dy_p50": 2.4,
+              "scorer": "wp29"}
         self.assertEqual(S.compare(ok, spec), ("ok", []))
         for key, value in (("word_recall", 0.944), ("within2pt", 0.47), ("dy_p50", 2.6),
                            ("out_pages", 2)):
@@ -109,6 +137,8 @@ class Flying(unittest.TestCase):
     def test_a_failed_flight_is_not_recorded(self):
         with self.assertRaises(SystemExit):
             S.record({"doc": S.DOC, "error": "RoundtripError: upload"}, path=self.spec_path)
+        with self.assertRaises(SystemExit):                # nor one with no reading
+            S.record({"doc": S.DOC, "out_pages": 1}, path=self.spec_path)
 
     def test_check_reads_a_runs_rows(self):
         row, _ = self._fly(S.SOURCE)

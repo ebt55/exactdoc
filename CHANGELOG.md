@@ -21,6 +21,16 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 one verified fix at a time, each gated against the frozen 16.
 
 
+- **The drift sentinel's expected row is recorded, and compared like for
+  like (WP43).** The coordinator flew the sentinel from 587d47b on
+  2026-10-10: 1/1 pages, word recall 1.0, within-2pt 0.8544, dy_p50 1.84pt,
+  reading wp29. `sentinel.json` (schema v2) keys `expected` by harness
+  reading, and a run is compared only with the row recorded under its own
+  reading; a run in a reading with no row says "sentinel reading mismatch:
+  re-record under <reading>" (a warning, not DRIFT), and `fly --record` adds
+  or replaces that reading's row and keeps the others (so the wp42 row can be
+  added beside wp29's).
+
 - **Criterion 11 needs a gate bound to its baseline (WP43).** A lane verdict
   whose `baseline_binding` mode is not "bound" -- one that passed only under
   `EXACTDOC_GATE_ALLOW_STALE_BASELINE`, or a verdict from before the binding
