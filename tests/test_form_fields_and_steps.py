@@ -85,6 +85,35 @@ def _steps_pdf(path):
     return path
 
 
+BODY = ["Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod",
+        "tempor incididunt ut labore et dolore magnam aliquam quaerat voluptatem.",
+        "Ut enim aeque doleamus animo, cum corpore dolemus, fieri tamen permagna",
+        "accessio potest, si aliquod aeternum et infinitum impendere malum nobis",
+        "opinemur. Quod idem licet transferre in voluptatem, ut postea variari",
+        "voluptas distinguique possit, augeri amplificarique non possit. At etiam"]
+
+
+def _heading_pdf(path, step):
+    """y20's block: an 11pt heading `step` above body justified at a 15.69 pitch,
+    in ONE text object, as Typst writes it."""
+    c = _canvas.Canvas(path, pagesize=(612, H))
+    t = c.beginText(72, H - 100)
+    t.setFont("Helvetica-Bold", 11)
+    t.textOut("1.1.1. Rockets at a glance")
+    t.setFont("Helvetica", 11)
+    for i, s in enumerate(BODY):
+        t.moveCursor(0, step if i == 0 else 15.69)
+        t.setWordSpace((468 - c.stringWidth(s, "Helvetica", 11)) / s.count(" "))
+        t.textOut(s)
+    t.setWordSpace(0)
+    t.moveCursor(0, 15.69)
+    t.textOut("Athenis, ut e patre audiebam.")
+    c.drawText(t)
+    c.showPage()
+    c.save()
+    return path
+
+
 def _paras(path):
     with zipfile.ZipFile(path) as z:
         doc = z.read("word/document.xml").decode("utf-8")
@@ -156,6 +185,41 @@ class ParagraphSteps(unittest.TestCase):
     def test_a_line_between_them_is_not_centred(self):
         p = [p for t, p in _paras(self.out) if t.startswith("You can choose")][0]
         self.assertNotIn('w:jc w:val="center"', p)
+
+
+@unittest.skipIf(_canvas is None, "reportlab is not installed")
+class ASingleStepAtTheBar(unittest.TestCase):
+    """PARA_STEP_RECUR: a step the block takes ONCE must clear
+    PARA_STEP_ALONE_EM. y20 sets its heading +2.20pt (0.2em at 11pt, the bar
+    exactly) over its body's pitch; split there, Google Docs set the body a
+    line longer and the page under it a line low (live dy_p50 5.18 -> 18.05).
+    The same block with a step of 0.33em -- y02's requirement tables -- splits."""
+
+    @classmethod
+    def setUpClass(cls):
+        from exactdoc.convert import convert
+        from exactdoc.options import RAW
+        cls._dir = tempfile.TemporaryDirectory()
+        cls.out = {}
+        for name, step in (("bar", 15.69 + 2.20), ("wide", 15.69 + 3.6)):
+            pdf = _heading_pdf(os.path.join(cls._dir.name, name + ".pdf"), step)
+            cls.out[name] = os.path.join(cls._dir.name, name + ".docx")
+            convert(pdf, cls.out[name], options=RAW)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls._dir.cleanup()
+
+    def _heading_alone(self, name):
+        return [t.strip() for t, _ in _paras(self.out[name])].count("1.1.1. Rockets at a glance")
+
+    def test_a_single_step_at_the_bar_does_not_split(self):
+        self.assertEqual(self._heading_alone("bar"), 0,
+                         [t for t, _ in _paras(self.out["bar"])])
+
+    def test_a_single_wide_step_splits(self):
+        self.assertEqual(self._heading_alone("wide"), 1,
+                         [t for t, _ in _paras(self.out["wide"])])
 
 
 if __name__ == "__main__":
