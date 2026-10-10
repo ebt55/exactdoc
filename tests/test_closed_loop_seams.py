@@ -22,6 +22,7 @@ from unittest import mock
 
 from exactdoc import docxout
 from exactdoc.docxout import (_body_capacity, _flow_balance, _freeze_flows,
+                              _lever_room, _replan_flows,
                               _merge_grid_page_runs, _plan_flows,
                               _seam_excess, write_docx)
 from exactdoc.layout import (Chunk, ColBreak, DocLayout, PageLayout, Para,
@@ -64,6 +65,12 @@ def layout(pages):
     lay.margin_t = lay.margin_b = 36.0
     lay.pages = pages
     return lay
+
+
+def stamp(lay, plan):
+    for pg in lay.pages:
+        if pg.number in plan:
+            pg.flow_next = plan[pg.number]
 
 
 def colbreaks(pg):
@@ -144,7 +151,7 @@ class Merge(unittest.TestCase):
     def test_a_planned_flow_merges_exactly_its_pages(self):
         lay = layout([two_col_page(1, 58, 70), two_col_page(2, 50, 50),
                       two_col_page(3, 50, 50)])
-        _freeze_flows(lay)
+        stamp(lay, _plan_flows(lay))
         out = _merge_grid_page_runs(lay.pages)
         self.assertEqual([p.number for p in out], [1, 3])
         self.assertEqual(colbreaks(out[0]), 0,
@@ -154,7 +161,7 @@ class Merge(unittest.TestCase):
         lay = layout([two_col_page(1, 50, 50), two_col_page(2, 58, 110),
                       two_col_page(3, 50, 50), one_col_page(4),
                       two_col_page(5, 50, 50), two_col_page(6, 50, 50)])
-        _freeze_flows(lay)
+        stamp(lay, _plan_flows(lay))
         out = _merge_grid_page_runs(lay.pages)
         self.assertEqual([p.number for p in out], [1, 2, 4, 5])
 
@@ -168,6 +175,26 @@ class Freeze(unittest.TestCase):
         lay.pages[0].chunks[0].elements[60:] = []
         _freeze_flows(lay)
         self.assertEqual([p.flow_next for p in lay.pages], [True, False])
+
+    def test_where_the_model_stops_the_pages_are_a_seamed_probe(self):
+        lay = layout([two_col_page(1, 50, 50), two_col_page(2, 58, 110),
+                      two_col_page(3, 50, 50), one_col_page(4),
+                      two_col_page(5, 50, 50)])
+        _freeze_flows(lay)
+        self.assertEqual([getattr(p, "flow_next", None) for p in lay.pages],
+                         [False, False, False, None, False])
+        self.assertEqual([getattr(p, "flow_probe", False) for p in lay.pages],
+                         [False, True, True, False, True])
+
+    def test_a_booklet_and_gdocs_are_never_stamped(self):
+        lay = layout([two_col_page(i + 1, 50, 50, n_cols=3)
+                      for i in range(12)])
+        _freeze_flows(lay)
+        self.assertTrue(all(getattr(p, "flow_next", None) is None
+                            for p in lay.pages))
+        lay = layout([two_col_page(1, 50, 50)])
+        _freeze_flows(lay, "gdocs")
+        self.assertIsNone(getattr(lay.pages[0], "flow_next", None))
 
     def test_unplanned_pages_carry_no_stamp(self):
         lay = layout([one_col_page(1), two_col_page(2, 50, 50)])
@@ -196,6 +223,150 @@ class Freeze(unittest.TestCase):
                          rounds=1, render=lambda c, s: None,
                          output_profile="standard")
         self.assertEqual(calls[:2], ["standard", "write"])
+
+
+def measured(spill, need):
+    return {"spill": spill, "need": need, "room": [None] * len(spill),
+            "anchors": 100, "offset": [0.0] * len(spill),
+            "out_pages": len(spill), "src_pages": len(spill)}
+
+
+class Replan(unittest.TestCase):
+    """The probe read off the loop's first render (`_replan_flows`).
+
+    Page 2 (58 + 110 lines) overruns the model by far more than pages 3
+    and 4 have room for, so the model stops the plan at page 2 and pages
+    2-4 are the probe."""
+
+    def probe(self):
+        lay = layout([two_col_page(1, 50, 50), two_col_page(2, 58, 110),
+                      two_col_page(3, 50, 50), two_col_page(4, 50, 50)])
+        _freeze_flows(lay)
+        return lay
+
+    def stamps(self, lay):
+        return [getattr(p, "flow_next", None) for p in lay.pages]
+
+    def test_the_levers_are_the_loops_own_rounds(self):
+        p = Para(runs=[Run(text="x", font="Helvetica", size=10.0,
+                           color="#000000")])
+        p.space_before = 100.0
+        g = Chunk(n_cols=2, col_gap=18.0)
+        g.elements = [p]
+        # half of the gaps a round, none below 30% of itself: 50 + 25 + 12.5
+        self.assertAlmostEqual(_lever_room(PageLayout(number=1, chunks=[g]),
+                                           3), 87.5)
+        self.assertAlmostEqual(_lever_room(PageLayout(number=1, chunks=[g]),
+                                           1), 50.0)
+
+    def test_a_probe_that_held_is_kept_as_written(self):
+        lay = self.probe()
+        self.assertFalse(_replan_flows(lay, measured([0, 0, 0, 0],
+                                                     [None] * 4)))
+        self.assertEqual(self.stamps(lay), [False] * 4)
+        self.assertFalse(any(getattr(p, "flow_probe", False)
+                             for p in lay.pages))
+
+    def test_a_spill_the_loop_can_take_back_holds(self):
+        lay = self.probe()
+        # page 2's levers: 168 lines x 12pt x 3% = 60pt
+        self.assertFalse(_replan_flows(lay, measured([0, 1, 0, 0],
+                                                     [None, 40.0, None, None])))
+        self.assertEqual(self.stamps(lay), [False] * 4)
+
+    def test_a_page_the_render_shows_broken_stops_the_plan_as_before(self):
+        lay = self.probe()
+        self.assertTrue(_replan_flows(lay, measured([0, 1, 0, 0],
+                                                    [None, 900.0, None, None])))
+        self.assertEqual(self.stamps(lay), [False, None, None, None])
+        out = _merge_grid_page_runs(lay.pages)
+        self.assertEqual([p.number for p in out], [1, 2],
+                         "after the stop, the open-loop merge")
+
+    def test_an_unreadable_render_keeps_the_models_stop(self):
+        lay = self.probe()
+        self.assertTrue(_replan_flows(lay, measured([0, 0, 0], [None] * 3)))
+        self.assertEqual(self.stamps(lay), [False, None, None, None])
+
+    def test_a_document_without_a_probe_is_never_replanned(self):
+        lay = layout([two_col_page(i + 1, 50, 50) for i in range(3)])
+        _freeze_flows(lay)
+        self.assertFalse(_replan_flows(lay, measured([1, 1, 1],
+                                                     [900.0] * 3)))
+        self.assertEqual(self.stamps(lay), [False] * 3)
+
+
+class ProbeRound(unittest.TestCase):
+    """In the refine loop: a probe that changes the plan is not a candidate,
+    and round 0 is written again; one that does not is round 0."""
+
+    def _run(self, ms, changed):
+        from exactdoc import refine as R
+        from tests.test_refine_loop import _FakeBackend, _Writer
+        renders = []
+
+        def render(candidate, scratch):
+            renders.append(candidate)
+            return os.path.join(scratch, "r.pdf")
+
+        report = {}
+        with tempfile.TemporaryDirectory() as d, \
+                mock.patch("exactdoc.docxout.write_docx", side_effect=_Writer()), \
+                mock.patch("exactdoc.refine._measure", side_effect=ms), \
+                mock.patch("exactdoc.refine._apply", return_value=True) as ap, \
+                mock.patch("exactdoc.docxout._replan_flows",
+                           side_effect=changed) as rp:
+            R.refine(object(), "in.pdf", os.path.join(d, "o.docx"), rounds=1,
+                     render=render, backend=_FakeBackend({}), report=report)
+        return renders, report, ap, rp
+
+    def m(self, pages, spill, off):
+        return {"out_pages": pages, "src_pages": 2, "spill": spill,
+                "offset": off, "need": [None] * len(spill)}
+
+    def test_a_probe_that_changes_the_plan_is_discarded(self):
+        renders, report, ap, rp = self._run(
+            [self.m(4, [2, 0], [9.0, 9.0]), self.m(2, [0, 0], [3.0, 0.0]),
+             self.m(2, [0, 0], [0.0, 0.0])], [True])
+        self.assertEqual(rp.call_count, 1, "the plan is read off one probe")
+        self.assertEqual(len(renders), 3)
+        self.assertTrue(report["rounds"][0].get("probe"))
+        self.assertEqual(report["published_round"], 1)
+        self.assertEqual(ap.call_count, 1,
+                         "nothing the probe measured is applied")
+
+    def test_a_discarded_probe_takes_its_page_fit_plans_with_it(self):
+        from exactdoc import refine as R
+        from tests.test_refine_loop import _FakeBackend, _Writer
+        lay = layout([])
+        seen = []
+
+        def replan(lay_, m, prof, rounds):
+            lay_._pagefit_memo = {(1, 0.0): {0: (10.0, 4.0)}}
+            return True
+
+        def write(lay_, path, **kw):
+            seen.append(dict(getattr(lay_, "_pagefit_memo", {})))
+            return _Writer()(lay_, path)
+
+        with tempfile.TemporaryDirectory() as d, \
+                mock.patch("exactdoc.docxout.write_docx", side_effect=write), \
+                mock.patch("exactdoc.refine._measure",
+                           side_effect=[self.m(2, [0, 0], [0.0, 0.0])] * 3), \
+                mock.patch("exactdoc.refine._apply", return_value=True), \
+                mock.patch("exactdoc.docxout._replan_flows",
+                           side_effect=replan):
+            R.refine(lay, "in.pdf", os.path.join(d, "o.docx"), rounds=1,
+                     render=lambda c, s: os.path.join(s, "r.pdf"),
+                     backend=_FakeBackend({}))
+        self.assertEqual(seen[1], {}, "round 0 is planned afresh")
+
+    def test_a_probe_that_keeps_the_plan_is_round_0(self):
+        renders, report, ap, rp = self._run(
+            [self.m(2, [0, 0], [3.0, 0.0]), self.m(2, [0, 0], [0.0, 0.0])],
+            [False])
+        self.assertEqual(len(renders), 2)
+        self.assertNotIn("probe", report["rounds"][0])
 
 
 class Writer(unittest.TestCase):

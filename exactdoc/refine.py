@@ -99,6 +99,19 @@ ANCHOR_MIN_CHARS = 8
 # of contents); 4M cells is some 65 times that and keeps a pathological
 # window from costing more than the render did.
 FILL_MAX_CELLS = 4_000_000
+# A round that is the best so far, with the same page count and the same
+# spill as the best before it, and an offset total less than this much
+# smaller, ends the loop: the spill has stalled and what is left to gain is
+# offsets the next round would move by less than this. Measured on the
+# per-round traces of the 90-document product sweep (2026-10-10, docs/
+# evidence/wp38b-refine-2026-10-11.json): stalled best rounds gained 0.0,
+# 0.4, 1.2, 1.3, 1.3 and 1.5% (y41, y52, y57, y48, y12, y56), then 3.0% and
+# up (y47 3.0, y49 4.1, y53 4.5, y64 4.6). No stalled round in the traces
+# was followed by a page or spill that closed except after a round that was
+# no better (y42) or gained 9% (y48), both outside this rule. y21 on the
+# column split sat at 49 pages with one spill for three rounds, its offsets
+# moving 1.5% and then 0.4%, at ~10s a round.
+STALL_MIN_GAIN = 0.02
 
 
 def _norm(t: str) -> str:
@@ -682,6 +695,14 @@ def _score(m):
             sum(abs(o) for o in m["offset"]))
 
 
+def _stalled(best, score) -> bool:
+    """Is `score`, a new best, a stalled spill gaining offsets only by less
+    than STALL_MIN_GAIN on the `best` before it? (See STALL_MIN_GAIN.)"""
+    if best is None or score[:2] != best[:2] or score[1] <= 0:
+        return False
+    return best[2] - score[2] < STALL_MIN_GAIN * best[2]
+
+
 def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
            rounds: int = 2, verbose: bool = False, render=None,
            output_profile: str = "standard", backend=None,
@@ -800,7 +821,12 @@ def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
     with Workspace() as workspace:
         td = workspace.path
         try:
-            for rnd in range(rounds + 1):
+            # The first render is the seam plan's probe (`docxout.
+            # _replan_flows`): if it changes the plan, it is not a candidate
+            # and round 0 is written again from the new plan.
+            rnd, probing = -1, True
+            while rnd < rounds:
+                rnd += 1
                 if progress is not None:
                     progress("refine", {"round": rnd, "rounds": rounds + 1})
                 row = {"round": rnd}
@@ -866,12 +892,32 @@ def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
                              row["write_ms"] / 1000.0,
                              row["render_ms"] / 1000.0,
                              row["measure_ms"] / 1000.0))
+                if probing:
+                    probing = False
+                    from .docxout import _replan_flows
+                    if _replan_flows(lay, m, output_profile, rounds):
+                        row["probe"] = True
+                        # Nothing the probe planned is kept either: the
+                        # page-fit plans it held (`pagefit.plan_page`) are
+                        # keyed by page and element position, and a page
+                        # the new plan merges is another page.
+                        getattr(lay, "__dict__", {}).pop("_pagefit_memo",
+                                                         None)
+                        first_candidate = None
+                        rnd = -1
+                        continue
                 if best_score is None or score < best_score:
+                    stalled = _stalled(best_score, score) if rnd > 0 else False
                     best_score = score
                     best_path = workspace.file("best.docx")
                     shutil.copyfile(candidate, best_path)
                     rep["published_round"] = rnd
                     rep["levers"] = spent
+                    if stalled and rnd < rounds:
+                        # the spill has stalled and the offsets are all that
+                        # still move, by less than STALL_MIN_GAIN a round
+                        rep["stopped"] = "stalled"
+                        break
                 elif rnd > 0 and (score[1] == 0 or score[:2] > best_score[:2]):
                     # A round that made nothing better, and that the next round
                     # cannot be expected to fix: nothing spills, so all that is

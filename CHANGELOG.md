@@ -197,6 +197,27 @@ one verified fix at a time, each gated against the frozen 16.
   moves. Harness reading "wp42" (`harness.HARNESS_READING`, pinned in
   `tests/test_reading_identity.py`); tests: `tests/test_harness_tracking.py`.
 
+- **The refine loop stops on a stalled spill, and where the seam plan gave
+  up the first render decides (WP38b).** (1) A round that is the best so far
+  with the same pages and spill as the best before it, and offsets less than
+  2% better, ends the loop (`refine.STALL_MIN_GAIN`, read off the per-round
+  traces of all 95 documents: stalled best rounds gained 0.0-1.5%, then
+  3.0% and up; no stalled round closed a page except after a no-better round
+  or a 9% gain). On wp33's column split y21 runs 3 renders instead of 4,
+  serial 76.7 -> 55.3s against criterion 2's 72s; without the split no
+  product DOCX changes (90/90). (2) Where WP38's layout model stops the seam
+  plan, the pages from the stop on are written seamed as a probe, and the
+  loop's first render judges them: a page holds if it did not spill or
+  spilled by no more than the loop's own rounds can take back
+  (`docxout._lever_room`); the plan is redone with those verdicts, and a
+  probe that changed it is discarded and round 0 written again
+  (`_replan_flows`). On the split: y61 dy_p50 43.9 -> 37.5 in LibreOffice
+  (accepted 37.00 +- 3.70), Word 7 -> 5 pages at word recall 0.403 ->
+  0.584; y37 26 -> 23 pages of 22; y12 and y60 byte-identical (the render
+  confirms the stop; y12 pays one render). Raw and gdocs `word/*.xml`
+  byte-identical over 95. Without the split y61 goes 6 -> 8 pages: this
+  lands only with WP33. Evidence: `docs/evidence/wp38b-refine-2026-10-11.json`.
+
 - **The refine loop corrects at the baseline (WP39).** The product profile's
   loop measured each page's offset at line tops, and a top is the baseline
   less whatever ascent the PDF's font declares: Word embeds Times New Roman
