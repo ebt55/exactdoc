@@ -104,6 +104,54 @@ else
   have fc-cache && [ "$REPORT_ONLY" -eq 0 ] && $SUDO fc-cache -f >/dev/null 2>&1
 fi
 
+# The Office metric clones (WP31, owner-approved 2026-10-06). The standard
+# profile writes Calibri and Cambria by name; without Carlito and Caladea the
+# renderer draws both in FreeSerif and every such paragraph re-wraps.
+#
+# Not the distribution's current packages: noble's fonts-crosextra-caladea
+# (20200211) has proportional figures where Cambria's are tabular -- 135+ of
+# ~216 WinAnsi advances differ per face -- so it is not a metric clone. The
+# original Crosextra releases are, and they are byte-identical to the files
+# exactdoc/_clone_widths.py was generated from. Fetched from the Ubuntu pool by
+# exact filename and refused unless every digest matches; the same block is in
+# docker/gate.Dockerfile and docker/gate-carlito.Dockerfile.
+CROSEXTRA=/usr/share/fonts/truetype/crosextra
+CROSEXTRA_TTF_SHA256="b4ff23ba370cc95a3c349336b73f9c28514a1371210f89832efc85c4b1ea7131  Carlito-Regular.ttf
+0f62ab34ad5d079a0a28fac01bcf7c7a724a4db4d6cb99cab9cabff382fbb80f  Carlito-Bold.ttf
+718a0663864d37a4868220a19b9668a5fe10a46197f6df367b4c2c30c04c026c  Carlito-Italic.ttf
+380764b6898d7b73ceae6384b2958b196d2a0428962ef3adf138d27947228666  Carlito-BoldItalic.ttf
+d2f6cad33f191e65b68bd74e6d4f7708080a41b32db635866109df3090265d91  Caladea-Regular.ttf
+74eda4fc5ffba0d8dc4aa76d41499f5ab76168d9ed6141c6417064c6244db9b6  Caladea-Bold.ttf
+9c968bf60ba1e851cdfea77c71e3540c57792f77482dd241acc29d1425569c4e  Caladea-Italic.ttf
+f47a35ad6cd0efa9914d93f9d03c93e30c55da43674bccfabac73b3c0d522c01  Caladea-BoldItalic.ttf"
+crosextra_ok() {
+  [ -d "$CROSEXTRA" ] && ( cd "$CROSEXTRA" && printf '%s\n' "$CROSEXTRA_TTF_SHA256" \
+    | sha256sum -c - >/dev/null 2>&1 )
+}
+say "fonts (Carlito + Caladea, the pinned Crosextra builds)"
+if crosextra_ok; then
+  echo "already present"
+elif [ "$REPORT_ONLY" -eq 0 ] && [ "$PKG" = apt ] && have curl; then
+  POOL=http://archive.ubuntu.com/ubuntu/pool/universe/f
+  T="$(mktemp -d)"
+  ( cd "$T" \
+    && curl -fsSLO "$POOL/fonts-crosextra-carlito/fonts-crosextra-carlito_20130920-1.1_all.deb" \
+    && curl -fsSLO "$POOL/fonts-crosextra-caladea/fonts-crosextra-caladea_20130214-2.1_all.deb" \
+    && printf '%s\n' \
+      "7385475cde807e1363c3361976576571870373032466c7f525d5900852b6f420  fonts-crosextra-carlito_20130920-1.1_all.deb" \
+      "1330d25dfa5bab2e9b712b4950d2855cdb63a2b2b9451e2ffb93618c77e1f242  fonts-crosextra-caladea_20130214-2.1_all.deb" \
+      | sha256sum -c - \
+    && $SUDO dpkg -i ./fonts-crosextra-carlito_20130920-1.1_all.deb \
+                     ./fonts-crosextra-caladea_20130214-2.1_all.deb \
+    && $SUDO apt-mark hold fonts-crosextra-carlito fonts-crosextra-caladea >/dev/null )
+  rm -rf "$T"
+  crosextra_ok && echo "installed and verified" \
+    || echo "Carlito/Caladea NOT verified -- $CROSEXTRA does not hold the pinned files"
+else
+  echo "install the Crosextra Carlito 20130920 and Caladea 20130214 TTFs into"
+  echo "$CROSEXTRA by hand (digests in scripts/bootstrap.sh)"
+fi
+
 # ----------------------------------------------------------------- LibreOffice
 # The render-back oracle: --verify, --refine and the whole gate need it.
 say "LibreOffice (the render-back oracle)"
@@ -245,6 +293,10 @@ mark() { if [ -n "$2" ]; then status "$1" "OK      $2"; else status "$1" "MISSIN
 FONTS_OK=""
 have fc-list && [ -n "$(fc-list 2>/dev/null | grep -i liberation | head -1)" ] && FONTS_OK="Liberation found"
 mark "fonts"          "$FONTS_OK"
+# Informational, not counted as missing: a host without the clones still runs
+# every check; its Calibri/Cambria text renders in FreeSerif, as before WP31.
+if crosextra_ok; then status "carlito/caladea" "OK      pinned Crosextra builds"
+else status "carlito/caladea" "absent  (Calibri/Cambria render as FreeSerif)"; fi
 mark "soffice"        "$SOFFICE_PATH"
 mark "chromium"       "$CHROME_PATH"
 PYMUPDF_OK=""; pyhas fitz       && PYMUPDF_OK="importable"
