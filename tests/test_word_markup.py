@@ -99,11 +99,15 @@ class TableEdgeAgreement(unittest.TestCase):
         ind = second.find(qn("w:p")).find(qn("w:pPr")).find(qn("w:ind"))
         self.assertEqual(int(ind.get(qn("w:left"))), 80)        # its other 4pt
 
-    def test_gdocs_profile_is_unchanged(self):
+    def test_gdocs_profile_hangs_by_its_indent(self):
+        # gdocs keeps its zero default cell margin (Docs ignores it) and, since
+        # WP35c, stands the table its hang left of the indent: Docs set every
+        # hanging table's text the hang right of the source otherwise (c3
+        # +7.00pt), and honours a negative indent (docxout._gdocs_table_hang)
         tbl = _write(_table([6.0, 6.0], left_indent=20.0, hang=3.0), profile="gdocs")
         ppr = tbl.find(qn("w:tblPr"))
         self.assertEqual(_twips(ppr, qn("w:tblCellMar") + "/" + qn("w:left")), 0)
-        self.assertEqual(_twips(ppr, qn("w:tblInd")), 400)
+        self.assertEqual(_twips(ppr, qn("w:tblInd")), (20 - 3) * 20)
 
 
 class HangingBorderInference(unittest.TestCase):
