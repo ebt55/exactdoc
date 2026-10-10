@@ -334,6 +334,18 @@ class PageLayout:
     # Graphics anchored to this page out of the flow (FloatEl); empty unless
     # inference read the page as a slide with a profile that anchors.
     floats: List[Any] = field(default_factory=list)
+    # Points the refine loop has pushed this page's content down by, each push
+    # no more than the room its render measured at the page foot
+    # (refine._apply). The writer's open-loop spill planner plans the page as
+    # it was before the pushes and adds them back (docxout._absorb_page_spill).
+    # Never set by an open-loop write.
+    loop_push_pt: float = 0.0
+    # Points the refine loop lifts this page's real footnotes by, above the
+    # foot of the body box where a renderer stacks them, toward where the
+    # source's notes ended (notes.footnote_lifts, refine._apply). Each lift
+    # is no more than the room its render measured between the body and the
+    # notes. Never set by an open-loop write.
+    note_lift_pt: float = 0.0
 
 
 @dataclass

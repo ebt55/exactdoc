@@ -1,0 +1,108 @@
+{
+ "schema": "exactdoc.evidence.v1",
+ "what": "WP46: lshort's side-by-side examples read as two-sided regions; picture-font glyphs as drawings; stroked paths cut to their clip",
+ "tree": "wp46 a8d7ade = land1 f9ed99f + integration 3fcc1f6 + 64a6c47 + 4 commits (637f5c1, 27371da, a8d7ade)",
+ "image": "exactdoc-gate:boot bab1cfc0d2cd (Carlito), LibreOffice 24.2.7.2; Word 16 via testkit/word_oracle.py",
+ "y22": {
+  "lo_raw": {
+   "before (wp46-base, f9ed99f+3fcc1f6)": {
+    "src_pages": 153,
+    "out_pages": 173,
+    "word_recall": 0.3243,
+    "within2pt": 0.0568,
+    "dy_p50": 15.19
+   },
+   "after (wp46-fin)": {
+    "src_pages": 153,
+    "out_pages": 155,
+    "word_recall": 0.9448,
+    "within2pt": 0.0952,
+    "dy_p50": 9.36
+   }
+  },
+  "lo_product": {
+   "before": {
+    "src_pages": 153,
+    "out_pages": 157,
+    "word_recall": 0.7531,
+    "within2pt": 0.0707,
+    "dy_p50": 14.12
+   },
+   "after": {
+    "src_pages": 153,
+    "out_pages": 154,
+    "word_recall": 0.9459,
+    "within2pt": 0.1127,
+    "dy_p50": 8.59
+   }
+  },
+  "word_product": {
+   "before": {
+    "src_pages": 153,
+    "out_pages": 157,
+    "word_recall": 0.7508,
+    "within2pt": 0.0655,
+    "dy_p50": 14.27
+   },
+   "after": {
+    "src_pages": 153,
+    "out_pages": 154,
+    "word_recall": 0.9438,
+    "within2pt": 0.1083,
+    "dy_p50": 9.24
+   }
+  },
+  "docs_live_before": "169/153, word recall 0.338 (r4gd)",
+  "criterion5": "passes in LO product (154, 0.946) and Word (154, 0.944); LO raw 155 at 0.945; Docs unflown",
+  "page_model_raw": {
+   "pages_past_body": [
+    20,
+    7
+   ],
+   "unmodelled": [
+    9,
+    3
+   ],
+   "layout_tables": [
+    4,
+    103
+   ],
+   "left": "p145/p146 (the two-column index), p115, p150, p63, p64, p124"
+  },
+  "spills_lo": {
+   "raw_before": 20,
+   "raw_after": "p146, p150 (+ p113 attributed)",
+   "product_after": "p146"
+  },
+  "steps": {
+   "637f5c1 example evidence": {
+    "raw": [
+     173,
+     166
+    ],
+    "note": "first cut, examples only"
+   },
+   "c3 (listings + examples before column paths)": {
+    "raw": "158 wr 0.755",
+    "product": "156 wr 0.763"
+   },
+   "27371da (+ picture-font glyphs)": {
+    "raw": "156 wr 0.810",
+    "product": "155 wr 0.811"
+   },
+   "a8d7ade (+ stroked paths cut to clip; merged 64a6c47)": {
+    "raw": "155 wr 0.945",
+    "product": "154 wr 0.946"
+   }
+  }
+ },
+ "collateral": {
+  "word_xml_raw_95": "integration 64a6c47 vs wp46: y22, y23, y25 differ (y23/y25 unsupported); 90 others byte-identical",
+  "word_xml_gdocs_95": "same three; 90 others byte-identical (y07, y14 typed refusals both sides)",
+  "product": "layouts identical outside y22, so product DOCX identical outside y22; sweeps 0 regressions beyond gate tolerances vs wp46-base and vs land1b-prod",
+  "clip_rule_fills_rejected": "cutting FILLS to their clip moved c1_whitepaper (gated), y17, y27, y43 (Chromium clipped border/band fills); strokes only moves y22 alone",
+  "glyph_threshold": "picture-font glyph groups measured 58, 23, 18, 16, 13, 9, 8, 8 runs; one 8 is p129's page-diagram arrowheads (rasterised alone: +143pt), so >= 9"
+ },
+ "gate": "a8d7ade: Ran 1795 tests OK (skipped=1); FAILED_STEPS=0; product PASS 16/16 within2pt 0.7304; raw PASS 16/16 within2pt 0.5466",
+ "probe_set": "C:/lotmp/scr/wp46/gdocs_probe (PROBE.md); y26 control byte-identical"
+}

@@ -99,6 +99,59 @@ ANCHOR_MIN_CHARS = 8
 # of contents); 4M cells is some 65 times that and keeps a pathological
 # window from costing more than the render did.
 FILL_MAX_CELLS = 4_000_000
+# A round that is the best so far, with the same page count and the same
+# spill as the best before it, and an offset total less than this much
+# smaller, ends the loop: the spill has stalled and what is left to gain is
+# offsets the next round would move by less than this. Measured on the
+# per-round traces of the 90-document product sweep (2026-10-10, docs/
+# evidence/wp38b-refine-2026-10-11.json): stalled best rounds gained 0.0,
+# 0.4, 1.2, 1.3, 1.3 and 1.5% (y41, y52, y57, y48, y12, y56), then 3.0% and
+# up (y47 3.0, y49 4.1, y53 4.5, y64 4.6). No stalled round in the traces
+# was followed by a page or spill that closed except after a round that was
+# no better (y42) or gained 9% (y48), both outside this rule. y21 on the
+# column split sat at 49 pages with one spill for three rounds, its offsets
+# moving 1.5% and then 0.4%, at ~10s a round.
+STALL_MIN_GAIN = 0.02
+
+
+# What a page's real notes need above their zone's top before the body may
+# end: the footnote area's own head (its rule and the space round it,
+# notes.FOOTNOTE_AREA_OVERHEAD_PT, 6.2pt) and a few points of safety -- the
+# body line's box reaches a little below the ink the render reports.
+NOTE_HEAD_PT = 10.0
+
+
+def _notes_free(src_lines, out_lines, zone, band_top=0.0):
+    """Points free between the body and the real notes on a rendered page, or
+    None when the render does not show the page's notes (no note line matched
+    uniquely).
+
+    `src_lines` / `out_lines` are one page's (text, baseline, bottom) lines;
+    `zone` is the source's note zone, (top, bottom) (`NoteArea`). The page's
+    note lines are the source's lines inside it -- not the running footer
+    under it, which a renderer moves by another amount: y03's notes, whose
+    "fi" ligatures read differently on each side, matched only through the
+    footer, and the lift was measured as moving nothing. The renderer moves
+    the notes as a block, so the zone's top in the render is the source's
+    moved by the note lines' median shift -- a note's first line itself may
+    not match (the render joins "36" and its text, which the source sets
+    apart). The body is every rendered line above that.
+    """
+    note_top, note_bottom = zone
+    texts = {t for t, y0, _ in src_lines
+             if note_top - 1.0 <= y0 <= note_bottom + 1.0 and len(t) >= 8}
+    sc = Counter(t for t, _, _ in src_lines)
+    oc = Counter(t for t, _, _ in out_lines)
+    pos = {t: y0 for t, y0, _ in out_lines if oc[t] == 1}
+    ds = sorted(pos[t] - y0 for t, y0, _ in src_lines
+                if t in texts and sc[t] == 1 and t in pos)
+    if not ds:
+        return None
+    top = note_top + ds[len(ds) // 2]
+    body = [yb for t, y0, yb in out_lines
+            if y0 >= band_top - 1.0 and y0 < top and t not in texts]
+    end = max(body) if body else band_top
+    return max(0.0, top - end)
 
 
 def _norm(t: str) -> str:
@@ -120,26 +173,33 @@ def _set_gap(el, v):
         el.space_before = max(0.0, v)
 
 
-# Which vertical anchor the offset is measured from. Both are available from
-# `Backend.page_lines`; this is a measured choice, and the measurement contradicts
-# the physics.
+# Which vertical anchor the offset is measured from: the line's BASELINE. Both
+# are available from `Backend.page_lines`.
 #
-# A baseline is the physically correct anchor -- it is a number in the content
-# stream, so it cancels cleanly when a source y is subtracted from a rendered y
-# over two documents set in different fonts, where a line-box TOP carries a
-# per-font metric convention that does not. The writer's own vertical model is
-# baseline-anchored (THEORY 3.1). And measured on the canonical corpus, switching
-# to it took the incumbent's mean within-2pt from **0.511 to 0.478**.
+# A baseline is a number in the content stream, so it cancels cleanly when a
+# source y is subtracted from a rendered y over two documents set in different
+# fonts, where a line-box TOP carries a per-font metric convention that does
+# not: the top is the baseline less whatever ascent the PDF's copy of the font
+# declares. Word embeds Times New Roman and Arial declaring a box top 1.040 em
+# above the baseline, and LibreOffice draws them as Liberation at 0.891 / 0.905
+# em (PyMuPDF on y01_nist_sp80063b and y29_uk_letter_word365, both sides;
+# beta-bar amendment 3). Aligning tops therefore set every corrected line of
+# such a document ~0.15 em -- 1.7pt at 11pt -- above its source baseline: on
+# the round-4 product renders y01 read dy_p50 1.74pt at the baseline where its
+# raw (uncorrected) DOCX read 0.34pt, y30's within-2pt 0.282 against raw's
+# 0.654, and the glyphs' ink agreed with the baseline to 0.05pt.
 #
-# The reason is the same one that reverted the line-box escalation in STATUS D2:
-# `_apply` below feeds the offset into the `space_before` chain, and that chain is
-# calibrated against a box-top origin. Moving the anchor alone desynchronises the
-# correction from the thing it corrects -- it fixed 04_exec_brief (0.22 -> 0.44)
-# and broke 05_memo (0.64 -> 0.48) and r1_reportlab_report (0.60 -> 0.32). Origin,
-# `_para_box` and the spacing chain have to move together, which is a project and
-# not a patch.
+# This was ANCHOR_TOP until 2026-10-10. The baseline was tried before and
+# reverted on mean within-2pt 0.511 -> 0.478 (05_memo 0.64 -> 0.48,
+# r1_reportlab_report 0.60 -> 0.32), but that within-2pt was itself read at
+# box tops, which charge a base-14 source's words ~1.7pt for the same ascent
+# convention. Read at the baseline (testkit/harness.py, amendment 3), in the
+# Carlito image against a top-anchored control: mean within-2pt 0.396 -> 0.420
+# over 90 documents with no page count moved, y01 0.671 -> 0.794, y30
+# 0.282 -> 0.739, and in Word y30 0.214 -> 0.721
+# (docs/evidence/refine-anchor-2026-10-10.json).
 ANCHOR_TOP, ANCHOR_BASELINE = 1, 2
-ANCHOR = ANCHOR_TOP
+ANCHOR = ANCHOR_BASELINE
 
 
 def _pages_text(pdf_path, backend, anchor=ANCHOR):
@@ -273,7 +333,8 @@ def _body_bottom(lines, top, bottom):
     return max(ys) if ys else None
 
 
-def _measure(src_pdf, rendered_pdf, backend, src_cache=None, geom=None):
+def _measure(src_pdf, rendered_pdf, backend, src_cache=None, geom=None,
+             notes=None):
     """Spill, offset and overflow per source page, from one render.
 
     `src_cache` holds the source's page lines between rounds: the source never
@@ -286,6 +347,11 @@ def _measure(src_pdf, rendered_pdf, backend, src_cache=None, geom=None):
     onto the following page(s), less the room it left behind at the foot of
     the page it started on, plus FIT_SAFETY_PT. None where the render shows no
     text to measure the overflow by.
+
+    `notes` ({source page index: note zone (top, bottom)}) names the pages
+    whose real notes the loop may lift (`PageLayout.note_lift_pt`); each
+    unspilled one gets `notes_free`, the room its render shows between the
+    body and the notes (`_notes_free`).
     """
     if src_cache is not None and "lines" in src_cache:
         src = src_cache["lines"]
@@ -303,6 +369,7 @@ def _measure(src_pdf, rendered_pdf, backend, src_cache=None, geom=None):
     offset = []         # per source page: median dy of matched lines
     need = []           # per source page: pt to remove to fit, or None
     room = []           # per unspilled source page: pt free at its foot
+    notes_free = []     # per unspilled page with real notes: pt above them
     for i, lines in enumerate(src):
         ri = mapping[i]
         nxt, nxt_i = None, len(src)
@@ -315,6 +382,7 @@ def _measure(src_pdf, rendered_pdf, backend, src_cache=None, geom=None):
             offset.append(0.0)
             need.append(None)
             room.append(None)
+            notes_free.append(None)
             continue
         end = nxt if nxt is not None else len(out)
         if nxt_i == i + 1:
@@ -365,7 +433,13 @@ def _measure(src_pdf, rendered_pdf, backend, src_cache=None, geom=None):
                 rm = max(0.0, bottom - first)
         need.append(nd)
         room.append(rm)
+        nf = None
+        if notes and i in notes and sp == 0:
+            nf = _notes_free(lines, out[ri], notes[i],
+                             geom[1] if geom is not None else 0.0)
+        notes_free.append(nf)
     return {"spill": spill, "offset": offset, "need": need, "room": room,
+            "notes_free": notes_free,
             "out_pages": len(out), "src_pages": len(src),
             "anchors": len(anchors)}
 
@@ -525,18 +599,77 @@ def ledger_summary(state):
             "padding_pages": len(led["padding_pages"])}
 
 
+def _note_cap(lay: DocLayout, pl) -> float:
+    """The most this page's notes are lifted: to where the source's ended,
+    above the foot of the body box the writer gives the page."""
+    from .docxout import _body_foot, _page_geometry
+    from .notes import note_lift_cap
+    return note_lift_cap(pl, lambda q: _body_foot(_page_geometry(lay, q)))
+
+
+def _note_zones(lay: DocLayout, output_profile: str):
+    """{page index: note zone (top, bottom)} of the pages whose notes the
+    writer sets as real notes and the loop may lift; {} when the profile or
+    the plan writes them typed (there is nothing for a lift to move)."""
+    from .options import capabilities
+    from .structures import footnote_plan
+    if not getattr(lay, "footnotes", None) or \
+            "footnotes" not in capabilities(output_profile) or \
+            not footnote_plan(lay):
+        return {}
+    return {i: (pl.note_area.top, pl.note_area.bottom)
+            for i, pl in enumerate(lay.pages)
+            if pl.note_area is not None and not pl.note_area.runs_on}
+
+
 def _apply(lay: DocLayout, m, state=None) -> bool:
     """Fold the measurement back into the layout. True if anything changed."""
     if state is None:
         state = new_state()
     led = state["ledger"]
     needs = m.get("need") or []
+    frees = m.get("notes_free") or []
+    exact = m.get("out_pages") is not None and \
+        m.get("out_pages") == m.get("src_pages")
     changed = False
     if any(m["spill"]):
         changed = _lower_footers(lay)
     for idx, pl in enumerate(lay.pages):
         if idx >= len(m["spill"]):
             break
+        # 0. real notes (`notes.footnote_lifts`): lift them toward where the
+        # source's ended by the room the render shows between the body and
+        # them; a page that spills gives its lift back before anything else.
+        lift_now = getattr(pl, "note_lift_pt", 0.0) or 0.0
+        note_room = None
+        skip_squeeze = False
+        if getattr(pl, "note_area", None) is not None and idx < len(frees):
+            nf = frees[idx]
+            if m["spill"][idx] > 0:
+                if lift_now > 0:
+                    nd = needs[idx] if idx < len(needs) else None
+                    give = lift_now if nd is None else min(lift_now, nd)
+                    pl.note_lift_pt = lift_now - give
+                    changed = True
+                    skip_squeeze = nd is not None and give >= nd
+            elif nf is not None:
+                want = min(_note_cap(lay, pl),
+                           max(0.0, lift_now + nf - NOTE_HEAD_PT))
+                if not exact:
+                    # Room is read off a render whose pages map one to one,
+                    # or not at all: y47 (65 pages for 57) lifted a page
+                    # whose body then left it whole, and its last three
+                    # pages' text was gone from the render (char recall
+                    # 0.92 -> 0.87). A lift may still be given back.
+                    want = min(want, lift_now)
+                if abs(want - lift_now) >= 0.5:
+                    pl.note_lift_pt = want
+                    changed = True
+            if lift_now > 0 or (getattr(pl, "note_lift_pt", 0.0) or 0.0) > 0:
+                # the room under the body is the notes' now, less what this
+                # round's lift takes
+                note_room = 0.0 if nf is None else max(
+                    0.0, nf - NOTE_HEAD_PT - (pl.note_lift_pt - lift_now))
         els = list(_page_elements(pl))
         if not els:
             continue
@@ -548,7 +681,7 @@ def _apply(lay: DocLayout, m, state=None) -> bool:
         # before it notices the paragraph gap, and large gaps carry
         # proportionally more slack and less rhythm. Every gap keeps an
         # absolute floor, not just a percentage of itself.
-        if m["spill"][idx] > 0:
+        if m["spill"][idx] > 0 and not skip_squeeze:
             taken = 0.0
             gaps = sorted(((_gap_of(e), e) for e in els),
                           key=lambda t: -t[0])
@@ -615,8 +748,21 @@ def _apply(lay: DocLayout, m, state=None) -> bool:
                 rm = rooms[idx] if idx < len(rooms) else None
                 if rm is not None:
                     push = min(push, max(0.0, rm - FIT_SAFETY_PT))
+                if note_room is not None:
+                    # A lift is not room for a push: the foot's room is
+                    # read as if the notes stood at the foot, as they do
+                    # unlifted. Spending it moved y03 p16's body 13pt down
+                    # from a top that was right (its lower half sat high).
+                    lifted = getattr(pl, "note_lift_pt", 0.0) or 0.0
+                    foot = 0.0 if rm is None else max(
+                        0.0, rm - lifted - FIT_SAFETY_PT)
+                    push = min(push, note_room, foot)
                 if push > OFFSET_DEADBAND:
                     _set_gap(els[0], _gap_of(els[0]) + push)
+                    # the render's room bounds the push, so the writer's
+                    # open-loop spill planner plans the page without it and
+                    # adds it back (docxout._absorb_page_spill)
+                    pl.loop_push_pt = (getattr(pl, "loop_push_pt", 0.0) or 0.0) + push
                     changed = True
             else:
                 # Content sits too low, so `off` points must be *removed*. The
@@ -669,6 +815,33 @@ def _freeze_seams(lay):
 def _score(m):
     return (abs(m["out_pages"] - m["src_pages"]), sum(m["spill"]),
             sum(abs(o) for o in m["offset"]))
+
+
+def _content_digest(path) -> Optional[str]:
+    """A digest of what a candidate DOCX says: every part but the package's
+    own metadata (docProps/, whose timestamps change with every write).
+    None if the file cannot be read as a package."""
+    import hashlib
+    import zipfile
+    try:
+        h = hashlib.sha256()
+        with zipfile.ZipFile(path) as z:
+            for name in sorted(z.namelist()):
+                if name.startswith("docProps/"):
+                    continue
+                h.update(name.encode("utf-8"))
+                h.update(z.read(name))
+        return h.hexdigest()
+    except (OSError, zipfile.BadZipFile, KeyError):
+        return None
+
+
+def _stalled(best, score) -> bool:
+    """Is `score`, a new best, a stalled spill gaining offsets only by less
+    than STALL_MIN_GAIN on the `best` before it? (See STALL_MIN_GAIN.)"""
+    if best is None or score[:2] != best[:2] or score[1] <= 0:
+        return False
+    return best[2] - score[2] < STALL_MIN_GAIN * best[2]
 
 
 def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
@@ -776,6 +949,7 @@ def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
     # pages after round 1 that way against 174 with the decision held, and
     # finished on 153 against 147.
     _freeze_seams(lay)
+    note_zones = _note_zones(lay, output_profile)
     from .docxout import _freeze_flows
     _freeze_flows(lay, output_profile)
     best_path, best_score = None, None
@@ -789,7 +963,13 @@ def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
     with Workspace() as workspace:
         td = workspace.path
         try:
-            for rnd in range(rounds + 1):
+            # The first render is the seam plan's probe (`docxout.
+            # _replan_flows`): if it changes the plan, it is not a candidate
+            # and round 0 is written again from the new plan.
+            rnd, probing = -1, True
+            last_digest = None
+            while rnd < rounds:
+                rnd += 1
                 if progress is not None:
                     progress("refine", {"round": rnd, "rounds": rounds + 1})
                 row = {"round": rnd}
@@ -806,6 +986,18 @@ def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
                 row["write_ms"] = int((time.monotonic() - t0) * 1000)
                 if first_candidate is None:
                     first_candidate = candidate
+                # A candidate whose content is the last round's renders as the
+                # last round did: nothing left to learn from it. (y21's rounds
+                # 1-3 scored identically, which suggested this; timed quietly,
+                # its candidates differed and it still rendered 4 times.)
+                digest = _content_digest(candidate)
+                if rnd > 0 and digest is not None and digest == last_digest \
+                        and not probing:
+                    row["unchanged"] = True
+                    rep["rounds"].append(row)
+                    rep["stopped"] = "unchanged"
+                    break
+                last_digest = digest
                 t0 = time.monotonic()
                 try:
                     rendered = render(candidate, td)
@@ -828,7 +1020,8 @@ def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
                     # footer lever (`_lower_footers`) moves its bottom
                     geom = _geom(lay)
                     m = _measure(src_pdf, rendered, backend,
-                                 src_cache=src_cache, geom=geom)
+                                 src_cache=src_cache, geom=geom,
+                                 notes=note_zones)
                 except Exception as e:
                     # The render exists but cannot be read back. That is the
                     # self-check failing, not the conversion.
@@ -855,12 +1048,32 @@ def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
                              row["write_ms"] / 1000.0,
                              row["render_ms"] / 1000.0,
                              row["measure_ms"] / 1000.0))
+                if probing:
+                    probing = False
+                    from .docxout import _replan_flows
+                    if _replan_flows(lay, m, output_profile, rounds):
+                        row["probe"] = True
+                        # Nothing the probe planned is kept either: the
+                        # page-fit plans it held (`pagefit.plan_page`) are
+                        # keyed by page and element position, and a page
+                        # the new plan merges is another page.
+                        getattr(lay, "__dict__", {}).pop("_pagefit_memo",
+                                                         None)
+                        first_candidate = None
+                        rnd = -1
+                        continue
                 if best_score is None or score < best_score:
+                    stalled = _stalled(best_score, score) if rnd > 0 else False
                     best_score = score
                     best_path = workspace.file("best.docx")
                     shutil.copyfile(candidate, best_path)
                     rep["published_round"] = rnd
                     rep["levers"] = spent
+                    if stalled and rnd < rounds:
+                        # the spill has stalled and the offsets are all that
+                        # still move, by less than STALL_MIN_GAIN a round
+                        rep["stopped"] = "stalled"
+                        break
                 elif rnd > 0 and (score[1] == 0 or score[:2] > best_score[:2]):
                     # A round that made nothing better, and that the next round
                     # cannot be expected to fix: nothing spills, so all that is

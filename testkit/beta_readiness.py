@@ -68,10 +68,46 @@ already was -- criteria 4-9 and 13 read the product sweep, criterion 2 still
 holds the raw profile to its own time limit; (2) the harness reads leader runs,
 symbol-font PUA and maths operators symmetrically (testkit/harness.py), so the
 same renders read differently from 2026-10-06 on. No threshold changed.
+
+**Amendment 3, ratified by the owner on 2026-10-10** (docs/beta-bar.md):
+within-2pt, dy_p50 and dy_p90 -- criteria 7, 8 and 13 here -- are measured at
+the text baseline instead of the word box top, and live_text_cov (criterion
+13) reads leaders and symbol-font PUA as the words do. The same renders read
+differently from 2026-10-10 on, so inputs from either side of that date are
+compared only through testkit/rescore.py. No threshold changed.
+
+**Amendment 4** (owner-delegated decision, 2026-10-10; docs/beta-bar.md): in
+criterion 8 a dy_p50 flag is not a regression when, on the same document
+against the same accepted row in the same reading, within2pt rose by more than
+0.05, within5pt fell by no more than 0.05 and dy_p50 rose by at most max(3pt,
+30% of the accepted value) (`dy_exemption`, constants `c8_dy_*` in BAR). Each
+exempted document is printed with its deltas and cap. Two sweeps whose
+recorded readings differ are not compared: criterion 8 is UNMEASURED. Sweeps
+record the reading themselves (`reading`, from harness.reading(): quality_sweep
+and rescore write it); a side that records none is compared with a non-blocking
+"reading unrecorded" warning, and a reading whose code hash differs under the
+same name with a "check the bump" warning. A document with a dy_p50 waiver is judged by the waiver, never
+also by the rule.
+
+**Criterion-8 exceptions** (testkit/beta_waivers.json, `--waivers`): an owner
+decision may excuse ONE metric on ONE unpromised document from criterion 8, up
+to a stated bound, against the accepted sweep it names by file and SHA-256, in
+the harness reading it names, for one release (`RELEASE`, `--release`). Inside
+the bound the flag is lifted and the waiver is printed with the PASS; past it,
+or once the release, the accepted sweep or the reading changes, the waiver
+blocks until it is deleted; a waiver nothing needs any more is reported as
+unused. Each exception is recorded in docs/beta-bar.md ("Exceptions") in the
+same commit as its entry. The thresholds are untouched.
+
+**Amendment 5, ratified by the owner on 2026-10-10** (docs/beta-bar.md): a
+letter-spaced (tracked) run of glyphs reads as the word it spells, on the
+source and the render alike (testkit/harness.py, harness reading "wp42").
+Word recall moves only where text is tracked (x17, x18, y28 on the corpus).
 """
 import argparse
 import datetime
 import glob
+import hashlib
 import json
 import math
 import os
@@ -114,6 +150,24 @@ BAR = {
     # 8. no regression against the accepted sweep, with gate.py's tolerances
     "regression_metrics": ("page_err", "word_recall", "doc_recall",
                            "live_text_cov", "within2pt", "dy_p50"),
+    #    Amendment 4 (owner-delegated decision 2026-10-10, docs/beta-bar.md):
+    #    a dy_p50 flag is not a regression when, same document, same accepted
+    #    row, same reading, within2pt rose by MORE than this (gate.py's
+    #    within2pt tolerance) ...
+    "c8_dy_within2pt_rise": 0.05,
+    #    ... within5pt fell by NO more than this ...
+    "c8_dy_within5pt_fall": 0.05,
+    #    ... and dy_p50 rose by at most max(cap_pt, cap_frac x accepted). The
+    #    evidence: the reviewer's c8rules2.py / c8rules.py over 272 same-reading
+    #    pairs of full product sweeps -- y18, y33, y43, y55 exempted (y54's dy
+    #    too, still FAIL on recall); y26, y59, y61, y21, y37 and reverse-y18
+    #    (within5pt -0.125) still FAIL. 30% alone would flag y33's real gain
+    #    (wp21-base -> wp34-g10: dy 0.35 -> 1.89, within2pt 0.14 -> 0.41),
+    #    hence the 3pt floor; 30% keeps the cap proportional at large drifts
+    #    (y55, wp39-A -> wp39-C: 15.56 -> 17.26 under a 4.67pt cap). y43's
+    #    within2pt rise there is +0.0523, 0.0023 over the bar.
+    "c8_dy_cap_pt": 3.0,
+    "c8_dy_cap_frac": 0.30,
     # 9. editability on promised documents -- reported for beta, GA gate
     "edit_textbox_frac": 0.05,
     "edit_one_cell_tables_per_page": 1.0,
@@ -142,6 +196,9 @@ BAR = {
     "lo_flavour": "product",
     "amended": "owner, 2026-10-06 (lanes graded on the product DOCX; "
                "symmetric leader/symbol/operator reading in the harness)",
+    "amendment_4": "owner-delegated decision, 2026-10-10 (criterion 8: a dy_p50 "
+                   "flag with within2pt up, within5pt held and a capped rise is "
+                   "not a regression; same reading on both sides)",
 }
 
 # 10. Font families every Windows 10/11 + Microsoft 365 install has, or that
@@ -175,6 +232,40 @@ STOCK_FONTS = {
     "Wingdings 2", "Wingdings 3", "Bookshelf Symbol 7",
     "MS Reference Sans Serif", "MS Reference Specialty",
 }
+
+# The release this scorecard gates. A criterion-8 waiver names the release it
+# was granted for; once this moves on (0.3.0b2, GA), a waiver for 0.3.0b1 is
+# stale and blocks until it is deleted (docs/beta-bar.md, "Exceptions").
+RELEASE = "0.3.0b1"
+
+# ------------------------------------------------------- criterion-8 waivers
+# Bounded, self-retiring exceptions to criterion 8, in the shape of the gdocs
+# quality policy's `waivers` (testkit/gdocs_quality_policy.json v3,
+# gdocs_oracle._valid_waivers): ONE metric on ONE document, bounded, recorded
+# with who decided it, when, on what evidence and under what conditions --
+# and, because criterion 8 is a comparison, tied to the accepted sweep it was
+# measured against (by name AND SHA-256), the harness reading, and a release.
+# Exceptions are owner decisions recorded in docs/beta-bar.md in the same
+# commit as the entry; the file is
+#
+#   {"schema": "exactdoc.beta-waivers.v1", "about": "...",
+#    "regression": {document: {metric: {
+#        "ceiling" (lower-is-better metric) | "floor" (higher-is-better): bound,
+#        "release", "accepted_sweep": {"name", "sha256"}, "reading",
+#        "measured": {"accepted", "current", "sweep"},
+#        "decided_by", "decided_on", "evidence", "conditions"}}}}
+#
+# Verdicts. Blocking: `out-of-bounds` (flagged past the bound), `stale` (the
+# release, the accepted sweep or the reading is no longer the one named) and
+# `refused` (malformed, unbounded, outside the corpus, or a PROMISED document,
+# whose bar is the README's promise). Not blocking: `waived` (flagged, inside
+# the bound: that one flag is lifted, every other metric on the document stays
+# gated), `unused` (not flagged any more: delete it) and `unexercised` (the
+# document is not measured in both sweeps).
+WAIVERS = os.path.join(HERE, "beta_waivers.json")
+WAIVERS_SCHEMA = "exactdoc.beta-waivers.v1"
+_WAIVER_FIELDS = frozenset(("release", "accepted_sweep", "reading", "measured",
+                            "decided_by", "decided_on", "evidence", "conditions"))
 
 PASS, FAIL, REPORTED, UNMEASURED = "PASS", "FAIL", "REPORTED", "UNMEASURED"
 _REFUSAL_CODES = {"InteractiveFormError": 19, "PageLimitError": 20,
@@ -346,6 +437,228 @@ def find_rows(dirs, docs, lane):
     return best
 
 
+def load_waivers(path=WAIVERS):
+    """{"path", "entries": [(document, metric, spec)], "error"}.
+
+    A missing file is no waivers. An unreadable or malformed one is an `error`,
+    which blocks criterion 8: a waiver file nobody can read is not evidence
+    that nothing was waived. Each entry is judged on its own when criterion 8
+    is read (`judge_waivers`).
+    """
+    out = {"path": path, "entries": [], "error": None}
+    if not path or not os.path.exists(path):
+        return out
+    try:
+        data = _load_json(path)
+    except (OSError, ValueError) as e:
+        out["error"] = "unreadable (%s)" % e
+        return out
+    if not isinstance(data, dict) or data.get("schema") != WAIVERS_SCHEMA:
+        out["error"] = "not a %s file" % WAIVERS_SCHEMA
+        return out
+    extra = sorted(set(data) - {"schema", "about", "regression"})
+    regression = data.get("regression", {})
+    if extra or not isinstance(regression, dict):
+        out["error"] = ("unexpected key(s) %s" % ", ".join(extra) if extra
+                        else "`regression` is not an object")
+        return out
+    for doc, metrics in sorted(regression.items()):
+        if not isinstance(metrics, dict) or not metrics:
+            out["error"] = "%s names no metric" % doc
+            out["entries"] = []
+            return out
+        for metric, spec in sorted(metrics.items()):
+            out["entries"].append((doc, metric, spec))
+    return out
+
+
+def _finite(v):
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+
+
+def _sha256(path):
+    try:
+        with open(path, "rb") as fh:
+            return hashlib.sha256(fh.read()).hexdigest()
+    except (OSError, TypeError):
+        return None
+
+
+def sweep_reading(data):
+    """The harness reading a sweep records, or None.
+
+    From WP41c every sweep records `reading`: {"scorer": harness.HARNESS_READING,
+    "source": <hash of the reading code>} -- quality_sweep.py when it scores,
+    rescore.py when it re-reads (which also writes `rescored.scorer`). Sweeps
+    made before that record only `rescored.scorer` if they were re-scored, and
+    nothing if they were scored as they ran."""
+    if not isinstance(data, dict):
+        return None
+    for holder in (data.get("reading"), data.get("rescored")):
+        if isinstance(holder, dict) and holder.get("scorer"):
+            return holder["scorer"]
+    return None
+
+
+def _reading_source(data):
+    holder = data.get("reading") if isinstance(data, dict) else None
+    return holder.get("source") if isinstance(holder, dict) else None
+
+
+def _waiver_refusal(doc, metric, spec, docs, metrics):
+    """Why an entry cannot be a waiver at all, or None."""
+    if not isinstance(spec, dict):
+        return "not an object"
+    gm = metrics.get(metric)
+    if metric not in BAR["regression_metrics"] or not gm:
+        return "%s is not a criterion-8 metric" % metric
+    bound = "ceiling" if gm["dir"] == "lower" else "floor"
+    wrong = "floor" if bound == "ceiling" else "ceiling"
+    if wrong in spec:
+        return "%s is %s-is-better: it is bounded by a %s, not a %s" % (
+            metric, gm["dir"], bound, wrong)
+    if not _finite(spec.get(bound)):
+        return "unbounded: no finite %s. An unbounded waiver is a waiver of anything" % bound
+    missing = sorted(_WAIVER_FIELDS - set(spec))
+    extra = sorted(set(spec) - _WAIVER_FIELDS - {bound})
+    if missing or extra:
+        return "; ".join(["missing %s" % ", ".join(missing)] * bool(missing) +
+                         ["unexpected %s" % ", ".join(extra)] * bool(extra))
+    acc = spec["accepted_sweep"]
+    if not (isinstance(acc, dict) and set(acc) == {"name", "sha256"}
+            and isinstance(acc["name"], str) and acc["name"]
+            and os.path.basename(acc["name"]) == acc["name"]
+            and isinstance(acc["sha256"], str)
+            and re.fullmatch(r"[0-9a-f]{64}", acc["sha256"])):
+        return "accepted_sweep must name the sweep by basename and sha256"
+    for field in ("release", "reading", "decided_by", "evidence", "conditions"):
+        if not isinstance(spec[field], str) or not spec[field].strip():
+            return "%s is empty" % field
+    try:
+        datetime.date.fromisoformat(spec["decided_on"])
+    except (TypeError, ValueError):
+        return "decided_on is not a date"
+    m = spec["measured"]
+    if not (isinstance(m, dict) and _finite(m.get("accepted")) and _finite(m.get("current"))
+            and isinstance(m.get("sweep"), str) and m["sweep"]):
+        return "measured must record the accepted and current values and the sweep"
+    limit = spec[bound]
+    inside = m["current"] <= limit if bound == "ceiling" else m["current"] >= limit
+    relaxes = limit > m["accepted"] if bound == "ceiling" else limit < m["accepted"]
+    if not (inside and relaxes):
+        return ("the %s %g does not sit between the accepted %g and the measured %g "
+                "it was written for" % (bound, limit, m["accepted"], m["current"]))
+    if doc not in docs:
+        return "%s is not a corpus document" % doc
+    if docs[doc].get("promised") is True:
+        return ("%s is a promised document: its bar is the README's promise, and "
+                "no exception is recorded against it" % _short(doc))
+    return None
+
+
+def dy_exemption(acc, cur):
+    """Amendment 4: why a flagged dy_p50 is not a regression, or None.
+
+    `acc` and `cur` are one document's accepted and current rows, read the
+    same way. Exempt when within2pt rose by more than `c8_dy_within2pt_rise`,
+    within5pt fell by no more than `c8_dy_within5pt_fall`, and dy_p50 rose by
+    at most max(`c8_dy_cap_pt`, `c8_dy_cap_frac` x accepted). A row without
+    within5pt (or within2pt) on either side gets no exemption.
+    """
+    vals = [r.get(k) for r in (acc, cur) for k in ("dy_p50", "within2pt", "within5pt")]
+    if not all(_finite(v) for v in vals):
+        return None
+    dy0, w20, w50, dy1, w21, w51 = vals
+    cap = max(BAR["c8_dy_cap_pt"], BAR["c8_dy_cap_frac"] * dy0)
+    rise, w2d, w5d = dy1 - dy0, w21 - w20, w51 - w50
+    if not (w2d > BAR["c8_dy_within2pt_rise"] + 1e-12
+            and w5d >= -BAR["c8_dy_within5pt_fall"] - 1e-12 and rise <= cap + 1e-12):
+        return None
+    return {"dy_p50": [dy0, dy1], "within2pt": [w20, w21], "within5pt": [w50, w51],
+            "dy_rise": round(rise, 4), "within2pt_delta": round(w2d, 4),
+            "within5pt_delta": round(w5d, 4), "cap": round(cap, 4),
+            "detail": "%s dy_p50 %.4g -> %.4g (+%.2f, cap %.2fpt = max(%gpt, %d%% of "
+                      "%.4g)); within2pt %.4f -> %.4f (%+.4f); within5pt %.4f -> %.4f (%+.4f)"
+                      % (_short(acc.get("document", "?")), dy0, dy1, rise, cap,
+                         BAR["c8_dy_cap_pt"], round(100 * BAR["c8_dy_cap_frac"]), dy0,
+                         w20, w21, w2d, w50, w51, w5d)}
+
+
+def judge_waivers(waivers, flags, measured_both, accepted, current, docs, metrics,
+                  release=RELEASE):
+    """[verdict] for every waiver entry, against criterion 8's flags.
+
+    `flags` is {(document, metric): (accepted, current, tolerance)} of the
+    regressions gate.py's tolerances found; `measured_both` the documents with
+    a measured row in both sweeps; `accepted` and `current` are (path, data)
+    of the accepted sweep and the current sweep of its profile.
+    """
+    out = []
+    acc_name = os.path.basename(accepted[0])
+    acc_sha = _sha256(accepted[0])
+    for doc, metric, spec in waivers.get("entries", ()):
+        v = {"document": doc, "metric": metric, "verdict": None, "blocking": True}
+        refusal = _waiver_refusal(doc, metric, spec, docs, metrics)
+        if refusal:
+            v.update(verdict="refused", detail="waiver refused: %s %s: %s"
+                     % (_short(doc), metric, refusal))
+            out.append(v)
+            continue
+        bound = "ceiling" if metrics[metric]["dir"] == "lower" else "floor"
+        limit, named = spec[bound], spec["accepted_sweep"]
+        v.update(bound=bound, limit=limit, release=spec["release"],
+                 accepted_sweep=dict(named), reading=spec["reading"],
+                 decided_by=spec["decided_by"], decided_on=spec["decided_on"],
+                 evidence=spec["evidence"])
+        acc_reading, cur_reading = sweep_reading(accepted[1]), sweep_reading(current[1])
+        stale = None
+        if spec["release"] != release:
+            stale = "granted for %s, this is %s" % (spec["release"], release)
+        elif named["name"] != acc_name or named["sha256"] != acc_sha:
+            stale = "names %s (sha256 %s...), the accepted sweep is %s (sha256 %s...)" % (
+                named["name"], named["sha256"][:12], acc_name, (acc_sha or "unreadable")[:12])
+        elif acc_reading not in (None, spec["reading"]):
+            stale = "names the %s reading, the accepted sweep is read %s" % (
+                spec["reading"], acc_reading)
+        elif cur_reading not in (None, spec["reading"]):
+            stale = ("names the %s reading, the current sweep is read %s: not like "
+                     "for like" % (spec["reading"], cur_reading))
+        if stale:
+            v.update(verdict="stale", detail="stale waiver: %s %s %s" % (
+                _short(doc), metric, stale))
+            out.append(v)
+            continue
+        flag = flags.get((doc, metric))
+        if flag is None:
+            if doc in measured_both:
+                v.update(verdict="unused", blocking=False,
+                         detail="waiver unused, delete it: %s %s is within gate.py's "
+                                "tolerance of %s" % (_short(doc), metric, acc_name))
+            else:
+                v.update(verdict="unexercised", blocking=False,
+                         detail="waiver not exercised: %s is not measured in both "
+                                "sweeps" % _short(doc))
+            out.append(v)
+            continue
+        ref, cur, tol = flag
+        v.update(accepted=ref, current=cur, tolerance=round(tol, 4))
+        inside = cur <= limit if bound == "ceiling" else cur >= limit
+        if inside:
+            v.update(verdict="waived", blocking=False,
+                     detail="%s %s %.4g->%.4g %s %s %s, owner exception %s" % (
+                         _short(doc), metric, ref, cur,
+                         "<=" if bound == "ceiling" else ">=", bound, limit,
+                         spec["decided_on"]))
+        else:
+            v.update(verdict="out-of-bounds",
+                     detail="waiver out of bounds: %s %s %.4g->%.4g %s %s %s -- "
+                            "blocking: it needs a new decision" % (
+                                _short(doc), metric, ref, cur,
+                                ">" if bound == "ceiling" else "<", bound, limit))
+        out.append(v)
+    return out
+
+
 def load_gate(path):
     out = {}
     for lane in BAR["gate_lanes"]:
@@ -374,6 +687,83 @@ def find_gate(dirs):
             if best is None or newest > best[2]:
                 best = (root, verdicts, newest)
     return (best[0], best[1]) if best else None
+
+
+def load_gate_provenance(path):
+    """The provenance runall.py wrote beside a gate's verdicts (WP43):
+    <batch>/provenance.json, else the evidence file's `provenance`, else None."""
+    for name, key in (("provenance.json", None), ("evidence.json", "provenance")):
+        p = os.path.join(path, name)
+        if os.path.exists(p):
+            try:
+                data = _load_json(p)
+            except (OSError, ValueError):
+                continue
+            data = data.get(key) if key else data
+            if isinstance(data, dict):
+                return data
+    return None
+
+
+def input_provenance(data):
+    """A sweep's or timing run's `provenance` (quality_sweep.py, WP43), or None."""
+    prov = data.get("provenance") if isinstance(data, dict) else None
+    return prov if isinstance(prov, dict) else None
+
+
+def describe_provenance(prov):
+    if not prov:
+        return "provenance unrecorded"
+    reading = prov.get("reading") or {}
+    return "commit %s%s, image %s, environment %s, reading %s" % (
+        (prov.get("git_commit") or "unrecorded")[:12],
+        " (dirty)" if prov.get("git_dirty") else "",
+        (prov.get("image_id") or "unrecorded").replace("sha256:", "")[:12],
+        (prov.get("environment_fingerprint") or "unrecorded")[:8],
+        reading.get("scorer") or "unrecorded")
+
+
+def mixed_commits(provenances):
+    """[(label, commit)] -> a refusal when the lanes were made from different
+    commits, or None. Inputs that record no commit are not compared."""
+    seen = {}
+    for label, commit in provenances:
+        if commit:
+            seen.setdefault(commit, []).append(label)
+    if len(seen) <= 1:
+        return None
+    return ("the lanes were made from different commits: %s; one reading needs one "
+            "commit (or --allow-mixed-commits)" % "; ".join(
+                "%s from %s" % (", ".join(ls), c[:12]) for c, ls in sorted(seen.items())))
+
+
+# Inputs whose age decides the verdict (WP43): everything a gating criterion
+# reads. The accepted sweep is old by design; the gdocs-LO sweep grades nothing.
+GATING_INPUTS = ("raw sweep", "product sweep", "Docs live", "Word lane",
+                 "product serial", "raw serial", "gate")
+
+
+def gate_modified(path):
+    """When a gate's lane verdicts were written (the newest), or None."""
+    times = [os.path.getmtime(p) for p in
+             glob.glob(os.path.join(path, "lane_*", "verdict.json"))]
+    return datetime.datetime.fromtimestamp(max(times)) if times else None
+
+
+def stale_gating_inputs(inputs):
+    """A refusal naming the gating inputs past the freshness window, or None.
+
+    `inputs` are main()'s (label, path, detail, stale) rows; `stale` is "older
+    than the newest input by more than BAR['stale_input_hours']". It was only
+    printed ("[STALE]"); a scorecard over a day-old lane beside today's is
+    two readings, so it now makes the verdict INCOMPLETE (WP43) unless
+    --allow-stale."""
+    old = [label for label, path, _detail, stale in inputs
+           if stale and path and label in GATING_INPUTS]
+    if not old:
+        return None
+    return ("gating input(s) older than the newest input by more than %d h: %s; "
+            "re-measure them (or --allow-stale)" % (BAR["stale_input_hours"], ", ".join(old)))
 
 
 def load_timing(path):
@@ -444,6 +834,16 @@ def classify_failure(r):
     err = str(err)
     if err.split(":", 1)[0] in _REFUSAL_CODES:
         return "refusal"
+    # A worker's death is the document's crash unless the pool itself died
+    # (WP43). quality_sweep.py records `worker_failure` from now on and runs a
+    # dying pool's documents again alone, so only an unrecoverable pool reads
+    # as infrastructure; older rows said "worker: <exception>" for both, and
+    # only the BrokenProcessPool ones were the pool.
+    wf = r.get("worker_failure")
+    if isinstance(wf, dict):
+        return "infra" if wf.get("pool_broken") else "crash"
+    if err.startswith("worker: "):
+        return "infra" if "BrokenProcessPool" in err or "pool died" in err else "crash"
     if err.startswith(_INFRA) or "round trip failed" in err:
         return "infra"
     return "crash"
@@ -463,12 +863,15 @@ def _short(doc):
 
 # ------------------------------------------------------------- the reading
 def evaluate(docs, sweeps, lanes, gate, accepted=None, docx_dir=None,
-             readme_path=None, now=None, timings=None):
+             readme_path=None, now=None, timings=None, waivers=None, release=RELEASE,
+             blockers=None):
     """-> {"inputs", "criteria", "verdict", ...}.
 
     `lanes` is {"lo": rows|None, "word": rows|None, "docs": rows|None} of raw
     row lists. The LibreOffice lane is the PRODUCT sweep's documents
     (`BAR["lo_flavour"]`, amendment 1 of 2026-10-06; `main` picks it).
+    `waivers` is `load_waivers(...)` (criterion 8; `main` reads
+    testkit/beta_waivers.json), judged for `release`; None applies none.
     """
     now = now or datetime.datetime.now()
     criteria = []
@@ -683,6 +1086,17 @@ def evaluate(docs, sweeps, lanes, gate, accepted=None, docx_dir=None,
              "(%d); name a full-corpus accepted %s sweep"
              % (acc_kind, os.path.basename(accepted[0]),
                 len(accepted[1].get("documents", ())), want, acc_kind))
+    elif None not in (sweep_reading(accepted[1]), sweep_reading(sweeps[acc_kind][1])) and \
+            sweep_reading(accepted[1]) != sweep_reading(sweeps[acc_kind][1]):
+        # Amendment 4 (a): the two sides must be read the same way. When either
+        # side records no reading (a sweep from before WP41c that was never
+        # re-scored), the pair is compared with a "reading unrecorded" warning.
+        crit(8, "regression", "no regression against the accepted sweep (gate.py tolerances)",
+             UNMEASURED, "mixed reading: the accepted sweep %s is read %s, the current %s "
+             "sweep %s is read %s; rescore one side (testkit/rescore.py) so both are read "
+             "alike" % (os.path.basename(accepted[0]), sweep_reading(accepted[1]), acc_kind,
+                        os.path.basename(sweeps[acc_kind][0]),
+                        sweep_reading(sweeps[acc_kind][1])))
     else:
         try:
             sys.path.insert(0, HERE)
@@ -696,17 +1110,25 @@ def evaluate(docs, sweeps, lanes, gate, accepted=None, docx_dir=None,
                  "gate.py could not be imported (%s)" % err)
         else:
             base = {r["document"]: r for r in accepted[1].get("documents", ())}
-            worse = []
+            worse, flags, both = [], {}, set()     # worse: (doc, metric|None, text)
+            waivers = waivers or {"path": None, "entries": [], "error": None}
+            # Amendment 4 (d): a document is judged by the rule OR by a waiver,
+            # never both. A document with a dy_p50 waiver entry (whatever its
+            # verdict) is left to the waiver; the rule does not look at it.
+            by_waiver = {d for d, m, _ in waivers.get("entries", ()) if m == "dy_p50"}
+            exempted = []
             for r in sweeps[acc_kind][1].get("documents", ()):
                 b = base.get(r.get("document"))
                 if not b:
                     continue
                 if classify_failure(r) == "crash" and classify_failure(b) != "crash":
-                    worse.append("%s now crashes" % _short(r["document"]))
+                    worse.append((r["document"], None,
+                                  "%s now crashes" % _short(r["document"])))
                     continue
                 if not (measured(dict(r, doc=r["document"])) and
                         measured(dict(b, doc=b["document"]))):
                     continue
+                both.add(r["document"])
                 for m in BAR["regression_metrics"]:
                     spec = metrics.get(m)
                     if spec is None:
@@ -721,14 +1143,83 @@ def evaluate(docs, sweeps, lanes, gate, accepted=None, docx_dir=None,
                     tol = tolerance(spec, ref)
                     delta = (ref - cur) if spec["dir"] == "higher" else (cur - ref)
                     if delta > tol + 1e-12:
-                        worse.append("%s %s %.4g -> %.4g (tolerance %.3g)"
-                                     % (_short(r["document"]), m, ref, cur, tol))
-            regressed = sorted({w.split(" ", 1)[0] for w in worse})
+                        ex = (dy_exemption(b, r) if m == "dy_p50"
+                              and r["document"] not in by_waiver else None)
+                        if ex:
+                            exempted.append(dict(ex, document=r["document"], tolerance=tol))
+                            continue
+                        flags[(r["document"], m)] = (ref, cur, tol)
+                        worse.append((r["document"], m, "%s %s %.4g -> %.4g (tolerance %.3g)"
+                                      % (_short(r["document"]), m, ref, cur, tol)))
+            # Criterion-8 waivers (testkit/beta_waivers.json): a `waived` verdict
+            # lifts exactly its own (document, metric) flag; every other verdict
+            # leaves the flag where it is, and the blocking ones add their own.
+            verdicts = (judge_waivers(waivers, flags, both, accepted, sweeps[acc_kind],
+                                      docs, metrics, release)
+                        if not waivers.get("error") else [])
+            lifted = {(v["document"], v["metric"]) for v in verdicts
+                      if v["verdict"] == "waived"}
+            worse = [w for w in worse if (w[0], w[1]) not in lifted]
+            blocking = [v for v in verdicts if v["blocking"]]
+            regressed = sorted({w[0] for w in worse} | {v["document"] for v in blocking})
+            misses = [w[2] for w in worse] + [v["detail"] for v in blocking]
+            if waivers.get("error"):
+                misses.append("waiver file refused: %s: %s" % (
+                    os.path.basename(waivers["path"] or "?"), waivers["error"]))
+            misses += ["(waived) " + v["detail"] for v in verdicts if v["verdict"] == "waived"]
+            misses += ["(note) " + v["detail"] for v in verdicts
+                       if not v["blocking"] and v["verdict"] != "waived"]
+            waived = [v for v in verdicts if v["verdict"] == "waived"]
+            detail = "%d document(s) worse than %s (%s flavour)" % (
+                len({w[0] for w in worse}), os.path.basename(accepted[0]), acc_kind)
+            misses += ["(exempt, amendment 4) " + e["detail"] for e in exempted]
+            # Amendment 4 (a), made automatic (WP41c): a side that records no
+            # reading cannot be shown to be read like the other. Non-blocking
+            # -- every sweep before WP41c is like that -- but never silent.
+            reading_warnings = []
+            for side, (path, data) in (("accepted", accepted), ("current", sweeps[acc_kind])):
+                if sweep_reading(data) is None:
+                    reading_warnings.append(
+                        "reading unrecorded: the %s sweep %s records no harness reading, "
+                        "so amendment 4 (a) cannot be checked; re-score it with "
+                        "testkit/rescore.py to record one" % (side, os.path.basename(path)))
+            src_a, src_c = _reading_source(accepted[1]), _reading_source(sweeps[acc_kind][1])
+            if None not in (src_a, src_c) and src_a != src_c:
+                reading_warnings.append(
+                    "reading code differs under the one name %s (%s vs %s): check that "
+                    "harness.HARNESS_READING was bumped" % (sweep_reading(accepted[1]),
+                                                           src_a, src_c))
+            misses += ["(warning) " + w for w in reading_warnings]
+            if waived:
+                detail += "; %d waived: %s" % (len(waived), "; ".join(v["detail"] for v in waived))
+            if exempted:
+                detail += "; %d dy_p50 flag(s) exempt under amendment 4: %s" % (
+                    len(exempted), ", ".join(_short(e["document"]) for e in exempted))
+            if blocking or waivers.get("error"):
+                detail += "; %d waiver(s) blocking" % (len(blocking) + bool(waivers.get("error")))
+            if reading_warnings:
+                detail += "; WARNING: %s" % ("reading unrecorded" if any(
+                    w.startswith("reading unrecorded") for w in reading_warnings)
+                    else "reading code differs")
             crit(8, "regression", "no regression against the accepted sweep (gate.py tolerances)",
-                 FAIL if worse else PASS,
-                 "%d document(s) worse than %s (%s flavour)"
-                 % (len(regressed), os.path.basename(accepted[0]), acc_kind),
-                 len(regressed) or None, worse)
+                 FAIL if (worse or blocking or waivers.get("error")) else PASS, detail,
+                 len(regressed) or (1 if waivers.get("error") else None), misses)
+            criteria[-1]["waived"] = len(waived)
+            criteria[-1]["exempted"] = exempted
+            criteria[-1]["readings"] = {"accepted": sweep_reading(accepted[1]),
+                                        "current": sweep_reading(sweeps[acc_kind][1]),
+                                        "accepted_source": src_a, "current_source": src_c,
+                                        "warnings": reading_warnings}
+            criteria[-1]["waivers"] = verdicts
+            criteria[-1]["waiver_file"] = {"path": waivers.get("path"), "release": release,
+                                           "entries": len(waivers.get("entries", ())),
+                                           "error": waivers.get("error"), "evaluated": True}
+    if "waivers" not in criteria[-1]:
+        # Criterion 8 unmeasured: no waiver can be judged, and none is applied.
+        criteria[-1].update(waived=0, exempted=[], waivers=[], waiver_file={
+            "path": (waivers or {}).get("path"), "release": release,
+            "entries": len((waivers or {}).get("entries", ())),
+            "error": (waivers or {}).get("error"), "evaluated": False})
 
     # 9. editability (REPORTED) ----------------------------------------------
     if flavour not in sweeps:
@@ -796,6 +1287,20 @@ def evaluate(docs, sweeps, lanes, gate, accepted=None, docx_dir=None,
                           " ".join(map(str, v.get("notes", []))))
             if m and int(m.group(1)) != BAR["gate_documents"]:
                 bad.append("%s: %s documents measured" % (lane, m.group(1)))
+            # WP43: a pass counts only against a baseline bound to the run's
+            # environment and reading. One that passed only under the
+            # transitional allowance -- or whose verdict predates the binding
+            # and cannot say -- compared against numbers that describe
+            # something else.
+            binding = v.get("baseline_binding")
+            mode = binding.get("mode") if isinstance(binding, dict) else None
+            if mode != "bound":
+                bad.append("%s: gate passed only under EXACTDOC_GATE_ALLOW_STALE_BASELINE; "
+                           "re-record needed (baseline binding %s%s)" % (
+                               lane, mode or "unrecorded",
+                               ": " + "; ".join(binding.get("mismatches") or ())
+                               if isinstance(binding, dict) and binding.get("mismatches")
+                               else ""))
         crit(11, "gate", name, FAIL if bad else PASS,
              "both lanes ok" if not bad else "%d problem(s)" % len(bad),
              len(bad) or None, bad)
@@ -851,10 +1356,19 @@ def evaluate(docs, sweeps, lanes, gate, accepted=None, docx_dir=None,
     statuses = [c["status"] for c in gating]
     verdict = ("NOT READY" if FAIL in statuses else
                "INCOMPLETE" if UNMEASURED in statuses else "READY")
+    # Inputs the reading cannot stand on (WP43): lanes made from different
+    # commits, a gating input past the freshness window. The criteria are
+    # still computed and shown; the verdict is INCOMPLETE until the inputs are.
+    blockers = list(blockers or ())
+    unblocked = verdict
+    if blockers:
+        verdict = "INCOMPLETE"
     return {"bar": {k: (list(v) if isinstance(v, tuple) else v) for k, v in BAR.items()},
+            "release": release,
             "ratified": BAR["ratified"], "evaluated": now.strftime("%Y-%m-%d %H:%M"),
             "promised": len(promised), "unclassified": unclassified,
-            "criteria": criteria, "verdict": verdict}
+            "criteria": criteria, "verdict": verdict, "blockers": blockers,
+            "verdict_unblocked": unblocked}
 
 
 def _gdocs_policy_thresholds(root=HERE):
@@ -979,6 +1493,10 @@ def render(result, inputs, show=8):
     lines += ["", "criteria"]
     for c in result["criteria"]:
         st = c["status"] + (" by %d" % c["by"] if c["status"] == FAIL and c["by"] else "")
+        if c.get("waived"):
+            st += " (%d waived)" % c["waived"]
+        if c.get("exempted"):
+            st += " (%d exempt, amendment 4)" % len(c["exempted"])
         lines.append("  %2d %-11s %s" % (c["num"], st, c["criterion"]))
         lines.append("  %2s %-11s %s" % ("", "", c["detail"]))
         for m in c["misses"][:show]:
@@ -987,6 +1505,12 @@ def render(result, inputs, show=8):
             lines.append("  %2s %-11s   ... and %d more" % ("", "", len(c["misses"]) - show))
     counts = {s: sum(1 for c in result["criteria"] if c["status"] == s)
               for s in (PASS, FAIL, UNMEASURED, REPORTED)}
+    if result.get("blockers"):
+        lines += ["", "inputs refused (the verdict is INCOMPLETE until they are fixed; "
+                      "the criteria alone would read %s)" % result.get("verdict_unblocked")]
+        lines += ["  - %s" % b for b in result["blockers"]]
+    for allowed in result.get("allowed") or ():
+        lines += ["", "ALLOWED BY FLAG: %s" % allowed]
     lines += ["", "verdict: %s  (%d pass, %d fail, %d unmeasured, %d reported)" % (
         result["verdict"], counts[PASS], counts[FAIL], counts[UNMEASURED], counts[REPORTED]),
               "gating: 1-6, 8, 10-12; reported for beta, gating for GA: 7, 9, 13.",
@@ -1014,9 +1538,21 @@ def main(argv=None):
                          "Default: the newest *.timing.json per profile under --runs")
     ap.add_argument("--docx-dir", help="kept DOCX folder for the font census "
                                        "(default: <raw sweep>.docx beside it)")
+    ap.add_argument("--waivers", default=WAIVERS,
+                    help="criterion-8 waivers (default testkit/beta_waivers.json; "
+                         "docs/beta-bar.md, Exceptions)")
+    ap.add_argument("--release", default=RELEASE,
+                    help="the release being evaluated; a waiver for another is "
+                         "stale (default %(default)s)")
     ap.add_argument("--readme", default=os.path.join(PROJECT, "README.md"))
     ap.add_argument("--json", help="also write the evaluation here")
     ap.add_argument("--all", action="store_true", help="list every offending document")
+    ap.add_argument("--allow-stale", action="store_true",
+                    help="read a gating input older than the newest by more than "
+                         "%d h (otherwise the verdict is INCOMPLETE)" % BAR["stale_input_hours"])
+    ap.add_argument("--allow-mixed-commits", action="store_true",
+                    help="read lanes whose recorded commits differ (otherwise the "
+                         "verdict is INCOMPLETE)")
     a = ap.parse_args(argv)
 
     dirs = list(a.runs)
@@ -1046,16 +1582,20 @@ def main(argv=None):
         kind = _profile_kind(data.get("profile"))
         if kind:
             timings[kind] = (path, data)
-    result = evaluate(docs, sweeps, lanes, gate, accepted=accepted,
-                      docx_dir=docx_dir, readme_path=a.readme, timings=timings)
+    if a.waivers != WAIVERS and not os.path.exists(a.waivers):
+        ap.error("--waivers %s does not exist" % a.waivers)
+    w = load_waivers(a.waivers)
 
     paths = [("raw sweep", sweeps.get("raw")), ("product sweep", sweeps.get("product")),
              ("gdocs-lo sweep", sweeps.get("gdocs-lo")), ("Docs live", docs_rows),
              ("Word lane", word_rows), ("accepted", accepted),
              ("product serial", timings.get("product")), ("raw serial", timings.get("raw"))]
     stamps = [_when(v[0]) for _, v in paths if v and v[0] and os.path.exists(v[0])]
+    gate_when = gate_modified(gate[0]) if gate and gate[0] else None
+    if gate_when:
+        stamps.append(gate_when)
     newest = max(stamps) if stamps else datetime.datetime.now()
-    inputs = []
+    inputs, commits = [], []
     for label, v in paths:
         if not v:
             inputs.append((label, None, None, False))
@@ -1066,12 +1606,43 @@ def main(argv=None):
         prof = data.get("profile", "") if isinstance(data, dict) else ""
         detail = "%s%d rows; modified %s" % (prof + ", " if prof else "", n,
                                              when.strftime("%Y-%m-%d %H:%M"))
+        if isinstance(data, dict):
+            prov = input_provenance(data)
+            detail += "; " + describe_provenance(prov)
+            if label != "accepted":             # the accepted sweep is older by design
+                commits.append((label, (prov or {}).get("git_commit")))
         stale = (newest - when).total_seconds() > 3600 * BAR["stale_input_hours"]
         inputs.append((label, path, detail, stale))
+    gate_prov = load_gate_provenance(gate[0]) if gate and gate[0] else None
+    if gate:
+        commits.append(("gate", (gate_prov or {}).get("git_commit")))
+    gate_stale = bool(gate_when) and \
+        (newest - gate_when).total_seconds() > 3600 * BAR["stale_input_hours"]
     inputs.append(("gate", gate[0] if gate else None,
                    ", ".join("%s %s" % (l, "ok" if v.get("ok") else "FAILED")
-                             for l, v in sorted(gate[1].items())) if gate else None, False))
+                             for l, v in sorted(gate[1].items())) +
+                   "; " + describe_provenance(gate_prov) +
+                   ("; modified %s" % gate_when.strftime("%Y-%m-%d %H:%M") if gate_when else "")
+                   if gate else None, gate_stale))
+    blockers, allowed = [], []
+    mixed = mixed_commits(commits)
+    if mixed:
+        (allowed if a.allow_mixed_commits else blockers).append(
+            ("--allow-mixed-commits: " if a.allow_mixed_commits else "") + mixed)
+    old = stale_gating_inputs(inputs)
+    if old:
+        (allowed if a.allow_stale else blockers).append(
+            ("--allow-stale: " if a.allow_stale else "") + old)
+    result = evaluate(docs, sweeps, lanes, gate, accepted=accepted,
+                      docx_dir=docx_dir, readme_path=a.readme, timings=timings,
+                      waivers=w, release=a.release, blockers=blockers)
+    if allowed:
+        result["allowed"] = allowed
     inputs.append(("kept DOCX", docx_dir, None, False))
+    inputs.append(("waivers", a.waivers if os.path.exists(a.waivers) else None,
+                   "%d criterion-8 waiver(s) for release %s%s" % (
+                       len(w["entries"]), a.release,
+                       "; REFUSED: %s" % w["error"] if w["error"] else ""), False))
     print(render(result, inputs, show=10 ** 6 if a.all else 8))
     if a.json:
         result["inputs"] = [{"input": l, "path": p, "detail": d, "stale": s}

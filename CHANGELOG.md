@@ -20,6 +20,85 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **The gate baseline is re-recorded (2026-10-11).** This is a deliberate re-record, approved
+  by the owner-delegated dual review (Fable 5.1 and Opus 5.5). `testkit/gate_baseline.json`
+  (SHA-256 `c00ae596...21db`) now carries:
+  - the Carlito image's environment (fingerprint 9cb0bc17);
+  - harness reading `wp42` (`ca563181d6ad`), which covers scorer amendments 2, 3 and 5;
+  - the round-3 and round-4 converter code.
+
+  Recorded on final1 7b0d9d6, it is the same file byte for byte as on 86f0d02 and 26f7475, and
+  a strict runall over it passes both lanes. One number got worse beyond tolerance: raw 05_memo
+  within-2pt 0.1205 -> 0.0602, from amendment 3. With this record, gates no longer need
+  `EXACTDOC_GATE_ALLOW_STALE_BASELINE`. The record step by step, document by document, is in
+  `docs/evidence/rerecord-2026-10-11.md` and `.json`, with the reviewers' corrections.
+
+- **Real footnotes stand where the source's ended (final1).** A renderer
+  stacks a page's real notes at the foot of the body box, and the bottom
+  reserve is relaxed to the footer's top, because re-wrapped body text
+  overruns the source's body box. Once y02's notes bound (WP27, round 3),
+  each of its 24 note pages set them ~45pt below the source's (p20: 712 ->
+  761, p97: 718 -> 761), and the refine loop, reading a quarter of the page
+  that far low, pulled the headings up. Nothing was lost from the page. The
+  writer now closes a page's last note with an empty line of
+  `PageLayout.note_lift_pt` (a space after the note is not honoured at the
+  area's foot; an empty line is). Only the refine loop sets that lift. It
+  never lifts past where the source's notes ended (`notes.note_lift_cap`)
+  or by more than the render shows free between the body and the notes
+  (`refine._notes_free`, measured on the note lines alone, not the footer
+  under them). A page that spills gives its lift back first, and a lift is
+  never room for a push. Room is read only off a render whose pages map one
+  to one: y47 is 65 pages for 57, and a lift there emptied a page and lost
+  its last three pages' text from the render (char recall 0.92 -> 0.87). Lifting every page open-loop rendered y02 115
+  pages for 114 and the spill cascaded, so raw and open-loop output is
+  byte-identical (14 documents with notes, word/*.xml). LibreOffice
+  product, harness reading wp42, against final1 fc15b59: y02 dy_p50 1.03 ->
+  0.74 and within-2pt 0.357 -> 0.393; its p20 has 0.01 of its words >5pt
+  off, from 0.23 (accepted: 0.01), and p97 0.54, from 0.92 (accepted 0.82).
+  y18 0.60 -> 0.46. y03 1.23 -> 1.43 is inside tolerance. No page count
+  moves, and the gated 16 are unchanged.
+
+- **A tracked word between drawn spaces stays one word (WP45).** y28's
+  running footer is Word's `1 | Page` with "Page" expanded by 3pt (0.248em
+  after each letter at 12pt Arial; the spaces around `|` drawn, 0.278em).
+  PDFium synthesises a space in every tracking gap, the whole-run tracking
+  rule never saw the word (the header text on its baseline made the median
+  gap 0, and alone it sat past the 0.24em cap), and the DOCX said `P a g e`
+  on every footer. A style run holding drawn spaces is now also read word
+  by word between them (`parse_pdfium._tracked_parts`): a word PDFium broke
+  -- a synthesised space inside it -- whose gaps are uniform tracking under
+  the width of the run's own drawn space loses those spaces, keeps its
+  tracking as w:spacing (60 twips), and `_gap_spaces` does not put them back.
+  word/*.xml over the 95 documents, raw and gdocs: y28 alone changes (its
+  footer). y28, harness reading wp42: word recall 0.9909 -> 0.9933 in
+  LibreOffice product and raw and 0.9882 -> 0.9906 in Word, 21/21 pages
+  everywhere, within-2pt unchanged; a Docs probe set is at
+  `C:\lotmp\scr\wp45\gdocs_probe` (`docs/evidence/wp45-2026-10-11.json`).
+
+- **lshort's examples stand beside their output (WP46).** y22 sets its
+  examples as LaTeX source in monospace beside the typeset result, and
+  inference wrote them one after the other, so each example took both
+  heights. Now a band of code listings (three lines or more) beside typeset
+  text or a picture is a two-sided region (`infer._code_beside`), even where
+  a column path would have read the gutter down the page. A parser block
+  grouped across the gutter is cut first. A list of monospaced terms beside
+  their definitions stays a list. Two related fixes go with it.
+  Picture-environment drawings made from LaTeX's line and circle fonts (nine
+  glyph runs or more) become figures instead of tables of dingbats
+  (`_picture_glyph_draws`). A stroked path is cut to its clip when the clip
+  hides a quarter of it (`parse_pdfium._clip_path_bbox`); that fixes p114's
+  TikZ grid swallowing the page. Fills are left alone because clipping them
+  moved c1 and the RFCs. Effect on y22: raw 173 -> 155 pages (word recall
+  0.32 -> 0.95); LibreOffice product 157 -> 154 (0.75 -> 0.95); Word product
+  157 -> 154 (0.75 -> 0.94). Criterion 5 now passes in LibreOffice and Word.
+  word/*.xml is byte-identical on every other supported document in raw.
+  Gate PASS. Evidence: `docs/evidence/wp46-y22-examples-2026-10-11.json`.
+  All three readings are standard-profile only. Flown live in Docs, they
+  took y22 from 169 to 178 pages, because Docs drops the letter-spacing that
+  keeps each source line inside its cell, so every line wraps.
+  `infer(examples=False)` under gdocs, and gdocs word/*.xml is identical to
+  64a6c47 on all 95 fixtures.
+
 - **A rule inside a figure just stacked holds the spacing cursor, as one
   inside a table does (land1b).** WP33n's narrower hold (tables only)
   cost y21 a page on the landing set: p39's figure (y 319-505) carries
@@ -159,6 +238,338 @@ one verified fix at a time, each gated against the frozen 16.
   within-2pt 0.156 -> 0.181, dy_p50 2.82 -> 1.08); Word, product DOCX,
   y18 154 -> 144 pages (0.468 -> 0.986). The 16 gated documents are
   byte-identical in raw. `docs/evidence/pagefit-2026-10-10.json`.
+
+- **Letter-spaced source words read as the word they spell: beta-bar
+  amendment 5, ratified by the owner on 2026-10-10 (WP42).** No conversion
+  output changed. x17_resume_twocol's and x18's headings are tracked (every
+  glyph followed by 0.146-0.202 em) and the text extractor broke them into
+  "S UM M ARY", "E X P E RI E NCE" while the DOCX, Word and Docs say
+  "SUMMARY". `harness.page_words` now joins, on the source and the render
+  alike, a run of word-character tokens whose every glyph gap, inside the
+  tokens and between them, is tracking-sized (0.08-0.25 em) and alike (within
+  0.08 em), with no space the producer drew between them (`_tracked_runs`;
+  `tracked=False` is the reading before). Over the 95 sources it joins x17's
+  and x18's six headings each, y28's "Page" footer and 55 tokens of TeX
+  letter-spacing examples; character recall and live text are untouched.
+  Re-scored (wp39 LibreOffice product sweeps, r4 Docs live, r4 and wp39 Word):
+  x17 word recall 0.953 -> 0.985 in LibreOffice and Word, 0.889 -> 0.979 in
+  Docs, x18 alike; y28 0.993 -> 0.991 in every lane, because the converter
+  writes its tracked footer as "P a g e" with real spaces (a converter
+  defect, now visible); nothing else moves by 0.002, and no gated number
+  moves. Harness reading "wp42" (`harness.HARNESS_READING`, pinned in
+  `tests/test_reading_identity.py`); tests: `tests/test_harness_tracking.py`.
+
+- **The refine loop stops on a stalled spill, and where the seam plan gave
+  up the first render decides (WP38b).** (1) A round that is the best so far
+  with the same pages and spill as the best before it, and offsets less than
+  2% better, ends the loop (`refine.STALL_MIN_GAIN`, read off the per-round
+  traces of all 95 documents: stalled best rounds gained 0.0-1.5%, then
+  3.0% and up; no stalled round closed a page except after a no-better round
+  or a 9% gain). On wp33's column split y21 runs 3 renders instead of 4,
+  serial 76.7 -> 55.3s against criterion 2's 72s; without the split no
+  product DOCX changes (90/90). (2) Where WP38's layout model stops the seam
+  plan, the pages from the stop on are written seamed as a probe, and the
+  loop's first render judges them: a page holds if it did not spill or
+  spilled by no more than the loop's own rounds can take back
+  (`docxout._lever_room`); the plan is redone with those verdicts, and a
+  probe that changed it is discarded and round 0 written again
+  (`_replan_flows`). On the split: y61 dy_p50 43.9 -> 37.5 in LibreOffice
+  (accepted 37.00 +- 3.70), Word 7 -> 5 pages at word recall 0.403 ->
+  0.584; y37 26 -> 23 pages of 22; y12 and y60 byte-identical (the render
+  confirms the stop; y12 pays one render). Raw and gdocs `word/*.xml`
+  byte-identical over 95. Without the split y61 goes 6 -> 8 pages: this
+  lands only with WP33. Evidence: `docs/evidence/wp38b-refine-2026-10-11.json`.
+
+- **The refine loop corrects at the baseline (WP39).** The product profile's
+  loop measured each page's offset at line tops, and a top is the baseline
+  less whatever ascent the PDF's font declares: Word embeds Times New Roman
+  and Arial at 1.040 em where LibreOffice draws Liberation at 0.891 / 0.905,
+  so every corrected page of a Word-produced source landed ~1.7pt above its
+  source baselines (y01 dy_p50 1.74pt where its raw DOCX read 0.34). It now
+  measures at the baseline (`refine.ANCHOR`). That exposed a page the top
+  anchor had survived by chance: on y44 p1 the loop pushed the body down
+  within the room the render measured, and the writer's open-loop spill
+  planner predicted an overflow and took the push back (the page came out
+  34pt high). A page the loop pushed is now the render's to answer
+  (`PageLayout.loop_pushed`; `docxout._absorb_page_spill` leaves it alone).
+  Product, Carlito image, 90 documents, against a top-anchored control that
+  reproduces r4-new-prod exactly: mean within-2pt 0.396 -> 0.420 (promised
+  0.510 -> 0.540), no page count moved, word recall within 0.001 everywhere;
+  y01 0.671 -> 0.794, y30 0.282 -> 0.739, y10 0.096 -> 0.406, y28 0.050 ->
+  0.301, y63 0.085 -> 0.285, y65 0.462 -> 0.538, y44 0.169 -> 0.186. Word, 40
+  documents: no page change, no recall lost; y30 0.214 -> 0.721, y46 0.104 ->
+  0.282, y33 0.727 -> 0.741, y01 0.708 -> 0.787. Lower: 01 0.836 -> 0.813,
+  x17/x18 -0.04, y45 -0.04 (all within tolerance); y43 and y55
+  (not promised) dy_p50 8.79 -> 10.64 and 15.56 -> 17.26 while their
+  within-2pt rises 0.07 -> 0.12 and 0.02 -> 0.08 -- bimodal pages whose
+  median sits on the group the loop cannot align -- which criterion 8
+  against wp31-prod reads as 2 documents worse. Raw and gdocs DOCX are
+  byte-identical. Gate: 1713 tests OK, product PASS (01 within-2pt 0.836
+  -> 0.813; dy_p50 0.4 -> 0.0 on 01 and l1, 0.95 -> 0.55 on 05), raw FAIL on
+  amendment 3's 05_memo finding only
+  (`docs/evidence/refine-anchor-2026-10-10.json`).
+
+- **Placement is measured at the baseline: beta-bar amendment 3, ratified
+  by the owner on 2026-10-10 (WP36).** No conversion output changed
+  (`exactdoc/` identical to integration; `word/*.xml` byte-identical in the
+  raw and gdocs profiles for the 93 of the 95 documents that convert, the
+  other two refused alike). Within-2pt and `dy_p50`/`dy_p90`
+  compared word box tops, and a box top is the glyph origin minus whatever
+  ascent the PDF's font declares: 1.075 em for an unembedded Helvetica,
+  1.040 em for the Times New Roman and Arial Word embeds, 0.905 / 0.891 em
+  for Liberation and for Word's and Docs' Arial / Times New Roman. The
+  harness now anchors every word, on both sides, at its baseline (the glyph
+  origin of its largest characters; `harness.page_words`, with
+  `baseline=False` and `box_top()` giving the old reading), and checked
+  against the glyphs' ink on 12 documents the baseline agrees within 0.11pt
+  where the box top was off by up to 1.74pt. `live_text_cov` reads leaders
+  and symbol-font PUA as the words have since WP29, on the source and the
+  DOCX (y10 0.787 -> 0.932, x02 0.741 -> 0.972 in LibreOffice and Word), and
+  `testkit/rescore.py` re-reads it from the kept DOCX instead of copying it.
+  Re-read from the round-4 renders, nothing converted: the gate's renders
+  mean within-2pt 0.7304 -> 0.8156 product and 0.5466 -> 0.6168 raw (median
+  dy_p50 0.525 -> 0.35pt, 1.245 -> 0.65pt); base-14 sources lose the
+  artefact (f1 0.629 -> 1.000, 02 0.605 -> 0.922; in Docs 04 0.05 -> 0.56, r1
+  0.47 -> 0.94), embedded-font ones do not move (c1, c6), and Word-produced
+  sources whose fonts declare 1.040 em read 1.7pt high in the product DOCX
+  where the box tops had agreed (y01 dy_p50 0.23 -> 1.74pt, y30 within-2pt
+  0.724 -> 0.282; the raw DOCX places y01 at 0.34pt). Criterion 7 unchanged,
+  criterion 8 FAIL by 1 -> PASS (y61's dy_p50 is within tolerance at the
+  baseline), criterion 13 LibreOffice and Word 40 -> 45 of 62. The gate
+  baseline was recorded at box tops and is not re-recorded here: against it
+  the gate reads one finding, raw 05_memo within-2pt 0.1205 -> 0.0602, five
+  words 2-3.5pt above their source baseline that Helvetica's box top had
+  put inside 2pt (`docs/beta-bar.md`, amendment 3;
+  `docs/evidence/scorer-baseline-2026-10-10.json`).
+
+- **The final measurement set is one command (WP44).**
+  `scripts/dev/final_set.sh <tree> <name> --accepted <sweep>` runs, in
+  order and resumably: a preflight that refuses a dirty tree or anyone
+  else's running container; the strict gate; product and raw sweeps (both
+  corpora, DOCX kept, two containers); Word on the product and the raw DOCX;
+  the live Docs command, printed for the coordinator; serial timing of the
+  documents criterion 2 needs, each after the machine has been quiet (no
+  other container, host CPU < 20% for 60 s) with the load recorded beside
+  it; and `beta_readiness --release 0.3.0b1` wrapped with every input's and
+  the accepted sweep's SHA-256 into `docs/evidence/beta-readiness-<date>.json`.
+  `--dry-run` prints every command. Tried end to end on three documents
+  (gate, sweeps, Word, scorecard); the gate reports the stale baseline
+  binding until the owner's re-record. Scripts only.
+
+- **y37's dy_p50 is a bounded criterion-8 exception for 0.3.0b1 -- the
+  second time (owner decision 2026-10-11, by delegation).** WP38b's
+  render-judged probe re-flags y37 in the wp42 reading: 27.64 -> 32.00 against
+  `accepted-wp31-prod.rescored5.sweep.json` (SHA-256 fcb8ca97..., verified),
+  past a 2.76 tolerance. `testkit/beta_waivers.json` names it: dy_p50 only,
+  ceiling 33.0, release 0.3.0b1, reading wp42. The first exception (WP33's
+  split) was reverted unused after WP33n. `churn.py --check-y37` now checks
+  condition d': word recall >= 0.37, common-word dy_p50 <= 1.1 x the
+  accepted common, within-2pt drop <= 0.05, and LibreOffice out_pages < 27
+  read from `--current-sweep` (`--require` now takes > and < too). Measured on
+  wp38b-L1-prod re-scored in wp42: recall 0.3268 -> 0.3900, common dy_p50
+  25.20 -> 24.97, pages 27 -> 24, all d' bounds met; 387 words lost and 1,064
+  gained, 38% of common words moved > 2pt, common |dy| <= 5pt 0.182 -> 0.172,
+  dy_p90 244 -> 303, doc recall 0.913 -> 0.905 -- no evidence of a real loss
+  in the median; the tail widened. `docs/beta-bar.md`, "Exceptions for
+  0.3.0b1", records it with the void conditions, and amendment 4(e) -- a
+  paired, common-word reading of criterion 8's dy_p50 -- becomes a
+  pre-0.3.0b2 item. Evidence:
+  [churn-y37-2026-10-11.json](docs/evidence/churn-y37-2026-10-11.json).
+
+- **`churn.py` reads dy where the harness does (WP41).** It read a matched
+  word's drift at the box top while the sweep, from amendment 3 on, reads it
+  at the baseline (`harness._y`), so its "all" figures did not reproduce the
+  wp42 sweep's (y37 27.64 / 32.00). It now takes the harness's own anchor
+  (`harness._y`, else the token's baseline field, else its box top).
+
+- **The drift sentinel's expected row is recorded, and compared like for
+  like (WP43).** The coordinator flew the sentinel from 587d47b on
+  2026-10-10: 1/1 pages, word recall 1.0, within-2pt 0.8544, dy_p50 1.84pt,
+  reading wp29. `sentinel.json` (schema v2) keys `expected` by harness
+  reading, and a run is compared only with the row recorded under its own
+  reading; a run in a reading with no row says "sentinel reading mismatch:
+  re-record under <reading>" (a warning, not DRIFT), and `fly --record` adds
+  or replaces that reading's row and keeps the others (so the wp42 row can be
+  added beside wp29's).
+
+- **Criterion 11 needs a gate bound to its baseline (WP43).** A lane verdict
+  whose `baseline_binding` mode is not "bound" -- one that passed only under
+  `EXACTDOC_GATE_ALLOW_STALE_BASELINE`, or a verdict from before the binding
+  that cannot say -- now FAILs criterion 11: "gate passed only under
+  EXACTDOC_GATE_ALLOW_STALE_BASELINE; re-record needed", with the
+  mismatches. Until the owner-approved re-record, criterion 11 fails.
+
+- **A stale gating input makes the scorecard INCOMPLETE (WP43 item 6).**
+  `beta_readiness.py` marked an input older than the newest by more than
+  24 h "[STALE]" and read it anyway. Now a stale gating input -- the raw or
+  product sweep, the Docs or Word lane, a serial timing, or the gate (whose
+  lane verdicts now carry their date) -- puts it under "inputs refused" and
+  makes the verdict INCOMPLETE, unless `--allow-stale` (printed as ALLOWED
+  BY FLAG). The accepted sweep is old by design and never counts; the
+  gdocs-LO sweep grades nothing and does not either.
+
+- **A Google Docs drift sentinel flies first in every live run (WP43 item
+  5).** `testkit/fixtures_sentinel/`: a one-page memo (`sentinel.pdf`) and
+  the gdocs-candidate DOCX made from it once, both pinned by SHA-256 in
+  `sentinel.json`. `scripts/dev/gdsweep.py` and `flypairs.py` fly that DOCX
+  before any document (`testkit/docs_sentinel.py`), compare the export's
+  pages (exactly), word recall (0.005), within-2pt (0.02) and dy_p50 (0.5pt)
+  with the row recorded the first time, print a loud DRIFT block on a
+  difference, record the verdict in the sentinel row (`sentinel`, `drift`)
+  and carry on; every row now has a UTC timestamp (`utc`). The expected row
+  is recorded by flying it once: `python testkit/docs_sentinel.py fly OUT
+  --record`. `rescore.py rows` passes the sentinel row through untouched.
+
+- **The Word oracle takes the machine for its batch itself (WP43 item 4).**
+  `word_oracle.sweep` runs inside `WordBatchLock`: a named kernel mutex
+  (`Global\exactdoc-word-oracle`, `Local\` if Global is refused; an
+  abandoned one is taken over) held for the whole batch, plus the old
+  `C:\lotmp\word.lock` for agents on older trees -- a lock file that exists,
+  is under 30 minutes old and is not ours is waited for (up to 3 hours,
+  `EXACTDOC_WORD_LOCK_WAIT_S`), then ours is written with a token, and on
+  exit the file is deleted only if it still carries our token. `WordBusy`
+  when the wait runs out.
+
+- **A worker that dies is the document's crash, unless the pool died (WP43
+  item 3).** `quality_sweep.py` recorded any failure out of its process pool
+  as "worker: ..." and criterion 1 read all of those as infrastructure, so a
+  document that killed its worker never counted. Now a worker that raises is
+  that document's crash ("worker crashed: Type: ..."); a pool that dies
+  (BrokenProcessPool takes every document in flight) has those documents run
+  again, each in a process of its own: the one whose process dies alone is
+  the crash, with its exit code, and the others get their real rows (marked
+  `retried_alone`). Rows carry `worker_failure` {type, pool_broken, exitcode};
+  `beta_readiness` reads it (pool_broken -> infra, else crash) and, for older
+  rows, takes only "worker: BrokenProcessPool..." as infra.
+
+- **Measurements record what they were made from (WP43 item 2).** The
+  containers get the tree without `.git`, so `sweep.sh` and `gate_full.sh`
+  read the commit (and dirty flag, branch) on the host and pass it in with
+  the image id (`EXACTDOC_GIT_COMMIT`, `EXACTDOC_GATE_IMAGE_ID`,
+  `EXACTDOC_GATE_IMAGE_REF`; provenance only, not part of the environment
+  fingerprint). `evidence.git_state()` falls back to the host commit, and
+  `evidence.provenance()` -- commit, image id, canonical fingerprint,
+  harness reading -- is written into every quality-sweep payload and beside
+  the gate's verdicts (`<batch>/provenance.json` and the evidence file).
+  `beta_readiness.py` prints it per input and refuses (verdict INCOMPLETE,
+  "inputs refused") lanes whose recorded commits differ, unless
+  `--allow-mixed-commits`; inputs that record no commit are shown, not
+  compared; the accepted sweep is never compared.
+
+- **The gate binds its baseline to the environment and the reading (WP43
+  item 1).** `gate.check` (from `runall.py`) fails a lane, "re-record needed
+  (owner approval)", when the baseline was recorded under another environment
+  fingerprint or harness reading, or records neither; `save_lanes` now stores
+  the reading (`harness.reading()`) beside the fingerprint. The committed
+  baseline (fingerprint 3ca438f1, recorded before WP29, no reading) therefore
+  fails in the Carlito image until the owner-approved re-record. Meanwhile
+  `EXACTDOC_GATE_ALLOW_STALE_BASELINE=1`, set by the coordinator, downgrades
+  the mismatch to a WARNING note; `runall.py` prints "BASELINE BINDING:
+  strict | TRANSITIONAL ALLOWANCE | recording" first, `gate_full.sh` passes
+  the variable through only when set and logs the mode at the top and as
+  `BASELINE_BINDING=` at the end, and `verdict.json` carries
+  `baseline_binding` (mode, mismatches, both fingerprints and readings). A
+  differing reading-code hash under the same name is a note, not a failure.
+
+- **Sweeps record the harness reading they were scored in (WP41c).**
+  `testkit/harness.py` names its reading, `HARNESS_READING = "wp29"`, bumped
+  by every amendment that changes how text is read, and `harness.reading()`
+  adds a 12-hex hash of the reading code (the top-level definitions that
+  decide a page's words and the matching, as a syntax tree: comments,
+  docstrings and the Python version do not move it; a test pins it, so a
+  change to the reading code fails until the name is bumped or the pin
+  re-recorded). `quality_sweep.py` writes it as `reading` in every payload;
+  `rescore.py` writes it too and takes `rescored.scorer` and the per-row
+  `scorer` from the harness instead of a typed "wp29"; Word-oracle,
+  `gdsweep.py` and `flypairs.py` rows carry `scorer`. In
+  `beta_readiness.py` criterion 8 reads `reading` (or `rescored.scorer`) on
+  both sides: different -> UNMEASURED, "mixed reading"; missing on a side ->
+  compared with a non-blocking "reading unrecorded" warning instead of
+  silently matching; the same name over different code -> a warning to check
+  the bump. Sweeps from before this change read with the warning until
+  re-scored. No conversion code changed.
+
+- **Amendment 4: a capped dy_p50 rise that comes with more words within 2pt
+  is not a criterion-8 regression (WP41b, owner-delegated decision
+  2026-10-10).** In `testkit/beta_readiness.py` a dy_p50 flag is exempt when,
+  same document, same accepted row, same reading, within2pt rose by more than
+  0.05, within5pt fell by no more than 0.05 and dy_p50 rose by at most
+  max(3pt, 30% of the accepted value) (`dy_exemption`; `c8_dy_*` in `BAR`).
+  Each exempted document is printed with its three deltas and the cap, and
+  the JSON carries them (`exempted`); a row without within5pt gets no
+  exemption; every other metric is judged as before. Two sweeps whose
+  recorded readings (`rescored.scorer`) differ are no longer compared:
+  criterion 8 is UNMEASURED, "mixed reading". A document with a dy_p50
+  waiver is judged by its waiver only. On wp39-A -> wp39-C criterion 8 goes
+  FAIL by 2 -> PASS: y43 (8.79 -> 10.64, within2pt +0.0523, within5pt
+  -0.0014, cap 3pt) and y55 (15.56 -> 17.26, +0.0645, +0.0047, cap 4.67pt)
+  were its only flags. On accepted-wp31-prod.rescored -> wp33-d1-prod
+  nothing is exempted: y21, y37 (within2pt +0.0008) and y61 stay flagged
+  there. Of the
+  historical pairs kept in the run folder, y18 (wp34-g10 -> wp33-a) and y33
+  (wp21-base -> wp34-g10, 0.35 -> 1.89: the real gain the 3pt floor is for)
+  are exempted too. The rule text is in `docs/beta-bar.md`, verbatim, with
+  the decider and the evidence. No conversion code changed.
+
+- **Criterion 8 can carry a bounded, self-retiring exception (WP41).**
+  `testkit/beta_readiness.py` reads `testkit/beta_waivers.json`
+  (`exactdoc.beta-waivers.v1`, committed empty): one metric on one
+  unpromised document, with a ceiling (or a floor), the release, the
+  accepted sweep by file name and SHA-256, the harness reading, who decided
+  and when, the evidence and the conditions -- the shape of the gdocs
+  policy's waivers. Flagged and inside the bound, the flag is lifted and the
+  criterion prints "PASS (1 waived)" with the waiver; past the bound it
+  blocks ("waiver out of bounds"); another accepted sweep, release or
+  reading makes it stale, which blocks; a promised document or an unbounded
+  waiver is refused; a waiver nothing needs is a note, "waiver unused,
+  delete it". Every other metric on the document stays gated, and the JSON
+  carries each verdict. `--waivers`, `--release` (default 0.3.0b1). With the
+  empty file the scorecard reads exactly as before. `docs/beta-bar.md`
+  describes the rule; no threshold changed.
+
+- **`testkit/churn.py`: which source words two renders both place (WP41).**
+  A document's dy_p50 is a median over the words the render matched, and two
+  renders match different sets, so it can move with no word moving. `churn.py
+  SOURCE ACCEPTED CURRENT [--json]` splits the matched source words into
+  common, lost and gained, and reports per set the count, dy_p50, within2pt
+  and the |dy| <= 5pt share; the share of common words whose dy changed by
+  more than 2pt; the share of each set made of tokens occurring 20 times or
+  more in the source; and the SHA-256 of the three PDFs. `--require
+  PATH>=X|PATH<=X` and `--check-y37` turn figures into an exit code. The
+  reviewer's diagnostic of 2026-10-10, moved into the repo. Its matching is
+  the harness's own: `harness.match_pairs` returns the (page, source, render)
+  indices `match_words` counts, and `match_words` is now built on it with its
+  return value unchanged -- re-scored before and after on WP33's renders of
+  y37, c2 and y61, both readings, `word_metrics` is identical and reproduces
+  the sweep rows. No conversion code changed.
+
+- **A form's label opens its field; paragraphs a little apart stay apart
+  (WP35d).** Inference, every lane. (1) y65 (an NRC meeting notice) sets
+  "Purpose:" at x 50 and its six-line field at x 145 on one baseline; the
+  label, alone in its block, became a paragraph of its own and the field
+  started a line lower in every renderer (Docs dy_p50 10.2, criterion 7
+  missed). A label alone in its block, on the baseline of a field set at
+  least 2em away in a column of its own, now opens the field's paragraph:
+  label, tab, field, hanging at the field's column (`infer._field_labels`).
+  (2) y44's intro sets four short paragraphs 15.7pt apart over a 12.7pt line
+  pitch, and with most steps at 15.7 they read as one paragraph; a baseline
+  step 2pt (0.2em) wider than the block's tightest pitch now ends a
+  paragraph after a line that ends short (PARA_STEP_PT). (3) The ladder sets
+  a hanging row's tab-separated labels (a resume's dates) in the hang; it had
+  predicted each such row a line long. LibreOffice raw on the landing set
+  (64a6c47): y65 dy_p50 10.07 -> 1.48, y44 29.56 -> 1.88, y02 115 -> 114
+  pages for 114 (word recall 0.754 -> 0.966); product y44 2.34 -> 0.67, y02
+  2.40 -> 0.71; Word product y44 2.45 -> 0.48, y02 2.73 -> 2.52, the rest
+  equal or better; no page count of a promised document moves, no promised
+  row worse by more than 0.01pt. 21 of 90 documents change in the gdocs
+  build (y20, y44, y65 of the short promised). Live in Docs, y65 10.16 ->
+  1.28 and y44 31.0 -> 2.00, but y20 5.18 -> 18.05. The paragraph step had
+  split y20's heading off its body at +2.20pt, exactly the 0.2em bar. Docs
+  then set the body a line longer. A step at the bar now has to recur in
+  its block; a step taken once must clear 0.3em (PARA_STEP_ALONE_EM). That
+  returns y20 to its 64a6c47 DOCX in every lane and keeps y44, y65, y02 and
+  y39 as they were (WP35e).
+  Evidence: [gdocs-2026-10-11-wp35d-fields.json](docs/evidence/gdocs-2026-10-11-wp35d-fields.json).
 
 - **Short documents in Google Docs: hanging tables and letter-spaced text
   (WP35c).** Two gdocs-only rules, read off Google's exports of the 71558af

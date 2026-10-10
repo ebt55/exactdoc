@@ -38,6 +38,7 @@ import tempfile
 import time
 import warnings
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures.process import BrokenProcessPool
 
 import corpus_manifest
 
@@ -329,6 +330,116 @@ def table(rows, prev=None):
     return "\n".join(lines)
 
 
+def _solo(job, conn, work=None):
+    """Child of `_work_alone`: one document, the outcome down the pipe."""
+    try:
+        conn.send(("ok", (work or _work)(job)))
+    except BaseException as e:                       # noqa: BLE001
+        conn.send(("raised", "%s: %s" % (type(e).__name__, str(e)[:200])))
+    finally:
+        conn.close()
+
+
+def _work_alone(job, work=None):
+    """`_work(job)` in a process of its own -> (outcome, value, exit code).
+
+    outcome "ok" (value = the row), "raised" (value = "Type: message") or
+    "died" (the process ended without a word: its exit code says how, e.g.
+    -11 for SIGSEGV, -9 when the OOM killer took it)."""
+    import multiprocessing
+    ctx = multiprocessing.get_context()
+    parent, child = ctx.Pipe(duplex=False)
+    p = ctx.Process(target=_solo, args=(job, child, work))
+    p.start()
+    child.close()
+    try:
+        outcome, value = parent.recv()
+    except EOFError:
+        outcome, value = "died", None
+    p.join()
+    return outcome, value, p.exitcode
+
+
+def _rerun_alone(broken, jobs, work=None):
+    """Rows for the documents a dying pool took down, each run in its own
+    process (up to `jobs` at a time; one dying no longer takes the others).
+
+    A document whose process dies alone is the CRASH, with its exit code;
+    one that now succeeds was collateral and gets its real row, marked
+    `retried_alone`. Only when a document cannot even be run alone is the
+    row the pool's ("worker: pool died ..."), which beta_readiness reads as
+    infrastructure."""
+    from concurrent.futures import ThreadPoolExecutor
+    out = []
+
+    def one(item):
+        job, why = item
+        try:
+            outcome, value, code = _work_alone(job, work)
+        except Exception as e:                       # could not start a process
+            return {"document": job[0],
+                    "error": "worker: pool died (%s); rerun alone impossible: %s: %s"
+                             % (why, type(e).__name__, e),
+                    "worker_failure": {"type": "BrokenProcessPool", "pool_broken": True}}
+        if outcome == "ok":
+            return dict(value, retried_alone=True, pool_failure=why)
+        if outcome == "raised":
+            return {"document": job[0], "error": "worker crashed: %s" % value,
+                    "worker_failure": {"type": value.split(":", 1)[0],
+                                       "pool_broken": False, "alone": True}}
+        return {"document": job[0],
+                "error": "worker crashed: its process died alone (exit code %s)" % code,
+                "worker_failure": {"type": "process death", "exitcode": code,
+                                   "pool_broken": False, "alone": True}}
+
+    with ThreadPoolExecutor(max_workers=max(1, jobs)) as ex:
+        out.extend(ex.map(one, broken))
+    return out
+
+
+def _run_all(jobs, n_jobs, work=None):
+    """Rows for every job, `n_jobs` documents side by side (WP43 classifies
+    what a dying worker leaves behind; `work` is `_work` unless a test passes
+    a stand-in)."""
+    work = work or _work
+    rows = []
+
+    def done(r):
+        rows.append(r)
+        print("  done %-30s %s" % (r["document"][:30],
+              r.get("refused") or r.get("error", "")[:60] or
+              "%s/%s pages" % (r.get("src_pages"), r.get("out_pages"))),
+              flush=True)
+
+    broken = []
+    with ProcessPoolExecutor(max_workers=n_jobs) as ex:
+        futs = {ex.submit(work, j): j for j in jobs}
+        for f in as_completed(futs):
+            try:
+                r = f.result()
+            except BrokenProcessPool as e:
+                # A worker died (segfault, OOM, os._exit) and took the pool
+                # with it: every document still in flight fails here, the
+                # one that killed it among them. Which one cannot be told
+                # yet; each is run again alone below.
+                broken.append((futs[f], "%s: %s" % (type(e).__name__, e)))
+                continue
+            except Exception as e:
+                # The worker raised: _work's own handling let an exception
+                # out of the conversion or the scoring. That is a crash of
+                # this document, not of the machinery (WP43).
+                r = {"document": futs[f][0],
+                     "error": "worker crashed: %s: %s" % (type(e).__name__, str(e)[:200]),
+                     "worker_failure": {"type": type(e).__name__, "pool_broken": False}}
+            done(r)
+    if broken:
+        print("  the worker pool died; running %d document(s) again, each alone"
+              % len(broken), flush=True)
+        for r in _rerun_alone(broken, n_jobs, work=work):
+            done(r)
+    return rows
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--corpus", choices=("gated", "expansion", "both"),
@@ -359,20 +470,9 @@ def main(argv=None):
     print("profile   %s" % prof.profile_id())
     print("documents %d, jobs %d" % (len(docs), a.jobs))
     t0 = time.time()
-    rows = []
     jobs = [(d, p, t, dl, a.profile, out_root, a.images) for d, p, t, dl in docs]
-    with ProcessPoolExecutor(max_workers=a.jobs) as ex:
-        futs = {ex.submit(_work, j): j[0] for j in jobs}
-        for f in as_completed(futs):
-            try:
-                r = f.result()
-            except Exception as e:           # worker died (OOM, segfault)
-                r = {"document": futs[f], "error": "worker: %r" % (e,)}
-            rows.append(r)
-            print("  done %-30s %s" % (r["document"][:30],
-                  r.get("refused") or r.get("error", "")[:60] or
-                  "%s/%s pages" % (r.get("src_pages"), r.get("out_pages"))),
-                  flush=True)
+
+    rows = _run_all(jobs, a.jobs)
     rows.sort(key=lambda r: r["document"])
     prev = None
     if a.compare:
@@ -390,8 +490,17 @@ def main(argv=None):
     # time wall time (y13 product 147s in a sweep, 76s alone; WP20b,
     # docs/evidence/refine-speed-2026-10-05.json), and the beta bar's speed
     # criterion reads this field to say so.
+    # `reading` is the harness reading every word metric here was scored in
+    # (harness.reading(): HARNESS_READING and a hash of the reading code), so
+    # beta_readiness can refuse to compare two sweeps read differently
+    # (amendment 4 (a)). Imported only now: the workers are done, and the
+    # harness's LibreOffice profile is never touched by asking its reading.
+    import harness
+    import evidence
     payload = {"schema": SCHEMA, "gating": False, "adjudicated": False,
+               "provenance": evidence.provenance(reading=harness.reading()),
                "profile": prof.profile_id(), "corpus": a.corpus,
+               "reading": harness.reading(),
                "jobs": a.jobs,
                "elapsed_s": round(time.time() - t0, 1),
                "summary": summ, "documents": rows}

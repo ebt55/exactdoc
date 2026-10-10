@@ -1,0 +1,2597 @@
+{
+ "what": "WP38b: (1) refine stops on a stalled spill gaining < 2% of offsets (refine.STALL_MIN_GAIN); (2) where the layout model stops the seam plan, the first render judges the rest (docxout._replan_flows)",
+ "date": "2026-10-11",
+ "image": "exactdoc-gate:boot (Carlito)",
+ "trees": {
+  "wp38b": "wp39 881e630 + wp38 d528211 + integration e60213f",
+  "on_wp33": "the same + wp33 d879a12 (measurement only)"
+ },
+ "stall_rule": {
+  "traces": [
+   {
+    "doc": "01_whitepaper_market.pdf",
+    "stopped": "converged",
+    "published": 1,
+    "rounds": [
+     [
+      3,
+      0,
+      4.9,
+      0
+     ],
+     [
+      3,
+      0,
+      0.0,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "02_research_paper.pdf",
+    "stopped": "converged",
+    "published": 1,
+    "rounds": [
+     [
+      2,
+      0,
+      1.1,
+      0
+     ],
+     [
+      2,
+      0,
+      0.2,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "03_tech_report_code.pdf",
+    "stopped": "converged",
+    "published": 1,
+    "rounds": [
+     [
+      2,
+      0,
+      3.0,
+      0
+     ],
+     [
+      2,
+      0,
+      0.1,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "04_exec_brief.pdf",
+    "stopped": "converged",
+    "published": 1,
+    "rounds": [
+     [
+      2,
+      0,
+      4.4,
+      0
+     ],
+     [
+      2,
+      0,
+      0.0,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "05_memo.pdf",
+    "stopped": "converged",
+    "published": 1,
+    "rounds": [
+     [
+      1,
+      0,
+      19.5,
+      0
+     ],
+     [
+      1,
+      0,
+      0.0,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "c1_whitepaper.pdf",
+    "stopped": "nothing-to-correct",
+    "published": 0,
+    "rounds": [
+     [
+      2,
+      0,
+      2.3,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "c2_paper2col.pdf",
+    "stopped": "converged",
+    "published": 1,
+    "rounds": [
+     [
+      1,
+      0,
+      3.6,
+      0
+     ],
+     [
+      1,
+      0,
+      0.1,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "c3_tables.pdf",
+    "stopped": "nothing-to-correct",
+    "published": 1,
+    "rounds": [
+     [
+      3,
+      0,
+      1.8,
+      0
+     ],
+     [
+      3,
+      0,
+      1.3,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "c4_i18n.pdf",
+    "stopped": "converged",
+    "published": 0,
+    "rounds": [
+     [
+      1,
+      0,
+      0.5,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "c5_graphics.pdf",
+    "stopped": "converged",
+    "published": 0,
+    "rounds": [
+     [
+      1,
+      0,
+      0.1,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "c6_long.pdf",
+    "stopped": "converged",
+    "published": 1,
+    "rounds": [
+     [
+      7,
+      0,
+      6.6,
+      0
+     ],
+     [
+      7,
+      0,
+      0.4,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "c7_code.pdf",
+    "stopped": "converged",
+    "published": 1,
+    "rounds": [
+     [
+      1,
+      0,
+      1.6,
+      0
+     ],
+     [
+      1,
+      0,
+      0.0,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "c8_toc_links.pdf",
+    "stopped": "converged",
+    "published": 0,
+    "rounds": [
+     [
+      1,
+      0,
+      0.5,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "f1_fpdf_brief.pdf",
+    "stopped": "converged",
+    "published": 0,
+    "rounds": [
+     [
+      1,
+      0,
+      0.5,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "l1_word_native.pdf",
+    "stopped": "converged",
+    "published": 1,
+    "rounds": [
+     [
+      1,
+      0,
+      2.9,
+      0
+     ],
+     [
+      1,
+      0,
+      0.0,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "r1_reportlab_report.pdf",
+    "stopped": "converged",
+    "published": 0,
+    "rounds": [
+     [
+      1,
+      0,
+      0.2,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "x01_lo_memo_pageno.pdf",
+    "stopped": "converged",
+    "published": 0,
+    "rounds": [
+     [
+      3,
+      0,
+      0.3,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "x02_lo_report_toc.pdf",
+    "stopped": "converged",
+    "published": 1,
+    "rounds": [
+     [
+      4,
+      0,
+      2.3,
+      0
+     ],
+     [
+      4,
+      0,
+      0.5,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "x03_lo_lists_nested.pdf",
+    "stopped": "converged",
+    "published": 0,
+    "rounds": [
+     [
+      2,
+      0,
+      0.6,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "x04_lo_tables_plain.pdf",
+    "stopped": "converged",
+    "published": 1,
+    "rounds": [
+     [
+      1,
+      0,
+      2.6,
+      0
+     ],
+     [
+      1,
+      0,
+      0.1,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "x05_lo_quotes_notes.pdf",
+    "stopped": "converged",
+    "published": 0,
+    "rounds": [
+     [
+      1,
+      0,
+      0.0,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "x06_lo_euro_scripts.pdf",
+    "stopped": "converged",
+    "published": 0,
+    "rounds": [
+     [
+      1,
+      0,
+      0.0,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "x07_chrome_memo_running.pdf",
+    "stopped": "nothing-to-correct",
+    "published": 1,
+    "rounds": [
+     [
+      3,
+      0,
+      27.5,
+      0
+     ],
+     [
+      3,
+      0,
+      1.9,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "x08_chrome_print_default.pdf",
+    "stopped": "converged",
+    "published": 1,
+    "rounds": [
+     [
+      2,
+      0,
+      4.2,
+      0
+     ],
+     [
+      2,
+      0,
+      0.1,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "x09_chrome_lists_nested.pdf",
+    "stopped": "converged",
+    "published": 0,
+    "rounds": [
+     [
+      2,
+      0,
+      0.1,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "x10_chrome_tables_plain.pdf",
+    "stopped": "converged",
+    "published": 1,
+    "rounds": [
+     [
+      2,
+      0,
+      3.8,
+      0
+     ],
+     [
+      2,
+      0,
+      0.1,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "x11_chrome_toc_headings.pdf",
+    "stopped": "converged",
+    "published": 0,
+    "rounds": [
+     [
+      2,
+      0,
+      0.6,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "x12_chrome_euro_scripts.pdf",
+    "stopped": "converged",
+    "published": 0,
+    "rounds": [
+     [
+      1,
+      0,
+      0.5,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "x13_rl_report_running.pdf",
+    "stopped": "converged",
+    "published": 1,
+    "rounds": [
+     [
+      2,
+      0,
+      2.0,
+      0
+     ],
+     [
+      2,
+      0,
+      0.3,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "x14_rl_statement_lines.pdf",
+    "stopped": "converged",
+    "published": 1,
+    "rounds": [
+     [
+      1,
+      0,
+      2.2,
+      0
+     ],
+     [
+      1,
+      0,
+      0.0,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "x15_rl_handbook_toc.pdf",
+    "stopped": "converged",
+    "published": 1,
+    "rounds": [
+     [
+      3,
+      0,
+      3.4,
+      0
+     ],
+     [
+      3,
+      0,
+      0.0,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "x16_fpdf_bulletin.pdf",
+    "stopped": "converged",
+    "published": 1,
+    "rounds": [
+     [
+      1,
+      0,
+      2.0,
+      0
+     ],
+     [
+      1,
+      0,
+      0.0,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "x17_resume_twocol.pdf",
+    "stopped": "converged",
+    "published": 1,
+    "rounds": [
+     [
+      2,
+      0,
+      5.8,
+      0
+     ],
+     [
+      2,
+      0,
+      0.2,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "x18_resume_twocol_tnr.pdf",
+    "stopped": "converged",
+    "published": 1,
+    "rounds": [
+     [
+      2,
+      0,
+      5.8,
+      0
+     ],
+     [
+      2,
+      0,
+      0.2,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "y01_nist_sp80063b.pdf",
+    "stopped": "no-improvement",
+    "published": 1,
+    "rounds": [
+     [
+      80,
+      0,
+      211.5,
+      0
+     ],
+     [
+      80,
+      0,
+      17.9,
+      0
+     ],
+     [
+      80,
+      0,
+      17.9,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "y02_nist_sp800171r2.pdf",
+    "stopped": "no-improvement",
+    "published": 2,
+    "rounds": [
+     [
+      117,
+      3,
+      1044.1,
+      175.5
+     ],
+     [
+      114,
+      0,
+      429.1,
+      0
+     ],
+     [
+      114,
+      0,
+      165.0,
+      0
+     ],
+     [
+      114,
+      0,
+      165.0,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "y03_nist_fips197.pdf",
+    "stopped": "max-rounds",
+    "published": 3,
+    "rounds": [
+     [
+      51,
+      5,
+      622.0,
+      20.6
+     ],
+     [
+      47,
+      1,
+      160.2,
+      2.0
+     ],
+     [
+      46,
+      0,
+      168.6,
+      0
+     ],
+     [
+      46,
+      0,
+      17.5,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "y06_irs_1040_instructions.pdf",
+    "stopped": "max-rounds",
+    "published": 3,
+    "rounds": [
+     [
+      163,
+      46,
+      26336.2,
+      27339.0
+     ],
+     [
+      155,
+      39,
+      31956.6,
+      24832.1
+     ],
+     [
+      151,
+      35,
+      34066.4,
+      21337.2
+     ],
+     [
+      147,
+      34,
+      32734.5,
+      19957.4
+     ]
+    ]
+   },
+   {
+    "doc": "y07_irs_f1040_form.pdf",
+    "stopped": null,
+    "published": null,
+    "rounds": []
+   },
+   {
+    "doc": "y08_nist_sp80088r1.pdf",
+    "stopped": "no-improvement",
+    "published": 1,
+    "rounds": [
+     [
+      65,
+      0,
+      312.8,
+      0
+     ],
+     [
+      65,
+      0,
+      51.7,
+      0
+     ],
+     [
+      65,
+      0,
+      51.7,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "y09_nist_sp800207.pdf",
+    "stopped": "no-improvement",
+    "published": 2,
+    "rounds": [
+     [
+      59,
+      0,
+      211.2,
+      0
+     ],
+     [
+      59,
+      0,
+      74.0,
+      0
+     ],
+     [
+      59,
+      0,
+      40.3,
+      0
+     ],
+     [
+      59,
+      0,
+      40.3,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "y10_nist_fips180.pdf",
+    "stopped": "no-improvement",
+    "published": 0,
+    "rounds": [
+     [
+      36,
+      0,
+      265.2,
+      0
+     ],
+     [
+      37,
+      1,
+      7.3,
+      9.4
+     ]
+    ]
+   },
+   {
+    "doc": "y11_nist_sp80053r5_overcap.pdf",
+    "stopped": null,
+    "published": null,
+    "rounds": []
+   },
+   {
+    "doc": "y12_irs_pub15.pdf",
+    "stopped": "max-rounds",
+    "published": 3,
+    "rounds": [
+     [
+      66,
+      13,
+      7863.5,
+      6323.8
+     ],
+     [
+      62,
+      8,
+      14328.0,
+      4219.2
+     ],
+     [
+      60,
+      5,
+      15590.7,
+      3332.4
+     ],
+     [
+      60,
+      5,
+      15383.9,
+      3340.1
+     ]
+    ]
+   },
+   {
+    "doc": "y13_irs_pub501.pdf",
+    "stopped": "max-rounds",
+    "published": 3,
+    "rounds": [
+     [
+      58,
+      29,
+      4004.4,
+      16823.7
+     ],
+     [
+      52,
+      22,
+      3208.1,
+      12049.0
+     ],
+     [
+      51,
+      21,
+      3022.3,
+      10185.2
+     ],
+     [
+      49,
+      19,
+      3507.2,
+      9731.3
+     ]
+    ]
+   },
+   {
+    "doc": "y14_irs_fw9_form.pdf",
+    "stopped": null,
+    "published": null,
+    "rounds": []
+   },
+   {
+    "doc": "y17_rfc9110.pdf",
+    "stopped": "max-rounds",
+    "published": 3,
+    "rounds": [
+     [
+      194,
+      0,
+      2219.2,
+      0
+     ],
+     [
+      194,
+      0,
+      88.3,
+      0
+     ],
+     [
+      194,
+      0,
+      79.7,
+      0
+     ],
+     [
+      194,
+      0,
+      77.4,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "y18_eurlex_ai_act.pdf",
+    "stopped": "no-improvement",
+    "published": 2,
+    "rounds": [
+     [
+      156,
+      12,
+      887.5,
+      149.9
+     ],
+     [
+      145,
+      1,
+      795.3,
+      0
+     ],
+     [
+      144,
+      0,
+      773.7,
+      0
+     ],
+     [
+      161,
+      17,
+      460.2,
+      67.1
+     ]
+    ]
+   },
+   {
+    "doc": "y19_scotus_loper.pdf",
+    "stopped": "no-improvement",
+    "published": 1,
+    "rounds": [
+     [
+      114,
+      0,
+      387.7,
+      0
+     ],
+     [
+      114,
+      0,
+      208.4,
+      0
+     ],
+     [
+      114,
+      0,
+      208.4,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "y20_typst_report.pdf",
+    "stopped": "converged",
+    "published": 1,
+    "rounds": [
+     [
+      5,
+      0,
+      32.1,
+      0
+     ],
+     [
+      5,
+      0,
+      0.5,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "y21_worldbank_wdr24.pdf",
+    "stopped": "max-rounds",
+    "published": 2,
+    "rounds": [
+     [
+      60,
+      12,
+      1138.2,
+      1620.0
+     ],
+     [
+      52,
+      4,
+      1108.4,
+      302.7
+     ],
+     [
+      51,
+      3,
+      949.5,
+      144.9
+     ],
+     [
+      51,
+      3,
+      1005.8,
+      117.0
+     ]
+    ]
+   },
+   {
+    "doc": "y22_lshort.pdf",
+    "stopped": "max-rounds",
+    "published": 3,
+    "rounds": [
+     [
+      178,
+      25,
+      4104.9,
+      3892.4
+     ],
+     [
+      168,
+      15,
+      2830.0,
+      1258.6
+     ],
+     [
+      159,
+      6,
+      2898.9,
+      658.2
+     ],
+     [
+      157,
+      4,
+      2877.0,
+      577.7
+     ]
+    ]
+   },
+   {
+    "doc": "y23_luatex.pdf",
+    "stopped": null,
+    "published": null,
+    "rounds": []
+   },
+   {
+    "doc": "y24_pandoc_manual.pdf",
+    "stopped": "no-improvement",
+    "published": 2,
+    "rounds": [
+     [
+      180,
+      0,
+      1533.1,
+      0
+     ],
+     [
+      180,
+      0,
+      19.0,
+      0
+     ],
+     [
+      180,
+      0,
+      14.9,
+      0
+     ],
+     [
+      180,
+      0,
+      14.9,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "y25_texbytopic.pdf",
+    "stopped": null,
+    "published": null,
+    "rounds": []
+   },
+   {
+    "doc": "y26_bash_reference.pdf",
+    "stopped": "no-improvement",
+    "published": 2,
+    "rounds": [
+     [
+      214,
+      0,
+      2612.5,
+      0
+     ],
+     [
+      214,
+      0,
+      33.0,
+      0
+     ],
+     [
+      214,
+      0,
+      32.6,
+      0
+     ],
+     [
+      214,
+      0,
+      32.6,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "y27_rfc9000.pdf",
+    "stopped": "max-rounds",
+    "published": 3,
+    "rounds": [
+     [
+      151,
+      0,
+      2106.8,
+      0
+     ],
+     [
+      151,
+      0,
+      55.9,
+      0
+     ],
+     [
+      151,
+      0,
+      47.7,
+      0
+     ],
+     [
+      151,
+      0,
+      47.1,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "y28_doe_oig_word365.pdf",
+    "stopped": "nothing-to-correct",
+    "published": 1,
+    "rounds": [
+     [
+      21,
+      0,
+      39.1,
+      0
+     ],
+     [
+      21,
+      0,
+      2.9,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "y29_uk_letter_word365.pdf",
+    "stopped": "converged",
+    "published": 2,
+    "rounds": [
+     [
+      4,
+      0,
+      67.0,
+      0
+     ],
+     [
+      4,
+      0,
+      14.1,
+      0
+     ],
+     [
+      4,
+      0,
+      0.3,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "y30_nz_guideline_word365.pdf",
+    "stopped": "max-rounds",
+    "published": 3,
+    "rounds": [
+     [
+      33,
+      0,
+      182.7,
+      0
+     ],
+     [
+      33,
+      0,
+      5.9,
+      0
+     ],
+     [
+      33,
+      0,
+      4.7,
+      0
+     ],
+     [
+      33,
+      0,
+      4.6,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "y31_uk_policy_printtopdf.pdf",
+    "stopped": "converged",
+    "published": 1,
+    "rounds": [
+     [
+      18,
+      0,
+      334.8,
+      0
+     ],
+     [
+      18,
+      0,
+      0.9,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "y32_uk_response_gdocs.pdf",
+    "stopped": "no-improvement",
+    "published": 1,
+    "rounds": [
+     [
+      37,
+      0,
+      139.9,
+      0
+     ],
+     [
+      37,
+      0,
+      26.3,
+      0
+     ],
+     [
+      37,
+      0,
+      26.3,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "y33_nz_paper_powerpdf.pdf",
+    "stopped": "no-improvement",
+    "published": 2,
+    "rounds": [
+     [
+      60,
+      0,
+      106.5,
+      0
+     ],
+     [
+      60,
+      0,
+      20.7,
+      0
+     ],
+     [
+      60,
+      0,
+      9.5,
+      0
+     ],
+     [
+      60,
+      0,
+      23.3,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "y34_census_slides_pptx365.pdf",
+    "stopped": "no-improvement",
+    "published": 1,
+    "rounds": [
+     [
+      40,
+      0,
+      20.5,
+      0
+     ],
+     [
+      40,
+      0,
+      18.0,
+      0
+     ],
+     [
+      40,
+      0,
+      18.0,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "y35_uk_rates_excel365.pdf",
+    "stopped": "converged",
+    "published": 1,
+    "rounds": [
+     [
+      14,
+      0,
+      188.2,
+      0
+     ],
+     [
+      14,
+      0,
+      0.4,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "y36_lo_writer_guide.pdf",
+    "stopped": "nothing-to-correct",
+    "published": 1,
+    "rounds": [
+     [
+      25,
+      0,
+      146.3,
+      0
+     ],
+     [
+      25,
+      0,
+      2.1,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "y37_plos_one_dvipdfmx.pdf",
+    "stopped": "max-rounds",
+    "published": 3,
+    "rounds": [
+     [
+      34,
+      12,
+      659.7,
+      3655.7
+     ],
+     [
+      28,
+      6,
+      728.6,
+      2106.7
+     ],
+     [
+      27,
+      5,
+      390.6,
+      1542.2
+     ],
+     [
+      27,
+      5,
+      299.6,
+      1217.0
+     ]
+    ]
+   },
+   {
+    "doc": "y38_elife_arbortext_gs.pdf",
+    "stopped": "max-rounds",
+    "published": 3,
+    "rounds": [
+     [
+      53,
+      20,
+      1693.2,
+      5318.4
+     ],
+     [
+      50,
+      17,
+      1889.1,
+      2998.3
+     ],
+     [
+      50,
+      17,
+      1780.0,
+      4145.5
+     ],
+     [
+      49,
+      16,
+      1761.2,
+      3952.4
+     ]
+    ]
+   },
+   {
+    "doc": "y39_copernicus_npg_2col.pdf",
+    "stopped": "max-rounds",
+    "published": 3,
+    "rounds": [
+     [
+      16,
+      5,
+      106.1,
+      1284.1
+     ],
+     [
+      11,
+      0,
+      57.8,
+      0
+     ],
+     [
+      11,
+      0,
+      5.0,
+      0
+     ],
+     [
+      11,
+      0,
+      4.6,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "y40_frontiers_dvips_gs.pdf",
+    "stopped": "max-rounds",
+    "published": 3,
+    "rounds": [
+     [
+      18,
+      8,
+      272.6,
+      1163.0
+     ],
+     [
+      13,
+      3,
+      248.2,
+      327.4
+     ],
+     [
+      10,
+      0,
+      292.0,
+      0
+     ],
+     [
+      10,
+      0,
+      11.6,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "y41_arxiv_ieeetran.pdf",
+    "stopped": "max-rounds",
+    "published": 2,
+    "rounds": [
+     [
+      11,
+      3,
+      221.5,
+      828.2
+     ],
+     [
+      10,
+      2,
+      181.3,
+      72.6
+     ],
+     [
+      9,
+      1,
+      193.3,
+      49.5
+     ],
+     [
+      9,
+      1,
+      193.3,
+      49.5
+     ]
+    ]
+   },
+   {
+    "doc": "y42_arxiv_acmart.pdf",
+    "stopped": "max-rounds",
+    "published": 3,
+    "rounds": [
+     [
+      8,
+      3,
+      81.6,
+      1481.4
+     ],
+     [
+      7,
+      2,
+      36.1,
+      426.4
+     ],
+     [
+      7,
+      2,
+      37.5,
+      769.6
+     ],
+     [
+      6,
+      1,
+      35.3,
+      361.2
+     ]
+    ]
+   },
+   {
+    "doc": "y43_arxiv_neurips.pdf",
+    "stopped": "max-rounds",
+    "published": 3,
+    "rounds": [
+     [
+      19,
+      4,
+      153.5,
+      1085.2
+     ],
+     [
+      17,
+      2,
+      287.6,
+      298.2
+     ],
+     [
+      16,
+      1,
+      250.0,
+      2.0
+     ],
+     [
+      15,
+      0,
+      232.8,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "y44_cv_rendercv_typst.pdf",
+    "stopped": "converged",
+    "published": 1,
+    "rounds": [
+     [
+      3,
+      0,
+      67.9,
+      0
+     ],
+     [
+      3,
+      0,
+      0.1,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "y45_cv_academic_pdftex.pdf",
+    "stopped": "converged",
+    "published": 2,
+    "rounds": [
+     [
+      3,
+      0,
+      16.5,
+      0
+     ],
+     [
+      3,
+      0,
+      2.9,
+      0
+     ],
+     [
+      3,
+      0,
+      0.8,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "y46_cv_twocol_xdvipdfmx.pdf",
+    "stopped": "converged",
+    "published": 1,
+    "rounds": [
+     [
+      1,
+      0,
+      2.8,
+      0
+     ],
+     [
+      1,
+      0,
+      0.3,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "y47_ar_ilo_word365.pdf",
+    "stopped": "max-rounds",
+    "published": 3,
+    "rounds": [
+     [
+      86,
+      29,
+      2568.1,
+      4666.7
+     ],
+     [
+      69,
+      12,
+      1563.4,
+      3443.7
+     ],
+     [
+      65,
+      8,
+      1365.5,
+      2363.6
+     ],
+     [
+      65,
+      8,
+      1324.5,
+      2209.2
+     ]
+    ]
+   },
+   {
+    "doc": "y48_ar_weasyprint.pdf",
+    "stopped": "max-rounds",
+    "published": 3,
+    "rounds": [
+     [
+      10,
+      3,
+      295.8,
+      4.0
+     ],
+     [
+      10,
+      3,
+      268.7,
+      4.0
+     ],
+     [
+      9,
+      2,
+      261.4,
+      2.0
+     ],
+     [
+      9,
+      2,
+      258.1,
+      2.0
+     ]
+    ]
+   },
+   {
+    "doc": "y49_he_word2016.pdf",
+    "stopped": "max-rounds",
+    "published": 3,
+    "rounds": [
+     [
+      54,
+      26,
+      739.6,
+      1040.7
+     ],
+     [
+      29,
+      1,
+      385.4,
+      35.7
+     ],
+     [
+      29,
+      1,
+      283.0,
+      35.7
+     ],
+     [
+      29,
+      1,
+      271.3,
+      35.7
+     ]
+    ]
+   },
+   {
+    "doc": "y50_fa_word2016.pdf",
+    "stopped": "max-rounds",
+    "published": 3,
+    "rounds": [
+     [
+      19,
+      4,
+      298.6,
+      134.6
+     ],
+     [
+      16,
+      1,
+      279.2,
+      12.6
+     ],
+     [
+      15,
+      0,
+      234.1,
+      0
+     ],
+     [
+      15,
+      0,
+      150.5,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "y51_ja_justpdf.pdf",
+    "stopped": "no-improvement",
+    "published": 1,
+    "rounds": [
+     [
+      12,
+      0,
+      67.2,
+      0
+     ],
+     [
+      12,
+      0,
+      4.3,
+      0
+     ],
+     [
+      12,
+      0,
+      4.3,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "y52_zh_tw_word365.pdf",
+    "stopped": "max-rounds",
+    "published": 3,
+    "rounds": [
+     [
+      62,
+      11,
+      1007.8,
+      205.0
+     ],
+     [
+      52,
+      1,
+      858.0,
+      23.3
+     ],
+     [
+      52,
+      1,
+      810.0,
+      19.7
+     ],
+     [
+      52,
+      1,
+      806.6,
+      19.7
+     ]
+    ]
+   },
+   {
+    "doc": "y53_ko_word2016.pdf",
+    "stopped": "max-rounds",
+    "published": 1,
+    "rounds": [
+     [
+      32,
+      4,
+      629.5,
+      432.4
+     ],
+     [
+      31,
+      3,
+      496.1,
+      159.7
+     ],
+     [
+      31,
+      3,
+      535.0,
+      107.9
+     ],
+     [
+      31,
+      3,
+      510.9,
+      85.5
+     ]
+    ]
+   },
+   {
+    "doc": "y54_hi_gdocs.pdf",
+    "stopped": "converged",
+    "published": 1,
+    "rounds": [
+     [
+      4,
+      0,
+      38.0,
+      0
+     ],
+     [
+      4,
+      0,
+      0.1,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "y55_th_pages_quartz.pdf",
+    "stopped": "converged",
+    "published": 1,
+    "rounds": [
+     [
+      3,
+      0,
+      52.7,
+      0
+     ],
+     [
+      3,
+      0,
+      0.1,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "y56_scan_usda1921_lura.pdf",
+    "stopped": "max-rounds",
+    "published": 3,
+    "rounds": [
+     [
+      14,
+      4,
+      221.8,
+      2.0
+     ],
+     [
+      13,
+      3,
+      106.3,
+      2.0
+     ],
+     [
+      12,
+      2,
+      120.8,
+      2.0
+     ],
+     [
+      12,
+      2,
+      119.0,
+      2.0
+     ]
+    ]
+   },
+   {
+    "doc": "y57_scan_usda1950_ia.pdf",
+    "stopped": "max-rounds",
+    "published": 3,
+    "rounds": [
+     [
+      26,
+      10,
+      937.8,
+      178.7
+     ],
+     [
+      23,
+      7,
+      990.5,
+      83.3
+     ],
+     [
+      22,
+      6,
+      944.7,
+      77.4
+     ],
+     [
+      22,
+      6,
+      933.5,
+      77.4
+     ]
+    ]
+   },
+   {
+    "doc": "y58_ssa_statement_indd20.pdf",
+    "stopped": "no-improvement",
+    "published": 2,
+    "rounds": [
+     [
+      3,
+      1,
+      35.8,
+      18.9
+     ],
+     [
+      2,
+      0,
+      23.7,
+      0
+     ],
+     [
+      2,
+      0,
+      2.3,
+      0
+     ],
+     [
+      2,
+      0,
+      2.3,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "y59_cms_notice_inddcs4.pdf",
+    "stopped": "max-rounds",
+    "published": 2,
+    "rounds": [
+     [
+      18,
+      12,
+      105.4,
+      4711.8
+     ],
+     [
+      17,
+      11,
+      147.4,
+      3730.4
+     ],
+     [
+      17,
+      11,
+      139.0,
+      3638.4
+     ],
+     [
+      17,
+      11,
+      148.5,
+      3594.1
+     ]
+    ]
+   },
+   {
+    "doc": "y60_cdc_mmwr_indd19.pdf",
+    "stopped": "max-rounds",
+    "published": 3,
+    "rounds": [
+     [
+      34,
+      11,
+      2691.7,
+      4877.9
+     ],
+     [
+      33,
+      10,
+      2366.7,
+      4138.0
+     ],
+     [
+      33,
+      10,
+      2180.4,
+      3666.5
+     ],
+     [
+      32,
+      9,
+      2655.5,
+      3559.9
+     ]
+    ]
+   },
+   {
+    "doc": "y61_fedreg_gpo_3col.pdf",
+    "stopped": "max-rounds",
+    "published": 1,
+    "rounds": [
+     [
+      7,
+      3,
+      525.8,
+      2130.7
+     ],
+     [
+      6,
+      2,
+      312.5,
+      1415.2
+     ],
+     [
+      6,
+      2,
+      366.6,
+      1419.1
+     ],
+     [
+      6,
+      2,
+      758.9,
+      1414.5
+     ]
+    ]
+   },
+   {
+    "doc": "y62_bill_gpo_linenum.pdf",
+    "stopped": "nothing-to-correct",
+    "published": 2,
+    "rounds": [
+     [
+      20,
+      0,
+      203.7,
+      0
+     ],
+     [
+      20,
+      0,
+      21.5,
+      0
+     ],
+     [
+      20,
+      0,
+      21.1,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "y63_court_pleading_word365.pdf",
+    "stopped": "no-improvement",
+    "published": 1,
+    "rounds": [
+     [
+      5,
+      0,
+      23.5,
+      0
+     ],
+     [
+      5,
+      0,
+      10.2,
+      0
+     ],
+     [
+      5,
+      0,
+      10.2,
+      0
+     ]
+    ]
+   },
+   {
+    "doc": "y64_bls_release_xpp.pdf",
+    "stopped": "max-rounds",
+    "published": 2,
+    "rounds": [
+     [
+      44,
+      5,
+      1375.9,
+      211.2
+     ],
+     [
+      40,
+      1,
+      967.5,
+      114.3
+     ],
+     [
+      40,
+      1,
+      922.7,
+      88.7
+     ],
+     [
+      40,
+      1,
+      925.8,
+      562.8
+     ]
+    ]
+   },
+   {
+    "doc": "y65_nrc_jasperreports.pdf",
+    "stopped": "converged",
+    "published": 1,
+    "rounds": [
+     [
+      3,
+      0,
+      25.5,
+      0
+     ],
+     [
+      3,
+      0,
+      0.3,
+      0
+     ]
+    ]
+   }
+  ],
+  "stalled_best_round_gains_pct": {
+   "y41": 0.0,
+   "y52": 0.4,
+   "y57": 1.2,
+   "y48": 1.3,
+   "y12": 1.3,
+   "y56": 1.5,
+   "y47": 3.0,
+   "y49": 4.1,
+   "y53": 4.5,
+   "y64": 4.6
+  },
+  "closings_after_a_stall": "y42 after a no-better round; y48 after a 9% gain",
+  "product_word_xml_with_vs_without_on_wp38b": "90/90 identical (every small-gain stall in the traces was already the last round)",
+  "serial_on_wp33": {
+   "y21": "76.7s, 4 renders -> 55.3s, 3 renders (limit 72s)",
+   "note": "serial timings ran beside other containers, not on a quiet machine"
+  },
+  "serial_slowest_on_wp33_with_rule": {
+   "y21_worldbank_wdr24.pdf": {
+    "src_pages": 48,
+    "convert_s": 55.34,
+    "renders": 3
+   },
+   "y06_irs_1040_instructions.pdf": {
+    "src_pages": 126,
+    "convert_s": 426.88,
+    "renders": 4
+   },
+   "y26_bash_reference.pdf": {
+    "src_pages": 214,
+    "convert_s": 145.14,
+    "renders": 4
+   },
+   "y18_eurlex_ai_act.pdf": {
+    "src_pages": 144,
+    "convert_s": 171.65,
+    "renders": 4
+   },
+   "y24_pandoc_manual.pdf": {
+    "src_pages": 180,
+    "convert_s": 129.89,
+    "renders": 4
+   },
+   "y27_rfc9000.pdf": {
+    "src_pages": 151,
+    "convert_s": 98.42,
+    "renders": 4
+   },
+   "y17_rfc9110.pdf": {
+    "src_pages": 194,
+    "convert_s": 93.94,
+    "renders": 4
+   },
+   "y13_irs_pub501.pdf": {
+    "src_pages": 31,
+    "convert_s": 41.6,
+    "renders": 4
+   },
+   "y64_bls_release_xpp.pdf": {
+    "src_pages": 39,
+    "convert_s": 50.88,
+    "renders": 4
+   },
+   "y01_nist_sp80063b.pdf": {
+    "src_pages": 80,
+    "convert_s": 45.03,
+    "renders": 3
+   },
+   "y47_ar_ilo_word365.pdf": {
+    "src_pages": 57,
+    "convert_s": 72.05,
+    "renders": 4
+   },
+   "y12_irs_pub15.pdf": {
+    "src_pages": 59,
+    "convert_s": 53.13,
+    "renders": 4
+   }
+  }
+ },
+ "probe": {
+  "on_wp33_libreoffice_product": {
+   "y12_irs_pub15.pdf": {
+    "model_plan": {
+     "src_pages": 59,
+     "out_pages": 59,
+     "word_recall": 0.6821,
+     "within2pt": 0.0496,
+     "dy_p50": 39.19,
+     "convert_s": 191.2
+    },
+    "probe": {
+     "src_pages": 59,
+     "out_pages": 59,
+     "word_recall": 0.6821,
+     "within2pt": 0.0496,
+     "dy_p50": 39.19,
+     "convert_s": 83.3
+    }
+   },
+   "y21_worldbank_wdr24.pdf": {
+    "model_plan": {
+     "src_pages": 48,
+     "out_pages": 49,
+     "word_recall": 0.8821,
+     "within2pt": 0.0395,
+     "dy_p50": 15.81,
+     "convert_s": 100.7
+    },
+    "probe": {
+     "src_pages": 48,
+     "out_pages": 49,
+     "word_recall": 0.8821,
+     "within2pt": 0.0395,
+     "dy_p50": 15.81,
+     "convert_s": 25.4
+    }
+   },
+   "y37_plos_one_dvipdfmx.pdf": {
+    "model_plan": {
+     "src_pages": 22,
+     "out_pages": 26,
+     "word_recall": 0.3917,
+     "within2pt": 0.0005,
+     "dy_p50": 31.6,
+     "convert_s": 84.6
+    },
+    "probe": {
+     "src_pages": 22,
+     "out_pages": 23,
+     "word_recall": 0.4642,
+     "within2pt": 0.0008,
+     "dy_p50": 34.24,
+     "convert_s": 24.3
+    }
+   },
+   "y60_cdc_mmwr_indd19.pdf": {
+    "model_plan": {
+     "src_pages": 24,
+     "out_pages": 32,
+     "word_recall": 0.3283,
+     "within2pt": 0.0168,
+     "dy_p50": 67.49,
+     "convert_s": 82.7
+    },
+    "probe": {
+     "src_pages": 24,
+     "out_pages": 32,
+     "word_recall": 0.3283,
+     "within2pt": 0.0168,
+     "dy_p50": 67.49,
+     "convert_s": 40.7
+    }
+   },
+   "y61_fedreg_gpo_3col.pdf": {
+    "model_plan": {
+     "src_pages": 4,
+     "out_pages": 5,
+     "word_recall": 0.5794,
+     "within2pt": 0.0027,
+     "dy_p50": 43.93,
+     "convert_s": 39.8
+    },
+    "probe": {
+     "src_pages": 4,
+     "out_pages": 5,
+     "word_recall": 0.5822,
+     "within2pt": 0.0015,
+     "dy_p50": 37.45,
+     "convert_s": 15.1
+    }
+   },
+   "y64_bls_release_xpp.pdf": {
+    "model_plan": {
+     "src_pages": 39,
+     "out_pages": 39,
+     "word_recall": 0.984,
+     "within2pt": 0.1225,
+     "dy_p50": 11.12,
+     "convert_s": 112.6
+    },
+    "probe": {
+     "src_pages": 39,
+     "out_pages": 39,
+     "word_recall": 0.984,
+     "within2pt": 0.1225,
+     "dy_p50": 11.12,
+     "convert_s": 45.5
+    }
+   },
+   "y26_bash_reference.pdf": {
+    "model_plan": {
+     "src_pages": 214,
+     "out_pages": 214,
+     "word_recall": 0.9913,
+     "within2pt": 0.0801,
+     "dy_p50": 1.92,
+     "convert_s": 328.6
+    },
+    "probe": {
+     "src_pages": 214,
+     "out_pages": 214,
+     "word_recall": 0.9913,
+     "within2pt": 0.0801,
+     "dy_p50": 1.92,
+     "convert_s": 136.0
+    }
+   },
+   "y39_copernicus_npg_2col.pdf": {
+    "model_plan": {
+     "src_pages": 11,
+     "out_pages": 11,
+     "word_recall": 0.9141,
+     "within2pt": 0.0519,
+     "dy_p50": 9.96,
+     "convert_s": 61.4
+    },
+    "probe": {
+     "src_pages": 11,
+     "out_pages": 11,
+     "word_recall": 0.9141,
+     "within2pt": 0.0519,
+     "dy_p50": 9.96,
+     "convert_s": 26.5
+    }
+   },
+   "y40_frontiers_dvips_gs.pdf": {
+    "model_plan": {
+     "src_pages": 10,
+     "out_pages": 10,
+     "word_recall": 0.9259,
+     "within2pt": 0.0667,
+     "dy_p50": 12.36,
+     "convert_s": 72.9
+    },
+    "probe": {
+     "src_pages": 10,
+     "out_pages": 10,
+     "word_recall": 0.9259,
+     "within2pt": 0.0667,
+     "dy_p50": 12.36,
+     "convert_s": 33.6
+    }
+   },
+   "y41_arxiv_ieeetran.pdf": {
+    "model_plan": {
+     "src_pages": 8,
+     "out_pages": 9,
+     "word_recall": 0.6989,
+     "within2pt": 0.0349,
+     "dy_p50": 10.51,
+     "convert_s": 46.4
+    },
+    "probe": {
+     "src_pages": 8,
+     "out_pages": 9,
+     "word_recall": 0.6989,
+     "within2pt": 0.0349,
+     "dy_p50": 10.51,
+     "convert_s": 31.7
+    }
+   },
+   "y42_arxiv_acmart.pdf": {
+    "model_plan": {
+     "src_pages": 5,
+     "out_pages": 6,
+     "word_recall": 0.3602,
+     "within2pt": 0.0,
+     "dy_p50": 36.42,
+     "convert_s": 36.7
+    },
+    "probe": {
+     "src_pages": 5,
+     "out_pages": 6,
+     "word_recall": 0.3602,
+     "within2pt": 0.0,
+     "dy_p50": 36.42,
+     "convert_s": 16.2
+    }
+   }
+  },
+  "on_wp33_word_product": {
+   "y21_worldbank_wdr24.pdf": {
+    "model_plan": {
+     "src_pages": 48,
+     "out_pages": 49,
+     "word_recall": 0.8556,
+     "within2pt": 0.0218,
+     "dy_p50": 24.33,
+     "convert_s": null
+    },
+    "probe": {
+     "src_pages": 48,
+     "out_pages": 49,
+     "word_recall": 0.8556,
+     "within2pt": 0.0218,
+     "dy_p50": 24.33,
+     "convert_s": null
+    }
+   },
+   "y37_plos_one_dvipdfmx.pdf": {
+    "model_plan": {
+     "src_pages": 22,
+     "out_pages": 26,
+     "word_recall": 0.3921,
+     "within2pt": 0.0007,
+     "dy_p50": 30.43,
+     "convert_s": null
+    },
+    "probe": {
+     "src_pages": 22,
+     "out_pages": 25,
+     "word_recall": 0.396,
+     "within2pt": 0.0007,
+     "dy_p50": 35.68,
+     "convert_s": null
+    }
+   },
+   "y61_fedreg_gpo_3col.pdf": {
+    "model_plan": {
+     "src_pages": 4,
+     "out_pages": 7,
+     "word_recall": 0.4026,
+     "within2pt": 0.0044,
+     "dy_p50": 39.11,
+     "convert_s": null
+    },
+    "probe": {
+     "src_pages": 4,
+     "out_pages": 5,
+     "word_recall": 0.584,
+     "within2pt": 0.0026,
+     "dy_p50": 40.17,
+     "convert_s": null
+    }
+   }
+  },
+  "on_wp33_word_xml": "9/11 identical; y37 and y61 differ",
+  "without_wp33_libreoffice_product": {
+   "y12_irs_pub15.pdf": {
+    "model_plan": {
+     "src_pages": 59,
+     "out_pages": 60,
+     "word_recall": 0.5138,
+     "within2pt": 0.0067,
+     "dy_p50": 58.04,
+     "convert_s": 110.0
+    },
+    "probe": {
+     "src_pages": 59,
+     "out_pages": 60,
+     "word_recall": 0.5138,
+     "within2pt": 0.0067,
+     "dy_p50": 58.04,
+     "convert_s": 70.5
+    }
+   },
+   "y37_plos_one_dvipdfmx.pdf": {
+    "model_plan": {
+     "src_pages": 22,
+     "out_pages": 27,
+     "word_recall": 0.3268,
+     "within2pt": 0.002,
+     "dy_p50": 27.65,
+     "convert_s": 74.1
+    },
+    "probe": {
+     "src_pages": 22,
+     "out_pages": 24,
+     "word_recall": 0.39,
+     "within2pt": 0.0019,
+     "dy_p50": 32.14,
+     "convert_s": 38.5
+    }
+   },
+   "y60_cdc_mmwr_indd19.pdf": {
+    "model_plan": {
+     "src_pages": 24,
+     "out_pages": 32,
+     "word_recall": 0.3282,
+     "within2pt": 0.0168,
+     "dy_p50": 67.49,
+     "convert_s": 89.0
+    },
+    "probe": {
+     "src_pages": 24,
+     "out_pages": 32,
+     "word_recall": 0.3282,
+     "within2pt": 0.0168,
+     "dy_p50": 67.49,
+     "convert_s": 39.8
+    }
+   },
+   "y61_fedreg_gpo_3col.pdf": {
+    "model_plan": {
+     "src_pages": 4,
+     "out_pages": 6,
+     "word_recall": 0.4512,
+     "within2pt": 0.0,
+     "dy_p50": 40.53,
+     "convert_s": 34.2
+    },
+    "probe": {
+     "src_pages": 4,
+     "out_pages": 8,
+     "word_recall": 0.347,
+     "within2pt": 0.0019,
+     "dy_p50": 22.39,
+     "convert_s": 13.1
+    }
+   }
+  },
+  "without_wp33_product_word_xml": "88/90 identical; y37 and y61 differ",
+  "raw_and_gdocs_word_xml": "95/95 identical (wp38b before (1) vs after (2))",
+  "serial_on_wp33": {
+   "y12_irs_pub15.pdf": {
+    "src_pages": 59,
+    "convert_s": 92.81,
+    "renders": 5
+   },
+   "y61_fedreg_gpo_3col.pdf": {
+    "src_pages": 4,
+    "convert_s": 18.05,
+    "renders": 4
+   },
+   "y37_plos_one_dvipdfmx.pdf": {
+    "src_pages": 22,
+    "convert_s": 34.71,
+    "renders": 5
+   },
+   "y21_worldbank_wdr24.pdf": {
+    "src_pages": 48,
+    "convert_s": 35.33,
+    "renders": 3
+   }
+  },
+  "first_attempt_every_page_from_the_probe": {
+   "y39": "0.914 -> 0.841",
+   "y21": "49 -> 50 pages",
+   "y12": "59 -> 60 pages, 0.682 -> 0.508 (reopened)"
+  }
+ }
+}

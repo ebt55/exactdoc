@@ -5,60 +5,60 @@
    "aggregate": {
     "gate_pass_count": 13,
     "mean_live_text": 0.9784,
-    "mean_within2pt": 0.6427,
-    "median_dy_p50": 0.525,
+    "mean_within2pt": 0.8142,
+    "median_dy_p50": 0.3,
     "n": 16,
     "page_match_count": 16
    },
    "documents": {
     "01_whitepaper_market.pdf": {
-     "doc_recall": 0.9677,
-     "dy_p50": 1.38,
+     "doc_recall": 0.9652,
+     "dy_p50": 0.0,
      "live_text_cov": 0.9595,
      "page_err": 0,
      "raster_frac": 0.0405,
-     "within2pt": 0.6944,
-     "word_recall": 0.9677
+     "within2pt": 0.8128,
+     "word_recall": 0.9652
     },
     "02_research_paper.pdf": {
-     "doc_recall": 0.9586,
-     "dy_p50": 1.29,
+     "doc_recall": 0.9557,
+     "dy_p50": 0.25,
      "live_text_cov": 0.9736,
      "page_err": 0,
      "raster_frac": 0.0264,
-     "within2pt": 0.6168,
-     "word_recall": 0.9586
+     "within2pt": 0.922,
+     "word_recall": 0.9557
     },
     "03_tech_report_code.pdf": {
      "doc_recall": 1.0,
-     "dy_p50": 1.58,
+     "dy_p50": 0.3,
      "live_text_cov": 0.9827,
      "page_err": 0,
      "raster_frac": 0.0173,
-     "within2pt": 0.3426,
+     "within2pt": 0.8116,
      "word_recall": 1.0
     },
     "04_exec_brief.pdf": {
-     "doc_recall": 0.9337,
-     "dy_p50": 1.39,
+     "doc_recall": 0.9239,
+     "dy_p50": 0.3,
      "live_text_cov": 0.9406,
      "page_err": 0,
      "raster_frac": 0.0594,
-     "within2pt": 0.4793,
-     "word_recall": 0.9337
+     "within2pt": 0.6941,
+     "word_recall": 0.9239
     },
     "05_memo.pdf": {
      "doc_recall": 1.0,
-     "dy_p50": 1.39,
+     "dy_p50": 0.55,
      "live_text_cov": 1.0,
      "page_err": 0,
      "raster_frac": 0.0,
-     "within2pt": 0.6386,
+     "within2pt": 0.8795,
      "word_recall": 1.0
     },
     "c1_whitepaper.pdf": {
      "doc_recall": 1.0,
-     "dy_p50": 0.44,
+     "dy_p50": 0.3,
      "live_text_cov": 0.9942,
      "page_err": 0,
      "raster_frac": 0.0058,
@@ -71,7 +71,7 @@
      "live_text_cov": 1.0,
      "page_err": 0,
      "raster_frac": 0.0,
-     "within2pt": 0.574,
+     "within2pt": 0.5747,
      "word_recall": 1.0
     },
     "c3_tables.pdf": {
@@ -80,17 +80,17 @@
      "live_text_cov": 0.9981,
      "page_err": 0,
      "raster_frac": 0.0019,
-     "within2pt": 0.0,
+     "within2pt": 0.7945,
      "word_recall": 1.0
     },
     "c4_i18n.pdf": {
-     "doc_recall": 0.9874,
+     "doc_recall": 0.9959,
      "dy_p50": 0.15,
      "live_text_cov": 0.9008,
      "page_err": 0,
      "raster_frac": 0.0992,
-     "within2pt": 0.8723,
-     "word_recall": 0.9874
+     "within2pt": 0.8724,
+     "word_recall": 0.9959
     },
     "c5_graphics.pdf": {
      "doc_recall": 0.8778,
@@ -116,7 +116,7 @@
      "live_text_cov": 1.0,
      "page_err": 0,
      "raster_frac": 0.0,
-     "within2pt": 0.9886,
+     "within2pt": 0.9919,
      "word_recall": 1.0
     },
     "c8_toc_links.pdf": {
@@ -130,29 +130,29 @@
     },
     "f1_fpdf_brief.pdf": {
      "doc_recall": 1.0,
-     "dy_p50": 1.2,
+     "dy_p50": 0.5,
      "live_text_cov": 1.0,
      "page_err": 0,
      "raster_frac": 0.0,
-     "within2pt": 0.6048,
+     "within2pt": 1.0,
      "word_recall": 1.0
     },
     "l1_word_native.pdf": {
      "doc_recall": 0.9792,
-     "dy_p50": 0.01,
+     "dy_p50": 0.0,
      "live_text_cov": 0.9883,
      "page_err": 0,
      "raster_frac": 0.0117,
-     "within2pt": 0.1702,
+     "within2pt": 0.2482,
      "word_recall": 0.9792
     },
     "r1_reportlab_report.pdf": {
      "doc_recall": 1.0,
-     "dy_p50": 1.1,
+     "dy_p50": 0.6,
      "live_text_cov": 1.0,
      "page_err": 0,
      "raster_frac": 0.0,
-     "within2pt": 0.4767,
+     "within2pt": 0.6,
      "word_recall": 1.0
     }
    },
@@ -171,11 +171,43 @@
      "python-docx": "1.2.0",
      "reportlab": "5.0.0"
     },
-    "fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "fingerprint": "9cb0bc17cbf88970c790ce9cfb6577e5c016c45a370642d093fa86209b0d41ec",
     "font_files": {
-     "count": 35,
-     "digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+     "count": 43,
+     "digest": "12c91205b834c6e37b8216f7ab08315bf423658be1c73f96712ed1f7389c8a5a",
      "files": [
+      {
+       "file": "Caladea-Bold.ttf",
+       "sha256": "74eda4fc5ffba0d8dc4aa76d41499f5ab76168d9ed6141c6417064c6244db9b6"
+      },
+      {
+       "file": "Caladea-BoldItalic.ttf",
+       "sha256": "f47a35ad6cd0efa9914d93f9d03c93e30c55da43674bccfabac73b3c0d522c01"
+      },
+      {
+       "file": "Caladea-Italic.ttf",
+       "sha256": "9c968bf60ba1e851cdfea77c71e3540c57792f77482dd241acc29d1425569c4e"
+      },
+      {
+       "file": "Caladea-Regular.ttf",
+       "sha256": "d2f6cad33f191e65b68bd74e6d4f7708080a41b32db635866109df3090265d91"
+      },
+      {
+       "file": "Carlito-Bold.ttf",
+       "sha256": "0f62ab34ad5d079a0a28fac01bcf7c7a724a4db4d6cb99cab9cabff382fbb80f"
+      },
+      {
+       "file": "Carlito-BoldItalic.ttf",
+       "sha256": "380764b6898d7b73ceae6384b2958b196d2a0428962ef3adf138d27947228666"
+      },
+      {
+       "file": "Carlito-Italic.ttf",
+       "sha256": "718a0663864d37a4868220a19b9668a5fe10a46197f6df367b4c2c30c04c026c"
+      },
+      {
+       "file": "Carlito-Regular.ttf",
+       "sha256": "b4ff23ba370cc95a3c349336b73f9c28514a1371210f89832efc85c4b1ea7131"
+      },
       {
        "file": "DejaVuSans-Bold.ttf",
        "sha256": "5c1247acef7f2b8522a31742c76d6adcb5569bacc0be7ceaa4dc39dd252ce895"
@@ -322,9 +354,9 @@
     "fonts_conf": {
      "active_is_repo_conf": true,
      "active_path": "/work/scripts/fonts.conf",
-     "active_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+     "active_sha256": "bbeb510b4812d8838847323187521162655435982c6ec1a5438ada1a7b7e501e",
      "repo_path": "/work/scripts/fonts.conf",
-     "repo_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528"
+     "repo_sha256": "bbeb510b4812d8838847323187521162655435982c6ec1a5438ada1a7b7e501e"
     },
     "image": {
      "base_digest": "sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90",
@@ -335,8 +367,10 @@
     "oracles": {
      "chrome_path": "/usr/local/bin/chrome-headless-shell",
      "chrome_version": "Google Chrome for Testing 153.0.8010.12",
-     "font_count": 14,
+     "font_count": 16,
      "font_families": [
+      "Caladea",
+      "Carlito",
       "DejaVu Sans",
       "DejaVu Sans Mono",
       "DejaVu Serif",
@@ -367,6 +401,10 @@
     "schema": 2
    },
    "profile_id": "pdfium/standard/libreoffice/refine3@240dpi",
+   "reading": {
+    "scorer": "wp42",
+    "source": "ca563181d6ad"
+   },
    "shortfall_defects": {
     "04_exec_brief.pdf": "D10",
     "c3_tables.pdf": "D3",
@@ -378,60 +416,60 @@
    "aggregate": {
     "gate_pass_count": 13,
     "mean_live_text": 0.9784,
-    "mean_within2pt": 0.4853,
-    "median_dy_p50": 1.245,
+    "mean_within2pt": 0.6168,
+    "median_dy_p50": 0.65,
     "n": 16,
     "page_match_count": 16
    },
    "documents": {
     "01_whitepaper_market.pdf": {
-     "doc_recall": 0.9677,
-     "dy_p50": 2.99,
+     "doc_recall": 0.9652,
+     "dy_p50": 0.8,
      "live_text_cov": 0.9595,
      "page_err": 0,
      "raster_frac": 0.0405,
-     "within2pt": 0.3389,
-     "word_recall": 0.9677
+     "within2pt": 0.4424,
+     "word_recall": 0.9652
     },
     "02_research_paper.pdf": {
-     "doc_recall": 0.9586,
-     "dy_p50": 1.29,
+     "doc_recall": 0.9557,
+     "dy_p50": 0.25,
      "live_text_cov": 0.9736,
      "page_err": 0,
      "raster_frac": 0.0264,
-     "within2pt": 0.5685,
-     "word_recall": 0.9586
+     "within2pt": 0.922,
+     "word_recall": 0.9557
     },
     "03_tech_report_code.pdf": {
      "doc_recall": 1.0,
-     "dy_p50": 3.7,
+     "dy_p50": 2.55,
      "live_text_cov": 0.9827,
      "page_err": 0,
      "raster_frac": 0.0173,
-     "within2pt": 0.128,
+     "within2pt": 0.3449,
      "word_recall": 1.0
     },
     "04_exec_brief.pdf": {
-     "doc_recall": 0.9337,
-     "dy_p50": 4.05,
+     "doc_recall": 0.9239,
+     "dy_p50": 3.2,
      "live_text_cov": 0.9406,
      "page_err": 0,
      "raster_frac": 0.0594,
-     "within2pt": 0.0533,
-     "word_recall": 0.9337
+     "within2pt": 0.2294,
+     "word_recall": 0.9239
     },
     "05_memo.pdf": {
      "doc_recall": 1.0,
-     "dy_p50": 20.74,
+     "dy_p50": 18.95,
      "live_text_cov": 1.0,
      "page_err": 0,
      "raster_frac": 0.0,
-     "within2pt": 0.1205,
+     "within2pt": 0.0602,
      "word_recall": 1.0
     },
     "c1_whitepaper.pdf": {
      "doc_recall": 1.0,
-     "dy_p50": 0.44,
+     "dy_p50": 0.3,
      "live_text_cov": 0.9942,
      "page_err": 0,
      "raster_frac": 0.0058,
@@ -444,7 +482,7 @@
      "live_text_cov": 1.0,
      "page_err": 0,
      "raster_frac": 0.0,
-     "within2pt": 0.0416,
+     "within2pt": 0.0412,
      "word_recall": 1.0
     },
     "c3_tables.pdf": {
@@ -453,17 +491,17 @@
      "live_text_cov": 0.9981,
      "page_err": 0,
      "raster_frac": 0.0019,
-     "within2pt": 0.0,
+     "within2pt": 0.7945,
      "word_recall": 1.0
     },
     "c4_i18n.pdf": {
-     "doc_recall": 0.9874,
+     "doc_recall": 0.9959,
      "dy_p50": 0.15,
      "live_text_cov": 0.9008,
      "page_err": 0,
      "raster_frac": 0.0992,
-     "within2pt": 0.8723,
-     "word_recall": 0.9874
+     "within2pt": 0.8724,
+     "word_recall": 0.9959
     },
     "c5_graphics.pdf": {
      "doc_recall": 0.8778,
@@ -489,7 +527,7 @@
      "live_text_cov": 1.0,
      "page_err": 0,
      "raster_frac": 0.0,
-     "within2pt": 0.892,
+     "within2pt": 0.8947,
      "word_recall": 1.0
     },
     "c8_toc_links.pdf": {
@@ -503,16 +541,16 @@
     },
     "f1_fpdf_brief.pdf": {
      "doc_recall": 1.0,
-     "dy_p50": 1.2,
+     "dy_p50": 0.5,
      "live_text_cov": 1.0,
      "page_err": 0,
      "raster_frac": 0.0,
-     "within2pt": 0.6048,
+     "within2pt": 1.0,
      "word_recall": 1.0
     },
     "l1_word_native.pdf": {
      "doc_recall": 0.9792,
-     "dy_p50": 3.31,
+     "dy_p50": 2.9,
      "live_text_cov": 0.9883,
      "page_err": 0,
      "raster_frac": 0.0117,
@@ -521,11 +559,11 @@
     },
     "r1_reportlab_report.pdf": {
      "doc_recall": 1.0,
-     "dy_p50": 1.1,
+     "dy_p50": 0.6,
      "live_text_cov": 1.0,
      "page_err": 0,
      "raster_frac": 0.0,
-     "within2pt": 0.4767,
+     "within2pt": 0.6,
      "word_recall": 1.0
     }
    },
@@ -544,11 +582,43 @@
      "python-docx": "1.2.0",
      "reportlab": "5.0.0"
     },
-    "fingerprint": "3ca438f17d905cefd41e583045a835a14d30e535c984f9658b94b2927c70ebff",
+    "fingerprint": "9cb0bc17cbf88970c790ce9cfb6577e5c016c45a370642d093fa86209b0d41ec",
     "font_files": {
-     "count": 35,
-     "digest": "2b4349c3f5caec815915cd18b1d5360b282d4ea6d4135f2b106c4e1a932c2fd8",
+     "count": 43,
+     "digest": "12c91205b834c6e37b8216f7ab08315bf423658be1c73f96712ed1f7389c8a5a",
      "files": [
+      {
+       "file": "Caladea-Bold.ttf",
+       "sha256": "74eda4fc5ffba0d8dc4aa76d41499f5ab76168d9ed6141c6417064c6244db9b6"
+      },
+      {
+       "file": "Caladea-BoldItalic.ttf",
+       "sha256": "f47a35ad6cd0efa9914d93f9d03c93e30c55da43674bccfabac73b3c0d522c01"
+      },
+      {
+       "file": "Caladea-Italic.ttf",
+       "sha256": "9c968bf60ba1e851cdfea77c71e3540c57792f77482dd241acc29d1425569c4e"
+      },
+      {
+       "file": "Caladea-Regular.ttf",
+       "sha256": "d2f6cad33f191e65b68bd74e6d4f7708080a41b32db635866109df3090265d91"
+      },
+      {
+       "file": "Carlito-Bold.ttf",
+       "sha256": "0f62ab34ad5d079a0a28fac01bcf7c7a724a4db4d6cb99cab9cabff382fbb80f"
+      },
+      {
+       "file": "Carlito-BoldItalic.ttf",
+       "sha256": "380764b6898d7b73ceae6384b2958b196d2a0428962ef3adf138d27947228666"
+      },
+      {
+       "file": "Carlito-Italic.ttf",
+       "sha256": "718a0663864d37a4868220a19b9668a5fe10a46197f6df367b4c2c30c04c026c"
+      },
+      {
+       "file": "Carlito-Regular.ttf",
+       "sha256": "b4ff23ba370cc95a3c349336b73f9c28514a1371210f89832efc85c4b1ea7131"
+      },
       {
        "file": "DejaVuSans-Bold.ttf",
        "sha256": "5c1247acef7f2b8522a31742c76d6adcb5569bacc0be7ceaa4dc39dd252ce895"
@@ -695,9 +765,9 @@
     "fonts_conf": {
      "active_is_repo_conf": true,
      "active_path": "/work/scripts/fonts.conf",
-     "active_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528",
+     "active_sha256": "bbeb510b4812d8838847323187521162655435982c6ec1a5438ada1a7b7e501e",
      "repo_path": "/work/scripts/fonts.conf",
-     "repo_sha256": "84d4357a6d884bf024beb0c8bba4ddd0660743073cf9c95219aa619c34729528"
+     "repo_sha256": "bbeb510b4812d8838847323187521162655435982c6ec1a5438ada1a7b7e501e"
     },
     "image": {
      "base_digest": "sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90",
@@ -708,8 +778,10 @@
     "oracles": {
      "chrome_path": "/usr/local/bin/chrome-headless-shell",
      "chrome_version": "Google Chrome for Testing 153.0.8010.12",
-     "font_count": 14,
+     "font_count": 16,
      "font_families": [
+      "Caladea",
+      "Carlito",
       "DejaVu Sans",
       "DejaVu Sans Mono",
       "DejaVu Serif",
@@ -740,6 +812,10 @@
     "schema": 2
    },
    "profile_id": "pdfium/standard/none/refine0@240dpi",
+   "reading": {
+    "scorer": "wp42",
+    "source": "ca563181d6ad"
+   },
    "shortfall_defects": {
     "04_exec_brief.pdf": "D10",
     "c1_whitepaper.pdf": "D4",

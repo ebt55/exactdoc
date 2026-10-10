@@ -466,7 +466,24 @@ def _set_style(el, tag_pr: str, tag_style: str, val: str):
     st.set(qn("w:val"), val)
 
 
-def write_footnotes(doc, lay: DocLayout, ctx, write_para) -> None:
+def _lift_line(height_pt: float):
+    """An empty FootnoteText paragraph exactly `height_pt` tall."""
+    p = OxmlElement("w:p")
+    ppr = OxmlElement("w:pPr")
+    st = OxmlElement("w:pStyle")
+    st.set(qn("w:val"), "FootnoteText")
+    ppr.append(st)
+    sp = OxmlElement("w:spacing")
+    sp.set(qn("w:before"), "0")
+    sp.set(qn("w:after"), "0")
+    sp.set(qn("w:line"), str(max(1, int(round(height_pt * 20)))))
+    sp.set(qn("w:lineRule"), "exact")
+    ppr.append(sp)
+    p.append(ppr)
+    return p
+
+
+def write_footnotes(doc, lay: DocLayout, ctx, write_para, lifts=None) -> None:
     """footnotes.xml from `lay.footnotes`, the references already written.
 
     Each note's paragraphs go through the body's own paragraph writer -- into
@@ -474,7 +491,15 @@ def write_footnotes(doc, lay: DocLayout, ctx, write_para) -> None:
     same exact leading, indents and runs as everywhere else. External links
     are written as plain text: a footnote part has its own relationships, and
     a body-part r:id inside it would point nowhere.
+
+    `lifts` ({page: pt}, `notes.footnote_lifts`): the last note of such a page
+    closes with an empty line that tall, so the renderer, which stacks the
+    notes at the body box's foot, sets them where the source's ended.
     """
+    lifts = lifts or {}
+    last_of_page = {}
+    for f in lay.footnotes:
+        last_of_page[f.page] = f.fid
     from collections import Counter
     sizes = Counter()
     for f in lay.footnotes:
@@ -497,6 +522,9 @@ def write_footnotes(doc, lay: DocLayout, ctx, write_para) -> None:
             par = write_para(doc, q, content_w, ctx=nctx)
             _set_style(par._p, "w:pPr", "w:pStyle", "FootnoteText")
             fn.append(par._p)        # moves the paragraph out of the body
+        lift = lifts.get(f.page, 0.0)
+        if lift > 0 and last_of_page.get(f.page) == f.fid and not f.continued:
+            fn.append(_lift_line(lift))
         root.append(fn)
     attach_footnotes_part(doc, root)
     footnote_settings(doc, lay.footnote_restart, lay.footnote_start)
