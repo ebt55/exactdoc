@@ -28,6 +28,7 @@ from exactdoc.docxout import (SPILL_EDGE_SLACK_PT, SPILL_GAP_FLOOR_PT,
                               _stack_used, write_docx)
 from exactdoc.layout import (Chunk, DocLayout, HFPart, PageLayout, Para,
                              RuleEl, Run)
+from exactdoc.pagefit import PAGEFIT_SAFETY_PT
 from exactdoc.model import DocIR, DrawCmd, Line, PageIR, Span, TextBlock
 
 
@@ -279,7 +280,12 @@ class TheWriter(unittest.TestCase):
         lay, tail = self._doc()
         asked = tail.space_before
         befores = self._befores(lay)
-        want = round((asked - (LEAD - 3.0)) * 20)
+        # Since WP34 the page planner (`pagefit.fit_page`) answers this page
+        # first -- 3pt of clearance is under its body line plus safety -- and
+        # pays from the foot up, so the closing rule's own gap pays the line
+        # and PAGEFIT_SAFETY_PT; the guard then finds its line of clearance
+        # already kept.
+        want = round((asked - (LEAD - 3.0) - PAGEFIT_SAFETY_PT) * 20)
         self.assertIn(want, befores)
         self.assertNotIn(round(asked * 20), befores)
 

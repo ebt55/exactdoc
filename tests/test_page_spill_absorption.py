@@ -34,6 +34,7 @@ from exactdoc.docxout import (PAGE_BREAK_PARA_PT, SPILL_EDGE_SLACK_PT,
                               SPILL_GAP_FLOOR_PT, SPILL_MAX_LINES,
                               SPILL_MIN_GAP_SCALE, SPILL_SAFETY_PT,
                               _absorb_page_spill, _body_capacity, _page_spill)
+from exactdoc.pagefit import PAGEFIT_SAFETY_PT
 from exactdoc.layout import (Chunk, ColBreak, DocLayout, HFPart, PageLayout,
                              Para, RuleEl, Run, TableEl)
 
@@ -394,10 +395,13 @@ class TheWriter(unittest.TestCase):
         lay = self._two_page_layout(OVER)
         asked = sum(g for pg in lay.pages for g in _gaps(pg))
         emitted = sum(self._befores(self._write(lay))) / 20.0
-        # Exactly the overflow plus the safety margin, and nothing else, is
-        # missing from the file. Only the first page spills.
-        self.assertAlmostEqual(asked - emitted, OVER + SPILL_SAFETY_PT,
-                               delta=0.5)
+        # Since WP34 the standard profile's page planner (`pagefit.fit_page`)
+        # answers a page at risk before this absorber: exactly the overflow,
+        # a body line (LEAD here) and its safety margin, and nothing else, are
+        # missing from the file. Only the first page spills. The absorber's
+        # own sizing is pinned by `_absorb_page_spill` above.
+        self.assertAlmostEqual(asked - emitted,
+                               OVER + LEAD + PAGEFIT_SAFETY_PT, delta=0.5)
 
     def test_the_write_does_not_modify_the_layout(self):
         # write_docx documents itself as pure and the refine loop depends on it:

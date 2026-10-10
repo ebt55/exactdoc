@@ -6228,14 +6228,19 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                 # above. The seam is a carrier before a non-paragraph first
                 # element unless the refine loop opted the page into
                 # pageBreakBefore (`top_gap_fits`), and LibreOffice drops the
-                # gap after a carrier (B23, below).
-                from .pagefit import fit_page
-                spill_plan = fit_page(
+                # gap after a carrier (B23, below). Under the refine loop
+                # (which alone sets `top_gap_fits`) the page is planned once
+                # and the plan held on the loop's layout (`pagefit.plan_page`).
+                from .pagefit import plan_page
+                looped = getattr(pg, "top_gap_fits", None) is not None
+                spill_plan = plan_page(
                     pg, cw_ctx, glay, notes_h.get(pg.number, 0.0), body_line,
                     spill_plan, ctx.output_profile,
                     drop_first_gap=pending_break[0] and first_el is not None
                     and not isinstance(first_el, Para)
-                    and getattr(pg, "top_gap_fits", None) is not True)
+                    and getattr(pg, "top_gap_fits", None) is not True,
+                    memo=src_lay.__dict__.setdefault("_pagefit_memo", {})
+                    if looped else None)
         if not (has_cover and pi == 0):
             # The element closing the page keeps a body line of clearance
             # when it is only there for where it sits: `_guard_page_tail`.
