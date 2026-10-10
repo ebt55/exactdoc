@@ -21,6 +21,22 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 one verified fix at a time, each gated against the frozen 16.
 
 
+- **A typewriter table's columns are its typed spaces (WP35b).** y03
+  (FIPS 197) passed criterion 5 in Google Docs by 0.004 (47 pages for 46,
+  word recall 0.854): source page 40 ran a page over, every later page one
+  behind. Its Appendix A key-expansion tables set each row as one Courier
+  string with columns two spaces apart; the rules-table builder put the
+  whole 401pt row in the 55pt column its centre fell in, and Docs wrapped
+  such cells to seven lines. `infer._mono_space_gaps` now cuts a monospaced
+  span where a run of its spaces is wider than a cell gap (RULES_CELL_GAP_EM:
+  two Courier spaces are 1.2em), so the tables read six columns, one line a
+  value. Folding the spilled page back into the base export reads 46 pages
+  at word recall 0.948. Only y03 and y17 (one ABNF row) change, in every
+  profile; LibreOffice product y03 46/46 at the same recall, within-2pt
+  0.198 -> 0.204. Evidence:
+  [gdocs-2026-10-10-wp35b-y03.json](docs/evidence/gdocs-2026-10-10-wp35b-y03.json),
+  which also records the y21/y22 Docs diagnosis.
+
 - **EUR-Lex's numbered articles keep their pages in Google Docs (WP35).**
   On Google's exports of the 71558af sweep y18 (the EU AI Act) matched the
   source page for page until page 58, then spilled two pages (146 for 144,
