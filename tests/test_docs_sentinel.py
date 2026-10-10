@@ -107,18 +107,21 @@ class Flying(unittest.TestCase):
         import harness
         row, _ = self._fly(S.SOURCE)
         S.record(row, path=self.spec_path)               # under this harness's reading
-        with mock.patch.object(harness, "HARNESS_READING", "wp42"):
+        # any reading but the one in force (the harness reads wp42 itself
+        # since WP42, so the other reading is named from the current one)
+        other = harness.HARNESS_READING + "-other"
+        with mock.patch.object(harness, "HARNESS_READING", other):
             row, lines = self._fly(self._two_pages())    # would be DRIFT like for like
             self.assertEqual(row["sentinel"], "reading-mismatch")
             self.assertTrue(row["drift"][0].startswith(
-                "sentinel reading mismatch: re-record under wp42"))
+                "sentinel reading mismatch: re-record under %s" % other))
             self.assertTrue(any(l.startswith("WARNING sentinel reading mismatch") for l in lines))
             self.assertFalse(any(l.startswith("DRIFT") for l in lines))
-            # recording under wp42 adds that reading's row and keeps the first
+            # recording under the other reading adds that reading's row and keeps the first
             row, _ = self._fly(S.SOURCE)
             S.record(row, path=self.spec_path)
         self.assertEqual(sorted(S.load(self.spec_path)["expected"]),
-                         sorted([harness.HARNESS_READING, "wp42"]))
+                         sorted([harness.HARNESS_READING, other]))
 
     def test_tolerances(self):
         spec = {"expected": {"wp29": {"out_pages": 1, "word_recall": 0.95,
