@@ -1,0 +1,93 @@
+{
+ "date": "2026-10-11",
+ "first_version_withdrawn": "Without requiring a synthesised space inside the word, the rule also marked words that arrive whole: y60 (InDesign justification letter-spacing, 0.054-0.107em; its references re-split into paragraphs), y21 (CallunaSans heading 0.087em), y06 (one word 0.089em). Those changed word/*.xml; the shipped rule does not.",
+ "gdocs_probe": "C:\\lotmp\\scr\\wp45\\gdocs_probe (base = integration 3fcc1f6, wp40 = wp45 base, wp45; PROBE.md)",
+ "schema": "exactdoc.wp-evidence.v1",
+ "what": "A tracked word between drawn spaces keeps no synthesised spaces (parse_pdfium._tracked_parts; _gap_spaces honours the word tracking; _span_tracking emits it as w:spacing). Measured on wp45 b4056b7 against its base 30a2e40 (wp40 b9ea376 + integration 11dde0d).",
+ "word_xml_identity": {
+  "gdocs": {
+   "different": 1,
+   "diffs": [
+    "y28_doe_oig_word365.docx"
+   ],
+   "identical": 92,
+   "refused": 2,
+   "refused_same": true,
+   "unpaired": [],
+   "word_xml_parts_compared": 1339
+  },
+  "raw": {
+   "different": 1,
+   "diffs": [
+    "y28_doe_oig_word365.docx"
+   ],
+   "identical": 92,
+   "refused": 2,
+   "refused_same": true,
+   "unpaired": [],
+   "word_xml_parts_compared": 1349
+  }
+ },
+ "work_package": "WP45",
+ "y28_measured_wp42_reading": {
+  "lo_product": {
+   "base": {
+    "char_recall": 0.9961,
+    "dy_p50": 2.38,
+    "pages": "21/21",
+    "within2pt": 0.0566,
+    "word_recall": 0.9909
+   },
+   "wp45": {
+    "char_recall": 0.9961,
+    "dy_p50": 2.38,
+    "pages": "21/21",
+    "within2pt": 0.0565,
+    "word_recall": 0.9933
+   }
+  },
+  "lo_raw": {
+   "base": {
+    "dy_p50": 1.76,
+    "pages": "21/21",
+    "within2pt": 0.3061,
+    "word_recall": 0.9909
+   },
+   "wp45": {
+    "dy_p50": 1.76,
+    "pages": "21/21",
+    "within2pt": 0.3054,
+    "word_recall": 0.9933
+   }
+  },
+  "sweeps": [
+   "C:\\lotmp\\scr\\runs\\wp45-base-prod.rescored5.sweep.json",
+   "C:\\lotmp\\scr\\runs\\wp45-base-raw.rescored5.sweep.json",
+   "C:\\lotmp\\scr\\runs\\wp45-head-prod.rescored5.sweep.json",
+   "C:\\lotmp\\scr\\runs\\wp45-head-raw.rescored5.sweep.json"
+  ],
+  "word_product": {
+   "base": {
+    "char_recall": 0.9956,
+    "opened": true,
+    "pages": "21/21",
+    "repair_prompt": false,
+    "within2pt": 0.0396,
+    "word_recall": 0.9882
+   },
+   "wp45": {
+    "char_recall": 0.9956,
+    "opened": true,
+    "pages": "21/21",
+    "repair_prompt": false,
+    "within2pt": 0.0395,
+    "word_recall": 0.9906
+   }
+  },
+  "word_rows": [
+   "C:\\lotmp\\wp45\\word-base\\rows.jsonl",
+   "C:\\lotmp\\wp45\\word-head\\rows.jsonl"
+  ]
+ },
+ "y28_text_change": "footer1.xml: DOE-OIG-25-20<n> | P a g e -> | Page with w:spacing 60 (2.976pt); no other text changes in any of the 95 documents"
+}
