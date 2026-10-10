@@ -157,6 +157,9 @@ def rescore_rows(path, renders, out_path, pattern, jobs=4, docx_pattern="{stem}.
     items = []
     for r in rows:
         doc = r.get("doc") or r.get("document")
+        if doc == "_sentinel.pdf":           # the drift sentinel (docs_sentinel.py)
+            items.append((r, None, None))    # is not a corpus document: kept as is
+            continue
         stem = os.path.splitext(os.path.basename(doc))[0]
         pdf = os.path.join(renders, pattern.format(stem=stem))
         items.append((r, source_of(doc), _exists(pdf) if _measured(r) else None,

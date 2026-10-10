@@ -6,7 +6,9 @@ Per document: convert with the gdocs candidate profile, round-trip through
 Google Docs (upload -> export PDF -> delete), score the export against the
 source with testkit/harness.evaluate plus quality_sweep.char_recall.
 One JSON line per document in OUTDIR/rows.jsonl; finished documents are
-skipped on a re-run, so an interrupted sweep resumes.
+skipped on a re-run, so an interrupted sweep resumes. Every run first flies
+the frozen drift sentinel (testkit/docs_sentinel.py) and records its row
+(DRIFT is printed loudly; the run continues); every row carries `utc`.
 """
 import argparse
 import glob
@@ -19,6 +21,7 @@ import traceback
 ROOT = os.environ["EXACTDOC_ROOT"]
 sys.path.insert(0, ROOT)
 sys.path.insert(0, os.path.join(ROOT, "testkit"))
+import docs_sentinel  # noqa: E402
 import gdocs_oracle as go  # noqa: E402
 import harness  # noqa: E402
 import quality_sweep as qs  # noqa: E402
@@ -68,6 +71,11 @@ def main():
         with open(rows_path) as f:
             done = {json.loads(line)["doc"] for line in f if line.strip()}
     svc = go._service(interactive=False)
+    # The drift sentinel first, every run (WP43): the same frozen DOCX,
+    # compared with the export recorded the first time it flew.
+    srow = docs_sentinel.first(svc, os.path.join(a.out, "_sentinel"))
+    with open(rows_path, "a") as f:
+        f.write(json.dumps(srow) + "\n")
     for src in srcs:
         doc = os.path.basename(src)
         if doc in done:
@@ -75,7 +83,7 @@ def main():
         stem = os.path.splitext(doc)[0]
         docx = os.path.join(a.out, stem + ".docx")
         rendered = os.path.join(a.out, stem + ".gdocs.pdf")
-        row = {"doc": doc}
+        row = {"doc": doc, "utc": docs_sentinel.utc_now()}
         t0 = time.monotonic()
         try:
             convert(src, docx, options=O.PDFIUM_GDOCS_CANDIDATE)

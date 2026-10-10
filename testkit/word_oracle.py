@@ -619,9 +619,167 @@ def _docx_for(docx_dir, stem):
     return None
 
 
+# ------------------------------------------------------------ one batch at a time
+# Two Word batches on one machine fight over Word itself (and over the person
+# at the keyboard). Agents agreed on C:\lotmp\word.lock by hand; WP43 makes it
+# the oracle's own job: a named kernel mutex held for the whole batch, plus the
+# old lock file, still honoured and still written, for agents on older trees.
+WORD_MUTEX = "Global\\exactdoc-word-oracle"
+WORD_LOCK_FILE = os.environ.get("EXACTDOC_WORD_LOCK", r"C:\lotmp\word.lock")
+LOCK_FRESH_S = 30 * 60          # a lock file younger than this is honoured
+LOCK_WAIT_S = float(os.environ.get("EXACTDOC_WORD_LOCK_WAIT_S", 3 * 3600))
+LOCK_POLL_S = 15
+
+
+class WordBusy(RuntimeError):
+    """Another Word batch holds the machine, and it did not finish in time."""
+
+
+class WordBatchLock(object):
+    """`with WordBatchLock(): ...` -- exclusive use of Word for one batch.
+
+    * The mutex (Windows CreateMutexW; `Global\\` namespace, `Local\\` if that
+      is refused) is held for the whole batch; a process that dies holding it
+      abandons it, and the next waiter takes it.
+    * The lock file is for agents that only know the file: one that exists,
+      is younger than LOCK_FRESH_S and is not ours is waited for; then ours is
+      written (our token inside). On exit it is deleted only if it still holds
+      our token -- a lock file someone else created is never deleted.
+    Waits up to LOCK_WAIT_S in all, then raises WordBusy. `clock`, `sleep` and
+    `say` are for tests.
+    """
+
+    def __init__(self, path=None, mutex=WORD_MUTEX, wait_s=None, poll_s=LOCK_POLL_S,
+                 fresh_s=LOCK_FRESH_S, clock=time.time, sleep=time.sleep, say=print):
+        self.path = path or WORD_LOCK_FILE
+        self.mutex_name, self.wait_s = mutex, LOCK_WAIT_S if wait_s is None else wait_s
+        self.poll_s, self.fresh_s = poll_s, fresh_s
+        self.clock, self.sleep, self.say = clock, sleep, say
+        self.token = "word_oracle pid=%d token=%s" % (os.getpid(), os.urandom(6).hex())
+        self._handle = None
+        self.wrote_file = False
+
+    # -- the mutex
+    def _kernel32(self):
+        if os.name != "nt" or not self.mutex_name:
+            return None
+        import ctypes
+        from ctypes import wintypes
+        k = ctypes.WinDLL("kernel32", use_last_error=True)
+        k.CreateMutexW.restype = wintypes.HANDLE
+        k.CreateMutexW.argtypes = (ctypes.c_void_p, wintypes.BOOL, wintypes.LPCWSTR)
+        k.WaitForSingleObject.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+        k.ReleaseMutex.argtypes = (wintypes.HANDLE,)
+        k.CloseHandle.argtypes = (wintypes.HANDLE,)
+        return k
+
+    def _acquire_mutex(self, deadline):
+        k = self._kernel32()
+        if k is None:
+            return
+        handle = k.CreateMutexW(None, False, self.mutex_name)
+        if not handle and self.mutex_name.startswith("Global\\"):
+            self.mutex_name = "Local\\" + self.mutex_name[len("Global\\"):]
+            handle = k.CreateMutexW(None, False, self.mutex_name)
+        if not handle:
+            raise OSError("CreateMutexW(%s) failed" % self.mutex_name)
+        said = False
+        while True:
+            left = max(0, deadline - self.clock())
+            r = k.WaitForSingleObject(handle, int(min(left, self.poll_s) * 1000))
+            if r in (0x0, 0x80):             # WAIT_OBJECT_0, WAIT_ABANDONED
+                self._handle = (k, handle)
+                return
+            if self.clock() >= deadline:
+                k.CloseHandle(handle)
+                raise WordBusy("another Word batch holds %s" % self.mutex_name)
+            if not said:
+                self.say("waiting for another Word batch (mutex %s)" % self.mutex_name)
+                said = True
+
+    def _release_mutex(self):
+        if self._handle:
+            k, handle = self._handle
+            k.ReleaseMutex(handle)
+            k.CloseHandle(handle)
+            self._handle = None
+
+    # -- the file
+    def _read(self):
+        try:
+            with open(self.path, encoding="utf-8", errors="replace") as fh:
+                return fh.read().strip()
+        except OSError:
+            return None
+
+    def _acquire_file(self, deadline):
+        said = False
+        while True:
+            try:
+                age = self.clock() - os.path.getmtime(self.path)
+            except OSError:
+                age = None                                  # no lock file
+            held = self._read()
+            if age is None or age >= self.fresh_s or held == self.token:
+                break
+            if self.clock() >= deadline:
+                raise WordBusy("%s is held (%s, %.0f s old)" % (self.path, held, age))
+            if not said:
+                self.say("waiting for %s (%s, %.0f s old)" % (self.path, held, age))
+                said = True
+            self.sleep(self.poll_s)
+        d = os.path.dirname(self.path)
+        if d:
+            os.makedirs(d, exist_ok=True)
+        tmp = "%s.%d.tmp" % (self.path, os.getpid())
+        with open(tmp, "w", encoding="utf-8") as fh:
+            fh.write(self.token + "\n")
+        os.replace(tmp, self.path)
+        self.wrote_file = True
+
+    def _release_file(self):
+        if self.wrote_file and self._read() == self.token:
+            try:
+                os.remove(self.path)
+            except OSError:
+                pass
+        self.wrote_file = False
+
+    def __enter__(self):
+        deadline = self.clock() + self.wait_s
+        self._acquire_mutex(deadline)
+        try:
+            self._acquire_file(deadline)
+        except BaseException:
+            self._release_mutex()
+            raise
+        return self
+
+    def __exit__(self, *exc):
+        try:
+            self._release_file()
+        finally:
+            self._release_mutex()
+        return False
+
+
 def sweep(out, docx_dir=None, profile=None, lane=None, corpus="both", only=None,
           include_unsupported=False, jobs=4, doc_timeout=DOC_TIMEOUT_S, batch=BATCH,
-          stock_fonts=False, compat_mode=None):
+          stock_fonts=False, compat_mode=None, lock=None):
+    """`_sweep` holding Word for the whole batch (WordBatchLock, WP43): the
+    named mutex and C:\\lotmp\\word.lock. `lock` is for tests."""
+    if not available():
+        raise WordUnavailable("Microsoft Word is not available on this machine")
+    with (lock if lock is not None else WordBatchLock()):
+        return _sweep(out, docx_dir=docx_dir, profile=profile, lane=lane, corpus=corpus,
+                      only=only, include_unsupported=include_unsupported, jobs=jobs,
+                      doc_timeout=doc_timeout, batch=batch, stock_fonts=stock_fonts,
+                      compat_mode=compat_mode)
+
+
+def _sweep(out, docx_dir=None, profile=None, lane=None, corpus="both", only=None,
+           include_unsupported=False, jobs=4, doc_timeout=DOC_TIMEOUT_S, batch=BATCH,
+           stock_fonts=False, compat_mode=None):
     """Render every selected document's DOCX in Word and score it.
 
     DOCX come from `docx_dir` (a quality_sweep KEEP_DOCX tree, so Word sees the

@@ -160,11 +160,75 @@ class Verdict(object):
                        % (self.lane, len(self.failures), ", ".join(self.kinds())))
         return "\n".join(out)
 
+    binding = None                  # set by check() when the run is bound
+
     def as_dict(self):
-        return {"lane": self.lane, "ok": self.ok,
-                "failures": [{"kind": k, "document": d, "detail": v}
-                             for k, d, v in self.failures],
-                "notes": list(self.notes)}
+        out = {"lane": self.lane, "ok": self.ok,
+               "failures": [{"kind": k, "document": d, "detail": v}
+                            for k, d, v in self.failures],
+               "notes": list(self.notes)}
+        if self.binding is not None:
+            out["baseline_binding"] = self.binding
+        return out
+
+
+# ------------------------------------------------------------ baseline binding
+# A baseline is a set of numbers measured in ONE environment and read by ONE
+# harness reading. Compared with a run from another environment (fonts, the
+# LibreOffice build, Python) or read another way (harness.HARNESS_READING), its
+# numbers describe something else, and "inside tolerance" means nothing. Until
+# WP43 nothing checked: the committed baseline was recorded under environment
+# 3ca438f1 with the reading before WP29, and every gate since the Carlito
+# switch (canonical 9cb0bc17) compared against it anyway.
+#
+# So the binding is fail-closed: a recorded fingerprint or reading that differs
+# from the run's -- or is not recorded at all -- fails the lane with
+# "re-record needed (owner approval)". The one way past is explicit and loud:
+# EXACTDOC_GATE_ALLOW_STALE_BASELINE=1, set by the coordinator while the
+# owner-approved re-record is pending, downgrades the mismatch to a WARNING
+# note and records the mode in verdict.json.
+ALLOW_STALE_ENV = "EXACTDOC_GATE_ALLOW_STALE_BASELINE"
+
+
+def allow_stale_baseline(environ=None):
+    return (environ if environ is not None else os.environ).get(ALLOW_STALE_ENV) == "1"
+
+
+def binding_errors(baseline, environment, reading):
+    """Why `baseline` (one lane's record) does not describe this run, or [].
+
+    `environment` is evidence.environment() of the run; `reading` is
+    harness.reading() ({"scorer", "source"}). The reading is bound by its
+    NAME: the source hash also moves on a refactor, so a differing hash under
+    the same name is a note (see `binding_notes`), not a mismatch.
+    """
+    errors = []
+    rec_env = (baseline or {}).get("environment") or {}
+    rec_fp, run_fp = rec_env.get("fingerprint"), (environment or {}).get("fingerprint")
+    if not rec_fp:
+        errors.append("the baseline records no environment fingerprint")
+    elif rec_fp != run_fp:
+        errors.append("the baseline was recorded under environment %s, this run is %s"
+                      % (rec_fp[:8], (run_fp or "unknown")[:8]))
+    rec_reading = (baseline or {}).get("reading") or {}
+    run_scorer = (reading or {}).get("scorer")
+    if not rec_reading.get("scorer"):
+        errors.append("the baseline records no harness reading (this run reads %s)"
+                      % (run_scorer or "unknown"))
+    elif rec_reading.get("scorer") != run_scorer:
+        errors.append("the baseline was read %s, this run reads %s"
+                      % (rec_reading.get("scorer"), run_scorer or "unknown"))
+    return errors
+
+
+def binding_notes(baseline, reading):
+    rec = (baseline or {}).get("reading") or {}
+    if rec.get("scorer") and rec.get("scorer") == (reading or {}).get("scorer") \
+            and rec.get("source") and rec.get("source") != (reading or {}).get("source"):
+        return ["the reading code differs under the one name %s (%s vs %s): check "
+                "that harness.HARNESS_READING was bumped" % (
+                    rec["scorer"], rec["source"], (reading or {}).get("source"))]
+    return []
 
 
 # --------------------------------------------------------------- value hygiene
@@ -311,8 +375,15 @@ def aggregates(results):
 
 
 # ------------------------------------------------------------------- the gate
-def check(lane, results, manifest=None, baseline=None, absolute=False):
+def check(lane, results, manifest=None, baseline=None, absolute=False,
+          environment=None, reading=None, allow_stale=False):
     """Score one lane. Returns a Verdict.
+
+    With `environment` and `reading` (runall passes both), the baseline must
+    have been recorded in this run's environment fingerprint and harness
+    reading (`binding_errors`); otherwise the lane fails, "re-record needed
+    (owner approval)", unless `allow_stale` (the transitional allowance,
+    EXACTDOC_GATE_ALLOW_STALE_BASELINE=1) downgrades it to a WARNING note.
 
     `absolute` adds the release-qualification questions to the pull-request
     ones: without it a known shortfall may stay below its threshold, with it
@@ -323,6 +394,23 @@ def check(lane, results, manifest=None, baseline=None, absolute=False):
     """
     v = Verdict(lane)
     baseline = baseline or {}
+    if environment is not None or reading is not None:
+        mismatches = binding_errors(baseline, environment, reading)
+        v.binding = {"mode": ("bound" if not mismatches else
+                              "allowed-stale" if allow_stale else "refused"),
+                     "mismatches": mismatches,
+                     "baseline_fingerprint": (baseline.get("environment") or {}).get("fingerprint"),
+                     "run_fingerprint": (environment or {}).get("fingerprint"),
+                     "baseline_reading": baseline.get("reading"), "run_reading": reading}
+        for n in binding_notes(baseline, reading):
+            v.note("NOTE baseline binding: %s" % n)
+        if mismatches and allow_stale:
+            v.note("WARNING stale baseline ALLOWED by %s=1 (transitional, pending the "
+                   "owner-approved re-record): %s" % (ALLOW_STALE_ENV, "; ".join(mismatches)))
+        elif mismatches:
+            v.fail("binding", None, "%s -- re-record needed (owner approval): "
+                   "GATE_BASELINE=update on the canonical environment; until then "
+                   "the coordinator may set %s=1" % ("; ".join(mismatches), ALLOW_STALE_ENV))
     docs_baseline = baseline.get("documents", {})
     defects = baseline.get("shortfall_defects", {})
     by_id = {}
@@ -569,7 +657,7 @@ def check_recordable(records, manifest, environment):
     return True
 
 
-def save_lanes(records, path=BASELINE_PATH, environment=None):
+def save_lanes(records, path=BASELINE_PATH, environment=None, reading=None):
     """Write every lane at once, or write nothing.
 
     Transactional because a baseline half-written is a baseline that disagrees
@@ -604,6 +692,10 @@ def save_lanes(records, path=BASELINE_PATH, environment=None):
         entry["shortfall_defects"] = prev.get("shortfall_defects", {})
         if environment:
             entry["environment"] = environment
+        if reading:
+            # the harness reading the numbers were scored in (harness.reading());
+            # check() binds every later run to it
+            entry["reading"] = dict(reading)
         lanes[lane] = entry
     doc["lanes"] = lanes
 

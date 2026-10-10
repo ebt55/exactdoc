@@ -225,6 +225,111 @@ def test_absolute_mode_flags_known_shortfall():
     check("regression mode accepts the same shortfall", verdict(healthy()).ok)
 
 
+# ------------------------------------------------- baseline binding (WP43)
+# The baseline must have been recorded in the run's environment fingerprint
+# and harness reading; anything else fails, "re-record needed", unless the
+# coordinator's transitional allowance downgrades it to a WARNING.
+RUN_ENV = {"fingerprint": "9cb0bc17" + "0" * 56}
+RUN_READING = {"scorer": "wp29", "source": "51586dddc4f7"}
+
+
+def bound_baseline(env=RUN_ENV, reading=RUN_READING):
+    bl = baseline_for(healthy())
+    if env is not None:
+        bl["environment"] = dict(env)
+    if reading is not None:
+        bl["reading"] = dict(reading)
+    return bl
+
+
+def bound_verdict(baseline, allow=False):
+    return gate.check("product", healthy(), manifest=MANIFEST, baseline=baseline,
+                      environment=RUN_ENV, reading=RUN_READING, allow_stale=allow)
+
+
+def test_binding_matching_baseline_passes():
+    v = bound_verdict(bound_baseline())
+    check("a baseline bound to this environment and reading passes", v.ok, v.report())
+    check("the verdict records the binding as bound",
+          v.as_dict()["baseline_binding"]["mode"] == "bound", str(v.binding))
+
+
+def test_binding_wrong_fingerprint_fails():
+    v = bound_verdict(bound_baseline(env={"fingerprint": "3ca438f1" + "1" * 56}))
+    check("a baseline from another environment fails", "binding" in kinds(v), v.report())
+    check("and says a re-record needs the owner",
+          any("re-record needed (owner approval)" in d and "3ca438f1" in d
+              for _, _, d in v.failures), v.report())
+
+
+def test_binding_wrong_reading_fails():
+    v = bound_verdict(bound_baseline(reading={"scorer": "wp36", "source": "x" * 12}))
+    check("a baseline read another way fails", "binding" in kinds(v), v.report())
+    check("naming both readings", any("read wp36, this run reads wp29" in d
+                                      for _, _, d in v.failures), v.report())
+
+
+def test_binding_unrecorded_fails_closed():
+    v = bound_verdict(bound_baseline(env=None, reading=None))
+    check("a baseline that records neither fails", "binding" in kinds(v), v.report())
+    check("for both reasons", sum(("no environment fingerprint" in d) +
+                                  ("no harness reading" in d) for _, _, d in v.failures) == 2,
+          v.report())
+
+
+def test_binding_allowance_downgrades_to_a_warning():
+    v = bound_verdict(bound_baseline(env={"fingerprint": "3ca438f1" + "1" * 56},
+                                     reading=None), allow=True)
+    check("the transitional allowance passes the lane", v.ok, v.report())
+    check("with a loud WARNING note",
+          any(n.startswith("WARNING stale baseline ALLOWED") for n in v.notes), v.report())
+    check("and the mode recorded", v.as_dict()["baseline_binding"]["mode"] == "allowed-stale",
+          str(v.binding))
+    v = bound_verdict(bound_baseline(), allow=True)
+    check("the allowance changes nothing on a bound baseline",
+          v.ok and v.binding["mode"] == "bound" and not v.notes[:-1], v.report())
+
+
+def test_binding_allowance_is_explicit():
+    check("allowance on only for exactly 1",
+          gate.allow_stale_baseline({gate.ALLOW_STALE_ENV: "1"})
+          and not gate.allow_stale_baseline({})
+          and not gate.allow_stale_baseline({gate.ALLOW_STALE_ENV: "0"})
+          and not gate.allow_stale_baseline({gate.ALLOW_STALE_ENV: "yes"}), "")
+
+
+def test_binding_reading_code_drift_is_a_note():
+    v = bound_verdict(bound_baseline(reading={"scorer": "wp29", "source": "f" * 12}))
+    check("the same reading name over other code is not a failure", v.ok, v.report())
+    check("but it is noted", any("check that harness.HARNESS_READING was bumped" in n
+                                 for n in v.notes), v.report())
+
+
+def test_binding_save_lanes_records_the_reading():
+    import tempfile
+    from exactdoc.options import LANES
+    with tempfile.TemporaryDirectory() as d:
+        path = os.path.join(d, "gate_baseline.json")
+        gate.save_lanes({lane: gate.record(lane, healthy()) for lane in LANES}, path=path,
+                        environment=RUN_ENV, reading=RUN_READING)
+        with open(path) as fh:
+            doc = json.load(fh)
+    check("every lane records the reading and fingerprint it was measured in",
+          all(doc["lanes"][l]["reading"] == RUN_READING and
+              doc["lanes"][l]["environment"]["fingerprint"] == RUN_ENV["fingerprint"]
+              for l in LANES), json.dumps(doc["lanes"])[:200])
+    v = gate.check("product", healthy(), manifest=MANIFEST,
+                   baseline=dict(doc["lanes"]["product"], shortfall_defects={"known.pdf": "D"}),
+                   environment=RUN_ENV, reading=RUN_READING)
+    check("and binds the next run", v.binding["mode"] == "bound", v.report())
+
+
+def test_binding_is_off_without_a_run_identity():
+    v = gate.check("product", healthy(), manifest=MANIFEST, baseline=baseline_for(healthy()))
+    check("pure callers that pass no environment are unbound", v.ok and v.binding is None,
+          v.report())
+
+
 def test_both_lanes_gate():
     """The runner exit code must require both current named lanes."""
     import runall

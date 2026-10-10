@@ -73,6 +73,17 @@ def git_state():
     def g(*args):
         return _run(["git", "-C", PROJECT] + list(args))
     commit = g("rev-parse", "HEAD")
+    host = os.environ.get("EXACTDOC_GIT_COMMIT", "").strip()
+    if not commit and re.fullmatch(r"[0-9a-f]{40}", host):
+        # The measurement container holds a copy of the tree without .git;
+        # sweep.sh and gate_full.sh read the commit on the host and pass it in
+        # (WP43). Recorded as such, with the host's dirty flag.
+        dirty = os.environ.get("EXACTDOC_GIT_DIRTY")
+        return {"available": True, "commit": host, "short": host[:7],
+                "branch": os.environ.get("EXACTDOC_GIT_BRANCH") or None,
+                "clean": None if dirty is None else dirty != "1",
+                "dirty": None if dirty is None else dirty == "1",
+                "source": "host (EXACTDOC_GIT_COMMIT)"}
     if not commit:
         return {"available": False, "clean": None, "commit": None, "short": None,
                 "branch": None,
@@ -89,6 +100,25 @@ def git_state():
 
 
 HEAD_REF = "HEAD"
+
+
+def provenance(env=None, reading=None):
+    """What a measurement was made from (WP43): the commit, the image, the
+    canonical environment fingerprint and the harness reading. Recorded by
+    quality_sweep.py in every payload and by runall.py beside the gate's
+    verdicts, and printed by beta_readiness, which refuses to read lanes made
+    from different commits. `EXACTDOC_GATE_IMAGE_ID` is the `docker image
+    inspect` id the scripts pass in; it is provenance only and is not part of
+    the environment fingerprint."""
+    g = git_state()
+    env = env or environment()
+    return {"git_commit": g.get("commit"), "git_dirty": g.get("dirty"),
+            "git_source": g.get("source") or ("git" if g.get("available") else None),
+            "image_id": os.environ.get("EXACTDOC_GATE_IMAGE_ID") or None,
+            "image_ref": os.environ.get("EXACTDOC_GATE_IMAGE_REF") or None,
+            "environment_fingerprint": env.get("fingerprint"),
+            "canonical": env.get("canonical"),
+            "reading": reading}
 
 
 def dependency_versions():

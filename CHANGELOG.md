@@ -242,6 +242,95 @@ one verified fix at a time, each gated against the frozen 16.
   put inside 2pt (`docs/beta-bar.md`, amendment 3;
   `docs/evidence/scorer-baseline-2026-10-10.json`).
 
+- **The drift sentinel's expected row is recorded, and compared like for
+  like (WP43).** The coordinator flew the sentinel from 587d47b on
+  2026-10-10: 1/1 pages, word recall 1.0, within-2pt 0.8544, dy_p50 1.84pt,
+  reading wp29. `sentinel.json` (schema v2) keys `expected` by harness
+  reading, and a run is compared only with the row recorded under its own
+  reading; a run in a reading with no row says "sentinel reading mismatch:
+  re-record under <reading>" (a warning, not DRIFT), and `fly --record` adds
+  or replaces that reading's row and keeps the others (so the wp42 row can be
+  added beside wp29's).
+
+- **Criterion 11 needs a gate bound to its baseline (WP43).** A lane verdict
+  whose `baseline_binding` mode is not "bound" -- one that passed only under
+  `EXACTDOC_GATE_ALLOW_STALE_BASELINE`, or a verdict from before the binding
+  that cannot say -- now FAILs criterion 11: "gate passed only under
+  EXACTDOC_GATE_ALLOW_STALE_BASELINE; re-record needed", with the
+  mismatches. Until the owner-approved re-record, criterion 11 fails.
+
+- **A stale gating input makes the scorecard INCOMPLETE (WP43 item 6).**
+  `beta_readiness.py` marked an input older than the newest by more than
+  24 h "[STALE]" and read it anyway. Now a stale gating input -- the raw or
+  product sweep, the Docs or Word lane, a serial timing, or the gate (whose
+  lane verdicts now carry their date) -- puts it under "inputs refused" and
+  makes the verdict INCOMPLETE, unless `--allow-stale` (printed as ALLOWED
+  BY FLAG). The accepted sweep is old by design and never counts; the
+  gdocs-LO sweep grades nothing and does not either.
+
+- **A Google Docs drift sentinel flies first in every live run (WP43 item
+  5).** `testkit/fixtures_sentinel/`: a one-page memo (`sentinel.pdf`) and
+  the gdocs-candidate DOCX made from it once, both pinned by SHA-256 in
+  `sentinel.json`. `scripts/dev/gdsweep.py` and `flypairs.py` fly that DOCX
+  before any document (`testkit/docs_sentinel.py`), compare the export's
+  pages (exactly), word recall (0.005), within-2pt (0.02) and dy_p50 (0.5pt)
+  with the row recorded the first time, print a loud DRIFT block on a
+  difference, record the verdict in the sentinel row (`sentinel`, `drift`)
+  and carry on; every row now has a UTC timestamp (`utc`). The expected row
+  is recorded by flying it once: `python testkit/docs_sentinel.py fly OUT
+  --record`. `rescore.py rows` passes the sentinel row through untouched.
+
+- **The Word oracle takes the machine for its batch itself (WP43 item 4).**
+  `word_oracle.sweep` runs inside `WordBatchLock`: a named kernel mutex
+  (`Global\exactdoc-word-oracle`, `Local\` if Global is refused; an
+  abandoned one is taken over) held for the whole batch, plus the old
+  `C:\lotmp\word.lock` for agents on older trees -- a lock file that exists,
+  is under 30 minutes old and is not ours is waited for (up to 3 hours,
+  `EXACTDOC_WORD_LOCK_WAIT_S`), then ours is written with a token, and on
+  exit the file is deleted only if it still carries our token. `WordBusy`
+  when the wait runs out.
+
+- **A worker that dies is the document's crash, unless the pool died (WP43
+  item 3).** `quality_sweep.py` recorded any failure out of its process pool
+  as "worker: ..." and criterion 1 read all of those as infrastructure, so a
+  document that killed its worker never counted. Now a worker that raises is
+  that document's crash ("worker crashed: Type: ..."); a pool that dies
+  (BrokenProcessPool takes every document in flight) has those documents run
+  again, each in a process of its own: the one whose process dies alone is
+  the crash, with its exit code, and the others get their real rows (marked
+  `retried_alone`). Rows carry `worker_failure` {type, pool_broken, exitcode};
+  `beta_readiness` reads it (pool_broken -> infra, else crash) and, for older
+  rows, takes only "worker: BrokenProcessPool..." as infra.
+
+- **Measurements record what they were made from (WP43 item 2).** The
+  containers get the tree without `.git`, so `sweep.sh` and `gate_full.sh`
+  read the commit (and dirty flag, branch) on the host and pass it in with
+  the image id (`EXACTDOC_GIT_COMMIT`, `EXACTDOC_GATE_IMAGE_ID`,
+  `EXACTDOC_GATE_IMAGE_REF`; provenance only, not part of the environment
+  fingerprint). `evidence.git_state()` falls back to the host commit, and
+  `evidence.provenance()` -- commit, image id, canonical fingerprint,
+  harness reading -- is written into every quality-sweep payload and beside
+  the gate's verdicts (`<batch>/provenance.json` and the evidence file).
+  `beta_readiness.py` prints it per input and refuses (verdict INCOMPLETE,
+  "inputs refused") lanes whose recorded commits differ, unless
+  `--allow-mixed-commits`; inputs that record no commit are shown, not
+  compared; the accepted sweep is never compared.
+
+- **The gate binds its baseline to the environment and the reading (WP43
+  item 1).** `gate.check` (from `runall.py`) fails a lane, "re-record needed
+  (owner approval)", when the baseline was recorded under another environment
+  fingerprint or harness reading, or records neither; `save_lanes` now stores
+  the reading (`harness.reading()`) beside the fingerprint. The committed
+  baseline (fingerprint 3ca438f1, recorded before WP29, no reading) therefore
+  fails in the Carlito image until the owner-approved re-record. Meanwhile
+  `EXACTDOC_GATE_ALLOW_STALE_BASELINE=1`, set by the coordinator, downgrades
+  the mismatch to a WARNING note; `runall.py` prints "BASELINE BINDING:
+  strict | TRANSITIONAL ALLOWANCE | recording" first, `gate_full.sh` passes
+  the variable through only when set and logs the mode at the top and as
+  `BASELINE_BINDING=` at the end, and `verdict.json` carries
+  `baseline_binding` (mode, mismatches, both fingerprints and readings). A
+  differing reading-code hash under the same name is a note, not a failure.
+
 - **Sweeps record the harness reading they were scored in (WP41c).**
   `testkit/harness.py` names its reading, `HARNESS_READING = "wp29"`, bumped
   by every amendment that changes how text is read, and `harness.reading()`

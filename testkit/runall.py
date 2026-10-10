@@ -69,7 +69,8 @@ def resolve_corpus(manifest, dirs=None):
 
 # ------------------------------------------------------------------- one lane
 def run_lane(lane, paths, options, out_dir, baseline=None, manifest=None,
-             absolute=False, save_images=True):
+             absolute=False, save_images=True, environment=None, reading=None,
+             allow_stale=False):
     """Convert + score + gate one lane. Returns (results, verdict)."""
     from exactdoc.convert import convert
     from exactdoc.errors import OracleDegradedWarning
@@ -121,7 +122,8 @@ def run_lane(lane, paths, options, out_dir, baseline=None, manifest=None,
     with open(os.path.join(out_dir, "results.json"), "w") as f:
         json.dump(results, f, indent=1)
     verdict = gate.check(lane, results, manifest=manifest, baseline=baseline,
-                         absolute=absolute)
+                         absolute=absolute, environment=environment, reading=reading,
+                         allow_stale=allow_stale)
     with open(os.path.join(out_dir, "verdict.json"), "w") as f:
         json.dump(verdict.as_dict(), f, indent=1)
     print("\n" + verdict.report())
@@ -174,6 +176,22 @@ def main(argv=None):
               "number of record; local runs render with different fonts and may "
               "legitimately differ inside tolerance." % env["os"])
 
+    # Baseline binding (WP43): the baseline must have been recorded in this
+    # run's environment fingerprint and harness reading. The mode is printed
+    # first so a log always says which kind of gate it is.
+    reading = harness.reading()
+    allow_stale = gate.allow_stale_baseline()
+    if updating:
+        print("\nBASELINE BINDING: recording (GATE_BASELINE=update) -- environment %s, "
+              "reading %s/%s" % (env["fingerprint"][:8], reading["scorer"], reading["source"]))
+    elif allow_stale:
+        print("\nBASELINE BINDING: TRANSITIONAL ALLOWANCE (%s=1) -- a baseline recorded "
+              "in another environment or reading is a WARNING, not a failure"
+              % gate.ALLOW_STALE_ENV)
+    else:
+        print("\nBASELINE BINDING: strict -- the baseline must match environment %s and "
+              "reading %s" % (env["fingerprint"][:8], reading["scorer"]))
+
     lanes = sorted(LANES) if a.lane == "both" else [a.lane]
     if updating and a.lane != "both":
         print("refusing to record a baseline for one lane: raw and product "
@@ -192,7 +210,9 @@ def main(argv=None):
             return 2
         results, verdict = run_lane(
             lane, paths, options, out_dir, baseline=baseline, manifest=manifest,
-            absolute=a.absolute, save_images=not a.no_images)
+            absolute=a.absolute, save_images=not a.no_images,
+            environment=None if updating else env, reading=None if updating else reading,
+            allow_stale=allow_stale)
         verdicts[lane] = verdict
         rec = gate.record(lane, results)
         records[lane] = rec
@@ -210,8 +230,20 @@ def main(argv=None):
         except gate.RecordRefused as e:
             print("\nBASELINE NOT RECORDED\n  %s" % e)
             return 2
-        gate.save_lanes(records, environment=env)
+        gate.save_lanes(records, environment=env, reading=reading)
         print("\nrecorded numeric baseline for %s" % ", ".join(sorted(records)))
+
+    # Provenance (WP43): commit, image id, canonical fingerprint and reading,
+    # beside the lane verdicts (beta_readiness reads <batch>/provenance.json).
+    prov = evidence.provenance(env=env, reading=reading)
+    with open(os.path.join(a.out, "provenance.json"), "w", encoding="utf-8",
+              newline="\n") as f:
+        json.dump(prov, f, indent=1, sort_keys=True)
+        f.write("\n")
+    print("\nPROVENANCE commit %s%s, image %s, environment %s, reading %s"
+          % ((prov["git_commit"] or "unrecorded")[:12], " (dirty)" if prov["git_dirty"] else "",
+             (prov["image_id"] or "unrecorded")[:19], (prov["environment_fingerprint"] or "?")[:8],
+             reading["scorer"]))
 
     ev_path = a.evidence or os.path.join(a.out, "evidence.json")
     shipped = LANES.get("product")
@@ -223,7 +255,7 @@ def main(argv=None):
                            "resolved": len(paths),
                            "problems": [{"kind": k, "document": d, "detail": w}
                                         for k, d, w in problems]},
-                   lanes=lane_evidence)
+                   lanes=lane_evidence, provenance=prov)
     print("\n-- evidence --\n%s" % evidence.summarise(
         json.load(open(ev_path))))
     print("\nwrote %s" % ev_path)

@@ -689,6 +689,83 @@ def find_gate(dirs):
     return (best[0], best[1]) if best else None
 
 
+def load_gate_provenance(path):
+    """The provenance runall.py wrote beside a gate's verdicts (WP43):
+    <batch>/provenance.json, else the evidence file's `provenance`, else None."""
+    for name, key in (("provenance.json", None), ("evidence.json", "provenance")):
+        p = os.path.join(path, name)
+        if os.path.exists(p):
+            try:
+                data = _load_json(p)
+            except (OSError, ValueError):
+                continue
+            data = data.get(key) if key else data
+            if isinstance(data, dict):
+                return data
+    return None
+
+
+def input_provenance(data):
+    """A sweep's or timing run's `provenance` (quality_sweep.py, WP43), or None."""
+    prov = data.get("provenance") if isinstance(data, dict) else None
+    return prov if isinstance(prov, dict) else None
+
+
+def describe_provenance(prov):
+    if not prov:
+        return "provenance unrecorded"
+    reading = prov.get("reading") or {}
+    return "commit %s%s, image %s, environment %s, reading %s" % (
+        (prov.get("git_commit") or "unrecorded")[:12],
+        " (dirty)" if prov.get("git_dirty") else "",
+        (prov.get("image_id") or "unrecorded").replace("sha256:", "")[:12],
+        (prov.get("environment_fingerprint") or "unrecorded")[:8],
+        reading.get("scorer") or "unrecorded")
+
+
+def mixed_commits(provenances):
+    """[(label, commit)] -> a refusal when the lanes were made from different
+    commits, or None. Inputs that record no commit are not compared."""
+    seen = {}
+    for label, commit in provenances:
+        if commit:
+            seen.setdefault(commit, []).append(label)
+    if len(seen) <= 1:
+        return None
+    return ("the lanes were made from different commits: %s; one reading needs one "
+            "commit (or --allow-mixed-commits)" % "; ".join(
+                "%s from %s" % (", ".join(ls), c[:12]) for c, ls in sorted(seen.items())))
+
+
+# Inputs whose age decides the verdict (WP43): everything a gating criterion
+# reads. The accepted sweep is old by design; the gdocs-LO sweep grades nothing.
+GATING_INPUTS = ("raw sweep", "product sweep", "Docs live", "Word lane",
+                 "product serial", "raw serial", "gate")
+
+
+def gate_modified(path):
+    """When a gate's lane verdicts were written (the newest), or None."""
+    times = [os.path.getmtime(p) for p in
+             glob.glob(os.path.join(path, "lane_*", "verdict.json"))]
+    return datetime.datetime.fromtimestamp(max(times)) if times else None
+
+
+def stale_gating_inputs(inputs):
+    """A refusal naming the gating inputs past the freshness window, or None.
+
+    `inputs` are main()'s (label, path, detail, stale) rows; `stale` is "older
+    than the newest input by more than BAR['stale_input_hours']". It was only
+    printed ("[STALE]"); a scorecard over a day-old lane beside today's is
+    two readings, so it now makes the verdict INCOMPLETE (WP43) unless
+    --allow-stale."""
+    old = [label for label, path, _detail, stale in inputs
+           if stale and path and label in GATING_INPUTS]
+    if not old:
+        return None
+    return ("gating input(s) older than the newest input by more than %d h: %s; "
+            "re-measure them (or --allow-stale)" % (BAR["stale_input_hours"], ", ".join(old)))
+
+
 def load_timing(path):
     data = _load_json(path)
     if data.get("schema") != "exactdoc.serial-timing.v1":
@@ -757,6 +834,16 @@ def classify_failure(r):
     err = str(err)
     if err.split(":", 1)[0] in _REFUSAL_CODES:
         return "refusal"
+    # A worker's death is the document's crash unless the pool itself died
+    # (WP43). quality_sweep.py records `worker_failure` from now on and runs a
+    # dying pool's documents again alone, so only an unrecoverable pool reads
+    # as infrastructure; older rows said "worker: <exception>" for both, and
+    # only the BrokenProcessPool ones were the pool.
+    wf = r.get("worker_failure")
+    if isinstance(wf, dict):
+        return "infra" if wf.get("pool_broken") else "crash"
+    if err.startswith("worker: "):
+        return "infra" if "BrokenProcessPool" in err or "pool died" in err else "crash"
     if err.startswith(_INFRA) or "round trip failed" in err:
         return "infra"
     return "crash"
@@ -776,7 +863,8 @@ def _short(doc):
 
 # ------------------------------------------------------------- the reading
 def evaluate(docs, sweeps, lanes, gate, accepted=None, docx_dir=None,
-             readme_path=None, now=None, timings=None, waivers=None, release=RELEASE):
+             readme_path=None, now=None, timings=None, waivers=None, release=RELEASE,
+             blockers=None):
     """-> {"inputs", "criteria", "verdict", ...}.
 
     `lanes` is {"lo": rows|None, "word": rows|None, "docs": rows|None} of raw
@@ -1199,6 +1287,20 @@ def evaluate(docs, sweeps, lanes, gate, accepted=None, docx_dir=None,
                           " ".join(map(str, v.get("notes", []))))
             if m and int(m.group(1)) != BAR["gate_documents"]:
                 bad.append("%s: %s documents measured" % (lane, m.group(1)))
+            # WP43: a pass counts only against a baseline bound to the run's
+            # environment and reading. One that passed only under the
+            # transitional allowance -- or whose verdict predates the binding
+            # and cannot say -- compared against numbers that describe
+            # something else.
+            binding = v.get("baseline_binding")
+            mode = binding.get("mode") if isinstance(binding, dict) else None
+            if mode != "bound":
+                bad.append("%s: gate passed only under EXACTDOC_GATE_ALLOW_STALE_BASELINE; "
+                           "re-record needed (baseline binding %s%s)" % (
+                               lane, mode or "unrecorded",
+                               ": " + "; ".join(binding.get("mismatches") or ())
+                               if isinstance(binding, dict) and binding.get("mismatches")
+                               else ""))
         crit(11, "gate", name, FAIL if bad else PASS,
              "both lanes ok" if not bad else "%d problem(s)" % len(bad),
              len(bad) or None, bad)
@@ -1254,11 +1356,19 @@ def evaluate(docs, sweeps, lanes, gate, accepted=None, docx_dir=None,
     statuses = [c["status"] for c in gating]
     verdict = ("NOT READY" if FAIL in statuses else
                "INCOMPLETE" if UNMEASURED in statuses else "READY")
+    # Inputs the reading cannot stand on (WP43): lanes made from different
+    # commits, a gating input past the freshness window. The criteria are
+    # still computed and shown; the verdict is INCOMPLETE until the inputs are.
+    blockers = list(blockers or ())
+    unblocked = verdict
+    if blockers:
+        verdict = "INCOMPLETE"
     return {"bar": {k: (list(v) if isinstance(v, tuple) else v) for k, v in BAR.items()},
             "release": release,
             "ratified": BAR["ratified"], "evaluated": now.strftime("%Y-%m-%d %H:%M"),
             "promised": len(promised), "unclassified": unclassified,
-            "criteria": criteria, "verdict": verdict}
+            "criteria": criteria, "verdict": verdict, "blockers": blockers,
+            "verdict_unblocked": unblocked}
 
 
 def _gdocs_policy_thresholds(root=HERE):
@@ -1395,6 +1505,12 @@ def render(result, inputs, show=8):
             lines.append("  %2s %-11s   ... and %d more" % ("", "", len(c["misses"]) - show))
     counts = {s: sum(1 for c in result["criteria"] if c["status"] == s)
               for s in (PASS, FAIL, UNMEASURED, REPORTED)}
+    if result.get("blockers"):
+        lines += ["", "inputs refused (the verdict is INCOMPLETE until they are fixed; "
+                      "the criteria alone would read %s)" % result.get("verdict_unblocked")]
+        lines += ["  - %s" % b for b in result["blockers"]]
+    for allowed in result.get("allowed") or ():
+        lines += ["", "ALLOWED BY FLAG: %s" % allowed]
     lines += ["", "verdict: %s  (%d pass, %d fail, %d unmeasured, %d reported)" % (
         result["verdict"], counts[PASS], counts[FAIL], counts[UNMEASURED], counts[REPORTED]),
               "gating: 1-6, 8, 10-12; reported for beta, gating for GA: 7, 9, 13.",
@@ -1431,6 +1547,12 @@ def main(argv=None):
     ap.add_argument("--readme", default=os.path.join(PROJECT, "README.md"))
     ap.add_argument("--json", help="also write the evaluation here")
     ap.add_argument("--all", action="store_true", help="list every offending document")
+    ap.add_argument("--allow-stale", action="store_true",
+                    help="read a gating input older than the newest by more than "
+                         "%d h (otherwise the verdict is INCOMPLETE)" % BAR["stale_input_hours"])
+    ap.add_argument("--allow-mixed-commits", action="store_true",
+                    help="read lanes whose recorded commits differ (otherwise the "
+                         "verdict is INCOMPLETE)")
     a = ap.parse_args(argv)
 
     dirs = list(a.runs)
@@ -1463,17 +1585,17 @@ def main(argv=None):
     if a.waivers != WAIVERS and not os.path.exists(a.waivers):
         ap.error("--waivers %s does not exist" % a.waivers)
     w = load_waivers(a.waivers)
-    result = evaluate(docs, sweeps, lanes, gate, accepted=accepted,
-                      docx_dir=docx_dir, readme_path=a.readme, timings=timings,
-                      waivers=w, release=a.release)
 
     paths = [("raw sweep", sweeps.get("raw")), ("product sweep", sweeps.get("product")),
              ("gdocs-lo sweep", sweeps.get("gdocs-lo")), ("Docs live", docs_rows),
              ("Word lane", word_rows), ("accepted", accepted),
              ("product serial", timings.get("product")), ("raw serial", timings.get("raw"))]
     stamps = [_when(v[0]) for _, v in paths if v and v[0] and os.path.exists(v[0])]
+    gate_when = gate_modified(gate[0]) if gate and gate[0] else None
+    if gate_when:
+        stamps.append(gate_when)
     newest = max(stamps) if stamps else datetime.datetime.now()
-    inputs = []
+    inputs, commits = [], []
     for label, v in paths:
         if not v:
             inputs.append((label, None, None, False))
@@ -1484,11 +1606,38 @@ def main(argv=None):
         prof = data.get("profile", "") if isinstance(data, dict) else ""
         detail = "%s%d rows; modified %s" % (prof + ", " if prof else "", n,
                                              when.strftime("%Y-%m-%d %H:%M"))
+        if isinstance(data, dict):
+            prov = input_provenance(data)
+            detail += "; " + describe_provenance(prov)
+            if label != "accepted":             # the accepted sweep is older by design
+                commits.append((label, (prov or {}).get("git_commit")))
         stale = (newest - when).total_seconds() > 3600 * BAR["stale_input_hours"]
         inputs.append((label, path, detail, stale))
+    gate_prov = load_gate_provenance(gate[0]) if gate and gate[0] else None
+    if gate:
+        commits.append(("gate", (gate_prov or {}).get("git_commit")))
+    gate_stale = bool(gate_when) and \
+        (newest - gate_when).total_seconds() > 3600 * BAR["stale_input_hours"]
     inputs.append(("gate", gate[0] if gate else None,
                    ", ".join("%s %s" % (l, "ok" if v.get("ok") else "FAILED")
-                             for l, v in sorted(gate[1].items())) if gate else None, False))
+                             for l, v in sorted(gate[1].items())) +
+                   "; " + describe_provenance(gate_prov) +
+                   ("; modified %s" % gate_when.strftime("%Y-%m-%d %H:%M") if gate_when else "")
+                   if gate else None, gate_stale))
+    blockers, allowed = [], []
+    mixed = mixed_commits(commits)
+    if mixed:
+        (allowed if a.allow_mixed_commits else blockers).append(
+            ("--allow-mixed-commits: " if a.allow_mixed_commits else "") + mixed)
+    old = stale_gating_inputs(inputs)
+    if old:
+        (allowed if a.allow_stale else blockers).append(
+            ("--allow-stale: " if a.allow_stale else "") + old)
+    result = evaluate(docs, sweeps, lanes, gate, accepted=accepted,
+                      docx_dir=docx_dir, readme_path=a.readme, timings=timings,
+                      waivers=w, release=a.release, blockers=blockers)
+    if allowed:
+        result["allowed"] = allowed
     inputs.append(("kept DOCX", docx_dir, None, False))
     inputs.append(("waivers", a.waivers if os.path.exists(a.waivers) else None,
                    "%d criterion-8 waiver(s) for release %s%s" % (
