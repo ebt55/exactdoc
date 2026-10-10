@@ -175,8 +175,11 @@ one verified fix at a time, each gated against the frozen 16.
   a hanging row's tab-separated labels (a resume's dates) in the hang; it had
   predicted each such row a line long. LibreOffice raw on the landing set
   (64a6c47): y65 dy_p50 10.07 -> 1.48, y44 29.56 -> 1.88, y02 115 -> 114
-  pages for 114 (word recall 0.754 -> 0.966), y60 32 -> 31; no page count of
-  a promised document moves the wrong way. 28 of 90 documents change.
+  pages for 114 (word recall 0.754 -> 0.966); product y44 2.34 -> 0.67, y02
+  2.40 -> 0.71; Word product y44 2.45 -> 0.48, y02 2.73 -> 2.52, the rest
+  equal or better; no page count of a promised document moves, no promised
+  row worse by more than 0.01pt. 21 of 90 documents change in the gdocs
+  build (y20, y44, y65 of the short promised).
   Evidence: [gdocs-2026-10-11-wp35d-fields.json](docs/evidence/gdocs-2026-10-11-wp35d-fields.json).
 
 - **Short documents in Google Docs: hanging tables and letter-spaced text

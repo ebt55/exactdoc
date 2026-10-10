@@ -1,7 +1,7 @@
 {
  "what": "WP35d: a form label opens its field (y65), paragraphs a little apart stay apart (y44), and the ladder sets a hanging row's labels in the hang -- inference, every lane",
  "date": "2026-10-11",
- "base": "integration 64a6c47 (the landing set); tip cab956e (+ evidence)",
+ "base": "integration 64a6c47 (the landing set); tip f67e80d (+ evidence); measured: canonical container sweeps wp35d-b2-* vs wp35d-t3-*, Word (testkit/word_oracle.py) on Windows",
  "measurements": {
   "y65_source": "'Purpose:' x 50-90, its field x 145 on the same baseline (282.5), the field's next five lines at x 145, 11.5pt pitch; the label alone in its block (parser), white 55pt = 5.5em at 10pt; y65's label/field whites 40-73pt (4-7.3em)",
   "y44_source": "intro lines at 12.7pt baseline pitch; its four short paragraphs 15.7pt apart (+3.0pt, 0.3em at 10pt); the parser kept all five lines one block (y44's body pitch is 15.7)",
@@ -24,22 +24,6 @@
     "dy_p50": 4.52
    }
   },
-  "y03_nist_fips197": {
-   "base": {
-    "out_pages": 46,
-    "src_pages": 46,
-    "word_recall": 0.9687,
-    "within2pt": 0.1707,
-    "dy_p50": 2.69
-   },
-   "wp35d": {
-    "out_pages": 46,
-    "src_pages": 46,
-    "word_recall": 0.9687,
-    "within2pt": 0.1707,
-    "dy_p50": 2.71
-   }
-  },
   "y06_irs_1040_instructions": {
    "base": {
     "out_pages": 149,
@@ -53,7 +37,7 @@
     "src_pages": 126,
     "word_recall": 0.2212,
     "within2pt": 0.0009,
-    "dy_p50": 55.66
+    "dy_p50": 55.55
    }
   },
   "y08_nist_sp80088r1": {
@@ -200,38 +184,6 @@
     "dy_p50": 3.65
    }
   },
-  "y37_plos_one_dvipdfmx": {
-   "base": {
-    "out_pages": 32,
-    "src_pages": 22,
-    "word_recall": 0.288,
-    "within2pt": 0.0078,
-    "dy_p50": 38.31
-   },
-   "wp35d": {
-    "out_pages": 32,
-    "src_pages": 22,
-    "word_recall": 0.2877,
-    "within2pt": 0.0078,
-    "dy_p50": 37.73
-   }
-  },
-  "y38_elife_arbortext_gs": {
-   "base": {
-    "out_pages": 50,
-    "src_pages": 33,
-    "word_recall": 0.2193,
-    "within2pt": 0.0005,
-    "dy_p50": 40.15
-   },
-   "wp35d": {
-    "out_pages": 50,
-    "src_pages": 33,
-    "word_recall": 0.2196,
-    "within2pt": 0.0005,
-    "dy_p50": 39.19
-   }
-  },
   "y39_copernicus_npg_2col": {
    "base": {
     "out_pages": 11,
@@ -278,22 +230,6 @@
     "word_recall": 0.9945,
     "within2pt": 0.2215,
     "dy_p50": 1.88
-   }
-  },
-  "y60_cdc_mmwr_indd19": {
-   "base": {
-    "out_pages": 32,
-    "src_pages": 24,
-    "word_recall": 0.3275,
-    "within2pt": 0.0165,
-    "dy_p50": 54.2
-   },
-   "wp35d": {
-    "out_pages": 31,
-    "src_pages": 24,
-    "word_recall": 0.3275,
-    "within2pt": 0.0165,
-    "dy_p50": 54.2
    }
   },
   "y65_nrc_jasperreports": {
@@ -358,7 +294,7 @@
     "out_pages": 135,
     "src_pages": 126,
     "word_recall": 0.2812,
-    "within2pt": 0.0028,
+    "within2pt": 0.0037,
     "dy_p50": 58.71
    }
   },
@@ -408,22 +344,6 @@
     "word_recall": 0.941,
     "within2pt": 0.0948,
     "dy_p50": 2.38
-   }
-  },
-  "y12_irs_pub15": {
-   "base": {
-    "out_pages": 59,
-    "src_pages": 59,
-    "word_recall": 0.9556,
-    "within2pt": 0.0745,
-    "dy_p50": 8.4
-   },
-   "wp35d": {
-    "out_pages": 59,
-    "src_pages": 59,
-    "word_recall": 0.9556,
-    "within2pt": 0.0746,
-    "dy_p50": 8.4
    }
   },
   "y17_rfc9110": {
@@ -522,38 +442,6 @@
     "dy_p50": 0.45
    }
   },
-  "y37_plos_one_dvipdfmx": {
-   "base": {
-    "out_pages": 27,
-    "src_pages": 22,
-    "word_recall": 0.3268,
-    "within2pt": 0.0009,
-    "dy_p50": 26.88
-   },
-   "wp35d": {
-    "out_pages": 25,
-    "src_pages": 22,
-    "word_recall": 0.5086,
-    "within2pt": 0.0118,
-    "dy_p50": 23.62
-   }
-  },
-  "y38_elife_arbortext_gs": {
-   "base": {
-    "out_pages": 47,
-    "src_pages": 33,
-    "word_recall": 0.2833,
-    "within2pt": 0.0021,
-    "dy_p50": 30.31
-   },
-   "wp35d": {
-    "out_pages": 47,
-    "src_pages": 33,
-    "word_recall": 0.2833,
-    "within2pt": 0.0019,
-    "dy_p50": 31.65
-   }
-  },
   "y39_copernicus_npg_2col": {
    "base": {
     "out_pages": 11,
@@ -632,24 +520,8 @@
     "out_pages": 114,
     "src_pages": 114,
     "word_recall": 0.9664,
-    "within2pt": 0.1614,
+    "within2pt": 0.1603,
     "dy_p50": 2.52
-   }
-  },
-  "y03_nist_fips197": {
-   "base": {
-    "out_pages": 46,
-    "src_pages": 46,
-    "word_recall": 0.9681,
-    "within2pt": 0.1721,
-    "dy_p50": 1.98
-   },
-   "wp35d": {
-    "out_pages": 46,
-    "src_pages": 46,
-    "word_recall": 0.9681,
-    "within2pt": 0.1721,
-    "dy_p50": 1.99
    }
   },
   "y08_nist_sp80088r1": {
@@ -698,22 +570,6 @@
     "word_recall": 0.9404,
     "within2pt": 0.1067,
     "dy_p50": 2.52
-   }
-  },
-  "y12_irs_pub15": {
-   "base": {
-    "out_pages": 59,
-    "src_pages": 59,
-    "word_recall": 0.9568,
-    "within2pt": 0.0918,
-    "dy_p50": 8.02
-   },
-   "wp35d": {
-    "out_pages": 59,
-    "src_pages": 59,
-    "word_recall": 0.9568,
-    "within2pt": 0.092,
-    "dy_p50": 8.01
    }
   },
   "y17_rfc9110": {
@@ -849,36 +705,29 @@
   "changed": [
    "y01_nist_sp80063b",
    "y02_nist_sp800171r2",
-   "y03_nist_fips197",
    "y06_irs_1040_instructions",
    "y08_nist_sp80088r1",
    "y09_nist_sp800207",
    "y10_nist_fips180",
-   "y12_irs_pub15",
    "y13_irs_pub501",
    "y17_rfc9110",
-   "y18_eurlex_ai_act",
    "y20_typst_report",
-   "y21_worldbank_wdr24",
    "y22_lshort",
    "y27_rfc9000",
    "y30_nz_guideline_word365",
    "y33_nz_paper_powerpdf",
    "y36_lo_writer_guide",
-   "y37_plos_one_dvipdfmx",
-   "y38_elife_arbortext_gs",
    "y39_copernicus_npg_2col",
    "y41_arxiv_ieeetran",
-   "y42_arxiv_acmart",
    "y44_cv_rendercv_typst",
    "y57_scan_usda1950_ia",
    "y58_ssa_statement_indd20",
    "y60_cdc_mmwr_indd19",
    "y65_nrc_jasperreports"
   ],
-  "identical_of_90": 62
+  "identical_of_90": 69
  },
- "docs_page_model": "on the gdocs planner's model no page of y01-y36 (14 long promised, 3 short) goes newly tight; y02 14 pages move, none tight",
+ "docs_page_model": "on the gdocs planner's model no page of the 15 long promised (y01-y36, y22) or 3 short (y20, y44, y65) goes newly tight; y02 14 pages move, none tight",
  "probe_set": "C:\\lotmp\\scr\\wp35d\\gdocs_probe (PROBE.md); base 64a6c47",
  "errors": "0 in both sweeps; Word opened every DOCX, no repair prompt"
 }
