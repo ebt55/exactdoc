@@ -54,6 +54,12 @@ def _old_absorb_script_rows(vis_rows):
             dy = fb - host[0].oy
             if abs(dy) > P.SCRIPT_BASE_EM * hsz:
                 continue
+            # WP40: a line's worth of glyphs set apart from the host's last
+            # glyph is a line of its own, not a script.
+            if sum(1 for c in frag if c.u.strip()) >= \
+                    P.DROP_CAP_MIN_LINE_GLYPHS and \
+                    P._set_apart(frag, host, fx0, fsz):
+                continue
             hx0, hx1 = P._row_span(host)
             if fx0 <= hx0 or fx0 > hx1 + P.SCRIPT_REACH_EM * hsz:
                 continue
