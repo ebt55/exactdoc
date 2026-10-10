@@ -1653,7 +1653,15 @@ def _wide_gap_starts_visual_line(prev: _Char, current: _Char,
         return True
     # ...nor to a gap that holds a gutter's whole channel (_gutter_channels).
     # A stretched word space would have to be as wide as the gutter itself
-    # and sit exactly across it.
+    # and sit exactly across it. Except in one monospace face: its "gutter"
+    # is an alignment column of preformatted text -- y17_rfc9110 p39's ABNF
+    # ("  day           = 2DIGIT", RobotoMono) aligns its "=" at x 166 down
+    # the block, and its gaps sit off the cell grid, so _same_mono_face does
+    # not claim them. Cut at that channel, three rules lost their alignment
+    # spaces in the DOCX ("GMT = ..."); the midpoint test above still takes
+    # what it took before.
+    if prev.mono_hint and current.mono_hint and prev.font == current.font:
+        return False
     return any(prev.x1 <= lo + GUTTER_X_TOL and current.x0 >= hi - GUTTER_X_TOL
                for lo, hi in channels)
 

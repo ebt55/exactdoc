@@ -88,6 +88,17 @@ class AGapHoldingTheGutterSplits(unittest.TestCase):
         self.assertIn("y" * 15, texts)
         self.assertIn("Indented", texts)
 
+    def test_preformatted_text_is_not_cut_at_a_channel(self):
+        # y17's ABNF: one monospace face on both sides of the gap, an
+        # alignment column rather than a gutter -- the line stays whole
+        row = _row("end", 0.0, "Indented", 45.0, 130.0)
+        for c in row:
+            c.font = "RobotoMono-Regular"
+        texts = [l.text for l in _build_lines(self._page(row))]
+        self.assertNotIn("end", texts)
+        self.assertTrue(any(t.startswith("end ") and t.endswith(" Indented")
+                            for t in texts), texts)
+
     def test_no_gutter_no_channel(self):
         # one such row alone is a stretched space, as it always was
         lines = _build_lines(_row("end", 0.0, "Indented", 45.0, 10.0))
