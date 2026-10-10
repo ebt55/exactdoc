@@ -6946,6 +6946,21 @@ def _float_backgrounds(elements, blocks, lay: DocLayout, page_w: float,
         if under or bleeds:
             floats.append(FloatEl(el=e, bbox=tuple(bb), behind=under))
             continue
+        if any(isinstance(o, TableEl) and o.bbox and
+               contains(o.bbox, bb, pad=FRAME_PAD_PT) for o in elements):
+            # A picture inside a frame the source drew around it: the frame
+            # is a table in the flow, and its cell keeps the picture's room.
+            # y12's cover sets its photograph in a ruled frame over the "Get
+            # forms" box; the photo was read as wrapped by the contents
+            # column beside it (another column, not a wrap) and anchored
+            # with square wrapping, so the frame's first row, which already
+            # stands for it, could not sit under it -- pushed below the
+            # photograph, the frame left the column and the cover ran a page
+            # over. Anchored with no wrap, it lies on its own empty cell.
+            e.align = "left"
+            e.left_indent = max(0.0, round(bb[0] - lay.margin_l, 1))
+            floats.append(FloatEl(el=e, bbox=tuple(bb)))
+            continue
         wrap = _wrapped_by_text(bb, lines)
         if wrap is not None or _on_text_line(bb, lines):
             # Placed in the flow's terms too, as `_to_flow` places a picture:
@@ -7010,6 +7025,10 @@ WRAP_REACH_LINES = 2.0
 
 # A picture this far into the top or bottom margin is set in it (pt).
 MARGIN_BLEED_PT = 2.0
+# A picture inside a table's box to within this much (pt) is framed by it: the
+# frame's rule sits on the picture's edge, and a stroke's half-width and the
+# rule's own thickness put y12's cover frame (2pt rules) 1-2pt outside it.
+FRAME_PAD_PT = 3.0
 # A picture is set ON a text line (`_on_text_line`) when a line beside it shares
 # at least this share of its height with the picture's band, and the picture is
 # no taller than this many of those lines. Measured: NIST's withdrawal-notice
@@ -7918,7 +7937,10 @@ def _toc_number_rows(items):
     out, cur = [], []
 
     def close(grp):
-        led = sum(1 for e, _ in grp if _TRAILING_LEADER_RE.match(e.text.strip()))
+        # y12's checklists space their dots wider than a contents page's
+        # (".  .  ."); _LEADER_TAIL reads both (see _drop_leader_values)
+        led = sum(1 for e, _ in grp if _TRAILING_LEADER_RE.match(e.text.strip())
+                  or _LEADER_TAIL.search(e.text.rstrip()))
         if len(grp) >= TOC_ROW_MIN and 2 * led >= len(grp):
             edge = max(n.bbox[2] for _, n in grp)
             out.extend((e, n, edge) for e, n in grp)
@@ -8060,6 +8082,12 @@ def _toc_number_para(entry: Line, num: Line, edge: float, col_l: float,
     runs = [r for r in runs_from_spans(entry.spans) if r.text]
     while runs and not runs[-1].text.strip():
         runs.pop()
+    if len(runs) >= 2 and runs[0].text.strip() in BULLET_CHARS and \
+            not runs[0].text.endswith((" ", "\t")) and \
+            not runs[1].text.startswith((" ", "\t")):
+        # a marker glued to its entry (`_merge_list_markers`) keeps the white
+        # the source set after it: y12's checklist rows, "◦Verify ..."
+        runs[0] = replace(runs[0], text=runs[0].text + " ")
     if runs:
         runs[-1] = replace(runs[-1], text=runs[-1].text.rstrip(" "))
     ref = runs[-1] if runs else Run(text="", font=num.spans[0].font,
@@ -8911,6 +8939,15 @@ def _mergeable(a: Para, b: Para, col_l: Optional[float] = None,
     # and a paragraph the source opened by hand (`_forced_break`).
     if getattr(b, "_note", False) or getattr(b, "_forced", False):
         return False
+    # ...and one whose first line is INDENTED from its others: that indent is
+    # how the source opened it. A fragment continuing `a` begins on a wrapped
+    # line, flush with its paragraph. y12 p31: the column's last words, "the
+    # same wording.", cut from a line welded across the gutter, sat 2.7pt of
+    # box above "If a substitute ...", indented 12pt and 6pt lower than a line
+    # pitch, and the join made one paragraph of the two whose leading was
+    # read off that gap -- 16.95pt for 11.5pt lines, 44pt over nine lines.
+    if b.first_indent > 1.0 and b.align in ("left", "justify"):
+        return False
     # Paragraphs continue each other only in one direction, and a
     # right-to-left paragraph continues at its START, which is its right
     # edge: its ragged last line ends anywhere on the left (see _rtl_lines).
@@ -9126,6 +9163,40 @@ def _has_item_beside(ln: Line, own, flow_blocks, opens_block: bool = False) -> b
 MARKER_LEFT_TOL_EM = 1.0
 
 
+_LEADER_TAIL = re.compile(r"[^.·…\s][ \t]*(?:[.·…][ \t]{0,3}){4,}$")
+
+
+def _drop_leader_values(marker_lines, flow_blocks):
+    """`marker_lines` without the bare numbers that CLOSE a leadered line on
+    their own baseline: those are a leader row's value -- a page reference,
+    an amount -- standing at its end, not a marker opening the next item.
+
+    `_is_marker_line` accepts bare digits for step lists, and the glue
+    takes whatever text starts within 60pt to their right. y12_irs_pub15 p8
+    sets two checklists side by side, each row "Verify work eligibility of
+    new employees . . . . . . ." with its page number ("7", "25", "44") at
+    the left list's edge, 20-30pt short of the right list's checkboxes and
+    items: every number was glued in front of the other list's row -- "7•◦",
+    "File Form 944 ... 7not required" -- and those rows, reaching across the
+    page's gutter, were laid out under both columns. The same evidence
+    `_leadered_numbers` reads for a contents page's number column: a line
+    ending in dots on the number's baseline, left of it -- dots set up to
+    three spaces apart, as y12 sets them (".  .  ."), where the contents
+    page's own pattern stops at one."""
+    leadered = [l for b in flow_blocks for l in b.lines
+                if _LEADER_TAIL.search(l.text.rstrip())]
+    if not leadered:
+        return marker_lines
+    out = []
+    for ln, b in marker_lines:
+        if ln.text.strip().isdigit() and any(
+                abs(o.baseline - ln.baseline) < 2.0 and
+                o.bbox[2] <= ln.bbox[0] + 1.0 for o in leadered):
+            continue
+        out.append((ln, b))
+    return out
+
+
 def _merge_list_markers(flow_blocks):
     """Some producers (WeasyPrint) emit list markers as separate blocks —
     sometimes several markers stacked in ONE block. Glue each marker line back
@@ -9164,6 +9235,7 @@ def _merge_list_markers(flow_blocks):
             # number opened the block of the item's LAST lines ("2.
             # criteria:", two lines) and the first line stood alone above it.
             marker_lines.append((b.lines[0], b))
+    marker_lines = _drop_leader_values(marker_lines, flow_blocks)
     marker_ids = {id(l) for l, _ in marker_lines}
     consumed = set()
     for ln, b in marker_lines:
