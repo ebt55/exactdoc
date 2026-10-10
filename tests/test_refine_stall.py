@@ -68,6 +68,34 @@ class Loop(unittest.TestCase):
         self.assertEqual(len(renders), 4)
         self.assertEqual(report["stopped"], "max-rounds")
 
+    def test_a_candidate_that_did_not_change_is_not_rendered(self):
+        import zipfile
+        renders = []
+
+        def same(_lay, path, **_kw):
+            with zipfile.ZipFile(path, "w") as z:
+                z.writestr("[Content_Types].xml", "<Types/>")
+                z.writestr("_rels/.rels", "<Relationships/>")
+                z.writestr("word/document.xml", "<w:document>same</w:document>")
+                z.writestr("docProps/core.xml", "<t>%d</t>" % len(renders))
+            return path
+
+        def render(candidate, scratch):
+            renders.append(candidate)
+            return os.path.join(scratch, "r.pdf")
+
+        report = {}
+        with tempfile.TemporaryDirectory() as d, \
+                mock.patch("exactdoc.docxout.write_docx", side_effect=same), \
+                mock.patch("exactdoc.refine._measure",
+                           side_effect=[_m(3, [1, 0], [9.0, 0.0])] * 4), \
+                mock.patch("exactdoc.refine._apply", return_value=True):
+            R.refine(object(), "in.pdf", os.path.join(d, "o.docx"), rounds=3,
+                     render=render, backend=_FakeBackend({}), report=report)
+        self.assertEqual(len(renders), 1)
+        self.assertEqual(report["stopped"], "unchanged")
+        self.assertEqual(report["published_round"], 0)
+
     def test_a_worse_stalled_round_still_gets_its_remaining_rounds(self):
         renders, report = self._run([_m(3, [1, 0], [0.0, 0.0]),
                                      _m(3, [1, 0], [5.0, 0.0]),
