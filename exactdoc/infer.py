@@ -8864,6 +8864,7 @@ def _propagate_list_hangs(paras):
 # left of it, and the label's block holds nothing else at the label's x.
 FIELD_GAP_EM = 2.0
 FIELD_LABEL_MAX_SHARE = 0.45
+_FIELD_NUMBER_RE = re.compile(r"[\divxlcdmIVXLCDM.,\-–]+")
 
 
 def _field_labels(items, col_l: float, col_r: float) -> Dict[int, Line]:
@@ -8888,6 +8889,10 @@ def _field_labels(items, col_l: float, col_r: float) -> Dict[int, Line]:
         fsize = _line_size(fld)
         if fld.bbox[0] - lab.bbox[2] < FIELD_GAP_EM * max(size, fsize) or \
                 any(s.mono for s in fld.spans) or _mathy([fld]):
+            continue
+        # a list marker is the list reader's (lists.assign_lists), and a bare
+        # number across the white is a contents line's page, not a field
+        if _is_marker_text(lab.text) or _FIELD_NUMBER_RE.fullmatch(fld.text.strip()):
             continue
         # the field's block opens with it and keeps to its column
         fb = blocks[bj]
