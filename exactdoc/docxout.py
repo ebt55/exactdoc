@@ -2215,7 +2215,18 @@ def _absorb_page_spill(pg, content_w: float, lay: DocLayout,
     to them keeps the whole change inside one writer signature. A page whose
     paragraph gaps cannot cover the overflow in full is left alone: a partial
     payment spends the spacing and still loses the page.
+
+    Nor is a page the refine loop pushed down (`PageLayout.loop_pushed`): the
+    push is bounded by the room the render measured at the page's foot, so the
+    render has already answered the question this prediction asks, and the
+    prediction would take the push back. Measured on y44_cv_rendercv_typst
+    p1 (product, Carlito image): the render left 38.8pt free while this model
+    predicted 1.6pt over; the loop pushed the body down 30.6pt to its source
+    position, the model then predicted 32.2pt over on two stranded lines and
+    planned 34.2pt of cuts -- the page came out 34pt high instead of 0.
     """
+    if getattr(pg, "loop_pushed", False):
+        return {}
     got = _page_spill(pg, content_w, lay, notes_h, output_profile)
     if got is None:
         return {}

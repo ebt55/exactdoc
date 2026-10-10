@@ -334,6 +334,11 @@ class PageLayout:
     # Graphics anchored to this page out of the flow (FloatEl); empty unless
     # inference read the page as a slide with a profile that anchors.
     floats: List[Any] = field(default_factory=list)
+    # True once the refine loop has moved this page's content down by no more
+    # than the room its render measured at the page foot (refine._apply). The
+    # render then outranks the writer's open-loop spill prediction for the
+    # page (docxout._absorb_page_spill). Never set by an open-loop write.
+    loop_pushed: bool = False
 
 
 @dataclass
