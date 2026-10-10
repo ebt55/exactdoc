@@ -48,15 +48,15 @@ from typing import Optional
 
 from .layout import ColBreak, FigureEl, ImageEl, Para, RuleEl, TableEl
 
-# OFF until it is proven on the gate and in the product and Word lanes. On
-# the raw sweep (canonical, both corpora, against ckpt-raw) it takes y18 156
-# -> 144 pages and y33 62 -> 60, both page-exact (criterion 5 in LibreOffice
-# 11 -> 13 of 21), y03 51 -> 47 and y64 44 -> 40, page-exact 59 -> 62, the 16
-# gated documents byte-identical -- but y59 (CMS notice, 6 pages rendered as
-# 18, not promised) regresses dy_p50 30.07 -> 46.35 when its first page, 178pt
-# over, is paid back into its box. Word, on: product DOCX 15 -> 16 of 21
-# (y18 154 -> 144) but y64 40 -> 41. With it off the writer is byte-identical
-# to the code before the planner. `docs/evidence/pagefit-2026-10-06.json`.
+# On for the standard profile since WP34; the gdocs profile never asks it
+# (its pages are `_gdocs_page_plan`'s), and its 95 fixtures' word/*.xml are
+# byte-identical either way. Measured in the canonical Carlito image against
+# the round's planner-off sweeps (docs/evidence/pagefit-2026-10-10.json):
+# raw, y18 156 -> 144 pages (word recall 0.40 -> 0.98), y03 51 -> 47, y21 57
+# -> 53, y02 117 -> 115, y64 44 -> 41, page-exact 60 -> 62, the 16 gated
+# documents byte-identical, no document worse beyond the gate tolerances; in
+# Word, the product DOCX of y18 154 -> 144 pages (0.47 -> 0.99). Off, the
+# writer is byte-identical to the code before the planner.
 PAGEFIT_ENABLED = True
 # A page the model puts more than this many body lines past its box is paid
 # only by a plan that keeps every gap at least PAGEFIT_GENTLE_GAP_SCALE of
@@ -332,13 +332,17 @@ def page_model(pg, content_w: float, lay, notes_h: float, plan: dict,
 
 def fit_page(pg, content_w: float, lay, notes_h: float, body_line: float,
              plan: dict, output_profile: str = "standard",
-             drop_first_gap: bool = False, report: Optional[dict] = None) -> dict:
+             drop_first_gap: bool = False, report: Optional[dict] = None,
+             floors: bool = True) -> dict:
     """The gap plan `{id(element): space_before}` for one standard-profile
     page: `plan` (the caller's, `_absorb_page_spill`'s) unchanged when the page
     fits with a body line plus PAGEFIT_SAFETY_PT to spare or cannot be made to,
     else a plan of the page's own gaps that leaves it that room (module
     docstring). Nothing is mutated: the refine loop writes the same layout
     once per round, and a gap reduced in place would compound.
+
+    `floors` False: the gentle tier only (`plan_page` under the refine loop,
+    whose own lever the floors are).
 
     `report`, when given, receives `at_risk` and `short` (the points of the
     budget the gaps could not pay)."""
@@ -360,7 +364,8 @@ def fit_page(pg, content_w: float, lay, notes_h: float, body_line: float,
     if report is not None:
         report["at_risk"] = True
     tiers = []
-    for scale in (PAGEFIT_GENTLE_GAP_SCALE, SPILL_MIN_GAP_SCALE):
+    for scale in (PAGEFIT_GENTLE_GAP_SCALE, SPILL_MIN_GAP_SCALE)[
+            :2 if floors else 1]:
         tiers.append([max(0.0, gap - max(SPILL_GAP_FLOOR_PT, src * scale))
                       for _el, gap, src in gaps])
     total = sum(tiers[-1])
@@ -402,10 +407,13 @@ def plan_page(pg, content_w: float, lay, notes_h: float, body_line: float,
               drop_first_gap: bool = False, memo: Optional[dict] = None) -> dict:
     """`fit_page` as the writer asks it. Open-loop (`memo` None) every write
     plans afresh. Under the refine loop (`memo` the loop layout's own) a page
-    is planned once, on its first write, and in every later round each gap
-    the plan took from is written at the smaller of the plan's value and the
-    loop's: the two never compound, and the loop's own corrections elsewhere
-    on the page stand.
+    is planned once, on its first write, and only from the gentle tier: the
+    refine floors are the loop's own lever, spent on what its render
+    measures. In every later round each gap the plan took from is written at
+    the smaller of the plan's value and the loop's: the two reductions never
+    compound. A push by the loop (a gap it raised above its first-write
+    value) is added to the plan's value, so the page moves as it would
+    unplanned; the loop's corrections elsewhere on the page stand.
 
     Re-planned each round, the planner undid the loop's corrections: the loop
     pushes a page whose render sits high down by its first gap, within the
@@ -416,7 +424,10 @@ def plan_page(pg, content_w: float, lay, notes_h: float, body_line: float,
     loop published its round 0 (product within-2pt 0.73 -> 0.41). Held as
     points taken off whatever the loop left, the plan compounded with the
     loop's own reductions on a page that spilled with it all the same (y53
-    p11, product dy_p50 3.54 -> 4.71); held as a ceiling, 3.96."""
+    p11, product dy_p50 3.54 -> 4.71); held as a ceiling, 3.96. Both pages
+    that measured this way (y53 p11, y47 p33, whose ceiling left y47 at 66
+    pages for 65) were paid to the floors and spilled with the plan all the
+    same: the floors are the loop's."""
     if memo is None:
         return fit_page(pg, content_w, lay, notes_h, body_line, plan,
                         output_profile, drop_first_gap=drop_first_gap)
@@ -427,13 +438,20 @@ def plan_page(pg, content_w: float, lay, notes_h: float, body_line: float,
     held = memo.get(key)
     if held is None:
         out = fit_page(pg, content_w, lay, notes_h, body_line, plan,
-                       output_profile, drop_first_gap=drop_first_gap)
+                       output_profile, drop_first_gap=drop_first_gap,
+                       floors=False)
         held = {}
         if out is not plan:
-            held = {k: out[id(el)] for k, el in enumerate(els) if id(el) in out}
+            held = {k: (getattr(el, "space_before", 0.0) or 0.0, out[id(el)])
+                    for k, el in enumerate(els) if id(el) in out}
         memo[key] = held
         return out
     if not held:
         return plan
-    return {id(els[k]): min(getattr(els[k], "space_before", 0.0) or 0.0, v)
-            for k, v in held.items() if k < len(els)}
+    out = {}
+    for k, (was, planned) in held.items():
+        if k < len(els):
+            gap = getattr(els[k], "space_before", 0.0) or 0.0
+            # a push by the loop moves the page as it would unplanned
+            out[id(els[k])] = min(gap, planned + max(0.0, gap - was))
+    return out

@@ -345,6 +345,31 @@ class UnderTheLoop(unittest.TestCase):
         self.assertGreaterEqual(second[id(els[k])],
                                 els[k].space_before - 1e-9)
 
+    def test_under_the_loop_the_floors_are_the_loops(self):
+        # Eight lines over: the gentle tier (76.8pt) cannot cover the 96pt
+        # overflow. Open-loop it is paid to the floors; under the loop it is
+        # left to the loop (y53 p11 spilled with the floors spent anyway)
+        lay = _lay()
+        pg = _page(_fill(lay, spare=-8 * BODY))
+        self.assertTrue(self._plan(pg, lay, None))
+        given = {"sentinel": 1.0}
+        self.assertIs(self._plan(pg, lay, {}, given), given)
+        # a page the gentle tier pays is planned under the loop too
+        self.assertTrue(self._plan(_page(_fill(lay, spare=3.0)), lay, {}))
+
+    def test_a_push_on_a_planned_gap_moves_the_page(self):
+        # y47's cover pays from its one gap; the loop's push on that gap
+        # must still move the page
+        lay = _lay()
+        els = _fill(lay, spare=3.0)
+        pg = _page(els)
+        memo = {}
+        first = self._plan(pg, lay, memo)
+        k = max(i for i, el in enumerate(els) if id(el) in first)
+        els[k].space_before += 6.0
+        second = self._plan(pg, lay, memo)
+        self.assertAlmostEqual(second[id(els[k])], first[id(els[k])] + 6.0)
+
     def test_a_page_left_alone_first_stays_the_callers(self):
         lay = _lay()
         els = _fill(lay, spare=40.0)
