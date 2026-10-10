@@ -29,6 +29,49 @@
   }
  },
  "work_package": "WP45",
+ "y28_docs_live": {
+  "flight": "C:\\lotmp\\wp45live (coordinator, wp40 vs wp45 gdocs DOCX)",
+  "pages": "21/21 for both",
+  "why_the_readings_disagree": "Under the wp29 reading the SOURCE footer still reads P a g e: PyMuPDF splits its tracked letters at the synthesised gaps, so the four letter tokens per footer matched the old export's P a g e and miss the new export's Page (16 footers, 0.9902 -> 0.9806). That is the artefact amendment 5 removes: under the wp42 reading the source reads Page too, and the fixed export now matches it (0.9877 -> 0.9901, a real gain, as in LibreOffice and Word). Characters and live text are unchanged in both readings.",
+  "wp29_reading": {
+   "char_recall": [
+    0.9956,
+    0.9956
+   ],
+   "live_text_cov": [
+    0.9862,
+    0.9862
+   ],
+   "rows": "C:\\lotmp\\wp45live\\rows.wp29.json",
+   "within2pt": [
+    0.2894,
+    0.2922
+   ],
+   "word_recall": [
+    0.9902,
+    0.9806
+   ]
+  },
+  "wp42_reading": {
+   "char_recall": [
+    0.9956,
+    0.9956
+   ],
+   "live_text_cov": [
+    0.9868,
+    0.9868
+   ],
+   "rows": "C:\\lotmp\\wp45live\\rows.wp42.json",
+   "within2pt": [
+    0.2928,
+    0.2921
+   ],
+   "word_recall": [
+    0.9877,
+    0.9901
+   ]
+  }
+ },
  "y28_measured_wp42_reading": {
   "lo_product": {
    "base": {
