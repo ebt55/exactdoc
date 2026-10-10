@@ -869,14 +869,16 @@ class TheWriter(unittest.TestCase):
         lay.pages = [first, full]
         return lay, full
 
-    def test_gdocs_pays_and_the_standard_profile_does_not(self):
+    def test_gdocs_pays_and_so_does_the_standard_profile(self):
+        # Until WP34 the standard profile left a page 3pt inside its box as
+        # it was. It now has its own planner (`pagefit.fit_page`), on its own
+        # line model; this file pins only that the gdocs page is paid.
         lay, full = self._doc()
-        asked = [round(el.space_before * 20) for el in full.chunks[0].elements]
-        std = [round(b * 20) for b in _befores(_xml(lay, "standard"))]
+        asked = sum(el.space_before for el in full.chunks[0].elements)
+        std = _befores(_xml(lay, "standard"))
         gd = _befores(_xml(lay, "gdocs"))
-        for v in asked[1:]:
-            self.assertIn(v, std)
-        self.assertLess(sum(gd), sum(std) / 20.0)
+        self.assertLess(sum(gd), asked)
+        self.assertLess(sum(std), asked)
 
     def test_the_layout_is_not_modified(self):
         lay, full = self._doc()
