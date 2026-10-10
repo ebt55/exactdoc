@@ -335,6 +335,32 @@ class ProbeRound(unittest.TestCase):
         self.assertEqual(ap.call_count, 1,
                          "nothing the probe measured is applied")
 
+    def test_a_discarded_probe_takes_its_page_fit_plans_with_it(self):
+        from exactdoc import refine as R
+        from tests.test_refine_loop import _FakeBackend, _Writer
+        lay = layout([])
+        seen = []
+
+        def replan(lay_, m, prof, rounds):
+            lay_._pagefit_memo = {(1, 0.0): {0: (10.0, 4.0)}}
+            return True
+
+        def write(lay_, path, **kw):
+            seen.append(dict(getattr(lay_, "_pagefit_memo", {})))
+            return _Writer()(lay_, path)
+
+        with tempfile.TemporaryDirectory() as d, \
+                mock.patch("exactdoc.docxout.write_docx", side_effect=write), \
+                mock.patch("exactdoc.refine._measure",
+                           side_effect=[self.m(2, [0, 0], [0.0, 0.0])] * 3), \
+                mock.patch("exactdoc.refine._apply", return_value=True), \
+                mock.patch("exactdoc.docxout._replan_flows",
+                           side_effect=replan):
+            R.refine(lay, "in.pdf", os.path.join(d, "o.docx"), rounds=1,
+                     render=lambda c, s: os.path.join(s, "r.pdf"),
+                     backend=_FakeBackend({}))
+        self.assertEqual(seen[1], {}, "round 0 is planned afresh")
+
     def test_a_probe_that_keeps_the_plan_is_round_0(self):
         renders, report, ap, rp = self._run(
             [self.m(2, [0, 0], [3.0, 0.0]), self.m(2, [0, 0], [0.0, 0.0])],

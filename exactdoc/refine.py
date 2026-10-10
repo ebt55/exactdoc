@@ -897,6 +897,12 @@ def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
                     from .docxout import _replan_flows
                     if _replan_flows(lay, m, output_profile, rounds):
                         row["probe"] = True
+                        # Nothing the probe planned is kept either: the
+                        # page-fit plans it held (`pagefit.plan_page`) are
+                        # keyed by page and element position, and a page
+                        # the new plan merges is another page.
+                        getattr(lay, "__dict__", {}).pop("_pagefit_memo",
+                                                         None)
                         first_candidate = None
                         rnd = -1
                         continue
