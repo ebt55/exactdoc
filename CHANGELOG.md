@@ -61,6 +61,39 @@ one verified fix at a time, each gated against the frozen 16.
   `exactdoc/fonts.py`: two docstrings now say Calibri and Cambria render as
   Carlito and Caladea (comment only).
 
+- **Round 4's "before", measured in both images (WP32).** No conversion code
+  changed. Sweeps of 71558af in the old image (`r4-old-*`) and of the switch
+  in the new one (`r4-new-*`), 90 documents each, compared per document with
+  criterion 8's metrics and `gate.py` tolerances. *Round 3's code:* 84 of 90
+  DOCX byte-identical in both flavours; the six that differ are the ones its
+  work packages name (04, y02, y03, y33 WP27; y24 WP26; y61 WP28). Raw: none
+  worse; y24 181 -> 180 pages (word recall 0.49 -> 0.99), y33 62 -> 60
+  (0.50 -> 0.99), y02 120 -> 119. Product: one document worse, y61 dy_p50
+  35.91 -> 39.56 (tolerance 3.59; WP28), the same in either image; at the
+  baseline (amendment 3) 37.00 -> 40.53, inside its 3.70. *The image:* raw
+  DOCX identical 90/90; product DOCX 77/90 (the refine loop reads a
+  different render). LibreOffice product: y02 within-2pt 0.17 -> 0.33, y20
+  0.04 -> 0.45, y30 0.22 -> 0.72, y33 0.15 -> 0.73, y17 dy_p50 13.4 -> 9.6;
+  worse y34 dy_p50 3.39 -> 4.18 and y47 doc recall 0.727 -> 0.717 (both
+  unpromised). Raw: y02 119 -> 117 pages (word recall 0.32 -> 0.74), y20 and
+  y33 within-2pt +0.41 and +0.36; worse y17 194 -> 195 pages (word recall
+  0.985 -> 0.916, LibreOffice now reading as Word does), y34, y47. Word,
+  product DOCX, against the checkpoint: y02 115 -> 114 pages, y27 152 -> 151,
+  y20 within-2pt 0.06 -> 0.44; worse y30 0.46 -> 0.21, y46 0.26 -> 0.11 and
+  y33 0.39 -> 0.18 within-2pt -- y30 and y46 have no round-3 change, so the
+  image did it (on y30 the refine loop, now reading a Carlito render, moves
+  page-top gaps by about 0.6pt, which Word, drawing real Calibri, does not
+  need; not yet diagnosed further). Word raw: none worse. Scorecard (amendment 3, accepted = the checkpoint code in the
+  Carlito image): 7 pass / 3 fail -- criterion 5 LibreOffice 18/21, Word
+  16/21, Docs 16/21; criterion 8 PASS; criterion 2 is not a valid reading
+  (the serial runs overlapped other agents' sweeps and ran 1.1-3.5x the
+  checkpoint's serial times while the sweeps show no slowdown); criterion
+  12 is the README's Docs count (57 -> 63 of 90). The owner's proposed
+  re-record (Carlito + amendment 3, product 0.6427 -> 0.8156, raw 0.4853
+  -> 0.6168; one finding cleared, raw 05_memo) and a dry run of the parity
+  floors are prepared outside the repository
+  (`docs/evidence/wp32-carlito-switch-2026-10-10.json`).
+
 - **y33's footnotes stay on their pages (WP27).** The pages whose notes
   spilled (LibreOffice raw p22 and p24) had lost their footnote references
   to pictures: y33 (Kofax Power PDF) sets each consultation question as a
@@ -187,33 +220,6 @@ one verified fix at a time, each gated against the frozen 16.
   low). Pages replayed against probe 2's exports: 14 lost -> 14,
   y26's page 77 recovered (its first loss moves from page 77 to 172). The
   standard profile is byte-identical for all 90 convertible documents.
-
-- **y33's footnotes stay on their pages (WP27).** The pages whose notes
-  spilled (LibreOffice raw p22 and p24) had lost their footnote references
-  to pictures: y33 (Kofax Power PDF) sets each consultation question as a
-  teal number badge flush against a tinted panel, and a question standing
-  alone was classified a figure that, grown from the panel's 454pt seed,
-  rasterised the body lines above it -- on 20 of 60 pages. With a
-  reference inside a picture the page's notes could not bind and stayed
-  typed. A cluster that is one row of abutting tiles, every tile holding
-  text, is now a one-row table (`_tile_bands`; cards with gutters, a row
-  with an empty tile and a shaded header over body rows -- the headed
-  table's -- are not). Notes: the separator is the qualifying rule nearest
-  the notes, not the first drawn (a question badge's white hairline opened
-  the zone over a table on p32 and p40); and a mark printed alone above its
-  note's text -- a note that is one unbreakable URL, p45 -- opens the note
-  under it. Every y33 page with notes now binds them (23 pages). Canonical
-  LibreOffice raw, against ckpt-raw over all 90 swept documents: y33 62 ->
-  60 pages, word recall 0.494 -> 0.993, char recall 0.780 -> 1.000, doc
-  recall 0.893 -> 0.993, within-2pt 0.071 -> 0.063; y02 120 -> 119 pages
-  (114; word recall -0.0004); 04's KPI tiles at their source x (SSIM +0.001);
-  y03 +0.0001; the rest identical (beta criterion 5, LibreOffice raw: y33
-  passes, 11 -> 12 of 21; 13 with WP26's y24). Word, raw DOCX: y33 63 -> 60 pages, word
-  recall 0.486 -> 0.993, within-2pt 0.087 -> 0.159. Google Docs is not
-  changed by proxy evidence: y33's Docs onset (p2) is its page-background
-  pictures, stacked in the flow because the gdocs profile has no `anchored`
-  capability; a probe set (with and without those backgrounds anchored)
-  awaits a live pass. Tests: `tests/test_question_panels.py`.
 
 - **A page-fit planner for LibreOffice and Word, built and measured, shipped
   off (WP30).** `exactdoc/pagefit.py` models each single-column page as the
