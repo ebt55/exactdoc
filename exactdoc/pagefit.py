@@ -48,16 +48,36 @@ from typing import Optional
 
 from .layout import ColBreak, FigureEl, ImageEl, Para, RuleEl, TableEl
 
-# OFF until it is proven on the gate and in the product and Word lanes. On
-# the raw sweep (canonical, both corpora, against ckpt-raw) it takes y18 156
-# -> 144 pages and y33 62 -> 60, both page-exact (criterion 5 in LibreOffice
-# 11 -> 13 of 21), y03 51 -> 47 and y64 44 -> 40, page-exact 59 -> 62, the 16
-# gated documents byte-identical -- but y59 (CMS notice, 6 pages rendered as
-# 18, not promised) regresses dy_p50 30.07 -> 46.35 when its first page, 178pt
-# over, is paid back into its box. Word, on: product DOCX 15 -> 16 of 21
-# (y18 154 -> 144) but y64 40 -> 41. With it off the writer is byte-identical
-# to the code before the planner. `docs/evidence/pagefit-2026-10-06.json`.
-PAGEFIT_ENABLED = False
+# On for the standard profile since WP34; the gdocs profile never asks it
+# (its pages are `_gdocs_page_plan`'s), and its 95 fixtures' word/*.xml are
+# byte-identical either way. Measured in the canonical Carlito image against
+# the round's planner-off sweeps (docs/evidence/pagefit-2026-10-10.json):
+# raw, y18 156 -> 144 pages (word recall 0.40 -> 0.98), y03 51 -> 47, y21 57
+# -> 53, y02 117 -> 115, y64 44 -> 41, page-exact 60 -> 62, the 16 gated
+# documents byte-identical, no document worse beyond the gate tolerances; in
+# Word, the product DOCX of y18 154 -> 144 pages (0.47 -> 0.99). Off, the
+# writer is byte-identical to the code before the planner.
+PAGEFIT_ENABLED = True
+# A page the model puts more than this many body lines past its box is paid
+# only by a plan that keeps every gap at least PAGEFIT_GENTLE_GAP_SCALE of
+# itself; one that would have to go to the refine floors is left as spaced.
+# A claim that large is the guess the model is least sure of, and to the
+# floors a wrong one costs the most placement. Measured over every page the
+# uncapped planner paid (240 pages of the 90 documents, raw lane, Carlito
+# image, the off and on renders read per source page with refine._measure;
+# docs/evidence/pagefit-2026-10-10.json "pages"): of the 11 pages claimed
+# more than 8 lines over whose plan needed the floors, 8 fitted in the render
+# unpaid (the claim was wrong) and paying them only moved their lines --
+# y59 p1, 11.1 lines (178pt) claimed, fitted all the same, and its plan cut
+# one 233pt gap to 70pt (dy_p50 31.97 -> 48.15); of the pages the gentle
+# tier could pay, every one past 8 lines was a real spill and was saved --
+# y21 p6, 10.9 lines, which a flat cap of 10 left spilling (y21 dy_p50
+# 51.96 -> 65.32 with it, 40.90 without). Under 10 lines the floors stay
+# open: y02 p66 (7.4 lines) and p70, y03 p33 were real spills only the
+# floors could pay. The old image's cap measurements
+# (docs/evidence/pagefit-2026-10-06.json "cap": 3, 5 and 8 lost y18, y33 and
+# y03 pages) keep the threshold at 10.
+PAGEFIT_MAX_OVER_LINES = 10
 # Sizes are half-points, gaps tenths and the exact line a tenth of a point: a
 # plan that lands exactly on its target can still be a point out. The value
 # the Google Docs planner (GDOCS_PAGE_SAFETY_PT) and the refine loop
@@ -96,6 +116,32 @@ def _source_lines(p: Para) -> int:
     return max(1, p.src_lines or 0, forced)
 
 
+def _hang_body(p: Para):
+    """The runs of a hanging paragraph that are set in its body, or None.
+
+    A paragraph with a hanging indent sets what precedes its hang tab -- a
+    list marker, a resume's date column -- out in the hang, and starts its
+    first line's text at the left indent; `predict_lines` skips tabs and
+    measures that text as part of the line. The hang tab is the last tab
+    whose stop lies at or before the left indent (Word and LibreOffice set an
+    implicit one there when the paragraph names none). Measured on y44 p1:
+    two rows "<tab>Sept 2018 - May 2023<tab>Princeton University, ..." (stops
+    118.7 right and 128.9 left, left indent 128.9), one line each in the
+    source and in both renderers, predicted at two lines each with the date
+    counted into the 385pt line; the page claimed at risk by 1.3pt had 38.8pt
+    to spare in the render."""
+    if p.first_indent >= 0 or getattr(p, "rtl", False):
+        return None
+    tabs = [i for i, r in enumerate(p.runs) if r.is_tab]
+    if not tabs:
+        return None
+    k = sum(1 for st in (p.tab_stops or ()) if st and st[0] <= p.left_indent + 0.5)
+    cut = tabs[min(max(1, k), len(tabs)) - 1]
+    if any("\n" in (r.text or "") for r in p.runs[:cut]):
+        return None
+    return p.runs[cut + 1:]
+
+
 def para_lines(p: Para, avail: float, metrics) -> int:
     """How many lines the renderer sets `p` in at `avail` points.
 
@@ -112,7 +158,14 @@ def para_lines(p: Para, avail: float, metrics) -> int:
         return src
     segs = _segments(p)
     if segs is None:
-        n = predict_lines_for(p, avail, metrics)
+        body = _hang_body(p)
+        if body is not None:
+            # the hang's content sits outside the line (`_hang_body`)
+            n = predict_lines_for(dataclasses.replace(
+                p, runs=body, first_indent=0.0), avail, metrics) \
+                if any((r.text or "").strip() for r in body) else 1
+        else:
+            n = predict_lines_for(p, avail, metrics)
         if n is None:
             return src
     else:
@@ -279,13 +332,17 @@ def page_model(pg, content_w: float, lay, notes_h: float, plan: dict,
 
 def fit_page(pg, content_w: float, lay, notes_h: float, body_line: float,
              plan: dict, output_profile: str = "standard",
-             drop_first_gap: bool = False, report: Optional[dict] = None) -> dict:
+             drop_first_gap: bool = False, report: Optional[dict] = None,
+             floors: bool = True) -> dict:
     """The gap plan `{id(element): space_before}` for one standard-profile
     page: `plan` (the caller's, `_absorb_page_spill`'s) unchanged when the page
     fits with a body line plus PAGEFIT_SAFETY_PT to spare or cannot be made to,
     else a plan of the page's own gaps that leaves it that room (module
     docstring). Nothing is mutated: the refine loop writes the same layout
     once per round, and a gap reduced in place would compound.
+
+    `floors` False: the gentle tier only (`plan_page` under the refine loop,
+    whose own lever the floors are).
 
     `report`, when given, receives `at_risk` and `short` (the points of the
     budget the gaps could not pay)."""
@@ -307,7 +364,8 @@ def fit_page(pg, content_w: float, lay, notes_h: float, body_line: float,
     if report is not None:
         report["at_risk"] = True
     tiers = []
-    for scale in (PAGEFIT_GENTLE_GAP_SCALE, SPILL_MIN_GAP_SCALE):
+    for scale in (PAGEFIT_GENTLE_GAP_SCALE, SPILL_MIN_GAP_SCALE)[
+            :2 if floors else 1]:
         tiers.append([max(0.0, gap - max(SPILL_GAP_FLOOR_PT, src * scale))
                       for _el, gap, src in gaps])
     total = sum(tiers[-1])
@@ -316,6 +374,13 @@ def fit_page(pg, content_w: float, lay, notes_h: float, body_line: float,
         report["short"] = max(0.0, need - total)
     if over > 0 and total < over + PAGEFIT_SAFETY_PT:
         return plan            # cannot be saved by its spacing: as shipped
+    if PAGEFIT_MAX_OVER_LINES is not None and \
+            over > PAGEFIT_MAX_OVER_LINES * max(0.0, body_line) and \
+            sum(tiers[0]) < need - 0.05:
+        # a claim this large is paid only by a plan that keeps every gap at
+        # least PAGEFIT_GENTLE_GAP_SCALE of itself; to the floors it is the
+        # guess the model is least sure of (PAGEFIT_MAX_OVER_LINES)
+        return plan
     pay = min(need, total)
     take = [0.0] * len(gaps)
     # From the foot of the page up, each tier in turn: a gap taken low on the
@@ -334,4 +399,59 @@ def fit_page(pg, content_w: float, lay, notes_h: float, body_line: float,
         if t > 0.05:
             # tenths of a point, rounded down: the page never pays less
             out[id(el)] = max(0.0, math.floor((gap - t) * 10 + 1e-6) / 10)
+    return out
+
+
+def plan_page(pg, content_w: float, lay, notes_h: float, body_line: float,
+              plan: dict, output_profile: str = "standard",
+              drop_first_gap: bool = False, memo: Optional[dict] = None) -> dict:
+    """`fit_page` as the writer asks it. Open-loop (`memo` None) every write
+    plans afresh. Under the refine loop (`memo` the loop layout's own) a page
+    is planned once, on its first write, and only from the gentle tier: the
+    refine floors are the loop's own lever, spent on what its render
+    measures. In every later round each gap the plan took from is written at
+    the smaller of the plan's value and the loop's: the two reductions never
+    compound. A push by the loop (a gap it raised above its first-write
+    value) is added to the plan's value, so the page moves as it would
+    unplanned; the loop's corrections elsewhere on the page stand.
+
+    Re-planned each round, the planner undid the loop's corrections: the loop
+    pushes a page whose render sits high down by its first gap, within the
+    room the render measured, and the model -- which does not see the render
+    -- read the push as a page at risk and took it back from the foot. y44 p1
+    paid 16 -> 49 -> 64pt over three rounds and the loop stopped on an
+    offset of 15.6 (0.1 with the planner off); y33's round 1 spilled and the
+    loop published its round 0 (product within-2pt 0.73 -> 0.41). Held as
+    points taken off whatever the loop left, the plan compounded with the
+    loop's own reductions on a page that spilled with it all the same (y53
+    p11, product dy_p50 3.54 -> 4.71); held as a ceiling, 3.96. Both pages
+    that measured this way (y53 p11, y47 p33, whose ceiling left y47 at 66
+    pages for 65) were paid to the floors and spilled with the plan all the
+    same: the floors are the loop's."""
+    if memo is None:
+        return fit_page(pg, content_w, lay, notes_h, body_line, plan,
+                        output_profile, drop_first_gap=drop_first_gap)
+    els = [el for ch in pg.chunks for el in ch.elements]
+    # the notes area is part of the key: a write retried with its notes typed
+    # into the body (`_write_docx`, notes_vetoed) is a different page
+    key = (pg.number, round(notes_h, 1))
+    held = memo.get(key)
+    if held is None:
+        out = fit_page(pg, content_w, lay, notes_h, body_line, plan,
+                       output_profile, drop_first_gap=drop_first_gap,
+                       floors=False)
+        held = {}
+        if out is not plan:
+            held = {k: (getattr(el, "space_before", 0.0) or 0.0, out[id(el)])
+                    for k, el in enumerate(els) if id(el) in out}
+        memo[key] = held
+        return out
+    if not held:
+        return plan
+    out = {}
+    for k, (was, planned) in held.items():
+        if k < len(els):
+            gap = getattr(els[k], "space_before", 0.0) or 0.0
+            # a push by the loop moves the page as it would unplanned
+            out[id(els[k])] = min(gap, planned + max(0.0, gap - was))
     return out
