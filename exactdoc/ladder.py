@@ -223,12 +223,29 @@ def predict_lines(p: Para, avail: float, metrics=None) -> Optional[int]:
         metrics = NullMetrics()
     words = []
     runs = p.runs
+    hang_tabs = 0
     if getattr(p, "_hanging_label", False):
         # a form label and its tab sit in the hang (infer._with_field_label):
         # the field's text starts at the left indent with the column's room
-        k = next((i for i, r in enumerate(runs) if r.is_tab), None)
-        if k is not None:
-            runs = runs[k + 1:]
+        hang_tabs = 1
+    elif p.runs and p.runs[0].is_tab and (p.first_indent or 0.0) < 0 and p.tab_stops:
+        # A row that opens on a tab and hangs -- a résumé's date column set
+        # right of its stop, then a tab to the hanging edge (y44's "<tab>Sept
+        # 2018 - May 2023<tab>Princeton University, ...") -- sets everything
+        # up to its last stop at or inside the left indent in the hang: the
+        # text starts at the left indent with the column's room. Counted in
+        # the line, the date pushed each such row a line long (2 for 1), and
+        # the page model spent y44's top gaps on a spill that never came.
+        hang_tabs = sum(1 for ts in p.tab_stops
+                        if ts[0] <= (p.left_indent or 0.0) + 0.5)
+    if hang_tabs:
+        seen = 0
+        for i, r in enumerate(runs):
+            if r.is_tab:
+                seen += 1
+                if seen == hang_tabs:
+                    runs = runs[i + 1:]
+                    break
     for r in runs:
         if r.is_tab or not r.text:
             continue
