@@ -187,7 +187,10 @@ def convert_result(pdf_path: str, out_path: Optional[str] = None,
     from .options import capabilities
     caps = capabilities(opts.output_profile)
     lay = infer(ir, anchored="anchored" in caps,
-                anchor_pictures="anchored" in caps or "anchor_pictures" in caps)
+                anchor_pictures="anchored" in caps or "anchor_pictures" in caps,
+                # WP46's side-by-side examples lost 9 pages live in Docs
+                # (infer._EXAMPLES)
+                examples=opts.output_profile != "gdocs")
     if scales:
         from .metrics import get_metrics
         from .tracking import apply_advance_tracking

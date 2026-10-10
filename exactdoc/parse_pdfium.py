@@ -4410,6 +4410,13 @@ def _page_paths(objs: List[_PObj], frame) -> List[DrawCmd]:
             # or bleed furniture. A reader never sees it, and inference would
             # anchor margins and furniture zones on it.
             continue
+        # The box a stroke shows through its clip (`_clip_path_bbox`; strokes
+        # only: Chromium draws a box's borders and a band's shading as fills
+        # clipped to the strip they show, and c1's and the RFCs' structure is
+        # read from those fills as drawn). Carried beside the drawn box, not
+        # over it: inference takes it per output profile (infer.clip_strokes).
+        clipped = _clip_path_bbox(bbox, _meet(ob.clip, _clip_box(po, ob.ctm, frame))) \
+            if kind == "stroke" else None
         w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
         fill = _hexcol(fr.value, fg.value, fb.value) if has_fill else None
         stroke_c = _hexcol(sr.value, sg.value, sb.value) if has_stroke else None
@@ -4452,11 +4459,46 @@ def _page_paths(objs: List[_PObj], frame) -> List[DrawCmd]:
                 shape = "hline"
             elif w <= 2.5 and h > 8:
                 shape = "vline"
-        out.append(DrawCmd(
+        d = DrawCmd(
             kind=kind, shape=shape, bbox=bbox, fill=fill, stroke=stroke_c,
             width=stroke_w, opacity=opacity, n_items=max(1, len(pts)),
-            rounded=rounded is not None))
+            rounded=rounded is not None)
+        if clipped is False:
+            d._clip_hidden = True
+        elif clipped is not None:
+            d._clip_bbox = clipped
+        out.append(d)
     return out
+
+
+# A path is cut to its clip only when the clip hides at least this share of
+# it along either axis. TikZ draws a grid and clips it to the picture: y22
+# (lshort) p114's grey grid is a 38-segment path from (196, 59) to (604, 454)
+# shown only inside a 163 x 111pt window, and at its drawn size the figure
+# built round it took the page's running head, a paragraph and a heading into
+# one 484 x 412pt picture -- the page ran 377pt over in the page model and
+# every later page sat one behind. A clip that trims a few points (a bleed,
+# a rule drawn flush to a box) keeps the path as drawn, as IMAGE_CLIP_MIN_HIDDEN
+# keeps an image.
+PATH_CLIP_MIN_HIDDEN = 0.25
+
+
+def _clip_path_bbox(bbox, clip):
+    """`bbox` cut to `clip` (PATH_CLIP_MIN_HIDDEN), None to keep it, or False
+    when the path lies wholly outside its clip."""
+    if clip is None:
+        return None
+    x0, y0 = max(bbox[0], clip[0]), max(bbox[1], clip[1])
+    x1, y1 = min(bbox[2], clip[2]), min(bbox[3], clip[3])
+    if x1 < x0 - CLIP_TOL or y1 < y0 - CLIP_TOL:
+        return False
+    x1, y1 = max(x0, x1), max(y0, y1)
+    w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    hid_w = 1.0 - (x1 - x0) / w if w > 1.0 else 0.0
+    hid_h = 1.0 - (y1 - y0) / h if h > 1.0 else 0.0
+    if max(hid_w, hid_h) < PATH_CLIP_MIN_HIDDEN:
+        return None
+    return (x0, y0, x1, y1)
 
 
 def _rounded_box(pts):
