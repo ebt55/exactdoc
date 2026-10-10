@@ -25,14 +25,20 @@ import fitz  # noqa: E402
 
 
 class _Page:
-    """A page that answers get_text('words' | 'dict' | 'text')."""
+    """A page that answers get_text('words' | 'dict' | 'text'). It has no
+    character layer ('rawdict' is empty), so its words keep their box tops."""
 
     def __init__(self, words, spans=(), text=None):
         self._w, self._spans, self._text = words, list(spans), text
 
-    def get_text(self, kind):
+    def get_textpage(self, **_kw):
+        return None
+
+    def get_text(self, kind, textpage=None):
         if kind == "words":
             return list(self._w)
+        if kind == "rawdict":
+            return {"blocks": []}
         if kind == "dict":
             return {"blocks": [{"lines": [{"spans": [
                 {"bbox": b, "font": f, "text": t} for b, f, t in self._spans]}]}]}

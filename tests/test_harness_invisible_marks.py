@@ -21,7 +21,12 @@ class _Page:
     def __init__(self, words):
         self._w = words
 
-    def get_text(self, kind):
+    def get_textpage(self, **_kw):
+        return None
+
+    def get_text(self, kind, textpage=None):
+        if kind == "rawdict":                # no character layer: box tops
+            return {"blocks": []}
         assert kind == "words"
         return list(self._w)
 
@@ -41,7 +46,7 @@ class InvisibleMarks(unittest.TestCase):
                                return_value=_Doc([_Page(words)])):
             got = harness.page_words("x.pdf")
         self.assertEqual([w[0] for w in got[0]], ["NIST", "800-63B", "Terms"])
-        self.assertEqual(got[0][1][1:], (113.7, 35.2, 154.2, 46.4))
+        self.assertEqual(got[0][1][1:5], (113.7, 35.2, 154.2, 46.4))
 
 
 if __name__ == "__main__":

@@ -24,14 +24,19 @@ live_text_cov     3-gram coverage of ALL source text by DOCX *live text*
                   (no figure-region exclusion -- rasterized text counts as LOST)
 raster_frac       fraction of source text chars that are NOT live in the docx
 word_recall       fraction of source words matched in the render-back PDF
-dy_p50/p90        vertical drift of matched words (pt)
-dx_p50/p90        horizontal drift
+dy_p50/p90        vertical drift of matched words (pt), at the baseline
+dx_p50/p90        horizontal drift, at the word box's left edge
 within2/within5   fraction of matched words placed within 2pt / 5pt (euclid)
 ssim              8x8 window SSIM at 110 dpi
 ink_iou           intersection-over-union of binarized ink pixels
+
+How the text is read -- leaders, symbol fonts, operators (WP29) and where a
+word sits (its baseline, amendment 3) -- is the same on both sides; see
+`page_words`, `live_text_cov` and docs/beta-bar.md.
 """
 import _paths  # noqa: F401  (sets sys.path, finds soffice/chrome)
 import os, re, io, sys, json, shutil, subprocess, tempfile, difflib
+import bisect
 from collections import Counter
 
 import fitz
@@ -143,11 +148,17 @@ def _numbering_levels(z, W):
     return out
 
 
-def docx_live_text(docx_path):
+def docx_live_text(docx_path, normalise=False):
     """All *live* text in a docx: paragraphs, tables (recursive), headers/footers.
 
     Reads the XML directly so nothing is missed and no library semantics are
     assumed.
+
+    `normalise=True` reads it the way `page_words` reads a PDF (WP29): a
+    symbol-font private-use character is the character its run's font
+    encodes, and a leader run (three or more dots) is not text. Paragraphs are
+    then kept apart by a newline, so a run cannot be made of the dots that end
+    one paragraph and begin the next.
 
     Live text includes what a reader's renderer GENERATES from the document's
     own structures: a list item's label (w:numPr over numbering.xml) and a
@@ -196,8 +207,13 @@ def docx_live_text(docx_path):
                                 W + "footnoteRef", W + "footnote"):
                 tag = el.tag[len(W):]
                 if tag == "t":
-                    parts.append(el.text or "")
+                    t = el.text or ""
+                    if normalise and _has_pua(t):
+                        t = _read_run_pua(t, el.getparent(), W)
+                    parts.append(t)
                 elif tag == "p":
+                    if normalise:
+                        parts.append("\n")
                     np_ = el.find(W + "pPr/" + W + "numPr")
                     if np_ is None:
                         continue
@@ -229,16 +245,50 @@ def docx_live_text(docx_path):
                     num = note_no.get(cur_note)
                     if num is not None:
                         parts.append(str(num))
-    return "".join(parts), imgs
+    text = "".join(parts)
+    return (_strip_leader_runs(text) if normalise else text), imgs
 
 
-def pdf_text(pdf_path):
+def _read_run_pua(text, run, W):
+    """`text` of a w:t with its symbol-font PUA read through the published
+    encoding of its run's font (w:rFonts), as `_read_pua` reads a PDF span."""
+    fonts = run.find(W + "rPr/" + W + "rFonts") if run is not None else None
+    table = None
+    if fonts is not None:
+        for attr in ("ascii", "hAnsi", "cs", "eastAsia"):
+            table = _pua_table(fonts.get(W + attr))
+            if table:
+                break
+    if not table:
+        return text
+    return "".join(table.get(ord(c) - 0xF000, c) if _PUA_LO <= ord(c) <= _PUA_HI else c
+                   for c in text)
+
+
+def pdf_text(pdf_path, normalise=False):
+    """All of a PDF's text; `normalise=True` reads it as `recall_text` does."""
     doc = fitz.open(pdf_path)
     out = []
     for p in doc:
-        out.append(p.get_text("text"))
+        out.append(recall_text(p, normalise) if normalise else p.get_text("text"))
     doc.close()
     return "".join(out)
+
+
+def live_text_cov(src_pdf, docx_path, normalise=True):
+    """3-gram coverage of the source PDF's text by the DOCX's live text.
+
+    Both sides are read as `page_words` and `recall_text` read a PDF
+    (normalise=True; WP29's reading, applied to live text from 2026-10-10):
+    symbol-font PUA as the characters it encodes and leader runs dropped.
+    y10_nist_fips180's source spells its equations in Symbol PUA and its DOCX
+    in "=" and "+", so its live text read 0.787 at the checkpoint (ckpt-prod);
+    read this way, 0.932. A contents page's dots
+    are a tab leader in the DOCX, not text. `normalise=False` is the reading
+    before.
+    """
+    live, _imgs = docx_live_text(docx_path, normalise=normalise)
+    return round(gram_cov(pdf_text(src_pdf, normalise=normalise), live), 4)
 
 
 def norm(t):
@@ -487,17 +537,91 @@ def _split_operators(text, x0, y0, x1, y1):
     return out
 
 
-def page_words(pdf_path, normalise=True):
-    """[(page_idx, text, x0, y0, x1, y1)] in reading order per page.
+# ------------------------------------------- vertical anchor (amendment 3)
+# Where a word sits vertically is its BASELINE, read from the glyph origins,
+# not the top of its box. The box top is not a position on the page: it is
+# derived as baseline minus the font's ascent, and the ascent is whatever the
+# reader's copy of the font declares. Measured by PyMuPDF on the corpus (glyph
+# origin minus box top, per size): r1_reportlab_report's unembedded Helvetica
+# 1.075 em and Times-Roman 1.053 em; the same words rendered by LibreOffice
+# (Liberation Sans 0.905, Liberation Serif 0.891), exported by Google Docs and
+# by Word (Arial 0.905, Times New Roman 0.891). So every word of a base-14
+# source read 1.6-1.7pt "low" at 10pt before anything moved -- most of
+# within-2pt's 2pt budget -- while c1_whitepaper, which embeds Liberation,
+# read 0.89 against 0.90 and showed no such bias. Every consumer of a page
+# (the writer, the renderer, the reader's eye) lines text up on the baseline,
+# so that is the anchor on both sides. Ratified by the owner 2026-10-10
+# (docs/beta-bar.md, amendment 3).
+#
+# A word's baseline is that of its largest characters (the first of them), so
+# a superscript or subscript glued to a word ("H(i)." in FIPS 180, "x2") does
+# not move it; on a line that is not horizontal (rotated text) there is no
+# vertical baseline and the word keeps its box top, as it does in the rare
+# case that no character of the page's text layer can be tied to it.
+_TOL = 0.01                                  # pt; boxes are unions of the same char boxes
 
-    `normalise=False` is the reading before WP29 (2026-10-06): no leader,
-    symbol-font or operator normalisation. It exists so a re-score can report
-    both readings of the same render; nothing gates on it.
+
+def _line_chars(raw):
+    """{block number: [(line bbox, horizontal, [x centre], [(-size, origin y)])]}
+    from a rawdict, the characters of each line sorted left to right."""
+    out = {}
+    for b in raw.get("blocks", ()):
+        if b.get("type", 0) != 0 or "number" not in b:
+            continue
+        lines = []
+        for ln in b.get("lines", ()):
+            d = ln.get("dir", (1.0, 0.0))
+            chars = sorted(((c["bbox"][0] + c["bbox"][2]) / 2, -s.get("size", 0.0),
+                            c["origin"][1])
+                           for s in ln.get("spans", ()) for c in s.get("chars", ())
+                           if "origin" in c and not c.get("c", " ").isspace())
+            lines.append((ln.get("bbox"), abs(d[1]) < 1e-3,
+                          [c[0] for c in chars], [c[1:] for c in chars]))
+        out[b["number"]] = lines
+    return out
+
+
+def _holds(box, w):
+    return (box is not None and box[0] - _TOL <= w[0] and box[1] - _TOL <= w[1]
+            and w[2] <= box[2] + _TOL and w[3] <= box[3] + _TOL)
+
+
+def _baseline(w, by_block):
+    """The baseline of fitz word `w` (x0,y0,x1,y1,text,block,line,wordno), or
+    its box top when it has none (see above)."""
+    lines = by_block.get(w[5], ())
+    line = lines[w[6]] if w[6] < len(lines) and _holds(lines[w[6]][0], w) else \
+        next((ln for ln in lines if _holds(ln[0], w)), None)
+    if line is None or not line[1]:
+        return w[1]
+    xs, sized = line[2], line[3]
+    chars = sized[bisect.bisect_left(xs, w[0] - _TOL):bisect.bisect_right(xs, w[2] + _TOL)]
+    return min(chars, key=lambda c: c[0])[1] if chars else w[1]
+
+
+def _words(page, baseline):
+    """fitz word tuples, each with its vertical anchor appended (w[8])."""
+    if not baseline:
+        return [tuple(w) + (w[1],) for w in page.get_text("words")]
+    tp = page.get_textpage(flags=fitz.TEXTFLAGS_WORDS)   # what "words" builds
+    ws = page.get_text("words", textpage=tp)
+    by_block = _line_chars(page.get_text("rawdict", textpage=tp))
+    return [tuple(w) + (_baseline(w, by_block),) for w in ws]
+
+
+def page_words(pdf_path, normalise=True, baseline=True):
+    """Per page, [(text, x0, y0, x1, y1, y)] in reading order: the word's box
+    and `y`, where it sits vertically -- its baseline (amendment 3).
+
+    `baseline=False` anchors `y` at the box top `y0`, the reading before
+    2026-10-10; `normalise=False` is the reading before WP29 (2026-10-06): no
+    leader, symbol-font or operator normalisation. They exist so a re-score can
+    report every reading of the same render; nothing gates on them.
     """
     doc = fitz.open(pdf_path)
     pages = []
     for p in doc:
-        ws = p.get_text("words")           # x0,y0,x1,y1,word,block,line,wordno
+        ws = _words(p, baseline)           # x0,y0,x1,y1,word,block,line,wordno,y
         ws.sort(key=lambda w: (round(w[1], 1), w[0]))
         spans, drop = None, ()
         if normalise:
@@ -516,14 +640,19 @@ def page_words(pdf_path, normalise=True):
                 text = _strip_glued_leader(text)
             if not text:
                 continue
-            if normalise:
-                for piece in _split_operators(text, w[0], w[1], w[2], w[3]):
-                    out.extend(_split_continua(*piece))
-            else:
-                out.extend(_split_continua(text, w[0], w[1], w[2], w[3]))
+            pieces = (_split_operators(text, w[0], w[1], w[2], w[3]) if normalise
+                      else [(text, w[0], w[1], w[2], w[3])])
+            # every piece of a word sits on the word's baseline
+            out.extend(t + (w[8],) for piece in pieces for t in _split_continua(*piece))
         pages.append(out)
     doc.close()
     return pages
+
+
+def box_top(pages):
+    """`page_words` output re-anchored at the box top: the reading before
+    amendment 3, from the same extraction (the words are the same words)."""
+    return [[w[:5] + (w[2],) for w in p] for p in pages]
 
 
 _LEADER_TEXT = re.compile(
@@ -548,6 +677,12 @@ def recall_text(page, normalise=True):
         if tables:
             text = text.translate({ord(c): n.most_common(1)[0][0]
                                    for c, n in tables.items()})
+    return _strip_leader_runs(text)
+
+
+def _strip_leader_runs(text):
+    """`text` without its runs of three or more leader characters (spaces
+    between them allowed, line breaks not)."""
     return _LEADER_TEXT.sub(
         lambda m: "" if sum(_LEADER_WEIGHT.get(c, 0) for c in m.group(0)) >= _LEADER_MIN
         else m.group(0), text)
@@ -560,6 +695,11 @@ def match_words(src_pages, out_pages):
     interleaves the columns, and a small y shift flips the interleave). So
     match each source word to the *nearest* output word carrying identical
     text, greedily by ascending distance, without replacement.
+
+    Vertical position is the word's anchor `y` (its baseline; `page_words`),
+    or its box top for a bare 5-tuple. Pairing is by text, so the anchor
+    changes which equal words pair up only where several are in reach, and
+    never how many match.
     """
     drifts, matched, total = [], 0, 0
     for i, sp in enumerate(src_pages):
@@ -573,7 +713,7 @@ def match_words(src_pages, out_pages):
         for si, s in enumerate(sp):
             for oj in by_text.get(s[0], ()):
                 o = out_pages[i][oj]
-                d = abs(o[2] - s[2]) * 3 + abs(o[1] - s[1])   # weight dy
+                d = abs(_y(o) - _y(s)) * 3 + abs(o[1] - s[1])   # weight dy
                 cands.append((d, si, oj))
         cands.sort()
         used_s, used_o = set(), set()
@@ -583,8 +723,12 @@ def match_words(src_pages, out_pages):
             used_s.add(si); used_o.add(oj)
             s, o = sp[si], out_pages[i][oj]
             matched += 1
-            drifts.append((o[1] - s[1], o[2] - s[2], i + 1, s[0]))
+            drifts.append((o[1] - s[1], _y(o) - _y(s), i + 1, s[0]))
     return drifts, matched, total
+
+
+def _y(w):
+    return w[5] if len(w) > 5 else w[2]
 
 
 def doc_word_recall(src_pages, out_pages):
@@ -656,13 +800,18 @@ WORD_METRICS = ("src_words", "word_recall", "doc_recall", "dx_p50", "dx_p90",
                 "dy_p50", "dy_p90", "within2pt", "within5pt", "page_dy_p90")
 
 
-def word_metrics(src_pdf, rendered_pdf, normalise=True):
+def word_metrics(src_pdf, rendered_pdf, normalise=True, baseline=True):
     """The word-level half of `evaluate`: recall on the right page and
     anywhere, and the drift of the matched words. Separate so a saved render
-    can be re-scored without converting or rendering anything again."""
+    can be re-scored without converting or rendering anything again.
+    `normalise` and `baseline` select the reading (see `page_words`)."""
+    return drift_metrics(page_words(src_pdf, normalise=normalise, baseline=baseline),
+                         page_words(rendered_pdf, normalise=normalise, baseline=baseline))
+
+
+def drift_metrics(sw, ow):
+    """`word_metrics` of two `page_words` readings already made."""
     res = {}
-    sw = page_words(src_pdf, normalise=normalise)
-    ow = page_words(rendered_pdf, normalise=normalise)
     drifts, matched, total = match_words(sw, ow)
     res["src_words"] = total
     res["word_recall"] = round(matched / max(1, total), 4)      # right page
@@ -705,7 +854,7 @@ def evaluate(src_pdf, docx_path, work_dir, save_images=True, dpi=110, img_dir=No
     src_t = pdf_text(src_pdf)
     res["src_chars"] = len(norm(src_t))
     res["live_chars"] = len(norm(live))
-    res["live_text_cov"] = round(gram_cov(src_t, live), 4)
+    res["live_text_cov"] = live_text_cov(src_pdf, docx_path)
     res["raster_frac"] = round(1 - res["live_text_cov"], 4)
     res["n_media"] = len(imgs)
     res["media_bytes"] = sum(s for _, s in imgs)
