@@ -185,6 +185,14 @@ class ARuleInsideTheStackedSpan(unittest.TestCase):
         self.assertEqual([r.space_before for r in rules], [0.0, 0.0, 0.0])
         self.assertLess(cap.space_before, 1.0)
 
+    def test_a_rule_wider_than_the_figure_is_not_held(self):
+        # gdocs y17 p174: the code panel's side bar stays in the flow as a
+        # narrow figure; the panel's full-width top rule releases the cursor
+        bar = FigureEl(page_no=174, clip=(526.6, 140.4, 531.4, 697.6),
+                       width=4.8, height=557.2)
+        text = self._after(bar, (65.9, 141.6, 529.4, 142.4), 150.9)
+        self.assertAlmostEqual(text.space_before, 8.5, places=1)
+
     def test_only_a_rule_inside_the_table_is_held(self):
         # a rule that starts above the table just stacked is not inside it
         table = TableEl(bbox=(36.0, 67.0, 575.0, 274.0))

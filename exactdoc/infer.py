@@ -10634,10 +10634,17 @@ def _position_chunks(chunks: List[Chunk], lay: DocLayout,
                 # 47.9, 93.4 and 23.8pt of space before -- 165pt counted
                 # twice, the page ran over, and every page after it was a
                 # page late (49 -> 50 pages for 48, word recall 0.88 ->
-                # 0.80). A rule on the figure's top edge is not inside it.
+                # 0.80). Inside means inside both spans: a rule on the
+                # figure's top edge, or wider than the figure, is not in it
+                # -- under the gdocs profile y17 p174's code panel keeps its
+                # 4.8pt side bar (x 527-531, y 140-698) in the flow as a
+                # figure, and its full-width top rule (x 66-529) must still
+                # release the cursor for the first code line.
                 inside = held is not None and isinstance(el, RuleEl) and \
                     bb[1] >= held[1] and bb[3] <= cursor and \
-                    (not held_fig or bb[1] > held[1])
+                    (not held_fig or (bb[1] > held[1] and
+                                      bb[0] >= held[0] - 1.0 and
+                                      bb[2] <= held[2] + 1.0))
                 if not inside:
                     cursor = bb[3]
                     held = bb if isinstance(el, (TableEl, FigureEl)) else None
