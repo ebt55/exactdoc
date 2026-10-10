@@ -77,7 +77,8 @@ mark() { [ "$DRY" = 1 ] || echo "$2" > "$STATE/$1.done"; }
 # run CMD...: print it; execute unless --dry-run
 run() {
   if [ "$1" = hostpy ]; then
-    { printf '+ (cd %q && PYTHONPATH=%q %q' "$TREE" "$TREE" "$PY"; shift; printf ' %q' "$@"; printf ')
+    shift
+    { printf '+ (cd %q && PYTHONPATH=%q %q' "$TREE" "$TREE" "$PY"; printf ' %q' "$@"; printf ')
 '; } | tee -a "$LOG"
     [ "$DRY" = 1 ] && return 0
     hostpy "$@"; return $?
@@ -136,9 +137,10 @@ if want b; then
     rc=$?
     if [ "$DRY" = 0 ]; then
       tests="$(grep -E '^Ran [0-9]+ tests' "$RUNS/$NAME-gate.log" | tail -1)"
-      ok="$(grep -E '^(OK|FAILED)' "$RUNS/$NAME-gate.log" | tail -1)"
+      ok="$(grep -E '^(OK|FAILED)( |$)' "$RUNS/$NAME-gate.log" | tail -1)"
       lanes="$(grep -E '^lane ' "$RUNS/$NAME-gate.log" | tr -s ' ' | paste -sd ';' -)"
-      say "(b) $tests $ok; $(grep -E '^FAILED_STEPS=' "$RUNS/$NAME-gate.log" | tail -1); $lanes"
+      say "(b) $tests $ok; $(grep -E '^FAILED_STEPS=' "$RUNS/$NAME-gate.log" | tail -1); $(grep -E '^BASELINE_BINDING=' "$RUNS/$NAME-gate.log" | tail -1); $lanes"
+      grep -q 're-record needed' "$RUNS/$NAME-gate.log" && say "(b) the baseline is not bound to this environment/reading: re-record needed (owner approval)"
       if [ $rc -ne 0 ]; then
         say "(b) GATE FAILED ($rc step(s)); see $RUNS/$NAME-gate.log"
         [ "$KEEP_GOING" = 1 ] || exit 20
@@ -310,7 +312,7 @@ if want g; then
     say "(g) beta_readiness exit $? ($(grep -E '^verdict' "$TMPT" | head -1))"
   fi
   run hostpy "$HERE/final_set_helpers.py" wrap "$OUTJ" --readiness "$TMPJ" --text "$TMPT" \
-      --accepted "$ACCEPTED" --run "$NAME$( [ "$ALLOW_BUSY" = 1 ] && echo " (--allow-busy: not a final measurement)")" --commit "$COMMIT" --release "$RELEASE" \
+      --accepted "$ACCEPTED" --run "$NAME$( [ "$ALLOW_BUSY$NO_DOCS" != 00 ] && echo " (--allow-busy/--no-docs: not a final measurement)")" --commit "$COMMIT" --release "$RELEASE" \
       --input "raw=$RUNS/$NAME-raw.sweep.json" --input "product=$RUNS/$NAME-prod.sweep.json" \
       --input "gdocs=$GDROWS" --input "word_product=$RUNS/$NAME-word-prod/rows.jsonl" \
       --input "word_raw=$RUNS/$NAME-word-raw/rows.jsonl" --input "gate=$RUNS/$NAME-gate.log" \
