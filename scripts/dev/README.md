@@ -14,6 +14,7 @@ Windows host with Git Bash, Docker, and the canonical image `exactdoc-gate:boot`
 | `rerecord.sh <name> <tree>` | Owner-approved baseline re-record only: `GATE_BASELINE=update` runall, then a plain runall that must PASS; copies the new `gate_baseline.json` out. Never run it without the owner's approval. |
 | `record_env.sh <name> <tree> [file]` | `evidence.py --record-canonical` in a fresh container, written to `testkit/<file>` (default `canonical_env.proposed.json`, which nothing compares against). Writing `canonical_env.json` redefines canonical: owner approval only. |
 | `gdsweep.py OUT [--corpus both] [--only a,b]` | Live Google Docs sweep: convert with the gdocs candidate profile, upload, Google's own PDF export, score. Resumable. Needs `EXACTDOC_ROOT=<tree>` and the `EXACTDOC_GDOCS_CREDENTIALS` / `EXACTDOC_GDOCS_TOKEN` env vars; uploads to the owner's Drive. |
+| `final_set.sh [--dry-run] [--only "a b"] --accepted SWEEP <tree> <name>` | The final measurement set for the beta scorecard in one resumable command: preflight, strict gate, product + raw sweeps, Word on both, the Docs command printed, quiet serial timing, `beta_readiness` into `docs/evidence/beta-readiness-<date>.json`. See [below](#the-final-measurement-set-wp44-final_setsh). Helpers: `final_set_helpers.py`. |
 | `flypairs.py PROBE OUT A B` | Fly a probe set's `<doc>.<A>.gdocs.docx` / `<doc>.<B>.gdocs.docx` pairs live and score them (a missing variant is skipped). |
 
 The Word lane is in the package's testkit: `python testkit/word_oracle.py sweep
@@ -27,6 +28,51 @@ re-read, without converting, by `python testkit/rescore.py sweep|rows|gate ...`
 
 Set `TEMP`/`TMP` to a short path such as `C:\lotmp\<name>` before anything that
 starts LibreOffice on Windows: long profile paths crash soffice with a popup.
+
+## The final measurement set (WP44): `final_set.sh`
+
+One resumable command for the scorecard's inputs, all from one commit:
+
+    EXACTDOC_SCR='C:\lotmp\scr' bash scripts/dev/final_set.sh \
+        --accepted 'C:\lotmp\scr\runs\<accepted product>.sweep.json' <tree> <name>
+
+In order: **(a)** refuse a dirty tree (untracked files count), a tree that is
+not a git checkout, a run directory started on another commit, or any running
+container that is not this run's (they are listed); **(b)** `gate_full.sh`,
+strict (`EXACTDOC_GATE_ALLOW_STALE_BASELINE` is unset for it; a failed gate
+stops the run unless `--keep-going`); **(c)** product and raw sweeps, both
+corpora, `KEEP_DOCX=1`, the two containers in parallel at `--jobs 4`, then a
+scan for error and unmeasured rows; **(d)** `word_oracle.py sweep` on the
+product and on the raw DOCX (the oracle takes its own Word lock); **(e)** the
+exact live Docs command -- uploads are the coordinator's, so it is printed,
+not run (`gdsweep.py` flies the drift sentinel first; `docs_sentinel.py check`
+reads it); **(f)** serial timing for criterion 2: the documents whose sweep
+time is at least `--frac` (0.4) of their limit (`final_set_helpers.py pick`),
+each timed alone in one container after the machine has been quiet -- no other
+container and host CPU < 20% for 60 s -- with the host CPU and the container
+count before and after it written beside its row (`load`); **(g)**
+`beta_readiness.py` with every input, `--release 0.3.0b1` and `--all`, wrapped
+by `final_set_helpers.py wrap` into `<tree>/docs/evidence/beta-readiness-<date>.json`
+(the scorecard's JSON and text, each input by path and SHA-256, the accepted
+sweep by path and SHA-256, the commit). (g) waits for a complete Docs lane
+(`--docs-rows`, default `<runs>/<name>.gdocs/rows.jsonl`): run (e), then the
+same command again.
+
+Re-running the command skips finished steps (markers in
+`<runs>/<name>.final/`, which also holds `final_set.log`, every command as it
+ran); a finished sweep is kept, an interrupted one re-runs, Word resumes from
+its rows, timing from the documents already timed. This run's own containers
+left by an interruption are removed at (a).
+
+Until the owner-approved baseline re-record, the strict gate fails on the
+baseline binding (recorded under 3ca438f1 / no reading) and (b) says so
+("re-record needed"); `--keep-going` carries on to the measurements.
+
+`--dry-run` prints every command, copy-pasteable, and runs none (the preflight
+findings are reported, not enforced). `--only "a b c"` restricts sweeps, Word
+and timing to a subset (the gate always runs the gated 16); `--steps b,c,d`
+runs a selection. `--allow-busy` and `--no-docs` exist for testing the script
+and are written into the evidence as "not a final measurement".
 
 ## Candidate images and switching the canonical image (WP31, Carlito/Caladea)
 
