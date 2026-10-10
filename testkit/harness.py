@@ -553,17 +553,20 @@ def recall_text(page, normalise=True):
         else m.group(0), text)
 
 
-def match_words(src_pages, out_pages):
-    """Positional matching, page by page.
+def match_pairs(src_pages, out_pages):
+    """[(page_index, src_index, out_index)]: the pairs `match_words` counts.
 
-    Reading-order alignment breaks on multi-column pages (sorting by y
-    interleaves the columns, and a small y shift flips the interleave). So
-    match each source word to the *nearest* output word carrying identical
-    text, greedily by ascending distance, without replacement.
+    Positional matching, page by page. Reading-order alignment breaks on
+    multi-column pages (sorting by y interleaves the columns, and a small y
+    shift flips the interleave). So match each source word to the *nearest*
+    output word carrying identical text, greedily by ascending distance,
+    without replacement. The indices are into `src_pages[page_index]` and
+    `out_pages[page_index]`, in the order the greedy pass accepts them, so a
+    caller can tell WHICH source words two renders both matched
+    (testkit/churn.py) -- `match_words` keeps its return value.
     """
-    drifts, matched, total = [], 0, 0
+    pairs = []
     for i, sp in enumerate(src_pages):
-        total += len(sp)
         if i >= len(out_pages):
             continue
         by_text = {}
@@ -581,10 +584,23 @@ def match_words(src_pages, out_pages):
             if si in used_s or oj in used_o:
                 continue
             used_s.add(si); used_o.add(oj)
-            s, o = sp[si], out_pages[i][oj]
-            matched += 1
-            drifts.append((o[1] - s[1], o[2] - s[2], i + 1, s[0]))
-    return drifts, matched, total
+            pairs.append((i, si, oj))
+    return pairs
+
+
+def match_words(src_pages, out_pages):
+    """(drifts, matched, total) of the positional matching (`match_pairs`).
+
+    `drifts` is [(dx, dy, page_number, text)] per matched source word, page by
+    page in the order the matching accepted them; `total` counts every source
+    word, on pages the render does not have as well.
+    """
+    drifts = []
+    for i, si, oj in match_pairs(src_pages, out_pages):
+        s, o = src_pages[i][si], out_pages[i][oj]
+        drifts.append((o[1] - s[1], o[2] - s[2], i + 1, s[0]))
+    total = sum(len(sp) for sp in src_pages)
+    return drifts, len(drifts), total
 
 
 def doc_word_recall(src_pages, out_pages):

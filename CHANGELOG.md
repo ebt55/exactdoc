@@ -21,6 +21,22 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 one verified fix at a time, each gated against the frozen 16.
 
 
+- **`testkit/churn.py`: which source words two renders both place (WP41).**
+  A document's dy_p50 is a median over the words the render matched, and two
+  renders match different sets, so it can move with no word moving. `churn.py
+  SOURCE ACCEPTED CURRENT [--json]` splits the matched source words into
+  common, lost and gained, and reports per set the count, dy_p50, within2pt
+  and the |dy| <= 5pt share; the share of common words whose dy changed by
+  more than 2pt; the share of each set made of tokens occurring 20 times or
+  more in the source; and the SHA-256 of the three PDFs. `--require
+  PATH>=X|PATH<=X` and `--check-y37` turn figures into an exit code. The
+  reviewer's diagnostic of 2026-10-10, moved into the repo. Its matching is
+  the harness's own: `harness.match_pairs` returns the (page, source, render)
+  indices `match_words` counts, and `match_words` is now built on it with its
+  return value unchanged -- re-scored before and after on WP33's renders of
+  y37, c2 and y61, both readings, `word_metrics` is identical and reproduces
+  the sweep rows. No conversion code changed.
+
 - **EUR-Lex's numbered articles keep their pages in Google Docs (WP35).**
   On Google's exports of the 71558af sweep y18 (the EU AI Act) matched the
   source page for page until page 58, then spilled two pages (146 for 144,
