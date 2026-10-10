@@ -9575,6 +9575,118 @@ SBS_ROW_SHARE_MAX = 0.5
 # A drawn separator in the gutter (a rule, or a dotted rule drawn as dots) must
 # run alongside at least this share of the band.
 SBS_RULE_COVER = 0.5
+# Code beside what it produces -- a manual's side-by-side example, its source
+# in monospace on one side and the typeset result (text or a picture) on the
+# other -- is two sides of one region, whatever its height. Linearised, the
+# source was written above its result and the example took both heights:
+# y22 (lshort) p58's third example 191pt of source then 170pt of result for a
+# 189pt band, 22 of its one-column pages over the body in the page model by
+# 2-398pt (WP35's Docs diagnosis, docs/evidence/gdocs-2026-10-10-wp35b-y03.json).
+# A side is code when this share of its characters is monospaced -- the
+# share build_box reads a code box by -- and typeset when no more than
+# 1 - SBS_CODE_MONO is. Two lines of code at least: one monospaced line
+# beside text is a term and its definition, not an example.
+SBS_CODE_MONO = 0.7
+SBS_CODE_MIN_LINES = 2
+# A list of monospaced terms and their definitions sets every term on the
+# baseline of its definition's first line; an example's source runs on its
+# own, and its \begin/\end lines stand beside nothing. Baseline coincidence
+# alone does not tell them apart -- LaTeX sets both sides of y22's examples
+# on one 11.95pt grid (p46 flushright: 592.49/592.60, 604.45/604.55) -- so it
+# is read on the code side: past this share of its lines paired, rows.
+# p46's examples pair 3 of 5, 3 of 5 and 0 of 3 code lines.
+SBS_CODE_ROW_SHARE = 0.8
+
+
+def _mono_share(lines) -> float:
+    tot = sum(len(s.text.strip()) for l in lines for s in l.spans)
+    if not tot:
+        return 0.0
+    return sum(len(s.text.strip()) for l in lines for s in l.spans if s.mono) / tot
+
+
+def _part_code_beside(items):
+    """`items` with every text block that holds source code on one side of a
+    clean gutter and typeset text on the other cut into its two sides.
+
+    The parser groups lines by proximity, and an example's source and result
+    lines sit a few points apart: y22 p46's list example came as one block
+    from 113pt to 479pt, its source and result lines interleaved, and no
+    split of the page's items could pass between them. The block is cut only
+    when every monospaced piece (`_split_at_span_gaps`; SBS_CODE_MONO) lies
+    on one side of a gutter of SBS_MIN_GUTTER and every other piece on the
+    other, with SBS_CODE_MIN_LINES of code."""
+    out, cut = [], False
+    for it in items:
+        if it[0] != "blk":
+            out.append(it)
+            continue
+        pieces = [pc for ln in _blk_lines(it[2]) for pc in _split_at_span_gaps(ln)]
+        inked = [pc for pc in pieces if any(s.text.strip() for s in pc.spans)]
+        code = [pc for pc in inked if _mono_share([pc]) >= SBS_CODE_MONO]
+        text = [pc for pc in inked if _mono_share([pc]) < SBS_CODE_MONO]
+        if len(code) < SBS_CODE_MIN_LINES or not text or \
+                _mono_share(text) > 1.0 - SBS_CODE_MONO:
+            out.append(it)
+            continue
+        if max(pc.bbox[2] for pc in code) + SBS_MIN_GUTTER <= \
+                min(pc.bbox[0] for pc in text):
+            split = min(pc.bbox[0] for pc in text)
+        elif max(pc.bbox[2] for pc in text) + SBS_MIN_GUTTER <= \
+                min(pc.bbox[0] for pc in code):
+            split = min(pc.bbox[0] for pc in code)
+        else:
+            out.append(it)
+            continue
+        lo = [pc for pc in pieces if pc.bbox[0] < split - 0.5]
+        hi = [pc for pc in pieces if pc.bbox[0] >= split - 0.5]
+        out.append(_lines_item(lo))
+        out.append(_lines_item(hi))
+        cut = True
+    if not cut:
+        return items
+    return sorted(out, key=lambda t: (t[1][1], t[1][0]))
+
+
+def _textless_table(o) -> bool:
+    """A table with no word in any cell: a line drawing the rules pass read
+    as a grid, a picture all the same. y22's picture-environment figures
+    (p105's \\line fan, 202 x 159pt; p107's circles) are drawn partly in
+    LaTeX's line and circle fonts, so their cells hold glyphs (read as
+    dingbats) but not one letter or digit."""
+    return isinstance(o, TableEl) and bool(o.rows) and not any(
+        ch.isalnum() for row in o.rows for c in row if c is not None
+        for p in c.paras for ch in (p.text or ""))
+
+
+def _code_beside(left, right) -> bool:
+    """Is one side source code and the other what it typesets? (SBS_CODE_MONO)
+
+    The typeset side is text read mostly in proportional faces, or a picture
+    (or a text-less drawn grid, `_textless_table`) with no text of its own;
+    the code side's lines do not pair up with the
+    other's baseline by baseline, as a list of monospaced terms and their
+    definitions does (SBS_CODE_ROW_SHARE)."""
+    for code, other in ((left, right), (right, left)):
+        cl = _side_lines(code)
+        if len(cl) < SBS_CODE_MIN_LINES or _mono_share(cl) < SBS_CODE_MONO:
+            continue
+        ol = _side_lines(other)
+        if ol:
+            if _mono_share(ol) > 1.0 - SBS_CODE_MONO:
+                continue
+        elif not any(isinstance(it[2], (FigureEl, ImageEl)) or _textless_table(it[2])
+                     for it in other):
+            continue
+        if ol and sum(1 for a in cl if any(abs(a.baseline - b.baseline) <= _ROW_BASELINE_TOL
+                                           for b in ol)) > SBS_CODE_ROW_SHARE * len(cl):
+            continue            # a monospaced term beside its definition, row by row
+        widths = [max(it[1][2] for it in s) - min(it[1][0] for it in s)
+                  for s in (code, other)]
+        if min(widths) < SBS_MIN_SIDE_PT:
+            continue
+        return True
+    return False
 
 
 def _fit_extent(item):
@@ -9690,6 +9802,7 @@ def _side_evidence(left, right, gl: float, gr: float, page: PageIR,
     'panel'     a shaded or bordered box stands on one side: designed regions
     'rule'      a drawn separator runs down the gutter (y46's dotted rule)
     'sidebar'   a narrow independent column the two-column path cannot see
+    'example'   source code beside what it typesets (`_code_beside`)
     """
     for side, other in ((left, right), (right, left)):
         if len(side) == 1 and isinstance(side[0][2], (FigureEl, ImageEl)) and \
@@ -9709,6 +9822,8 @@ def _side_evidence(left, right, gl: float, gr: float, page: PageIR,
             if min(fb[2] - fb[0], fb[3] - fb[1]) >= SBS_FIG_MIN_PT and \
                     min(fb[3], oy1) - max(fb[1], oy0) >= 0.5 * (oy1 - oy0):
                 return "figure"
+    if _code_beside(left, right):
+        return "example"
     if max(it[1][3] for it in left + right) - min(it[1][1] for it in left + right) \
             < SBS_MIN_BAND_PT:
         return None
@@ -9972,7 +10087,7 @@ def _by_pos(its):
 def _side_by_side_chunks(items, lay: DocLayout, page: PageIR, content_l: float,
                          content_r: float, lay_rows) -> Optional[List[Chunk]]:
     """The page as flow / side-by-side regions, or None when it has none."""
-    regions = _sbs_regions(items, page, content_l, content_r)
+    regions = _sbs_regions(_part_code_beside(items), page, content_l, content_r)
     if not any(r[0] == "band" for r in regions):
         return None
     chunks: List[Chunk] = []
