@@ -1430,6 +1430,20 @@ def _short_line_ends_para(prev: Line, ln: Line, nxt: Line,
 # fraction, a superscript), and a step that is mere jitter never splits.
 PARA_STEP_PT = 2.0
 PARA_STEP_EM = 0.2
+# A step at the bar is only evidence when the block RECURS it (PARA_STEP_RECUR):
+# a paragraph spacing is a setting, applied at every paragraph -- y44's three
+# steps of 15.7pt, agreeing within PARA_STEP_TOL. A step the block takes once
+# must clear PARA_STEP_ALONE_EM. Measured: y20 (Typst) sets "1.1.1. Raketen -
+# Eine Uebersicht" (Ubuntu 11pt) once, 17.89pt above its body's first line and
+# the body at a 15.69pt pitch (+2.20, the 0.2em bar exactly); split there, the
+# body's seven justified Vollkorn lines took eight in Google Docs and the page
+# under them ran a line low (Docs dy_p50 5.18 -> 18.05, live, f67e80d). The
+# single steps that did pay are wider: y02's requirement tables open "3.1.2
+# Limit system access..." 13.98pt below a 10.98pt pitch (+3.0, 0.33em at 9pt;
+# y02 Docs 8.66 -> 6.69), y39's "3 Extending ensemble Kalman filters" sits
+# +10.9 (1.1em) over its body in a block of three lines (Docs 43.8 -> 36.3).
+PARA_STEP_TOL = 0.5
+PARA_STEP_ALONE_EM = 0.3
 
 
 def _fits_next_word(a: Line, b: Line, right: float) -> bool:
@@ -1496,6 +1510,14 @@ def _split_lines_to_paras(lines: List[Line],
     bpitch = min(bpos) if bpos else 0.0
     para_step = bpitch + max(PARA_STEP_PT, PARA_STEP_EM * dom) \
         if bpitch >= dom else float("inf")
+
+    def para_step_at(i):
+        # PARA_STEP_RECUR: another step of the block within PARA_STEP_TOL
+        # of it, or a single step PARA_STEP_ALONE_EM over the pitch.
+        d = bsteps[i]
+        return d >= para_step and (
+            d >= bpitch + PARA_STEP_ALONE_EM * dom or
+            sum(1 for e in bsteps if abs(e - d) <= PARA_STEP_TOL) >= 2)
     groups, cur = [], [lines[0]]
     for i, ln in enumerate(lines[1:]):
         sz_prev = dom_size(cur[-1])
@@ -1530,10 +1552,10 @@ def _split_lines_to_paras(lines: List[Line],
                 or _opens_note(ln) or short_end or \
                 (forced is not None and _forced_break(cur[-1], ln, forced)) or \
                 _author_break(cur[-1], ln, right, pitch, len(lines)) or \
-                (bsteps[i] >= para_step and _fits_next_word(cur[-1], ln, right)):
+                (para_step_at(i) and _fits_next_word(cur[-1], ln, right)):
             groups.append(cur)
             cur = [ln]
-            if bsteps[i] >= para_step and deltas[i] <= max(lead * 1.55, lead + 4.0):
+            if para_step_at(i) and deltas[i] <= max(lead * 1.55, lead + 4.0):
                 ln._para_step = True        # split by the paragraph step alone
         else:
             cur.append(ln)
