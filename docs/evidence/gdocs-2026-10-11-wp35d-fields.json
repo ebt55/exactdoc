@@ -1,0 +1,884 @@
+{
+ "what": "WP35d: a form label opens its field (y65), paragraphs a little apart stay apart (y44), and the ladder sets a hanging row's labels in the hang -- inference, every lane",
+ "date": "2026-10-11",
+ "base": "integration 64a6c47 (the landing set); tip cab956e (+ evidence)",
+ "measurements": {
+  "y65_source": "'Purpose:' x 50-90, its field x 145 on the same baseline (282.5), the field's next five lines at x 145, 11.5pt pitch; the label alone in its block (parser), white 55pt = 5.5em at 10pt; y65's label/field whites 40-73pt (4-7.3em)",
+  "y44_source": "intro lines at 12.7pt baseline pitch; its four short paragraphs 15.7pt apart (+3.0pt, 0.3em at 10pt); the parser kept all five lines one block (y44's body pitch is 15.7)",
+  "ladder": "y44's date rows ('<tab>Sept 2018 - May 2023<tab>Princeton...', hanging 128.9pt, right stop 118.7) were predicted 2 lines for 1; with the paragraph split, the standard page model overflowed 17.3pt and the spill absorber took 20pt from the page's top gaps (LibreOffice product dy 2.3 -> 19.8, measured before the ladder change); with it, -5.9pt, no gap spent"
+ },
+ "libreoffice_raw_changed": {
+  "y02_nist_sp800171r2": {
+   "base": {
+    "out_pages": 115,
+    "src_pages": 114,
+    "word_recall": 0.754,
+    "within2pt": 0.1887,
+    "dy_p50": 10.02
+   },
+   "wp35d": {
+    "out_pages": 114,
+    "src_pages": 114,
+    "word_recall": 0.966,
+    "within2pt": 0.2988,
+    "dy_p50": 4.52
+   }
+  },
+  "y03_nist_fips197": {
+   "base": {
+    "out_pages": 46,
+    "src_pages": 46,
+    "word_recall": 0.9687,
+    "within2pt": 0.1707,
+    "dy_p50": 2.69
+   },
+   "wp35d": {
+    "out_pages": 46,
+    "src_pages": 46,
+    "word_recall": 0.9687,
+    "within2pt": 0.1707,
+    "dy_p50": 2.71
+   }
+  },
+  "y06_irs_1040_instructions": {
+   "base": {
+    "out_pages": 149,
+    "src_pages": 126,
+    "word_recall": 0.2214,
+    "within2pt": 0.0009,
+    "dy_p50": 55.53
+   },
+   "wp35d": {
+    "out_pages": 149,
+    "src_pages": 126,
+    "word_recall": 0.2212,
+    "within2pt": 0.0009,
+    "dy_p50": 55.66
+   }
+  },
+  "y08_nist_sp80088r1": {
+   "base": {
+    "out_pages": 65,
+    "src_pages": 65,
+    "word_recall": 0.9909,
+    "within2pt": 0.2844,
+    "dy_p50": 1.82
+   },
+   "wp35d": {
+    "out_pages": 65,
+    "src_pages": 65,
+    "word_recall": 0.9909,
+    "within2pt": 0.3006,
+    "dy_p50": 1.2
+   }
+  },
+  "y09_nist_sp800207": {
+   "base": {
+    "out_pages": 59,
+    "src_pages": 59,
+    "word_recall": 0.9759,
+    "within2pt": 0.7167,
+    "dy_p50": 1.45
+   },
+   "wp35d": {
+    "out_pages": 59,
+    "src_pages": 59,
+    "word_recall": 0.9759,
+    "within2pt": 0.722,
+    "dy_p50": 1.45
+   }
+  },
+  "y10_nist_fips180": {
+   "base": {
+    "out_pages": 36,
+    "src_pages": 36,
+    "word_recall": 0.941,
+    "within2pt": 0.4121,
+    "dy_p50": 0.54
+   },
+   "wp35d": {
+    "out_pages": 36,
+    "src_pages": 36,
+    "word_recall": 0.941,
+    "within2pt": 0.422,
+    "dy_p50": 0.51
+   }
+  },
+  "y13_irs_pub501": {
+   "base": {
+    "out_pages": 50,
+    "src_pages": 31,
+    "word_recall": 0.2532,
+    "within2pt": 0.0013,
+    "dy_p50": 35.4
+   },
+   "wp35d": {
+    "out_pages": 50,
+    "src_pages": 31,
+    "word_recall": 0.253,
+    "within2pt": 0.0013,
+    "dy_p50": 35.38
+   }
+  },
+  "y17_rfc9110": {
+   "base": {
+    "out_pages": 195,
+    "src_pages": 194,
+    "word_recall": 0.9162,
+    "within2pt": 0.0239,
+    "dy_p50": 13.04
+   },
+   "wp35d": {
+    "out_pages": 195,
+    "src_pages": 194,
+    "word_recall": 0.9162,
+    "within2pt": 0.0241,
+    "dy_p50": 13.04
+   }
+  },
+  "y20_typst_report": {
+   "base": {
+    "out_pages": 5,
+    "src_pages": 5,
+    "word_recall": 0.9916,
+    "within2pt": 0.4439,
+    "dy_p50": 0.59
+   },
+   "wp35d": {
+    "out_pages": 5,
+    "src_pages": 5,
+    "word_recall": 0.9916,
+    "within2pt": 0.518,
+    "dy_p50": 0.59
+   }
+  },
+  "y30_nz_guideline_word365": {
+   "base": {
+    "out_pages": 33,
+    "src_pages": 33,
+    "word_recall": 0.9914,
+    "within2pt": 0.3184,
+    "dy_p50": 2.38
+   },
+   "wp35d": {
+    "out_pages": 33,
+    "src_pages": 33,
+    "word_recall": 0.9914,
+    "within2pt": 0.3179,
+    "dy_p50": 2.39
+   }
+  },
+  "y33_nz_paper_powerpdf": {
+   "base": {
+    "out_pages": 60,
+    "src_pages": 60,
+    "word_recall": 0.9955,
+    "within2pt": 0.4233,
+    "dy_p50": 1.88
+   },
+   "wp35d": {
+    "out_pages": 60,
+    "src_pages": 60,
+    "word_recall": 0.9955,
+    "within2pt": 0.4259,
+    "dy_p50": 1.87
+   }
+  },
+  "y36_lo_writer_guide": {
+   "base": {
+    "out_pages": 25,
+    "src_pages": 25,
+    "word_recall": 0.9931,
+    "within2pt": 0.2822,
+    "dy_p50": 3.65
+   },
+   "wp35d": {
+    "out_pages": 25,
+    "src_pages": 25,
+    "word_recall": 0.9931,
+    "within2pt": 0.2821,
+    "dy_p50": 3.65
+   }
+  },
+  "y37_plos_one_dvipdfmx": {
+   "base": {
+    "out_pages": 32,
+    "src_pages": 22,
+    "word_recall": 0.288,
+    "within2pt": 0.0078,
+    "dy_p50": 38.31
+   },
+   "wp35d": {
+    "out_pages": 32,
+    "src_pages": 22,
+    "word_recall": 0.2877,
+    "within2pt": 0.0078,
+    "dy_p50": 37.73
+   }
+  },
+  "y38_elife_arbortext_gs": {
+   "base": {
+    "out_pages": 50,
+    "src_pages": 33,
+    "word_recall": 0.2193,
+    "within2pt": 0.0005,
+    "dy_p50": 40.15
+   },
+   "wp35d": {
+    "out_pages": 50,
+    "src_pages": 33,
+    "word_recall": 0.2196,
+    "within2pt": 0.0005,
+    "dy_p50": 39.19
+   }
+  },
+  "y39_copernicus_npg_2col": {
+   "base": {
+    "out_pages": 11,
+    "src_pages": 11,
+    "word_recall": 0.8804,
+    "within2pt": 0.0072,
+    "dy_p50": 40.32
+   },
+   "wp35d": {
+    "out_pages": 11,
+    "src_pages": 11,
+    "word_recall": 0.8845,
+    "within2pt": 0.012,
+    "dy_p50": 34.69
+   }
+  },
+  "y41_arxiv_ieeetran": {
+   "base": {
+    "out_pages": 10,
+    "src_pages": 8,
+    "word_recall": 0.6076,
+    "within2pt": 0.0476,
+    "dy_p50": 18.89
+   },
+   "wp35d": {
+    "out_pages": 10,
+    "src_pages": 8,
+    "word_recall": 0.6076,
+    "within2pt": 0.0488,
+    "dy_p50": 17.73
+   }
+  },
+  "y44_cv_rendercv_typst": {
+   "base": {
+    "out_pages": 3,
+    "src_pages": 3,
+    "word_recall": 0.9945,
+    "within2pt": 0.0743,
+    "dy_p50": 29.56
+   },
+   "wp35d": {
+    "out_pages": 3,
+    "src_pages": 3,
+    "word_recall": 0.9945,
+    "within2pt": 0.2215,
+    "dy_p50": 1.88
+   }
+  },
+  "y60_cdc_mmwr_indd19": {
+   "base": {
+    "out_pages": 32,
+    "src_pages": 24,
+    "word_recall": 0.3275,
+    "within2pt": 0.0165,
+    "dy_p50": 54.2
+   },
+   "wp35d": {
+    "out_pages": 31,
+    "src_pages": 24,
+    "word_recall": 0.3275,
+    "within2pt": 0.0165,
+    "dy_p50": 54.2
+   }
+  },
+  "y65_nrc_jasperreports": {
+   "base": {
+    "out_pages": 3,
+    "src_pages": 3,
+    "word_recall": 1.0,
+    "within2pt": 0.264,
+    "dy_p50": 10.07
+   },
+   "wp35d": {
+    "out_pages": 3,
+    "src_pages": 3,
+    "word_recall": 1.0,
+    "within2pt": 0.318,
+    "dy_p50": 1.48
+   }
+  }
+ },
+ "libreoffice_product_changed": {
+  "y01_nist_sp80063b": {
+   "base": {
+    "out_pages": 80,
+    "src_pages": 80,
+    "word_recall": 0.9688,
+    "within2pt": 0.7982,
+    "dy_p50": 0.23
+   },
+   "wp35d": {
+    "out_pages": 80,
+    "src_pages": 80,
+    "word_recall": 0.9688,
+    "within2pt": 0.7991,
+    "dy_p50": 0.23
+   }
+  },
+  "y02_nist_sp800171r2": {
+   "base": {
+    "out_pages": 114,
+    "src_pages": 114,
+    "word_recall": 0.966,
+    "within2pt": 0.3277,
+    "dy_p50": 2.4
+   },
+   "wp35d": {
+    "out_pages": 114,
+    "src_pages": 114,
+    "word_recall": 0.966,
+    "within2pt": 0.3584,
+    "dy_p50": 0.71
+   }
+  },
+  "y06_irs_1040_instructions": {
+   "base": {
+    "out_pages": 135,
+    "src_pages": 126,
+    "word_recall": 0.2812,
+    "within2pt": 0.0036,
+    "dy_p50": 59.11
+   },
+   "wp35d": {
+    "out_pages": 135,
+    "src_pages": 126,
+    "word_recall": 0.2812,
+    "within2pt": 0.0028,
+    "dy_p50": 58.71
+   }
+  },
+  "y08_nist_sp80088r1": {
+   "base": {
+    "out_pages": 65,
+    "src_pages": 65,
+    "word_recall": 0.9909,
+    "within2pt": 0.4108,
+    "dy_p50": 0.16
+   },
+   "wp35d": {
+    "out_pages": 65,
+    "src_pages": 65,
+    "word_recall": 0.9909,
+    "within2pt": 0.4234,
+    "dy_p50": 0.11
+   }
+  },
+  "y09_nist_sp800207": {
+   "base": {
+    "out_pages": 59,
+    "src_pages": 59,
+    "word_recall": 0.9759,
+    "within2pt": 0.8114,
+    "dy_p50": 0.05
+   },
+   "wp35d": {
+    "out_pages": 59,
+    "src_pages": 59,
+    "word_recall": 0.9759,
+    "within2pt": 0.8182,
+    "dy_p50": 0.05
+   }
+  },
+  "y10_nist_fips180": {
+   "base": {
+    "out_pages": 36,
+    "src_pages": 36,
+    "word_recall": 0.941,
+    "within2pt": 0.0946,
+    "dy_p50": 2.39
+   },
+   "wp35d": {
+    "out_pages": 36,
+    "src_pages": 36,
+    "word_recall": 0.941,
+    "within2pt": 0.0948,
+    "dy_p50": 2.38
+   }
+  },
+  "y12_irs_pub15": {
+   "base": {
+    "out_pages": 59,
+    "src_pages": 59,
+    "word_recall": 0.9556,
+    "within2pt": 0.0745,
+    "dy_p50": 8.4
+   },
+   "wp35d": {
+    "out_pages": 59,
+    "src_pages": 59,
+    "word_recall": 0.9556,
+    "within2pt": 0.0746,
+    "dy_p50": 8.4
+   }
+  },
+  "y17_rfc9110": {
+   "base": {
+    "out_pages": 194,
+    "src_pages": 194,
+    "word_recall": 0.9846,
+    "within2pt": 0.0606,
+    "dy_p50": 9.57
+   },
+   "wp35d": {
+    "out_pages": 194,
+    "src_pages": 194,
+    "word_recall": 0.9846,
+    "within2pt": 0.0611,
+    "dy_p50": 9.55
+   }
+  },
+  "y20_typst_report": {
+   "base": {
+    "out_pages": 5,
+    "src_pages": 5,
+    "word_recall": 0.9916,
+    "within2pt": 0.4544,
+    "dy_p50": 0.54
+   },
+   "wp35d": {
+    "out_pages": 5,
+    "src_pages": 5,
+    "word_recall": 0.9916,
+    "within2pt": 0.5275,
+    "dy_p50": 0.52
+   }
+  },
+  "y27_rfc9000": {
+   "base": {
+    "out_pages": 151,
+    "src_pages": 151,
+    "word_recall": 0.9739,
+    "within2pt": 0.0549,
+    "dy_p50": 12.34
+   },
+   "wp35d": {
+    "out_pages": 151,
+    "src_pages": 151,
+    "word_recall": 0.9739,
+    "within2pt": 0.055,
+    "dy_p50": 12.34
+   }
+  },
+  "y30_nz_guideline_word365": {
+   "base": {
+    "out_pages": 33,
+    "src_pages": 33,
+    "word_recall": 0.9914,
+    "within2pt": 0.7236,
+    "dy_p50": 0.32
+   },
+   "wp35d": {
+    "out_pages": 33,
+    "src_pages": 33,
+    "word_recall": 0.9914,
+    "within2pt": 0.7551,
+    "dy_p50": 0.32
+   }
+  },
+  "y33_nz_paper_powerpdf": {
+   "base": {
+    "out_pages": 60,
+    "src_pages": 60,
+    "word_recall": 0.9955,
+    "within2pt": 0.7347,
+    "dy_p50": 0.25
+   },
+   "wp35d": {
+    "out_pages": 60,
+    "src_pages": 60,
+    "word_recall": 0.9955,
+    "within2pt": 0.7426,
+    "dy_p50": 0.25
+   }
+  },
+  "y36_lo_writer_guide": {
+   "base": {
+    "out_pages": 25,
+    "src_pages": 25,
+    "word_recall": 0.9931,
+    "within2pt": 0.4751,
+    "dy_p50": 0.45
+   },
+   "wp35d": {
+    "out_pages": 25,
+    "src_pages": 25,
+    "word_recall": 0.9931,
+    "within2pt": 0.4774,
+    "dy_p50": 0.45
+   }
+  },
+  "y37_plos_one_dvipdfmx": {
+   "base": {
+    "out_pages": 27,
+    "src_pages": 22,
+    "word_recall": 0.3268,
+    "within2pt": 0.0009,
+    "dy_p50": 26.88
+   },
+   "wp35d": {
+    "out_pages": 25,
+    "src_pages": 22,
+    "word_recall": 0.5086,
+    "within2pt": 0.0118,
+    "dy_p50": 23.62
+   }
+  },
+  "y38_elife_arbortext_gs": {
+   "base": {
+    "out_pages": 47,
+    "src_pages": 33,
+    "word_recall": 0.2833,
+    "within2pt": 0.0021,
+    "dy_p50": 30.31
+   },
+   "wp35d": {
+    "out_pages": 47,
+    "src_pages": 33,
+    "word_recall": 0.2833,
+    "within2pt": 0.0019,
+    "dy_p50": 31.65
+   }
+  },
+  "y39_copernicus_npg_2col": {
+   "base": {
+    "out_pages": 11,
+    "src_pages": 11,
+    "word_recall": 0.9141,
+    "within2pt": 0.0556,
+    "dy_p50": 10.12
+   },
+   "wp35d": {
+    "out_pages": 11,
+    "src_pages": 11,
+    "word_recall": 0.9141,
+    "within2pt": 0.0661,
+    "dy_p50": 9.8
+   }
+  },
+  "y41_arxiv_ieeetran": {
+   "base": {
+    "out_pages": 9,
+    "src_pages": 8,
+    "word_recall": 0.6989,
+    "within2pt": 0.0424,
+    "dy_p50": 10.88
+   },
+   "wp35d": {
+    "out_pages": 9,
+    "src_pages": 8,
+    "word_recall": 0.6989,
+    "within2pt": 0.0431,
+    "dy_p50": 10.5
+   }
+  },
+  "y44_cv_rendercv_typst": {
+   "base": {
+    "out_pages": 3,
+    "src_pages": 3,
+    "word_recall": 0.9945,
+    "within2pt": 0.1857,
+    "dy_p50": 2.34
+   },
+   "wp35d": {
+    "out_pages": 3,
+    "src_pages": 3,
+    "word_recall": 0.9945,
+    "within2pt": 0.2283,
+    "dy_p50": 0.67
+   }
+  },
+  "y57_scan_usda1950_ia": {
+   "base": {
+    "out_pages": 22,
+    "src_pages": 16,
+    "word_recall": 0.0925,
+    "within2pt": 0.0,
+    "dy_p50": 63.0
+   },
+   "wp35d": {
+    "out_pages": 22,
+    "src_pages": 16,
+    "word_recall": 0.0925,
+    "within2pt": 0.0,
+    "dy_p50": 63.03
+   }
+  }
+ },
+ "word_product_changed": {
+  "y02_nist_sp800171r2": {
+   "base": {
+    "out_pages": 114,
+    "src_pages": 114,
+    "word_recall": 0.9664,
+    "within2pt": 0.154,
+    "dy_p50": 2.73
+   },
+   "wp35d": {
+    "out_pages": 114,
+    "src_pages": 114,
+    "word_recall": 0.9664,
+    "within2pt": 0.1614,
+    "dy_p50": 2.52
+   }
+  },
+  "y03_nist_fips197": {
+   "base": {
+    "out_pages": 46,
+    "src_pages": 46,
+    "word_recall": 0.9681,
+    "within2pt": 0.1721,
+    "dy_p50": 1.98
+   },
+   "wp35d": {
+    "out_pages": 46,
+    "src_pages": 46,
+    "word_recall": 0.9681,
+    "within2pt": 0.1721,
+    "dy_p50": 1.99
+   }
+  },
+  "y08_nist_sp80088r1": {
+   "base": {
+    "out_pages": 65,
+    "src_pages": 65,
+    "word_recall": 0.9916,
+    "within2pt": 0.4043,
+    "dy_p50": 0.17
+   },
+   "wp35d": {
+    "out_pages": 65,
+    "src_pages": 65,
+    "word_recall": 0.9916,
+    "within2pt": 0.4161,
+    "dy_p50": 0.15
+   }
+  },
+  "y09_nist_sp800207": {
+   "base": {
+    "out_pages": 59,
+    "src_pages": 59,
+    "word_recall": 0.9761,
+    "within2pt": 0.8096,
+    "dy_p50": 0.1
+   },
+   "wp35d": {
+    "out_pages": 59,
+    "src_pages": 59,
+    "word_recall": 0.9761,
+    "within2pt": 0.8161,
+    "dy_p50": 0.1
+   }
+  },
+  "y10_nist_fips180": {
+   "base": {
+    "out_pages": 36,
+    "src_pages": 36,
+    "word_recall": 0.9404,
+    "within2pt": 0.1064,
+    "dy_p50": 2.52
+   },
+   "wp35d": {
+    "out_pages": 36,
+    "src_pages": 36,
+    "word_recall": 0.9404,
+    "within2pt": 0.1067,
+    "dy_p50": 2.52
+   }
+  },
+  "y12_irs_pub15": {
+   "base": {
+    "out_pages": 59,
+    "src_pages": 59,
+    "word_recall": 0.9568,
+    "within2pt": 0.0918,
+    "dy_p50": 8.02
+   },
+   "wp35d": {
+    "out_pages": 59,
+    "src_pages": 59,
+    "word_recall": 0.9568,
+    "within2pt": 0.092,
+    "dy_p50": 8.01
+   }
+  },
+  "y17_rfc9110": {
+   "base": {
+    "out_pages": 194,
+    "src_pages": 194,
+    "word_recall": 0.9848,
+    "within2pt": 0.0605,
+    "dy_p50": 9.44
+   },
+   "wp35d": {
+    "out_pages": 194,
+    "src_pages": 194,
+    "word_recall": 0.9848,
+    "within2pt": 0.061,
+    "dy_p50": 9.42
+   }
+  },
+  "y20_typst_report": {
+   "base": {
+    "out_pages": 5,
+    "src_pages": 5,
+    "word_recall": 0.9916,
+    "within2pt": 0.4449,
+    "dy_p50": 0.51
+   },
+   "wp35d": {
+    "out_pages": 5,
+    "src_pages": 5,
+    "word_recall": 0.9916,
+    "within2pt": 0.5169,
+    "dy_p50": 0.48
+   }
+  },
+  "y22_lshort": {
+   "base": {
+    "out_pages": 157,
+    "src_pages": 153,
+    "word_recall": 0.7517,
+    "within2pt": 0.0655,
+    "dy_p50": 14.29
+   },
+   "wp35d": {
+    "out_pages": 157,
+    "src_pages": 153,
+    "word_recall": 0.7517,
+    "within2pt": 0.0656,
+    "dy_p50": 14.29
+   }
+  },
+  "y27_rfc9000": {
+   "base": {
+    "out_pages": 151,
+    "src_pages": 151,
+    "word_recall": 0.9746,
+    "within2pt": 0.0538,
+    "dy_p50": 12.16
+   },
+   "wp35d": {
+    "out_pages": 151,
+    "src_pages": 151,
+    "word_recall": 0.9746,
+    "within2pt": 0.0539,
+    "dy_p50": 12.16
+   }
+  },
+  "y30_nz_guideline_word365": {
+   "base": {
+    "out_pages": 33,
+    "src_pages": 33,
+    "word_recall": 0.9916,
+    "within2pt": 0.2134,
+    "dy_p50": 2.28
+   },
+   "wp35d": {
+    "out_pages": 33,
+    "src_pages": 33,
+    "word_recall": 0.9916,
+    "within2pt": 0.2445,
+    "dy_p50": 2.28
+   }
+  },
+  "y33_nz_paper_powerpdf": {
+   "base": {
+    "out_pages": 60,
+    "src_pages": 60,
+    "word_recall": 0.9957,
+    "within2pt": 0.184,
+    "dy_p50": 2.23
+   },
+   "wp35d": {
+    "out_pages": 60,
+    "src_pages": 60,
+    "word_recall": 0.9957,
+    "within2pt": 0.1875,
+    "dy_p50": 2.2
+   }
+  },
+  "y36_lo_writer_guide": {
+   "base": {
+    "out_pages": 25,
+    "src_pages": 25,
+    "word_recall": 0.9933,
+    "within2pt": 0.4723,
+    "dy_p50": 0.47
+   },
+   "wp35d": {
+    "out_pages": 25,
+    "src_pages": 25,
+    "word_recall": 0.9933,
+    "within2pt": 0.4748,
+    "dy_p50": 0.46
+   }
+  },
+  "y44_cv_rendercv_typst": {
+   "base": {
+    "out_pages": 3,
+    "src_pages": 3,
+    "word_recall": 0.9891,
+    "within2pt": 0.1867,
+    "dy_p50": 2.45
+   },
+   "wp35d": {
+    "out_pages": 3,
+    "src_pages": 3,
+    "word_recall": 0.9891,
+    "within2pt": 0.2199,
+    "dy_p50": 0.48
+   }
+  }
+ },
+ "gdocs_identity": {
+  "changed": [
+   "y01_nist_sp80063b",
+   "y02_nist_sp800171r2",
+   "y03_nist_fips197",
+   "y06_irs_1040_instructions",
+   "y08_nist_sp80088r1",
+   "y09_nist_sp800207",
+   "y10_nist_fips180",
+   "y12_irs_pub15",
+   "y13_irs_pub501",
+   "y17_rfc9110",
+   "y18_eurlex_ai_act",
+   "y20_typst_report",
+   "y21_worldbank_wdr24",
+   "y22_lshort",
+   "y27_rfc9000",
+   "y30_nz_guideline_word365",
+   "y33_nz_paper_powerpdf",
+   "y36_lo_writer_guide",
+   "y37_plos_one_dvipdfmx",
+   "y38_elife_arbortext_gs",
+   "y39_copernicus_npg_2col",
+   "y41_arxiv_ieeetran",
+   "y42_arxiv_acmart",
+   "y44_cv_rendercv_typst",
+   "y57_scan_usda1950_ia",
+   "y58_ssa_statement_indd20",
+   "y60_cdc_mmwr_indd19",
+   "y65_nrc_jasperreports"
+  ],
+  "identical_of_90": 62
+ },
+ "docs_page_model": "on the gdocs planner's model no page of y01-y36 (14 long promised, 3 short) goes newly tight; y02 14 pages move, none tight",
+ "probe_set": "C:\\lotmp\\scr\\wp35d\\gdocs_probe (PROBE.md); base 64a6c47",
+ "errors": "0 in both sweeps; Word opened every DOCX, no repair prompt"
+}
