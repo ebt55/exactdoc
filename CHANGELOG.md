@@ -21,6 +21,39 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 one verified fix at a time, each gated against the frozen 16.
 
 
+- **Placement is measured at the baseline: beta-bar amendment 3, ratified
+  by the owner on 2026-10-10 (WP36).** No conversion output changed
+  (`exactdoc/` identical to integration; `word/*.xml` byte-identical in the
+  raw and gdocs profiles for the 93 of the 95 documents that convert, the
+  other two refused alike). Within-2pt and `dy_p50`/`dy_p90`
+  compared word box tops, and a box top is the glyph origin minus whatever
+  ascent the PDF's font declares: 1.075 em for an unembedded Helvetica,
+  1.040 em for the Times New Roman and Arial Word embeds, 0.905 / 0.891 em
+  for Liberation and for Word's and Docs' Arial / Times New Roman. The
+  harness now anchors every word, on both sides, at its baseline (the glyph
+  origin of its largest characters; `harness.page_words`, with
+  `baseline=False` and `box_top()` giving the old reading), and checked
+  against the glyphs' ink on 12 documents the baseline agrees within 0.11pt
+  where the box top was off by up to 1.74pt. `live_text_cov` reads leaders
+  and symbol-font PUA as the words have since WP29, on the source and the
+  DOCX (y10 0.787 -> 0.932, x02 0.741 -> 0.972 in LibreOffice and Word), and
+  `testkit/rescore.py` re-reads it from the kept DOCX instead of copying it.
+  Re-read from the round-4 renders, nothing converted: the gate's renders
+  mean within-2pt 0.7304 -> 0.8156 product and 0.5466 -> 0.6168 raw (median
+  dy_p50 0.525 -> 0.35pt, 1.245 -> 0.65pt); base-14 sources lose the
+  artefact (f1 0.629 -> 1.000, 02 0.605 -> 0.922; in Docs 04 0.05 -> 0.56, r1
+  0.47 -> 0.94), embedded-font ones do not move (c1, c6), and Word-produced
+  sources whose fonts declare 1.040 em read 1.7pt high in the product DOCX
+  where the box tops had agreed (y01 dy_p50 0.23 -> 1.74pt, y30 within-2pt
+  0.724 -> 0.282; the raw DOCX places y01 at 0.34pt). Criterion 7 unchanged,
+  criterion 8 FAIL by 1 -> PASS (y61's dy_p50 is within tolerance at the
+  baseline), criterion 13 LibreOffice and Word 40 -> 45 of 62. The gate
+  baseline was recorded at box tops and is not re-recorded here: against it
+  the gate reads one finding, raw 05_memo within-2pt 0.1205 -> 0.0602, five
+  words 2-3.5pt above their source baseline that Helvetica's box top had
+  put inside 2pt (`docs/beta-bar.md`, amendment 3;
+  `docs/evidence/scorer-baseline-2026-10-10.json`).
+
 - **y33's footnotes stay on their pages (WP27).** The pages whose notes
   spilled (LibreOffice raw p22 and p24) had lost their footnote references
   to pictures: y33 (Kofax Power PDF) sets each consultation question as a

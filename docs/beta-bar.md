@@ -4,7 +4,10 @@
 review's proposal, adopted exactly). **Amended by the owner on 2026-10-06**:
 the lanes are graded on the product DOCX, and the harness reads leaders,
 symbol fonts and maths the same way on both sides (see
-[the amendments](#amendments-2026-10-06-ratified-by-the-owner)).
+[the amendments](#amendments-2026-10-06-ratified-by-the-owner)). **Amended
+again on 2026-10-10**: placement is measured at the text baseline, and live
+text is read the way the words are (see
+[amendment 3](#amendment-3-2026-10-10-ratified-by-the-owner)).
 
 **0.3.0b1 is not tagged while any gating criterion fails.** Criteria 1–6, 8 and
 10–12 gate the beta. Criteria 7, 9 and 13 are reported for the beta and gate
@@ -110,3 +113,78 @@ date on, so numbers before and after it are compared only through
 and keeps the old reading beside the new
 ([evidence](evidence/scorer-2026-10-06.json)). The gate's recorded baseline was
 measured with the old reading; re-recording it is a separate owner decision.
+
+## Amendment 3, 2026-10-10, ratified by the owner
+
+No threshold changed. Two readings change, each applied to the source and the
+render alike by the same function (`testkit/harness.py`, pinned by
+`tests/test_harness_baseline.py`).
+
+**Placement is measured at the text baseline.** Within-2pt, `dy_p50` and
+`dy_p90` (criteria 7, 8 and 13, and the gate) compared the tops of two words'
+boxes. A box top is not where the text is: PyMuPDF derives it as the glyph
+origin minus the font's ascent, and the ascent is whatever the PDF's copy of
+the font declares. Measured on the corpus, the box top sits above the
+baseline by 1.075 em for an unembedded Helvetica and 1.053 em for Times-Roman
+(r1_reportlab_report), 1.040 em for the Times New Roman and Arial that Word
+embeds (y01, y29) and 0.776 em for JasperReports' Arial (y65), against
+0.905 / 0.891 em for Liberation Sans / Serif in a LibreOffice render and
+Arial / Times New Roman in a Word or Google Docs export. So the box-top
+reading charged ~1.7pt at 10pt to every word of a base-14 source although
+nothing had moved, and credited the same amount to a render whose text really
+sat 1.7pt off. The baseline is the glyph origin, a number in the content
+stream that every reader lines text up on. Checked against the ink (the
+glyphs' outlines, letters without descenders) on 12 documents in the
+LibreOffice product lane: the median vertical drift of the ink and of the
+baseline agree within 0.11pt, where the box top was off by 0.14-1.74pt. A
+word's baseline is that of its largest characters, so a glued superscript
+does not move it; text on a line that is not horizontal keeps its box top.
+Words are still paired by text, so word recall cannot move. This supersedes
+the decision recorded in [dy-ascent-artifact.md](dy-ascent-artifact.md) to
+keep glyph tops and exempt the artefact instead.
+
+**Live text is read the way the words are.** `live_text_cov` (criterion 13,
+the gate) reads the source through amendment 2's symbol-font table and leader
+rule, and the DOCX's live text the same way (private-use characters through
+the run's font, leader runs dropped). y10's equations are Symbol PUA in the
+source and "=", "+" in the DOCX: 0.787 -> 0.932 in LibreOffice and Word;
+x02's contents dots are tab leaders in the DOCX: 0.741 -> 0.972. The gated 16
+do not move.
+
+**What moved**, re-read by `testkit/rescore.py` from saved renders (nothing
+converted; every row's previous reading recomputed beside the new one and
+equal to what was recorded or re-scored before, on all 1,144 rows;
+[evidence](evidence/scorer-baseline-2026-10-10.json)). The round-4 renders
+(tree 71558af):
+
+| | before | after |
+|---|---|---|
+| Gate renders, product: mean within-2pt / median dy_p50 | 0.7304 / 0.525pt | 0.8156 / 0.35pt |
+| Gate renders, raw | 0.5466 / 1.245pt | 0.6168 / 0.65pt |
+| LibreOffice product, 90 documents, mean within-2pt | 0.381 | 0.396 |
+| Word product | 0.369 | 0.389 |
+| Google Docs live | 0.242 | 0.295 |
+
+The artefact goes: f1_fpdf_brief 0.629 -> 1.000, 02_research_paper
+0.605 -> 0.922 in LibreOffice product; in Docs 04_exec_brief 0.05 -> 0.56 and
+r1_reportlab_report 0.47 -> 0.94; documents with embedded fonts are unchanged
+(c1_whitepaper 0.873, c6_long 0.977). Real drift stays and some surfaces:
+in the product DOCX opened in LibreOffice and Word, Word-produced sources
+whose fonts declare 1.040 em now read 1.7pt high, where their box tops agreed
+-- y01 dy_p50 0.23 -> 1.74pt (within-2pt 0.800 -> 0.671), y30 0.32 -> 2.17pt
+(0.724 -> 0.282), y09 and y29 alike, the ink agreeing each time. The raw DOCX
+places the same lines right (y01 1.73 -> 0.34pt).
+
+Criteria on the round-4 data: **7** no document changes in any lane; **8**
+against the accepted wp31-prod sweep, both read the same way: FAIL by 1 ->
+PASS (y61's dy_p50 35.91 -> 39.56pt was beyond its 3.59pt tolerance at the
+box top; 37.00 -> 40.53pt is within 3.70pt at the baseline); **13**
+LibreOffice and Word 40 -> 45 of 62 (live text: x02, y01, y10, y30, y36), Docs
+36 of 62 either way.
+
+The gate's recorded baseline was measured at box tops. Until it is re-recorded
+(a separate owner decision), the gate reads one finding against it: raw
+05_memo within-2pt 0.1205 -> 0.0602, ten of 83 matched words within 2pt at the
+box top and five at the baseline. The five that leave (a dash, "August"
+twice, two bullets) sit 2.05-3.55pt above their source baseline and were
+inside 2pt only by Helvetica's box-top bias.
