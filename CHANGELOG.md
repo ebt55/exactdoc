@@ -110,6 +110,40 @@ one verified fix at a time, each gated against the frozen 16.
   product falls to 0.519. Next: why splitting y21's welded lines moves its
   words to the wrong pages; the cursor change can ship alone meanwhile.
 
+- **Short documents in Google Docs: hanging tables and letter-spaced text
+  (WP35c).** Two gdocs-only rules, read off Google's exports of the 71558af
+  sweep. (1) Word hangs a table's border left of its text column by the
+  first cell's margin; the gdocs writer put the edge on the column, so every
+  such table's text landed the hang to the right in Docs (c3 +7.00pt on
+  every line, within-2pt 0.000; x04, 03, l1, 01, f1, x16, 02 likewise). A
+  gdocs table now stands at `left_indent - hang_left`
+  (`docxout._gdocs_table_hang`); Docs honours negative table indents to the
+  point. (2) Docs drops letter-spacing, so a paragraph Chrome tracked sets a
+  line short (8 of x07's 21; dy_p50 16.4, criterion 7 failed). The writer
+  narrows such a paragraph to the width at which the untracked width tables
+  set its source line count, and the planner models that width
+  (`_gdocs_tracking_indent`). Separate commits; the standard profile is
+  byte-identical (raw and product, all 90). Evidence:
+  [gdocs-2026-10-10-wp35c-short.json](docs/evidence/gdocs-2026-10-10-wp35c-short.json),
+  with the full criterion-7 diagnosis and WP35b's live flight (y03 46/46,
+  word recall 0.948).
+
+- **A typewriter table's columns are its typed spaces (WP35b).** y03
+  (FIPS 197) passed criterion 5 in Google Docs by 0.004 (47 pages for 46,
+  word recall 0.854): source page 40 ran a page over, every later page one
+  behind. Its Appendix A key-expansion tables set each row as one Courier
+  string with columns two spaces apart; the rules-table builder put the
+  whole 401pt row in the 55pt column its centre fell in, and Docs wrapped
+  such cells to seven lines. `infer._mono_space_gaps` now cuts a monospaced
+  span where a run of its spaces is wider than a cell gap (RULES_CELL_GAP_EM:
+  two Courier spaces are 1.2em), so the tables read six columns, one line a
+  value. Folding the spilled page back into the base export reads 46 pages
+  at word recall 0.948. Only y03 and y17 (one ABNF row) change, in every
+  profile; LibreOffice product y03 46/46 at the same recall, within-2pt
+  0.198 -> 0.204. Evidence:
+  [gdocs-2026-10-10-wp35b-y03.json](docs/evidence/gdocs-2026-10-10-wp35b-y03.json),
+  which also records the y21/y22 Docs diagnosis.
+
 - **EUR-Lex's numbered articles keep their pages in Google Docs (WP35).**
   On Google's exports of the 71558af sweep y18 (the EU AI Act) matched the
   source page for page until page 58, then spilled two pages (146 for 144,

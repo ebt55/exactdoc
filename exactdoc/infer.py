@@ -4786,6 +4786,55 @@ def _text_columns(blocks, rect: BBox, consumed) -> List[float]:
     return _cluster(xs, 7.0)
 
 
+_SPACE_RUN = re.compile(r" {2,}")
+
+
+def _mono_space_gaps(ln: Line) -> Line:
+    """`ln` with each monospaced span cut where a run of its own spaces is
+    wider than a cell gap (RULES_CELL_GAP_EM): a typewriter table's columns.
+
+    FIPS 197's key-expansion tables (y03, Appendix A) set each row as one
+    Courier string, its columns two spaces apart ('0914dff4  14dff409
+    fa9ebf01 ...'); the parser keeps literal spaces as text, so the row
+    reached the rules-table builder as ONE span 401pt wide, and the builder put
+    it in the column its centre fell in -- a 55pt cell, which Word,
+    LibreOffice and Google Docs all wrapped to seven lines (y03's page 40
+    spilled a page in Docs and in both raw lanes). A space in a monospaced
+    face is a known advance (the span's width over its characters, 0.6em in
+    Courier), so the run is the same gap the parser cuts a line at when it is
+    drawn as white rather than typed: two Courier spaces are 1.2em. Each piece
+    keeps the span's style; its box is its own characters' advance. A span
+    with no such run, or not monospaced, is kept as it is."""
+    out, changed = [], False
+    for s in ln.spans:
+        t = s.text
+        if not s.mono or len(t) < 3 or not _SPACE_RUN.search(t.strip(" ")):
+            out.append(s)
+            continue
+        adv = (s.bbox[2] - s.bbox[0]) / len(t)
+        if adv <= 0 or not any(len(m.group(0)) * adv > RULES_CELL_GAP_EM * max(s.size, 1.0)
+                               for m in _SPACE_RUN.finditer(t.strip(" "))):
+            out.append(s)
+            continue
+        pos = 0
+        for m in list(_SPACE_RUN.finditer(t)) + [None]:
+            if m is not None and len(m.group(0)) * adv <= RULES_CELL_GAP_EM * max(s.size, 1.0):
+                continue
+            end = m.start() if m is not None else len(t)
+            piece = t[pos:end]
+            core = piece.strip(" ")
+            if core:
+                x0 = s.bbox[0] + (pos + len(piece) - len(piece.lstrip(" "))) * adv
+                out.append(replace(s, text=core, origin=(x0, s.origin[1]),
+                                   bbox=(x0, s.bbox[1], x0 + len(core) * adv, s.bbox[3])))
+            if m is not None:
+                pos = m.end()
+        changed = True
+    if not changed:
+        return ln
+    return Line(spans=out, dir=ln.dir, bbox=ln.bbox)
+
+
 def _split_at_span_gaps(ln: Line) -> List[Line]:
     """A Line cut into the pieces separated by a gap wider than the line
     splitter's own (LINE_SPLIT_EM): table cells the parser kept on one line.
@@ -5216,7 +5265,8 @@ def build_rules_table(hgroup: List[DrawCmd], blocks, consumed,
     # read as four columns of indentation and no numbers at all.
     lines, joined = [], False
     for ln in whole:
-        frags = _split_at_span_gaps(ln)
+        # (a typewriter table's columns are typed spaces: _mono_space_gaps)
+        frags = _split_at_span_gaps(_mono_space_gaps(ln))
         joined = joined or len(frags) > 1
         lines.extend(frags)
     rows = _group_lines_by_row(lines)
