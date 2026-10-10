@@ -1293,6 +1293,9 @@ def write_para(container, p: Para, content_w: float, par=None, ctx=None,
             lvl = ctx.list_defs[num.list_id].levels.get(num.level)
     ind_from_level = lvl is not None and level_carries_indent(p, lvl)
     right_indent = 0.0 if gdocs_rows else p.right_indent + _wrap_correction(p, content_w)
+    if ctx.output_profile == "gdocs" and not gdocs_rows and not getattr(p, "rtl", False):
+        # Docs drops the source's letter-spacing: wrap where the source did
+        right_indent += _gdocs_tracking_indent(p, content_w, right_indent)
     pf = par.paragraph_format
     # A right-to-left paragraph's alignment and indents are in start/end terms
     # (infer._rtl_lines), which is how w:jc and w:ind read under w:bidi, so a
@@ -2495,6 +2498,66 @@ def _gdocs_block_form(t) -> bool:
         and bool(t.rows and t.rows[0] and t.rows[0][0] is not None)
 
 
+# Google Docs drops w:spacing (metrics.RendererMetrics), so a paragraph the
+# source letter-spaced sets narrower in Docs and fits more words a line.
+# Chrome tracks every glyph 0.25-0.35pt (x07-x12, x17, x18): on Google's exports
+# of the 71558af sweep 8 of x07's 21 paragraphs, 6 of x08's 16, 4 of x11's 15
+# came out a line short, and where the page had no room to give the lost line
+# to the gap under it (`_gdocs_baseline_gaps`) everything below stepped up --
+# x07's page 1 15.6pt a paragraph, 31.4pt by its foot (dy_p50 16.4). Line
+# breaking is scale-invariant, so the source's breaks come back if the wrap
+# width shrinks by the share the tracking added: the writer narrows such a
+# paragraph by that share, moved to the nearest width at which the width
+# tables (which shape it as Docs will, untracked) set it in its source line
+# count -- within GDOCS_TRACKING_SEARCH_PT; past that it is left alone. The
+# planner models the paragraph at the same width. Below
+# GDOCS_TRACKING_MIN_SHARE of its width the tracking is not worth a line.
+GDOCS_TRACKING_MIN_SHARE = 0.005
+GDOCS_TRACKING_SEARCH_PT = 8.0
+
+
+def _gdocs_tracking_indent(p: Para, content_w: float, right: float) -> float:
+    """The extra right indent (pt) that makes Google Docs break a tracked
+    paragraph where the source did (see GDOCS_TRACKING_MIN_SHARE); 0.0 where
+    there is nothing to make up. `right`: the right indent the writer already
+    gives it."""
+    n = p.src_lines or 1
+    if n < 2 or p.line_breaks or p.gdocs_rows or getattr(p, "rtl", False) or \
+            p.align not in ("left", "justify") or not any(
+                ((r.tracking or 0.0) + (r.char_spacing or 0.0)) > 0.0
+                for r in p.runs if not r.is_tab and r.text):
+        return 0.0
+    metrics = _text_metrics("gdocs")
+    from .metrics import honours_tracking, shaped_size
+    if metrics is None or honours_tracking(metrics):
+        return 0.0
+    avail = content_w - p.left_indent - right
+    if avail <= 1.0:
+        return 0.0
+    nat = added = 0.0
+    for r in p.runs:
+        if r.is_tab or not r.text:
+            continue
+        w = metrics.text_width(r.text, map_font(r.font, mono=r.mono, serif=r.serif),
+                               shaped_size(r), bold=r.bold, italic=r.italic)
+        if w is None:
+            return 0.0
+        nat += w
+        added += ((r.tracking or 0.0) + (r.char_spacing or 0.0)) * len(r.text)
+    if nat <= 0 or added <= GDOCS_TRACKING_MIN_SHARE * nat:
+        return 0.0
+    got = predict_lines_for(p, avail, metrics)
+    if got is None or got >= n:
+        return 0.0                  # Docs keeps the source's count as it is
+    target = avail * nat / (nat + added)
+    steps = int(GDOCS_TRACKING_SEARCH_PT * 2)
+    for k in sorted(range(-steps, steps + 1), key=abs):
+        w = target + k * 0.5
+        if 1.0 < w <= avail and predict_lines_for(p, w, metrics) == n:
+            return round(avail - w, 1)
+    return 0.0
+
+
 def _gdocs_lines(p: Para, avail_w: float, metrics) -> int:
     """How many lines Docs sets `p` in: its pre-broken rows, else the ladder's
     re-wrap, else the source's count. A paragraph with soft breaks is wrapped
@@ -2575,7 +2638,12 @@ def _gdocs_flow(pg, content_w: float, lay: DocLayout, notes_h: float,
             box, n = None, 1
             if isinstance(el, Para):
                 box = _gdocs_para_box(el)
-                n = _gdocs_lines(el, content_w - el.left_indent - el.right_indent,
+                # the width the writer gives a tracked paragraph
+                # (`_gdocs_tracking_indent`), so the model sets it as Docs will
+                n = _gdocs_lines(el, content_w - el.left_indent - el.right_indent -
+                                 _gdocs_tracking_indent(
+                                     el, content_w,
+                                     el.right_indent + _wrap_correction(el, content_w)),
                                  metrics)
                 if box is not None:
                     h = n * box[2]
