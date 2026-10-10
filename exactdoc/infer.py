@@ -1415,6 +1415,36 @@ def _short_line_ends_para(prev: Line, ln: Line, nxt: Line,
             and abs(nxt.bbox[2] - col_r) <= FULL_EDGE_PT)
 
 
+# Paragraphs set a little further apart than their lines, with a step too small
+# for the median-relative threshold below: y44 (RenderCV, Typst) sets its
+# intro's lines at a 12.7pt pitch and its four short paragraphs 15.7pt apart
+# (+3.0pt, 0.3em at its 10pt), and with three of the four steps at 15.7 the
+# block's median pitch WAS the paragraph step -- the four read as one
+# paragraph, which Google Docs reflowed two lines shorter and without its
+# gaps, the page under it 33pt high (y44's dy_p50 31.0). A step at least
+# PARA_STEP_PT (or PARA_STEP_EM of the type) wider than the block's tightest
+# baseline pitch ends a paragraph when the line before it also ends short --
+# the next line's first word would have fitted on it (`_fits_next_word`) --
+# so a line the breaker filled never splits on a taller step (an inline
+# fraction, a superscript), and a step that is mere jitter never splits.
+PARA_STEP_PT = 2.0
+PARA_STEP_EM = 0.2
+
+
+def _fits_next_word(a: Line, b: Line, right: float) -> bool:
+    """Would `b`'s first word have fitted at the end of `a`, inside `right`?
+    Prose only: both lines carry letters, `a` does not end on a hyphen."""
+    size = max((s.size for s in a.spans if s.text.strip()), default=0.0)
+    at, bt = a.text.rstrip(), b.text.strip()
+    if size <= 0 or not at or at.endswith(("-", "­")) or not bt or \
+            not any(ch.isalpha() for ch in at) or not any(ch.isalpha() for ch in bt) or \
+            _RTL_TEXT.search(a.text) or _RTL_TEXT.search(b.text):
+        return False
+    words = bt.split()
+    first_w = (b.bbox[2] - b.bbox[0]) * len(words[0]) / max(1, len(bt))
+    return a.bbox[2] + SPACE_EM * size + first_w < right - 1.0
+
+
 def _split_lines_to_paras(lines: List[Line],
                           list_starts: Optional[set] = None,
                           col_l: Optional[float] = None,
@@ -1459,6 +1489,12 @@ def _split_lines_to_paras(lines: List[Line],
     # The block's tightest pitch: double-spaced text is double-spaced on
     # EVERY line (_author_break).
     pitch = min(pos) if pos else 0.0
+    # the tightest BASELINE pitch, for the paragraph step (PARA_STEP_PT)
+    bsteps = [b.baseline - a.baseline for a, b in zip(lines, lines[1:])]
+    bpos = [d for d in bsteps if d > 0.5 * dom]
+    bpitch = min(bpos) if bpos else 0.0
+    para_step = bpitch + max(PARA_STEP_PT, PARA_STEP_EM * dom) \
+        if bpitch >= dom else float("inf")
     groups, cur = [], [lines[0]]
     for i, ln in enumerate(lines[1:]):
         sz_prev = dom_size(cur[-1])
@@ -1492,9 +1528,12 @@ def _split_lines_to_paras(lines: List[Line],
                 or _line_starts_with_marker(ln) or _line_key(ln) in list_starts \
                 or _opens_note(ln) or short_end or \
                 (forced is not None and _forced_break(cur[-1], ln, forced)) or \
-                _author_break(cur[-1], ln, right, pitch, len(lines)):
+                _author_break(cur[-1], ln, right, pitch, len(lines)) or \
+                (bsteps[i] >= para_step and _fits_next_word(cur[-1], ln, right)):
             groups.append(cur)
             cur = [ln]
+            if bsteps[i] >= para_step and deltas[i] <= max(lead * 1.55, lead + 4.0):
+                ln._para_step = True        # split by the paragraph step alone
         else:
             cur.append(ln)
     groups.append(cur)
@@ -1797,6 +1836,18 @@ def paras_from_line_list(lines: List[Line], col_l: float, col_r: float,
                     continue
         p = para_from_lines(grp, col_l, col_r,
                             list_start=_line_key(grp[0]) in list_starts)
+        if p.align == "center" and len(grp) == 1 and not getattr(grp[0], "rtl", False) \
+                and getattr(grp[0], "_para_step", False) \
+                and sum(1 for l in lines if l is not grp[0] and
+                        abs(l.bbox[0] - grp[0].bbox[0]) <= 1.0) >= 2:
+            # One line whose middle happens to fall on the column's, at the
+            # left edge two more lines of its block start at, is set flush
+            # left with them: y44's "You can choose any of the 9 entry types
+            # for each section." (x 176.5-431.9 in a 47.6-561.6 column), one
+            # of four short paragraphs at x 176.5 (PARA_STEP_PT).
+            p.align = "left"
+            p.left_indent = max(0.0, round(grp[0].bbox[0] - col_l, 1))
+            p.right_indent = 0.0
         p._note = _opens_note(grp[0])
         # a paragraph the source opened by hand stays one: the flow merge
         # (_merge_flow_paras) must not weld it back to the one before it
@@ -8793,6 +8844,92 @@ def _propagate_list_hangs(paras):
             p.first_indent = -h
 
 
+# A form's label and the first line of its field share a baseline, the field
+# set in a column of its own: y65 (an NRC meeting notice, JasperReports) sets
+# "Purpose:" at x 50 and "Members of the NRC staff will present..." at x 145
+# on one baseline, the field's next five lines under it at 145. The parser
+# keeps them two lines (the white is 55pt, 5.5em at 10pt), and inference read
+# them two ways, both wrong: a label alone in its block became a paragraph of
+# its own and its field started a line lower in every renderer (+11.5pt from
+# there down, y65's dy_p50 10.2 in Google Docs, criterion 7's 10pt missed); a
+# label sharing a block with its field's first line was joined to it by a
+# space ("Category: This is an Information Meeting...") and the field's words
+# moved 51pt left. Such a pair is one paragraph: the label, a tab, the field,
+# its lines hanging at the field's column (a typed hanging tab lands to the
+# point in Word, LibreOffice and Google Docs). y65's label/field whites are
+# 40-73pt (4-7.3em); a pair is read so from FIELD_GAP_EM, wider than any word
+# space and than the parser's own line split (parse_pdfium.LINE_SPLIT_EM 1.1),
+# when the label sits in the column's left part and nothing else shares its
+# baseline, the field's block starts with the field's line and runs no line
+# left of it, and the label's block holds nothing else at the label's x.
+FIELD_GAP_EM = 2.0
+FIELD_LABEL_MAX_SHARE = 0.45
+
+
+def _field_labels(items, col_l: float, col_r: float) -> Dict[int, Line]:
+    """{id(field's first line): its label line} for the label/field pairs of a
+    flow (see FIELD_GAP_EM)."""
+    blocks = [_blk_lines(o) for kind, _bb, o in items if kind == "blk"]
+    lines = [(bi, ln) for bi, ls in enumerate(blocks) for ln in ls
+             if ln.horizontal and ln.spans and ln.text.strip()]
+    out = {}
+    used = set()
+    for bi, lab in lines:
+        if id(lab) in used or any(s.mono for s in lab.spans) or _mathy([lab]):
+            continue
+        size = _line_size(lab)
+        if lab.bbox[2] - col_l > FIELD_LABEL_MAX_SHARE * (col_r - col_l):
+            continue
+        same = [(bj, ln) for bj, ln in lines if ln is not lab and
+                abs(ln.baseline - lab.baseline) < max(1.2, 0.18 * size)]
+        if len(same) != 1:
+            continue
+        bj, fld = same[0]
+        fsize = _line_size(fld)
+        if fld.bbox[0] - lab.bbox[2] < FIELD_GAP_EM * max(size, fsize) or \
+                any(s.mono for s in fld.spans) or _mathy([fld]):
+            continue
+        # the field's block opens with it and keeps to its column
+        fb = blocks[bj]
+        if any(ln.bbox[1] < fld.bbox[1] - 0.5 for ln in fb if ln is not lab) or \
+                any(ln.bbox[0] < fld.bbox[0] - 2.0 for ln in fb
+                    if ln is not lab and ln is not fld):
+            continue
+        # nothing else of the label's block stands at the label's x
+        if any(ln is not lab and ln is not fld and ln.bbox[0] < fld.bbox[0] - 2.0
+               for ln in blocks[bi]):
+            continue
+        out[id(fld)] = lab
+        used.update((id(lab), id(fld)))
+    return out
+
+
+def _with_field_label(p: Para, lab: Line, col_l: float) -> Para:
+    """`p` (a field's paragraph) opened by its label and a tab, its lines
+    hanging at the field's column."""
+    runs = [r for r in runs_from_spans(lab.spans) if r.text]
+    if not runs or not p.runs:
+        return p
+    runs[-1].text = runs[-1].text.rstrip(" ")
+    runs = [r for r in runs if r.text]
+    ref = runs[-1]
+    tab = Run(text="\t", font=ref.font, size=ref.size, color=ref.color, is_tab=True)
+    body = list(p.runs)
+    body[0] = replace(body[0], text=body[0].text.lstrip(" "))
+    p.runs = runs + [tab] + [r for r in body if r.text]
+    field_x = p.left_indent + max(0.0, p.first_indent)
+    p.left_indent = round(field_x, 1)
+    p.first_indent = round((lab.bbox[0] - col_l) - field_x, 1)
+    p.tab_stops = [(p.left_indent, "left")]
+    if p.bbox is not None:
+        p.bbox = bbox_union(p.bbox, lab.bbox)
+    if p.src_widths:
+        # the first line now runs from the label's left edge
+        p.src_widths = [round(p.src_widths[0] + (col_l + field_x - lab.bbox[0]), 1)] + \
+            list(p.src_widths[1:])
+    return p
+
+
 def _to_flow(items, col_l, col_r, doc_rows=None, forced=None):
     """`forced`: a text edge; also break paragraphs where the source broke a
     line short of it by hand (`_forced_break`) -- inside panels and layout
@@ -8841,6 +8978,10 @@ def _to_flow(items, col_l, col_r, doc_rows=None, forced=None):
     # After every row construct has taken its lines: what is left on a shared
     # baseline is a broken line of prose, not cells.
     items = _absorb_fragments(items)
+    # a form's label and its field's first line: one hanging paragraph
+    fields = _field_labels(items, col_l, col_r)
+    if fields:
+        items = _drop_row_lines(items, {id(lab) for lab in fields.values()})
     out = []
     row_paras = []
     for kind, bb, o in sorted(items, key=lambda t: (t[1][1], t[1][0])):
@@ -8859,9 +9000,16 @@ def _to_flow(items, col_l, col_r, doc_rows=None, forced=None):
         elif kind == "row":
             out.append(_row_para(o[0], o[1], col_l, col_r))
         elif kind == "blk":
-            out.extend(paras_from_line_list(
-                list(o) if isinstance(o, list) else list(o.lines), col_l, col_r,
-                list_starts, forced=forced))
+            ls = list(o) if isinstance(o, list) else list(o.lines)
+            ps = paras_from_line_list(ls, col_l, col_r, list_starts, forced=forced)
+            lab = fields.get(id(ls[0])) if fields and ls else None
+            if lab is not None and ps and ps[0].align in ("left", "justify"):
+                ps[0] = _with_field_label(ps[0], lab, col_l)
+            elif lab is not None:
+                # not a field after all: the label is its own line, as before
+                out.extend(paras_from_line_list([lab], col_l, col_r, list_starts,
+                                                forced=forced))
+            out.extend(ps)
         else:
             el = o
             if isinstance(el, TableEl):
