@@ -164,6 +164,35 @@ class ARuleInsideTheStackedSpan(unittest.TestCase):
                          DocLayout(), page_top=50.0)
         self.assertAlmostEqual(text.space_before, 80.0, places=1)
 
+    def test_rules_inside_a_figure_just_stacked_are_held(self):
+        # y21 p39: a figure (y 319-505) with three rules inside its span
+        # (y 338, 386, 480), then a caption line at 502.8. Released, the
+        # rules took 47.9 and 93.4pt of space before and the caption 23.8:
+        # the figure's height counted twice.
+        fig = FigureEl(page_no=39, clip=(65.25, 319.5, 510.25, 505.4),
+                       width=445.0, height=185.9)
+        rules = []
+        for y in (338.6, 386.5, 479.9):
+            r = RuleEl(width_pct=44.0, thickness=0.5, color="#000000",
+                       length=195.0)
+            r._bbox = (206.25, y, 401.25, y)
+            rules.append(r)
+        cap = Para(runs=[Run(text="broadening domestically.", font="Arial",
+                             size=8.0, color="#000000")],
+                   bbox=(130.25, 502.8, 463.6, 513.4))
+        _position_chunks([Chunk(n_cols=1, elements=[fig] + rules + [cap])],
+                         DocLayout(), page_top=50.0)
+        self.assertEqual([r.space_before for r in rules], [0.0, 0.0, 0.0])
+        self.assertLess(cap.space_before, 1.0)
+
+    def test_a_rule_wider_than_the_figure_is_not_held(self):
+        # gdocs y17 p174: the code panel's side bar stays in the flow as a
+        # narrow figure; the panel's full-width top rule releases the cursor
+        bar = FigureEl(page_no=174, clip=(526.6, 140.4, 531.4, 697.6),
+                       width=4.8, height=557.2)
+        text = self._after(bar, (65.9, 141.6, 529.4, 142.4), 150.9)
+        self.assertAlmostEqual(text.space_before, 8.5, places=1)
+
     def test_only_a_rule_inside_the_table_is_held(self):
         # a rule that starts above the table just stacked is not inside it
         table = TableEl(bbox=(36.0, 67.0, 575.0, 274.0))
