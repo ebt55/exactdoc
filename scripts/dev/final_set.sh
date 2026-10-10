@@ -59,7 +59,9 @@ while [ $# -gt 0 ]; do
 done
 [ $# -eq 2 ] || { echo "usage: final_set.sh [options] <tree> <name>" >&2; exit 2; }
 TREE="$1"; NAME="$2"
-HERE="$(cd "$(dirname "$0")" && pwd)"
+# A Windows-native path (C:/...) where the shell can give one: the host Python
+# reads $HERE/final_set_helpers.py, and /c/... means nothing to it.
+HERE="$(cd "$(dirname "$0")" && (pwd -W 2>/dev/null || pwd))"
 SCR="${EXACTDOC_SCR:-C:\\lotmp\\scr}"
 RUNS="$SCR/runs"
 STATE="$RUNS/$NAME.final"
@@ -232,7 +234,9 @@ if want f; then
         echo "+ hostpy $HERE/final_set_helpers.py pick $RUNS/$NAME-$lane.sweep.json --tree $TREE --frac $FRAC $( [ -n "$ONLY" ] && echo --only $ONLY )" | tee -a "$LOG"
         docs="<picked-$prof-document>"
       else
-        docs="$(hostpy "$HERE/final_set_helpers.py" pick "$RUNS/$NAME-$lane.sweep.json" --tree "$TREE" --frac "$FRAC" $( [ -n "$ONLY" ] && echo --only $ONLY ) | tr -d '\r')"
+        docs="$(hostpy "$HERE/final_set_helpers.py" pick "$RUNS/$NAME-$lane.sweep.json" --tree "$TREE" --frac "$FRAC" $( [ -n "$ONLY" ] && echo --only $ONLY ))" \
+          || { say "(f) could not pick the $prof documents from $RUNS/$NAME-$lane.sweep.json"; exit 53; }
+        docs="$(echo "$docs" | tr -d '\r')"
       fi
       echo "$docs" > "$TDIR/$lane.docs"
       say "(f) $prof: $(echo $docs | wc -w) document(s) to time serially: $(echo $docs)"
@@ -317,7 +321,8 @@ if want g; then
       --input "gdocs=$GDROWS" --input "word_product=$RUNS/$NAME-word-prod/rows.jsonl" \
       --input "word_raw=$RUNS/$NAME-word-raw/rows.jsonl" --input "gate=$RUNS/$NAME-gate.log" \
       --input "timing_product=$RUNS/$NAME-product-serial.timing.json" \
-      --input "timing_raw=$RUNS/$NAME-raw-serial.timing.json"
+      --input "timing_raw=$RUNS/$NAME-raw-serial.timing.json" \
+    || { say "(g) writing the evidence failed"; exit 62; }
   mark g "ok"
 fi
 say "finished (state $STATE)"
