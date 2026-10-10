@@ -10587,9 +10587,11 @@ def _position_chunks(chunks: List[Chunk], lay: DocLayout,
                 top = base + ch.pre_gap
         cursor = top
         maxy = top
+        held = None         # the table the cursor stands at the foot of
         for el in ch.elements:
             if isinstance(el, ColBreak):
                 cursor = top
+                held = None
                 continue
             bb = _el_bbox(el)
             if bb is None:
@@ -10598,15 +10600,27 @@ def _position_chunks(chunks: List[Chunk], lay: DocLayout,
                 t, h = _para_box(el)
                 el.space_before = max(0.0, round(t - cursor, 1))
                 cursor = t + h
+                held = None
             else:
                 el.space_before = max(0.0, round(bb[1] - cursor, 1))
-                # A rule or picture that ends above the cursor lies inside
-                # the span already stacked -- BLS's column-group rule under
-                # "Seasonally adjusted" (y 80) flowed after its table (y
-                # 67-274) -- and does not move the cursor back up: the note
-                # under the table took 200pt of space before from it and
-                # left its page (y64 p22/p23, each a page in LibreOffice).
-                cursor = max(cursor, bb[3])
+                # A rule or picture that ends above the cursor inside the
+                # table just stacked lies in the span that table already
+                # took -- BLS's column-group rule under "Seasonally
+                # adjusted" (y 80) flowed after its table (y 67-274) -- and
+                # does not move the cursor back up: the note under the
+                # table took 200pt of space before from it and left its
+                # page (y64 p22/p23, each a page in LibreOffice). Only a
+                # table just stacked holds the cursor so. A picture may be
+                # anchored out of the flow: y17 p174's code panel (y
+                # 142-696, behind its text in the gdocs profile) held it
+                # past the rule along its own top edge, and the first code
+                # line lost its 9.7pt of space before. A paragraph's box is
+                # its lines, not a span the flow has taken: held behind
+                # three rules drawn under y37's lines, the cursor moved its
+                # later pages (criterion 8: dy_p50 27.4 -> 31.0).
+                if held is None or bb[1] < held[1] or bb[3] > cursor:
+                    cursor = bb[3]
+                    held = bb if isinstance(el, TableEl) else None
             maxy = max(maxy, cursor)
         base = maxy
     return chunks
