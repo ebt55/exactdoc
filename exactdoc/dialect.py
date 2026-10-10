@@ -570,7 +570,29 @@ def _marker_hits(page: PageIR, lines=None) -> List[DrawCmd]:
         if owners[id(near)] == 1 and near.bbox[0] - d.bbox[2] <= 2.5 * w \
                 and len(near.text.strip()) >= 4:     # an item, not a tick label
             hits.append(d)
-    return hits
+    return _drop_knockouts(hits)
+
+
+def _drop_knockouts(hits: List[DrawCmd]) -> List[DrawCmd]:
+    """`hits` without a paper-coloured fill that shares its box with another
+    mark: the interior of a drawn box, not a second marker.
+
+    y12_irs_pub15 draws each checkbox of its p8 checklists as a #ffffff square
+    under a stroked outline of the same 6.2pt box. Both read as markers, the
+    white one as a solid bullet, and every item opened "•◦" -- two glyphs,
+    which no marker test accepts, so the pair stood as a paragraph of its own
+    beside every row and the checklist took a line more per item. Only the
+    outline puts ink on the page. A paper-coloured mark alone (a white bullet
+    on a dark panel) keeps its reading."""
+    out = []
+    for d in hits:
+        if d.fill and not _ink_against(d, PAGE_BACKGROUND) and any(
+                e is not d and all(abs(a - b) <= JOINT_TOL
+                                   for a, b in zip(e.bbox, d.bbox))
+                for e in hits):
+            continue
+        out.append(d)
+    return out
 
 
 # IEEEtran's end-of-proof square is set flush with its column's right edge,
@@ -930,6 +952,28 @@ def _covers(frag: Line, host: Line, sized: bool = False) -> bool:
     return False
 
 
+def _host_block(page: PageIR, grp) -> int:
+    """The block a rejoined row belongs to: the one, among its fragments'
+    blocks, holding the most text, the leftmost on a tie.
+
+    It used to be the LEFTMOST fragment's block, which is the paragraph's own
+    block for pdfTeX's inline maths (the run before the script) but not for a
+    list item whose marker the producer set as a block of its own: y12's
+    bullets are 12pt glyphs in one-glyph blocks beside 10pt item text, so
+    each item's first line was moved out of its item into the marker's block
+    and became a paragraph of its own, at the bullet's 13.9pt leading, with
+    the item's other lines a second paragraph under it -- 119 items across the
+    document. The fragment that carries the paragraph is the one whose block
+    carries the paragraph's text."""
+    def weight(bi):
+        return sum(len(ln.text.strip()) for ln in page.blocks[bi].lines)
+    best = grp[0][0]
+    for bi, _ln in grp[1:]:
+        if weight(bi) > weight(best):
+            best = bi
+    return best
+
+
 def _coalesce_row_fragments(page: PageIR) -> int:
     """Rejoin one visual line that a producer split across several blocks.
 
@@ -1013,7 +1057,7 @@ def _coalesce_row_fragments(page: PageIR) -> int:
         for grp in groups:
             if len({bi for bi, _ in grp}) < 2:
                 continue
-            host_bi = grp[0][0]
+            host_bi = _host_block(page, grp)
             spans, bb = [], None
             for k, (bi, ln) in enumerate(grp):
                 if k and spans and not spans[-1].text.endswith(" "):

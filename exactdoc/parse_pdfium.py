@@ -146,6 +146,7 @@ TABLE_COL_TOL = 3.0       # x-starts of one column agree to about a character
 # recurs down a page is a column gutter, not a stretched space.
 GUTTER_MIN_ROWS = 4       # 4x the largest legitimate cluster measured (01: 1)
 GUTTER_X_TOL = 3.0        # a gutter holds its x; a word space wanders
+GUTTER_CHANNEL_Q = 0.9    # _gutter_channels: the measure, not the median end
 MARKER_GAP_EM = 0.5       # separation that is not an interword space
 MARKER_GAP_ADV = 0.6      # ...and is wide against the marker's own advance
 _MARKER_BULLETS = set("•◦▪‣·-–—*➤►○●♦")
@@ -1570,9 +1571,165 @@ def _gutter_xs(exempted: List[float]) -> List[float]:
     return [sum(c) / len(c) for c in clusters if len(c) >= GUTTER_MIN_ROWS]
 
 
+def _gutter_channels(exempted) -> List[tuple]:
+    """The white channel each of this page's gutters keeps: (left, right),
+    the median end of the text before it and the median start of the text
+    after it, over the gaps `_gutter_xs` clustered into that gutter.
+
+    `_gutter_xs` finds a gutter by the x its gaps' MIDPOINTS share, which is
+    the full column lines' shape. A short line closing a paragraph in the left
+    column beside an indented first line in the right one leaves a gap whose
+    midpoint is far from that x, though the gap still holds the whole channel:
+    y64_bls_release_xpp's technical note, "the U.S. Bureau of Labor Statistics
+    (BLS). " ending at x 223 and "Establishment survey" starting at 339 across
+    a 295-317 gutter (midpoint 281 against the gutter's 306). The exemption
+    forgave it, one line ran from margin to margin, and the column grid around
+    it was cut into three chunks with the right column's paragraphs below the
+    left's (LibreOffice: a 12-line overflow page, 39 pages rendered 44).
+    `exempted` holds (midpoint, end before, start after) per forgiven gap.
+
+    The channel's edges are the column's MEASURE, not its typical line end:
+    the 90th percentile of the ends before it and the 10th of the starts
+    after it (GUTTER_CHANNEL_Q). A ragged column's median end stops well
+    short of the gutter -- y61_fedreg_gpo_3col's first column ends anywhere
+    from x 180 to 213 against a 213-222 gutter -- and with the median as the
+    edge, a gap from 211 to 222 did not "hold" the channel: half of that
+    page's welded lines were cut at one gutter and not the other, and the
+    pieces crossing the first gutter cost the page its three-column reading."""
+    pts = sorted(exempted)
+    if len(pts) < GUTTER_MIN_ROWS:
+        return []
+    clusters, cur = [], [pts[0]]
+    for p in pts[1:]:
+        if p[0] - cur[-1][0] <= GUTTER_X_TOL:
+            cur.append(p)
+        else:
+            clusters.append(cur)
+            cur = [p]
+    clusters.append(cur)
+    out = []
+    for c in clusters:
+        if len(c) < GUTTER_MIN_ROWS:
+            continue
+        ls = sorted(p[1] for p in c)
+        rs = sorted(p[2] for p in c)
+        k = int(GUTTER_CHANNEL_Q * len(c))
+        out.append((ls[min(len(ls) - 1, k)], rs[max(0, len(rs) - 1 - k)]))
+    return out
+
+
+class _FragBox:
+    """What `_column_split` and `_projection_gutters` read of a line: its box
+    and its baseline. Built from a visual fragment before any Line exists."""
+    __slots__ = ("bbox", "baseline")
+
+    def __init__(self, bbox, baseline):
+        self.bbox = bbox
+        self.baseline = baseline
+
+
+def _structural_channels(vis_rows) -> List[tuple]:
+    """The white channel of each column gutter the page's own LINES evidence,
+    as (left, right) in `_gutter_channels`' terms: the left column's measure
+    (GUTTER_CHANNEL_Q of its fragments' ends, trailing spaces included, as a
+    forgiven gap's `prev.x1` is) and the right column's start (the same
+    quantile of its fragments' first ink, from the other side).
+
+    `_gutter_xs` reads a gutter off forgiven gaps that recur at one x, so it
+    is silent on a page whose columns rarely share a baseline. y12_irs_pub15
+    sets its two columns on independent grids: on p8 and p31 four to six
+    lines reached across the gutter at a real space ("employee's Form W-4 "
+    ending at 297, "(Form 945) withholding." starting at 315), each the only
+    crossing at its x, so none was cut. The page's lines are evidence enough:
+    the gutters `_build_blocks` already reads from them (`_column_split`, or
+    the `_projection_gutters` profile, which ignores page-wide lines -- the
+    welded ones among them). Asked only where the exemption forgave a gap
+    and `_gutter_xs` found nothing; what it bounds is that exemption alone,
+    with the channel test WP33's `_gutter_channels` defined."""
+    frags = []
+    for _ri, part in vis_rows:
+        ink = [c for c in part if not c.u.isspace()]
+        if not ink:
+            continue
+        frags.append(_FragBox((min(c.x0 for c in ink), min(c.y0 for c in ink),
+                               max(c.x1 for c in part),
+                               max(c.y1 for c in ink)), ink[0].oy))
+    if len(frags) < 2 * GUTTER_MIN_LINES:
+        return []
+    gutters = _column_split(frags) or _projection_gutters(frags)
+    edges = [-math.inf] + list(gutters) + [math.inf]
+    out = []
+    for k, g in enumerate(gutters):
+        ends = sorted(f.bbox[2] for f in frags
+                      if f.bbox[0] >= edges[k] and f.bbox[2] <= g)
+        starts = sorted(f.bbox[0] for f in frags
+                        if f.bbox[0] >= g and f.bbox[2] <= edges[k + 2])
+        if len(ends) < GUTTER_MIN_LINES or len(starts) < GUTTER_MIN_LINES:
+            continue
+        lo = ends[min(len(ends) - 1, int(GUTTER_CHANNEL_Q * len(ends)))]
+        hi = starts[max(0, len(starts) - 1 -
+                        int(GUTTER_CHANNEL_Q * len(starts)))]
+        if lo < hi:
+            out.append((lo, hi))
+    return out
+
+
+def _crosses_channel(prev: _Char, current: _Char, fragment: List[_Char],
+                     channels) -> bool:
+    """Does the gap from `prev` to `current` hold one of `channels` whole
+    (`_structural_channels`), at any width?
+
+    The line-split bar is an em of the LARGER type, so a heading set across
+    the gutter from a body line can sit closer than it: y12 p31's "11.
+    Depositing Taxes" (17pt) starts 15.8pt after "...performs services " in
+    the left column, under 1.1em of 17pt, and the two read as one line -- the
+    numbered item's first line then stood in a block of its own, apart from
+    its other four. A gap that holds the column's whole channel is the
+    gutter whatever the type beside it. Monospace alignment columns keep the
+    exception `_wide_gap_starts_visual_line` gives them."""
+    if not channels or current.u.isspace() or \
+            not any(not ch.u.isspace() for ch in fragment):
+        return False
+    if _same_mono_face(prev, current) or \
+            (prev.mono_hint and current.mono_hint and prev.font == current.font):
+        return False
+    return any(prev.x1 <= lo + GUTTER_X_TOL and current.x0 >= hi - GUTTER_X_TOL
+               for lo, hi in channels)
+
+
+def _type_jump(fragment: List[_Char], current: _Char) -> bool:
+    """Do the text before a gap and the glyph after it differ in size by
+    DROP_CAP_SIZE_RATIO or more?
+
+    The justification exemption forgives a wide gap after a real space
+    because justification stretches the word spaces of ONE line, and a line
+    is set in one size of type. Across a jump of that order the two sides
+    are not one line's words: y12_irs_pub15's cover sets its title, "(Circular
+    E), " at 31pt, on the baseline of the contents list's "Introduction ...
+    12" at 10pt, 62pt to its right (3.1x), and the exemption made them one
+    line that ran from the margin into the contents column -- the cover's two
+    columns were cut, the title's half went to a one-column tail below both
+    of them, and the page ran 587pt over. Sizes are the INKED glyphs' (the
+    last one before the gap and the one after it): a space carries whatever
+    size the stream gave it (Word's right-to-left spaces, y47, at 2-3pt beside
+    9pt text). Census of every gap the exemption forgives, both corpora
+    (2026-10-10): 5915 gaps; at 2.5x or more, the y12 cover above (3.1x),
+    three on y59's InDesign notice (13pt text, 3.2pt glyphs 84-217pt away,
+    4.1x) and seven in the OCR debris of the scanned y57; below it the
+    largest are 2.4x (y57 again), 2.17x (y12 p32, a 4.6pt mark beside 10pt
+    text, already cut at its page's gutter) and 2.14x (y59 p5)."""
+    if current.u.isspace():
+        return False
+    last = next((c for c in reversed(fragment) if not c.u.isspace()), None)
+    if last is None:
+        return False
+    lo, hi = sorted((last.size, current.size))
+    return hi >= DROP_CAP_SIZE_RATIO * max(lo, 1.0)
+
+
 def _wide_gap_starts_visual_line(prev: _Char, current: _Char,
                                  fragment: List[_Char],
-                                 gutters=()) -> bool:
+                                 gutters=(), channels=()) -> bool:
     """Whether a same-baseline gap is a new visual line rather than justification.
 
     PDFium exposes literal spaces as ordinary characters.  A producer can then
@@ -1592,6 +1749,8 @@ def _wide_gap_starts_visual_line(prev: _Char, current: _Char,
     fragment_has_text = any(not char.u.isspace() for char in fragment)
     if not (explicit_interword_space and fragment_has_text):
         return True
+    if _type_jump(fragment, current):
+        return True
     if _same_mono_face(prev, current):
         # Preformatted text: see _same_mono_face. Its gaps recur at one x
         # because the text is set on a character grid, not because a gutter
@@ -1601,7 +1760,21 @@ def _wide_gap_starts_visual_line(prev: _Char, current: _Char,
     # page's repeated gap positions. See _gutter_xs -- a stretched word space
     # lands wherever the line breaks, a gutter is the same x on every line.
     mid = (prev.x1 + current.x0) / 2
-    return any(abs(mid - g) <= GUTTER_X_TOL for g in gutters)
+    if any(abs(mid - g) <= GUTTER_X_TOL for g in gutters):
+        return True
+    # ...nor to a gap that holds a gutter's whole channel (_gutter_channels).
+    # A stretched word space would have to be as wide as the gutter itself
+    # and sit exactly across it. Except in one monospace face: its "gutter"
+    # is an alignment column of preformatted text -- y17_rfc9110 p39's ABNF
+    # ("  day           = 2DIGIT", RobotoMono) aligns its "=" at x 166 down
+    # the block, and its gaps sit off the cell grid, so _same_mono_face does
+    # not claim them. Cut at that channel, three rules lost their alignment
+    # spaces in the DOCX ("GMT = ..."); the midpoint test above still takes
+    # what it took before.
+    if prev.mono_hint and current.mono_hint and prev.font == current.font:
+        return False
+    return any(prev.x1 <= lo + GUTTER_X_TOL and current.x0 >= hi - GUTTER_X_TOL
+               for lo, hi in channels)
 
 
 def _short_fragment_text(fragment: List[_Char], limit: int):
@@ -1823,6 +1996,34 @@ DROP_CAP_MIN_LINE_GLYPHS = 12
 DROP_CAP_GAP_EM = 1.0
 
 
+def _set_apart(frag, host, fx0, fsz) -> bool:
+    """Does a fragment start further from the host's last glyph before it
+    than LINE_SPLIT_EM of its own size -- the white that ends a line on one
+    baseline?
+
+    A script sits against the glyph it modifies. Asked only of a fragment of
+    DROP_CAP_MIN_LINE_GLYPHS or more, which is a line's worth of text:
+    y12_irs_pub15's cover sets "1. Employer Identification Number (EIN)
+    ....... 13" (10pt, 44 glyphs) in its contents column 14.7pt above the
+    baseline of the 31pt title "Employer's Tax", inside the title's em box
+    and within reach of its trailing space, so the whole contents row was
+    absorbed as a raised "script" of the title, 18.3pt to the right of its
+    last letter (1.8em at 10pt). Census of the absorptions of 12 or more
+    glyphs over both corpora (2026-10-10, 194 measurable): those set against
+    their host -- FIPS 197's long exponents, the item text beside the IRS
+    booklets' larger bullets -- start at most 0.91em from the glyph before
+    them (y13's items beside 9.6pt bullets); the next is 1.25em, and every
+    one from there up is a line of its own: this cover row, the text of the
+    page picture on y59's notice (9-47em), eLife's figure labels (y38), the
+    Supreme Court's rule lines (y19), two y06 form lines, a CDC footnote URL
+    and OCR debris (y57)."""
+    best = None
+    for c in host:
+        if c.u.strip() and c.x0 < fx0 and (best is None or c.x1 > best.x1):
+            best = c
+    return best is not None and fx0 - best.x1 > LINE_SPLIT_EM * max(fsz, 1.0)
+
+
 def _absorb_script_rows(vis_rows):
     """Put super/subscript fragments back on the line they belong to.
 
@@ -1931,6 +2132,9 @@ def _absorb_script_rows(vis_rows):
             dy = fb - host[0].oy
             if abs(dy) > SCRIPT_BASE_EM * hsz:
                 continue                      # outside the em box
+            if n_ink[i] >= DROP_CAP_MIN_LINE_GLYPHS and \
+                    _set_apart(frag, host, fx0, fsz):
+                continue                      # a line of its own
             hx0, hx1 = x0s[j], x1s[j]
             rtl_end = rtl_row[j] and fx0 <= hx0 and \
                 x1s[i] >= hx0 - SCRIPT_REACH_EM * hsz and \
@@ -2522,7 +2726,7 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
     # copies drift apart.
     numbers = _line_number_gutter(rows)
 
-    def _split_rows(gutters, record=None):
+    def _split_rows(gutters, record=None, channels=(), crossing=()):
         out = []
         for ri, row in enumerate(rows):
             row.sort(key=lambda c: c.x0)
@@ -2534,8 +2738,10 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
                             prev.size, c.size, 1.0) and \
                         not _same_mono_face(prev, c) and \
                         not _wide_gap_starts_visual_line(prev, c, part):
-                    record.append((prev.x1 + c.x0) / 2)
-                if _wide_gap_starts_visual_line(prev, c, part, gutters) or \
+                    record.append(((prev.x1 + c.x0) / 2, prev.x1, c.x0))
+                if _wide_gap_starts_visual_line(prev, c, part, gutters,
+                                                channels) or \
+                        _crosses_channel(prev, c, part, crossing) or \
                         (not started and _marker_starts_visual_line(part, c)) \
                         or (not started and
                             _number_gutter_split(part, c, numbers)):
@@ -2549,9 +2755,15 @@ def _build_lines(chars: List[_Char]) -> List[Line]:
 
     exempted = []
     vis_rows = _split_rows((), record=exempted)
-    gutters = _gutter_xs(exempted)
+    gutters = _gutter_xs([e[0] for e in exempted])
     if gutters:
-        vis_rows = _split_rows(gutters)
+        vis_rows = _split_rows(gutters, channels=_gutter_channels(exempted))
+    elif exempted:
+        # The forgiven gaps do not repeat, but the page's lines may still
+        # say where its columns are (_structural_channels).
+        channels = _structural_channels(vis_rows)
+        if channels:
+            vis_rows = _split_rows((), crossing=channels)
 
     vis_rows = _absorb_script_rows(vis_rows)
 
@@ -3386,6 +3598,25 @@ def _pitch_reference(by_size: dict, typical: float, size: float,
     return PITCH_DEFAULT_EM * size
 
 
+def _text_size(ln: Line) -> float:
+    """`_line_size` without a list marker that opens the line: the size of
+    the line's TEXT, which is what a change of type size between two lines
+    is about.
+
+    A producer may set a bullet larger than its item: y12_irs_pub15's are 12pt
+    beside 10pt text. Where the bullet shares the item's baseline closely
+    enough to join its first line, that line measured 12pt against its
+    neighbours' 10 and the type-size test below cut it from the rest of the
+    item -- a one-line paragraph at the bullet's 13.9pt leading, the item's
+    other lines a second paragraph under it. A marker is a glyph from
+    _MARKER_BULLETS, alone in its span, before the line's other text."""
+    k = next((i for i, s in enumerate(ln.spans) if s.text.strip()), None)
+    if k is not None and ln.spans[k].text.strip() in _MARKER_BULLETS and \
+            any(s.text.strip() for s in ln.spans[k + 1:]):
+        return max(s.size for s in ln.spans[k + 1:])
+    return _line_size(ln)
+
+
 def _build_blocks_one(lines: List[Line], col_xs) -> List[TextBlock]:
     if not lines:
         return []
@@ -3407,8 +3638,8 @@ def _build_blocks_one(lines: List[Line], col_xs) -> List[TextBlock]:
         # degrades...' as one 12-line paragraph where PyMuPDF has a 1-line
         # heading and a 6-line body -- because the gap between them is within
         # the ordinary line-pitch tolerance.
-        if abs(_line_size(ln) - _line_size(prev)) > 0.06 * max(
-                _line_size(prev), _line_size(ln), 1.0):
+        if abs(_text_size(ln) - _text_size(prev)) > 0.06 * max(
+                _text_size(prev), _text_size(ln), 1.0):
             blocks.append(cur)
             cur = [ln]
             continue

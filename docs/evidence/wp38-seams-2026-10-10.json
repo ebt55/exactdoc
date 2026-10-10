@@ -1,0 +1,540 @@
+{
+ "what": "WP38: a refined write keeps the source's page seams between multi-column pages (docxout._plan_flows/_freeze_flows, frozen beside refine._freeze_seams); open-loop writes unchanged",
+ "date": "2026-10-10",
+ "image": "exactdoc-gate:boot (Carlito) bab1cfc0d2cd",
+ "trees": {
+  "base": "integration e906ad4 + wp33 d879a12 (merge as today)",
+  "wp38": "wp38 633ea00 (09a13b7 + e906ad4) + wp33 d879a12",
+  "accepted": "accepted-wp31-prod.rescored (LibreOffice); C:/lotmp/ckptword/product rows.rescored (Word)"
+ },
+ "byte_identity": {
+  "raw_word_xml": "95/95 identical (local open-loop conversions, both trees)",
+  "gdocs_candidate_word_xml": "95/95 identical",
+  "product_word_xml": "83/90 identical; differ: y21_worldbank_wdr24.pdf, y26_bash_reference.pdf, y39_copernicus_npg_2col.pdf, y40_frontiers_dvips_gs.pdf, y41_arxiv_ieeetran.pdf, y42_arxiv_acmart.pdf, y64_bls_release_xpp.pdf"
+ },
+ "libreoffice_product": {
+  "y21_worldbank_wdr24.pdf": {
+   "accepted": {
+    "src_pages": 48,
+    "out_pages": 49,
+    "word_recall": 0.7192,
+    "within2pt": 0.0143,
+    "dy_p50": 26.4
+   },
+   "base": {
+    "src_pages": 48,
+    "out_pages": 48,
+    "word_recall": 0.519,
+    "within2pt": 0.0097,
+    "dy_p50": 28.11
+   },
+   "wp38": {
+    "src_pages": 48,
+    "out_pages": 49,
+    "word_recall": 0.8821,
+    "within2pt": 0.0418,
+    "dy_p50": 15.22
+   }
+  },
+  "y26_bash_reference.pdf": {
+   "accepted": {
+    "src_pages": 214,
+    "out_pages": 213,
+    "word_recall": 0.9842,
+    "within2pt": 0.0624,
+    "dy_p50": 13.45
+   },
+   "base": {
+    "src_pages": 214,
+    "out_pages": 213,
+    "word_recall": 0.9842,
+    "within2pt": 0.0624,
+    "dy_p50": 13.45
+   },
+   "wp38": {
+    "src_pages": 214,
+    "out_pages": 214,
+    "word_recall": 0.9913,
+    "within2pt": 0.082,
+    "dy_p50": 1.78
+   }
+  },
+  "y39_copernicus_npg_2col.pdf": {
+   "accepted": {
+    "src_pages": 11,
+    "out_pages": 12,
+    "word_recall": 0.7597,
+    "within2pt": 0.0131,
+    "dy_p50": 38.21
+   },
+   "base": {
+    "src_pages": 11,
+    "out_pages": 12,
+    "word_recall": 0.7597,
+    "within2pt": 0.0131,
+    "dy_p50": 38.21
+   },
+   "wp38": {
+    "src_pages": 11,
+    "out_pages": 11,
+    "word_recall": 0.9141,
+    "within2pt": 0.0556,
+    "dy_p50": 10.12
+   }
+  },
+  "y40_frontiers_dvips_gs.pdf": {
+   "accepted": {
+    "src_pages": 10,
+    "out_pages": 10,
+    "word_recall": 0.8516,
+    "within2pt": 0.0183,
+    "dy_p50": 39.8
+   },
+   "base": {
+    "src_pages": 10,
+    "out_pages": 10,
+    "word_recall": 0.8516,
+    "within2pt": 0.0183,
+    "dy_p50": 39.8
+   },
+   "wp38": {
+    "src_pages": 10,
+    "out_pages": 10,
+    "word_recall": 0.9259,
+    "within2pt": 0.0626,
+    "dy_p50": 11.68
+   }
+  },
+  "y41_arxiv_ieeetran.pdf": {
+   "accepted": {
+    "src_pages": 8,
+    "out_pages": 9,
+    "word_recall": 0.6827,
+    "within2pt": 0.0188,
+    "dy_p50": 33.69
+   },
+   "base": {
+    "src_pages": 8,
+    "out_pages": 9,
+    "word_recall": 0.6827,
+    "within2pt": 0.0188,
+    "dy_p50": 33.69
+   },
+   "wp38": {
+    "src_pages": 8,
+    "out_pages": 9,
+    "word_recall": 0.6989,
+    "within2pt": 0.0447,
+    "dy_p50": 11.09
+   }
+  },
+  "y42_arxiv_acmart.pdf": {
+   "accepted": {
+    "src_pages": 5,
+    "out_pages": 6,
+    "word_recall": 0.3594,
+    "within2pt": 0.0012,
+    "dy_p50": 36.35
+   },
+   "base": {
+    "src_pages": 5,
+    "out_pages": 6,
+    "word_recall": 0.3594,
+    "within2pt": 0.0012,
+    "dy_p50": 38.72
+   },
+   "wp38": {
+    "src_pages": 5,
+    "out_pages": 6,
+    "word_recall": 0.3602,
+    "within2pt": 0.0018,
+    "dy_p50": 35.27
+   }
+  },
+  "y64_bls_release_xpp.pdf": {
+   "accepted": {
+    "src_pages": 39,
+    "out_pages": 39,
+    "word_recall": 0.9297,
+    "within2pt": 0.0957,
+    "dy_p50": 13.27
+   },
+   "base": {
+    "src_pages": 39,
+    "out_pages": 39,
+    "word_recall": 0.9666,
+    "within2pt": 0.1001,
+    "dy_p50": 13.75
+   },
+   "wp38": {
+    "src_pages": 39,
+    "out_pages": 39,
+    "word_recall": 0.984,
+    "within2pt": 0.1252,
+    "dy_p50": 11.15
+   }
+  },
+  "y12_irs_pub15.pdf": {
+   "accepted": {
+    "src_pages": 59,
+    "out_pages": 60,
+    "word_recall": 0.5143,
+    "within2pt": 0.0064,
+    "dy_p50": 58.6
+   },
+   "base": {
+    "src_pages": 59,
+    "out_pages": 59,
+    "word_recall": 0.6821,
+    "within2pt": 0.0408,
+    "dy_p50": 38.9
+   },
+   "wp38": {
+    "src_pages": 59,
+    "out_pages": 59,
+    "word_recall": 0.6821,
+    "within2pt": 0.0408,
+    "dy_p50": 38.9
+   }
+  },
+  "y37_plos_one_dvipdfmx.pdf": {
+   "accepted": {
+    "src_pages": 22,
+    "out_pages": 27,
+    "word_recall": 0.3268,
+    "within2pt": 0.0009,
+    "dy_p50": 27.38
+   },
+   "base": {
+    "src_pages": 22,
+    "out_pages": 26,
+    "word_recall": 0.3917,
+    "within2pt": 0.0017,
+    "dy_p50": 30.96
+   },
+   "wp38": {
+    "src_pages": 22,
+    "out_pages": 26,
+    "word_recall": 0.3917,
+    "within2pt": 0.0017,
+    "dy_p50": 30.96
+   }
+  },
+  "y60_cdc_mmwr_indd19.pdf": {
+   "accepted": {
+    "src_pages": 24,
+    "out_pages": 32,
+    "word_recall": 0.3292,
+    "within2pt": 0.0208,
+    "dy_p50": 67.42
+   },
+   "base": {
+    "src_pages": 24,
+    "out_pages": 32,
+    "word_recall": 0.3295,
+    "within2pt": 0.021,
+    "dy_p50": 66.95
+   },
+   "wp38": {
+    "src_pages": 24,
+    "out_pages": 32,
+    "word_recall": 0.3295,
+    "within2pt": 0.021,
+    "dy_p50": 66.95
+   }
+  },
+  "y61_fedreg_gpo_3col.pdf": {
+   "accepted": {
+    "src_pages": 4,
+    "out_pages": 6,
+    "word_recall": 0.451,
+    "within2pt": 0.0044,
+    "dy_p50": 35.91
+   },
+   "base": {
+    "src_pages": 4,
+    "out_pages": 5,
+    "word_recall": 0.5794,
+    "within2pt": 0.0038,
+    "dy_p50": 43.61
+   },
+   "wp38": {
+    "src_pages": 4,
+    "out_pages": 5,
+    "word_recall": 0.5794,
+    "within2pt": 0.0038,
+    "dy_p50": 43.61
+   }
+  }
+ },
+ "word_product": {
+  "y21_worldbank_wdr24.pdf": {
+   "accepted": {
+    "src_pages": 48,
+    "out_pages": 49,
+    "word_recall": 0.7067,
+    "within2pt": 0.0107,
+    "dy_p50": 27.89
+   },
+   "base": {
+    "src_pages": 48,
+    "out_pages": 50,
+    "word_recall": 0.4195,
+    "within2pt": 0.0084,
+    "dy_p50": 27.78
+   },
+   "wp38": {
+    "src_pages": 48,
+    "out_pages": 49,
+    "word_recall": 0.8556,
+    "within2pt": 0.0222,
+    "dy_p50": 24.5
+   }
+  },
+  "y26_bash_reference.pdf": {
+   "accepted": {
+    "src_pages": 214,
+    "out_pages": 213,
+    "word_recall": 0.9753,
+    "within2pt": 0.0548,
+    "dy_p50": 13.49
+   },
+   "base": {
+    "src_pages": 214,
+    "out_pages": 213,
+    "word_recall": 0.9753,
+    "within2pt": 0.0548,
+    "dy_p50": 13.49
+   },
+   "wp38": {
+    "src_pages": 214,
+    "out_pages": 214,
+    "word_recall": 0.9826,
+    "within2pt": 0.0712,
+    "dy_p50": 4.03
+   }
+  },
+  "y39_copernicus_npg_2col.pdf": {
+   "accepted": {
+    "src_pages": 11,
+    "out_pages": 12,
+    "word_recall": 0.7358,
+    "within2pt": 0.02,
+    "dy_p50": 44.26
+   },
+   "base": {
+    "src_pages": 11,
+    "out_pages": 12,
+    "word_recall": 0.7358,
+    "within2pt": 0.02,
+    "dy_p50": 44.26
+   },
+   "wp38": {
+    "src_pages": 11,
+    "out_pages": 11,
+    "word_recall": 0.9059,
+    "within2pt": 0.0569,
+    "dy_p50": 10.72
+   }
+  },
+  "y40_frontiers_dvips_gs.pdf": {
+   "accepted": {
+    "src_pages": 10,
+    "out_pages": 11,
+    "word_recall": 0.8036,
+    "within2pt": 0.0116,
+    "dy_p50": 45.42
+   },
+   "base": {
+    "src_pages": 10,
+    "out_pages": 11,
+    "word_recall": 0.8036,
+    "within2pt": 0.0116,
+    "dy_p50": 45.42
+   },
+   "wp38": {
+    "src_pages": 10,
+    "out_pages": 11,
+    "word_recall": 0.7918,
+    "within2pt": 0.0495,
+    "dy_p50": 14.3
+   }
+  },
+  "y41_arxiv_ieeetran.pdf": {
+   "accepted": {
+    "src_pages": 8,
+    "out_pages": 9,
+    "word_recall": 0.6636,
+    "within2pt": 0.0255,
+    "dy_p50": 41.9
+   },
+   "base": {
+    "src_pages": 8,
+    "out_pages": 9,
+    "word_recall": 0.6636,
+    "within2pt": 0.0255,
+    "dy_p50": 41.9
+   },
+   "wp38": {
+    "src_pages": 8,
+    "out_pages": 9,
+    "word_recall": 0.6951,
+    "within2pt": 0.0571,
+    "dy_p50": 11.53
+   }
+  },
+  "y42_arxiv_acmart.pdf": {
+   "accepted": {
+    "src_pages": 5,
+    "out_pages": 6,
+    "word_recall": 0.3598,
+    "within2pt": 0.0012,
+    "dy_p50": 38.16
+   },
+   "base": {
+    "src_pages": 5,
+    "out_pages": 6,
+    "word_recall": 0.3598,
+    "within2pt": 0.0012,
+    "dy_p50": 40.08
+   },
+   "wp38": {
+    "src_pages": 5,
+    "out_pages": 6,
+    "word_recall": 0.3607,
+    "within2pt": 0.0012,
+    "dy_p50": 35.55
+   }
+  },
+  "y64_bls_release_xpp.pdf": {
+   "accepted": {
+    "src_pages": 39,
+    "out_pages": 40,
+    "word_recall": 0.3894,
+    "within2pt": 0.109,
+    "dy_p50": 13.64
+   },
+   "base": {
+    "src_pages": 39,
+    "out_pages": 39,
+    "word_recall": 0.9667,
+    "within2pt": 0.0954,
+    "dy_p50": 16.9
+   },
+   "wp38": {
+    "src_pages": 39,
+    "out_pages": 39,
+    "word_recall": 0.9841,
+    "within2pt": 0.1143,
+    "dy_p50": 11.58
+   }
+  },
+  "y12_irs_pub15.pdf": {
+   "accepted": {
+    "src_pages": 59,
+    "out_pages": 59,
+    "word_recall": 0.8077,
+    "within2pt": 0.0314,
+    "dy_p50": 34.26
+   },
+   "base": {
+    "src_pages": 59,
+    "out_pages": 58,
+    "word_recall": 0.6263,
+    "within2pt": 0.0103,
+    "dy_p50": 60.94
+   },
+   "wp38": {
+    "src_pages": 59,
+    "out_pages": 58,
+    "word_recall": 0.6263,
+    "within2pt": 0.0103,
+    "dy_p50": 60.94
+   }
+  },
+  "y61_fedreg_gpo_3col.pdf": {
+   "accepted": {
+    "src_pages": 4,
+    "out_pages": 10,
+    "word_recall": 0.3393,
+    "within2pt": 0.0052,
+    "dy_p50": 57.77
+   },
+   "base": {
+    "src_pages": 4,
+    "out_pages": 7,
+    "word_recall": 0.4026,
+    "within2pt": 0.0049,
+    "dy_p50": 39.33
+   },
+   "wp38": {
+    "src_pages": 4,
+    "out_pages": 7,
+    "word_recall": 0.4026,
+    "within2pt": 0.0049,
+    "dy_p50": 39.33
+   }
+  }
+ },
+ "summary_libreoffice_product": {
+  "base": {
+   "page_exact": 71,
+   "mean_word_recall": 0.8526,
+   "mean_within2pt": 0.3817,
+   "errors": 0
+  },
+  "wp38": {
+   "page_exact": 72,
+   "mean_word_recall": 0.8597,
+   "mean_within2pt": 0.3838,
+   "errors": 0
+  }
+ },
+ "exploration": {
+  "blanket_seams_v1_on_71558af": {
+   "note": "every non-booklet multi-col page seamed, all writes",
+   "y12": {
+    "lo_raw": "66 -> 91pp, wr .393 -> .235",
+    "lo_product": "60 -> 62pp, .514 -> .365",
+    "word_product": "59 -> 62pp, .808 -> .367"
+   },
+   "y64_lo_product": "39 -> 40pp, .930 -> .386",
+   "y21_lo_product": "49 -> 52pp, .719 -> .385"
+  },
+  "blanket_seams_v1_on_wp33": {
+   "y12": {
+    "lo_product": "59 -> 61pp, .682 -> .376",
+    "word_product": "58 -> 61pp, .626 -> .378"
+   },
+   "y21": {
+    "lo_product": "48 -> 50pp, .519 -> .771",
+    "word_product": "50 -> 50pp, .419 -> .753"
+   },
+   "y60": {
+    "lo_product": "32 -> 40pp",
+    "word_product": "31 -> 40pp"
+   },
+   "y61": {
+    "lo_product": "5pp .579/dy 43.6 -> 5pp .582/dy 38.0",
+    "word_product": "7pp .403 -> 5pp .584"
+   },
+   "y12_page_map": "seams map 56/59 pages 1:1 in LibreOffice and Word; s1 (cover), s8 (checklist), s31 each spill one page and shift every later page"
+  },
+  "plan_decided_per_round": {
+   "y37_lo_product": "26 -> 34pp, wr .392 -> .285",
+   "frozen": "26pp, .390"
+  },
+  "plan_without_stop_rule": {
+   "y12": {
+    "lo_product": "60pp .497 dy 53.7",
+    "word_product": "60pp .526 dy 63.2",
+    "why": "the cover's flow (pages 1-23) still carries ~980pt where its run ends; the seam before p24 puts pages 24-59 one late in both renderers"
+   }
+  },
+  "y12_splice_estimates_word": {
+   "every_page_seamed_and_aligned": 0.949,
+   "pages_1_23_flowed_rest_seamed_aligned": 0.854
+  },
+  "y12_word_attribution": "71558af (r4word/prod, carlito) 59pp .808 -> wp33 d879a12 58pp .626 with no WP38 code: the split's run 26-44 flows a page ahead in Word"
+ }
+}
