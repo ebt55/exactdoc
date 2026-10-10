@@ -1,5 +1,22 @@
 {
  "schema": "exactdoc.beta-waivers.v1",
  "about": "Criterion-8 exceptions, read by testkit/beta_readiness.py. One metric on one unpromised document, bounded, tied to the accepted sweep (by file name and SHA-256), the harness reading and the release it was decided for; each one an owner decision recorded in docs/beta-bar.md ('Exceptions') in the same commit. Out of bounds, or stale (another release, accepted sweep or reading), it blocks; once nothing needs it, it is reported as unused and deleted.",
- "regression": {}
+ "regression": {
+  "y37_plos_one_dvipdfmx.pdf": {
+   "dy_p50": {
+    "ceiling": 33.0,
+    "release": "0.3.0b1",
+    "accepted_sweep": {
+     "name": "accepted-wp31-prod.rescored5.sweep.json",
+     "sha256": "fcb8ca9782cc62623e7c399a72a8877e667afb0c3e42d77187ea385de62b668c"
+    },
+    "reading": "wp42",
+    "measured": {"accepted": 27.64, "current": 32.0, "sweep": "wp41-wp38b-L1-prod.rescored5.sweep.json"},
+    "decided_by": "the owner, by delegation to an independent decider (Fable 5.1), 2026-10-11",
+    "decided_on": "2026-10-11",
+    "evidence": "docs/beta-bar.md#exceptions-for-030b1; docs/evidence/churn-y37-2026-10-11.json (testkit/churn.py --check-y37)",
+    "conditions": "Second time y37's dy_p50 needed excusing (the first, WP33's split, was reverted unused after WP33n). Conditions a-f of the 2026-10-10 decision apply mutatis mutandis: like for like in the wp42 reading against this accepted sweep; y37 dy_p50 only, every other y37 metric gated at full tolerance, no other document; ceiling 33.0pt, above it blocking and a new decision; recorded in docs/beta-bar.md with this entry; dies with this accepted sweep, not carried to 0.3.0b2 or GA. d' on the FINAL renders (testkit/churn.py --check-y37 --current-sweep FINAL.sweep.json, render SHA-256s recorded): word_recall >= 0.37; common-word dy_p50 <= 1.1 x the accepted common; within2pt drop <= 0.05; LibreOffice out_pages < 27. Void if the ceiling or any d' bound is missed, y37 becomes promised, the accepted sweep/reading/release differ, a second document needs a dy_p50 waiver before the tag, or the owner revokes it before the tag. Amendment 4(e) -- a paired/common-word reading of criterion 8's dy_p50, designed with the owner -- is a pre-0.3.0b2 item."
+   }
+  }
+ }
 }

@@ -157,8 +157,11 @@ Enforced with it:
   document that has a dy_p50 waiver entry is left to the waiver, whatever the
   waiver's verdict; the rule does not look at it (as decided for y37: on its
   waiver, not re-based).
-- **(e)** After the beta: the wrap fidelity of y43 and y55, and how criterion 8
-  reads dy_p50 for GA, are revisited.
+- **(e)** **Before 0.3.0b2** (promoted on 2026-10-11 by the second y37
+  decision, below): a paired, common-word reading of criterion 8's dy_p50,
+  designed with the owner, so that a change in which words a render matches
+  is not read as words moving. After the beta: the wrap fidelity of y43 and
+  y55.
 
 **Evidence.** The reviewer's rule scripts over 272 same-reading pairs of full
 product sweeps: y18, y33, y43 and y55 exempted (y54's dy_p50 too, but it still
@@ -174,9 +177,6 @@ are the only flags, and both are exempted; on
 `accepted-wp31-prod.rescored` → `wp33-d1-prod` nothing is exempted: y21 and
 y61 still fail, and y37 (within2pt +0.0008) would not meet (i) even if the
 rule looked at it.
-
-*y37:* a dy_p50 exception for 0.3.0b1 was decided (owner-delegated, 2026-10-10)
-but not needed: WP33n (d8e27d6) removed the flag, so no waiver is recorded.
 
 ## Exceptions to criterion 8
 
@@ -208,3 +208,63 @@ recorded on this page in the same commit as its entry. No threshold changes.
 
 Every other metric on a waived document stays gated at full tolerance, and the
 JSON output carries each waiver's verdict.
+
+## Exceptions for 0.3.0b1
+
+**y37 `dy_p50`: an owner decision of 2026-10-11, by delegation to an
+independent decider (Fable 5.1); option A: land WP38b and re-instate a
+bounded waiver.** This is the **second time** y37's dy_p50 has needed
+excusing. The first (2026-10-10, WP33's column split: 27.38 → 30.96 in the
+wp29 reading) was decided and then reverted unused, when WP33n removed the
+flag. Now WP38b's render-judged probe re-flags it in the wp42 reading:
+27.64 → 32.00, past a tolerance of 2.76.
+
+- **Scope.** `y37_plos_one_dvipdfmx.pdf` (unpromised: an academic journal
+  paper), metric `dy_p50` only, release 0.3.0b1 only, harness reading `wp42`.
+  Every other y37 metric stays gated at full tolerance; no other document is
+  covered.
+- **Ceiling.** 33.0pt (measured 32.00). Above it: blocking, and a new decision.
+- **Accepted sweep.** The wp42 re-score of wp31-prod,
+  `accepted-wp31-prod.rescored5.sweep.json`, SHA-256
+  `fcb8ca9782cc62623e7c399a72a8877e667afb0c3e42d77187ea385de62b668c`
+  (`reading.scorer` = `wp42`). If the final accepted sweep is another file,
+  the entry names that one, by SHA-256.
+- **Conditions a–f of the first decision apply, mutatis mutandis** (like for
+  like in one reading; this scope; the ceiling; recorded here with the entry;
+  dies with the accepted sweep it names, not carried to 0.3.0b2 or GA), with
+  **d′** on the FINAL renders, by `python testkit/churn.py ... --check-y37
+  --current-sweep FINAL.sweep.json` against the accepted render
+  `wp31-prod.docx/product/y37_plos_one_dvipdfmx/y37_plos_one_dvipdfmx.pdf`,
+  render SHA-256s recorded: word recall ≥ 0.37 (accepted 0.3268); common-word
+  dy_p50 ≤ 1.1 × the accepted common; within-2pt not down by more than 0.05;
+  LibreOffice out_pages < 27.
+- **Void if** the ceiling or any d′ bound is missed; y37 becomes promised; the
+  accepted sweep, the reading or the release differ (the scorecard reads it
+  stale); a second document needs a dy_p50 waiver before the tag; or the
+  owner revokes it before the tag.
+- **Before 0.3.0b2:** amendment 4(e) is promoted -- a paired, common-word
+  reading of criterion 8's dy_p50, designed with the owner.
+
+**The figures, measured on WP38b's sweep (wp38b-L1-prod) in the wp42 reading;
+re-measured on the final renders before the tag** ([evidence](evidence/churn-y37-2026-10-11.json)).
+Accepted render SHA-256
+`17e58b3eaca879e7880fe70f369a70b4ef2829b2e8aede65d10558a7f869993b`, current
+`1a33619027e46e8198e5cb135f8b6a90e372c56daf8c22abf51d3914980e3445`, source
+`31b2894a30f71cbb3046f401c05a14a75603410d6bd808d4f308b37a0b35c77d`.
+
+| Matched source words (of 10,699) | Words | dy_p50 (pt) | Within 2pt | \|dy\| ≤ 5pt |
+|---|---:|---:|---:|---:|
+| Accepted render, all | 3,496 | 27.64 | 0.0020 | 0.171 |
+| Current render, all | 4,173 | 32.00 | 0.0019 | 0.149 |
+| Common, read in the accepted render | 3,109 | 25.20 | 0.0023 | 0.182 |
+| Common, read in the current render | 3,109 | 24.97 | 0.0019 | 0.172 |
+| Lost (accepted render only) | 387 | 64.10 | 0.0000 | 0.085 |
+| Gained (current render only) | 1,064 | 74.32 | 0.0019 | 0.080 |
+
+Word recall 0.3268 → 0.3900; LibreOffice pages 27 → 24 (source 22). d′ holds
+on these renders: recall 0.39 ≥ 0.37, common dy_p50 24.97 / 25.20 = 0.99 ≤
+1.1, within-2pt 0.0020 → 0.0019, 24 pages < 27. Recorded honestly: 387 words
+lost and 1,064 gained; 38% of the common words moved by more than 2pt; the
+common set's |dy| ≤ 5pt share fell 0.182 → 0.172; dy_p90 rose 244 → 303pt;
+doc recall fell 0.913 → 0.905. **No evidence of a real loss in the median;
+the tail widened.**

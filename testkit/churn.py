@@ -1,7 +1,8 @@
 """Which source words two renders of one document both place, and where.
 
     python testkit/churn.py SOURCE.pdf ACCEPTED.pdf CURRENT.pdf [--json OUT]
-    python testkit/churn.py SOURCE.pdf ACCEPTED.pdf CURRENT.pdf --check-y37
+    python testkit/churn.py SOURCE.pdf ACCEPTED.pdf CURRENT.pdf --check-y37 \\
+                            --current-sweep FINAL.sweep.json
     python testkit/churn.py ... --require "word_recall.current>=0.347" \\
                                 --require "dy_p50.common_current<=23.5"
 
@@ -39,17 +40,19 @@ Two figures say how far to trust the split:
 The SHA-256 of all three PDFs is recorded, so a figure can be tied to the exact
 renders it was read from.
 
-**Checks.** `--require PATH>=X` / `PATH<=X` (repeatable) tests a figure of the
-report by its dotted path (`--json` shows every path); the exit code is 1 when
-any fails. `--check-y37` is condition d of the owner-delegated decision of
-2026-10-10 (docs/beta-bar.md, "Exceptions for 0.3.0b1"), run on the final
-renders before the tag:
+**Checks.** `--require PATH OP X` (OP one of >= <= > <; repeatable) tests a
+figure of the report by its dotted path (`--json` shows every path); the exit
+code is 1 when any fails, and a figure the report lacks fails.
+`--current-sweep SWEEP.json` adds the current sweep's row for the document
+(`sweep.*`: out_pages, dy_p50, dy_p90, doc_recall, ...). `--check-y37` is
+condition d' of the owner-delegated decision of 2026-10-11 (docs/beta-bar.md,
+"Exceptions for 0.3.0b1"), run on the FINAL renders against the accepted
+wp31-prod render:
 
-    word_recall.current      >= 0.347   (the y37 recall the decision accepted)
-    dy_p50.common_current    <= 23.5    (accepted common 21.34)
-    within2pt.drop           <= gate.py's within2pt tolerance (0.05): the
-                                current render's within2pt not below the
-                                accepted render's beyond the gate's slack
+    word_recall.current      >= 0.37    (accepted 0.3268)
+    dy_p50.common_ratio      <= 1.1     (common dy_p50, current / accepted)
+    within2pt.drop           <= gate.py's within2pt tolerance (0.05)
+    sweep.out_pages          <  27      (LibreOffice pages, from --current-sweep)
 """
 import _paths  # noqa: F401  (sets sys.path)
 import argparse
@@ -75,9 +78,12 @@ FREQUENT = 20
 MOVED_PT = 2.0
 SETS = ("accepted", "current", "common_accepted", "common_current", "lost", "gained")
 
-# DECISION.md condition d (2026-10-10), recorded in docs/beta-bar.md.
-Y37_WORD_RECALL = 0.347      # word_recall of the final render, at least
-Y37_COMMON_DY_P50 = 23.5     # common words' dy_p50 in the final render, at most
+# DECISION_y37b.md condition d' (2026-10-11), recorded in docs/beta-bar.md.
+Y37_WORD_RECALL = 0.37       # word_recall of the final render, at least (accepted 0.3268)
+Y37_COMMON_RATIO = 1.1       # common words' dy_p50, current / accepted, at most
+Y37_OUT_PAGES_BELOW = 27     # LibreOffice out_pages of the final sweep, below this
+SWEEP_KEYS = ("src_pages", "out_pages", "word_recall", "doc_recall", "dy_p50", "dy_p90",
+              "within2pt", "within5pt")
 
 
 def sha256(path):
@@ -159,7 +165,10 @@ def churn(src_pdf, accepted_pdf, current_pdf):
                     "lost": len(lost), "gained": len(gained)},
         "word_recall": {"accepted": round(len(A) / max(1, total), 4),
                         "current": round(len(B) / max(1, total), 4)},
-        "dy_p50": {k: figures[k]["dy_p50"] for k in SETS},
+        "dy_p50": dict({k: figures[k]["dy_p50"] for k in SETS},
+                       common_ratio=(round(figures["common_current"]["dy_p50"]
+                                           / figures["common_accepted"]["dy_p50"], 4)
+                                     if figures["common_accepted"]["dy_p50"] else None)),
         "within2pt": w2,
         "dy_le5_share": {k: figures[k]["dy_le5_share"] for k in SETS},
         "moved_gt2pt": {"n": moved,
@@ -171,27 +180,43 @@ def churn(src_pdf, accepted_pdf, current_pdf):
 
 
 # ------------------------------------------------------------------ checks
-_REQUIRE = re.compile(r"^\s*([A-Za-z0-9_.]+)\s*(>=|<=)\s*(-?[0-9.]+)\s*$")
+_REQUIRE = re.compile(r"^\s*([A-Za-z0-9_.]+)\s*(>=|<=|>|<)\s*(-?[0-9.]+)\s*$")
+_OPS = {">=": lambda v, b: v >= b, "<=": lambda v, b: v <= b,
+        ">": lambda v, b: v > b, "<": lambda v, b: v < b}
 
 
 def parse_require(text):
     """'word_recall.current>=0.347' -> ('word_recall.current', '>=', 0.347)."""
     m = _REQUIRE.match(text)
     if not m:
-        raise ValueError("not PATH>=NUMBER or PATH<=NUMBER: %r" % text)
+        raise ValueError("not PATH OP NUMBER (OP: >= <= > <): %r" % text)
     return m.group(1), m.group(2), float(m.group(3))
 
 
 def y37_requirements():
-    """Condition d of the 2026-10-10 decision, as (path, op, bound, why)."""
+    """Condition d' of the 2026-10-11 decision, as (path, op, bound, why)."""
     tol = gate.tolerance(gate.METRICS["within2pt"], None)
     return [("word_recall.current", ">=", Y37_WORD_RECALL,
-             "DECISION d: word_recall >= 0.347"),
-            ("dy_p50.common_current", "<=", Y37_COMMON_DY_P50,
-             "DECISION d: common-word dy_p50 <= 23.5pt (accepted common 21.34)"),
+             "DECISION_y37b d': word_recall >= 0.37 (accepted 0.3268)"),
+            ("dy_p50.common_ratio", "<=", Y37_COMMON_RATIO,
+             "DECISION_y37b d': common-word dy_p50 <= 1.1 x the accepted common"),
             ("within2pt.drop", "<=", tol,
-             "DECISION d: within2pt not below the accepted render's by more "
-             "than gate.py's tolerance (%g)" % tol)]
+             "DECISION_y37b d': within2pt not below the accepted render's by more "
+             "than gate.py's tolerance (%g)" % tol),
+            ("sweep.out_pages", "<", Y37_OUT_PAGES_BELOW,
+             "DECISION_y37b d': LibreOffice out_pages < 27 (needs --current-sweep)")]
+
+
+def sweep_row(path, document):
+    """The document's row of a quality sweep, reduced to SWEEP_KEYS, or None."""
+    with open(path, encoding="utf-8") as fh:
+        data = json.load(fh)
+    for r in data.get("documents", ()):
+        if os.path.basename(str(r.get("document"))) == document:
+            row = {k: r.get(k) for k in SWEEP_KEYS if k in r}
+            row["sweep"] = os.path.basename(path)
+            return row
+    return None
 
 
 def lookup(report, path):
@@ -214,7 +239,7 @@ def check(report, requirements):
         except KeyError:
             value = None
         ok = (isinstance(value, (int, float)) and not isinstance(value, bool) and
-              (value >= bound if op == ">=" else value <= bound))
+              _OPS[op](value, bound))
         out.append({"require": "%s %s %g" % (path, op, bound), "value": value,
                     "ok": bool(ok), "why": why})
     return out
@@ -277,8 +302,11 @@ def main(argv=None):
     ap.add_argument("--json", help="also write the report here")
     ap.add_argument("--require", action="append", default=[],
                     help="PATH>=X or PATH<=X on a figure of the report; repeatable")
+    ap.add_argument("--current-sweep",
+                    help="the current quality sweep; its row for the document is "
+                         "added as sweep.* (out_pages for --check-y37)")
     ap.add_argument("--check-y37", action="store_true",
-                    help="condition d of the 2026-10-10 y37 decision "
+                    help="condition d' of the 2026-10-11 y37 decision "
                          "(docs/beta-bar.md, Exceptions for 0.3.0b1)")
     a = ap.parse_args(argv)
     try:
@@ -288,6 +316,8 @@ def main(argv=None):
     if a.check_y37:
         requirements += y37_requirements()
     report = churn(_source(a.source), a.accepted, a.current)
+    if a.current_sweep:
+        report["sweep"] = sweep_row(a.current_sweep, report["document"])
     checks = check(report, requirements) if requirements else None
     if checks is not None:
         report["checks"] = checks
