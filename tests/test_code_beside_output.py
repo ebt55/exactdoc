@@ -294,5 +294,25 @@ class EndToEnd(unittest.TestCase):
                              for el in _els(lay)))
 
 
+class ClippedStrokes(unittest.TestCase):
+    """parse_pdfium._clip_path_bbox: y22 p114's TikZ grid, drawn from (196,
+    59) to (604, 454) and shown in a 163 x 111pt window, seeded a figure over
+    the page's running head and its prose."""
+
+    def test_a_grid_is_cut_to_its_window(self):
+        from exactdoc.parse_pdfium import _clip_path_bbox
+        got = _clip_path_bbox((196.3, 59.0, 604.5, 454.5), (308.0, 237.0, 471.0, 348.0))
+        self.assertEqual(got, (308.0, 237.0, 471.0, 348.0))
+
+    def test_a_small_trim_keeps_the_path(self):
+        from exactdoc.parse_pdfium import _clip_path_bbox
+        self.assertIsNone(_clip_path_bbox((100, 100, 300, 200), (98, 102, 295, 210)))
+        self.assertIsNone(_clip_path_bbox((100, 100, 300, 200), None))
+
+    def test_a_path_outside_its_clip_is_not_drawn(self):
+        from exactdoc.parse_pdfium import _clip_path_bbox
+        self.assertIs(_clip_path_bbox((100, 100, 300, 200), (400, 400, 500, 500)), False)
+
+
 if __name__ == "__main__":
     unittest.main()
