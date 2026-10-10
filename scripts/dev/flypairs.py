@@ -2,12 +2,13 @@
 
     EXACTDOC_ROOT=<tree> python flypairs.py PROBE_DIR OUT_DIR A B
 Sources: testkit/fixtures, testkit/fixtures_expansion, or <PROBE_DIR>/../<doc>.pdf.
-Rows -> OUT_DIR/rows.json (written with LF newlines).
+Rows -> OUT_DIR/rows.json (written with LF newlines). The frozen drift sentinel
+(testkit/docs_sentinel.py) flies first and its row leads; every row carries `utc`.
 """
 import glob, json, os, sys
 ROOT = os.environ["EXACTDOC_ROOT"]
 sys.path.insert(0, ROOT); sys.path.insert(0, os.path.join(ROOT, "testkit"))
-import gdocs_oracle as go, harness, quality_sweep as qs
+import docs_sentinel, gdocs_oracle as go, harness, quality_sweep as qs
 
 PROBE, OUT, A, B = sys.argv[1:5]
 KEYS = ("src_pages", "out_pages", "word_recall", "within2pt", "dy_p50", "mean_ssim", "live_text_cov")
@@ -19,7 +20,7 @@ def source(stem):
     raise FileNotFoundError(stem)
 stems = sorted({os.path.basename(p).split(".")[0] for p in glob.glob(os.path.join(PROBE, "*.%s.gdocs.docx" % B))})
 svc = go._service(interactive=False)
-rows = []
+rows = [docs_sentinel.first(svc, os.path.join(OUT, "_sentinel"))]   # WP43: drift first
 for stem in stems:
     src = source(stem)
     for v in (A, B):
@@ -32,7 +33,7 @@ for stem in stems:
             go.roundtrip(svc, docx, pdf)
         res = harness.evaluate(src, docx, work, save_images=False, rendered_pdf=pdf)
         row = {"doc": stem, "v": v, **{k: res.get(k) for k in KEYS},
-               "scorer": harness.HARNESS_READING}
+               "scorer": harness.HARNESS_READING, "utc": docs_sentinel.utc_now()}
         row["char_recall"] = qs.char_recall(src, pdf)[0]
         rows.append(row); print(json.dumps(row), flush=True)
 with open(os.path.join(OUT, "rows.json"), "w", newline="\n") as f:

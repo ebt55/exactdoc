@@ -1,0 +1,20 @@
+{
+ "docx": {
+  "file": "sentinel.gdocs.docx",
+  "profile": "pdfium/gdocs/none/refine0@240dpi",
+  "sha256": "b3fd55511a12b7efa1ae6ea3988bbe1b9da4c93165c0a70da3b163dc32621650"
+ },
+ "expected": null,
+ "recorded": null,
+ "schema": "exactdoc.docs-sentinel.v1",
+ "source": {
+  "file": "sentinel.pdf",
+  "sha256": "ce2667f4fcc0979859f86ba1e341eb7c3aa351f52e9124392d1a39d4b6b8fb9e"
+ },
+ "tolerance": {
+  "dy_p50": 0.5,
+  "out_pages": 0,
+  "within2pt": 0.02,
+  "word_recall": 0.005
+ }
+}

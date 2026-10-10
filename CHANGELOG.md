@@ -21,6 +21,18 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 one verified fix at a time, each gated against the frozen 16.
 
 
+- **A Google Docs drift sentinel flies first in every live run (WP43 item
+  5).** `testkit/fixtures_sentinel/`: a one-page memo (`sentinel.pdf`) and
+  the gdocs-candidate DOCX made from it once, both pinned by SHA-256 in
+  `sentinel.json`. `scripts/dev/gdsweep.py` and `flypairs.py` fly that DOCX
+  before any document (`testkit/docs_sentinel.py`), compare the export's
+  pages (exactly), word recall (0.005), within-2pt (0.02) and dy_p50 (0.5pt)
+  with the row recorded the first time, print a loud DRIFT block on a
+  difference, record the verdict in the sentinel row (`sentinel`, `drift`)
+  and carry on; every row now has a UTC timestamp (`utc`). The expected row
+  is recorded by flying it once: `python testkit/docs_sentinel.py fly OUT
+  --record`. `rescore.py rows` passes the sentinel row through untouched.
+
 - **The Word oracle takes the machine for its batch itself (WP43 item 4).**
   `word_oracle.sweep` runs inside `WordBatchLock`: a named kernel mutex
   (`Global\exactdoc-word-oracle`, `Local\` if Global is refused; an
