@@ -70,6 +70,9 @@ MARK_GAP_MAX_EM = 0.6
 # is in (6, 8]pt, and the rule and the note's first line box read off the
 # render put it at 6.2pt.
 FOOTNOTE_AREA_OVERHEAD_PT = 6.2
+# A page's notes are lifted to where the source's ended only when that is
+# further than this above the body box's foot (`footnote_lifts`).
+NOTE_LIFT_MIN_PT = 1.0
 
 
 @dataclasses.dataclass
@@ -554,6 +557,51 @@ def bind_page_notes(lay: DocLayout, pl: PageLayout, pn: PageNotes,
     return len(pn.notes)
 
 
+def note_lift_cap(pl: PageLayout, body_bottom) -> float:
+    """How far above the body box's foot this page's notes ended in the
+    source -- the most its notes are ever lifted (`footnote_lifts`). 0 for a
+    page without real notes, or whose last note runs on to the next page
+    (its notes fill the page to the foot, as the source's did)."""
+    na = pl.note_area
+    if na is None or na.runs_on or not na.bottom:
+        return 0.0
+    return max(0.0, body_bottom(pl) - na.bottom)
+
+
+def footnote_lifts(lay: DocLayout, body_bottom) -> Dict[int, float]:
+    """{page: lift} for the pages whose real notes the writer lifts.
+
+    A renderer stacks a page's notes at the foot of the body box, and that
+    foot is where the bottom margin (or the footer's top) puts it, not where
+    the source's notes stood: the bottom reserve is relaxed to the footer's
+    top (`infer._can_relax_bottom_margin`), and on y02 every note page set its
+    notes some 45pt below the source's (p20: 712 -> 761, p97: 718 -> 761),
+    the notes a quarter of such a page's words. The writer closes the page's
+    last note with an empty line this tall (`write_footnotes`): the area grows
+    by it and its text stands that much higher. A space after the last note
+    is not the lever -- LibreOffice does not honour it at the area's foot
+    (measured: 248pt asked, 0 moved) -- an empty line is content, and is
+    (46pt asked, 46.0pt moved).
+
+    The relaxed reserve is there because re-wrapped body text overruns the
+    source's body box (the NIST class by up to ~50pt a page), and the lift
+    takes exactly that room back: lifting every y02 note page to its source
+    height rendered 115 pages for 114 and the spill cascaded (dy_p50 1.0 ->
+    22). So the lift is the refine loop's to set (`PageLayout.note_lift_pt`),
+    no more than the render shows free between a page's body and its notes;
+    an open-loop write lifts nothing. It never exceeds `note_lift_cap`.
+    """
+    out: Dict[int, float] = {}
+    for pl in lay.pages:
+        want = getattr(pl, "note_lift_pt", 0.0) or 0.0
+        if want < NOTE_LIFT_MIN_PT:
+            continue
+        lift = min(want, note_lift_cap(pl, body_bottom))
+        if lift >= NOTE_LIFT_MIN_PT:
+            out[pl.number] = round(lift, 1)
+    return out
+
+
 def footnote_areas(lay: DocLayout, body_bottom) -> Dict[int, float]:
     """{page: footnote-area height} for the pages whose notes are written as
     notes. `body_bottom(page_layout)` is the y where that page's body box ends
@@ -561,15 +609,14 @@ def footnote_areas(lay: DocLayout, body_bottom) -> Dict[int, float]:
 
     A renderer stacks a page's notes at the foot of the body box under its own
     rule (`FOOTNOTE_AREA_OVERHEAD_PT`), and the body gets what is left above.
-    The notes are not lifted to their source height: a space after the last
-    note -- the obvious lever -- is not honoured at the foot of LibreOffice's
-    footnote area (measured: 248pt asked, 0 moved), so the page model charges
-    only what the renderer actually draws.
+    The notes are lifted to their source height by an empty closing line
+    (`footnote_lifts`), which the area carries too.
 
     A page whose last note runs on to the next page is charged everything
     below the source zone's top: its notes fill the page to its foot, and the
     renderer splits the note where the source did.
     """
+    lifts = footnote_lifts(lay, body_bottom)
     out: Dict[int, float] = {}
     for pl in lay.pages:
         na = pl.note_area
@@ -578,7 +625,8 @@ def footnote_areas(lay: DocLayout, body_bottom) -> Dict[int, float]:
         if na.runs_on:
             out[pl.number] = max(0.0, body_bottom(pl) - na.top)
         else:
-            out[pl.number] = na.height + FOOTNOTE_AREA_OVERHEAD_PT
+            out[pl.number] = na.height + FOOTNOTE_AREA_OVERHEAD_PT + \
+                lifts.get(pl.number, 0.0)
     return out
 
 

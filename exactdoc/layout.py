@@ -340,6 +340,12 @@ class PageLayout:
     # it was before the pushes and adds them back (docxout._absorb_page_spill).
     # Never set by an open-loop write.
     loop_push_pt: float = 0.0
+    # Points the refine loop lifts this page's real footnotes by, above the
+    # foot of the body box where a renderer stacks them, toward where the
+    # source's notes ended (notes.footnote_lifts, refine._apply). Each lift
+    # is no more than the room its render measured between the body and the
+    # notes. Never set by an open-loop write.
+    note_lift_pt: float = 0.0
 
 
 @dataclass

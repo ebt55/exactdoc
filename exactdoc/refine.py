@@ -114,6 +114,46 @@ FILL_MAX_CELLS = 4_000_000
 STALL_MIN_GAIN = 0.02
 
 
+# What a page's real notes need above their zone's top before the body may
+# end: the footnote area's own head (its rule and the space round it,
+# notes.FOOTNOTE_AREA_OVERHEAD_PT, 6.2pt) and a few points of safety -- the
+# body line's box reaches a little below the ink the render reports.
+NOTE_HEAD_PT = 10.0
+
+
+def _notes_free(src_lines, out_lines, zone, band_top=0.0):
+    """Points free between the body and the real notes on a rendered page, or
+    None when the render does not show the page's notes (no note line matched
+    uniquely).
+
+    `src_lines` / `out_lines` are one page's (text, baseline, bottom) lines;
+    `zone` is the source's note zone, (top, bottom) (`NoteArea`). The page's
+    note lines are the source's lines inside it -- not the running footer
+    under it, which a renderer moves by another amount: y03's notes, whose
+    "fi" ligatures read differently on each side, matched only through the
+    footer, and the lift was measured as moving nothing. The renderer moves
+    the notes as a block, so the zone's top in the render is the source's
+    moved by the note lines' median shift -- a note's first line itself may
+    not match (the render joins "36" and its text, which the source sets
+    apart). The body is every rendered line above that.
+    """
+    note_top, note_bottom = zone
+    texts = {t for t, y0, _ in src_lines
+             if note_top - 1.0 <= y0 <= note_bottom + 1.0 and len(t) >= 8}
+    sc = Counter(t for t, _, _ in src_lines)
+    oc = Counter(t for t, _, _ in out_lines)
+    pos = {t: y0 for t, y0, _ in out_lines if oc[t] == 1}
+    ds = sorted(pos[t] - y0 for t, y0, _ in src_lines
+                if t in texts and sc[t] == 1 and t in pos)
+    if not ds:
+        return None
+    top = note_top + ds[len(ds) // 2]
+    body = [yb for t, y0, yb in out_lines
+            if y0 >= band_top - 1.0 and y0 < top and t not in texts]
+    end = max(body) if body else band_top
+    return max(0.0, top - end)
+
+
 def _norm(t: str) -> str:
     return re.sub(r"\s+", "", t or "")[:60]
 
@@ -293,7 +333,8 @@ def _body_bottom(lines, top, bottom):
     return max(ys) if ys else None
 
 
-def _measure(src_pdf, rendered_pdf, backend, src_cache=None, geom=None):
+def _measure(src_pdf, rendered_pdf, backend, src_cache=None, geom=None,
+             notes=None):
     """Spill, offset and overflow per source page, from one render.
 
     `src_cache` holds the source's page lines between rounds: the source never
@@ -306,6 +347,11 @@ def _measure(src_pdf, rendered_pdf, backend, src_cache=None, geom=None):
     onto the following page(s), less the room it left behind at the foot of
     the page it started on, plus FIT_SAFETY_PT. None where the render shows no
     text to measure the overflow by.
+
+    `notes` ({source page index: note zone (top, bottom)}) names the pages
+    whose real notes the loop may lift (`PageLayout.note_lift_pt`); each
+    unspilled one gets `notes_free`, the room its render shows between the
+    body and the notes (`_notes_free`).
     """
     if src_cache is not None and "lines" in src_cache:
         src = src_cache["lines"]
@@ -323,6 +369,7 @@ def _measure(src_pdf, rendered_pdf, backend, src_cache=None, geom=None):
     offset = []         # per source page: median dy of matched lines
     need = []           # per source page: pt to remove to fit, or None
     room = []           # per unspilled source page: pt free at its foot
+    notes_free = []     # per unspilled page with real notes: pt above them
     for i, lines in enumerate(src):
         ri = mapping[i]
         nxt, nxt_i = None, len(src)
@@ -335,6 +382,7 @@ def _measure(src_pdf, rendered_pdf, backend, src_cache=None, geom=None):
             offset.append(0.0)
             need.append(None)
             room.append(None)
+            notes_free.append(None)
             continue
         end = nxt if nxt is not None else len(out)
         if nxt_i == i + 1:
@@ -385,7 +433,13 @@ def _measure(src_pdf, rendered_pdf, backend, src_cache=None, geom=None):
                 rm = max(0.0, bottom - first)
         need.append(nd)
         room.append(rm)
+        nf = None
+        if notes and i in notes and sp == 0:
+            nf = _notes_free(lines, out[ri], notes[i],
+                             geom[1] if geom is not None else 0.0)
+        notes_free.append(nf)
     return {"spill": spill, "offset": offset, "need": need, "room": room,
+            "notes_free": notes_free,
             "out_pages": len(out), "src_pages": len(src),
             "anchors": len(anchors)}
 
@@ -545,18 +599,68 @@ def ledger_summary(state):
             "padding_pages": len(led["padding_pages"])}
 
 
+def _note_cap(lay: DocLayout, pl) -> float:
+    """The most this page's notes are lifted: to where the source's ended,
+    above the foot of the body box the writer gives the page."""
+    from .docxout import _body_foot, _page_geometry
+    from .notes import note_lift_cap
+    return note_lift_cap(pl, lambda q: _body_foot(_page_geometry(lay, q)))
+
+
+def _note_zones(lay: DocLayout, output_profile: str):
+    """{page index: note zone (top, bottom)} of the pages whose notes the
+    writer sets as real notes and the loop may lift; {} when the profile or
+    the plan writes them typed (there is nothing for a lift to move)."""
+    from .options import capabilities
+    from .structures import footnote_plan
+    if not getattr(lay, "footnotes", None) or \
+            "footnotes" not in capabilities(output_profile) or \
+            not footnote_plan(lay):
+        return {}
+    return {i: (pl.note_area.top, pl.note_area.bottom)
+            for i, pl in enumerate(lay.pages)
+            if pl.note_area is not None and not pl.note_area.runs_on}
+
+
 def _apply(lay: DocLayout, m, state=None) -> bool:
     """Fold the measurement back into the layout. True if anything changed."""
     if state is None:
         state = new_state()
     led = state["ledger"]
     needs = m.get("need") or []
+    frees = m.get("notes_free") or []
     changed = False
     if any(m["spill"]):
         changed = _lower_footers(lay)
     for idx, pl in enumerate(lay.pages):
         if idx >= len(m["spill"]):
             break
+        # 0. real notes (`notes.footnote_lifts`): lift them toward where the
+        # source's ended by the room the render shows between the body and
+        # them; a page that spills gives its lift back before anything else.
+        lift_now = getattr(pl, "note_lift_pt", 0.0) or 0.0
+        note_room = None
+        skip_squeeze = False
+        if getattr(pl, "note_area", None) is not None and idx < len(frees):
+            nf = frees[idx]
+            if m["spill"][idx] > 0:
+                if lift_now > 0:
+                    nd = needs[idx] if idx < len(needs) else None
+                    give = lift_now if nd is None else min(lift_now, nd)
+                    pl.note_lift_pt = lift_now - give
+                    changed = True
+                    skip_squeeze = nd is not None and give >= nd
+            elif nf is not None:
+                want = min(_note_cap(lay, pl),
+                           max(0.0, lift_now + nf - NOTE_HEAD_PT))
+                if abs(want - lift_now) >= 0.5:
+                    pl.note_lift_pt = want
+                    changed = True
+            if lift_now > 0 or (getattr(pl, "note_lift_pt", 0.0) or 0.0) > 0:
+                # the room under the body is the notes' now, less what this
+                # round's lift takes
+                note_room = 0.0 if nf is None else max(
+                    0.0, nf - NOTE_HEAD_PT - (pl.note_lift_pt - lift_now))
         els = list(_page_elements(pl))
         if not els:
             continue
@@ -568,7 +672,7 @@ def _apply(lay: DocLayout, m, state=None) -> bool:
         # before it notices the paragraph gap, and large gaps carry
         # proportionally more slack and less rhythm. Every gap keeps an
         # absolute floor, not just a percentage of itself.
-        if m["spill"][idx] > 0:
+        if m["spill"][idx] > 0 and not skip_squeeze:
             taken = 0.0
             gaps = sorted(((_gap_of(e), e) for e in els),
                           key=lambda t: -t[0])
@@ -635,6 +739,15 @@ def _apply(lay: DocLayout, m, state=None) -> bool:
                 rm = rooms[idx] if idx < len(rooms) else None
                 if rm is not None:
                     push = min(push, max(0.0, rm - FIT_SAFETY_PT))
+                if note_room is not None:
+                    # A lift is not room for a push: the foot's room is
+                    # read as if the notes stood at the foot, as they do
+                    # unlifted. Spending it moved y03 p16's body 13pt down
+                    # from a top that was right (its lower half sat high).
+                    lifted = getattr(pl, "note_lift_pt", 0.0) or 0.0
+                    foot = 0.0 if rm is None else max(
+                        0.0, rm - lifted - FIT_SAFETY_PT)
+                    push = min(push, note_room, foot)
                 if push > OFFSET_DEADBAND:
                     _set_gap(els[0], _gap_of(els[0]) + push)
                     # the render's room bounds the push, so the writer's
@@ -827,6 +940,7 @@ def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
     # pages after round 1 that way against 174 with the decision held, and
     # finished on 153 against 147.
     _freeze_seams(lay)
+    note_zones = _note_zones(lay, output_profile)
     from .docxout import _freeze_flows
     _freeze_flows(lay, output_profile)
     best_path, best_score = None, None
@@ -897,7 +1011,8 @@ def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
                     # footer lever (`_lower_footers`) moves its bottom
                     geom = _geom(lay)
                     m = _measure(src_pdf, rendered, backend,
-                                 src_cache=src_cache, geom=geom)
+                                 src_cache=src_cache, geom=geom,
+                                 notes=note_zones)
                 except Exception as e:
                     # The render exists but cannot be read back. That is the
                     # self-check failing, not the conversion.
