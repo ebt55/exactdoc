@@ -2176,5 +2176,23 @@
    "before": "NOT READY 6 pass 4 fail",
    "after": "NOT READY 6 pass 4 fail"
   }
+ },
+ "remerged": {
+  "tree": "wp34 535c723 = 50e5310 merged with integration 11dde0d (WP35, WP35b, WP35c)",
+  "gate": "Ran 1722 tests OK (skipped=1); FAILED_STEPS=0; product PASS 16/16 within2pt 0.7304; raw PASS 16/16 within2pt 0.5466",
+  "gdocs_identity": "95 fixtures, 1339 word/*.xml parts, 0 differ against 11dde0d (2 typed refusals both sides)",
+  "ab_planner_off_on_on_merged_tree": {
+   "what": "the two documents WP35b changes in the standard profile, planner off (m0) vs on (m1), same tree",
+   "raw": {
+    "y03_nist_fips197": "51 -> 46 pages for 46, word recall 0.556 -> 0.968",
+    "y17_rfc9110": "unchanged (195)"
+   },
+   "product": {
+    "y03_nist_fips197": "46 -> 46, within2pt 0.204 -> 0.191, dy_p50 1.38 -> 1.66 (within tolerance)",
+    "y17_rfc9110": "unchanged"
+   },
+   "regressions_beyond_gate_tolerance": 0
+  },
+  "not_rerun": "the full raw/product sweeps and the Word lane were measured on 9893c42 (integration e906ad4); the merge adds WP35/35b/35c, which change only y03 and y17 in the standard profile (their evidence), A/B'd above"
  }
 }
