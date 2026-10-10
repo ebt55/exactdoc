@@ -500,6 +500,15 @@
      "within2pt": 0.0745,
      "dy_p50": 16.07,
      "mean_ssim": 0.5871
+    },
+    "wp35": {
+     "out_pages": 40,
+     "src_pages": 39,
+     "word_recall": 0.3885,
+     "char_recall": 0.741,
+     "within2pt": 0.0745,
+     "dy_p50": 16.07,
+     "mean_ssim": 0.5871
     }
    }
   },
@@ -510,6 +519,7 @@
    "y01_nist_sp80063b": "80/80, wr 0.9671, within-2pt 0.2837: unchanged",
    "probe_line_panel": "within-2pt 0.0088 -> 0.5702, dy_p50 3.34 -> 1.65pt",
    "probe_runin_lists": "within-2pt 0.3152 -> 0.3804",
+   "y64_bls_release_xpp": "40/39, wr 0.3885, within-2pt 0.0745: identical to base (two dash rows typed; WP33 owns y64)",
    "byte_identical_controls_reproduced_base_exactly": [
     "01_whitepaper_market",
     "c1_whitepaper",
@@ -524,9 +534,7 @@
     "y36_lo_writer_guide",
     "y46_cv_twocol_xdvipdfmx"
    ],
-   "pending_when_written": [
-    "y64_bls_release_xpp"
-   ]
+   "pending_when_written": []
   }
  }
 }
