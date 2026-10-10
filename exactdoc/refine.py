@@ -140,8 +140,11 @@ def _set_gap(el, v):
 # reverted on mean within-2pt 0.511 -> 0.478 (05_memo 0.64 -> 0.48,
 # r1_reportlab_report 0.60 -> 0.32), but that within-2pt was itself read at
 # box tops, which charge a base-14 source's words ~1.7pt for the same ascent
-# convention; read at the baseline (testkit/harness.py, amendment 3) the
-# comparison is the one recorded in docs/evidence/refine-anchor-2026-10-10.json.
+# convention. Read at the baseline (testkit/harness.py, amendment 3), in the
+# Carlito image against a top-anchored control: mean within-2pt 0.396 -> 0.420
+# over 90 documents with no page count moved, y01 0.671 -> 0.794, y30
+# 0.282 -> 0.739, and in Word y30 0.214 -> 0.721
+# (docs/evidence/refine-anchor-2026-10-10.json).
 ANCHOR_TOP, ANCHOR_BASELINE = 1, 2
 ANCHOR = ANCHOR_BASELINE
 

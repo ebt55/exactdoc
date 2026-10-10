@@ -1,0 +1,2304 @@
+{
+ "byte_identity": {
+  "result": {
+   "gdocs": {
+    "different": 0,
+    "diffs": [],
+    "identical": 93,
+    "refused": 2,
+    "refused_same": true,
+    "unpaired": [],
+    "word_xml_parts_compared": 1339
+   },
+   "raw": {
+    "different": 0,
+    "diffs": [],
+    "identical": 93,
+    "refused": 2,
+    "refused_same": true,
+    "unpaired": [],
+    "word_xml_parts_compared": 1349
+   }
+  },
+  "what": "95 documents converted with integration c3cb767 and with merged wp39, raw and gdocs profiles; word/*.xml part by part"
+ },
+ "date": "2026-10-10",
+ "findings": {
+  "criterion5_margins": "y02 Word 114/114 wr 0.9664 and y27 Word 151/151 wr 0.9746 unchanged; y26 Docs untouched (gdocs DOCX byte-identical); no page count moved in LibreOffice (90) or Word (40).",
+  "parity_policy": "testkit/parity_policy.json's dy_absolute_exemption (2.0pt, both arms under 2pt with within2pt not adverse) exists for the base-14 ascent convention that amendment 3 removed from the harness; its dy_p50/within2pt floors were recorded at glyph tops. At the next parity re-record: re-measure at the baseline, drop the exemption if no base-14 document needs it, re-record the floors. Not edited here.",
+  "word_wp32_request": "Word product, r4-new (WP29 reading per WP32: y30 0.21, y46 0.11, y33 0.18): at the baseline r4-new reads y30 0.214, y46 0.104, y33 0.727; with WP39 y30 0.721, y46 0.282, y33 0.741.",
+  "y43_y55_dy_p50": "non-promised; dy_p50 8.79 -> 10.64 (y43) and 15.56 -> 17.26 (y55), beyond tolerance, while within-2pt rises 0.072 -> 0.124 and 0.018 -> 0.083 (Word alike). Their drift is bimodal: pages carry a group the loop aligns and a group 10-20pt away it cannot. At the baseline the aligned group lands at 0 (y55 |dy|<=2 1.8% -> 31.3%, y43 25.7% -> 39.4%) and the median, sitting on the far group (y43 p4 -8.5 -> -10.6pt, y55 p1), moves out. Criterion 8 against wp31-prod reads them: PASS -> FAIL by 2.",
+  "y44_pushed_page": "p1: the render left 38.8pt free and the body sat 30.6pt high. With the baseline anchor alone the loop pushed 30.6pt; the writer's spill planner then predicted 32.2pt over on 2 stranded lines and planned 34.2pt of cuts, so the page came out 34pt high (within2pt 0.169 -> 0.067, dy_p50 3.8 -> 25.7). The top anchor pushed 31.9pt, the planner saw 3 stranded lines and declined. With the guard: 0.169 -> 0.186, dy_p50 2.5. The guard alone (D) also lifts y10 0.096 -> 0.406 and y09, y33."
+ },
+ "gate": {
+  "log": "C:\\lotmp\\scr\\runs\\wp39-gate-1.log",
+  "moved_vs_wp36_gate": {
+   "product": {
+    "aggregate_live": {
+     "gate_pass_count": 13,
+     "mean_live_text": 0.9784,
+     "mean_within2pt": 0.8142,
+     "median_dy_p50": 0.3,
+     "n": 16,
+     "page_match_count": 16
+    },
+    "differs_from_prediction": [
+     [
+      "01_whitepaper_market.pdf",
+      "within2pt",
+      0.8363,
+      0.8128
+     ],
+     [
+      "01_whitepaper_market.pdf",
+      "dy_p50",
+      0.4,
+      0.0
+     ],
+     [
+      "04_exec_brief.pdf",
+      "dy_p50",
+      0.4,
+      0.3
+     ],
+     [
+      "05_memo.pdf",
+      "dy_p50",
+      0.95,
+      0.55
+     ],
+     [
+      "l1_word_native.pdf",
+      "dy_p50",
+      0.4,
+      0.0
+     ]
+    ]
+   },
+   "raw": {
+    "aggregate_live": {
+     "gate_pass_count": 13,
+     "mean_live_text": 0.9784,
+     "mean_within2pt": 0.6168,
+     "median_dy_p50": 0.65,
+     "n": 16,
+     "page_match_count": 16
+    },
+    "differs_from_prediction": []
+   }
+  },
+  "result": "1713 tests OK; manifest/scripts/golden 0; product PASS; raw FAIL, one finding: 05_memo within2pt 0.1205 -> 0.0602 -- amendment 3's (WP36), unchanged by WP39",
+  "tree": "wp39 4521a40 (integration c3cb767 merged)"
+ },
+ "image": "sha256:bab1cfc0d2cd15c1c1a63d6db86fb1bfcb7f8f33ce7ee608568303fa58536f20",
+ "lo_product_anchor_only_vs_control": {
+  "candidate": "C:\\lotmp\\scr\\runs\\wp39-B-prod.sweep.json",
+  "control": "C:\\lotmp\\scr\\runs\\wp39-A-prod.sweep.json",
+  "documents": {
+   "01_whitepaper_market.pdf": {
+    "dy_p50": [
+     0.4,
+     0.0
+    ],
+    "pages": 3,
+    "promised": true,
+    "within2pt": [
+     0.8363,
+     0.8128
+    ]
+   },
+   "04_exec_brief.pdf": {
+    "dy_p50": [
+     0.4,
+     0.3
+    ],
+    "pages": 2,
+    "promised": true
+   },
+   "05_memo.pdf": {
+    "dy_p50": [
+     0.95,
+     0.55
+    ],
+    "pages": 1,
+    "promised": true
+   },
+   "l1_word_native.pdf": {
+    "dy_p50": [
+     0.4,
+     0.0
+    ],
+    "pages": 1,
+    "promised": true
+   },
+   "x08_chrome_print_default.pdf": {
+    "dy_p50": [
+     0.45,
+     0.4
+    ],
+    "pages": 2,
+    "promised": true,
+    "within2pt": [
+     0.7448,
+     0.7421
+    ]
+   },
+   "x13_rl_report_running.pdf": {
+    "dy_p50": [
+     1.1,
+     0.7
+    ],
+    "pages": 2,
+    "promised": true
+   },
+   "x14_rl_statement_lines.pdf": {
+    "dy_p50": [
+     0.4,
+     0.05
+    ],
+    "pages": 1,
+    "promised": true
+   },
+   "x15_rl_handbook_toc.pdf": {
+    "dy_p50": [
+     0.1,
+     0.0
+    ],
+    "pages": 3,
+    "promised": true
+   },
+   "x17_resume_twocol.pdf": {
+    "dy_p50": [
+     0.45,
+     0.3
+    ],
+    "pages": 2,
+    "promised": true,
+    "within2pt": [
+     0.4577,
+     0.4198
+    ]
+   },
+   "x18_resume_twocol_tnr.pdf": {
+    "dy_p50": [
+     0.42,
+     0.25
+    ],
+    "pages": 2,
+    "promised": true,
+    "within2pt": [
+     0.4606,
+     0.4212
+    ]
+   },
+   "y01_nist_sp80063b.pdf": {
+    "dy_p50": [
+     1.74,
+     0.27
+    ],
+    "pages": 80,
+    "promised": true,
+    "within2pt": [
+     0.6712,
+     0.7935
+    ]
+   },
+   "y02_nist_sp800171r2.pdf": {
+    "dy_p50": [
+     2.09,
+     2.23
+    ],
+    "pages": 114,
+    "promised": true,
+    "within2pt": [
+     0.3273,
+     0.3289
+    ]
+   },
+   "y03_nist_fips197.pdf": {
+    "dx_p50": [
+     3.93,
+     3.98
+    ],
+    "dy_p50": [
+     2.7,
+     1.79
+    ],
+    "pages": 46,
+    "promised": true,
+    "within2pt": [
+     0.072,
+     0.2023
+    ]
+   },
+   "y06_irs_1040_instructions.pdf": {
+    "dx_p50": [
+     71.09,
+     71.28
+    ],
+    "dy_p50": [
+     55.45,
+     55.64
+    ],
+    "pages": 126,
+    "promised": false,
+    "within2pt": [
+     0.0017,
+     0.0018
+    ]
+   },
+   "y08_nist_sp80088r1.pdf": {
+    "dx_p50": [
+     2.74,
+     2.73
+    ],
+    "dy_p50": [
+     1.4,
+     0.3
+    ],
+    "pages": 65,
+    "promised": true,
+    "within2pt": [
+     0.4137,
+     0.4138
+    ]
+   },
+   "y09_nist_sp800207.pdf": {
+    "dy_p50": [
+     1.76,
+     0.32
+    ],
+    "pages": 59,
+    "promised": true,
+    "within2pt": [
+     0.8193,
+     0.8286
+    ]
+   },
+   "y10_nist_fips180.pdf": {
+    "dx_p50": [
+     0.91,
+     0.92
+    ],
+    "dy_p50": [
+     2.38,
+     0.29
+    ],
+    "pages": 36,
+    "promised": true,
+    "within2pt": [
+     0.0956,
+     0.4562
+    ]
+   },
+   "y12_irs_pub15.pdf": {
+    "char_recall": [
+     0.8714,
+     0.8709
+    ],
+    "dx_p50": [
+     92.72,
+     92.81
+    ],
+    "dy_p50": [
+     58.44,
+     58.04
+    ],
+    "pages": 59,
+    "promised": true,
+    "within2pt": [
+     0.001,
+     0.0067
+    ],
+    "word_recall": [
+     0.5143,
+     0.5138
+    ]
+   },
+   "y13_irs_pub501.pdf": {
+    "char_recall": [
+     0.5337,
+     0.533
+    ],
+    "dx_p50": [
+     71.66,
+     71.42
+    ],
+    "dy_p50": [
+     35.37,
+     34.87
+    ],
+    "pages": 31,
+    "promised": false,
+    "within2pt": [
+     0.001,
+     0.0008
+    ]
+   },
+   "y17_rfc9110.pdf": {
+    "dx_p50": [
+     48.12,
+     48.22
+    ],
+    "dy_p50": [
+     10.15,
+     9.63
+    ],
+    "pages": 194,
+    "promised": true,
+    "within2pt": [
+     0.0449,
+     0.0576
+    ]
+   },
+   "y18_eurlex_ai_act.pdf": {
+    "dx_p50": [
+     12.1,
+     12.15
+    ],
+    "dy_p50": [
+     3.72,
+     3.03
+    ],
+    "pages": 144,
+    "promised": true,
+    "within2pt": [
+     0.1446,
+     0.1608
+    ]
+   },
+   "y19_scotus_loper.pdf": {
+    "dy_p50": [
+     14.55,
+     13.95
+    ],
+    "pages": 114,
+    "promised": true,
+    "within2pt": [
+     0.0249,
+     0.0266
+    ]
+   },
+   "y20_typst_report.pdf": {
+    "dy_p50": [
+     0.56,
+     0.1
+    ],
+    "pages": 5,
+    "promised": true,
+    "within2pt": [
+     0.4587,
+     0.465
+    ]
+   },
+   "y21_worldbank_wdr24.pdf": {
+    "pages": 48,
+    "promised": true,
+    "within2pt": [
+     0.0137,
+     0.0136
+    ]
+   },
+   "y22_lshort.pdf": {
+    "dy_p50": [
+     13.47,
+     13.49
+    ],
+    "pages": 153,
+    "promised": true,
+    "within2pt": [
+     0.0675,
+     0.0671
+    ]
+   },
+   "y24_pandoc_manual.pdf": {
+    "dx_p50": [
+     18.96,
+     19.0
+    ],
+    "dy_p50": [
+     1.34,
+     0.59
+    ],
+    "pages": 180,
+    "promised": true,
+    "within2pt": [
+     0.1839,
+     0.193
+    ]
+   },
+   "y27_rfc9000.pdf": {
+    "dx_p50": [
+     47.77,
+     47.65
+    ],
+    "dy_p50": [
+     11.77,
+     10.82
+    ],
+    "pages": 151,
+    "promised": true,
+    "within2pt": [
+     0.0344,
+     0.0532
+    ]
+   },
+   "y28_doe_oig_word365.pdf": {
+    "dx_p50": [
+     27.12,
+     27.32
+    ],
+    "dy_p50": [
+     2.4,
+     0.32
+    ],
+    "pages": 21,
+    "promised": true,
+    "within2pt": [
+     0.0497,
+     0.301
+    ]
+   },
+   "y29_uk_letter_word365.pdf": {
+    "dy_p50": [
+     1.72,
+     0.18
+    ],
+    "pages": 4,
+    "promised": true,
+    "within2pt": [
+     0.5252,
+     0.5275
+    ]
+   },
+   "y30_nz_guideline_word365.pdf": {
+    "dy_p50": [
+     2.17,
+     0.37
+    ],
+    "pages": 33,
+    "promised": true,
+    "within2pt": [
+     0.2824,
+     0.7388
+    ]
+   },
+   "y31_uk_policy_printtopdf.pdf": {
+    "dy_p50": [
+     17.54,
+     17.28
+    ],
+    "pages": 18,
+    "promised": true,
+    "within2pt": [
+     0.0258,
+     0.0299
+    ]
+   },
+   "y34_census_slides_pptx365.pdf": {
+    "dy_p50": [
+     0.54,
+     0.5
+    ],
+    "pages": 40,
+    "promised": false,
+    "within2pt": [
+     0.7005,
+     0.7238
+    ]
+   },
+   "y35_uk_rates_excel365.pdf": {
+    "dx_p50": [
+     1.72,
+     1.74
+    ],
+    "dy_p50": [
+     1.17,
+     0.18
+    ],
+    "pages": 14,
+    "promised": true,
+    "within2pt": [
+     0.3723,
+     0.3912
+    ]
+   },
+   "y37_plos_one_dvipdfmx.pdf": {
+    "dx_p50": [
+     42.88,
+     43.26
+    ],
+    "dy_p50": [
+     27.64,
+     27.65
+    ],
+    "pages": 22,
+    "promised": false
+   },
+   "y38_elife_arbortext_gs.pdf": {
+    "dx_p50": [
+     59.45,
+     59.42
+    ],
+    "dy_p50": [
+     30.29,
+     30.24
+    ],
+    "pages": 33,
+    "promised": false
+   },
+   "y40_frontiers_dvips_gs.pdf": {
+    "dy_p50": [
+     38.73,
+     39.34
+    ],
+    "pages": 10,
+    "promised": false,
+    "within2pt": [
+     0.0172,
+     0.0179
+    ]
+   },
+   "y41_arxiv_ieeetran.pdf": {
+    "dy_p50": [
+     34.09,
+     34.13
+    ],
+    "pages": 8,
+    "promised": false
+   },
+   "y42_arxiv_acmart.pdf": {
+    "dx_p50": [
+     67.69,
+     67.88
+    ],
+    "dy_p50": [
+     37.41,
+     37.39
+    ],
+    "pages": 5,
+    "promised": false
+   },
+   "y43_arxiv_neurips.pdf": {
+    "dx_p50": [
+     8.48,
+     8.5
+    ],
+    "dy_p50": [
+     8.79,
+     10.64
+    ],
+    "pages": 15,
+    "promised": false,
+    "within2pt": [
+     0.0715,
+     0.1238
+    ]
+   },
+   "y44_cv_rendercv_typst.pdf": {
+    "dx_p50": [
+     2.97,
+     3.09
+    ],
+    "dy_p50": [
+     3.8,
+     25.69
+    ],
+    "pages": 3,
+    "promised": true,
+    "within2pt": [
+     0.1692,
+     0.0674
+    ]
+   },
+   "y45_cv_academic_pdftex.pdf": {
+    "dx_p50": [
+     7.87,
+     7.9
+    ],
+    "dy_p50": [
+     4.64,
+     3.67
+    ],
+    "pages": 3,
+    "promised": true,
+    "within2pt": [
+     0.1157,
+     0.0794
+    ]
+   },
+   "y46_cv_twocol_xdvipdfmx.pdf": {
+    "dy_p50": [
+     2.71,
+     0.41
+    ],
+    "pages": 1,
+    "promised": true,
+    "within2pt": [
+     0.0971,
+     0.2848
+    ]
+   },
+   "y47_ar_ilo_word365.pdf": {
+    "dx_p50": [
+     59.54,
+     59.65
+    ],
+    "pages": 57,
+    "promised": false
+   },
+   "y49_he_word2016.pdf": {
+    "dx_p50": [
+     68.99,
+     68.94
+    ],
+    "dy_p50": [
+     15.92,
+     15.46
+    ],
+    "pages": 28,
+    "promised": false,
+    "within2pt": [
+     0.0066,
+     0.0043
+    ]
+   },
+   "y50_fa_word2016.pdf": {
+    "dx_p50": [
+     81.57,
+     81.73
+    ],
+    "dy_p50": [
+     13.61,
+     13.6
+    ],
+    "pages": 15,
+    "promised": false,
+    "within2pt": [
+     0.0014,
+     0.111
+    ]
+   },
+   "y51_ja_justpdf.pdf": {
+    "dy_p50": [
+     0.41,
+     0.04
+    ],
+    "pages": 12,
+    "promised": false,
+    "within2pt": [
+     0.0332,
+     0.0337
+    ]
+   },
+   "y52_zh_tw_word365.pdf": {
+    "dx_p50": [
+     47.45,
+     47.51
+    ],
+    "dy_p50": [
+     23.57,
+     23.61
+    ],
+    "pages": 51,
+    "promised": false,
+    "within2pt": [
+     0.0091,
+     0.012
+    ]
+   },
+   "y53_ko_word2016.pdf": {
+    "dx_p50": [
+     8.71,
+     8.7
+    ],
+    "pages": 28,
+    "promised": false,
+    "within2pt": [
+     0.0953,
+     0.0843
+    ]
+   },
+   "y54_hi_gdocs.pdf": {
+    "dy_p50": [
+     3.96,
+     2.84
+    ],
+    "pages": 4,
+    "promised": false,
+    "within2pt": [
+     0.096,
+     0.1977
+    ]
+   },
+   "y55_th_pages_quartz.pdf": {
+    "dy_p50": [
+     15.56,
+     17.26
+    ],
+    "pages": 3,
+    "promised": false,
+    "within2pt": [
+     0.0184,
+     0.0829
+    ]
+   },
+   "y56_scan_usda1921_lura.pdf": {
+    "dy_p50": [
+     13.51,
+     13.45
+    ],
+    "pages": 10,
+    "promised": false
+   },
+   "y58_ssa_statement_indd20.pdf": {
+    "dx_p50": [
+     1.5,
+     1.49
+    ],
+    "pages": 2,
+    "promised": false,
+    "within2pt": [
+     0.1212,
+     0.1236
+    ]
+   },
+   "y60_cdc_mmwr_indd19.pdf": {
+    "char_recall": [
+     0.5797,
+     0.5794
+    ],
+    "dx_p50": [
+     52.5,
+     53.71
+    ],
+    "pages": 24,
+    "promised": false,
+    "within2pt": [
+     0.0166,
+     0.0168
+    ],
+    "word_recall": [
+     0.3292,
+     0.3282
+    ]
+   },
+   "y62_bill_gpo_linenum.pdf": {
+    "dy_p50": [
+     3.11,
+     0.7
+    ],
+    "pages": 20,
+    "promised": true,
+    "within2pt": [
+     0.0361,
+     0.1205
+    ]
+   },
+   "y63_court_pleading_word365.pdf": {
+    "dy_p50": [
+     4.59,
+     2.64
+    ],
+    "pages": 5,
+    "promised": true,
+    "within2pt": [
+     0.0846,
+     0.285
+    ]
+   },
+   "y64_bls_release_xpp.pdf": {
+    "char_recall": [
+     0.9436,
+     0.9431
+    ],
+    "dx_p50": [
+     12.95,
+     13.07
+    ],
+    "dy_p50": [
+     14.2,
+     14.14
+    ],
+    "pages": 39,
+    "promised": true,
+    "within2pt": [
+     0.0993,
+     0.0984
+    ],
+    "word_recall": [
+     0.9297,
+     0.9291
+    ]
+   },
+   "y65_nrc_jasperreports.pdf": {
+    "dy_p50": [
+     1.81,
+     0.09
+    ],
+    "pages": 3,
+    "promised": true,
+    "within2pt": [
+     0.462,
+     0.538
+    ]
+   }
+  },
+  "summary": {
+   "documents": 90,
+   "mean_within2pt": [
+    0.396,
+    0.4191
+   ],
+   "moved": 57,
+   "page_count_changes": [],
+   "promised_mean_within2pt": [
+    0.5102,
+    0.5381
+   ],
+   "word_recall_changes": {
+    "y12_irs_pub15.pdf": [
+     0.5143,
+     0.5138
+    ],
+    "y60_cdc_mmwr_indd19.pdf": [
+     0.3292,
+     0.3282
+    ],
+    "y64_bls_release_xpp.pdf": [
+     0.9297,
+     0.9291
+    ]
+   }
+  }
+ },
+ "lo_product_guard_only_vs_control": {
+  "candidate": "C:\\lotmp\\scr\\runs\\wp39-D-prod.sweep.json",
+  "control": "C:\\lotmp\\scr\\runs\\wp39-A-prod.sweep.json",
+  "documents": {
+   "y09_nist_sp800207.pdf": {
+    "pages": 59,
+    "promised": true,
+    "within2pt": [
+     0.8193,
+     0.8388
+    ]
+   },
+   "y10_nist_fips180.pdf": {
+    "dx_p50": [
+     0.91,
+     1.03
+    ],
+    "dy_p50": [
+     2.38,
+     0.45
+    ],
+    "pages": 36,
+    "promised": true,
+    "within2pt": [
+     0.0956,
+     0.4062
+    ]
+   },
+   "y33_nz_paper_powerpdf.pdf": {
+    "pages": 60,
+    "promised": true,
+    "within2pt": [
+     0.7264,
+     0.7401
+    ]
+   }
+  },
+  "summary": {
+   "documents": 90,
+   "mean_within2pt": [
+    0.396,
+    0.3998
+   ],
+   "moved": 3,
+   "page_count_changes": [],
+   "promised_mean_within2pt": [
+    0.5102,
+    0.5157
+   ],
+   "word_recall_changes": {}
+  }
+ },
+ "lo_product_shipped_vs_control": {
+  "candidate": "C:\\lotmp\\scr\\runs\\wp39-C-prod.sweep.json",
+  "control": "C:\\lotmp\\scr\\runs\\wp39-A-prod.sweep.json",
+  "documents": {
+   "01_whitepaper_market.pdf": {
+    "dy_p50": [
+     0.4,
+     0.0
+    ],
+    "pages": 3,
+    "promised": true,
+    "within2pt": [
+     0.8363,
+     0.8128
+    ]
+   },
+   "04_exec_brief.pdf": {
+    "dy_p50": [
+     0.4,
+     0.3
+    ],
+    "pages": 2,
+    "promised": true
+   },
+   "05_memo.pdf": {
+    "dy_p50": [
+     0.95,
+     0.55
+    ],
+    "pages": 1,
+    "promised": true
+   },
+   "l1_word_native.pdf": {
+    "dy_p50": [
+     0.4,
+     0.0
+    ],
+    "pages": 1,
+    "promised": true
+   },
+   "x08_chrome_print_default.pdf": {
+    "dy_p50": [
+     0.45,
+     0.4
+    ],
+    "pages": 2,
+    "promised": true,
+    "within2pt": [
+     0.7448,
+     0.7421
+    ]
+   },
+   "x13_rl_report_running.pdf": {
+    "dy_p50": [
+     1.1,
+     0.7
+    ],
+    "pages": 2,
+    "promised": true
+   },
+   "x14_rl_statement_lines.pdf": {
+    "dy_p50": [
+     0.4,
+     0.05
+    ],
+    "pages": 1,
+    "promised": true
+   },
+   "x15_rl_handbook_toc.pdf": {
+    "dy_p50": [
+     0.1,
+     0.0
+    ],
+    "pages": 3,
+    "promised": true
+   },
+   "x17_resume_twocol.pdf": {
+    "dy_p50": [
+     0.45,
+     0.3
+    ],
+    "pages": 2,
+    "promised": true,
+    "within2pt": [
+     0.4577,
+     0.4198
+    ]
+   },
+   "x18_resume_twocol_tnr.pdf": {
+    "dy_p50": [
+     0.42,
+     0.25
+    ],
+    "pages": 2,
+    "promised": true,
+    "within2pt": [
+     0.4606,
+     0.4212
+    ]
+   },
+   "y01_nist_sp80063b.pdf": {
+    "dy_p50": [
+     1.74,
+     0.27
+    ],
+    "pages": 80,
+    "promised": true,
+    "within2pt": [
+     0.6712,
+     0.7935
+    ]
+   },
+   "y02_nist_sp800171r2.pdf": {
+    "dy_p50": [
+     2.09,
+     2.23
+    ],
+    "pages": 114,
+    "promised": true,
+    "within2pt": [
+     0.3273,
+     0.3289
+    ]
+   },
+   "y03_nist_fips197.pdf": {
+    "dx_p50": [
+     3.93,
+     3.98
+    ],
+    "dy_p50": [
+     2.7,
+     1.79
+    ],
+    "pages": 46,
+    "promised": true,
+    "within2pt": [
+     0.072,
+     0.2023
+    ]
+   },
+   "y06_irs_1040_instructions.pdf": {
+    "dx_p50": [
+     71.09,
+     71.28
+    ],
+    "dy_p50": [
+     55.45,
+     55.64
+    ],
+    "pages": 126,
+    "promised": false,
+    "within2pt": [
+     0.0017,
+     0.0018
+    ]
+   },
+   "y08_nist_sp80088r1.pdf": {
+    "dx_p50": [
+     2.74,
+     2.73
+    ],
+    "dy_p50": [
+     1.4,
+     0.3
+    ],
+    "pages": 65,
+    "promised": true,
+    "within2pt": [
+     0.4137,
+     0.4138
+    ]
+   },
+   "y09_nist_sp800207.pdf": {
+    "dy_p50": [
+     1.76,
+     0.3
+    ],
+    "pages": 59,
+    "promised": true,
+    "within2pt": [
+     0.8193,
+     0.8488
+    ]
+   },
+   "y10_nist_fips180.pdf": {
+    "dx_p50": [
+     0.91,
+     1.03
+    ],
+    "dy_p50": [
+     2.38,
+     0.45
+    ],
+    "pages": 36,
+    "promised": true,
+    "within2pt": [
+     0.0956,
+     0.4062
+    ]
+   },
+   "y12_irs_pub15.pdf": {
+    "char_recall": [
+     0.8714,
+     0.8709
+    ],
+    "dx_p50": [
+     92.72,
+     92.81
+    ],
+    "dy_p50": [
+     58.44,
+     58.04
+    ],
+    "pages": 59,
+    "promised": true,
+    "within2pt": [
+     0.001,
+     0.0067
+    ],
+    "word_recall": [
+     0.5143,
+     0.5138
+    ]
+   },
+   "y13_irs_pub501.pdf": {
+    "char_recall": [
+     0.5337,
+     0.533
+    ],
+    "dx_p50": [
+     71.66,
+     71.42
+    ],
+    "dy_p50": [
+     35.37,
+     34.87
+    ],
+    "pages": 31,
+    "promised": false,
+    "within2pt": [
+     0.001,
+     0.0008
+    ]
+   },
+   "y17_rfc9110.pdf": {
+    "dx_p50": [
+     48.12,
+     48.22
+    ],
+    "dy_p50": [
+     10.15,
+     9.63
+    ],
+    "pages": 194,
+    "promised": true,
+    "within2pt": [
+     0.0449,
+     0.0576
+    ]
+   },
+   "y18_eurlex_ai_act.pdf": {
+    "dx_p50": [
+     12.1,
+     12.15
+    ],
+    "dy_p50": [
+     3.72,
+     3.03
+    ],
+    "pages": 144,
+    "promised": true,
+    "within2pt": [
+     0.1446,
+     0.1608
+    ]
+   },
+   "y19_scotus_loper.pdf": {
+    "dy_p50": [
+     14.55,
+     13.95
+    ],
+    "pages": 114,
+    "promised": true,
+    "within2pt": [
+     0.0249,
+     0.0266
+    ]
+   },
+   "y20_typst_report.pdf": {
+    "dy_p50": [
+     0.56,
+     0.1
+    ],
+    "pages": 5,
+    "promised": true,
+    "within2pt": [
+     0.4587,
+     0.465
+    ]
+   },
+   "y21_worldbank_wdr24.pdf": {
+    "pages": 48,
+    "promised": true,
+    "within2pt": [
+     0.0137,
+     0.0136
+    ]
+   },
+   "y22_lshort.pdf": {
+    "dy_p50": [
+     13.47,
+     13.49
+    ],
+    "pages": 153,
+    "promised": true,
+    "within2pt": [
+     0.0675,
+     0.0671
+    ]
+   },
+   "y24_pandoc_manual.pdf": {
+    "dx_p50": [
+     18.96,
+     19.0
+    ],
+    "dy_p50": [
+     1.34,
+     0.59
+    ],
+    "pages": 180,
+    "promised": true,
+    "within2pt": [
+     0.1839,
+     0.193
+    ]
+   },
+   "y27_rfc9000.pdf": {
+    "dx_p50": [
+     47.77,
+     47.65
+    ],
+    "dy_p50": [
+     11.77,
+     10.82
+    ],
+    "pages": 151,
+    "promised": true,
+    "within2pt": [
+     0.0344,
+     0.0532
+    ]
+   },
+   "y28_doe_oig_word365.pdf": {
+    "dx_p50": [
+     27.12,
+     27.32
+    ],
+    "dy_p50": [
+     2.4,
+     0.32
+    ],
+    "pages": 21,
+    "promised": true,
+    "within2pt": [
+     0.0497,
+     0.301
+    ]
+   },
+   "y29_uk_letter_word365.pdf": {
+    "dy_p50": [
+     1.72,
+     0.18
+    ],
+    "pages": 4,
+    "promised": true,
+    "within2pt": [
+     0.5252,
+     0.5275
+    ]
+   },
+   "y30_nz_guideline_word365.pdf": {
+    "dy_p50": [
+     2.17,
+     0.37
+    ],
+    "pages": 33,
+    "promised": true,
+    "within2pt": [
+     0.2824,
+     0.7388
+    ]
+   },
+   "y31_uk_policy_printtopdf.pdf": {
+    "dy_p50": [
+     17.54,
+     17.28
+    ],
+    "pages": 18,
+    "promised": true,
+    "within2pt": [
+     0.0258,
+     0.0299
+    ]
+   },
+   "y33_nz_paper_powerpdf.pdf": {
+    "dy_p50": [
+     0.26,
+     0.25
+    ],
+    "pages": 60,
+    "promised": true,
+    "within2pt": [
+     0.7264,
+     0.7401
+    ]
+   },
+   "y34_census_slides_pptx365.pdf": {
+    "dy_p50": [
+     0.54,
+     0.5
+    ],
+    "pages": 40,
+    "promised": false,
+    "within2pt": [
+     0.7005,
+     0.7238
+    ]
+   },
+   "y35_uk_rates_excel365.pdf": {
+    "dx_p50": [
+     1.72,
+     1.74
+    ],
+    "dy_p50": [
+     1.17,
+     0.18
+    ],
+    "pages": 14,
+    "promised": true,
+    "within2pt": [
+     0.3723,
+     0.3912
+    ]
+   },
+   "y37_plos_one_dvipdfmx.pdf": {
+    "dx_p50": [
+     42.88,
+     43.26
+    ],
+    "dy_p50": [
+     27.64,
+     27.65
+    ],
+    "pages": 22,
+    "promised": false
+   },
+   "y38_elife_arbortext_gs.pdf": {
+    "dx_p50": [
+     59.45,
+     59.42
+    ],
+    "dy_p50": [
+     30.29,
+     30.24
+    ],
+    "pages": 33,
+    "promised": false
+   },
+   "y40_frontiers_dvips_gs.pdf": {
+    "dy_p50": [
+     38.73,
+     39.34
+    ],
+    "pages": 10,
+    "promised": false,
+    "within2pt": [
+     0.0172,
+     0.0179
+    ]
+   },
+   "y41_arxiv_ieeetran.pdf": {
+    "dy_p50": [
+     34.09,
+     34.13
+    ],
+    "pages": 8,
+    "promised": false
+   },
+   "y42_arxiv_acmart.pdf": {
+    "dx_p50": [
+     67.69,
+     67.88
+    ],
+    "dy_p50": [
+     37.41,
+     37.39
+    ],
+    "pages": 5,
+    "promised": false
+   },
+   "y43_arxiv_neurips.pdf": {
+    "dx_p50": [
+     8.48,
+     8.5
+    ],
+    "dy_p50": [
+     8.79,
+     10.64
+    ],
+    "pages": 15,
+    "promised": false,
+    "within2pt": [
+     0.0715,
+     0.1238
+    ]
+   },
+   "y44_cv_rendercv_typst.pdf": {
+    "dy_p50": [
+     3.8,
+     2.5
+    ],
+    "pages": 3,
+    "promised": true,
+    "within2pt": [
+     0.1692,
+     0.1857
+    ]
+   },
+   "y45_cv_academic_pdftex.pdf": {
+    "dx_p50": [
+     7.87,
+     7.9
+    ],
+    "dy_p50": [
+     4.64,
+     3.67
+    ],
+    "pages": 3,
+    "promised": true,
+    "within2pt": [
+     0.1157,
+     0.0794
+    ]
+   },
+   "y46_cv_twocol_xdvipdfmx.pdf": {
+    "dy_p50": [
+     2.71,
+     0.41
+    ],
+    "pages": 1,
+    "promised": true,
+    "within2pt": [
+     0.0971,
+     0.2848
+    ]
+   },
+   "y47_ar_ilo_word365.pdf": {
+    "dx_p50": [
+     59.54,
+     59.65
+    ],
+    "pages": 57,
+    "promised": false
+   },
+   "y49_he_word2016.pdf": {
+    "dx_p50": [
+     68.99,
+     68.94
+    ],
+    "dy_p50": [
+     15.92,
+     15.46
+    ],
+    "pages": 28,
+    "promised": false,
+    "within2pt": [
+     0.0066,
+     0.0043
+    ]
+   },
+   "y50_fa_word2016.pdf": {
+    "dx_p50": [
+     81.57,
+     81.73
+    ],
+    "dy_p50": [
+     13.61,
+     13.6
+    ],
+    "pages": 15,
+    "promised": false,
+    "within2pt": [
+     0.0014,
+     0.111
+    ]
+   },
+   "y51_ja_justpdf.pdf": {
+    "dy_p50": [
+     0.41,
+     0.04
+    ],
+    "pages": 12,
+    "promised": false,
+    "within2pt": [
+     0.0332,
+     0.0337
+    ]
+   },
+   "y52_zh_tw_word365.pdf": {
+    "dx_p50": [
+     47.45,
+     47.51
+    ],
+    "dy_p50": [
+     23.57,
+     23.61
+    ],
+    "pages": 51,
+    "promised": false,
+    "within2pt": [
+     0.0091,
+     0.012
+    ]
+   },
+   "y53_ko_word2016.pdf": {
+    "dx_p50": [
+     8.71,
+     8.7
+    ],
+    "pages": 28,
+    "promised": false,
+    "within2pt": [
+     0.0953,
+     0.0843
+    ]
+   },
+   "y54_hi_gdocs.pdf": {
+    "dy_p50": [
+     3.96,
+     2.84
+    ],
+    "pages": 4,
+    "promised": false,
+    "within2pt": [
+     0.096,
+     0.1977
+    ]
+   },
+   "y55_th_pages_quartz.pdf": {
+    "dy_p50": [
+     15.56,
+     17.26
+    ],
+    "pages": 3,
+    "promised": false,
+    "within2pt": [
+     0.0184,
+     0.0829
+    ]
+   },
+   "y56_scan_usda1921_lura.pdf": {
+    "dy_p50": [
+     13.51,
+     13.45
+    ],
+    "pages": 10,
+    "promised": false
+   },
+   "y58_ssa_statement_indd20.pdf": {
+    "dx_p50": [
+     1.5,
+     1.49
+    ],
+    "pages": 2,
+    "promised": false,
+    "within2pt": [
+     0.1212,
+     0.1236
+    ]
+   },
+   "y60_cdc_mmwr_indd19.pdf": {
+    "char_recall": [
+     0.5797,
+     0.5794
+    ],
+    "dx_p50": [
+     52.5,
+     53.71
+    ],
+    "pages": 24,
+    "promised": false,
+    "within2pt": [
+     0.0166,
+     0.0168
+    ],
+    "word_recall": [
+     0.3292,
+     0.3282
+    ]
+   },
+   "y62_bill_gpo_linenum.pdf": {
+    "dy_p50": [
+     3.11,
+     0.7
+    ],
+    "pages": 20,
+    "promised": true,
+    "within2pt": [
+     0.0361,
+     0.1205
+    ]
+   },
+   "y63_court_pleading_word365.pdf": {
+    "dy_p50": [
+     4.59,
+     2.64
+    ],
+    "pages": 5,
+    "promised": true,
+    "within2pt": [
+     0.0846,
+     0.285
+    ]
+   },
+   "y64_bls_release_xpp.pdf": {
+    "char_recall": [
+     0.9436,
+     0.9431
+    ],
+    "dx_p50": [
+     12.95,
+     13.07
+    ],
+    "dy_p50": [
+     14.2,
+     14.14
+    ],
+    "pages": 39,
+    "promised": true,
+    "within2pt": [
+     0.0993,
+     0.0984
+    ],
+    "word_recall": [
+     0.9297,
+     0.9291
+    ]
+   },
+   "y65_nrc_jasperreports.pdf": {
+    "dy_p50": [
+     1.81,
+     0.09
+    ],
+    "pages": 3,
+    "promised": true,
+    "within2pt": [
+     0.462,
+     0.538
+    ]
+   }
+  },
+  "summary": {
+   "documents": 90,
+   "mean_within2pt": [
+    0.396,
+    0.4202
+   ],
+   "moved": 58,
+   "page_count_changes": [],
+   "promised_mean_within2pt": [
+    0.5102,
+    0.5398
+   ],
+   "word_recall_changes": {
+    "y12_irs_pub15.pdf": [
+     0.5143,
+     0.5138
+    ],
+    "y60_cdc_mmwr_indd19.pdf": [
+     0.3292,
+     0.3282
+    ],
+    "y64_bls_release_xpp.pdf": [
+     0.9297,
+     0.9291
+    ]
+   }
+  }
+ },
+ "schema": "exactdoc.refine-anchor.v1",
+ "scorecards": {
+  "sc39_after": {
+   "1": "PASS -- 0 error(s) in 365 conversions read; 5/5 unsupported refused with typed exit codes",
+   "10": "PASS -- 90 DOCX, 24 families declared; 0 outside the stock set and the README's 13",
+   "11": "PASS -- both lanes ok",
+   "12": "FAIL by 1 -- 9 evidence file(s) cited, 8 dated; 1 stale or contradicted",
+   "13": "REPORTED -- LO product 45/62 = 72.6%; Word 45/62 = 72.6%; Docs live 36/62 = 58.1%; would FAIL by 42 for GA",
+   "2": "FAIL by 1 -- product: 0 of 90 over (29 timed serially, the rest from a sweep of 4 at a time); raw: 1 of 90 over (0 timed serially, the rest from a sweep of 6 at a time)",
+   "3": "PASS -- 90 rows; compatibility modes 14 x90",
+   "4": "PASS -- LO product 41/41 = 100.0%; Word 41/41 = 100.0%; Docs live 41/41 = 100.0%",
+   "5": "FAIL by 2 -- LO product 18/21 = 85.7%; Word 16/21 = 76.2%; Docs live 16/21 = 76.2%",
+   "6": "PASS -- LO product 62/62 = 100.0%; Word 62/62 = 100.0%; Docs live 62/62 = 100.0%",
+   "7": "REPORTED -- LO product 38/41 = 92.7%; Word 38/41 = 92.7%; Docs live 33/41 = 80.5%; would FAIL by 4 for GA",
+   "8": "FAIL by 2 -- 2 document(s) worse than wp31-prod.rescored3.sweep.json (product flavour)",
+   "9": "REPORTED -- 45/62 = 72.6% pass (LO product sweep); would FAIL by 17 for GA"
+  },
+  "sc39_control": {
+   "1": "PASS -- 0 error(s) in 365 conversions read; 5/5 unsupported refused with typed exit codes",
+   "10": "PASS -- 90 DOCX, 24 families declared; 0 outside the stock set and the README's 13",
+   "11": "PASS -- both lanes ok",
+   "12": "FAIL by 1 -- 9 evidence file(s) cited, 8 dated; 1 stale or contradicted",
+   "13": "REPORTED -- LO product 45/62 = 72.6%; Word 45/62 = 72.6%; Docs live 36/62 = 58.1%; would FAIL by 42 for GA",
+   "2": "FAIL by 1 -- product: 0 of 90 over (29 timed serially, the rest from a sweep of 4 at a time); raw: 1 of 90 over (0 timed serially, the rest from a sweep of 6 at a time)",
+   "3": "PASS -- 90 rows; compatibility modes 14 x90",
+   "4": "PASS -- LO product 41/41 = 100.0%; Word 41/41 = 100.0%; Docs live 41/41 = 100.0%",
+   "5": "FAIL by 2 -- LO product 18/21 = 85.7%; Word 16/21 = 76.2%; Docs live 16/21 = 76.2%",
+   "6": "PASS -- LO product 62/62 = 100.0%; Word 62/62 = 100.0%; Docs live 62/62 = 100.0%",
+   "7": "REPORTED -- LO product 38/41 = 92.7%; Word 38/41 = 92.7%; Docs live 33/41 = 80.5%; would FAIL by 4 for GA",
+   "8": "PASS -- 0 document(s) worse than wp31-prod.rescored3.sweep.json (product flavour)",
+   "9": "REPORTED -- 45/62 = 72.6% pass (LO product sweep); would FAIL by 17 for GA"
+  }
+ },
+ "what": "The product refine loop measures page offsets at the line baseline instead of the line top (exactdoc/refine.py ANCHOR), and a page it pushes down within the render's measured room is not re-planned by the writer's open-loop spill planner (PageLayout.loop_pushed, docxout._absorb_page_spill). Product sweeps over both corpora in the Carlito image (exactdoc-gate:boot-carlito = boot, sha256:bab1cfc0d2cd), all read at the baseline (amendment 3). Trees: A = wp36 + the switch with the top anchor (control; its 90 DOCX are word/*.xml-identical to r4-new-prod's and its rows equal r4-new-prod.rescored3 on every metric); B = A + the baseline anchor; C = B + the pushed-page guard (shipped); D = A + the guard alone.",
+ "word_product_shipped_vs_r4": {
+  "candidate": "C:\\lotmp\\wp39\\word-C\\rows.jsonl",
+  "control": "C:\\lotmp\\r4word\\prod\\rows.rescored3.jsonl",
+  "documents": {
+   "01_whitepaper_market.pdf": {
+    "dy_p50": [
+     0.37,
+     0.12
+    ],
+    "pages": 3,
+    "promised": true,
+    "within2pt": [
+     0.835,
+     0.8114
+    ]
+   },
+   "04_exec_brief.pdf": {
+    "dy_p50": [
+     0.4,
+     0.18
+    ],
+    "pages": 2,
+    "promised": true
+   },
+   "05_memo.pdf": {
+    "dy_p50": [
+     0.96,
+     0.48
+    ],
+    "pages": 1,
+    "promised": true
+   },
+   "l1_word_native.pdf": {
+    "dy_p50": [
+     0.41,
+     0.07
+    ],
+    "pages": 1,
+    "promised": true
+   },
+   "x08_chrome_print_default.pdf": {
+    "dy_p50": [
+     0.55,
+     0.43
+    ],
+    "pages": 2,
+    "promised": true,
+    "within2pt": [
+     0.7421,
+     0.7434
+    ]
+   },
+   "x13_rl_report_running.pdf": {
+    "dy_p50": [
+     0.99,
+     0.59
+    ],
+    "pages": 2,
+    "promised": true
+   },
+   "x14_rl_statement_lines.pdf": {
+    "dy_p50": [
+     0.34,
+     0.06
+    ],
+    "pages": 1,
+    "promised": true
+   },
+   "x15_rl_handbook_toc.pdf": {
+    "dy_p50": [
+     0.18,
+     0.08
+    ],
+    "pages": 3,
+    "promised": true
+   },
+   "x17_resume_twocol.pdf": {
+    "dy_p50": [
+     0.31,
+     0.32
+    ],
+    "pages": 2,
+    "promised": true,
+    "within2pt": [
+     0.3673,
+     0.3819
+    ]
+   },
+   "x18_resume_twocol_tnr.pdf": {
+    "dy_p50": [
+     0.31,
+     0.32
+    ],
+    "pages": 2,
+    "promised": true,
+    "within2pt": [
+     0.3727,
+     0.3879
+    ]
+   },
+   "y01_nist_sp80063b.pdf": {
+    "dy_p50": [
+     1.66,
+     0.26
+    ],
+    "pages": 80,
+    "promised": true,
+    "within2pt": [
+     0.7077,
+     0.7872
+    ]
+   },
+   "y02_nist_sp800171r2.pdf": {
+    "dy_p50": [
+     2.42,
+     2.62
+    ],
+    "pages": 114,
+    "promised": true,
+    "within2pt": [
+     0.323,
+     0.324
+    ]
+   },
+   "y03_nist_fips197.pdf": {
+    "dx_p50": [
+     4.01,
+     4.08
+    ],
+    "dy_p50": [
+     3.14,
+     2.09
+    ],
+    "pages": 46,
+    "promised": true,
+    "within2pt": [
+     0.0545,
+     0.1785
+    ]
+   },
+   "y08_nist_sp80088r1.pdf": {
+    "dx_p50": [
+     2.43,
+     2.42
+    ],
+    "dy_p50": [
+     1.3,
+     0.22
+    ],
+    "pages": 65,
+    "promised": true,
+    "within2pt": [
+     0.4123,
+     0.4122
+    ]
+   },
+   "y09_nist_sp800207.pdf": {
+    "dy_p50": [
+     1.69,
+     0.22
+    ],
+    "pages": 59,
+    "promised": true,
+    "within2pt": [
+     0.819,
+     0.8463
+    ]
+   },
+   "y10_nist_fips180.pdf": {
+    "dx_p50": [
+     0.48,
+     0.61
+    ],
+    "dy_p50": [
+     2.52,
+     0.48
+    ],
+    "pages": 36,
+    "promised": true,
+    "within2pt": [
+     0.1078,
+     0.4138
+    ]
+   },
+   "y12_irs_pub15.pdf": {
+    "char_recall": [
+     0.9423,
+     0.9427
+    ],
+    "dx_p50": [
+     37.85,
+     37.26
+    ],
+    "dy_p50": [
+     34.57,
+     32.13
+    ],
+    "pages": 59,
+    "promised": true,
+    "within2pt": [
+     0.011,
+     0.0268
+    ],
+    "word_recall": [
+     0.8077,
+     0.8083
+    ]
+   },
+   "y17_rfc9110.pdf": {
+    "dx_p50": [
+     48.0,
+     48.08
+    ],
+    "dy_p50": [
+     9.85,
+     9.46
+    ],
+    "pages": 194,
+    "promised": true,
+    "within2pt": [
+     0.0514,
+     0.0602
+    ]
+   },
+   "y18_eurlex_ai_act.pdf": {
+    "dx_p50": [
+     47.88,
+     48.02
+    ],
+    "dy_p50": [
+     22.33,
+     22.25
+    ],
+    "pages": 144,
+    "promised": true,
+    "within2pt": [
+     0.0206,
+     0.0245
+    ]
+   },
+   "y19_scotus_loper.pdf": {
+    "dx_p50": [
+     55.22,
+     55.28
+    ],
+    "dy_p50": [
+     14.93,
+     14.28
+    ],
+    "pages": 114,
+    "promised": true,
+    "within2pt": [
+     0.0246,
+     0.0258
+    ]
+   },
+   "y20_typst_report.pdf": {
+    "dy_p50": [
+     0.49,
+     0.11
+    ],
+    "pages": 5,
+    "promised": true,
+    "within2pt": [
+     0.4544,
+     0.4597
+    ]
+   },
+   "y21_worldbank_wdr24.pdf": {
+    "dy_p50": [
+     28.72,
+     28.69
+    ],
+    "pages": 48,
+    "promised": true
+   },
+   "y22_lshort.pdf": {
+    "dx_p50": [
+     21.8,
+     21.83
+    ],
+    "dy_p50": [
+     13.57,
+     13.61
+    ],
+    "pages": 153,
+    "promised": true
+   },
+   "y24_pandoc_manual.pdf": {
+    "dx_p50": [
+     21.02,
+     21.05
+    ],
+    "dy_p50": [
+     1.44,
+     0.7
+    ],
+    "pages": 180,
+    "promised": true,
+    "within2pt": [
+     0.1703,
+     0.1802
+    ]
+   },
+   "y27_rfc9000.pdf": {
+    "dx_p50": [
+     47.64,
+     47.57
+    ],
+    "dy_p50": [
+     11.84,
+     10.56
+    ],
+    "pages": 151,
+    "promised": true,
+    "within2pt": [
+     0.0386,
+     0.052
+    ]
+   },
+   "y28_doe_oig_word365.pdf": {
+    "dx_p50": [
+     27.17,
+     27.98
+    ],
+    "dy_p50": [
+     2.55,
+     0.28
+    ],
+    "pages": 21,
+    "promised": true,
+    "within2pt": [
+     0.0328,
+     0.2721
+    ]
+   },
+   "y29_uk_letter_word365.pdf": {
+    "dy_p50": [
+     3.48,
+     1.8
+    ],
+    "pages": 4,
+    "promised": true,
+    "within2pt": [
+     0.3396,
+     0.342
+    ]
+   },
+   "y30_nz_guideline_word365.pdf": {
+    "dy_p50": [
+     2.28,
+     0.36
+    ],
+    "pages": 33,
+    "promised": true,
+    "within2pt": [
+     0.2138,
+     0.721
+    ]
+   },
+   "y31_uk_policy_printtopdf.pdf": {
+    "dx_p50": [
+     65.54,
+     65.6
+    ],
+    "dy_p50": [
+     17.83,
+     17.23
+    ],
+    "pages": 18,
+    "promised": true,
+    "within2pt": [
+     0.0271,
+     0.0295
+    ]
+   },
+   "y33_nz_paper_powerpdf.pdf": {
+    "dy_p50": [
+     0.27,
+     0.23
+    ],
+    "pages": 60,
+    "promised": true,
+    "within2pt": [
+     0.7271,
+     0.7409
+    ]
+   },
+   "y35_uk_rates_excel365.pdf": {
+    "dx_p50": [
+     1.83,
+     1.84
+    ],
+    "dy_p50": [
+     1.31,
+     0.18
+    ],
+    "pages": 14,
+    "promised": true,
+    "within2pt": [
+     0.3574,
+     0.3872
+    ]
+   },
+   "y43_arxiv_neurips.pdf": {
+    "dx_p50": [
+     7.17,
+     7.21
+    ],
+    "dy_p50": [
+     8.7,
+     10.6
+    ],
+    "pages": 15,
+    "promised": false,
+    "within2pt": [
+     0.0803,
+     0.1353
+    ]
+   },
+   "y44_cv_rendercv_typst.pdf": {
+    "dy_p50": [
+     3.87,
+     2.55
+    ],
+    "pages": 3,
+    "promised": true,
+    "within2pt": [
+     0.166,
+     0.1923
+    ]
+   },
+   "y45_cv_academic_pdftex.pdf": {
+    "dx_p50": [
+     7.9,
+     8.06
+    ],
+    "dy_p50": [
+     4.8,
+     3.73
+    ],
+    "pages": 3,
+    "promised": true,
+    "within2pt": [
+     0.1157,
+     0.0794
+    ]
+   },
+   "y46_cv_twocol_xdvipdfmx.pdf": {
+    "dy_p50": [
+     2.68,
+     0.43
+    ],
+    "pages": 1,
+    "promised": true,
+    "within2pt": [
+     0.1036,
+     0.2816
+    ]
+   },
+   "y55_th_pages_quartz.pdf": {
+    "dx_p50": [
+     15.43,
+     15.75
+    ],
+    "dy_p50": [
+     15.55,
+     17.26
+    ],
+    "pages": 3,
+    "promised": false,
+    "within2pt": [
+     0.0177,
+     0.1416
+    ]
+   },
+   "y62_bill_gpo_linenum.pdf": {
+    "dx_p50": [
+     17.48,
+     17.56
+    ],
+    "dy_p50": [
+     4.95,
+     2.02
+    ],
+    "pages": 20,
+    "promised": true,
+    "within2pt": [
+     0.0333,
+     0.1052
+    ]
+   },
+   "y63_court_pleading_word365.pdf": {
+    "dy_p50": [
+     4.69,
+     2.76
+    ],
+    "pages": 5,
+    "promised": true,
+    "within2pt": [
+     0.0764,
+     0.2838
+    ]
+   },
+   "y64_bls_release_xpp.pdf": {
+    "dx_p50": [
+     26.74,
+     26.84
+    ],
+    "dy_p50": [
+     14.23,
+     14.09
+    ],
+    "pages": 39,
+    "promised": true,
+    "within2pt": [
+     0.107,
+     0.1091
+    ]
+   },
+   "y65_nrc_jasperreports.pdf": {
+    "dy_p50": [
+     1.91,
+     0.13
+    ],
+    "pages": 3,
+    "promised": true,
+    "within2pt": [
+     0.456,
+     0.538
+    ]
+   }
+  },
+  "summary": {
+   "documents": 40,
+   "mean_within2pt": [
+    0.3113,
+    0.364
+   ],
+   "moved": 40,
+   "page_count_changes": [],
+   "promised_mean_within2pt": [
+    0.3251,
+    0.3759
+   ],
+   "word_recall_changes": {
+    "y12_irs_pub15.pdf": [
+     0.8077,
+     0.8083
+    ]
+   }
+  }
+ },
+ "work_package": "WP39"
+}

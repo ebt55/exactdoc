@@ -21,6 +21,35 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 one verified fix at a time, each gated against the frozen 16.
 
 
+- **The refine loop corrects at the baseline (WP39).** The product profile's
+  loop measured each page's offset at line tops, and a top is the baseline
+  less whatever ascent the PDF's font declares: Word embeds Times New Roman
+  and Arial at 1.040 em where LibreOffice draws Liberation at 0.891 / 0.905,
+  so every corrected page of a Word-produced source landed ~1.7pt above its
+  source baselines (y01 dy_p50 1.74pt where its raw DOCX read 0.34). It now
+  measures at the baseline (`refine.ANCHOR`). That exposed a page the top
+  anchor had survived by chance: on y44 p1 the loop pushed the body down
+  within the room the render measured, and the writer's open-loop spill
+  planner predicted an overflow and took the push back (the page came out
+  34pt high). A page the loop pushed is now the render's to answer
+  (`PageLayout.loop_pushed`; `docxout._absorb_page_spill` leaves it alone).
+  Product, Carlito image, 90 documents, against a top-anchored control that
+  reproduces r4-new-prod exactly: mean within-2pt 0.396 -> 0.420 (promised
+  0.510 -> 0.540), no page count moved, word recall within 0.001 everywhere;
+  y01 0.671 -> 0.794, y30 0.282 -> 0.739, y10 0.096 -> 0.406, y28 0.050 ->
+  0.301, y63 0.085 -> 0.285, y65 0.462 -> 0.538, y44 0.169 -> 0.186. Word, 40
+  documents: no page change, no recall lost; y30 0.214 -> 0.721, y46 0.104 ->
+  0.282, y33 0.727 -> 0.741, y01 0.708 -> 0.787. Lower: 01 0.836 -> 0.813,
+  x17/x18 -0.04, y45 -0.04 (all within tolerance); y43 and y55
+  (not promised) dy_p50 8.79 -> 10.64 and 15.56 -> 17.26 while their
+  within-2pt rises 0.07 -> 0.12 and 0.02 -> 0.08 -- bimodal pages whose
+  median sits on the group the loop cannot align -- which criterion 8
+  against wp31-prod reads as 2 documents worse. Raw and gdocs DOCX are
+  byte-identical. Gate: 1713 tests OK, product PASS (01 within-2pt 0.836
+  -> 0.813; dy_p50 0.4 -> 0.0 on 01 and l1, 0.95 -> 0.55 on 05), raw FAIL on
+  amendment 3's 05_memo finding only
+  (`docs/evidence/refine-anchor-2026-10-10.json`).
+
 - **Placement is measured at the baseline: beta-bar amendment 3, ratified
   by the owner on 2026-10-10 (WP36).** No conversion output changed
   (`exactdoc/` identical to integration; `word/*.xml` byte-identical in the
