@@ -160,6 +160,160 @@ one verified fix at a time, each gated against the frozen 16.
   y18 154 -> 144 pages (0.468 -> 0.986). The 16 gated documents are
   byte-identical in raw. `docs/evidence/pagefit-2026-10-10.json`.
 
+- **Letter-spaced source words read as the word they spell: beta-bar
+  amendment 5, ratified by the owner on 2026-10-10 (WP42).** No conversion
+  output changed. x17_resume_twocol's and x18's headings are tracked (every
+  glyph followed by 0.146-0.202 em) and the text extractor broke them into
+  "S UM M ARY", "E X P E RI E NCE" while the DOCX, Word and Docs say
+  "SUMMARY". `harness.page_words` now joins, on the source and the render
+  alike, a run of word-character tokens whose every glyph gap, inside the
+  tokens and between them, is tracking-sized (0.08-0.25 em) and alike (within
+  0.08 em), with no space the producer drew between them (`_tracked_runs`;
+  `tracked=False` is the reading before). Over the 95 sources it joins x17's
+  and x18's six headings each, y28's "Page" footer and 55 tokens of TeX
+  letter-spacing examples; character recall and live text are untouched.
+  Re-scored (wp39 LibreOffice product sweeps, r4 Docs live, r4 and wp39 Word):
+  x17 word recall 0.953 -> 0.985 in LibreOffice and Word, 0.889 -> 0.979 in
+  Docs, x18 alike; y28 0.993 -> 0.991 in every lane, because the converter
+  writes its tracked footer as "P a g e" with real spaces (a converter
+  defect, now visible); nothing else moves by 0.002, and no gated number
+  moves. Harness reading "wp42" (`harness.HARNESS_READING`, pinned in
+  `tests/test_reading_identity.py`); tests: `tests/test_harness_tracking.py`.
+
+- **The refine loop corrects at the baseline (WP39).** The product profile's
+  loop measured each page's offset at line tops, and a top is the baseline
+  less whatever ascent the PDF's font declares: Word embeds Times New Roman
+  and Arial at 1.040 em where LibreOffice draws Liberation at 0.891 / 0.905,
+  so every corrected page of a Word-produced source landed ~1.7pt above its
+  source baselines (y01 dy_p50 1.74pt where its raw DOCX read 0.34). It now
+  measures at the baseline (`refine.ANCHOR`). That exposed a page the top
+  anchor had survived by chance: on y44 p1 the loop pushed the body down
+  within the room the render measured, and the writer's open-loop spill
+  planner predicted an overflow and took the push back (the page came out
+  34pt high). A page the loop pushed is now the render's to answer
+  (`PageLayout.loop_pushed`; `docxout._absorb_page_spill` leaves it alone).
+  Product, Carlito image, 90 documents, against a top-anchored control that
+  reproduces r4-new-prod exactly: mean within-2pt 0.396 -> 0.420 (promised
+  0.510 -> 0.540), no page count moved, word recall within 0.001 everywhere;
+  y01 0.671 -> 0.794, y30 0.282 -> 0.739, y10 0.096 -> 0.406, y28 0.050 ->
+  0.301, y63 0.085 -> 0.285, y65 0.462 -> 0.538, y44 0.169 -> 0.186. Word, 40
+  documents: no page change, no recall lost; y30 0.214 -> 0.721, y46 0.104 ->
+  0.282, y33 0.727 -> 0.741, y01 0.708 -> 0.787. Lower: 01 0.836 -> 0.813,
+  x17/x18 -0.04, y45 -0.04 (all within tolerance); y43 and y55
+  (not promised) dy_p50 8.79 -> 10.64 and 15.56 -> 17.26 while their
+  within-2pt rises 0.07 -> 0.12 and 0.02 -> 0.08 -- bimodal pages whose
+  median sits on the group the loop cannot align -- which criterion 8
+  against wp31-prod reads as 2 documents worse. Raw and gdocs DOCX are
+  byte-identical. Gate: 1713 tests OK, product PASS (01 within-2pt 0.836
+  -> 0.813; dy_p50 0.4 -> 0.0 on 01 and l1, 0.95 -> 0.55 on 05), raw FAIL on
+  amendment 3's 05_memo finding only
+  (`docs/evidence/refine-anchor-2026-10-10.json`).
+
+- **Placement is measured at the baseline: beta-bar amendment 3, ratified
+  by the owner on 2026-10-10 (WP36).** No conversion output changed
+  (`exactdoc/` identical to integration; `word/*.xml` byte-identical in the
+  raw and gdocs profiles for the 93 of the 95 documents that convert, the
+  other two refused alike). Within-2pt and `dy_p50`/`dy_p90`
+  compared word box tops, and a box top is the glyph origin minus whatever
+  ascent the PDF's font declares: 1.075 em for an unembedded Helvetica,
+  1.040 em for the Times New Roman and Arial Word embeds, 0.905 / 0.891 em
+  for Liberation and for Word's and Docs' Arial / Times New Roman. The
+  harness now anchors every word, on both sides, at its baseline (the glyph
+  origin of its largest characters; `harness.page_words`, with
+  `baseline=False` and `box_top()` giving the old reading), and checked
+  against the glyphs' ink on 12 documents the baseline agrees within 0.11pt
+  where the box top was off by up to 1.74pt. `live_text_cov` reads leaders
+  and symbol-font PUA as the words have since WP29, on the source and the
+  DOCX (y10 0.787 -> 0.932, x02 0.741 -> 0.972 in LibreOffice and Word), and
+  `testkit/rescore.py` re-reads it from the kept DOCX instead of copying it.
+  Re-read from the round-4 renders, nothing converted: the gate's renders
+  mean within-2pt 0.7304 -> 0.8156 product and 0.5466 -> 0.6168 raw (median
+  dy_p50 0.525 -> 0.35pt, 1.245 -> 0.65pt); base-14 sources lose the
+  artefact (f1 0.629 -> 1.000, 02 0.605 -> 0.922; in Docs 04 0.05 -> 0.56, r1
+  0.47 -> 0.94), embedded-font ones do not move (c1, c6), and Word-produced
+  sources whose fonts declare 1.040 em read 1.7pt high in the product DOCX
+  where the box tops had agreed (y01 dy_p50 0.23 -> 1.74pt, y30 within-2pt
+  0.724 -> 0.282; the raw DOCX places y01 at 0.34pt). Criterion 7 unchanged,
+  criterion 8 FAIL by 1 -> PASS (y61's dy_p50 is within tolerance at the
+  baseline), criterion 13 LibreOffice and Word 40 -> 45 of 62. The gate
+  baseline was recorded at box tops and is not re-recorded here: against it
+  the gate reads one finding, raw 05_memo within-2pt 0.1205 -> 0.0602, five
+  words 2-3.5pt above their source baseline that Helvetica's box top had
+  put inside 2pt (`docs/beta-bar.md`, amendment 3;
+  `docs/evidence/scorer-baseline-2026-10-10.json`).
+
+- **Sweeps record the harness reading they were scored in (WP41c).**
+  `testkit/harness.py` names its reading, `HARNESS_READING = "wp29"`, bumped
+  by every amendment that changes how text is read, and `harness.reading()`
+  adds a 12-hex hash of the reading code (the top-level definitions that
+  decide a page's words and the matching, as a syntax tree: comments,
+  docstrings and the Python version do not move it; a test pins it, so a
+  change to the reading code fails until the name is bumped or the pin
+  re-recorded). `quality_sweep.py` writes it as `reading` in every payload;
+  `rescore.py` writes it too and takes `rescored.scorer` and the per-row
+  `scorer` from the harness instead of a typed "wp29"; Word-oracle,
+  `gdsweep.py` and `flypairs.py` rows carry `scorer`. In
+  `beta_readiness.py` criterion 8 reads `reading` (or `rescored.scorer`) on
+  both sides: different -> UNMEASURED, "mixed reading"; missing on a side ->
+  compared with a non-blocking "reading unrecorded" warning instead of
+  silently matching; the same name over different code -> a warning to check
+  the bump. Sweeps from before this change read with the warning until
+  re-scored. No conversion code changed.
+
+- **Amendment 4: a capped dy_p50 rise that comes with more words within 2pt
+  is not a criterion-8 regression (WP41b, owner-delegated decision
+  2026-10-10).** In `testkit/beta_readiness.py` a dy_p50 flag is exempt when,
+  same document, same accepted row, same reading, within2pt rose by more than
+  0.05, within5pt fell by no more than 0.05 and dy_p50 rose by at most
+  max(3pt, 30% of the accepted value) (`dy_exemption`; `c8_dy_*` in `BAR`).
+  Each exempted document is printed with its three deltas and the cap, and
+  the JSON carries them (`exempted`); a row without within5pt gets no
+  exemption; every other metric is judged as before. Two sweeps whose
+  recorded readings (`rescored.scorer`) differ are no longer compared:
+  criterion 8 is UNMEASURED, "mixed reading". A document with a dy_p50
+  waiver is judged by its waiver only. On wp39-A -> wp39-C criterion 8 goes
+  FAIL by 2 -> PASS: y43 (8.79 -> 10.64, within2pt +0.0523, within5pt
+  -0.0014, cap 3pt) and y55 (15.56 -> 17.26, +0.0645, +0.0047, cap 4.67pt)
+  were its only flags. On accepted-wp31-prod.rescored -> wp33-d1-prod
+  nothing is exempted: y21, y37 (within2pt +0.0008) and y61 stay flagged
+  there. Of the
+  historical pairs kept in the run folder, y18 (wp34-g10 -> wp33-a) and y33
+  (wp21-base -> wp34-g10, 0.35 -> 1.89: the real gain the 3pt floor is for)
+  are exempted too. The rule text is in `docs/beta-bar.md`, verbatim, with
+  the decider and the evidence. No conversion code changed.
+
+- **Criterion 8 can carry a bounded, self-retiring exception (WP41).**
+  `testkit/beta_readiness.py` reads `testkit/beta_waivers.json`
+  (`exactdoc.beta-waivers.v1`, committed empty): one metric on one
+  unpromised document, with a ceiling (or a floor), the release, the
+  accepted sweep by file name and SHA-256, the harness reading, who decided
+  and when, the evidence and the conditions -- the shape of the gdocs
+  policy's waivers. Flagged and inside the bound, the flag is lifted and the
+  criterion prints "PASS (1 waived)" with the waiver; past the bound it
+  blocks ("waiver out of bounds"); another accepted sweep, release or
+  reading makes it stale, which blocks; a promised document or an unbounded
+  waiver is refused; a waiver nothing needs is a note, "waiver unused,
+  delete it". Every other metric on the document stays gated, and the JSON
+  carries each verdict. `--waivers`, `--release` (default 0.3.0b1). With the
+  empty file the scorecard reads exactly as before. `docs/beta-bar.md`
+  describes the rule; no threshold changed.
+
+- **`testkit/churn.py`: which source words two renders both place (WP41).**
+  A document's dy_p50 is a median over the words the render matched, and two
+  renders match different sets, so it can move with no word moving. `churn.py
+  SOURCE ACCEPTED CURRENT [--json]` splits the matched source words into
+  common, lost and gained, and reports per set the count, dy_p50, within2pt
+  and the |dy| <= 5pt share; the share of common words whose dy changed by
+  more than 2pt; the share of each set made of tokens occurring 20 times or
+  more in the source; and the SHA-256 of the three PDFs. `--require
+  PATH>=X|PATH<=X` and `--check-y37` turn figures into an exit code. The
+  reviewer's diagnostic of 2026-10-10, moved into the repo. Its matching is
+  the harness's own: `harness.match_pairs` returns the (page, source, render)
+  indices `match_words` counts, and `match_words` is now built on it with its
+  return value unchanged -- re-scored before and after on WP33's renders of
+  y37, c2 and y61, both readings, `word_metrics` is identical and reproduces
+  the sweep rows. No conversion code changed.
+
 - **Short documents in Google Docs: hanging tables and letter-spaced text
   (WP35c).** Two gdocs-only rules, read off Google's exports of the 71558af
   sweep. (1) Word hangs a table's border left of its text column by the

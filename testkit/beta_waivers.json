@@ -1,0 +1,5 @@
+{
+ "schema": "exactdoc.beta-waivers.v1",
+ "about": "Criterion-8 exceptions, read by testkit/beta_readiness.py. One metric on one unpromised document, bounded, tied to the accepted sweep (by file name and SHA-256), the harness reading and the release it was decided for; each one an owner decision recorded in docs/beta-bar.md ('Exceptions') in the same commit. Out of bounds, or stale (another release, accepted sweep or reading), it blocks; once nothing needs it, it is reported as unused and deleted.",
+ "regression": {}
+}

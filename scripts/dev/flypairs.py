@@ -31,7 +31,8 @@ for stem in stems:
         if not os.path.exists(pdf):
             go.roundtrip(svc, docx, pdf)
         res = harness.evaluate(src, docx, work, save_images=False, rendered_pdf=pdf)
-        row = {"doc": stem, "v": v, **{k: res.get(k) for k in KEYS}}
+        row = {"doc": stem, "v": v, **{k: res.get(k) for k in KEYS},
+               "scorer": harness.HARNESS_READING}
         row["char_recall"] = qs.char_recall(src, pdf)[0]
         rows.append(row); print(json.dumps(row), flush=True)
 with open(os.path.join(OUT, "rows.json"), "w", newline="\n") as f:

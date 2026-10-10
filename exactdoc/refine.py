@@ -120,26 +120,33 @@ def _set_gap(el, v):
         el.space_before = max(0.0, v)
 
 
-# Which vertical anchor the offset is measured from. Both are available from
-# `Backend.page_lines`; this is a measured choice, and the measurement contradicts
-# the physics.
+# Which vertical anchor the offset is measured from: the line's BASELINE. Both
+# are available from `Backend.page_lines`.
 #
-# A baseline is the physically correct anchor -- it is a number in the content
-# stream, so it cancels cleanly when a source y is subtracted from a rendered y
-# over two documents set in different fonts, where a line-box TOP carries a
-# per-font metric convention that does not. The writer's own vertical model is
-# baseline-anchored (THEORY 3.1). And measured on the canonical corpus, switching
-# to it took the incumbent's mean within-2pt from **0.511 to 0.478**.
+# A baseline is a number in the content stream, so it cancels cleanly when a
+# source y is subtracted from a rendered y over two documents set in different
+# fonts, where a line-box TOP carries a per-font metric convention that does
+# not: the top is the baseline less whatever ascent the PDF's copy of the font
+# declares. Word embeds Times New Roman and Arial declaring a box top 1.040 em
+# above the baseline, and LibreOffice draws them as Liberation at 0.891 / 0.905
+# em (PyMuPDF on y01_nist_sp80063b and y29_uk_letter_word365, both sides;
+# beta-bar amendment 3). Aligning tops therefore set every corrected line of
+# such a document ~0.15 em -- 1.7pt at 11pt -- above its source baseline: on
+# the round-4 product renders y01 read dy_p50 1.74pt at the baseline where its
+# raw (uncorrected) DOCX read 0.34pt, y30's within-2pt 0.282 against raw's
+# 0.654, and the glyphs' ink agreed with the baseline to 0.05pt.
 #
-# The reason is the same one that reverted the line-box escalation in STATUS D2:
-# `_apply` below feeds the offset into the `space_before` chain, and that chain is
-# calibrated against a box-top origin. Moving the anchor alone desynchronises the
-# correction from the thing it corrects -- it fixed 04_exec_brief (0.22 -> 0.44)
-# and broke 05_memo (0.64 -> 0.48) and r1_reportlab_report (0.60 -> 0.32). Origin,
-# `_para_box` and the spacing chain have to move together, which is a project and
-# not a patch.
+# This was ANCHOR_TOP until 2026-10-10. The baseline was tried before and
+# reverted on mean within-2pt 0.511 -> 0.478 (05_memo 0.64 -> 0.48,
+# r1_reportlab_report 0.60 -> 0.32), but that within-2pt was itself read at
+# box tops, which charge a base-14 source's words ~1.7pt for the same ascent
+# convention. Read at the baseline (testkit/harness.py, amendment 3), in the
+# Carlito image against a top-anchored control: mean within-2pt 0.396 -> 0.420
+# over 90 documents with no page count moved, y01 0.671 -> 0.794, y30
+# 0.282 -> 0.739, and in Word y30 0.214 -> 0.721
+# (docs/evidence/refine-anchor-2026-10-10.json).
 ANCHOR_TOP, ANCHOR_BASELINE = 1, 2
-ANCHOR = ANCHOR_TOP
+ANCHOR = ANCHOR_BASELINE
 
 
 def _pages_text(pdf_path, backend, anchor=ANCHOR):
@@ -617,6 +624,10 @@ def _apply(lay: DocLayout, m, state=None) -> bool:
                     push = min(push, max(0.0, rm - FIT_SAFETY_PT))
                 if push > OFFSET_DEADBAND:
                     _set_gap(els[0], _gap_of(els[0]) + push)
+                    # the render's room bounds the push, so the writer's
+                    # open-loop spill planner must not take it back
+                    # (docxout._absorb_page_spill)
+                    pl.loop_pushed = True
                     changed = True
             else:
                 # Content sits too low, so `off` points must be *removed*. The
