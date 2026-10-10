@@ -798,5 +798,124 @@
   "forgiven_gaps": "5915 over both corpora; last-ink size ratio >= 2.5: y12 p1 (3.1x), y59 p2 x3 (4.1x), y57 x7 (OCR); next 2.4x (y57), 2.17x (y12 p32, gutter-cut), 2.14x (y59 p5)",
   "absorptions_12plus_glyphs": "194 measurable; set against host <= 0.91em (y13 bullets); set apart >= 1.25em: y12 p1, y59 page-picture text, y38 labels, y19 rules, y06 x2, y60 URL, y57 OCR",
   "ir_blast_radius": "normalized IR differs on 22 documents (no gated fixture): y06 30+ pages, y12 34, y13 11, others 1-6"
+ },
+ "google_docs_live_2026_10_10": {
+  "how": "coordinator's flight of C:\\lotmp\\scr\\WP40\\gdocs_probe (scripts/dev/flypairs.py); base = the probe base (WP40's three files at 5f158b7 on 7333618)",
+  "rows": {
+   "y02_nist_sp800171r2": {
+    "before": {
+     "src_pages": 114,
+     "out_pages": 114,
+     "word_recall": 0.9656,
+     "within2pt": 0.1457,
+     "dy_p50": 8.58,
+     "char_recall": 0.9626
+    },
+    "after": {
+     "src_pages": 114,
+     "out_pages": 114,
+     "word_recall": 0.9656,
+     "within2pt": 0.1451,
+     "dy_p50": 8.66,
+     "char_recall": 0.9627
+    }
+   },
+   "y12_irs_pub15": {
+    "before": {
+     "src_pages": 59,
+     "out_pages": 64,
+     "word_recall": 0.424,
+     "within2pt": 0.0015,
+     "dy_p50": 51.9,
+     "char_recall": 0.8272
+    },
+    "after": {
+     "src_pages": 59,
+     "out_pages": 61,
+     "word_recall": 0.807,
+     "within2pt": 0.0072,
+     "dy_p50": 54.03,
+     "char_recall": 0.9402
+    }
+   },
+   "y13_irs_pub501": {
+    "before": {
+     "src_pages": 31,
+     "out_pages": 56,
+     "word_recall": 0.2619,
+     "within2pt": 0.0014,
+     "dy_p50": 34.95,
+     "char_recall": 0.5183
+    },
+    "after": {
+     "src_pages": 31,
+     "out_pages": 57,
+     "word_recall": 0.2621,
+     "within2pt": 0.0013,
+     "dy_p50": 34.98,
+     "char_recall": 0.5189
+    }
+   },
+   "y21_worldbank_wdr24": {
+    "before": {
+     "src_pages": 48,
+     "out_pages": 52,
+     "word_recall": 0.5359,
+     "within2pt": 0.0036,
+     "dy_p50": 64.39,
+     "char_recall": 0.6724
+    },
+    "after": {
+     "src_pages": 48,
+     "out_pages": 52,
+     "word_recall": 0.5359,
+     "within2pt": 0.0036,
+     "dy_p50": 64.39,
+     "char_recall": 0.6724
+    }
+   },
+   "y28_doe_oig_word365": {
+    "before": {
+     "src_pages": 21,
+     "out_pages": 21,
+     "word_recall": 0.9902,
+     "within2pt": 0.252,
+     "dy_p50": 0.83,
+     "char_recall": 0.9956
+    },
+    "after": {
+     "src_pages": 21,
+     "out_pages": 21,
+     "word_recall": 0.9902,
+     "within2pt": 0.2894,
+     "dy_p50": 0.82,
+     "char_recall": 0.9956
+    }
+   },
+   "y60_cdc_mmwr_indd19": {
+    "before": {
+     "src_pages": 24,
+     "out_pages": 34,
+     "word_recall": 0.2928,
+     "within2pt": 0.0134,
+     "dy_p50": 44.61,
+     "char_recall": 0.5631
+    },
+    "after": {
+     "src_pages": 24,
+     "out_pages": 31,
+     "word_recall": 0.3011,
+     "within2pt": 0.0132,
+     "dy_p50": 59.01,
+     "char_recall": 0.5687
+    }
+   }
+  },
+  "notes": [
+   "y12 64 -> 61 pages (criterion 6 clear), word recall 0.424 -> 0.807",
+   "y13 56 -> 57 pages at the same word recall (not promised): the one loss",
+   "y60 34 -> 31 pages, dy_p50 44.6 -> 59.0 (not promised); y02, y21 unchanged; y28 within2pt 0.252 -> 0.289",
+   "y12 p1 photograph: Docs draws it at the same place in base and WP40 (top of the right half, beside the title), not inside its frame; the frame rule neither causes nor cures that"
+  ]
  }
 }

@@ -16,7 +16,8 @@ WP25. Measured with a source-to-render page map on the LibreOffice raw lane:
 import unittest
 
 from exactdoc.infer import _position_chunks
-from exactdoc.layout import Chunk, DocLayout, Para, RuleEl, Run, TableEl
+from exactdoc.layout import (Chunk, DocLayout, FigureEl, Para, RuleEl, Run,
+                             TableEl)
 from exactdoc.parse_pdfium import _Char, _build_lines
 
 
@@ -122,6 +123,81 @@ class ARuleInsideTheStackedSpan(unittest.TestCase):
         _position_chunks(chunks, DocLayout(), page_top=50.0)
         # 280 - 274: the gap under the table, not 280 - 80
         self.assertAlmostEqual(note.space_before, 6.0, places=1)
+
+    def _after(self, first, rule_box, text_top):
+        rule = RuleEl(width_pct=90.0, thickness=0.8, color="#cccccc",
+                      length=463.0)
+        rule._bbox = rule_box
+        text = Para(runs=[Run(text="Accept = [ ( media-range", font="Courier",
+                              size=9.5, color="#222222")],
+                    bbox=(75.0, text_top, 500.0, text_top + 10.0))
+        _position_chunks([Chunk(n_cols=1, elements=[first, rule, text])],
+                         DocLayout(), page_top=50.0)
+        return text
+
+    def test_a_picture_does_not_hold_the_cursor(self):
+        # y17 p174: a code panel (y 142-696) set behind its text in the
+        # gdocs profile, then the rule along its top edge, then the first
+        # code line at 150.9. The picture is not known to take its box in
+        # the flow, so the rule moves the cursor as it always did.
+        panel = FigureEl(page_no=174, clip=(65.9, 141.6, 529.4, 695.6),
+                         width=463.5, height=554.0)
+        text = self._after(panel, (65.9, 141.6, 529.4, 142.4), 150.9)
+        self.assertAlmostEqual(text.space_before, 8.5, places=1)
+
+    def test_a_paragraph_does_not_hold_the_cursor(self):
+        # a rule drawn under a paragraph's lines, above its box's foot
+        para = Para(runs=[Run(text="intro", font="Arial", size=10.0,
+                              color="#000000")], bbox=(75.0, 100.0, 500.0, 130.0))
+        text = self._after(para, (75.0, 120.0, 500.0, 120.8), 140.0)
+        self.assertAlmostEqual(text.space_before, 19.2, places=1)
+
+    def test_a_table_inside_the_table_is_not_held(self):
+        # y59's shape: a second table set inside the first one's span is
+        # stacked after it with its own height; the cursor follows it as
+        # it did before WP25
+        outer = TableEl(bbox=(36.0, 67.0, 575.0, 274.0))
+        inner = TableEl(bbox=(300.0, 100.0, 575.0, 200.0))
+        text = Para(runs=[Run(text="after", font="Arial", size=10.0,
+                              color="#000000")], bbox=(36.0, 280.0, 300.0, 290.0))
+        _position_chunks([Chunk(n_cols=1, elements=[outer, inner, text])],
+                         DocLayout(), page_top=50.0)
+        self.assertAlmostEqual(text.space_before, 80.0, places=1)
+
+    def test_rules_inside_a_figure_just_stacked_are_held(self):
+        # y21 p39: a figure (y 319-505) with three rules inside its span
+        # (y 338, 386, 480), then a caption line at 502.8. Released, the
+        # rules took 47.9 and 93.4pt of space before and the caption 23.8:
+        # the figure's height counted twice.
+        fig = FigureEl(page_no=39, clip=(65.25, 319.5, 510.25, 505.4),
+                       width=445.0, height=185.9)
+        rules = []
+        for y in (338.6, 386.5, 479.9):
+            r = RuleEl(width_pct=44.0, thickness=0.5, color="#000000",
+                       length=195.0)
+            r._bbox = (206.25, y, 401.25, y)
+            rules.append(r)
+        cap = Para(runs=[Run(text="broadening domestically.", font="Arial",
+                             size=8.0, color="#000000")],
+                   bbox=(130.25, 502.8, 463.6, 513.4))
+        _position_chunks([Chunk(n_cols=1, elements=[fig] + rules + [cap])],
+                         DocLayout(), page_top=50.0)
+        self.assertEqual([r.space_before for r in rules], [0.0, 0.0, 0.0])
+        self.assertLess(cap.space_before, 1.0)
+
+    def test_a_rule_wider_than_the_figure_is_not_held(self):
+        # gdocs y17 p174: the code panel's side bar stays in the flow as a
+        # narrow figure; the panel's full-width top rule releases the cursor
+        bar = FigureEl(page_no=174, clip=(526.6, 140.4, 531.4, 697.6),
+                       width=4.8, height=557.2)
+        text = self._after(bar, (65.9, 141.6, 529.4, 142.4), 150.9)
+        self.assertAlmostEqual(text.space_before, 8.5, places=1)
+
+    def test_only_a_rule_inside_the_table_is_held(self):
+        # a rule that starts above the table just stacked is not inside it
+        table = TableEl(bbox=(36.0, 67.0, 575.0, 274.0))
+        text = self._after(table, (36.0, 60.0, 575.0, 60.8), 280.0)
+        self.assertAlmostEqual(text.space_before, 219.2, places=1)
 
 
 if __name__ == "__main__":
