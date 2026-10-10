@@ -10603,9 +10603,9 @@ def _position_chunks(chunks: List[Chunk], lay: DocLayout,
                 held = None
             else:
                 el.space_before = max(0.0, round(bb[1] - cursor, 1))
-                # A rule or picture that ends above the cursor inside the
-                # table just stacked lies in the span that table already
-                # took -- BLS's column-group rule under "Seasonally
+                # A rule that ends above the cursor inside the table just
+                # stacked lies in the span that table already took -- BLS's
+                # column-group rule under "Seasonally
                 # adjusted" (y 80) flowed after its table (y 67-274) -- and
                 # does not move the cursor back up: the note under the
                 # table took 200pt of space before from it and left its
@@ -10617,8 +10617,14 @@ def _position_chunks(chunks: List[Chunk], lay: DocLayout,
                 # line lost its 9.7pt of space before. A paragraph's box is
                 # its lines, not a span the flow has taken: held behind
                 # three rules drawn under y37's lines, the cursor moved its
-                # later pages (criterion 8: dy_p50 27.4 -> 31.0).
-                if held is None or bb[1] < held[1] or bb[3] > cursor:
+                # later pages (criterion 8: dy_p50 27.4 -> 31.0). And only a
+                # rule: a table or picture set inside the table's span is
+                # stacked after it in the flow with its own height --
+                # y59's InDesign panels (23 tables and 4 pictures inside a
+                # table just stacked) held there put Word at 25 pages for
+                # 6 against 23.
+                if held is None or not isinstance(el, RuleEl) or \
+                        bb[1] < held[1] or bb[3] > cursor:
                     cursor = bb[3]
                     held = bb if isinstance(el, TableEl) else None
             maxy = max(maxy, cursor)

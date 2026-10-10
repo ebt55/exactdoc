@@ -82,12 +82,13 @@ one verified fix at a time, each gated against the frozen 16.
   between two glyphs of one monospace face: y17 p39's ABNF aligns "=" in a
   column whose gaps sit off the cell grid, and cut there three rules lost
   their alignment spaces. *Spacing cursor* (`infer._position_chunks`, WP33n):
-  an element that starts inside the table just stacked and ends above the
+  a rule that starts inside the table just stacked and ends above the
   cursor no longer moves it back up (BLS's column-group rule flowed after its
   table; the note under it took 200-312pt of space before). After a
   paragraph or a picture it moves as before: held there too (WP25's form),
   it moved y37's later pages (criterion 8, dy_p50 27.4 -> 31.0) and a y17
-  code line 9.7pt in Google Docs. *Heads must clear the body* (`detect_hf`,
+  code line 9.7pt in Google Docs; held by y59's tables inside a table, it
+  put Word at 25 pages for 6 (23 before). *Heads must clear the body* (`detect_hf`,
   `_furniture_clearance`, `GEO_CLEAR_LINES` = 1.2 lines of the head's own
   size): the geometry pass consumed y64's "HOUSEHOLD DATA / Table A-n" titles
   (one line at one place and size on 31 of 38 later pages, 1.4pt above the
@@ -112,11 +113,10 @@ one verified fix at a time, each gated against the frozen 16.
   0.808 -> 0.626) -- the split is right, but it turns their 2-col pages into
   single-grid pages that `_merge_grid_page_runs` flows across seams (y21
   p13-17 and p25-42; y12 p26-44), left to WP38's seam rule; y61 dy_p50
-  39.6 -> 43.6 (one merged 3-col flow); y59 in Word 23 -> 25 pages for 6
-  (its cursor holds are all inside tables); raw
+  39.6 -> 43.6 (one merged 3-col flow); raw
   dy_p50 on y21/y61/y64 over a larger matched population (y64's words
   matched in both: 12.51 -> 12.35). Gate PASS in both lanes (1706 tests),
-  the gated 16 byte-identical; wp33n gate 1709 tests, same lane numbers
+  the gated 16 byte-identical; wp33n gate 1710 tests, same lane numbers
   (`docs/evidence/wp33-columns-2026-10-10.json`,
   `docs/evidence/wp33n-cursor-2026-10-10.json`).
 

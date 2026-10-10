@@ -152,6 +152,18 @@ class ARuleInsideTheStackedSpan(unittest.TestCase):
         text = self._after(para, (75.0, 120.0, 500.0, 120.8), 140.0)
         self.assertAlmostEqual(text.space_before, 19.2, places=1)
 
+    def test_a_table_inside_the_table_is_not_held(self):
+        # y59's shape: a second table set inside the first one's span is
+        # stacked after it with its own height; the cursor follows it as
+        # it did before WP25
+        outer = TableEl(bbox=(36.0, 67.0, 575.0, 274.0))
+        inner = TableEl(bbox=(300.0, 100.0, 575.0, 200.0))
+        text = Para(runs=[Run(text="after", font="Arial", size=10.0,
+                              color="#000000")], bbox=(36.0, 280.0, 300.0, 290.0))
+        _position_chunks([Chunk(n_cols=1, elements=[outer, inner, text])],
+                         DocLayout(), page_top=50.0)
+        self.assertAlmostEqual(text.space_before, 80.0, places=1)
+
     def test_only_a_rule_inside_the_table_is_held(self):
         # a rule that starts above the table just stacked is not inside it
         table = TableEl(bbox=(36.0, 67.0, 575.0, 274.0))
