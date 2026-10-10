@@ -1,5 +1,22 @@
 {
  "schema": "exactdoc.beta-waivers.v1",
  "about": "Criterion-8 exceptions, read by testkit/beta_readiness.py. One metric on one unpromised document, bounded, tied to the accepted sweep (by file name and SHA-256), the harness reading and the release it was decided for; each one an owner decision recorded in docs/beta-bar.md ('Exceptions') in the same commit. Out of bounds, or stale (another release, accepted sweep or reading), it blocks; once nothing needs it, it is reported as unused and deleted.",
- "regression": {}
+ "regression": {
+  "y37_plos_one_dvipdfmx.pdf": {
+   "dy_p50": {
+    "ceiling": 32.0,
+    "release": "0.3.0b1",
+    "accepted_sweep": {
+     "name": "accepted-wp31-prod.rescored.sweep.json",
+     "sha256": "f53a741e462bf9c1fb661fc50e35abd06e472da0c0c54555f1801782846096de"
+    },
+    "reading": "wp29",
+    "measured": {"accepted": 27.38, "current": 30.96, "sweep": "wp33-d1-prod.sweep.json"},
+    "decided_by": "the owner, by delegation to an independent decider (Fable 5.1) for this one question",
+    "decided_on": "2026-10-10",
+    "evidence": "docs/beta-bar.md#exceptions-for-030b1; docs/evidence/churn-y37-2026-10-10.json (testkit/churn.py)",
+    "conditions": "a. like for like: the final product sweep against this accepted sweep in the same (wp29) reading; under another reading, rescore first, and record nothing if y37 then clears tolerance. b. y37 dy_p50 only, against this accepted sweep, for 0.3.0b1; every other y37 metric gated at full tolerance; no other document. c. ceiling 32.0pt; above it, blocking and a new decision. d. on the final renders: word_recall >= 0.347, common-word dy_p50 <= 23.5pt, within2pt not worse beyond gate tolerance (testkit/churn.py --check-y37). e. recorded in docs/beta-bar.md in the same commit. f. dies with this accepted sweep; not carried to 0.3.0b2 or GA. g. void if c or d is missed, y37 becomes promised, or a second document needs the same exception before the tag."
+   }
+  }
+ }
 }

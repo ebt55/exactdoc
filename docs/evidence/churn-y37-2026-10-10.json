@@ -1,0 +1,103 @@
+{
+ "accepted_sweep": {
+  "name": "accepted-wp31-prod.rescored.sweep.json",
+  "reading": "wp29",
+  "renders": "C:\\lotmp\\scr\\runs\\wp31-prod.docx\\product",
+  "sha256": "f53a741e462bf9c1fb661fc50e35abd06e472da0c0c54555f1801782846096de"
+ },
+ "churn": {
+  "checks": [
+   {
+    "ok": true,
+    "require": "word_recall.current >= 0.347",
+    "value": 0.3917,
+    "why": "DECISION d: word_recall >= 0.347"
+   },
+   {
+    "ok": true,
+    "require": "dy_p50.common_current <= 23.5",
+    "value": 21.36,
+    "why": "DECISION d: common-word dy_p50 <= 23.5pt (accepted common 21.34)"
+   },
+   {
+    "ok": true,
+    "require": "within2pt.drop <= 0.05",
+    "value": -0.0008,
+    "why": "DECISION d: within2pt not below the accepted render's by more than gate.py's tolerance (0.05)"
+   }
+  ],
+  "document": "y37_plos_one_dvipdfmx.pdf",
+  "dy_le5_share": {
+   "accepted": 0.1705,
+   "common_accepted": 0.2137,
+   "common_current": 0.1897,
+   "current": 0.1422,
+   "gained": 0.0824,
+   "lost": 0.0835
+  },
+  "dy_p50": {
+   "accepted": 27.38,
+   "common_accepted": 21.34,
+   "common_current": 21.36,
+   "current": 30.96,
+   "gained": 51.41,
+   "lost": 55.5
+  },
+  "frequent_tokens": {
+   "common": 0.8236,
+   "gained": 0.6433,
+   "lost": 0.7967,
+   "min_count": 20
+  },
+  "matched": {
+   "accepted": 3496,
+   "common": 2335,
+   "current": 4191,
+   "gained": 1856,
+   "lost": 1161
+  },
+  "moved_gt2pt": {
+   "n": 1349,
+   "share": 0.5777
+  },
+  "pdfs": {
+   "accepted": {
+    "path": "C:\\lotmp\\scr\\runs\\wp31-prod.docx\\product\\y37_plos_one_dvipdfmx\\y37_plos_one_dvipdfmx.pdf",
+    "sha256": "17e58b3eaca879e7880fe70f369a70b4ef2829b2e8aede65d10558a7f869993b"
+   },
+   "current": {
+    "path": "C:\\lotmp\\scr\\runs\\wp33-d1-prod.docx\\product\\y37_plos_one_dvipdfmx\\y37_plos_one_dvipdfmx.pdf",
+    "sha256": "496ee4616264700a193094830f5de7f81f753098242392eff32d8736b3f943b3"
+   },
+   "source": {
+    "path": "testkit/fixtures_expansion/y37_plos_one_dvipdfmx.pdf",
+    "sha256": "31b2894a30f71cbb3046f401c05a14a75603410d6bd808d4f308b37a0b35c77d"
+   }
+  },
+  "schema": "exactdoc.churn.v1",
+  "src_words": 10699,
+  "within2pt": {
+   "accepted": 0.0009,
+   "common_accepted": 0.0013,
+   "common_current": 0.0017,
+   "current": 0.0017,
+   "drop": -0.0008,
+   "gained": 0.0016,
+   "lost": 0.0
+  },
+  "word_recall": {
+   "accepted": 0.3268,
+   "current": 0.3917
+  }
+ },
+ "command": "python testkit/churn.py testkit/fixtures_expansion/y37_plos_one_dvipdfmx.pdf C:\\lotmp\\scr\\runs\\wp31-prod.docx\\product\\y37_plos_one_dvipdfmx\\y37_plos_one_dvipdfmx.pdf C:\\lotmp\\scr\\runs\\wp33-d1-prod.docx\\product\\y37_plos_one_dvipdfmx\\y37_plos_one_dvipdfmx.pdf --check-y37",
+ "current_sweep": {
+  "name": "wp33-d1-prod.sweep.json",
+  "renders": "C:\\lotmp\\scr\\runs\\wp33-d1-prod.docx\\product",
+  "sha256": "8824480596eaf542954c8a598831389eb398df5ebbbaec3b4323390dd596f10d"
+ },
+ "decision": "owner-delegated decision 2026-10-10 on y37 criterion 8 (docs/beta-bar.md, 'Exceptions for 0.3.0b1'); condition d is the checks below",
+ "label": "measured on WP33's sweep; re-measured on the final renders before the tag",
+ "note": "The common set's dy<=5pt share fell 0.214 -> 0.190 (0.2137 -> 0.1897): no evidence of a real loss, not a gain.",
+ "schema": "exactdoc.evidence.churn-y37.v1"
+}
