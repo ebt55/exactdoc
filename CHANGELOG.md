@@ -36,9 +36,13 @@ one verified fix at a time, each gated against the frozen 16.
   moved c1 and the RFCs. Effect on y22: raw 173 -> 155 pages (word recall
   0.32 -> 0.95); LibreOffice product 157 -> 154 (0.75 -> 0.95); Word product
   157 -> 154 (0.75 -> 0.94). Criterion 5 now passes in LibreOffice and Word.
-  word/*.xml is byte-identical on every other supported document in raw and
-  gdocs. Gate PASS. Docs probe set:
-  `docs/evidence/wp46-y22-examples-2026-10-11.json`.
+  word/*.xml is byte-identical on every other supported document in raw.
+  Gate PASS. Evidence: `docs/evidence/wp46-y22-examples-2026-10-11.json`.
+  All three readings are standard-profile only. Flown live in Docs, they
+  took y22 from 169 to 178 pages, because Docs drops the letter-spacing that
+  keeps each source line inside its cell, so every line wraps.
+  `infer(examples=False)` under gdocs, and gdocs word/*.xml is identical to
+  64a6c47 on all 95 fixtures.
 
 - **A rule inside a figure just stacked holds the spacing cursor, as one
   inside a table does (land1b).** WP33n's narrower hold (tables only)
