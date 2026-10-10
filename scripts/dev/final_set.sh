@@ -25,6 +25,8 @@
 #   --docs-rows PATH    the live Docs rows (default <runs>/<name>.gdocs/rows.jsonl)
 #   --no-docs           let (g) run without a finished Docs lane (testing only)
 #   --keep-going        continue after a failed gate (it is still reported)
+#   --allow-busy        start (a)-(e) beside other containers (testing only; printed;
+#                       the quiet wait in (f) is never waived)
 #   --release V         default 0.3.0b1
 #   --frac F            (f) time documents whose sweep time is >= F of their limit
 #                       (default 0.4; sweeps run 1.4-2.3x a lone conversion, WP20b)
@@ -37,7 +39,7 @@ export MSYS_NO_PATHCONV=1
 set -u
 
 DRY=0; ONLY=""; STEPS="a,b,c,d,e,f,g"; ACCEPTED=""; DOCS_ROWS=""; NO_DOCS=0
-KEEP_GOING=0; RELEASE="0.3.0b1"; FRAC="0.4"
+KEEP_GOING=0; RELEASE="0.3.0b1"; FRAC="0.4"; ALLOW_BUSY=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) DRY=1; shift;;
@@ -47,6 +49,7 @@ while [ $# -gt 0 ]; do
     --docs-rows) DOCS_ROWS="$2"; shift 2;;
     --no-docs) NO_DOCS=1; shift;;
     --keep-going) KEEP_GOING=1; shift;;
+    --allow-busy) ALLOW_BUSY=1; shift;;
     --release) RELEASE="$2"; shift 2;;
     --frac) FRAC="$2"; shift 2;;
     -h|--help) sed -n '2,40p' "$0"; exit 0;;
@@ -73,7 +76,14 @@ done_mark() { [ -f "$STATE/$1.done" ]; }
 mark() { [ "$DRY" = 1 ] || echo "$2" > "$STATE/$1.done"; }
 # run CMD...: print it; execute unless --dry-run
 run() {
-  echo "+ $*" | tee -a "$LOG"
+  if [ "$1" = hostpy ]; then
+    { printf '+ (cd %q && PYTHONPATH=%q %q' "$TREE" "$TREE" "$PY"; shift; printf ' %q' "$@"; printf ')
+'; } | tee -a "$LOG"
+    [ "$DRY" = 1 ] && return 0
+    hostpy "$@"; return $?
+  fi
+  { printf '+'; printf ' %q' "$@"; printf '
+'; } | tee -a "$LOG"
   [ "$DRY" = 1 ] && return 0
   "$@"
 }
@@ -104,7 +114,8 @@ fi
 if [ -n "$OTHERS" ]; then
   say "(a) REFUSED: containers that are not this run's are running:"
   echo "$OTHERS" | sed 's/^/      /' | tee -a "$LOG"
-  [ "$DRY" = 1 ] || exit 12
+  if [ "$ALLOW_BUSY" = 1 ]; then say "(a) ALLOWED BY FLAG (--allow-busy): not a final measurement"
+  else [ "$DRY" = 1 ] || exit 12; fi
 fi
 if [ -f "$STATE/commit" ] && [ "$(cat "$STATE/commit")" != "$COMMIT" ] && [ "$DRY" = 0 ]; then
   say "(a) REFUSED: $STATE was started on $(cat "$STATE/commit"), the tree is now $COMMIT;"
@@ -257,7 +268,8 @@ if want f; then
         say "(f) $prof $doc timed (CPU before ${before_cpu}% after ${after_cpu}%)"
       done
       parts="$(ls "$TDIR"/$prof-*.json 2>/dev/null | grep -v '\.load\.json$')"
-      if [ -n "$parts" ]; then
+      if [ -n "$parts" ] || [ "$DRY" = 1 ]; then
+        [ -n "$parts" ] || parts="$TDIR/$prof-<document>.json"
         run hostpy "$HERE/final_set_helpers.py" merge $prof "$RUNS/$NAME-$prof-serial.timing.json" $parts \
             --quiet-rule "no other container and host CPU < 20% for 60 s before each document"
       elif [ "$DRY" = 0 ]; then
@@ -298,7 +310,7 @@ if want g; then
     say "(g) beta_readiness exit $? ($(grep -E '^verdict' "$TMPT" | head -1))"
   fi
   run hostpy "$HERE/final_set_helpers.py" wrap "$OUTJ" --readiness "$TMPJ" --text "$TMPT" \
-      --accepted "$ACCEPTED" --run "$NAME" --commit "$COMMIT" --release "$RELEASE" \
+      --accepted "$ACCEPTED" --run "$NAME$( [ "$ALLOW_BUSY" = 1 ] && echo " (--allow-busy: not a final measurement)")" --commit "$COMMIT" --release "$RELEASE" \
       --input "raw=$RUNS/$NAME-raw.sweep.json" --input "product=$RUNS/$NAME-prod.sweep.json" \
       --input "gdocs=$GDROWS" --input "word_product=$RUNS/$NAME-word-prod/rows.jsonl" \
       --input "word_raw=$RUNS/$NAME-word-raw/rows.jsonl" --input "gate=$RUNS/$NAME-gate.log" \
