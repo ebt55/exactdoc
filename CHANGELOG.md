@@ -21,6 +21,13 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 one verified fix at a time, each gated against the frozen 16.
 
 
+- **Criterion 11 needs a gate bound to its baseline (WP43).** A lane verdict
+  whose `baseline_binding` mode is not "bound" -- one that passed only under
+  `EXACTDOC_GATE_ALLOW_STALE_BASELINE`, or a verdict from before the binding
+  that cannot say -- now FAILs criterion 11: "gate passed only under
+  EXACTDOC_GATE_ALLOW_STALE_BASELINE; re-record needed", with the
+  mismatches. Until the owner-approved re-record, criterion 11 fails.
+
 - **A stale gating input makes the scorecard INCOMPLETE (WP43 item 6).**
   `beta_readiness.py` marked an input older than the newest by more than
   24 h "[STALE]" and read it anyway. Now a stale gating input -- the raw or

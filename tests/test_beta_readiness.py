@@ -13,6 +13,7 @@ the gated tiers come from the ratified policy, so ordinary_digital is 72.
     python -m unittest tests.test_beta_readiness
 """
 import io
+import shutil
 import json
 import os
 import sys
@@ -73,13 +74,35 @@ class Reading(unittest.TestCase):
                 fh.write(json.dumps(r) + "\n")
         return path
 
-    def _gate(self, raw_ok=True):
+    def _gate(self, raw_ok=True, binding="bound"):
         for lane, ok in (("raw", raw_ok), ("product", True)):
             d = os.path.join(self.dir, "run.batch", "lane_%s" % lane)
             os.makedirs(d)
+            verdict = {"lane": lane, "ok": ok, "failures": [] if ok else ["x"],
+                       "notes": ["16 document(s) measured, 16 expected"]}
+            if binding:                      # WP43: gate.check's baseline_binding
+                verdict["baseline_binding"] = {
+                    "mode": binding, "mismatches": [] if binding == "bound" else
+                    ["the baseline was recorded under environment 3ca438f1, this run "
+                     "is 9cb0bc17"]}
             with open(os.path.join(d, "verdict.json"), "w") as fh:
-                json.dump({"lane": lane, "ok": ok, "failures": [] if ok else ["x"],
-                           "notes": ["16 document(s) measured, 16 expected"]}, fh)
+                json.dump(verdict, fh)
+
+    def test_criterion_11_needs_a_bound_baseline(self):
+        for binding, want in (("bound", "PASS"), ("allowed-stale", "FAIL"), (None, "FAIL")):
+            shutil.rmtree(os.path.join(self.dir, "run.batch"), ignore_errors=True)
+            self._gate(binding=binding)
+            res = B.evaluate(DOCS, {}, {"lo": None, "word": None, "docs": None},
+                             B.find_gate([self.dir]))
+            c = self._by_key(res)["gate"]
+            self.assertEqual(c["status"], want, binding)
+            if want == "FAIL":
+                self.assertEqual(c["by"], 2)            # both lanes
+                self.assertIn("gate passed only under EXACTDOC_GATE_ALLOW_STALE_BASELINE; "
+                              "re-record needed", c["misses"][0])
+                self.assertIn("allowed-stale: the baseline was recorded under environment "
+                              "3ca438f1" if binding else "binding unrecorded",
+                              c["misses"][0])
 
     def _by_key(self, result):
         return {c["key"]: c for c in result["criteria"]}

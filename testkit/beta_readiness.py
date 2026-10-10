@@ -1275,6 +1275,20 @@ def evaluate(docs, sweeps, lanes, gate, accepted=None, docx_dir=None,
                           " ".join(map(str, v.get("notes", []))))
             if m and int(m.group(1)) != BAR["gate_documents"]:
                 bad.append("%s: %s documents measured" % (lane, m.group(1)))
+            # WP43: a pass counts only against a baseline bound to the run's
+            # environment and reading. One that passed only under the
+            # transitional allowance -- or whose verdict predates the binding
+            # and cannot say -- compared against numbers that describe
+            # something else.
+            binding = v.get("baseline_binding")
+            mode = binding.get("mode") if isinstance(binding, dict) else None
+            if mode != "bound":
+                bad.append("%s: gate passed only under EXACTDOC_GATE_ALLOW_STALE_BASELINE; "
+                           "re-record needed (baseline binding %s%s)" % (
+                               lane, mode or "unrecorded",
+                               ": " + "; ".join(binding.get("mismatches") or ())
+                               if isinstance(binding, dict) and binding.get("mismatches")
+                               else ""))
         crit(11, "gate", name, FAIL if bad else PASS,
              "both lanes ok" if not bad else "%d problem(s)" % len(bad),
              len(bad) or None, bad)
