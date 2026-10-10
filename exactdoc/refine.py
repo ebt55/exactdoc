@@ -695,6 +695,25 @@ def _score(m):
             sum(abs(o) for o in m["offset"]))
 
 
+def _content_digest(path) -> Optional[str]:
+    """A digest of what a candidate DOCX says: every part but the package's
+    own metadata (docProps/, whose timestamps change with every write).
+    None if the file cannot be read as a package."""
+    import hashlib
+    import zipfile
+    try:
+        h = hashlib.sha256()
+        with zipfile.ZipFile(path) as z:
+            for name in sorted(z.namelist()):
+                if name.startswith("docProps/"):
+                    continue
+                h.update(name.encode("utf-8"))
+                h.update(z.read(name))
+        return h.hexdigest()
+    except (OSError, zipfile.BadZipFile, KeyError):
+        return None
+
+
 def _stalled(best, score) -> bool:
     """Is `score`, a new best, a stalled spill gaining offsets only by less
     than STALL_MIN_GAIN on the `best` before it? (See STALL_MIN_GAIN.)"""
@@ -825,6 +844,7 @@ def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
             # _replan_flows`): if it changes the plan, it is not a candidate
             # and round 0 is written again from the new plan.
             rnd, probing = -1, True
+            last_digest = None
             while rnd < rounds:
                 rnd += 1
                 if progress is not None:
@@ -843,6 +863,17 @@ def refine(lay: DocLayout, src_pdf: str, out_path: str, dpi: int = 240,
                 row["write_ms"] = int((time.monotonic() - t0) * 1000)
                 if first_candidate is None:
                     first_candidate = candidate
+                # A candidate whose content is the last round's renders as the
+                # last round did: nothing left to learn from it (y21 wrote the
+                # same document three rounds running, at ~4s a render+measure).
+                digest = _content_digest(candidate)
+                if rnd > 0 and digest is not None and digest == last_digest \
+                        and not probing:
+                    row["unchanged"] = True
+                    rep["rounds"].append(row)
+                    rep["stopped"] = "unchanged"
+                    break
+                last_digest = digest
                 t0 = time.monotonic()
                 try:
                     rendered = render(candidate, td)
