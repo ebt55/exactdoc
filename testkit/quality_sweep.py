@@ -396,7 +396,9 @@ def main(argv=None):
     # (amendment 4 (a)). Imported only now: the workers are done, and the
     # harness's LibreOffice profile is never touched by asking its reading.
     import harness
+    import evidence
     payload = {"schema": SCHEMA, "gating": False, "adjudicated": False,
+               "provenance": evidence.provenance(reading=harness.reading()),
                "profile": prof.profile_id(), "corpus": a.corpus,
                "reading": harness.reading(),
                "jobs": a.jobs,

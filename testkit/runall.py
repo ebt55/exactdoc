@@ -233,6 +233,18 @@ def main(argv=None):
         gate.save_lanes(records, environment=env, reading=reading)
         print("\nrecorded numeric baseline for %s" % ", ".join(sorted(records)))
 
+    # Provenance (WP43): commit, image id, canonical fingerprint and reading,
+    # beside the lane verdicts (beta_readiness reads <batch>/provenance.json).
+    prov = evidence.provenance(env=env, reading=reading)
+    with open(os.path.join(a.out, "provenance.json"), "w", encoding="utf-8",
+              newline="\n") as f:
+        json.dump(prov, f, indent=1, sort_keys=True)
+        f.write("\n")
+    print("\nPROVENANCE commit %s%s, image %s, environment %s, reading %s"
+          % ((prov["git_commit"] or "unrecorded")[:12], " (dirty)" if prov["git_dirty"] else "",
+             (prov["image_id"] or "unrecorded")[:19], (prov["environment_fingerprint"] or "?")[:8],
+             reading["scorer"]))
+
     ev_path = a.evidence or os.path.join(a.out, "evidence.json")
     shipped = LANES.get("product")
     profile = dict(shipped.as_dict(), profile_id=shipped.profile_id()) \
@@ -243,7 +255,7 @@ def main(argv=None):
                            "resolved": len(paths),
                            "problems": [{"kind": k, "document": d, "detail": w}
                                         for k, d, w in problems]},
-                   lanes=lane_evidence)
+                   lanes=lane_evidence, provenance=prov)
     print("\n-- evidence --\n%s" % evidence.summarise(
         json.load(open(ev_path))))
     print("\nwrote %s" % ev_path)

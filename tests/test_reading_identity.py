@@ -95,18 +95,27 @@ class TheWriters(unittest.TestCase):
         self._td.cleanup()
 
     def test_quality_sweep_records_the_reading(self):
+        import evidence
         import quality_sweep as qs
         row = {"document": "a.pdf", "refused": "PageLimitError"}      # no scoring needed
         out = os.path.join(self.dir, "s.sweep.json")
         with mock.patch.object(qs, "select", return_value=[("a.pdf", "a.pdf", "x", "y")]), \
                 mock.patch.object(qs, "_work", return_value=row), \
                 mock.patch.object(qs, "ProcessPoolExecutor", ThreadPoolExecutor), \
+                mock.patch.object(evidence, "environment",
+                                  return_value={"fingerprint": "f" * 64, "canonical": True}), \
+                mock.patch.dict(os.environ, {"EXACTDOC_GATE_IMAGE_ID": "sha256:abc"}), \
                 mock.patch("sys.stdout", new=io.StringIO()):
             qs.main(["--out", self.dir, "--json", out, "--jobs", "1"])
         with open(out, encoding="utf-8") as fh:
             payload = json.load(fh)
         self.assertEqual(payload["reading"], harness.reading())
         self.assertEqual(B.sweep_reading(payload), harness.HARNESS_READING)
+        # WP43: and what it was made from
+        prov = payload["provenance"]
+        self.assertEqual((prov["image_id"], prov["environment_fingerprint"], prov["reading"]),
+                         ("sha256:abc", "f" * 64, harness.reading()))
+        self.assertIn("git_commit", prov)
 
     def test_rescore_records_the_reading_it_re_read_in(self):
         import rescore

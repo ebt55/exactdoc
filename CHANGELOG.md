@@ -21,6 +21,20 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 one verified fix at a time, each gated against the frozen 16.
 
 
+- **Measurements record what they were made from (WP43 item 2).** The
+  containers get the tree without `.git`, so `sweep.sh` and `gate_full.sh`
+  read the commit (and dirty flag, branch) on the host and pass it in with
+  the image id (`EXACTDOC_GIT_COMMIT`, `EXACTDOC_GATE_IMAGE_ID`,
+  `EXACTDOC_GATE_IMAGE_REF`; provenance only, not part of the environment
+  fingerprint). `evidence.git_state()` falls back to the host commit, and
+  `evidence.provenance()` -- commit, image id, canonical fingerprint,
+  harness reading -- is written into every quality-sweep payload and beside
+  the gate's verdicts (`<batch>/provenance.json` and the evidence file).
+  `beta_readiness.py` prints it per input and refuses (verdict INCOMPLETE,
+  "inputs refused") lanes whose recorded commits differ, unless
+  `--allow-mixed-commits`; inputs that record no commit are shown, not
+  compared; the accepted sweep is never compared.
+
 - **The gate binds its baseline to the environment and the reading (WP43
   item 1).** `gate.check` (from `runall.py`) fails a lane, "re-record needed
   (owner approval)", when the baseline was recorded under another environment
