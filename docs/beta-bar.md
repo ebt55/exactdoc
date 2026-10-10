@@ -155,8 +155,8 @@ Enforced with it:
   commit, before the final sweep.
 - **(d)** A document is judged by this rule or by a waiver, never both. A
   document that has a dy_p50 waiver entry is left to the waiver, whatever the
-  waiver's verdict; the rule does not look at it (y37 stays on its waiver and
-  is not re-based).
+  waiver's verdict; the rule does not look at it (as decided for y37: on its
+  waiver, not re-based).
 - **(e)** After the beta: the wrap fidelity of y43 and y55, and how criterion 8
   reads dy_p50 for GA, are revisited.
 
@@ -174,6 +174,9 @@ are the only flags, and both are exempted; on
 `accepted-wp31-prod.rescored` → `wp33-d1-prod` nothing is exempted: y21 and
 y61 still fail, and y37 (within2pt +0.0008) would not meet (i) even if the
 rule looked at it.
+
+*y37:* a dy_p50 exception for 0.3.0b1 was decided (owner-delegated, 2026-10-10)
+but not needed: WP33n (d8e27d6) removed the flag, so no waiver is recorded.
 
 ## Exceptions to criterion 8
 
@@ -205,63 +208,3 @@ recorded on this page in the same commit as its entry. No threshold changes.
 
 Every other metric on a waived document stays gated at full tolerance, and the
 JSON output carries each waiver's verdict.
-
-## Exceptions for 0.3.0b1
-
-**y37 `dy_p50`: an owner-delegated decision of 2026-10-10.** The owner
-delegated this one question to an independent decider, whose decision stands
-as the owner's for it: option A, a waiver in the form above. Amendment B
-(grading common-word placement) is not adopted; a code fix (C) is rejected.
-
-- **Scope.** `y37_plos_one_dvipdfmx.pdf` (unpromised: an academic journal
-  paper), metric `dy_p50` only, release 0.3.0b1 only. Every other y37 metric
-  stays gated at full tolerance; no other document is covered.
-- **Ceiling.** 32.0pt. Above it the waiver blocks, and a new decision is
-  needed.
-- **Accepted sweep.** `accepted-wp31-prod.rescored.sweep.json`, SHA-256
-  `f53a741e462bf9c1fb661fc50e35abd06e472da0c0c54555f1801782846096de`, in the
-  WP29 reading (`rescored.scorer` = `wp29`). Against it y37 went 27.38 →
-  30.96pt in WP33's product sweep (`wp33-d1-prod.sweep.json`), past a
-  tolerance of 2.74.
-- **Conditions, in brief.** (a) Like for like: the final product sweep against
-  this accepted sweep in the same reading; under the amendment-3 reading,
-  rescore with `testkit/rescore.py` first, and if y37 then clears tolerance no
-  waiver is recorded. (b) The scope above. (c) The 32.0pt ceiling. (d) On the
-  final renders: word recall ≥ 0.347, common-word dy_p50 ≤ 23.5pt (accepted
-  common 21.34), within-2pt not worse beyond the gate's tolerance — checked
-  by `python testkit/churn.py SOURCE ACCEPTED CURRENT --check-y37`. (e)
-  Recorded here in the same commit as its entry in
-  `testkit/beta_waivers.json`; the scorecard prints criterion 8 PASS with the
-  waiver named. (f) It dies with the accepted sweep it names, is deleted when
-  a new accepted sweep is named, and is not carried to 0.3.0b2 or GA. (g) Void
-  if any threshold in (c) or (d) is missed, if y37 becomes promised, or if a
-  second document needs the same exception before the tag (then stop, and
-  design amendment B with the owner).
-
-**The figures: measured on WP33's sweep; re-measured on the final renders
-before the tag.** `testkit/churn.py` on the accepted render
-(`wp31-prod.docx/product/y37_plos_one_dvipdfmx/y37_plos_one_dvipdfmx.pdf`,
-SHA-256 `17e58b3eaca879e7880fe70f369a70b4ef2829b2e8aede65d10558a7f869993b`)
-and WP33's (`wp33-d1-prod.docx/product/y37_plos_one_dvipdfmx/y37_plos_one_dvipdfmx.pdf`,
-SHA-256 `496ee4616264700a193094830f5de7f81f753098242392eff32d8736b3f943b3`);
-source SHA-256 `31b2894a30f71cbb3046f401c05a14a75603410d6bd808d4f308b37a0b35c77d`
-([evidence](evidence/churn-y37-2026-10-10.json)):
-
-| Matched source words (of 10,699) | Words | dy_p50 (pt) | Within 2pt | \|dy\| ≤ 5pt |
-|---|---:|---:|---:|---:|
-| Accepted render, all | 3,496 | 27.38 | 0.0009 | 0.170 |
-| Current render, all | 4,191 | 30.96 | 0.0017 | 0.142 |
-| Common, read in the accepted render | 2,335 | 21.34 | 0.0013 | 0.214 |
-| Common, read in the current render | 2,335 | 21.36 | 0.0017 | 0.190 |
-| Lost (accepted render only) | 1,161 | 55.50 | 0.0000 | 0.084 |
-| Gained (current render only) | 1,856 | 51.41 | 0.0016 | 0.082 |
-
-Word recall 0.3268 → 0.3917. Of the common words, 1,349 (57.8%) changed their
-dy by more than 2pt between the renders. Tokens that occur 20 or more times in
-the source make up 80% of the lost words, 64% of the gained and 82% of the
-common. Condition (d) holds on these renders: word recall 0.3917 ≥ 0.347,
-common dy_p50 21.36 ≤ 23.5, within-2pt 0.0009 → 0.0017. The rise in y37's
-dy_p50 is the matched set changing (1,856 words gained at a median 51.41pt,
-1,161 lost at 55.50pt) while the words both renders place stayed where they
-were, 21.34 → 21.36pt. One honest caveat: the common set's |dy| ≤ 5pt share
-fell 0.214 → 0.190. That is no evidence of a real loss, and it is not a gain.

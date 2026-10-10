@@ -54,28 +54,12 @@ one verified fix at a time, each gated against the frozen 16.
   FAIL by 2 -> PASS: y43 (8.79 -> 10.64, within2pt +0.0523, within5pt
   -0.0014, cap 3pt) and y55 (15.56 -> 17.26, +0.0645, +0.0047, cap 4.67pt)
   were its only flags. On accepted-wp31-prod.rescored -> wp33-d1-prod
-  nothing is exempted: y21 and y61 still fail, and y37 (within2pt +0.0008)
-  stays with its waiver while it has one. Of the
+  nothing is exempted: y21, y37 (within2pt +0.0008) and y61 stay flagged
+  there. Of the
   historical pairs kept in the run folder, y18 (wp34-g10 -> wp33-a) and y33
   (wp21-base -> wp34-g10, 0.35 -> 1.89: the real gain the 3pt floor is for)
   are exempted too. The rule text is in `docs/beta-bar.md`, verbatim, with
   the decider and the evidence. No conversion code changed.
-
-- **y37's dy_p50 is an owner-accepted exception to criterion 8 for 0.3.0b1
-  (WP41, owner-delegated decision 2026-10-10).** The one entry in
-  `testkit/beta_waivers.json`: `y37_plos_one_dvipdfmx.pdf` (unpromised),
-  `dy_p50` only, ceiling 32.0pt, against
-  `accepted-wp31-prod.rescored.sweep.json` (SHA-256 f53a741e...) in the WP29
-  reading, release 0.3.0b1. On WP33's product sweep criterion 8 reads FAIL by
-  2 (1 waived): y37 27.38 -> 30.96 <= 32.0 is waived; y21 and y61 still fail.
-  The churn behind it, measured on WP33's renders and to be re-measured on the
-  final ones: of 10,699 source words the accepted render matched 3,496 and
-  WP33's 4,191; the 2,335 both matched sit at dy_p50 21.34 -> 21.36pt, the
-  1,161 lost at 55.50 and the 1,856 gained at 51.41; word recall 0.3268 ->
-  0.3917; the common set's |dy| <= 5pt share fell 0.214 -> 0.190, which is no
-  evidence of a real loss and not a gain. Conditions a-g, the figures and the
-  render SHAs are in `docs/beta-bar.md`, "Exceptions for 0.3.0b1". Evidence:
-  [churn-y37-2026-10-10.json](docs/evidence/churn-y37-2026-10-10.json).
 
 - **Criterion 8 can carry a bounded, self-retiring exception (WP41).**
   `testkit/beta_readiness.py` reads `testkit/beta_waivers.json`
