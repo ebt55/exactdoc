@@ -35,7 +35,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 # The renderer, the fonts it is allowed to see, and the toolchain.
 #
-# The five font packages are exactly the directories scripts/fonts.conf lists.
+# These five font packages, plus the two Crosextra packages below, are exactly
+# the directories scripts/fonts.conf lists.
 # LibreOffice's own dependencies drag in Charter, Loma, OpenSymbol and Unifont;
 # those stay installed and stay INVISIBLE, because fonts.conf replaces
 # fontconfig's search path rather than extending it. Installing the right fonts
@@ -52,6 +53,37 @@ RUN apt-get update -qq \
       fonts-ipafont-gothic \
       libreoffice-writer \
  && rm -rf /var/lib/apt/lists/*
+
+# Carlito and Caladea, the Calibri/Cambria metric clones (WP31, owner-approved
+# 2026-10-06). The original Crosextra builds from the jammy pool, NOT noble's
+# packages: noble's Caladea 20200211 has proportional figures where Cambria's are
+# tabular (135+ of ~216 WinAnsi advances differ per face). These files are
+# byte-identical to the ones exactdoc/_clone_widths.py was generated from; the
+# full reasoning and measurement are in docker/gate-carlito.Dockerfile, which
+# applies this same block as a layer on an existing snapshot. Every digest is
+# checked; a mismatch fails the build.
+RUN set -e; mkdir -p /tmp/crosextra; cd /tmp/crosextra; \
+    POOL=http://archive.ubuntu.com/ubuntu/pool/universe/f; \
+    curl -fsSLO "$POOL/fonts-crosextra-carlito/fonts-crosextra-carlito_20130920-1.1_all.deb"; \
+    curl -fsSLO "$POOL/fonts-crosextra-caladea/fonts-crosextra-caladea_20130214-2.1_all.deb"; \
+    printf '%s\n' \
+      "7385475cde807e1363c3361976576571870373032466c7f525d5900852b6f420  fonts-crosextra-carlito_20130920-1.1_all.deb" \
+      "1330d25dfa5bab2e9b712b4950d2855cdb63a2b2b9451e2ffb93618c77e1f242  fonts-crosextra-caladea_20130214-2.1_all.deb" \
+      | sha256sum -c -; \
+    dpkg -i ./*.deb; \
+    apt-mark hold fonts-crosextra-carlito fonts-crosextra-caladea; \
+    cd /; rm -rf /tmp/crosextra; \
+    cd /usr/share/fonts/truetype/crosextra; \
+    printf '%s\n' \
+      "b4ff23ba370cc95a3c349336b73f9c28514a1371210f89832efc85c4b1ea7131  Carlito-Regular.ttf" \
+      "0f62ab34ad5d079a0a28fac01bcf7c7a724a4db4d6cb99cab9cabff382fbb80f  Carlito-Bold.ttf" \
+      "718a0663864d37a4868220a19b9668a5fe10a46197f6df367b4c2c30c04c026c  Carlito-Italic.ttf" \
+      "380764b6898d7b73ceae6384b2958b196d2a0428962ef3adf138d27947228666  Carlito-BoldItalic.ttf" \
+      "d2f6cad33f191e65b68bd74e6d4f7708080a41b32db635866109df3090265d91  Caladea-Regular.ttf" \
+      "74eda4fc5ffba0d8dc4aa76d41499f5ab76168d9ed6141c6417064c6244db9b6  Caladea-Bold.ttf" \
+      "9c968bf60ba1e851cdfea77c71e3540c57792f77482dd241acc29d1425569c4e  Caladea-Italic.ttf" \
+      "f47a35ad6cd0efa9914d93f9d03c93e30c55da43674bccfabac73b3c0d522c01  Caladea-BoldItalic.ttf" \
+      | sha256sum -c -
 
 # uv, because uv.lock is the pinned truth for every Python dependency.
 RUN curl -fsSL https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh \
@@ -94,7 +126,8 @@ RUN { echo "# exactdoc canonical gate image"; \
       echo "# apt versions of everything that can move a measured number"; \
       dpkg-query -W -f='${Package}=${Version}\n' \
         libreoffice-writer fontconfig fonts-liberation fonts-dejavu-core \
-        fonts-freefont-ttf fonts-wqy-zenhei fonts-ipafont-gothic python3; \
+        fonts-freefont-ttf fonts-wqy-zenhei fonts-ipafont-gothic \
+        fonts-crosextra-carlito fonts-crosextra-caladea python3; \
     } > /etc/exactdoc-image.txt \
  && cat /etc/exactdoc-image.txt
 
