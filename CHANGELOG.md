@@ -20,45 +20,51 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
-- **A line welded across a column gutter is cut there (WP25).** A source-to-
-  render page map put y64_bls_release_xpp's first divergent page on p8: a
-  left-column paragraph's short last line ("...Statistics (BLS). ", ending x
-  223) and the right column's indented first line ("Establishment survey",
-  x 339) share a baseline across a 295-317 gutter. The gap's midpoint is
-  25pt off the gutter's, so the justification exemption forgave it, and the
-  one margin-to-margin line cut the page's columns into three chunks. A
-  forgiven gap that holds a recurring gutter's whole white channel -- from
-  the column's measure (p90 of the line ends before it) to the next
-  column's start (p10 of the starts after it) -- now splits
-  (`parse_pdfium._gutter_channels`); the median end would have left half of
-  y61's ragged three-column lines welded at one gutter. And a rule that ends
-  above the spacing cursor (BLS's column-group rule, flowed after its table)
-  no longer moves it back up: the note under each such table took 200-312pt
-  of space before and left its page (`infer._position_chunks`). Canonical,
-  raw LibreOffice, merged with e572bb7, against the checkpoint: y64 44 -> 39
-  pages (word recall 0.343 -> 0.952; criterion 5 now passes), y06 163 ->
-  149, y13 58 -> 50, y38 53 -> 50, y12 66 -> 63 (0.382 -> 0.424), y21 57 ->
-  51 (0.191 -> 0.267), y22 178 -> 174, y33 62 -> 61, y37 34 -> 33, y61 7 ->
-  6 (0.403 -> 0.552); page-exact 59 -> 61. Word: y64 40 -> 39 pages (0.421
-  -> 0.951) with product DOCX, 44 -> 39 with raw. Worse: dy_p50 beyond gate
-  tolerance on y21 (50.9 -> 71.4) and y61 (39.0 -> 47.1; 33.3 in the
-  accepted wp18-m2 sweep, so criterion 8 fails on it) -- both with fewer
-  pages and more words on the right page -- and y21's product DOCX (49 ->
-  48 pages in LibreOffice but word recall 0.714 -> 0.518; Word 49 -> 50,
-  0.701 -> 0.411). Gate PASS in both lanes at the recorded numbers; the
-  gated 16 byte-identical. Not shipped: laying the block-cluster split out
-  in bands when crossing prose runs between its column items (y22 -> 168,
-  but y37 and y60 each +2-4 pages). Diagnosed, not fixed: y64's table titles
-  ("HOUSEHOLD DATA / Table A-n") are consumed as varying furniture, which a
-  "clears the body" bar would separate (1.4pt against >= 11.8pt in every
-  real case) (`docs/evidence/wp25-columns-2026-10-06.json`). **Not merged
-  (2026-10-06): per-rule isolation.** Neither rule alone keeps y64's raw
-  gain (channels alone 43 pages at 0.630, cursor alone 40 at 0.420; both 39
-  at 0.952). The y21 and y61 losses are the channel rule's alone: with only
-  the cursor change y21 product is the checkpoint's (49 pages, 0.714) and
-  y61 raw stays at 7 pages with dy_p50 33.6; with only the channels y21
-  product falls to 0.519. Next: why splitting y21's welded lines moves its
-  words to the wrong pages; the cursor change can ship alone meanwhile.
+- **Columns welded at the gutter are cut there, and y64's table titles are
+  written (WP33, from WP25).** Three rules. *Gutter channels*
+  (`parse_pdfium._gutter_channels`): a forgiven same-baseline gap that holds
+  a recurring gutter's whole white channel -- from the column's measure (p90
+  of the line ends before it) to the next column's start (p10 of the starts
+  after it) -- is a column break: y64_bls_release_xpp p8's "...Statistics
+  (BLS). " (ending x 223) beside the right column's indented "Establishment
+  survey" (x 339) across a 298-317 gutter, and the ragged-right welds of
+  y21, y12 and y61 whose midpoints miss the gutter by a few points. Not
+  between two glyphs of one monospace face: y17 p39's ABNF aligns "=" in a
+  column whose gaps sit off the cell grid, and cut there three rules lost
+  their alignment spaces. *Spacing cursor* (`infer._position_chunks`): a
+  rule or picture ending above the cursor no longer moves it back up (BLS's
+  column-group rule flowed after its table; the note under it took 200-312pt
+  of space before). *Heads must clear the body* (`detect_hf`,
+  `_furniture_clearance`, `GEO_CLEAR_LINES` = 1.2 lines of the head's own
+  size): the geometry pass consumed y64's "HOUSEHOLD DATA / Table A-n" titles
+  (one line at one place and size on 31 of 38 later pages, 1.4pt above the
+  table) without writing them. A census of every signature that pass
+  qualifies, both corpora: running heads clear the body by 19.8 (y24), 38.7
+  (y34), 40.0pt (y26); what else it took touches the line below (y64 1.4,
+  y17/y27 0.2, y55 9.9-10.3, y54 <= 8.1). Feet split as cleanly (y23 40.5,
+  y02 48.7 against y18 0.7, y14 -0.4, y47 4.1) but are not held to the bar:
+  written back, y18's last lines are pages the render has no room for (raw
+  156 -> 174 for 144). Measured in the Carlito image against r4-new: LO
+  product y64 wr 0.930 -> 0.967 (doc recall 0.958 -> 0.984), y12 60 -> 59
+  pages (0.514 -> 0.682, dy_p50 58.6 -> 38.9), y06 147 -> 139, y13 49 -> 45,
+  y38 49 -> 47, y61 6 -> 5 (0.451 -> 0.579); LO raw y64 44 -> 39 (0.343 ->
+  0.967), y06 163 -> 149, y13 58 -> 50, y12 66 -> 63, y21 57 -> 51. Word
+  product: y64 40 -> 39 pages, 0.389 -> 0.967 (criterion 5), y61 10 -> 7,
+  y13 62 -> 54, y06 168 -> 149. Google Docs, live (2026-10-10): y64 40 -> 39,
+  0.389 -> 0.966 (criterion 5), y12 69 -> 64, y13 66 -> 56, y06 178 -> 156,
+  y61 10 -> 7 (dy_p50 47.8 -> 27.7); y17, y18, y27 and the controls
+  identical. Scorecard criterion 5: LO 18/21, Word 16 -> 17, Docs 16 -> 17
+  (PASS). Worse, beyond gate tolerance: y21 (LO product 0.719 -> 0.519, Word
+  0.707 -> 0.420, Docs 0.571 -> 0.536) and y12 in Word (59 -> 58 pages,
+  0.808 -> 0.626) -- the split is right, but it turns their 2-col pages into
+  single-grid pages that `_merge_grid_page_runs` flows across seams (y21
+  p13-17 and p25-42; y12 p26-44), left to WP38's seam rule; y61 dy_p50
+  39.6 -> 43.6 (one merged 3-col flow); y37 dy_p50 27.4 -> 31.0 (cursor
+  rule; the words matched in both renders 21.34 -> 21.36, the rise is 695
+  more words on the right page); y59 in Word 23 -> 25 pages for 6; raw
+  dy_p50 on y21/y61/y64 over a larger matched population (y64's words
+  matched in both: 12.51 -> 12.35). Gate PASS in both lanes (1706 tests),
+  the gated 16 byte-identical (`docs/evidence/wp33-columns-2026-10-10.json`).
 
 - **EUR-Lex's numbered articles keep their pages in Google Docs (WP35).**
   On Google's exports of the 71558af sweep y18 (the EU AI Act) matched the
