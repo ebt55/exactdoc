@@ -112,6 +112,10 @@ class PageColourUnit(unittest.TestCase):
     def test_a_sheet_page_one_alone_carries_is_a_cover(self):
         self.assertIsNone(I._page_colour(_ir([[_fill(SHEET)], [], []])))
 
+    def test_one_later_sheet_alone_is_no_repetition(self):
+        self.assertIsNone(I._page_colour(_ir([[], [_fill(SHEET)]])))
+        self.assertEqual(I._page_colour(_ir([[_fill(SHEET)], [_fill(SHEET)]])), "#dbe4f0")
+
     def test_one_page_is_no_evidence(self):
         self.assertIsNone(I._page_colour(_ir([[_fill(SHEET)]])))
 

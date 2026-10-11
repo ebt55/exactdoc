@@ -5879,9 +5879,9 @@ def _page_colour(ir: DocIR) -> Optional[str]:
     text went into the header part and the body section was written with a
     top margin taller than the page, which Word refuses to export (holdout-2,
     h2_04: 3 pages -> 6, character recall 0.37). The evidence is repetition:
-    the same colour over the whole sheet of every page after the first (two
-    pages at least). Page 1 may carry it too, or a cover of its own; a sheet
-    that page 1 ALONE fills is a cover, as WP50 reads it."""
+    the same colour over the whole sheet of every page after the first, on
+    two sheets at least. Page 1 may carry it too, or a cover of its own; a
+    sheet that page 1 ALONE fills is a cover, as WP50 reads it."""
     if len(ir.pages) < 2:
         return None
     common = None
@@ -5890,7 +5890,17 @@ def _page_colour(ir: DocIR) -> Optional[str]:
         common = cols if common is None else common & cols
         if not common:
             return None
-    return sorted(common)[0] if common else None
+    if not common:
+        return None
+    colour = sorted(common)[0]
+    # Repetition needs two sheets: on a two-page document page 2's sheet
+    # alone is that page's artwork (a brochure's back panel), unless page 1
+    # carries it as well.
+    if len(ir.pages) == 2 and not any(
+            _full_sheet(d, ir.pages[0]) and d.fill.lower() == colour
+            for d in ir.pages[0].drawings):
+        return None
+    return colour
 
 
 # A text font whose glyph boxes are this many times its size is inflated: a
