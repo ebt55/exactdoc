@@ -319,6 +319,54 @@ class WithoutLibreOffice(_TempDir):
         self.assertEqual(seen["oracle"], "none")
 
 
+@unittest.skipUnless(HAVE_REPORTLAB, "reportlab is a test dependency")
+class NonAsciiNames(_TempDir):
+    """A file name stdout's encoding cannot hold must not fail the run.
+
+    Pre-release audit, 2026-10-11: on Windows, with stdout redirected to a pipe
+    or a file (encoded cp1252, errors strict), `exactdoc "résumé 日本.pdf"`
+    wrote the DOCX and then exited 1 with "this is a bug", from the "wrote"
+    line. The name below mixes Latin-1 (which cp1252 holds), CJK and Arabic
+    (which it does not).
+    """
+    NAME = "résumé 日本 مرحبا"
+
+    def setUp(self):
+        super().setUp()
+        self.src = _text_pdf(self.path(self.NAME + ".pdf"))
+
+    def test_a_cp1252_stdout_prints_an_escape_and_exits_0(self):
+        buf = io.BytesIO()
+        cp1252 = io.TextIOWrapper(buf, encoding="cp1252", errors="strict",
+                                  write_through=True)
+        err = io.StringIO()
+        out_path = self.path(self.NAME + ".docx")
+        with mock.patch.object(sys, "stdout", cp1252), redirect_stderr(err):
+            code = cli.main([self.src, "--refine", "0", "-o", out_path])
+            cp1252.flush()
+        self.assertEqual(code, 0, err.getvalue())
+        self.assertNotIn("This is a bug", err.getvalue())
+        self.assertTrue(os.path.exists(out_path))
+        line = buf.getvalue().decode("cp1252")
+        self.assertIn("wrote ", line)
+        self.assertIn("résumé", line)        # cp1252 holds these
+        self.assertIn("\\u65e5\\u672c", line)          # and escapes these
+
+    def test_the_same_in_a_fresh_interpreter(self):
+        # PYTHONIOENCODING gives the child a strict cp1252 stdout on every
+        # platform, which is what a Windows pipe gets by default.
+        env = dict(os.environ, PYTHONPATH=ROOT, PYTHONIOENCODING="cp1252")
+        env.pop("PYTHONUTF8", None)
+        proc = subprocess.run(
+            [sys.executable, "-m", "exactdoc.cli", self.src, "--refine", "0"],
+            cwd=ROOT, env=env, capture_output=True, check=False)
+        stderr = proc.stderr.decode("cp1252", "replace")
+        self.assertEqual(proc.returncode, 0, stderr)
+        self.assertNotIn("Traceback", stderr)
+        self.assertTrue(os.path.exists(self.path(self.NAME + ".docx")))
+        self.assertIn(b"wrote ", proc.stdout)
+
+
 class Robustness(_TempDir):
     def test_an_internal_error_asks_for_a_report(self):
         src = self.path("in.pdf")

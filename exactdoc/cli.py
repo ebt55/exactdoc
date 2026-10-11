@@ -238,6 +238,7 @@ def main(argv=None):
     Anything else IS a bug. The traceback is kept -- it is what makes the
     report useful -- and followed by one line saying so and where to send it.
     """
+    _tolerant_streams()
     try:
         return _run(build_parser(), argv)
     except ExactdocError as e:
@@ -263,6 +264,32 @@ def main(argv=None):
 
 
 # ----------------------------------------------------------------- helpers
+def _tolerant_streams():
+    """Let stdout print any file name, whatever its encoding can hold.
+
+    The "wrote <name>.docx" line names the user's file. On Windows a stdout
+    that is a pipe or a file (PowerShell piping, a batch script, CI, a
+    subprocess capture) is encoded in the ANSI code page, cp1252 on most
+    Western machines, with errors="strict". A file name in Japanese, Arabic or
+    Cyrillic then raised UnicodeEncodeError *after* the DOCX was written, and
+    the user saw exit 1 and "this is a bug" (pre-release audit, 2026-10-11:
+    `exactdoc "résumé 日本.pdf" > log.txt`). Python already gives stderr
+    errors="backslashreplace"; stdout gets the same, so a character the console
+    cannot show is printed as an escape and nothing else changes. Streams that
+    cannot be reconfigured (a test's StringIO, an embedding host's object) are
+    left alone.
+    """
+    for name in ("stdout", "stderr"):
+        stream = getattr(sys, name, None)
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(errors="backslashreplace")
+        except (ValueError, OSError, AttributeError, TypeError):
+            pass
+
+
 def _fmt_s(seconds):
     if seconds < 60:
         return "%.1fs" % seconds
