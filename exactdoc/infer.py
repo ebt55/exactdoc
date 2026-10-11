@@ -8249,6 +8249,12 @@ def _leader_para(ln: Line, edge: float, col_l: float, col_r: float) -> Para:
     if num and m.start("num") > m.end("dots"):
         num[0] = replace(num[0], text=" " + num[0].text)
     p.runs = label + [tab] + num
+    if p.align != "left" and _wp49("leader_levels"):
+        # A contents line runs from its indent to the right stop, so the
+        # paragraph reader can take an indented one for a centred line and
+        # keep no indent; set left, the line starts where it starts (WP49:
+        # a two-level contents page lost its level-2 indents).
+        p.left_indent = round(max(0.0, ln.bbox[0] - col_l), 1)
     p.align = "left"
     p.right_indent = 0.0
     p.first_indent = 0.0
