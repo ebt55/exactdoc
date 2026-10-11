@@ -17,6 +17,15 @@ import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "testkit"))
+sys.path.insert(0, os.path.join(ROOT, "tests"))               # mupdf_extra
+
+import mupdf_extra  # noqa: E402
+
+# testkit/harness.py imports fitz at module level: the measurement harness
+# needs the optional `mupdf` extra (PyMuPDF, AGPL) by design, and a plain
+# `pip install exactdoc` -- what the install workflow proves -- has none.
+if not mupdf_extra.AVAILABLE:                                  # pragma: no cover
+    raise unittest.SkipTest(mupdf_extra.REASON)
 
 import fitz  # noqa: E402
 import harness  # noqa: E402
