@@ -424,3 +424,12 @@ classified before any conversion by an agent independent of the fixes; 23
 promised under the narrowed promise. The manifest's SHA-256 is
 `4db48b08935795065af12016dd3c975eb37860e6299d101554cf61fde3460d61`. The
 manifest is published with the release results, after its single run.
+
+**How R1–R3 are read (fixed 2026-10-11, before holdout-2 runs; pinned by
+`tests/test_holdout_exam.py`).** R2's word-recall clause applies in each lane,
+LibreOffice and Word. A promised document that is refused, crashes or is not
+measured counts as a miss for R2 and as catastrophic for R3. A document is
+catastrophic if it is catastrophic in either lane (char recall is the
+right-page `char_recall`). R1's crash count is the product lane; raw-lane
+crashes are reported. Short or long is decided by the manifest's page count.
+The exam is run with `scripts/dev/holdout_exam.sh`, which refuses a second run.
