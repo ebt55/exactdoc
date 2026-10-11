@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "exactdoc"
 version = "0.3.0b1"
-description = "High-fidelity PDF to DOCX that survives Google Docs, with a render-back diff that proves it"
+description = "Turn PDFs into editable Word documents that look like the original, checked page by page in Word, LibreOffice and Google Docs"
 readme = "README.md"
 requires-python = ">=3.9"
 license = "Apache-2.0"
