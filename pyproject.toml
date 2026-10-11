@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,18 +8,33 @@ version = "0.2.0a1"
 description = "High-fidelity PDF to DOCX that survives Google Docs, with a render-back diff that proves it"
 readme = "README.md"
 requires-python = ">=3.9"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [{ name = "Ebin Babu Thomas" }]
 keywords = [
     "pdf", "docx", "pdf-to-docx", "pdf-to-word", "google-docs",
     "document-conversion", "ooxml", "layout-analysis", "pdfium",
     "whitepaper", "research-paper",
 ]
+# No `License ::` classifier: the SPDX `license` field above replaces it
+# (PEP 639), and setuptools >= 77 warns that builds carrying both stop working
+# after 2027-02-18. The Python versions are the ones .github/workflows/install.yml
+# installs the wheel on and converts with; the operating systems are its matrix.
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: Apache Software License",
+    "Intended Audience :: End Users/Desktop",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Text Processing :: Markup",
     "Topic :: Office/Business :: Office Suites",
 ]
@@ -47,8 +62,14 @@ gdocs = [
     "google-auth-oauthlib>=1.1",
 ]
 
+# Documentation and Changelog point at `main`, as the CLI's --help does
+# (cli.USAGE_URL). They resolve once main carries the release commit, which
+# docs/releasing.md makes a step of every release.
 [project.urls]
 Homepage = "https://github.com/ebt55/exactdoc"
+Documentation = "https://github.com/ebt55/exactdoc/blob/main/docs/usage.md"
+Changelog = "https://github.com/ebt55/exactdoc/blob/main/CHANGELOG.md"
+Source = "https://github.com/ebt55/exactdoc"
 Issues = "https://github.com/ebt55/exactdoc/issues"
 
 [project.scripts]

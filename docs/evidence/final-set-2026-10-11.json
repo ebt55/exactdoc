@@ -5,6 +5,7 @@
  "reading": "wp42",
  "image": "exactdoc-gate:boot sha256:bab1cfc0d2cd",
  "run": "scripts/dev/final_set.sh, steps b-f then g, state final-910e6aa.final; no --allow-* flags",
+ "scorecard_note": "The `scorecard` below is the one final_set.sh step (g) wrote at the end of this run, BEFORE the README was refreshed with this run's numbers: it reads NOT READY only because criterion 12 (README numbers match the release sweep) failed on the old README. It is kept as recorded. The scorecard of record is docs/evidence/beta-readiness-2026-10-11.json, READY (10 pass, 0 fail, 0 unmeasured, 3 reported) over these same inputs: first committed in 9adf283 (README of 5820f78, WP47), re-run on the WP48 README of branch wp48 with identical input hashes and the same verdict. Every other field of this file is unaffected.",
  "inputs": {
   "gate_log": {
    "path": "C:\\lotmp\\scr\\runs\\final-910e6aa-gate.log",

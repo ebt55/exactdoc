@@ -35,6 +35,62 @@ one verified fix at a time, each gated against the frozen 16.
   (`word/*.xml` of every convertible corpus document and of the development
   holdout). In the corpus the standard output moves on y23 and y48 only, none
   gated. `tests/test_cover_page_fit.py`.
+- **A first page of placed pictures the flow cannot hold is laid out as a
+  slide (WP50).** A front page set as a composition -- a masthead with a
+  badge beside it and photographs down a sidebar beside the lead story, a
+  cover's grid of partner logos over a hero picture and its title -- was
+  stacked by the flow one picture after another, ran past its page and put
+  every later page one place late. In the standard profiles such a page now
+  gets the deck's treatment: its graphics anchored where the source set them
+  and its text page-locked where it was. Only on page one, only when the page
+  model says the stack outruns the box by more than its gaps can pay and two
+  of its graphics stand side by side, never on a page whose paragraph runs on
+  over the seam. It fires on no corpus document; `infer.OVERFULL_FLOATS`
+  switches it off. `tests/test_overfull_page_floats.py`.
+- **Release preparation for the first PyPI beta (WP48).** From a packaging
+  and first-run audit (2026-10-11) that built the wheel and sdist, installed
+  them into clean environments on Windows (Python 3.9, 3.12, 3.13) and Linux
+  (python:3.12-slim, no LibreOffice) and converted gated fixtures and three
+  real documents of up to 126 pages. No converter output changes.
+  - **A file name stdout cannot encode no longer fails the run.** On Windows,
+    with stdout redirected to a file or pipe (cp1252, strict),
+    `exactdoc "résumé 日本.pdf" > log.txt` wrote the DOCX and then exited 1
+    with "This is a bug". stdout now escapes what it cannot encode, as
+    stderr already did.
+  - **The "LibreOffice was not found" note follows an accepted input.** It
+    used to stand above every password, not-a-PDF and scan error; it is now
+    printed once, when the first document reaches the write stage.
+  - **Office files are named as such.** `exactdoc report.docx` says "this is a
+    Word document (DOCX), not a PDF", with a hint that fits (likewise XLSX,
+    PPTX, ODF and pre-2007 Office files); exit code 6 is unchanged.
+  - **`convert()` keeps its strict contract, and the README now says so.**
+    Without LibreOffice the default call raises `OracleUnavailableError`
+    (documented in `docs/usage.md`); the README shows the one-pass call
+    `refine_rounds=0, oracle="none"` beside it.
+  - **Packaging.** `uv.lock` names the project 0.2.0a1 (it said 1.0.0, so
+    `uv lock --check` failed). The licence is the SPDX `Apache-2.0` with
+    `license-files` (PEP 639), without the deprecated classifier, and the
+    build needs setuptools 77 or newer. Classifiers name Python 3.9–3.14 and
+    Windows, macOS and Linux; `install.yml` installs and converts on exactly
+    those versions (3.13 and 3.14 on all three systems, 3.10 and 3.11 on
+    Linux), and a test keeps the two in step. PyPI links gain Documentation,
+    Changelog and Source.
+  - **Docs.** The README gains a "Multi-column booklets: Not yet" row (IRS
+    Publication 501, 31 pages: 45 in LibreOffice, 54 in Word, 57 in Google
+    Docs, word recall 0.29 / 0.29 / 0.26; `final-set-2026-10-11.json`), the
+    Linux font packages LibreOffice's layout check needs and why
+    (`carlito-2026-10-06.json`), a privacy statement, and the PyPI form of
+    the extras. `docs/deep-dive/limitations.md` is refreshed from the final
+    set (the 126-page booklet is 135 pages in LibreOffice, not 294).
+    `docs/releasing.md` adds `uv lock --check`, fast-forwarding `main`, the
+    exact CHANGELOG heading and the GitHub pre-release. New: `CONTRIBUTING.md`,
+    `SECURITY.md` and an install-or-crash issue form.
+  - **Evidence.** `final-set-2026-10-11.json` gains a `scorecard_note`: its
+    embedded NOT READY scorecard predates the README refresh. The scorecard of
+    record, `beta-readiness-2026-10-11.json`, was re-run on the new README over
+    the same inputs (identical hashes): READY, 10 pass, 0 fail, 0 unmeasured,
+    3 reported; its waiver file is now named by repository path.
+
 - **The README's numbers come from the final measurement of 910e6aa
   (WP47).** Every figure the README cites now comes from one clean run on one
   commit (`scripts/dev/final_set.sh`, 2026-10-11): the strict gate,

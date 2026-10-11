@@ -5,16 +5,33 @@
 > they stood. The [README](../../README.md) keeps a short, visual version;
 > [status.md](status.md) has the defect register, and the
 > [CHANGELOG](../../CHANGELOG.md) records what has moved since.
+>
+> **Numbers refreshed on 2026-10-11** from the final measurement of 910e6aa,
+> [docs/evidence/final-set-2026-10-11.json](../evidence/final-set-2026-10-11.json)
+> (LibreOffice and Word with the default settings, and a live Google Docs
+> sweep). A number below without a date is from that file.
 
 ## Limitations, in tiers
 
 **Tier 1 — works today (the target class).** Ordinary digital documents:
-reports, memos, letters, whitepapers, academic papers, multi-column pages,
-common (striped/ruled) tables, code listings, headers/footers, hyperlinks and
-TOC links, most Latin/CJK/Cyrillic text. This is what the corpus measures and
+reports, memos, letters, whitepapers, simple papers and résumés, simple
+two-column pages, common (striped/ruled) tables, code listings,
+headers/footers, footnotes, hyperlinks and TOC links, Latin, Cyrillic and
+Greek text. Long single-column reports keep their page count: the four NIST
+publications of 59–114 pages come back page for page in LibreOffice and Google
+Docs (Word sets the 114-page one at 115). This is what the corpus measures and
 the numbers below describe.
 
 **Tier 2 — partially supported, measured limitations.**
+
+- *Dense journal papers*: an 8-page two-column arXiv paper (`y41`) comes back
+  as 9 pages in LibreOffice and Word and 10 in Google Docs, with 70% of its
+  words on the right page in LibreOffice; equations come apart (Tier 3).
+- *Chinese, Japanese and Korean text*: the text survives, but some runs
+  become pictures.
+- *Slide decks*: a 40-slide deck (`y34`) keeps its 40 pages in LibreOffice and
+  Word, but 73% of its text sits in text boxes, and Google Docs makes 54 pages
+  of it.
 
 - *Complex and nested tables*: regional/nested table layouts are deferred;
   only conservative, strongly-evidenced striped tables are assembled.
@@ -64,21 +81,27 @@ the numbers below describe.
 Generated from the ratified quality policy and the live pass-7 evidence rather
 than from recollection. Where a number is quoted it is measured.
 
-**Long, dense, multi-column documents inflate their page count — how much
-now depends on the class.** The 2026-09 measurement, on the non-gating
-expansion corpus in the canonical container: single-column NIST-class
-publications come out at roughly **1.2×** (an 80-page one at 96, a
-114-page one at 136 — these were 1.98× and 2.75× before the inflation
-campaign, and ~1.3× at the last release); genuinely 3-column IRS booklets
-(the Antenna House dialect) still inflate to **~2.3×** (a 126-page
-instruction booklet at 294), and that class is where the remaining work
-lives. Document recall holds around 0.90–0.96 throughout — the words
-survive; pagination is what moves. The gated corpus is 1–7 pages and
+**Multi-column booklets still inflate their page count; single-column
+reports no longer do.** On the non-gating expansion corpus, single-column
+NIST-class publications now come back page for page: the 80-page one at 80
+and the 114-page one at 114 in LibreOffice (they were 96 and 136 in the
+2026-09 measurement, and 1.98× and 2.75× before the inflation campaign). The
+IRS booklets in narrow columns (the Antenna House dialect) are where the
+remaining work lives:
+
+| Document | Source pages | LibreOffice | Word | Google Docs | Words on the right page (LO / Word / Docs) |
+|---|---:|---:|---:|---:|---|
+| IRS Publication 501 (`y13`) | 31 | 45 | 54 | 57 | 0.29 / 0.29 / 0.26 |
+| Form 1040 instructions (`y06`) | 126 | 135 | 145 | 154 | 0.28 / 0.20 / 0.20 |
+
+(The 1040 instructions were 294 pages in the 2026-09 measurement.) The text
+survives: 95–97% of it is live, editable text in LibreOffice. Pagination is
+what moves, and once a page overflows everything after it lands on the wrong
+page, which is why word recall is so low. The gated corpus is 1–7 pages and
 cannot compound a per-page error into a page-count error, which is exactly
-why this class is measured separately. **If your documents are dense
-multi-column booklets, check the class: ~1.2× is today's ordinary result,
-and the 3-column dialect is not ready.** Tracked as the headline
-post-release item (n-column reconstruction).
+why this class is measured separately. **If your documents are multi-column
+booklets, they are not ready.** Tracked as the headline post-release item
+(n-column reconstruction).
 
 **Interactive forms are refused, by contract.** A fillable AcroForm whose
 content lives in its field values converts to a convincing-looking non-form —
@@ -133,13 +156,14 @@ obligations for anything you distribute.
 Honest queue, post-release. None of this is hidden in an issue tracker; the
 numbers are measured.
 
-**Headline defect — the 3-column booklet dialect (#38).** Long booklets
-under-pack their columns and inflate page counts. The 2026-09 state splits
-the class: single-column NIST-class documents now land at ~1.2× (80pp → 96,
-114pp → 136), while the genuinely 3-column IRS/Antenna House booklets still
-reach ~2.3× (126pp → 294). Everything after the first overflow lands on the
-wrong page, so word recall collapses even though document recall holds near
-0.90. If your documents are that dialect, this release is not for them yet.
+**Headline defect — the multi-column booklet dialect (#38).** Booklets in
+narrow columns under-pack them and inflate page counts. Single-column
+NIST-class documents now keep theirs (80 → 80, 114 → 114 in LibreOffice), while
+the IRS/Antenna House booklets still grow: 31 → 45 and 126 → 135 pages in
+LibreOffice, more in Word and Google Docs (the table above). Everything after
+the first overflow lands on the wrong page, so word recall collapses (0.20–0.29)
+even though 95–97% of the text survives as live text. If your documents are
+that dialect, this release is not for them yet.
 
 | # | Item | Measured |
 |---|---|---|

@@ -251,22 +251,36 @@ class PackagingMetadataTests(unittest.TestCase):
                 % (text.strip(), sorted(AUDITED_AGPL & self.core)))
 
     def test_the_declared_licence_is_the_migration_target(self):
-        """Apache-2.0, in the three places that have to agree.
+        """Apache-2.0, in the places that have to agree.
 
-        The metadata, the classifier and the LICENSE file are three independent
-        statements of the same fact, and any one of them can be updated alone.
-        A wheel whose METADATA says Apache-2.0 while its bundled LICENSE is the
-        AGPL text ships a contradiction to every user, and neither half would
-        look wrong on its own.
+        The metadata and the LICENSE file are independent statements of the
+        same fact, and either can be updated alone. A wheel whose METADATA says
+        Apache-2.0 while its bundled LICENSE is the AGPL text ships a
+        contradiction to every user, and neither half would look wrong on its
+        own.
+
+        Since WP48 the licence is a PEP 639 SPDX expression with the file named
+        in `license-files`, and there is deliberately NO `License ::`
+        classifier: the classifier was the third statement of the fact, and
+        setuptools >= 77 deprecates it beside an SPDX `license` (builds that
+        carry both stop working after 2027-02-18). A classifier coming back
+        would be a second, unchecked statement of the licence.
         """
         declared = re.search(r"^license\s*=\s*(.+)$", self.text, re.M)
-        self.assertIn("Apache-2.0", declared.group(1),
-                      "pyproject's license field is %s" % declared.group(1).strip())
+        self.assertEqual(declared.group(1).strip(), '"Apache-2.0"',
+                         "pyproject's license field is %s; it must be the SPDX "
+                         "string \"Apache-2.0\"" % declared.group(1).strip())
+        files = re.search(r"^license-files\s*=\s*\[([^\]]*)\]", self.text, re.M)
+        self.assertIsNotNone(files, "pyproject names no license-files")
+        self.assertEqual(_quoted_strings(files.group(1)), ["LICENSE"])
 
         classifiers = re.findall(r'"(License :: [^"]+)"', self.text)
-        self.assertEqual(
-            classifiers, ["License :: OSI Approved :: Apache Software License"],
-            "the licence classifiers are %r" % classifiers)
+        self.assertEqual(classifiers, [],
+                         "a License classifier is back beside the SPDX licence: "
+                         "%r" % classifiers)
+        backend = re.search(r'^requires\s*=\s*\[([^\]]*)\]', self.text, re.M)
+        self.assertIn("setuptools>=77", backend.group(1),
+                      "PEP 639 metadata needs setuptools >= 77 to build")
 
         with open(os.path.join(ROOT, "LICENSE"), encoding="utf-8") as fh:
             body = fh.read()
@@ -276,6 +290,24 @@ class PackagingMetadataTests(unittest.TestCase):
         for banned in ("GNU AFFERO", "Affero General Public"):
             self.assertNotIn(banned, body,
                              "LICENSE still contains %r" % banned)
+
+    def test_python_classifiers_are_the_versions_ci_installs_on(self):
+        """A `Programming Language :: Python :: 3.N` classifier is a promise
+        that 3.N works; the install workflow is where that is checked."""
+        declared = sorted(re.findall(
+            r'"Programming Language :: Python :: (3\.\d+)"', self.text),
+            key=lambda v: int(v.split(".")[1]))
+        with open(os.path.join(ROOT, ".github", "workflows", "install.yml"),
+                  encoding="utf-8") as fh:
+            workflow = fh.read()
+        tested = set(re.findall(r'["\'](3\.\d+)["\']', workflow))
+        self.assertTrue(declared, "no per-version Python classifiers")
+        self.assertEqual(set(declared) - tested, set(),
+                         "classified but not installed in install.yml: %s"
+                         % sorted(set(declared) - tested))
+        floor = re.search(r'^requires-python\s*=\s*">=(3\.\d+)"', self.text, re.M)
+        self.assertEqual(declared[0], floor.group(1),
+                         "the lowest classifier is not requires-python's floor")
 
     # -- the hand-rolled parser, checked against a real one ----------------
     def test_both_parsers_agree(self):
