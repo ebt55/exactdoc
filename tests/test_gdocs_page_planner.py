@@ -412,17 +412,71 @@ class Blocks(unittest.TestCase):
         p.bbox = (75.0, 415.5, 535.0, 425.9)
         xml = self._written(t)
         w = re.search(r"<w:p>(?:(?!</w:p>).)*?Key finding(?:(?!</w:p>).)*?</w:p>", xml, re.S).group(0)
-        right = int(re.search(r'w:right="(\d+)"', w).group(1)) / 20.0
+        m = re.search(r'<w:ind [^>]*w:right="(\d+)"', w)
+        right = int(m.group(1)) / 20.0 if m else 0.0
         self.assertLessEqual(right, (72.0 + 468.0) - 535.0 + 0.05)
-        # inside the column the box's own inset stands
+        # inside the column the text wraps at the box's own text edge, its
+        # right edge less the cell's 4pt pad, measured from the column's
+        # edge (WP56: the box-to-text inset written alone, 31pt here, ran
+        # the text to 509 -- past the box's own edge at 450)
         t2 = self._box()
-        t2.rows[0][0].paras[0].bbox = (75.0, 415.5, 500.0, 425.9)
-        t2.left_indent = 61.5 - 72.0
+        t2.bbox = (90.0, 407.85, 450.0, 435.18)
+        t2.left_indent = 90.0 - 72.0
+        t2.rows[0][0].paras[0].bbox = (103.0, 415.5, 400.0, 425.9)
+        t2.rows[0][0].paras[0].src_widths = [297.0]
         xml = self._written(t2)
         w = re.search(r"<w:p>(?:(?!</w:p>).)*?Key finding(?:(?!</w:p>).)*?</w:p>", xml, re.S).group(0)
-        # (the inset 51.5pt, capped at the schema's 31)
         self.assertAlmostEqual(int(re.search(r'w:right="(\d+)"', w).group(1)) / 20.0,
-                               31.0, delta=0.1)
+                               540.0 - (450.0 - 4.0), delta=0.1)
+        # and the right rail stands on the box's edge: 4pt past the text
+        self.assertIn('w:space="4"', re.search(r"<w:right [^>]*/>", w).group(0))
+
+    def test_a_box_on_a_page_with_no_side_margins_wraps_at_its_own_edge(self):
+        # 01_whitepaper_market's "Key Insight" panel (x 57-555, text 69-545.0)
+        # on its cover page, which the gdocs profile writes with zero side
+        # margins: the column is the page, 0-612. The inset alone (10pt) ran
+        # its text to 602 in Docs, three words more on its first line.
+        t = self._box()
+        t.bbox = (57.0, 407.85, 555.0, 435.18)
+        t.left_indent = 57.0
+        # Without Docs' widths the text edge is the widest source line, the
+        # rail on the box's edge; never past the column
+        right, space = D._gdocs_box_right(t, 545.0, 612.0)
+        self.assertAlmostEqual(right, 612.0 - 545.0, places=6)
+        self.assertAlmostEqual(space, 10.0, places=6)
+        self.assertEqual(D._gdocs_box_right(t, 545.0, 540.0), (0.0, 15.0))
+        # With them, a one-line paragraph gets the box's own text edge (its
+        # right edge less the cell's 4pt pad): no next word to pull up
+        p = t.rows[0][0].paras[0]
+        p.src_widths = [470.0]
+        p.left_indent = 12.0
+        right, space = D._gdocs_box_right(t, 545.0, 612.0, D._text_metrics("gdocs"))
+        self.assertAlmostEqual(right, 612.0 - 551.0, places=6)
+        self.assertAlmostEqual(space, 4.0, places=6)
+
+    def test_a_ragged_box_wraps_where_docs_keeps_the_source_breaks(self):
+        # the middle of the window in which Docs' widths keep every source
+        # break: past the widest line (01's "by" sets 0.73pt wider in Docs),
+        # short of the next line's first word (03's "the", which the 4pt
+        # pad's edge pulls up in Word and LibreOffice)
+        m = D._text_metrics("gdocs")
+        words = ("Across the organizations surveyed, tiered inference reduced cost per "
+                 "thousand requests by a median of 38% while improving latency.").split()
+        line1, line2 = " ".join(words[:12]), " ".join(words[12:])
+        w = lambda s: m.text_width(s, "Arial", 10.0)  # noqa: E731
+        p = Para(runs=[_run(line1 + " " + line2, font="Helvetica", size=10.0)],
+                 leading=14.0, src_lines=2, src_widths=[w(line1), w(line2)])
+        lo, hi = D._gdocs_wrap_window(p, m)
+        self.assertAlmostEqual(lo, w(line1), places=3)
+        self.assertAlmostEqual(hi, w(line1 + " " + words[12]), places=3)
+        t = self._box()
+        p.left_indent = 12.0
+        p.bbox = (69.0, 415.5, 69.0 + w(line1), 440.0)
+        t.rows[0][0].paras = [p]
+        t.bbox = (57.0, 407.85, 69.0 + hi + 30.0, 445.0)
+        t.left_indent = 57.0
+        right, _space = D._gdocs_box_right(t, 69.0 + lo, 612.0, m)
+        self.assertAlmostEqual(612.0 - right, 69.0 + (lo + hi) / 2.0, places=6)
 
     def test_the_standard_profile_keeps_the_table_form(self):
         xml = self._written(self._box())

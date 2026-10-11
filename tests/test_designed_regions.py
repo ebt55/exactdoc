@@ -753,6 +753,19 @@ class GdocsShadedBox(unittest.TestCase):
             self.assertIsNone(shd)
             self.assertEqual(set(colours.values()), {"333333"})
 
+    def test_an_accent_bar_panel_keeps_the_bar_alone(self):
+        # a tinted panel with a 3pt bar down its left (01_whitepaper_market's
+        # "Key Insight"): the bar is the only stroke; the other sides are
+        # rails in the fill, not the bar's colour lent round the box (WP56)
+        paras = self._write("#eff6ff", {"left": (3.0, "#2563eb")})
+        self.assertEqual(len(paras), 2)
+        for colours, shd, _ in paras:
+            self.assertEqual(shd, ("clear", "EFF6FF"))
+            self.assertEqual(colours["left"], "2563EB")
+            self.assertEqual({c for s, c in colours.items() if s != "left"}, {"EFF6FF"})
+        self.assertEqual(set(paras[0][0]), {"top", "left", "right"})
+        self.assertEqual(set(paras[1][0]), {"left", "bottom", "right"})
+
 
 if __name__ == "__main__":
     unittest.main()

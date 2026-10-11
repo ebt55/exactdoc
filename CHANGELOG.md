@@ -20,6 +20,28 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **A box written as bordered paragraphs wraps where its source did, and an
+  accent bar stays a bar, in Google Docs (WP56, gdocs profile only).** The
+  README hero showed Docs setting 01_whitepaper_market's "Key Insight" panel
+  with three more words on its first line and a full 3pt blue frame, where
+  the PDF, Word and LibreOffice show the source's wrap and a left bar on a
+  tint. Both were defects of the gdocs DOCX, not of Docs. (1) A box's right
+  indent was the box-edge-to-text inset (10pt), but `w:ind right` counts from
+  the column's edge: right only where the box met the column, so on the
+  cover page (zero side margins under gdocs) the text ran to x=602, and a box
+  narrower than its column wrapped past its own edge on any page (c1's
+  callouts' tint ran to the paper edge; y06's 92pt sidebars across the page;
+  y58's side-by-side panels at full width). `docxout._gdocs_box_right` now
+  measures from the column (its true width in a multi-column flow) and puts
+  the text edge where Docs' own widths keep every source line break (the
+  middle of the window between the widest line and the next line's first
+  word, `_gdocs_wrap_window`), else at the widest source line widened only
+  until Docs keeps each paragraph's line count; the right rail stands on the
+  box's edge. (2) Sides the source did not stroke borrowed the left bar; they
+  are now rails in the fill's colour, as on an unstroked panel. The standard
+  profile is byte-identical over the 95 corpus documents; the gdocs DOCX of
+  documents without such boxes is identical. Live evidence pending (probe
+  set `C:\lotmp\scr\wp56\gdocs_probe`).
 - **A contributor guide and a one-command quality check (WP54).**
   CONTRIBUTING.md is rewritten as the full guide: reporting with `--diagnose`,
   setup on Linux, macOS and Windows, the tests, how a fix is judged (a named

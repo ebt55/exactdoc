@@ -3173,7 +3173,8 @@ def table_opens_with_spacer(t: TableEl, ctx=None) -> bool:
 
 
 def write_table(container, t: TableEl, content_w: float, ctx=None,
-                cover_band: bool = False, page_break_before: bool = False):
+                cover_band: bool = False, page_break_before: bool = False,
+                column_w=None):
     ctx = ctx or _DEFAULT_CTX
     # A coloured page-one cover band is the one table Google Docs treats
     # differently.  Do not infer this from ``role == 'band'``: header bands
@@ -3203,7 +3204,8 @@ def write_table(container, t: TableEl, content_w: float, ctx=None,
     # source's own 0.75pt stroke).
     if _gdocs_paragraph_form(t, ctx) and t.role == "box":
         return _write_box_paragraphs(container, t, content_w, ctx,
-                                     page_break_before=page_break_before)
+                                     page_break_before=page_break_before,
+                                     column_w=column_w)
     n_rows = len(t.rows)
     n_cols = len(t.col_widths)
     if n_rows == 0 or n_cols == 0:
@@ -3606,6 +3608,222 @@ def _block_right_gap(t: TableEl, content_w: float) -> float:
     return max(0.0, content_w - t.left_indent - width)
 
 
+def _gdocs_box_right(t: TableEl, text_r: float, column_w: float, metrics=None):
+    """(right indent, right rail's w:space) of a box written as bordered
+    paragraphs (`_write_box_paragraphs`, and the width `_gdocs_panel` tests
+    its joins at).
+
+    w:ind right is measured from the COLUMN's right edge (`column_w` is the
+    column's width). Written as the box-edge-to-text inset alone, it was
+    right only where the box's edge met the column's: on a page the gdocs
+    profile writes with zero side margins (a cover band's, the column the
+    whole page) 01_whitepaper_market's "Key Insight" panel (x 57-555, text
+    to 545.0) wrapped at 602 in Docs, three words more on its first line and
+    the right rail at the page edge (live, the 2026-10-11 README hero), and a
+    box narrower than its column wrapped past its own edge on any page
+    (y06's 92pt sidebars ran across the page).
+
+    The text edge is where Docs' own widths reproduce the source's line
+    breaks (`_gdocs_box_wrap_edge`), within the box's own text edge -- its
+    right edge less the cell's right pad, the edge `infer.build_box` flowed
+    its lines against -- where it can be; else the widest source line,
+    widened until Docs keeps each paragraph's source line count
+    (`_gdocs_box_keeps`), the edge such a box had on a page whose column
+    ends at the box (a justified paragraph's lines all end there, and the
+    window cannot be read from them). Never inside the widest source line
+    (03_tech_report_code's warning box set its one line as two in Docs when
+    it got less, WP19b probe 3), never past the column. The rail stands on
+    the box's right edge. A box with no geometry keeps the cell's pad."""
+    pads = t.rows[0][0].pad
+    pad = pads[3] if len(pads) >= 4 else 0.0
+    if not t.bbox:
+        return max(0.0, pad), max(0.0, min(31.0, pad))
+    col_left = t.bbox[0] - t.left_indent
+    col_right = col_left + column_w
+    room = max(text_r, t.bbox[2] - pad)
+    edge = _gdocs_box_wrap_edge(t, col_left, room, metrics) \
+        if metrics is not None else None
+    if edge is not None and not _gdocs_box_holds(t, min(col_right, edge),
+                                                 col_right, column_w, metrics):
+        edge = None                 # the ladder sets a paragraph otherwise
+    if edge is None:
+        edge = min(col_right, text_r)
+        if metrics is not None:
+            edge = _gdocs_box_keeps(t, edge, col_right, column_w, metrics)
+    edge = min(col_right, max(text_r, edge))
+    return max(0.0, col_right - edge), max(0.0, min(31.0, t.bbox[2] - edge))
+
+
+# Step (pt) in which `_gdocs_box_keeps` widens a box's text edge: Docs snaps
+# indents to its 0.75pt (1 CSS px) grid, so a finer step buys nothing.
+GDOCS_BOX_WIDEN_STEP_PT = 0.75
+# How far a reconstructed source line may differ from the line the source
+# measured (`Para.src_widths`), as a share of it, for `_gdocs_wrap_window`
+# to trust its line breaks: Docs' widths differ from the source's by up to
+# ~2% on the corpus (c1_whitepaper's callouts 1.8%, 01's 0.15%), and the
+# reconstruction runs at the paragraph's own scale, so 3% is a missed break.
+GDOCS_WRAP_RECON_TOL = 0.03
+
+
+def _gdocs_box_keeps(t: TableEl, edge: float, col_right: float,
+                     column_w: float, metrics) -> float:
+    """`edge`, moved right (never past the column) until every flowing
+    paragraph of box `t` keeps its source line count in Google Docs' widths
+    (`predict_lines_for`, the ladder the page model trusts). Docs sets some
+    families wider than the source drew them -- c1_whitepaper's callout
+    lines 1.6-1.8% (src 460.4pt, Docs 468.9pt, the 2026-10-11 final
+    export) -- and a box edge that held the source's line would break it.
+    Never so far that another paragraph of the box loses a line."""
+    paras = []
+    for p in t.rows[0][0].paras:
+        n = p.src_lines or 0
+        if n < 1 or p.line_breaks or p.gdocs_rows or \
+                p.align not in ("left", "justify") or getattr(p, "rtl", False):
+            continue
+        q = copy.copy(p)
+        q.left_indent = max(0.0, t.left_indent + p.left_indent)
+        paras.append((q, n))
+
+    def counts(e):
+        out = []
+        for q, n in paras:
+            q.right_indent = max(0.0, col_right - e)
+            got = predict_lines_for(q, column_w - q.left_indent - q.right_indent -
+                                    _wrap_correction(q, column_w), metrics)
+            out.append((got, n))
+        return out
+
+    got = counts(edge)
+    while edge < col_right and any(g is not None and g > n for g, n in got):
+        nxt = min(col_right, edge + GDOCS_BOX_WIDEN_STEP_PT)
+        got = counts(nxt)
+        if any(g is not None and g < n for g, n in got):
+            break
+        edge = nxt
+    return edge
+
+
+def _gdocs_box_holds(t: TableEl, edge: float, col_right: float,
+                     column_w: float, metrics) -> bool:
+    """Does every flowing paragraph of box `t` keep exactly its source line
+    count in Docs' widths (`predict_lines_for`) with its text edge at `edge`?
+    A paragraph the ladder cannot predict does not object."""
+    for p in t.rows[0][0].paras:
+        n = p.src_lines or 0
+        if n < 1 or p.line_breaks or p.gdocs_rows:
+            continue
+        q = copy.copy(p)
+        q.left_indent = max(0.0, t.left_indent + p.left_indent)
+        q.right_indent = max(0.0, col_right - edge)
+        got = predict_lines_for(q, column_w - q.left_indent - q.right_indent -
+                                _wrap_correction(q, column_w), metrics)
+        if got is not None and got != n:
+            return False
+    return True
+
+
+def _gdocs_wrap_window(p: Para, metrics):
+    """(lo, hi): the widths, in Google Docs' own text widths, at which Docs
+    breaks `p` where the source did -- every source line fits (lo, the
+    widest) and none takes the next line's first word (hi) -- or None when
+    the source's lines cannot be read back from `Para.src_widths` (an
+    unmeasurable font, a tab, a soft break, a line the reconstruction
+    misses by more than GDOCS_WRAP_RECON_TOL). One line: (its width, inf).
+
+    The source lines are recovered by laying the words end to end in Docs'
+    widths and cutting where each line's measured width falls, at the scale
+    the two disagree by (the total of the source's lines against Docs'
+    total), so a family Docs sets 1.8% wider still finds its breaks."""
+    from .metrics import shaped_size
+    n = p.src_lines or 0
+    sw = list(p.src_widths or [])
+    if n < 1 or len(sw) != n or p.line_breaks or p.gdocs_rows or \
+            getattr(p, "rtl", False) or p.align not in ("left", "justify"):
+        return None
+    words = []                    # [width, the space before it]
+    pending = 0.0
+    for r in p.runs:
+        if r.is_tab or "\n" in (r.text or ""):
+            return None
+        if not r.text:
+            continue
+        fam = map_font(r.font, mono=r.mono, serif=r.serif, profile="gdocs")
+        sz = shaped_size(r)
+        sp = metrics.text_width(" ", fam, sz, bold=r.bold, italic=r.italic)
+        if sp is None:
+            return None
+        for k, w in enumerate(r.text.split(" ")):
+            if k:
+                pending += sp
+            if not w:
+                continue
+            ww = metrics.text_width(w, fam, sz, bold=r.bold, italic=r.italic)
+            if ww is None:
+                return None
+            if words and pending == 0.0:
+                words[-1][0] += ww          # a word continued across runs
+            else:
+                words.append([ww, pending if words else 0.0])
+            pending = 0.0
+    if len(words) < n:
+        return None
+    total = sum(w for w, _ in words) + sum(s for _, s in words[1:])
+    if n == 1:
+        return (total, float("inf"))
+    # the scale: the source's total against Docs', less the n-1 break spaces
+    avg_sp = sum(s for _, s in words[1:]) / max(1, len(words) - 1)
+    scale = sum(sw) / max(1.0, total - (n - 1) * avg_sp)
+    lines, k = [], 0
+    for i in range(n):
+        if i == n - 1:
+            end = len(words)
+        else:
+            best, end, acc = None, None, 0.0
+            for j in range(k, len(words) - (n - 1 - i)):
+                acc += words[j][0] + (words[j][1] if j > k else 0.0)
+                d = abs(acc * scale - sw[i])
+                if best is None or d < best:
+                    best, end = d, j + 1
+                elif acc * scale > sw[i]:
+                    break
+            if end is None:
+                return None
+        acc = sum(words[j][0] + (words[j][1] if j > k else 0.0)
+                  for j in range(k, end))
+        if abs(acc * scale - sw[i]) > GDOCS_WRAP_RECON_TOL * max(sw[i], 1.0):
+            return None
+        lines.append((acc, end))
+        k = end
+    lo = max(w for w, _ in lines)
+    hi = min(w + words[j][1] + words[j][0] for w, j in lines[:-1])
+    return (lo, hi) if hi > lo else None
+
+
+def _gdocs_box_wrap_edge(t: TableEl, col_left: float, room: float, metrics):
+    """The text edge (page x) at which Docs breaks every paragraph of box
+    `t` where the source did: the middle of the paragraphs' windows'
+    common span (`_gdocs_wrap_window`) within the box's own room (`room`),
+    else of the span itself; None where a paragraph has no window or the
+    spans do not meet. 01_whitepaper_market's "Key Insight" (Docs sets its
+    first line 0.73pt wider than the source drew it, and the next word "a"
+    would need 8.3pt more) and 03_tech_report_code's performance note (whose
+    next word "the" Word and LibreOffice pull up at the 4pt pad's edge,
+    551.0, in the standard profile's table) both keep their breaks."""
+    lo, hi = -float("inf"), float("inf")
+    for p in t.rows[0][0].paras:
+        win = _gdocs_wrap_window(p, metrics)
+        if win is None:
+            return None
+        x0 = col_left + max(0.0, t.left_indent + p.left_indent)
+        lo, hi = max(lo, x0 + win[0]), min(hi, x0 + win[1])
+    if not hi > lo:
+        return None
+    if hi == float("inf"):
+        return max(lo, room)        # one-line paragraphs: no next word to pull up
+    top = min(hi, room) if room > lo else hi
+    return (lo + top) / 2.0
+
+
 def _gdocs_block_gap(t: TableEl, first: Para) -> float:
     """The space-before of a box's first paragraph: the table's own gap (the
     spacer the table form opens with) plus the paragraph's. Google Docs'
@@ -3716,9 +3934,12 @@ def _gdocs_panel(boxes: List[TableEl], content_w: float) -> Optional[TableEl]:
     edge = max(p.bbox[2] for p in lines)
     # the text width `_write_box_paragraphs` will give each paragraph
     t0 = boxes[0]
-    pad_right = max(0.0, min(31.0, t0.bbox[2] - edge))
+    # (the box's own text edge, `_gdocs_box_right`'s room: a panel's lines
+    # run to it, and a run of short lines is joined only where it holds them)
     col_right = (t0.bbox[0] - t0.left_indent) + content_w
-    right = max(0.0, min(pad_right, col_right - edge))
+    pads = t0.rows[0][0].pad
+    room = max(edge, t0.bbox[2] - (pads[3] if len(pads) >= 4 else 0.0))
+    right = max(0.0, col_right - min(col_right, room))
     groups = [[lines[0]]]
     for p, q, d in zip(lines, lines[1:], pitches):
         prev = groups[-1][-1]
@@ -3974,13 +4195,14 @@ def _write_quote_paragraphs(container, t: TableEl, content_w: float, ctx=None,
 
 
 def _write_box_paragraphs(container, t: TableEl, content_w: float, ctx=None,
-                          page_break_before: bool = False):
+                          page_break_before: bool = False, column_w=None):
     """A callout box as body paragraphs carrying a four-side border (gdocs).
 
     See `write_table` for why the table form is replaced. Geometry follows
     the source's own measurements: the left rail sits `pad_left` from the
-    text, the right rail `pad_right` (from the box edge minus the widest
-    line), the top border `pads[0]` above the first paragraph, the bottom
+    text, the text wraps at the box's own text edge and the right rail
+    stands on the box's edge (`_gdocs_box_right`), the top border `pads[0]`
+    above the first paragraph, the bottom
     `pads[2]` below the last. w:space is capped at 31pt by the schema.
     """
     cell = t.rows[0][0]
@@ -3996,13 +4218,21 @@ def _write_box_paragraphs(container, t: TableEl, content_w: float, ctx=None,
     fill = cell.shading
     default = (0.75, fill) if (fill and not b) else (0.75, "#333333")
     left = b.get("left") or default
-    right = b.get("right") or left
-    top = b.get("top") or left
-    bot = b.get("bottom") or left
+    # A side the source did not stroke is a rail in the FILL's colour, as on
+    # the unstroked panel above: an accent-bar panel (a tinted rect with one
+    # thick bar down its left, `infer.build_box`) is stroked on its left
+    # only, and lending the bar to the other three sides framed
+    # 01_whitepaper_market's "Key Insight" panel in 3pt blue in Docs (the
+    # 2026-10-11 README hero) where the source, Word and LibreOffice show the
+    # bar alone. An unfilled box has no colour of its own; it keeps the left.
+    unstroked = (0.75, fill) if fill else left
+    right = b.get("right") or unstroked
+    top = b.get("top") or unstroked
+    bot = b.get("bottom") or unstroked
     pads = cell.pad if len(cell.pad) >= 4 else (0.0, 0.0, 0.0, 0.0)
-    # measured right inset: box right edge against the widest source line
     text_r = max((p.bbox[2] for p in cell.paras if p.bbox), default=t.bbox[2])
-    pad_right = max(0.0, min(31.0, t.bbox[2] - text_r)) if t.bbox else pads[3]
+    right_ind, pad_right = _gdocs_box_right(t, text_r, column_w or content_w,
+                                            _text_metrics("gdocs"))
     # top/bottom spaces from the RECT's own edges against the text they
     # bound -- `cell.pad` can over-measure the bottom (it counted 49.9pt
     # where the source rect's own edge sits 9.4pt under the last line)
@@ -4026,18 +4256,7 @@ def _write_box_paragraphs(container, t: TableEl, content_w: float, ctx=None,
         # included (infer.build_box), as every cell's is.
         space_l = max(0.0, min(31.0, q.left_indent))
         q.left_indent = max(0.0, t.left_indent + q.left_indent)
-        # measured from the BOX's right edge, not the column's: a box
-        # narrower than its column otherwise wraps its text at the column
-        q.right_indent = max(0.0, pad_right)
-        if calibrated and t.bbox:
-            # The indent is taken from the COLUMN's edge, so a box standing
-            # out past the column gave its text less room than the source's
-            # widest line: 03_tech_report_code's warning box (x 57-555 on a
-            # column ending at 551.6) set its one line as two in Docs, and
-            # the page under it 11.6pt low (WP19b probe 3, and live before).
-            # Never less room than that line had.
-            col_right = (t.bbox[0] - t.left_indent) + content_w
-            q.right_indent = max(0.0, min(q.right_indent, col_right - text_r))
+        q.right_indent = right_ind
         q.first_indent = 0.0
         if not calibrated:
             pass
@@ -6638,11 +6857,18 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                     # the source carries these worksheets INSIDE a real
                     # 165pt column). Booklet-scoped: the gated corpus has
                     # no >=3-col flow, and its behaviour is the baseline.
-                    tw = cw_ctx
-                    if booklet and ch.n_cols > 1:
+                    tw = colw = cw_ctx
+                    if ch.n_cols > 1:
+                        # the column's own width: what a box written as
+                        # paragraphs measures its right indent from
+                        # (`_gdocs_box_right`; gdocs sections are always
+                        # equal-width, `_section_widths`)
                         gap = ch.col_gap or 0.0
-                        tw = (cw_ctx - gap * (ch.n_cols - 1)) / ch.n_cols
-                    write_table(doc, el, tw, ctx=ctx, page_break_before=carry)
+                        colw = (cw_ctx - gap * (ch.n_cols - 1)) / ch.n_cols
+                        if booklet:
+                            tw = colw
+                    write_table(doc, el, tw, ctx=ctx, page_break_before=carry,
+                                column_w=colw)
                     if ctx.output_profile == "gdocs" and ctx.gdocs_calibrated and \
                             getattr(el, "role", "") == "quote" and \
                             _gdocs_paragraph_form(el, ctx):
