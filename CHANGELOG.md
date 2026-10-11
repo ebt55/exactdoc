@@ -32,7 +32,10 @@ one verified fix at a time, each gated against the frozen 16.
   step in it, with a first step that fails unless the environment is the
   recorded one; no rebuild and no re-record. Measured locally the way CI runs
   it, on 96ede05: fingerprint 9cb0bc17, canonical, the whole step list green.
-  The integration branch is gated on push too, and `quality_check.sh` uses
+  It is published as `ghcr.io/ebt55/exactdoc-gate:snapshot-2026-10-11`;
+  docs/gate-image.md says what is in it and where the source of every
+  GPL/LGPL/AGPL/MPL component is. The integration branch is gated on push
+  too, and `quality_check.sh` uses
   the same image by default, pulling it on first use.
 - **A contributor guide and a one-command quality check (WP54).**
   CONTRIBUTING.md is rewritten as the full guide: reporting with `--diagnose`,

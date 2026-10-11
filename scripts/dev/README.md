@@ -149,7 +149,9 @@ flattened by `ci_image.sh --no-chrome` into `exactdoc-gate:ci-nochrome`
 commit` layer carried (which included local agent settings that must not be
 published), the root user's pip/uv caches and Chrome for Testing, pushed to
 `ghcr.io/ebt55/exactdoc-gate`; `gate.yml` pins it by manifest digest and runs
-the strict gate inside it. Measured in it (and in boot) as CI runs it, on
+the strict gate inside it (pushed as `snapshot-2026-10-11`, digest
+`sha256:b4633289…`; contents and source availability:
+[docs/gate-image.md](../../docs/gate-image.md)). Measured in it (and in boot) as CI runs it, on
 96ede05: fingerprint 9cb0bc17, canonical, every step green, the full unit
 suite included. A streamed scan of its whole filesystem found no `.claude`,
 settings, credential, key, token or history file and no private document

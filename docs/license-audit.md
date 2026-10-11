@@ -380,7 +380,15 @@ Chrome for Testing is removed from it (`--no-chrome`): the gate never needs
 it, it only regenerates corpus documents. Publishing the image does convey
 the remaining binaries, so the
 "not distributed" reasoning below covers the wheel and the repository, not
-the image.
+the image. For the image, [docs/gate-image.md](gate-image.md) is the
+source-availability notice: it names the GPL, LGPL, AGPL and MPL components
+(the Ubuntu 24.04 packages, LibreOffice, GNU FreeFont, WenQuanYi Zen Hei,
+PyMuPDF/MuPDF, fpdf2) and the permissively licensed fonts (Liberation,
+Carlito, Caladea, DejaVu, IPA), with the versions in the image and where each
+one's source is: the Ubuntu archive (`apt-get source <package>=<version>`),
+LibreOffice's source pages, PyMuPDF's and MuPDF's GitHub repositories and the
+font projects. The image's OCI label `org.opencontainers.image.documentation`
+points to it from the next build on.
 
 **None of this constrains exactdoc's code licence, for three reasons.** It is
 not distributed with exactdoc — it is a container the project builds to measure

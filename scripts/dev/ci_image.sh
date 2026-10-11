@@ -78,6 +78,7 @@ while IFS= read -r e; do
 done < <(docker image inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$FROM" | tr -d '\r')
 CHANGES+=(--change 'WORKDIR /work' --change 'CMD ["bash"]'
           --change 'LABEL org.opencontainers.image.source=https://github.com/ebt55/exactdoc'
+          --change 'LABEL org.opencontainers.image.documentation=https://github.com/ebt55/exactdoc/blob/main/docs/gate-image.md'
           --change 'LABEL org.opencontainers.image.title="exactdoc canonical gate environment"'
           --change "LABEL org.opencontainers.image.description=\"Snapshot of exactdoc-gate:boot (flattened, working tree removed$( [ "$NOCHROME" = 1 ] && echo ', Chrome for Testing removed' || true)). Referenced by digest.\"")
 docker export "$C" | docker import "${CHANGES[@]}" - "$TAG" >/dev/null

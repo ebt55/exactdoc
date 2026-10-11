@@ -110,7 +110,7 @@ OUT="${OUT:-$SCR/qc/$B7-$H7$( [ $MODE = repeat ] && echo -repeat)-$CORPUS}"
 C="exq-$B7-$H7-$$"
 # The canonical measurement image, exactly as .github/workflows/gate.yml pins
 # it (tests/test_quality_check.py keeps the two equal).
-PUBLISHED=ghcr.io/ebt55/exactdoc-gate@sha256:PENDING
+PUBLISHED=ghcr.io/ebt55/exactdoc-gate@sha256:b46332899ad379ce6afa3bfadaead5bfaad039b2d5556bc78fdb7c17c3b32eb4
 DIGEST=sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90
 
 if [ $MODE = compare ] && [ "$HEAD_REF" = HEAD ] && [ -n "$(g status --porcelain --untracked-files=no)" ]; then
