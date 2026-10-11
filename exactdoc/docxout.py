@@ -3647,7 +3647,11 @@ def _gdocs_box_right(t: TableEl, text_r: float, column_w: float, metrics=None):
                                                  col_right, column_w, metrics):
         edge = None                 # the ladder sets a paragraph otherwise
     if edge is None:
-        edge = min(col_right, text_r)
+        # a box whose lines are all its own (one line each, or broken where
+        # the source broke them) has no next word to pull up: its own room
+        flows = any((p.src_lines or 1) > 1 and not p.line_breaks and
+                    not p.gdocs_rows for p in t.rows[0][0].paras)
+        edge = min(col_right, text_r if flows else room)
         if metrics is not None:
             edge = _gdocs_box_keeps(t, edge, col_right, column_w, metrics)
     edge = min(col_right, max(text_r, edge))

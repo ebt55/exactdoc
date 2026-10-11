@@ -439,20 +439,24 @@ class Blocks(unittest.TestCase):
         t = self._box()
         t.bbox = (57.0, 407.85, 555.0, 435.18)
         t.left_indent = 57.0
-        # Without Docs' widths the text edge is the widest source line, the
-        # rail on the box's edge; never past the column
+        # A one-line paragraph has no next word to pull up: the box's own
+        # text edge (its right edge less the cell's 4pt pad), the rail on
+        # the box's edge; never past the column
         right, space = D._gdocs_box_right(t, 545.0, 612.0)
-        self.assertAlmostEqual(right, 612.0 - 545.0, places=6)
-        self.assertAlmostEqual(space, 10.0, places=6)
+        self.assertAlmostEqual(right, 612.0 - 551.0, places=6)
+        self.assertAlmostEqual(space, 4.0, places=6)
         self.assertEqual(D._gdocs_box_right(t, 545.0, 540.0), (0.0, 15.0))
-        # With them, a one-line paragraph gets the box's own text edge (its
-        # right edge less the cell's 4pt pad): no next word to pull up
         p = t.rows[0][0].paras[0]
         p.src_widths = [470.0]
         p.left_indent = 12.0
         right, space = D._gdocs_box_right(t, 545.0, 612.0, D._text_metrics("gdocs"))
         self.assertAlmostEqual(right, 612.0 - 551.0, places=6)
-        self.assertAlmostEqual(space, 4.0, places=6)
+        # A flowing paragraph with no window read from it (no Docs widths
+        # here) wraps at its widest source line
+        p.src_lines = 2
+        right, space = D._gdocs_box_right(t, 545.0, 612.0)
+        self.assertAlmostEqual(right, 612.0 - 545.0, places=6)
+        self.assertAlmostEqual(space, 10.0, places=6)
 
     def test_a_ragged_box_wraps_where_docs_keeps_the_source_breaks(self):
         # the middle of the window in which Docs' widths keep every source
