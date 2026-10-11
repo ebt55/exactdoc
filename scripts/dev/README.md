@@ -144,14 +144,17 @@ the switch commit.
 
 **Step 7, done differently (WP55, 2026-10-11, owner-delegated decision).** CI
 does not run a rebuild. `exactdoc-gate:boot` (image id bab1cfc0d2cd) is
-flattened by `ci_image.sh` into `exactdoc-gate:ci` (e10381f24ec0): the same
-filesystem without the working tree its `docker commit` layer carried (which
-included local agent settings that must not be published), pushed to
+flattened by `ci_image.sh --no-chrome` into `exactdoc-gate:ci-nochrome`
+(b46332899ad3): the same filesystem without the working tree its `docker
+commit` layer carried (which included local agent settings that must not be
+published), the root user's pip/uv caches and Chrome for Testing, pushed to
 `ghcr.io/ebt55/exactdoc-gate`; `gate.yml` pins it by manifest digest and runs
-the strict gate inside it. Measured both ways as CI runs them, on 96ede05:
-fingerprint 9cb0bc17, canonical, every step green; so nothing in steps 3-5
-repeats. A rebuild from `gate-image.yml` would resolve today's apt and is still
-a new environment.
+the strict gate inside it. Measured in it (and in boot) as CI runs it, on
+96ede05: fingerprint 9cb0bc17, canonical, every step green, the full unit
+suite included. A streamed scan of its whole filesystem found no `.claude`,
+settings, credential, key, token or history file and no private document
+name. So nothing in steps 3-5 repeats. A rebuild from `gate-image.yml` would
+resolve today's apt and is still a new environment.
 
 Switching is a baseline migration and needs the owner's approval at step 3.
 Do it when no other run is using `exactdoc-gate:boot`:
@@ -183,6 +186,6 @@ Do it when no other run is using `exactdoc-gate:boot`:
    FreeSerif; comment-only, output unchanged.
 7. For CI, push the new canonical image and pin its digest in `gate.yml` and
    `quality_check.sh` (how WP55 did it: the snapshot flattened by
-   `ci_image.sh`, so the environment is unchanged). A full
+   `ci_image.sh --no-chrome`, so the environment is unchanged). A full
    rebuild with `gate-image.yml` (it carries the same pinned fonts) is a new
    environment and repeats 3-5.

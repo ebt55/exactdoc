@@ -25,7 +25,9 @@ one verified fix at a time, each gated against the frozen 16.
   `ubuntu-24.04` runner: the baseline is bound to environment 9cb0bc17, which
   no runner reproduces. The maintainer's canonical snapshot
   (`exactdoc-gate:boot`, image id bab1cfc0d2cd), flattened without the
-  working tree its last layer carried (`scripts/dev/ci_image.sh`), is pushed
+  working tree its last layer carried, its pip/uv caches and Chrome for
+  Testing, which the gate does not use (`scripts/dev/ci_image.sh
+  --no-chrome`), is pushed
   to `ghcr.io/ebt55/exactdoc-gate`; `gate.yml` pins it by digest and runs every
   step in it, with a first step that fails unless the environment is the
   recorded one; no rebuild and no re-record. Measured locally the way CI runs

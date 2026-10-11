@@ -3,7 +3,8 @@
 #
 # Make the image CI's gate runs in (.github/workflows/gate.yml) from the
 # canonical snapshot, WITHOUT changing the measurement environment, so that it
-# can be published. Default: exactdoc-gate:boot -> exactdoc-gate:ci.
+# can be published. Default: exactdoc-gate:boot -> exactdoc-gate:ci. What CI
+# pins (WP55) is `--no-chrome --tag exactdoc-gate:ci-nochrome`.
 #
 # Why not push exactdoc-gate:boot as it is. That snapshot was made with
 # `docker commit` of a bootstrapped container (2026-10-04), and its committed
@@ -27,9 +28,11 @@
 # fingerprint does not read Chrome (evidence.py records its version as
 # provenance only).
 #
+# Before publishing, scan the result (see the WP55 notes in scripts/dev/README.md).
+#
 # Uses ONE container, removed at the end. Pushing is a separate, deliberate
 # step (needs `docker login ghcr.io`):
-#   docker tag exactdoc-gate:ci ghcr.io/ebt55/exactdoc-gate:snapshot-<date>
+#   docker tag <TAG> ghcr.io/ebt55/exactdoc-gate:snapshot-<date>
 #   docker push ghcr.io/ebt55/exactdoc-gate:snapshot-<date>
 # then pin the printed digest in gate.yml and quality_check.sh (PUBLISHED).
 export MSYS_NO_PATHCONV=1
@@ -48,12 +51,18 @@ C="exci-$$"
 docker image inspect "$FROM" >/dev/null || { echo "no image $FROM" >&2; exit 2; }
 trap 'docker rm -f "$C" >/dev/null 2>&1 || true' EXIT
 
+# Also the root user's pip and uv caches: they hold a wheel built from that
+# old working tree, and CI never reads them (the runner sets HOME=/github/home,
+# so uv uses an empty cache there; the venv's files do not depend on them).
 SCRUB='find /work -mindepth 1 -maxdepth 1 ! -name .venv -exec rm -rf {} +
 rm -f /tmp/uv-*.lock
-test -x /work/.venv/bin/python'
+rm -rf /root/.cache/uv /root/.cache/pip
+test -x /work/.venv/bin/python
+/work/.venv/bin/python -c "import numpy, lxml, pypdfium2, fitz, docx, PIL, reportlab, fpdf"'
 if [ "$NOCHROME" = 1 ]; then
   SCRUB="$SCRUB
-rm -rf /opt/ms-playwright /opt/pw /usr/local/bin/chrome-headless-shell"
+rm -rf /opt/ms-playwright /opt/pw /usr/local/bin/chrome-headless-shell
+echo '# ci_image.sh --no-chrome: Chrome for Testing removed (the chrome= line above is history)' >> /etc/exactdoc-image.txt"
 fi
 docker run --name "$C" "$FROM" bash -c "$SCRUB"
 
