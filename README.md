@@ -78,8 +78,17 @@ From Python:
 ```python
 from exactdoc import convert
 
+# The same conversion as `exactdoc report.pdf`, with the LibreOffice layout check
 convert("report.pdf", "report.docx")
+
+# One pass, no LibreOffice needed (the same as `--refine 0`)
+convert("report.pdf", "report.docx", refine_rounds=0, oracle="none")
 ```
+
+Unlike the command line, `convert()` does not fall back on its own when
+LibreOffice is missing: the first call raises `OracleUnavailableError`, so a
+script never receives an unchecked DOCX it did not ask for. Use the second call
+on a machine without LibreOffice.
 
 The Google Docs option writes the same document in a form that Google Docs'
 importer reads correctly. Upload the DOCX to Google Drive and open it with Google
