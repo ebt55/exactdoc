@@ -680,6 +680,24 @@ def env_identity(ref, live):
     return ok, " | ".join(bad)
 
 
+def _gitattributes_unconverted(root):
+    """Patterns `.gitattributes` exempts from line-ending conversion: `-text`
+    or `binary`. Read from the file rather than asked of git, because the
+    measurement container holds a copy of the tree with no .git."""
+    out = []
+    ga = os.path.join(root, ".gitattributes")
+    if not os.path.exists(ga):
+        return out
+    with open(ga, encoding="utf-8") as fh:
+        for line in fh:
+            parts = line.split()
+            if not parts or parts[0].startswith("#"):
+                continue
+            if "-text" in parts[1:] or "binary" in parts[1:]:
+                out.append(parts[0])
+    return out
+
+
 def test_hashed_files_have_one_spelling():
     """Any file whose BYTES are hashed by anything must be stored with one line
     ending, or the digest is platform-dependent.
@@ -728,13 +746,35 @@ def test_hashed_files_have_one_spelling():
     # Every committed evidence artifact too: livepass_predictions.json pins its
     # baselines by the digest of these files, so one CRLF checkout turns a
     # recorded baseline into an ungradeable run.
+    #
+    # Except a SEALED artifact: a file published byte for byte as it was when
+    # its SHA-256 was pre-registered (docs/evidence/holdout2-manifest.json,
+    # registered in docs/beta-bar.md before the exam it describes was run).
+    # Its bytes are the evidence, CRLF included, so it is never converted on
+    # any checkout -- `.gitattributes` marks it `-text` -- and the one-spelling
+    # rule holds for it a different way: it must still hash to the digest it
+    # was registered under, which is checked instead. (livepass_verify reads
+    # files as bytes, so it would digest the committed bytes too.)
+    import fnmatch
+    import hashlib
+    unconverted = _gitattributes_unconverted(root)
+    bar = os.path.join(root, "docs", "beta-bar.md")
+    registered = open(bar, encoding="utf-8").read() if os.path.exists(bar) else ""
     evid = os.path.join(root, "docs", "evidence")
     for name in sorted(os.listdir(evid)) if os.path.isdir(evid) else []:
         if not name.endswith(".json"):
             continue
+        rel = "docs/evidence/%s" % name
         with open(os.path.join(evid, name), "rb") as fh:
             raw = fh.read()
-        check("docs/evidence/%s is checked out LF-only" % name,
+        if any(fnmatch.fnmatchcase(rel, pat) for pat in unconverted):
+            digest = hashlib.sha256(raw).hexdigest()
+            check("%s is sealed (-text) and still hashes to its registered digest"
+                  % rel, digest in registered,
+                  "sha256 %s is not the one pre-registered in docs/beta-bar.md: "
+                  "a sealed artifact's bytes changed" % digest[:16])
+            continue
+        check("%s is checked out LF-only" % rel,
               b"\r\n" not in raw,
               "contains CRLF, so livepass_verify digests it differently here "
               "than on Linux")
