@@ -5,9 +5,9 @@
 # tester asks first, because it never installs the package: it runs from a
 # uv-synced checkout. This workflow builds the sdist and wheel the way
 # release.yml does, installs the WHEEL into a clean virtualenv on Linux,
-# Windows and macOS at both ends of `requires-python`, and runs what a
-# first-time user runs -- `--version`, `--help`, two conversions, a diagnose --
-# with no LibreOffice and no pinned fonts.
+# Windows and macOS at both ends of `requires-python` and on the newest
+# releases, and runs what a first-time user runs -- `--version`, `--help`, two
+# conversions, a diagnose -- with no LibreOffice and no pinned fonts.
 #
 # The unit suite runs here too, from the checkout, with only the `test` extra.
 # Tests that need LibreOffice, PyMuPDF (the AGPL `mupdf` extra the measurement
@@ -65,9 +65,21 @@ jobs:
     needs: build
     strategy:
       fail-fast: false
+      # Both ends of `requires-python` plus the two newest releases on every
+      # operating system, and the versions in between once, on Linux. Every
+      # version listed here is a `Programming Language :: Python :: 3.N`
+      # classifier in pyproject.toml, and tests/test_packaging_metadata.py
+      # fails if a classifier names one this matrix does not install on.
+      # 3.14 is a stable release on the GitHub runners (setup-python), so it
+      # needs no allow-prereleases.
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python: ["3.9", "3.12"]
+        python: ["3.9", "3.12", "3.13", "3.14"]
+        include:
+          - os: ubuntu-latest
+            python: "3.10"
+          - os: ubuntu-latest
+            python: "3.11"
     runs-on: ${{ matrix.os }}
     timeout-minutes: 40
     defaults:

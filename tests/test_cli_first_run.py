@@ -157,6 +157,52 @@ class InputErrors(_TempDir):
         proc = _cli(src, "--refine", "0", "-o", self.path("o.docx"))
         self.assertOneLineError(proc, 6, "not a PDF")
 
+    def _zip(self, name, members):
+        import zipfile
+        src = self.path(name)
+        with zipfile.ZipFile(src, "w") as zf:
+            for member, data in members:
+                zf.writestr(member, data)
+        return src
+
+    def test_a_word_document_is_named_as_one(self):
+        src = self._zip("report.docx", [
+            ("[Content_Types].xml", "<Types/>"),
+            ("word/document.xml", "<w:document/>")])
+        proc = _cli(src, "--refine", "0", "-o", self.path("o.docx"))
+        self.assertOneLineError(proc, 6, "this is a Word document (DOCX), not a PDF")
+        self.assertIn("hint: a Word document needs no conversion", proc.stderr)
+        self.assertNotIn("PDF viewer", proc.stderr)
+        self.assertNotIn("saved with a .pdf name", proc.stderr)
+
+    def test_other_office_files_are_named_too(self):
+        cases = (
+            ("book.xlsx", [("[Content_Types].xml", "<Types/>"),
+                           ("xl/workbook.xml", "<workbook/>")], "Excel workbook"),
+            ("deck.pptx", [("[Content_Types].xml", "<Types/>"),
+                           ("ppt/presentation.xml", "<p/>")], "PowerPoint"),
+            ("notes.odt", [("mimetype",
+                            "application/vnd.oasis.opendocument.text")],
+             "OpenDocument text"),
+        )
+        for name, members, needle in cases:
+            with self.subTest(name=name):
+                src = self._zip(name, members)
+                proc = _cli(src, "--refine", "0", "-o", self.path("o.docx"))
+                self.assertOneLineError(proc, 6, needle, "not a PDF")
+                self.assertIn("hint:", proc.stderr)
+        old = self.path("old.doc")
+        with open(old, "wb") as fh:
+            fh.write(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\0" * 600)
+        proc = _cli(old, "--refine", "0", "-o", self.path("o.docx"))
+        self.assertOneLineError(proc, 6, "older Microsoft Office document")
+        self.assertIn("export or save the document as a PDF", proc.stderr)
+
+    def test_a_plain_zip_is_still_just_not_a_pdf(self):
+        src = self._zip("bundle.pdf", [("readme.txt", "hello")])
+        proc = _cli(src, "--refine", "0", "-o", self.path("o.docx"))
+        self.assertOneLineError(proc, 6, "no PDF header")
+
     def test_an_empty_file(self):
         src = self.path("empty.pdf")
         open(src, "wb").close()
@@ -296,6 +342,32 @@ class WithoutLibreOffice(_TempDir):
         self.assertIn("--refine 0", err)
         self.assertIn("wrote ", out)
 
+    def test_no_note_above_an_error_about_the_input(self):
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from test_input_errors import ENCRYPTED_PDF
+        locked = self.path("locked.pdf")
+        with open(locked, "wb") as fh:
+            fh.write(ENCRYPTED_PDF)
+        page = self.path("page.pdf")
+        with open(page, "w") as fh:
+            fh.write("<!doctype html><title>Not found</title>\n")
+        scan = _scan_pdf(self.path("scan.pdf"), self.path("scan.png"))
+        for src, code in ((locked, 5), (page, 6), (scan, 17)):
+            with self.subTest(src=os.path.basename(src)):
+                got, _, err = self._main(src, "-o", self.path("x.docx"))
+                self.assertEqual(got, code, err)
+                self.assertTrue(err.startswith("error: "), err)
+                self.assertNotIn("LibreOffice was not found", err)
+
+    def test_the_note_is_printed_once_for_several_documents(self):
+        other = _text_pdf(self.path("other.pdf"))
+        code, out, err = self._main(self.src, other)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(err.count("note: LibreOffice was not found"), 1, err)
+        self.assertEqual(out.count("wrote "), 2, out)
+        # and before the first "wrote" line it explains
+        self.assertTrue(err.startswith("note: "), err)
+
     def test_refinement_asked_for_by_name_is_still_exit_11(self):
         for args in (("--refine", "3"), ("--oracle", "libreoffice")):
             with self.subTest(args=args):
@@ -317,6 +389,54 @@ class WithoutLibreOffice(_TempDir):
                 self._main(self.src, "-o", self.path("y.docx"))
         self.assertEqual(seen["refine_rounds"], 0)
         self.assertEqual(seen["oracle"], "none")
+
+
+@unittest.skipUnless(HAVE_REPORTLAB, "reportlab is a test dependency")
+class NonAsciiNames(_TempDir):
+    """A file name stdout's encoding cannot hold must not fail the run.
+
+    Pre-release audit, 2026-10-11: on Windows, with stdout redirected to a pipe
+    or a file (encoded cp1252, errors strict), `exactdoc "résumé 日本.pdf"`
+    wrote the DOCX and then exited 1 with "this is a bug", from the "wrote"
+    line. The name below mixes Latin-1 (which cp1252 holds), CJK and Arabic
+    (which it does not).
+    """
+    NAME = "résumé 日本 مرحبا"
+
+    def setUp(self):
+        super().setUp()
+        self.src = _text_pdf(self.path(self.NAME + ".pdf"))
+
+    def test_a_cp1252_stdout_prints_an_escape_and_exits_0(self):
+        buf = io.BytesIO()
+        cp1252 = io.TextIOWrapper(buf, encoding="cp1252", errors="strict",
+                                  write_through=True)
+        err = io.StringIO()
+        out_path = self.path(self.NAME + ".docx")
+        with mock.patch.object(sys, "stdout", cp1252), redirect_stderr(err):
+            code = cli.main([self.src, "--refine", "0", "-o", out_path])
+            cp1252.flush()
+        self.assertEqual(code, 0, err.getvalue())
+        self.assertNotIn("This is a bug", err.getvalue())
+        self.assertTrue(os.path.exists(out_path))
+        line = buf.getvalue().decode("cp1252")
+        self.assertIn("wrote ", line)
+        self.assertIn("résumé", line)        # cp1252 holds these
+        self.assertIn("\\u65e5\\u672c", line)          # and escapes these
+
+    def test_the_same_in_a_fresh_interpreter(self):
+        # PYTHONIOENCODING gives the child a strict cp1252 stdout on every
+        # platform, which is what a Windows pipe gets by default.
+        env = dict(os.environ, PYTHONPATH=ROOT, PYTHONIOENCODING="cp1252")
+        env.pop("PYTHONUTF8", None)
+        proc = subprocess.run(
+            [sys.executable, "-m", "exactdoc.cli", self.src, "--refine", "0"],
+            cwd=ROOT, env=env, capture_output=True, check=False)
+        stderr = proc.stderr.decode("cp1252", "replace")
+        self.assertEqual(proc.returncode, 0, stderr)
+        self.assertNotIn("Traceback", stderr)
+        self.assertTrue(os.path.exists(self.path(self.NAME + ".docx")))
+        self.assertIn(b"wrote ", proc.stdout)
 
 
 class Robustness(_TempDir):

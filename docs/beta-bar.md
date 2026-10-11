@@ -370,3 +370,57 @@ lost and 1,064 gained; 38% of the common words moved by more than 2pt; the
 common set's |dy| ≤ 5pt share fell 0.182 → 0.172; dy_p90 rose 244 → 303pt;
 doc recall fell 0.913 → 0.905. **No evidence of a real loss in the median;
 the tail widened.**
+
+## Amendment 6, 2026-10-11, ratified by the owner: the release rule for 0.3.0b1
+
+**Why.** The 13 criteria above were measured on the 95-PDF corpus the converter
+was tuned against. On 37 unseen public PDFs (holdout-1) the result did not carry
+over: short promised documents 9/11 page-exact (corpus 41/41), long promised
+documents 2/15 on criterion 5 (corpus 21/21), 3 promised documents catastrophic
+(corpus 0). An independent feasibility review (Fable 5.1, 2026-10-11) found that
+gating long documents at 80% on unseen PDFs would be an unending loop, and
+proposed the finite rule below. The owner adopted it on 2026-10-11, before the
+sealed holdout-2 was run.
+
+**What changes.**
+
+1. The 13 criteria stay as the **developer gate**: a change may not regress the
+   corpus (criterion 8, the gated 16 in both lanes). They no longer decide the
+   release on their own.
+2. **The promise is narrowed by producer.** Documents made in Word, Google Docs,
+   LibreOffice or LaTeX as flowing text are promised. Designed reports
+   (InDesign, Affinity, Quark, Publisher; multi-column with full-bleed
+   graphics), annual reports and multi-column booklets (IRS, GPO, Federal
+   Register style) are "Not yet" in the README.
+3. **The release is decided on holdout-2**: a sealed set of about 30 public PDFs,
+   none in the corpus or holdout-1, classified (promised or not, under the
+   narrowed promise) before anything is converted, and run **once**, on the
+   release candidate, in the canonical image (LibreOffice product lane) and the
+   Word lane.
+
+**Release criteria on holdout-2 (pre-committed).**
+
+| # | Criterion | Kind |
+|---|---|---|
+| R1 | 0 crashes; every refusal has its typed exit code; Word opens 100% without a repair prompt | gating |
+| R2 | Short promised (≤ 20 pages): page-exact on ≥ 80% in LibreOffice and in Word; word recall ≥ 0.9 on ≥ 80% | gating |
+| R3 | Promised catastrophic (char recall < 0.5 or pages off by > 20%): 0 short, ≤ 1 long | gating |
+| R4 | Long promised (> 20 pages): median \|Δpages\| %, share within max(1, 2%), share with word recall ≥ 0.85 | reported, verbatim in the README beside the corpus numbers |
+| R5 | Google Docs: short promised documents reported; the gated-16 live qualification stays | reported |
+
+**Time box.** 0.3.0b1 is tagged on `main` by **2026-10-20** whatever holdout-2
+shows, with its numbers in the README. Show HN and other announcements happen
+only if R1–R3 pass; otherwise the beta goes to PyPI quietly and is announced
+after 0.3.0b2.
+
+**After the release.** Holdout-2 is used once. It then joins the development
+corpus, and a fresh holdout-3 (user-reported PDFs first) decides 0.3.0b2. A fix
+must name a layout mechanism and ship a synthetic fixture that reproduces it; a
+change that improves only the document it was written for does not merge, and
+no new constants are named after documents.
+
+**Holdout-2 sealed, 2026-10-11.** 32 public PDFs (1,098 pages), collected and
+classified before any conversion by an agent independent of the fixes; 23
+promised under the narrowed promise. The manifest's SHA-256 is
+`4db48b08935795065af12016dd3c975eb37860e6299d101554cf61fde3460d61`. The
+manifest is published with the release results, after its single run.

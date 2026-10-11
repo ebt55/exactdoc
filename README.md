@@ -1,13 +1,21 @@
 # exactdoc
 
 **exactdoc turns a PDF into a Word document (DOCX) that looks like the original
-and that you can actually edit.**
+and that you can actually edit, measured page by page in Word, LibreOffice and
+live Google Docs.**
 
 Most PDF-to-Word converters give you one of two things: text boxes frozen in
 place (looks right, painful to edit) or plain reflowed text (easy to edit, looks
 wrong). exactdoc writes real headings, paragraphs, lists and tables, and places
 them so the page matches the PDF. Every change is measured against real
 renderers, and conversion runs entirely on your machine.
+
+**Private by default.** Converting a PDF reads the file and writes the DOCX on
+your computer and nothing else: no telemetry, no network calls, no account. The
+only code that talks to the internet is the optional Google Docs measurement
+(`--oracle gdocs`, and the `exactdoc-gdocs` command that signs it in). It needs
+the `gdocs` extra and your own Google account, and a conversion uploads
+nothing unless you also pass `--allow-cloud-upload`.
 
 > **Alpha (version 0.2.0a1).** It works well on ordinary digital documents and is
 > still changing quickly. The [Works well / Not yet](#what-works-and-what-does-not-yet)
@@ -45,6 +53,23 @@ That is all you need to convert PDFs. Two things are optional:
   seconds with it, one conversion at a time
   ([measurement](docs/evidence/final-set-2026-10-11.json)). `--refine 0`
   skips it.
+
+  The check is only as good as the fonts LibreOffice draws with. The DOCX
+  names Calibri, Cambria, Arial and Times New Roman, and LibreOffice needs
+  their free metric twins (Carlito, Caladea and Liberation) to set them at the
+  right widths. On Linux, install them with LibreOffice (Debian and Ubuntu
+  package names):
+
+  ```bash
+  sudo apt install libreoffice-writer fonts-crosextra-carlito fonts-crosextra-caladea fonts-liberation
+  ```
+
+  On Windows and macOS the installers from libreoffice.org include these
+  fonts. Without them LibreOffice draws Calibri text in a different font, and
+  the check corrects the layout against the wrong widths: a NIST publication
+  whose text is 82% Calibri, rendered in LibreOffice without the layout check,
+  had 30% of its words on the right page without the twins and 74% with them
+  ([measurement](docs/evidence/carlito-2026-10-06.json)).
 - **The Google Docs tools** (`pip install "exactdoc[gdocs]"`) measure a DOCX
   inside Google Docs with your own Google account. You do not need them to make
   a DOCX for Google Docs: `--output-profile gdocs` works offline in every
@@ -78,8 +103,17 @@ From Python:
 ```python
 from exactdoc import convert
 
+# The same conversion as `exactdoc report.pdf`, with the LibreOffice layout check
 convert("report.pdf", "report.docx")
+
+# One pass, no LibreOffice needed (the same as `--refine 0`)
+convert("report.pdf", "report.docx", refine_rounds=0, oracle="none")
 ```
+
+Unlike the command line, `convert()` does not fall back on its own when
+LibreOffice is missing: the first call raises `OracleUnavailableError`, so a
+script never receives an unchecked DOCX it did not ask for. Use the second call
+on a machine without LibreOffice.
 
 The Google Docs option writes the same document in a form that Google Docs'
 importer reads correctly. Upload the DOCX to Google Drive and open it with Google
@@ -162,14 +196,15 @@ text boxes, and Google Docs makes 54 pages of it
 
 | Kind of PDF | Today |
 |---|---|
-| Reports, memos, letters, whitepapers | ✅ Works well. Long reports mostly keep their page count: the four NIST publications of 59–114 pages come back page for page in LibreOffice and Google Docs. Some still grow: IRS form instructions of 126 pages became 135 in LibreOffice ([measurement](docs/evidence/final-set-2026-10-11.json)) |
+| Reports, memos, letters, whitepapers | ✅ Works well. Long reports mostly keep their page count: the four NIST publications of 59–114 pages come back page for page in LibreOffice and Google Docs ([measurement](docs/evidence/final-set-2026-10-11.json)). Multi-column booklets are the exception (below) |
 | Tables (merged cells, tables over several pages) | ✅ Works well |
 | Simple two-column layouts | ✅ Works well |
 | Résumés | ✅ Mostly. Some designed two-column templates still spill onto an extra page |
 | Headers, footers, page numbers, footnotes, links | ✅ Works well |
 | Latin, Cyrillic and Greek text | ✅ Works well |
 | Chinese, Japanese and Korean text | ⚠️ Partly. The text survives, but some runs become pictures |
-| Long documents in Google Docs | ⚠️ Some long documents still gain pages. In the latest live Google Docs sweep, a 144-page EU regulation came back page for page, but IRS form instructions of 126 pages came back as 154, a 153-page LaTeX guide as 169, and a 40-slide deck as 54 ([measurement](docs/evidence/final-set-2026-10-11.json)) |
+| Long documents in Google Docs | ⚠️ Some long documents still gain pages. In the latest live Google Docs sweep, a 144-page EU regulation came back page for page, but IRS Publication 15 came back with 62 pages for 59, a 153-page LaTeX guide as 169, and a 40-slide deck as 54 ([measurement](docs/evidence/final-set-2026-10-11.json)) |
+| Multi-column booklets (IRS / Federal Register style) | ⚠️ Not yet. Narrow columns of small type re-wrap and grow. IRS Publication 501 (31 pages) became 45 pages in LibreOffice, 54 in Word and 57 in Google Docs, with under 30% of its words on the right page; the 126-page Form 1040 instructions became 135, 145 and 154 pages ([measurement](docs/evidence/final-set-2026-10-11.json)). The text survives as editable text (95–97% of it in LibreOffice) |
 | Dense journal papers, equations | ⚠️ Not yet. Equations are not rebuilt as editable math |
 | Slide decks, brochures, posters | ⚠️ Not yet. Layouts break or become pictures |
 | Arabic, Hebrew and Persian (right-to-left) | ⚠️ Partly. Text arrives in reading order as right-to-left Word paragraphs; pages can grow where the reader lacks the source's fonts (an Arabic report 57 → 65 pages, a Hebrew paper 28 → 29, in LibreOffice: [measurement](docs/evidence/final-set-2026-10-11.json)). The Google Docs output is not yet right-to-left |
@@ -276,12 +311,14 @@ memory. The example images come from
 | [docs/deep-dive/measured-state.md](docs/deep-dive/measured-state.md) | Support by the program that made the PDF, and the measurements behind it |
 | [docs/deep-dive/how-it-works.md](docs/deep-dive/how-it-works.md) | How the converter works, and how it got here |
 | [CHANGELOG.md](CHANGELOG.md) | What changed, release by release |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Reporting a bad conversion without sharing the PDF, and running the tests |
+| [SECURITY.md](SECURITY.md) | Reporting a security problem privately |
 | [docs/README.md](docs/README.md) | Index of all the deeper documents: design notes, status, roadmap, corpus, evidence |
 
 ## Licence
 
 exactdoc is [Apache-2.0](LICENSE). A default install pulls in no copyleft code.
-The optional `mupdf` extra (`pip install -e ".[mupdf]"`) adds PyMuPDF, which is
+The optional `mupdf` extra (`pip install "exactdoc[mupdf]"`) adds PyMuPDF, which is
 AGPL-3.0; it is only a reference for measurements and does not change the output.
 Details: [docs/deep-dive/licensing.md](docs/deep-dive/licensing.md) and
 [docs/license-audit.md](docs/license-audit.md).
