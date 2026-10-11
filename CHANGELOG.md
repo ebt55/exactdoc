@@ -20,6 +20,24 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **A contributor guide and a one-command quality check (WP54).**
+  CONTRIBUTING.md is rewritten as the full guide: reporting with `--diagnose`,
+  setup on Linux, macOS and Windows, the tests, how a fix is judged (a named
+  layout mechanism, a synthetic fixture with a control, no document-specific
+  constants, the gated 16 green, no corpus regressions, Google Docs changes
+  only with live evidence), the pull-request workflow and the licence; a pull
+  request template follows it. `scripts/dev/quality_check.sh` measures BASE
+  and HEAD one after the other in one container from the measurement image
+  (built from `docker/gate.Dockerfile` with `--build` when the maintainer's
+  is absent): the strict gate in both lanes and, with `--corpus both`, the
+  product sweep of the expansion corpus. `testkit/quality_check.py` then
+  prints per-document better / same / worse with gate.py's tolerances, the
+  gated 16 per lane, which DOCX changed, and LIFTS / NEUTRAL / REGRESSES /
+  UNMEASURED as its exit code, and writes a report.json for the pull
+  request; `--repeat REF` measures one commit twice as the determinism proof.
+  Criterion 8's comparison moved out of `beta_readiness.evaluate` into
+  `compare_rows` so the check reuses it; the scorecard's output is unchanged.
+  Tooling and documentation only; conversion is unchanged.
 - **The README's promise is narrowed by producer (WP51; beta bar,
   amendment 6).** Promised: documents written as flowing text in Word, Google
   Docs, LibreOffice or LaTeX. Not yet: designed reports (InDesign, Affinity
