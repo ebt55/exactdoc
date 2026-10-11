@@ -6819,6 +6819,8 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
             cuts = [c for c in cuts
                     if not _sidebar_cut(c, rects, consumed, lay.content_w)]
         _restore_uncut(cuts, consumed)
+        # the page's elements before the float passes, for `_float_overfull`
+        pre_float = list(elements)
         if p.number in deck:
             elements, pl.floats = _float_graphics(elements, blocks,
                                                   p.width, p.height)
@@ -6870,6 +6872,11 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
         pl.chunks = _assemble_chunks(elements, flow_blocks, lay, p, page_top)
         if p.number in deck:
             _lock_slide(pl, lay)
+        elif anchored and OVERFULL_FLOATS and p.number == 1 and \
+                pn is None and lay.cover_band is None and \
+                not _runs_over_seam(hf, p, pages_by_no.get(p.number + 1)):
+            _float_overfull(pl, pre_float, flow_blocks, blocks, lay, p,
+                            page_top, rule_floats)
         prev_notes = bool(pn is not None and
                           bind_page_notes(doc_lay, pl, pn, col_l, col_r))
         doc_lay.pages.append(pl)
@@ -7078,6 +7085,104 @@ def _float_graphics(elements, blocks, page_w: float, page_h: float):
         behind = any(bbox_overlap(bb, t) > 0.0 for t in text)
         floats.append(FloatEl(el=e, bbox=tuple(bb), behind=behind))
     return keep, floats
+
+
+# `_float_overfull` on (standard profiles only: it needs the `anchored`
+# capability). See the function for the mechanism and its census.
+OVERFULL_FLOATS = True
+
+
+def _float_overfull(pl: PageLayout, pre, flow_blocks, blocks,
+                    lay: DocLayout, p: PageIR, page_top: float,
+                    rule_floats) -> Optional[dict]:
+    """A first page composed of placed pictures is laid out as a slide.
+
+    The mechanism. A cover set as a composition -- partner logos side by side
+    in a grid, a badge beside them, a hero picture, the title under them, a
+    disclaimer at the foot; a newsletter's masthead and photographs beside
+    its first stories -- is placed, not flowed. A flow stacks its pictures
+    one after another (or one merged row after another), the stack is taller
+    than the page by more than its gaps can pay at the refine floors
+    (`pagefit.fit_page` declines it), the page spills and every later page
+    sits one place late (a 15-page agency report rendered 17 pages, its
+    title broken over pages 1 and 2; a 10-page newsletter, 12).
+
+    Such a page is given the deck's treatment (`_deck_pages`), which exists
+    for exactly this -- positioned graphics a flow cannot hold -- and is
+    measured on slides: its pictures and drawn figures are anchored where the
+    source set them (`_float_graphics`), the text is re-assembled against
+    what remains and page-locked where the source set it (`_lock_slide`), so
+    nothing on the page can push anything over its foot.
+
+    Taken only on page one, with the profile's `anchored` capability, when
+    the page model (`pagefit.page_model`: standard metrics, single column, no
+    footnotes) says the page as stacked overruns its box by more than its
+    gaps can pay, AND at least two of its graphics are set side by side
+    (horizontally apart, sharing half the height of the smaller): pictures
+    that stand beside each other are what a flow can only stack. Not on a
+    page whose paragraph runs on over the seam (`_runs_over_seam`: a text
+    page), nor on a cover band's page (the band's section owns it).
+
+    Census (both corpora and the development holdout, 2026-10-11): with the
+    model test alone, 166 pages of 18 documents fired, most of them text
+    pages whose tables or figures the model over-counts; with side-by-side
+    graphics, 43; on page one, 2 -- neither in the corpus.
+
+    -> the measurements of the decision (for the census), or None when the
+    page is not additive or carries no graphic."""
+    from .pagefit import PAGEFIT_SAFETY_PT, page_model
+    from .docxout import (SPILL_GAP_FLOOR_PT, SPILL_MIN_GAP_SCALE,
+                          _body_capacity, _text_metrics)
+    graphics = [e for e in pre if isinstance(e, (ImageEl, FigureEl))]
+    if not graphics:
+        return None
+    metrics = _text_metrics("standard")
+    got = page_model(pl, lay.content_w, lay, 0.0, {}, metrics)
+    if got is None:
+        return None
+    used, gaps = got
+    cap = _body_capacity(lay)
+    budget = sum(max(0.0, g - max(SPILL_GAP_FLOOR_PT, s * SPILL_MIN_GAP_SCALE))
+                 for _el, g, s in gaps)
+    boxes = [b for b in (getattr(e, "_bbox", None) if isinstance(e, ImageEl)
+                         else e.clip for e in graphics) if b]
+    beside = sum(1 for i in range(len(boxes)) for j in range(i + 1, len(boxes))
+                 if (boxes[i][2] <= boxes[j][0] or boxes[j][2] <= boxes[i][0])
+                 and min(boxes[i][3], boxes[j][3]) - max(boxes[i][1], boxes[j][1])
+                 >= 0.5 * min(boxes[i][3] - boxes[i][1], boxes[j][3] - boxes[j][1]))
+    out = {"page": p.number, "used": round(used, 1), "cap": round(cap, 1),
+           "gap_budget": round(budget, 1), "graphics": len(graphics),
+           "beside": beside, "applied": False}
+    if used - cap <= budget + PAGEFIT_SAFETY_PT or not beside:
+        return out      # fits, pagefit's to pay, or no picture beside another
+    keep, floats = _float_graphics(pre, blocks, p.width, p.height)
+    if not floats:
+        return out
+    pl.chunks = _assemble_chunks(keep, flow_blocks, lay, p, page_top)
+    pl.floats = list(rule_floats) + floats
+    _lock_slide(pl, lay)
+    out["applied"] = True
+    return out
+
+
+def _runs_over_seam(hf: dict, p: PageIR, nxt: Optional[PageIR]) -> bool:
+    """Does the page's last paragraph run on over the page seam? Its last
+    body line closes no sentence and the next page's first body line opens
+    in lower case. Such a page is a text page whose flow continues; it is
+    never re-laid as a composition (`_float_overfull`)."""
+    if nxt is None:
+        return False
+
+    def body(pg):
+        ct = hf["consumed_text"][pg.number]
+        return [ln for bi, b in enumerate(pg.blocks) for ln in b.lines
+                if (bi, id(ln)) not in ct and ln.text.strip()]
+    mine, theirs = body(p), body(nxt)
+    if not mine or not theirs:
+        return False
+    last = max(mine, key=lambda ln: (ln.bbox[3], ln.bbox[0])).text.strip()
+    first = min(theirs, key=lambda ln: (ln.bbox[1], ln.bbox[0])).text.strip()
+    return not last.endswith((".", "!", "?", ":", '"', "”")) and         first[:1].islower()
 
 
 # Text lines a picture must hold, whole, to be the page's background.
