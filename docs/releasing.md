@@ -64,11 +64,10 @@ tagged on a commit where `gate` and `install` are both green.
      as the reviewer. The final upload then waits in the Actions page until you
      press *Approve*, after the TestPyPI copy has been verified.
 
-5. **Make sure the repository is public**, and that the commit you will tag is
-   on the branch people see (today the work lives on the integration branch
-   and `main` is older). The PyPI page's pictures are served from
-   `raw.githubusercontent.com` at the tag, and they only load for a public
-   repository.
+5. **Make sure the repository is public.** The PyPI page's pictures are
+   served from `raw.githubusercontent.com` at the tag, and they only load for a
+   public repository. (That the tagged commit is on `main` is a step of every
+   release, step 3 below, not a one-time check.)
 
 ## Each release
 
@@ -85,13 +84,51 @@ The commands below use `0.3.0b1`; replace it with the version being released.
 2. **Bump the version, in one commit.**
    - `pyproject.toml`: `version = "0.3.0b1"`, and the classifier
      `"Development Status :: 3 - Alpha"` → `"Development Status :: 4 - Beta"`.
+   - `uv.lock`: run `uv lock`, then `uv lock --check`. The lock records the
+     project's own version; the gate's `uv sync --frozen` never compares it
+     with `pyproject.toml`, which is how it said 1.0.0 for two months after
+     the renumbering to 0.2.0a1. The diff should be that one line.
    - `README.md`: the "Alpha (version 0.2.0a1)" banner, and **delete the
      "Not on PyPI yet" note** in *Install* (after this release it is false).
-   - `CHANGELOG.md`: rename `## Unreleased` to `## 0.3.0b1 — <date>` and start
-     a new empty `## Unreleased` above it.
+   - `CHANGELOG.md`: the heading line `## Unreleased (0.2.0a1, alpha) — …`
+     becomes exactly
+
+     ```text
+     ## 0.3.0b1 — 2026-MM-DD
+     ```
+
+     with the release date in ISO form and an em dash, the same shape as
+     `## 1.0.1 — 2026-08-07`. Anything after the dash in the old heading moves
+     to the section's first line. Then add a new, empty `## Unreleased` above
+     it. Step 9 copies this section into the GitHub release.
+   - Check the build locally before pushing:
+
+     ```bash
+     uv build --out-dir dist
+     uvx twine check --strict dist/*
+     python scripts/check_dist.py dist
+     ```
+
    - Push the commit and wait for `gate` and `install` to pass on it.
 
-3. **Tag and push the tag.** The tag must be `v` followed by exactly the
+3. **Fast-forward `main` to the release commit. Do not skip this.** `main` is
+   what people see: the GitHub front page, the README that PyPI's *Homepage*
+   link opens, and the targets of the *Documentation* and *Changelog* links
+   (`pyproject.toml`) and of `exactdoc --help`'s usage link
+   (`exactdoc/cli.py`, `USAGE_URL`), which all name `blob/main/...`. Until
+   `main` carries the release, those links show an older project or 404 (on
+   2026-10-11 `main` was 461 commits behind and had no `docs/usage.md`).
+
+   ```bash
+   git fetch origin
+   git merge-base --is-ancestor origin/main <release-commit> && \
+     git push origin <release-commit>:main
+   ```
+
+   The first command makes it a fast-forward only. If it fails, `main` has
+   commits the release does not; stop and merge them first.
+
+4. **Tag and push the tag.** The tag must be `v` followed by exactly the
    version in `pyproject.toml`, or the `build` job stops:
 
    ```bash
@@ -99,11 +136,11 @@ The commands below use `0.3.0b1`; replace it with the version being released.
    git push origin v0.3.0b1
    ```
 
-4. **Watch it run.** GitHub → **Actions → release**. `build`, `testpypi` and
+5. **Watch it run.** GitHub → **Actions → release**. `build`, `testpypi` and
    `verify-testpypi` run on their own (a few minutes; the verify job retries
    for up to five minutes while TestPyPI's index catches up).
 
-5. **Optionally, try the TestPyPI copy yourself** in a fresh virtualenv. The
+6. **Optionally, try the TestPyPI copy yourself** in a fresh virtualenv. The
    wheel comes from TestPyPI and its dependencies from PyPI; do not use
    `--extra-index-url`, which would let a look-alike package on TestPyPI stand
    in for a real dependency.
@@ -114,15 +151,16 @@ The commands below use `0.3.0b1`; replace it with the version being released.
    pip install dl/exactdoc-0.3.0b1-py3-none-any.whl
    exactdoc --version          # exactdoc 0.3.0b1
    exactdoc some.pdf           # writes some.docx; without LibreOffice it says so
+   exactdoc "résumé 日本.pdf" > log.txt   # a non-Latin name, stdout to a file: exit 0
    ```
 
    Also open <https://test.pypi.org/project/exactdoc/> and check that the
    description shows its pictures.
 
-6. **Approve the PyPI upload.** In the release run, the `pypi` job shows
+7. **Approve the PyPI upload.** In the release run, the `pypi` job shows
    *Waiting for review*: **Review deployments → pypi → Approve and deploy**.
 
-7. **Check the real thing** in another fresh virtualenv:
+8. **Check the real thing** in another fresh virtualenv:
 
    ```bash
    pip install --pre exactdoc==0.3.0b1
@@ -135,9 +173,29 @@ The commands below use `0.3.0b1`; replace it with the version being released.
    `pip install exactdoc` installs it; once a final version exists, testers
    need `pip install --pre exactdoc` to get a newer beta.
 
-8. **Optionally, a GitHub release** from the tag (Releases → *Draft a new
-   release*), with the CHANGELOG section as notes and *Set as a pre-release*
-   ticked. The workflow does not create one.
+9. **Create the GitHub pre-release, and retire the stale "Latest".** The
+   workflow does not create a GitHub release, and until someone does, the
+   repository's front page shows **exactdoc 1.0.1** as *Latest* (published
+   2026-08-07, from before the renumbering): a visitor sees a 1.x that looks
+   newer than the beta. With the GitHub CLI:
+
+   ```bash
+   # the CHANGELOG section written in step 2, without its heading
+   awk '/^## 0\.3\.0b1 /{f=1; next} /^## /{f=0} f' CHANGELOG.md > notes-0.3.0b1.md
+   gh release create v0.3.0b1 --prerelease --verify-tag \
+     --title "exactdoc 0.3.0b1" --notes-file notes-0.3.0b1.md
+
+   # v1.0.1 stops being "Latest": mark it a pre-release, and say why at the top
+   gh release view v1.0.1 --json body --jq .body > notes-1.0.1.md
+   { echo "**Superseded.** This was renumbered 0.2.0a1 and is not on PyPI; the current release is v0.3.0b1 (pip install exactdoc)."
+     echo; cat notes-1.0.1.md; } > notes-1.0.1.md.new
+   gh release edit v1.0.1 --prerelease --notes-file notes-1.0.1.md.new
+   ```
+
+   Check the front page afterwards: no release should be marked *Latest*
+   until the first final version (a pre-release never is). The 1.0.0 tag has
+   no GitHub release and needs nothing. `docs/release-notes-1.0.1.md` stays as
+   history.
 
 ## When something goes wrong
 
@@ -158,12 +216,11 @@ The commands below use `0.3.0b1`; replace it with the version being released.
 
 ## Known before the first upload
 
-- **Build warnings.** setuptools (≥ 77) warns that `license = { text = ... }`
-  and the `License ::` classifier are deprecated, and says such builds stop
-  working after 2027-02-18. The fix is `license = "Apache-2.0"` plus
-  `license-files = ["LICENSE"]`, dropping the classifier and requiring
-  `setuptools>=77`; `tests/test_packaging_metadata.py` pins the classifier, so
-  change them together. Not urgent for 0.3.0b1.
+- **Build warnings: resolved (WP48).** The licence is now the SPDX
+  `license = "Apache-2.0"` with `license-files = ["LICENSE"]`, the `License ::`
+  classifier is gone and the build requires `setuptools>=77`, so the
+  deprecation warnings (builds stop working after 2027-02-18) no longer
+  appear; `tests/test_packaging_metadata.py` pins the new form.
 - **Python 3.9 is past its end of life** (October 2025). The `install`
   workflow proves 3.9 still installs and converts; raising the floor to 3.10 is
   a product decision.
@@ -174,6 +231,5 @@ The commands below use `0.3.0b1`; replace it with the version being released.
 - **Old tags.** `v1.0.0` and `v1.0.1` exist on GitHub from before the version
   was renumbered to 0.2.0a1. They were never uploaded to PyPI and do not
   trigger the release workflow (it did not exist when they were pushed; pushing
-  them again would fail its version check). GitHub may still show v1.0.1 as
-  the "latest" release; mark 0.3.0b1 accordingly if you create a GitHub
-  release.
+  them again would fail its version check). GitHub shows v1.0.1 as the
+  "Latest" release; step 9 retires it.
