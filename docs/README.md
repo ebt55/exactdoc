@@ -7,6 +7,8 @@ it, and what works today. This folder holds the details, for when you want them.
 
 | File | What it is for |
 |---|---|
+| [install.md](install.md) | Installing: Python versions, LibreOffice and the fonts it needs, how long a conversion takes, the optional extras, and what talks to the network |
+| [examples.md](examples.md) | Pages side by side, PDF beside DOCX: one document in Word, Google Docs and LibreOffice, what works and what does not yet |
 | [usage.md](usage.md) | Every option, the Python API, batch mode, input errors and exit codes, and what happens when LibreOffice is missing or fails |
 | [releasing.md](releasing.md) | How a version reaches PyPI: the one-time Trusted Publishing setup, the version bump and tag, the TestPyPI check, and what to do when a step fails |
 | [beta-bar.md](beta-bar.md) | The bar the first beta must meet, ratified by the owner on 2026-10-05 and amended on 2026-10-06: 13 criteria, which gate, their thresholds and data, and why |
@@ -38,7 +40,7 @@ as "THEORY §n" or "STATUS §n".
 | [dy-ascent-artifact.md](dy-ascent-artifact.md) | Decision record: why small `dy_p50` differences between the two parsers are a measurement convention, not a placement error |
 | [release-notes-1.0.1.md](release-notes-1.0.1.md) | The 1.0.1 release announcement |
 | [evidence/](evidence/) | The evidence system. Every quality claim is a committed record of the numbers, the environment and the commit that produced them |
-| [images/](images/) | The README's example images, built by [`scripts/readme_images.py`](../scripts/readme_images.py) from the run in [evidence/readme-examples-2026-10-04.json](evidence/readme-examples-2026-10-04.json) |
+| [images/](images/) | The README's pictures, built by [`scripts/readme_images.py`](../scripts/readme_images.py) from the final measurement's renders; [images/README.md](images/README.md) and [evidence/readme-images-2026-10-11.json](evidence/readme-images-2026-10-11.json) record how (the earlier set came from [evidence/readme-examples-2026-10-04.json](evidence/readme-examples-2026-10-04.json)) |
 
 The example documents in the images are this project's own test documents
 (Apache-2.0) and public documents from the expansion corpus. Each one's source and

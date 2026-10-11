@@ -88,8 +88,11 @@ The commands below use `0.3.0b1`; replace it with the version being released.
      project's own version; the gate's `uv sync --frozen` never compares it
      with `pyproject.toml`, which is how it said 1.0.0 for two months after
      the renumbering to 0.2.0a1. The diff should be that one line.
-   - `README.md`: the "Alpha (version 0.2.0a1)" banner, and **delete the
-     "Not on PyPI yet" note** in *Install* (after this release it is false).
+   - `README.md`: the two places marked with a `<!-- release: ... -->`
+     comment, and nothing else: the status callout becomes
+     "**Beta (0.3.0b1).**" with a line saying it is on PyPI, and the Install
+     command becomes `pip install --pre exactdoc`. `docs/install.md` says
+     "until the first beta is on PyPI"; reword that too.
    - `CHANGELOG.md`: the heading line `## Unreleased (0.2.0a1, alpha) — …`
      becomes exactly
 
