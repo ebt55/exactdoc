@@ -57,3 +57,7 @@ testkit/fixtures_expansion/*.pdf binary
 # Batch files keep CRLF: cmd.exe mis-resolves `goto` labels in an LF-only file
 # once it is longer than its read buffer, and the failure is a silent jump.
 *.bat text eol=crlf
+
+# The published holdout-2 manifest must stay byte-identical to the hash
+# pre-registered in docs/beta-bar.md: no line-ending conversion on any checkout.
+docs/evidence/holdout2-manifest.json -text
