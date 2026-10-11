@@ -20,6 +20,28 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+### Known issues
+
+Measured on a sealed set of 32 public PDFs never used in development, run once
+on the release candidate (results identical in LibreOffice and Word;
+[evidence](docs/evidence/holdout2-2026-10-11.json)). This release did not meet
+the bar set in advance for announcing it; 0.3.0b2 is the fix release.
+
+- A federal-style résumé from Word (3 pages) comes back with 6 pages and about
+  a third of its words on the right page.
+- A CMU sample résumé set from Word (8 pages) comes back with 9
+  pages and 83% of its words on the right page.
+- A LaTeX AltaCV résumé keeps its 2 pages but only 88% of its words are on the
+  right page.
+- A Wikipedia article printed from Chrome (7 pages) comes back with 8 pages
+  and a third of its words on the right page.
+- Long reports from Word drift: of four US government audit reports (28–54
+  pages), one comes back exact and three gain 2–4 pages with 27–33% of their
+  words on the right page. A 77-page LaTeX technical report gains one page
+  with 42%.
+
+### Changes
+
 - **The 0.3.0b1 release candidate, measured; the holdout-2 exam says do not
   announce (WP57; evidence only).** On integration 71af76e in the canonical
   image: the strict gate passes (2,067 tests; both lanes 16/16), the product

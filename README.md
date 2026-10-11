@@ -79,12 +79,17 @@ Word yourself, not from text boxes pinned to the page:
 
 What exactdoc promises depends on the program that made the PDF. Documents
 written as flowing text in **Word, Google Docs, LibreOffice or LaTeX** are
-promised. Designed layouts are not, yet. Page counts below are from the final
-measurement for the beta ([record](docs/evidence/final-set-2026-10-11.json)).
+promised. Designed layouts are not, yet. Numbers below are from the release
+measurement ([record](docs/evidence/release-documents-2026-10-11.json)) and,
+where they say "never seen", from [the test below](#tested-on-documents-it-has-never-seen)
+([results](docs/evidence/holdout2-2026-10-11.json)).
 
 | Kind of PDF | Today |
 |---|---|
-| Reports, memos, letters, whitepapers, papers and résumés written in Word, Google Docs, LibreOffice or LaTeX | Works well |
+| Letters, memos, policies, syllabi and other documents of up to 20 pages written in Word, Google Docs, LibreOffice or LaTeX | Works well |
+| Résumés | Mostly: of 8 never seen, 5 kept their page count and words; a federal-style résumé went from 3 pages to 6 |
+| Reports over 20 pages written in Word | Mixed: of 4 never seen, one came back exact; three US government audit reports gained 2–4 pages, with about a third of their words on the right page |
+| Long documents written in LaTeX | Mostly: two manuals never seen came back page for page; a 77-page technical report came back with 78 pages and 42% of its words on the right page |
 | Tables, simple two-column pages, headers, footers, footnotes, links | Works well |
 | Latin, Cyrillic and Greek text | Works well |
 | Chinese, Japanese and Korean text | Partly: the text survives, but some runs become pictures |
@@ -94,6 +99,7 @@ measurement for the beta ([record](docs/evidence/final-set-2026-10-11.json)).
 | Multi-column booklets (IRS, GPO, Federal Register style) | Not yet: IRS Publication 501 grows from 31 pages to 45 in LibreOffice |
 | Dense journal papers, equations | Not yet: equations come apart, and pages can be added |
 | Slide decks, brochures, posters | Not yet |
+| Web pages printed from a browser | Not yet: a 7-page Wikipedia article printed from Chrome came back with 8 pages and a third of its words on the right page |
 | Scans without a text layer, fillable forms, over 250 pages | Refused with a clear message and exit code (no OCR is built in; `--max-pages` raises the cap) |
 
 <table>
@@ -120,7 +126,7 @@ gated on every push in CI inside the pinned measurement image, and
 each milestone converts 95 frozen PDFs (those 16 and 79 more, most of them
 public real-world documents), opens every DOCX in LibreOffice, Microsoft Word
 and Google Docs, and compares it with the PDF page by page. In the final
-measurement for the beta ([record](docs/evidence/final-set-2026-10-11.json),
+measurement for the beta ([record](docs/evidence/release-documents-2026-10-11.json),
 [scorecard](docs/evidence/beta-readiness-2026-10-11.json)):
 
 - all 41 promised documents of up to 20 pages kept exactly their page count in
@@ -139,9 +145,18 @@ it does on PDFs it has seen. How the measurement works:
 
 ### Tested on documents it has never seen
 
-Coming with 0.3.0b1: a sealed set of 32 public PDFs that were never used in
-development is converted once, on the release candidate, and its results go
-here beside the numbers above.
+Before the release, 32 public PDFs never used in development were sealed and
+then converted once, on the release candidate. 23 were classed as promised
+before the run, including the web page now marked "Not yet". The verdicts were
+the same in LibreOffice and Word; Google Docs was not part of this test ([results](docs/evidence/holdout2-2026-10-11.txt), [data](docs/evidence/holdout2-2026-10-11.json)):
+
+- **No crashes, and Word opened all 32 cleanly: pass.**
+- **Short promised documents: fail.** 13 of 16 kept exactly their page count, but only 12 of 16 had at least 90% of their words on the right page, below the 80% bar. The four misses: a CMU sample résumé set (9 pages for 8), a federal-style résumé, a LaTeX résumé (88% of words) and a Wikipedia article printed from Chrome (8 pages for 7).
+- **No unusable result: fail.** The federal-style résumé came back with 6 pages for 3 and about a third of its text on the right page.
+- **Long promised documents (reported):** a median page-count error of 1.3%; 4 of 7 within 2% (or one page), and 3 of 7 with at least 85% of their words on the right page.
+
+This did not meet the bar we set in advance for announcing it; 0.3.0b2 is the
+fix release.
 
 ## Fonts
 

@@ -40,8 +40,8 @@ details, including what happens when LibreOffice crashes mid-run.
 
 The check renders the document up to four times. In the project's test
 container, one conversion at a time, a 31-page IRS publication took 31
-seconds with it and the 126-page Form 1040 instructions 2 min 27 s
-([measurement](evidence/final-set-2026-10-11.json)). `--refine 0` skips the
+seconds with it and the 126-page Form 1040 instructions 2 min 34 s
+([measurement](evidence/release-documents-2026-10-11.json)). `--refine 0` skips the
 check and is the fastest; `--refine 1` is a middle way: about a third less
 time on long documents, for up to six more pages in our measurements
 ([measurement](evidence/refine-speed-2026-10-05.json)).

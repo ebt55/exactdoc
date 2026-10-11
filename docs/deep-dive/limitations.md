@@ -8,10 +8,12 @@
 > [status.md](status.md) has the defect register, and the
 > [CHANGELOG](../../CHANGELOG.md) records what has moved since.
 >
-> **Numbers refreshed on 2026-10-11** from the final measurement of 910e6aa,
-> [docs/evidence/final-set-2026-10-11.json](../evidence/final-set-2026-10-11.json)
-> (LibreOffice and Word with the default settings, and a live Google Docs
-> sweep). A number below without a date is from that file.
+> **Numbers refreshed on 2026-10-11** from the 0.3.0b1 release measurement
+> (LibreOffice and Word with the default settings on 71af76e, and a live Google
+> Docs sweep on 410d370), summarised in
+> [docs/evidence/release-documents-2026-10-11.json](../evidence/release-documents-2026-10-11.json). A number below
+> without a date is from that file; "never seen" numbers are from the sealed
+> test of 32 unseen PDFs, [docs/evidence/holdout2-2026-10-11.json](../evidence/holdout2-2026-10-11.json).
 
 ## Which PDFs it is for
 
@@ -42,24 +44,28 @@ program the document was written in.
 
 ## By kind of PDF
 
-The README's table, with its numbers. Every figure is from the final
-measurement of 11 October ([measurement](../evidence/final-set-2026-10-11.json)) unless it says otherwise.
+The README's table, with its numbers. Every figure is from the release
+measurement ([measurement](../evidence/release-documents-2026-10-11.json)) unless it says "never seen"
+([test](../evidence/holdout2-2026-10-11.json)).
 
 | Kind of PDF | Today |
 |---|---|
-| Reports, memos, letters, whitepapers written in Word, Google Docs, LibreOffice or LaTeX | Works well. Long reports mostly keep their page count: the four NIST publications of 59–114 pages come back page for page in LibreOffice and Google Docs |
+| Letters, memos, policies, syllabi and other documents of up to 20 pages written in Word, Google Docs, LibreOffice or LaTeX | Works well. Never seen: two letters, two policies and three syllabi (4–13 pages, from Word and Google Docs) all came back page for page with at least 97% of their words on the right page |
+| Reports over 20 pages written in Word | Mixed. On the development documents the four NIST publications of 59–114 pages come back page for page in LibreOffice and Google Docs. Never seen: of four US government audit reports, one (30 pages) came back exact; the other three gained 2–4 pages (28 → 30, 44 → 46, 54 → 58) with 27–33% of their words on the right page, in LibreOffice and in Word |
+| Long documents written in LaTeX | Mostly. Never seen: the hyperref manual (64 pages) and the LaTeX users' guide (27) came back page for page with at least 98% of their words on the right page; a 77-page arXiv technical report came back with 78 pages and 42% |
 | Tables (merged cells, tables over several pages) | Works well |
 | Simple two-column layouts | Works well |
-| Résumés | Mostly. Some designed two-column templates still spill onto an extra page |
+| Résumés | Mostly. Never seen: 5 of 8 kept their page count with at least 90% of their words on the right page. A CMU sample résumé set came back with 9 pages for 8 (83% of words), a LaTeX AltaCV résumé kept its 2 pages with 88%, and a federal-style résumé from Word came back with 6 pages for 3 and about a third of its words on the right page |
 | Headers, footers, page numbers, footnotes, links | Works well |
 | Latin, Cyrillic and Greek text | Works well |
 | Chinese, Japanese and Korean text | Partly. The text survives, but some runs become pictures |
 | Long documents in Google Docs | Some long documents still gain pages. In the live Google Docs sweep, a 144-page EU regulation came back page for page, but IRS Publication 15 came back with 62 pages for 59, a World Bank report with 52 for 48, a 153-page LaTeX guide as 169, and a 40-slide deck as 54 |
-| Designed reports (InDesign, Affinity Publisher, QuarkXPress, Microsoft Publisher: multi-column with full-bleed graphics) | Not yet. The text converts and mostly stays editable, but the layout does not hold in every reader: a designed Social Security Statement keeps its 2 pages in LibreOffice and Word, with 89% of its words on the right page, and becomes 4 in Google Docs, with 39% |
+| Designed reports (InDesign, Affinity Publisher, QuarkXPress, Microsoft Publisher: multi-column with full-bleed graphics) | Not yet. The text converts and mostly stays editable, but the layout does not hold in every reader: a designed Social Security Statement keeps its 2 pages in LibreOffice and Word, with 89% of its words on the right page, and becomes 3 in Google Docs, with 39% |
 | Annual reports | Not yet. They are usually designed reports (above) |
-| Multi-column booklets (IRS / GPO / Federal Register style) | Not yet. Narrow columns of small type re-wrap and grow. IRS Publication 501 (31 pages) became 45 pages in LibreOffice, 54 in Word and 57 in Google Docs, with under 30% of its words on the right page; the 126-page Form 1040 instructions became 135, 145 and 154 pages. The text survives as editable text (95–97% of it in LibreOffice) |
+| Multi-column booklets (IRS / GPO / Federal Register style) | Not yet. Narrow columns of small type re-wrap and grow. IRS Publication 501 (31 pages) became 45 pages in LibreOffice, 54 in Word and 57 in Google Docs, with under 30% of its words on the right page; the 126-page Form 1040 instructions became 135, 145 and 155 pages. The text survives as editable text (95–97% of it in LibreOffice) |
 | Dense journal papers, equations | Not yet. A paper's flowing text converts, but equations are not rebuilt as editable math, and dense two-column journal layouts can gain a page: an 8-page arXiv paper became 9 pages in LibreOffice and Word and 10 in Google Docs, with 70% of its words on the right page in LibreOffice |
 | Slide decks, brochures, posters | Not yet. Layouts break or become pictures: a 40-slide deck keeps its 40 pages in LibreOffice and Word, but about three quarters of its text sits in text boxes, and Google Docs makes 54 pages of it |
+| Web pages printed from a browser | Not yet. Never seen: a 7-page Wikipedia article printed from Chrome came back with 8 pages and 33% of its words on the right page. (The sealed test had classed it, before it ran, as an ordinary promised document, and scored it so; the README now marks this kind "Not yet".) |
 | Arabic, Hebrew and Persian (right-to-left) | Partly. Text arrives in reading order as right-to-left Word paragraphs; pages can grow where the reader lacks the source's fonts (an Arabic report 57 → 65 pages, a Hebrew paper 28 → 29, in LibreOffice). The Google Docs output is not yet right-to-left |
 | Scanned pages with no text layer | Refused (exit code 17). No OCR is built in. Scans that already have an OCR text layer do convert |
 | Fillable forms | Refused (exit code 19), because the result would look like the form without being one |
@@ -82,7 +88,7 @@ shows what it prints.
   files rendered by Word 16 (Office 2024): with the default settings 69 of 90
   test documents come back with exactly the right number of pages in Word,
   against 71 in LibreOffice, and Word opened all 90 without asking to repair
-  one ([measurement](../evidence/final-set-2026-10-11.json)). Word differs most on long reports, where a page it
+  one ([measurement](../evidence/release-documents-2026-10-11.json)). Word differs most on long reports, where a page it
   sets slightly taller spills onto the next, and on Japanese and Chinese text.
   The files open in Word's Compatibility Mode on purpose: Word's newer layout
   rules re-wrap justified paragraphs away from the PDF's own line breaks.
@@ -174,7 +180,7 @@ remaining work lives:
 | Document | Source pages | LibreOffice | Word | Google Docs | Words on the right page (LO / Word / Docs) |
 |---|---:|---:|---:|---:|---|
 | IRS Publication 501 (`y13`) | 31 | 45 | 54 | 57 | 0.29 / 0.29 / 0.26 |
-| Form 1040 instructions (`y06`) | 126 | 135 | 145 | 154 | 0.28 / 0.20 / 0.20 |
+| Form 1040 instructions (`y06`) | 126 | 135 | 145 | 155 | 0.28 / 0.20 / 0.21 |
 
 (The 1040 instructions were 294 pages in the 2026-09 measurement.) The text
 survives: 95–97% of it is live, editable text in LibreOffice. Pagination is

@@ -7,8 +7,8 @@ the project's pinned test container; the top picture adds Microsoft Word's
 render from that measurement and Google Docs' render of the DOCX made for it
 (from a later live check, after a fix to how boxed text imports). How each
 picture was made is recorded in [images/README.md](images/README.md), and the
-numbers quoted here are from
-[the measurement record](evidence/final-set-2026-10-11.json).
+numbers quoted here are from the release measurement
+([record](evidence/release-documents-2026-10-11.json)).
 
 ## One document in three readers
 
@@ -69,7 +69,7 @@ of its words on the right page in LibreOffice.
 government, public domain; "Wanda Worker" is SSA's fictional sample). The grey
 panels are shaded text and 89% of the words are editable, but the design
 loosens: the title wraps, and rows that were laid out as a table run together.
-It keeps its 2 pages in LibreOffice and Word; Google Docs makes 4 of them, with
+It keeps its 2 pages in LibreOffice and Word; Google Docs makes 3 of them, with
 only 39% of the words on the right page.
 
 The full list of limits, with numbers, is in

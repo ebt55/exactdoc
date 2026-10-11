@@ -19,14 +19,15 @@
 *Moved from the README on 2026-10-11.* Every number in the README is measured
 on the documents exactdoc was developed against: the 16 gated test documents
 and the 79 others were all in view while the converter was tuned, so they show
-how well it does on PDFs it has seen. Results on a sealed set of documents it
-has never seen are reported separately, once, with 0.3.0b1
-([beta bar, amendment 6](../beta-bar.md)).
+how well it does on PDFs it has seen. A sealed set of 32 documents it had
+never seen was run once on the 0.3.0b1 candidate, under the release rule of
+[beta bar, amendment 6](../beta-bar.md); the README reports its verdicts
+([results](../evidence/holdout2-2026-10-11.json)).
 
 Every change has to pass a gate that converts 16 frozen test documents and
-renders the results in a pinned copy of LibreOffice. At the final measurement
-all 16 kept their page count, with and without the layout check
-([gate run](../evidence/final-set-2026-10-11.json)). No change may fall below
+renders the results in a pinned copy of LibreOffice. At the release
+measurement all 16 kept their page count, with and without the layout check
+([gate run](../evidence/release-measurement-2026-10-11.json)). No change may fall below
 the recorded baseline
 ([`testkit/gate_baseline.json`](../../testkit/gate_baseline.json); re-recorded
 on 11 October after a review: [record](../evidence/rerecord-2026-10-11.json)).
@@ -34,10 +35,10 @@ The Google Docs output is checked in Google Docs itself: the same 16 documents
 are uploaded, and Google's own export is compared with the PDF
 ([latest pass](../evidence/gdocs-2026-10-04-pass9b-qualification.json)).
 Another 79 PDFs, most of them real-world documents, are measured too but do
-not gate changes. In the final measurement's live Google Docs sweep of all 95,
+not gate changes. In the release measurement's live Google Docs sweep of all 95,
 66 of the 90 compared came back with exactly the right number of pages; the
 other five are PDFs the converter refuses on purpose, and each was refused
-with its exit code ([measurement](../evidence/final-set-2026-10-11.json)).
+with its exit code ([measurement](../evidence/release-documents-2026-10-11.json)).
 The same 90 DOCX files rendered in LibreOffice gave 71 page-exact, and in Word
 69; Word opened all 90 without a repair prompt.
 

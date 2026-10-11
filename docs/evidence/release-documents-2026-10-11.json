@@ -1,0 +1,343 @@
+{
+ "schema": "exactdoc.release-documents.v1",
+ "date": "2026-10-11",
+ "release": "0.3.0b1",
+ "_note": "The per-document numbers the README, docs/install.md, docs/examples.md and docs/deep-dive/limitations.md quote, read from the inputs of docs/evidence/release-measurement-2026-10-11.json (each input's SHA-256 checked equal before reading). LibreOffice and Word: commit 71af76e; Google Docs live: 410d370 (71af76e + WP56). Same shape as the documents block of final-set-2026-10-11.json, which this supersedes for the README. A summary written for the README, not a gate.",
+ "measurement": "docs/evidence/release-measurement-2026-10-11.json",
+ "inputs": {
+  "product_sweep": {
+   "path": "C:\\lotmp\\scr\\runs\\final-71af76e-prod.sweep.json",
+   "sha256": "4fb4ff9ab467525128621ec7d44c0512534878cac7b20ed2dddee3ee1deff3d7"
+  },
+  "word_product": {
+   "path": "C:\\lotmp\\scr\\runs\\final-71af76e-word-prod\\rows.jsonl",
+   "sha256": "92ec741b07738c2fc62b8cd8dd912ae6765f726bbccdeff2109f222d70793bbd"
+  },
+  "docs_rows": {
+   "path": "C:\\lotmp\\rcgd\\out\\rows.jsonl",
+   "sha256": "b772687bfb0c2f74a6296b4074911bfbdb405b0a594d8db018c64080a8521317"
+  },
+  "timing_product": {
+   "path": "C:\\lotmp\\scr\\runs\\final-71af76e-product-serial.timing.json",
+   "sha256": "045e48b7242981319bde3f241d9489689b45b3a0f2a1e9c7f3e1b1d326aea4d1"
+  }
+ },
+ "page_exact": {
+  "libreoffice_product": {
+   "page_exact": 71,
+   "compared": 90
+  },
+  "word_product": {
+   "page_exact": 69,
+   "compared": 90
+  },
+  "docs_live": {
+   "page_exact": 66,
+   "compared": 90
+  }
+ },
+ "word_opens": {
+  "rows": 90,
+  "repair_prompts": 0,
+  "errors": 0
+ },
+ "serial_timing_s": {
+  "y03_nist_fips197": {
+   "pages": 46,
+   "convert_s": 20.9
+  },
+  "y06_irs_1040_instructions": {
+   "pages": 126,
+   "convert_s": 154.37
+  },
+  "y12_irs_pub15": {
+   "pages": 59,
+   "convert_s": 37.49
+  },
+  "y13_irs_pub501": {
+   "pages": 31,
+   "convert_s": 30.97
+  },
+  "y18_eurlex_ai_act": {
+   "pages": 144,
+   "convert_s": 62.67
+  },
+  "y21_worldbank_wdr24": {
+   "pages": 48,
+   "convert_s": 20.54
+  },
+  "y38_elife_arbortext_gs": {
+   "pages": 33,
+   "convert_s": 18.77
+  },
+  "y47_ar_ilo_word365": {
+   "pages": 57,
+   "convert_s": 45.64
+  },
+  "y60_cdc_mmwr_indd19": {
+   "pages": 24,
+   "convert_s": 20.42
+  },
+  "y64_bls_release_xpp": {
+   "pages": 39,
+   "convert_s": 24.25
+  }
+ },
+ "documents": {
+  "y01_nist_sp80063b": {
+   "src_pages": 80,
+   "libreoffice_product": {
+    "out_pages": 80,
+    "word_recall": 0.9688,
+    "live_text_cov": 0.9229,
+    "textbox_frac": 0.0
+   },
+   "word_product": {
+    "out_pages": 80,
+    "word_recall": 0.969
+   },
+   "docs_live": {
+    "out_pages": 80,
+    "word_recall": 0.9671
+   }
+  },
+  "y02_nist_sp800171r2": {
+   "src_pages": 114,
+   "libreoffice_product": {
+    "out_pages": 114,
+    "word_recall": 0.966,
+    "live_text_cov": 0.8894,
+    "textbox_frac": 0.0
+   },
+   "word_product": {
+    "out_pages": 115,
+    "word_recall": 0.8573
+   },
+   "docs_live": {
+    "out_pages": 114,
+    "word_recall": 0.9656
+   }
+  },
+  "y08_nist_sp80088r1": {
+   "src_pages": 65,
+   "libreoffice_product": {
+    "out_pages": 65,
+    "word_recall": 0.9909,
+    "live_text_cov": 0.9754,
+    "textbox_frac": 0.0
+   },
+   "word_product": {
+    "out_pages": 65,
+    "word_recall": 0.9916
+   },
+   "docs_live": {
+    "out_pages": 65,
+    "word_recall": 0.9906
+   }
+  },
+  "y09_nist_sp800207": {
+   "src_pages": 59,
+   "libreoffice_product": {
+    "out_pages": 59,
+    "word_recall": 0.9759,
+    "live_text_cov": 0.9475,
+    "textbox_frac": 0.0
+   },
+   "word_product": {
+    "out_pages": 59,
+    "word_recall": 0.9761
+   },
+   "docs_live": {
+    "out_pages": 59,
+    "word_recall": 0.9734
+   }
+  },
+  "y06_irs_1040_instructions": {
+   "src_pages": 126,
+   "libreoffice_product": {
+    "out_pages": 135,
+    "word_recall": 0.2811,
+    "live_text_cov": 0.9508,
+    "textbox_frac": 0.0
+   },
+   "word_product": {
+    "out_pages": 145,
+    "word_recall": 0.1959
+   },
+   "docs_live": {
+    "out_pages": 155,
+    "word_recall": 0.2052
+   }
+  },
+  "y13_irs_pub501": {
+   "src_pages": 31,
+   "libreoffice_product": {
+    "out_pages": 45,
+    "word_recall": 0.2929,
+    "live_text_cov": 0.9736,
+    "textbox_frac": 0.0
+   },
+   "word_product": {
+    "out_pages": 54,
+    "word_recall": 0.2854
+   },
+   "docs_live": {
+    "out_pages": 57,
+    "word_recall": 0.2624
+   }
+  },
+  "y18_eurlex_ai_act": {
+   "src_pages": 144,
+   "libreoffice_product": {
+    "out_pages": 144,
+    "word_recall": 0.9844,
+    "live_text_cov": 0.9678,
+    "textbox_frac": 0.0
+   },
+   "word_product": {
+    "out_pages": 144,
+    "word_recall": 0.9855
+   },
+   "docs_live": {
+    "out_pages": 144,
+    "word_recall": 0.9873
+   }
+  },
+  "y12_irs_pub15": {
+   "src_pages": 59,
+   "libreoffice_product": {
+    "out_pages": 60,
+    "word_recall": 0.9137,
+    "live_text_cov": 0.9808,
+    "textbox_frac": 0.0
+   },
+   "word_product": {
+    "out_pages": 60,
+    "word_recall": 0.9119
+   },
+   "docs_live": {
+    "out_pages": 62,
+    "word_recall": 0.7375
+   }
+  },
+  "y21_worldbank_wdr24": {
+   "src_pages": 48,
+   "libreoffice_product": {
+    "out_pages": 49,
+    "word_recall": 0.8821,
+    "live_text_cov": 0.9145,
+    "textbox_frac": 0.0
+   },
+   "word_product": {
+    "out_pages": 49,
+    "word_recall": 0.8554
+   },
+   "docs_live": {
+    "out_pages": 52,
+    "word_recall": 0.5362
+   }
+  },
+  "y22_lshort": {
+   "src_pages": 153,
+   "libreoffice_product": {
+    "out_pages": 154,
+    "word_recall": 0.9459,
+    "live_text_cov": 0.9747,
+    "textbox_frac": 0.0
+   },
+   "word_product": {
+    "out_pages": 154,
+    "word_recall": 0.9438
+   },
+   "docs_live": {
+    "out_pages": 169,
+    "word_recall": 0.3386
+   }
+  },
+  "y34_census_slides_pptx365": {
+   "src_pages": 40,
+   "libreoffice_product": {
+    "out_pages": 40,
+    "word_recall": 0.9256,
+    "live_text_cov": 0.9408,
+    "textbox_frac": 0.727
+   },
+   "word_product": {
+    "out_pages": 40,
+    "word_recall": 0.9246
+   },
+   "docs_live": {
+    "out_pages": 54,
+    "word_recall": 0.2831
+   }
+  },
+  "y41_arxiv_ieeetran": {
+   "src_pages": 8,
+   "libreoffice_product": {
+    "out_pages": 9,
+    "word_recall": 0.6989,
+    "live_text_cov": 0.9316,
+    "textbox_frac": 0.0
+   },
+   "word_product": {
+    "out_pages": 9,
+    "word_recall": 0.6951
+   },
+   "docs_live": {
+    "out_pages": 10,
+    "word_recall": 0.6083
+   }
+  },
+  "y58_ssa_statement_indd20": {
+   "src_pages": 2,
+   "libreoffice_product": {
+    "out_pages": 2,
+    "word_recall": 0.8909,
+    "live_text_cov": 0.8877,
+    "textbox_frac": 0.0
+   },
+   "word_product": {
+    "out_pages": 2,
+    "word_recall": 0.8909
+   },
+   "docs_live": {
+    "out_pages": 3,
+    "word_recall": 0.3868
+   }
+  },
+  "y47_ar_ilo_word365": {
+   "src_pages": 57,
+   "libreoffice_product": {
+    "out_pages": 65,
+    "word_recall": 0.2363,
+    "live_text_cov": 0.8276,
+    "textbox_frac": 0.0
+   },
+   "word_product": {
+    "out_pages": 64,
+    "word_recall": 0.2674
+   },
+   "docs_live": {
+    "out_pages": 83,
+    "word_recall": 0.1743
+   }
+  },
+  "y49_he_word2016": {
+   "src_pages": 28,
+   "libreoffice_product": {
+    "out_pages": 29,
+    "word_recall": 0.6147,
+    "live_text_cov": 0.9569,
+    "textbox_frac": 0.0
+   },
+   "word_product": {
+    "out_pages": 28,
+    "word_recall": 0.8984
+   },
+   "docs_live": {
+    "out_pages": 53,
+    "word_recall": 0.16
+   }
+  }
+ }
+}
