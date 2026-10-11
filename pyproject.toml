@@ -62,8 +62,14 @@ gdocs = [
     "google-auth-oauthlib>=1.1",
 ]
 
+# Documentation and Changelog point at `main`, as the CLI's --help does
+# (cli.USAGE_URL). They resolve once main carries the release commit, which
+# docs/releasing.md makes a step of every release.
 [project.urls]
 Homepage = "https://github.com/ebt55/exactdoc"
+Documentation = "https://github.com/ebt55/exactdoc/blob/main/docs/usage.md"
+Changelog = "https://github.com/ebt55/exactdoc/blob/main/CHANGELOG.md"
+Source = "https://github.com/ebt55/exactdoc"
 Issues = "https://github.com/ebt55/exactdoc/issues"
 
 [project.scripts]
