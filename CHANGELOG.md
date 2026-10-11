@@ -20,6 +20,21 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **A full-sheet cover stays one page, and prints no footer it does not
+  print (WP50).** A cover painted as one sheet-sized filled shape (a Word
+  full-page shape, exported bled past the paper) is read as a page-one cover
+  band, and the band's row was as tall as the shape: taller than any page box,
+  so the renderer split it, the cover took two pages and every later page sat
+  one place late. In the standard profiles the band now keeps to the sheet
+  and to its section's body box, paid from the white the source never shows
+  (the off-sheet overhang, then the bottom pad; text is never clipped), and
+  the cover section honours what inference decided about page 1: a cover that
+  prints no folio gets no footer (it used to get the running one, `K-1` on an
+  annual report's cover), and an unnumbered lead-in after it gets empty parts
+  until the numbering starts. The Google Docs profile is byte-identical
+  (`word/*.xml` of every convertible corpus document and of the development
+  holdout). In the corpus the standard output moves on y23 and y48 only, none
+  gated. `tests/test_cover_page_fit.py`.
 - **The README's numbers come from the final measurement of 910e6aa
   (WP47).** Every figure the README cites now comes from one clean run on one
   commit (`scripts/dev/final_set.sh`, 2026-10-11): the strict gate,

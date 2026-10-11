@@ -4658,6 +4658,78 @@ def _part_distance(lay: DocLayout, side: str) -> float:
     return next((p.distance for p in parts if p is not None), 36.0)
 
 
+def _cover_states_no_footer(lay: DocLayout, ctx) -> bool:
+    """Does the cover page (a page-one band, `lay.cover_band`) state that it
+    prints no footer?
+
+    `_infer_body` decides that a page 1 whose furniture differs from the rest
+    states its own parts, "including stating none" (`different_first` with
+    `footer_first` None: y02's cover prints no folio). The cover-band path is
+    the only writer of section 1 that did not honour it: it wrote
+    `footer_first or footer_default`, so a cover without a folio was given
+    the running footer -- a 10-K's "K-{PAGE}" printed on an annual report's
+    cover, and the footer's height taken out of the cover's own box. Standard
+    profile only: the Google Docs profile's cover is unmeasured live in this
+    form, and stays byte-identical."""
+    return ctx.output_profile == "standard" and lay.different_first and \
+        lay.footer_first is None
+
+
+def _fit_cover_band(band: TableEl, lay: DocLayout, header, footer,
+                    footer_distance: float) -> None:
+    """Keep a page-one cover band on page one: on the sheet, and inside the
+    body box of the section it opens. In place, on the writer's copy.
+
+    The band is one table row whose height is content-driven: its paragraphs'
+    spacing measured from the band's top, then a bottom pad to the band's
+    foot (`infer.build_band_table`), so the row is exactly as tall as the
+    filled rectangle. A full-sheet fill -- a designed cover painted as one
+    page-sized (or larger, bled) rectangle under its title -- is read as a
+    band, and then the row is taller than any page box: the cover section's
+    top margin is the band's top clamped at 0 but the paragraphs were spaced
+    from the off-sheet top (18pt low for a fill drawn from y -18), the bottom
+    pad reached past the foot of the paper, and the renderer split the row,
+    so the cover took two pages and every later page sat one place late.
+
+    Two corrections, both taken from the white the source never shows:
+      * the off-sheet overhang -- above the paper from the first paragraph's
+        space-before, below it from the bottom pad;
+      * then whatever still exceeds the section's body box (the paper less
+        the cover's top margin, the bottom margin or the footer's extent, the
+        section-break paragraph that closes section 1, and PAGEFIT_SAFETY_PT
+        for the half-point / tenth-point quanta every page plan aims with)
+        from the bottom pad. Text is never clipped: a band whose text itself
+        does not fit is left as it is.
+    A band inside its box -- every band the corpus had before a full-sheet
+    cover, 01/04/c1's 112-174pt strips -- is untouched."""
+    from .pagefit import PAGEFIT_SAFETY_PT
+    bb = band.bbox
+    if not bb or not band.rows or not band.rows[0] or band.rows[0][0] is None:
+        return
+    cell = band.rows[0][0]
+    top_pad, left_pad, bot_pad, right_pad = cell.pad
+    removed = 0.0
+    over_top = max(0.0, -bb[1])
+    if over_top > 0.0 and cell.paras:
+        p0 = cell.paras[0]
+        take = min(over_top, p0.space_before or 0.0)
+        p0.space_before = round((p0.space_before or 0.0) - take, 1)
+        over_top -= take
+        removed += take
+    cut = min(bot_pad, max(0.0, bb[3] - lay.page_h) + over_top)
+    bot_pad -= cut
+    removed += cut
+    height = (bb[3] - bb[1]) - removed
+    top = max(lay.cover_top or 0.0, _hf_height(header))
+    bottom = max(lay.margin_b, footer_distance + _hf_height(footer)) \
+        if footer is not None else lay.margin_b
+    room = lay.page_h - top - bottom - SECT_BREAK_PARA_PT - PAGEFIT_SAFETY_PT
+    if height > room:
+        bot_pad -= min(bot_pad, height - room)
+    if removed or height > room:
+        cell.pad = (top_pad, left_pad, round(bot_pad, 1), right_pad)
+
+
 def _section_widths(ch, ctx) -> Optional[tuple]:
     """A chunk's unequal column widths as the section states them, or None.
 
@@ -6067,9 +6139,11 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
         if lay.header_first is not None:
             _fill_hf(sec.header, _shifted_part(lay.header_first, dl, dr), lay,
                      ctx=ctx)
-        if (lay.footer_first or lay.footer_default) is not None:
-            _fill_hf(sec.footer,
-                     _shifted_part(lay.footer_first or lay.footer_default, dl, dr),
+        cover_foot = lay.footer_first or lay.footer_default
+        if _cover_states_no_footer(lay, ctx):
+            cover_foot = None
+        if cover_foot is not None:
+            _fill_hf(sec.footer, _shifted_part(cover_foot, dl, dr),
                      lay, ctx=ctx)
     else:
         if sec1_blank:
@@ -6168,6 +6242,9 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                         el.left_indent = round(el.left_indent + delta_l, 1)
                 elif isinstance(el, RuleEl):
                     el.left_indent = round(el.left_indent + delta_l, 1)
+        if ctx.output_profile == "standard":
+            _fit_cover_band(band, lay, lay.header_first, cover_foot,
+                            _part_distance(lay, "footer"))
         write_table(doc, band, lay.page_w - 2 * band_bleed, ctx=ctx,
                     cover_band=True)
 
@@ -6261,9 +6338,22 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                     if spec is not None:
                         # the cover took section 1; its running heads start here
                         _fill_section_parts(s, lay, ctx, spec)
+                        prev_blank = False
+                    elif num is None and sec1_blank and \
+                            ctx.output_profile == "standard":
+                        # The cover took section 1, and the rest of the
+                        # unnumbered lead-in it opened prints no furniture
+                        # (HFSection.blank): its pages get empty parts here,
+                        # as the lead-in does without a cover, and the
+                        # document's own parts are restated where the
+                        # numbering starts (the `prev_blank` branch below).
+                        # Stated with the document's parts instead, every
+                        # lead-in page carried the numbered section's footer
+                        # with a count that had not started.
+                        _fill_default_parts(s, lay, ctx, blank=True, always=True)
                     else:
                         _fill_default_parts(s, lay, ctx, always=True)
-                    prev_blank = False
+                        prev_blank = False
                 elif num is not None and num.parts is not None:
                     _fill_section_parts(s, lay, ctx, num)
                     prev_blank = False
