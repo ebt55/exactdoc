@@ -3,8 +3,8 @@
 Every picture here is built by [`scripts/readme_images.py`](../../scripts/readme_images.py)
 from PDFs that already exist: the source PDF from `testkit/fixtures/` or
 `testkit/fixtures_expansion/`, and the renders kept by the final measurement of
-commit 910e6aa ([record](../evidence/final-set-2026-10-11.json)). Nothing is
-converted or rendered to make them. The file-by-file provenance (source PDF,
+commit 910e6aa ([record](../evidence/final-set-2026-10-11.json)), except the
+hero's Google Docs frame (below). Nothing is converted or rendered to make them. The file-by-file provenance (source PDF,
 each render and every picture's SHA-256) is in
 [readme-images-2026-10-11.json](../evidence/readme-images-2026-10-11.json).
 
@@ -27,11 +27,17 @@ Where the renders come from:
   pinned test container (LibreOffice 24.2).
 - **Microsoft Word:** the Word lane's PDFs: Word 16 (Office 2024) opening the
   same product DOCX and exporting it to PDF.
-- **Google Docs:** Google's own PDF export of the gdocs-profile DOCX, uploaded
-  to Google Docs in that measurement's live sweep.
+- **Google Docs:** Google's own PDF export of the gdocs-profile DOCX. For the
+  hero (`01_whitepaper_market`), the export comes from the WP56 live check of
+  that document at commit 7b0625e, after WP56 changed how the gdocs profile
+  writes a boxed panel: the "Key Insight" box now wraps like the PDF and keeps
+  only its left accent bar, where 910e6aa's export drew a full border. No
+  other picture shows a Google Docs render.
 
-The pictured documents' output did not move between 910e6aa and the commit
-that made these pictures; the evidence file says how that was checked.
+Apart from that box, the pictured documents' output did not move between
+910e6aa and the commits that made these pictures (the standard-profile DOCX
+of `01_whitepaper_market` is byte-identical at 7b0625e, as WP56 reports); the evidence file
+says how that was checked.
 
 ## Rebuilding
 
@@ -41,7 +47,8 @@ python scripts/readme_images.py RUN_DOCX_DIR --word WORD_DIR --docs DOCS_DIR
 
 `RUN_DOCX_DIR` is a sweep's kept-DOCX folder (`product/<stem>/<stem>.pdf` is
 the LibreOffice render), `WORD_DIR` holds `<stem>.word.pdf` and `DOCS_DIR`
-holds `<stem>.gdocs.pdf`. Without `--word` and `--docs` the two hero pictures
+holds `<stem>.gdocs.pdf` (for the current hero, a folder holding a copy of the
+WP56 export under that name). Without `--word` and `--docs` the two hero pictures
 are skipped. The label font is Segoe UI on Windows and DejaVu Sans elsewhere.
 The red outlines on the not-yet pictures are placed by hand in the script;
 check them by eye whenever the pictures are rebuilt. Then write a new

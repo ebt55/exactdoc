@@ -48,8 +48,13 @@
      "sha256": "96fab717bfd22efd5a19321917953d1bc6f2e0a51fef1d773624648c06bd441e"
     },
     "docs": {
-     "path": "C:\\lotmp\\finalgd\\out\\01_whitepaper_market.gdocs.pdf",
-     "sha256": "2bb49eed3bce01d140549f5611ea0cd79c627cbd60f32025ce1e77c7a60ed5cc"
+     "path": "C:\\lotmp\\wp56live\\01_whitepaper_market.wp56\\gdocs.pdf",
+     "sha256": "2bdf3f7e4d7e36a61093ec327668aa0059b1ffd97d74db65eb12b5cd27a71a04",
+     "from": "the WP56 live Google Docs check at commit 7b0625e (gdocs profile, refine 0), replacing 910e6aa's export of the same page",
+     "replaced": {
+      "path": "C:\\lotmp\\finalgd\\out\\01_whitepaper_market.gdocs.pdf",
+      "sha256": "2bb49eed3bce01d140549f5611ea0cd79c627cbd60f32025ce1e77c7a60ed5cc"
+     }
     },
     "lo": {
      "path": "C:\\lotmp\\scr\\runs\\final-910e6aa-prod.docx\\product\\01_whitepaper_market\\01_whitepaper_market.pdf",
@@ -57,8 +62,8 @@
     }
    },
    "image": {
-    "sha256": "30873e914da4630f05bf74f4ed4ec3a3698f80948b64b55f278c459b90e113da",
-    "bytes": 236028
+    "sha256": "649f23afa252c89b9f8c5d820845c3caee8e1baa4c2359141b7195e0b01ef35f",
+    "bytes": 237522
    }
   },
   "hero-readers.png": {
@@ -75,8 +80,13 @@
      "sha256": "96fab717bfd22efd5a19321917953d1bc6f2e0a51fef1d773624648c06bd441e"
     },
     "docs": {
-     "path": "C:\\lotmp\\finalgd\\out\\01_whitepaper_market.gdocs.pdf",
-     "sha256": "2bb49eed3bce01d140549f5611ea0cd79c627cbd60f32025ce1e77c7a60ed5cc"
+     "path": "C:\\lotmp\\wp56live\\01_whitepaper_market.wp56\\gdocs.pdf",
+     "sha256": "2bdf3f7e4d7e36a61093ec327668aa0059b1ffd97d74db65eb12b5cd27a71a04",
+     "from": "the WP56 live Google Docs check at commit 7b0625e (gdocs profile, refine 0), replacing 910e6aa's export of the same page",
+     "replaced": {
+      "path": "C:\\lotmp\\finalgd\\out\\01_whitepaper_market.gdocs.pdf",
+      "sha256": "2bb49eed3bce01d140549f5611ea0cd79c627cbd60f32025ce1e77c7a60ed5cc"
+     }
     },
     "lo": {
      "path": "C:\\lotmp\\scr\\runs\\final-910e6aa-prod.docx\\product\\01_whitepaper_market\\01_whitepaper_market.pdf",
@@ -84,8 +94,8 @@
     }
    },
    "image": {
-    "sha256": "8ab39d2f8dd7142b5640d9837d068d0bcd80fabcea00b00d6cf04eed6d308ea0",
-    "bytes": 120386
+    "sha256": "0dd6b53aa397d54bc0bd98d49994b3951bfe5fcf9fcfd9dd96055fbf9156532d",
+    "bytes": 121082
    }
   },
   "editable-structure.png": {
@@ -240,5 +250,26 @@
     "bytes": 121272
    }
   }
+ },
+ "hero_update": {
+  "date": "2026-10-11",
+  "branch": "wp53b from 7b0625e",
+  "what": "The hero's Google Docs frame is Google's export of the WP56 gdocs-profile DOCX of 01_whitepaper_market page 1: the 'Key Insight' box wraps like the PDF ('...requests by / a median of...') with only its left accent bar, where 910e6aa's export drew a full border. Word and LibreOffice frames are unchanged (WP56 reports the standard-profile DOCX byte-identical). Nothing was converted for this: the export was copied under the name the script reads and the two hero pictures were re-composed.",
+  "command": "python scripts/readme_images.py C:\\lotmp\\scr\\runs\\final-910e6aa-prod.docx --word C:\\lotmp\\scr\\runs\\final-910e6aa-word-prod --docs C:\\lotmp\\wp53work\\docs56 hero-readers.gif hero-readers.png",
+  "docs_dir_note": "C:\\lotmp\\wp53work\\docs56\\01_whitepaper_market.gdocs.pdf is a byte copy (same SHA-256) of C:\\lotmp\\wp56live\\01_whitepaper_market.wp56\\gdocs.pdf",
+  "live_row": {
+   "doc": "01_whitepaper_market",
+   "v": "wp56",
+   "src_pages": 3,
+   "out_pages": 3,
+   "word_recall": 0.9665,
+   "within2pt": 0.7133,
+   "dy_p50": 0.66,
+   "mean_ssim": 0.8151,
+   "live_text_cov": 0.9595,
+   "utc": "2026-10-11T13:37:17Z",
+   "source": "C:\\lotmp\\wp56live\\rows.json"
+  },
+  "remaining_differences_by_eye": "Google Docs: a white strip of about 14.5pt above the cover band (measured on the export). All three readers: the footer's page number sits further left than in the PDF; Word and Google Docs set the numeral larger."
  }
 }

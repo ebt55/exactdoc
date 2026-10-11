@@ -3,8 +3,9 @@
 Each picture puts a page of a PDF beside the same page of the DOCX exactdoc
 made from it, converted with the default settings. The DOCX pages are
 LibreOffice's renders from the final measurement of 11 October 2026, made in
-the project's pinned test container; the top picture adds Microsoft Word's and
-Google Docs' renders of the same document from that measurement. How each
+the project's pinned test container; the top picture adds Microsoft Word's
+render from that measurement and Google Docs' render of the DOCX made for it
+(from a later live check, after a fix to how boxed text imports). How each
 picture was made is recorded in [images/README.md](images/README.md), and the
 numbers quoted here are from
 [the measurement record](evidence/final-set-2026-10-11.json).
@@ -13,10 +14,12 @@ numbers quoted here are from
 
 ![Page 1 of a whitepaper four times: the original PDF, then the DOCX as Microsoft Word, Google Docs and LibreOffice lay it out. All four look almost the same.](images/hero-readers.png)
 
-The still of the README's animation. Google Docs adds a thin white strip above
-the dark band (Docs adds about 14.6 points above a page-one band, and the DOCX
-cannot remove it) and draws the quote box with a full border; in all three the
-footer's page number sits further left than in the PDF.
+The still of the README's animation. Word and LibreOffice show the default
+DOCX; Google Docs shows the DOCX made for it (`--output-profile gdocs`). Google
+Docs adds a thin white strip above the dark band (Docs adds about 14.6 points
+above a page-one band, and the DOCX cannot remove it); in all three the
+footer's page number sits further left than in the PDF, and Word and Google
+Docs set it larger.
 
 ## Works well
 

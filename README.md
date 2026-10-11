@@ -13,10 +13,10 @@ optional Google Docs measurement ([details](docs/install.md#what-talks-to-the-ne
 ![Animation. On the left, page 1 of a whitepaper as the original PDF. On the right, the DOCX exactdoc made from it, shown in turn as Microsoft Word, Google Docs and LibreOffice lay it out. All four pages look almost the same.](docs/images/hero-readers.gif)
 
 <sub>Page 1 of one of the project's test whitepapers, converted with the default
-settings ([still image](docs/images/hero-readers.png), [how it was made](docs/images/README.md)).
-Small differences remain: Google Docs adds a thin white strip above the dark
-band and draws the quote box with a full border, and the footer's page number
-sits further left than in the PDF.</sub>
+settings; Google Docs shows the DOCX made for it ([still image](docs/images/hero-readers.png),
+[how it was made](docs/images/README.md)). Small differences remain: Google Docs
+adds a thin white strip above the dark band, and the footer's page number sits
+further left than in the PDF, set larger in Word and Google Docs.</sub>
 
 <!-- release: at 0.3.0b1 this callout and the Install command are the only lines that change (docs/releasing.md, step 2). -->
 > **Alpha (0.2.0a1).** The first beta, 0.3.0b1, is being prepared; until it is
