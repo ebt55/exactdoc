@@ -95,7 +95,13 @@ class BatchTests(unittest.TestCase):
 
     def test_casefold_output_collision_is_rejected_before_work(self):
         with tempfile.TemporaryDirectory() as td:
-            root, out = Path(td) / "in", Path(td) / "out"; root.mkdir()
+            # make_items resolves the input directory and real discover()
+            # returns paths under that RESOLVED root; the stand-in must too.
+            # An unresolved temp path differs from it on macOS (/var ->
+            # /private/var) and on Windows runners (8.3 RUNNER~1), and then
+            # relative_to() raised before the collision was ever checked.
+            td = Path(td).resolve()
+            root, out = td / "in", td / "out"; root.mkdir()
             with mock.patch("exactdoc.batch.discover",
                             return_value=[root / "a.pdf", root / "A.PDF"]):
                 with self.assertRaises(ConfigurationError):
