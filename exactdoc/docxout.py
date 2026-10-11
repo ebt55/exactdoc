@@ -4982,12 +4982,15 @@ _log = logging.getLogger("exactdoc.docxout")
 # 792pt page when its page colour was read as a running header (WP59).
 MIN_BODY_PT = 14.0
 SECTION_CLAMPS = [0]     # sections clamped by _config_section (WP59 backstop)
+# The backstop is the standard profile's: the gdocs profile is held
+# byte-identical until a live Docs flight (set per write_docx call).
+_CLAMP_SECTIONS = [True]
 
 
 def _config_section(sec, lay: DocLayout, margin_t=None, cols: int = 1,
                     col_gap: float = 24.0, margin_lr=None, col_widths=None):
     top = lay.margin_t if margin_t is None else margin_t
-    if top + lay.margin_b > lay.page_h - MIN_BODY_PT:
+    if _CLAMP_SECTIONS[0] and top + lay.margin_b > lay.page_h - MIN_BODY_PT:
         # Backstop, never the reading: inference must not produce this, and
         # on the corpus it does not. Keep the bottom margin and give the
         # body one line.
@@ -5395,6 +5398,7 @@ def write_docx(lay: DocLayout, out_path: str, dpi: int = 240,
     ctx = WriteCtx(output_profile=output_profile,
                    line_mode=line_mode_for(output_profile), dpi=dpi,
                    render_clip=render_clip, image_report=image_report)
+    _CLAMP_SECTIONS[0] = output_profile != "gdocs"
     try:
         return _write_docx(lay, out_path, ctx)
     finally:
