@@ -62,6 +62,9 @@ while [ $# -gt 0 ]; do
 done
 [ $# -eq 2 ] || { echo "usage: holdout_exam.sh [options] <tree> <name>" >&2; exit 2; }
 TREE="$1"; NAME="$2"
+# A Windows-native path (C:/...): MSYS_NO_PATHCONV hands /c/... to git.exe and
+# the host Python unconverted, and neither understands it.
+TREE="$(cd "$TREE" 2>/dev/null && (pwd -W 2>/dev/null || pwd))" || { echo "no such tree: $1" >&2; exit 2; }
 HERE="$(cd "$(dirname "$0")" && (pwd -W 2>/dev/null || pwd))"
 PY="${EXACTDOC_PY:-C:/Users/ebin/claude-ground/pdftodoc/.venv/Scripts/python.exe}"
 IMAGE="${EXACTDOC_GATE_IMAGE:-exactdoc-gate:boot}"
@@ -225,7 +228,7 @@ if want d; then
   say "(d) exam -> $STATE/exam.json, $STATE/exam.txt"
   run hostpy "$HERE/holdout_exam.py" verdict "${V_ARGS[@]}"
   rc=$?
-  say "(d) holdout_exam exit $rc (0 announce yes, 1 announce no, 3 invalid)"
+  [ "$PRINT" = 1 ] || say "(d) holdout_exam exit $rc (0 announce yes, 1 announce no, 3 invalid)"
   [ "$PRINT" = 1 ] || [ $rc -ne 3 ] || { say "(d) INVALID exam: no evidence is written"; exit 50; }
   mark d "rc=$rc"
 fi
