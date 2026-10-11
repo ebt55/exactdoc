@@ -311,6 +311,8 @@ memory. The example images come from
 | [docs/deep-dive/measured-state.md](docs/deep-dive/measured-state.md) | Support by the program that made the PDF, and the measurements behind it |
 | [docs/deep-dive/how-it-works.md](docs/deep-dive/how-it-works.md) | How the converter works, and how it got here |
 | [CHANGELOG.md](CHANGELOG.md) | What changed, release by release |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Reporting a bad conversion without sharing the PDF, and running the tests |
+| [SECURITY.md](SECURITY.md) | Reporting a security problem privately |
 | [docs/README.md](docs/README.md) | Index of all the deeper documents: design notes, status, roadmap, corpus, evidence |
 
 ## Licence
