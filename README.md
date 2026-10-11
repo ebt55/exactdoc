@@ -17,9 +17,11 @@ only code that talks to the internet is the optional Google Docs measurement
 the `gdocs` extra and your own Google account, and a conversion uploads
 nothing unless you also pass `--allow-cloud-upload`.
 
-> **Alpha (version 0.2.0a1).** It works well on ordinary digital documents and is
-> still changing quickly. The [Works well / Not yet](#what-works-and-what-does-not-yet)
-> section below shows both sides with real examples.
+> **Alpha (version 0.2.0a1).** It works well on documents written as flowing
+> text in Word, Google Docs, LibreOffice or LaTeX, and is still changing
+> quickly. [Which PDFs it is for](#which-pdfs-it-is-for) says how to tell
+> whether yours is one, and the sections after it show both sides with real
+> examples.
 
 ![A whitepaper page as a PDF on the left, and the DOCX exactdoc made from it, opened in LibreOffice, on the right. The two pages look almost the same.](docs/images/hero-whitepaper.png)
 
@@ -139,10 +141,37 @@ Word yourself, not from text boxes pinned to the page:
 
 ## What works, and what does not yet
 
+### Which PDFs it is for
+
+What exactdoc promises depends on the program that made the PDF
+([beta bar, amendment 6](docs/beta-bar.md)):
+
+- **Promised:** documents written as flowing text in **Word, Google Docs,
+  LibreOffice or LaTeX**: reports, memos, letters, whitepapers, papers and
+  résumés.
+- **Not yet:** **designed reports** laid out in InDesign, Affinity Publisher,
+  QuarkXPress or Microsoft Publisher (multi-column pages with full-bleed
+  graphics), **annual reports**, and **multi-column booklets** in the style of
+  the IRS, the GPO and the Federal Register. They convert and their text stays
+  editable, but the layout does not hold: pages can be added and text can land
+  on the wrong page.
+
+To see which program made a PDF, open it in a PDF viewer and look at
+**File → Properties** (in some viewers *Document Properties*): the
+**PDF Producer** and **Application** (or *Creator*) fields usually name it, for
+example `Microsoft® Word for Microsoft 365`, `LibreOffice` with `Writer`,
+`pdfTeX` for LaTeX, `Skia/PDF … Google Docs Renderer` for Google Docs, or
+`Adobe InDesign`. `exactdoc --diagnose your.pdf` prints the same two fields, as
+its `producer` and `creator` lines, along with the page sizes, fonts and the
+layout exactdoc found; it writes nothing and prints none of the document's text.
+It does not say whether the PDF is in the promise; that is the list above. A
+PDF made with a "print to PDF" driver may name the driver rather than the
+program the document was written in.
+
 ### Works well
 
-Ordinary digital documents: reports, memos, letters, whitepapers, simple papers
-and résumés.
+Documents written as flowing text in Word, Google Docs, LibreOffice or LaTeX:
+reports, memos, letters, whitepapers, simple papers and résumés.
 
 <table>
 <tr>
@@ -168,7 +197,8 @@ was rendered by LibreOffice in the project's pinned test container.</sub>
 
 ### Not yet
 
-Real-world documents vary more than test documents. These are the main gaps,
+Real-world documents vary more than test documents, and the designed and
+multi-column kinds above are outside the promise. These are the main gaps,
 shown on public documents converted with the default settings. The pictures
 come from the
 [4 October example run](docs/evidence/readme-examples-2026-10-04.json). The
@@ -196,7 +226,7 @@ text boxes, and Google Docs makes 54 pages of it
 
 | Kind of PDF | Today |
 |---|---|
-| Reports, memos, letters, whitepapers | ✅ Works well. Long reports mostly keep their page count: the four NIST publications of 59–114 pages come back page for page in LibreOffice and Google Docs ([measurement](docs/evidence/final-set-2026-10-11.json)). Multi-column booklets are the exception (below) |
+| Reports, memos, letters, whitepapers written in Word, Google Docs, LibreOffice or LaTeX | ✅ Works well. Long reports mostly keep their page count: the four NIST publications of 59–114 pages come back page for page in LibreOffice and Google Docs ([measurement](docs/evidence/final-set-2026-10-11.json)) |
 | Tables (merged cells, tables over several pages) | ✅ Works well |
 | Simple two-column layouts | ✅ Works well |
 | Résumés | ✅ Mostly. Some designed two-column templates still spill onto an extra page |
@@ -204,8 +234,10 @@ text boxes, and Google Docs makes 54 pages of it
 | Latin, Cyrillic and Greek text | ✅ Works well |
 | Chinese, Japanese and Korean text | ⚠️ Partly. The text survives, but some runs become pictures |
 | Long documents in Google Docs | ⚠️ Some long documents still gain pages. In the latest live Google Docs sweep, a 144-page EU regulation came back page for page, but IRS Publication 15 came back with 62 pages for 59, a 153-page LaTeX guide as 169, and a 40-slide deck as 54 ([measurement](docs/evidence/final-set-2026-10-11.json)) |
-| Multi-column booklets (IRS / Federal Register style) | ⚠️ Not yet. Narrow columns of small type re-wrap and grow. IRS Publication 501 (31 pages) became 45 pages in LibreOffice, 54 in Word and 57 in Google Docs, with under 30% of its words on the right page; the 126-page Form 1040 instructions became 135, 145 and 154 pages ([measurement](docs/evidence/final-set-2026-10-11.json)). The text survives as editable text (95–97% of it in LibreOffice) |
-| Dense journal papers, equations | ⚠️ Not yet. Equations are not rebuilt as editable math |
+| Designed reports (InDesign, Affinity Publisher, QuarkXPress, Microsoft Publisher: multi-column with full-bleed graphics) | ⚠️ Not yet. The text converts and mostly stays editable, but the layout does not hold in every reader: the designed Social Security Statement above keeps its 2 pages in LibreOffice and Word and becomes 4 in Google Docs ([measurement](docs/evidence/final-set-2026-10-11.json)) |
+| Annual reports | ⚠️ Not yet. They are usually designed reports (above) |
+| Multi-column booklets (IRS / GPO / Federal Register style) | ⚠️ Not yet. Narrow columns of small type re-wrap and grow. IRS Publication 501 (31 pages) became 45 pages in LibreOffice, 54 in Word and 57 in Google Docs, with under 30% of its words on the right page; the 126-page Form 1040 instructions became 135, 145 and 154 pages ([measurement](docs/evidence/final-set-2026-10-11.json)). The text survives as editable text (95–97% of it in LibreOffice) |
+| Dense journal papers, equations | ⚠️ Not yet. A paper's flowing text converts, but equations are not rebuilt as editable math, and dense two-column journal layouts can gain a page |
 | Slide decks, brochures, posters | ⚠️ Not yet. Layouts break or become pictures |
 | Arabic, Hebrew and Persian (right-to-left) | ⚠️ Partly. Text arrives in reading order as right-to-left Word paragraphs; pages can grow where the reader lacks the source's fonts (an Arabic report 57 → 65 pages, a Hebrew paper 28 → 29, in LibreOffice: [measurement](docs/evidence/final-set-2026-10-11.json)). The Google Docs output is not yet right-to-left |
 | Scanned pages with no text layer | ⛔ Refused (exit code 17). No OCR is built in. Scans that already have an OCR text layer do convert |
@@ -251,6 +283,8 @@ The short version, for anyone testing the beta:
   `--refine 1` is a middle way: about a third less time on long documents,
   for up to six more pages in our measurements
   ([measurement](docs/evidence/refine-speed-2026-10-05.json)).
+- **Designed reports, annual reports and multi-column booklets** are outside
+  the promise (see [Which PDFs it is for](#which-pdfs-it-is-for)).
 - **Equations, slides, brochures and posters** do not convert well yet.
 - **Word is measured too, and mostly agrees with LibreOffice.** The same DOCX
   files rendered by Word 16 (Office 2024): with the default settings 69 of 90
@@ -280,6 +314,12 @@ The fonts the test documents name this way are `Noto Sans CJK JP`,
 
 ## How good is it, and how do we know?
 
+*Read these numbers for what they are.* Every number in this section and in
+the tables above is measured on the documents exactdoc was developed against:
+the 16 gated test documents and the 79 others were all in view while the
+converter was tuned, so they show how well it does on PDFs it has seen. A
+result on documents it has never seen is reported separately, below.
+
 Every change has to pass a gate that converts 16 frozen test documents and
 renders the results in a pinned copy of LibreOffice. Today all 16 keep their page
 count, with and without the layout check
@@ -296,6 +336,17 @@ gate changes. They show how much is left: in the latest live Google Docs sweep
 of all 95, 66 of the 90 compared came back with exactly the right number of pages
 ([measurement](docs/evidence/final-set-2026-10-11.json)); the other five are
 PDFs the converter refuses on purpose, and each was refused with its exit code.
+
+### Tested on documents it has never seen
+
+To be filled in. A sealed set of about 30 public PDFs that were never part of
+development (holdout-2, sealed on 11 October 2026 and recorded in
+[docs/beta-bar.md](docs/beta-bar.md), amendment 6) is converted once, on the
+release candidate, with the default settings. Its results go here, beside the
+numbers above, after that single run. Until then this page has no numbers for
+unseen documents.
+
+### Where the numbers come from
 
 Every number on this page traces to a committed file (the gate baseline, the
 CHANGELOG, or a measurement record in [docs/evidence/](docs/evidence/)), not to
