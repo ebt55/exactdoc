@@ -65,7 +65,9 @@ _OOXML_PARTS = (
     ("ppt/", "a PowerPoint presentation (PPTX)", _EXPORT_HINT),
 )
 _ODF_KINDS = (
-    (b"opendocument.text", "an OpenDocument text document (ODT)", _DOCX_HINT),
+    (b"opendocument.text", "an OpenDocument text document (ODT)",
+     "a text document needs no conversion: open it as it is in LibreOffice, "
+     "Word or Google Docs"),
     (b"opendocument.spreadsheet", "an OpenDocument spreadsheet (ODS)",
      _EXPORT_HINT),
     (b"opendocument.presentation", "an OpenDocument presentation (ODP)",
@@ -81,8 +83,8 @@ def _office_kind(path, head):
     "is it another kind of document saved with a .pdf name?" was the answer for
     a Word document passed as it is -- `exactdoc report.docx` -- where the name
     was never .pdf and the hint (save a fresh copy from a PDF viewer) could not
-    help (pre-release audit, 2026-10-11). Only the ZIP directory and the first
-    bytes are read; nothing is extracted.
+    help (pre-release audit, 2026-10-11). Only the first bytes, the ZIP
+    directory and an ODF package's few-byte `mimetype` member are read.
     """
     if head.startswith(_OLE2):
         return ("an older Microsoft Office document (.doc, .xls or .ppt)",
