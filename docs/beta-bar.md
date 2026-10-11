@@ -418,3 +418,9 @@ corpus, and a fresh holdout-3 (user-reported PDFs first) decides 0.3.0b2. A fix
 must name a layout mechanism and ship a synthetic fixture that reproduces it; a
 change that improves only the document it was written for does not merge, and
 no new constants are named after documents.
+
+**Holdout-2 sealed, 2026-10-11.** 32 public PDFs (1,098 pages), collected and
+classified before any conversion by an agent independent of the fixes; 23
+promised under the narrowed promise. The manifest's SHA-256 is
+`4db48b08935795065af12016dd3c975eb37860e6299d101554cf61fde3460d61`. The
+manifest is published with the release results, after its single run.
