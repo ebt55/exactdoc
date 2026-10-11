@@ -11,16 +11,17 @@ was checked on Linux and Windows
 ([record](evidence/beta-install-2026-10-05.json)), and the `install` workflow
 installs and converts on Python 3.9 to 3.14 on every push.
 
-Until the first beta (0.3.0b1) is on PyPI, install from a clone:
+Install the beta from PyPI:
 
 ```bash
-git clone https://github.com/ebt55/exactdoc && cd exactdoc
-pip install .
+pip install --pre exactdoc
 exactdoc --version
 ```
 
-Once it is published, `pip install --pre exactdoc` installs it. (`--pre`
-because 0.3.0b1 is a pre-release.)
+`--pre` because 0.3.0b1 is a pre-release. While no final release exists,
+plain `pip install exactdoc` installs it too: pip falls back to a pre-release
+when nothing else matches. To work on exactdoc itself, install from a clone
+instead: `git clone https://github.com/ebt55/exactdoc && cd exactdoc && pip install -e .`
 
 That is all you need to convert PDFs. Everything below is optional.
 

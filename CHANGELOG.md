@@ -4,7 +4,11 @@ Notable changes to exactdoc. Every quality number in this file is measured in
 the canonical environment (`docker/gate.Dockerfile`, pinned by digest) and
 traceable to a committed artifact under `docs/evidence/`.
 
-## Unreleased (0.2.0a1, alpha) — porting the live-verified defect catalogue into the converter
+## Unreleased
+
+## 0.3.0b1 — 2026-10-12
+
+Porting the live-verified defect catalogue into the converter.
 
 **Version renumbered 1.0.1 → 0.2.0a1 (2026-10-04, owner decision).** A 1.x number
 promises a stable converter, and this one is changing by the day: the 2026-10-04

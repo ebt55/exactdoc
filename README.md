@@ -18,17 +18,15 @@ settings; Google Docs shows the DOCX made for it ([still image](docs/images/hero
 adds a thin white strip above the dark band, and the footer's page number sits
 further left than in the PDF, set larger in Word and Google Docs.</sub>
 
-<!-- release: at 0.3.0b1 this callout and the Install command are the only lines that change (docs/releasing.md, step 2). -->
-> **Alpha (0.2.0a1).** The first beta, 0.3.0b1, is being prepared; until it is
-> on PyPI, install from a clone of this repository.
+> **Beta (0.3.0b1), on PyPI.** Not announced yet: see the results on
+> [documents it has never seen](#tested-on-documents-it-has-never-seen) below.
 
 ## Install
 
 You need Python 3.9 or newer.
 
-<!-- release: becomes `pip install --pre exactdoc` and `exactdoc --version` -->
 ```bash
-git clone https://github.com/ebt55/exactdoc && cd exactdoc && pip install .
+pip install --pre exactdoc
 exactdoc --version
 ```
 
