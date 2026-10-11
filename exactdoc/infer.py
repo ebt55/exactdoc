@@ -5653,6 +5653,7 @@ def build_figure(cl_ds: List[DrawCmd], blocks, images, consumed, page: PageIR) -
     # widens the box, which loosens the test, which absorbs more lines. That
     # loop was measured growing a 490x2pt seed to 103x its area.
     seed = bb
+    took = set(consumed)
     seed_w = max(1.0, seed[2] - seed[0])
     seed_area = max(1.0, bbox_area(seed))
     page_area = max(1.0, page.width * page.height)
@@ -5705,8 +5706,43 @@ def build_figure(cl_ds: List[DrawCmd], blocks, images, consumed, page: PageIR) -
             consumed.add(id(ln))
     bb = (max(0, bb[0] - 2), max(0, bb[1] - 2),
           min(page.width, bb[2] + 2), min(page.height, bb[3] + 2))
-    return FigureEl(page_no=page.number, clip=bb,
-                    width=bb[2] - bb[0], height=bb[3] - bb[1])
+    fig = FigureEl(page_no=page.number, clip=bb,
+                   width=bb[2] - bb[0], height=bb[3] - bb[1])
+    # the text lines this picture took out of the flow (WP49, C2)
+    fig._own = frozenset(i for i in consumed if i not in took)
+    return fig
+
+
+def _covers_text(clip, own, blocks) -> bool:
+    """Does a picture of `clip` paint a text line the page also writes as text?
+
+    WP49 (C2). A rasterised region paints EVERYTHING the source drew inside
+    it, its text included. A line the picture took (`own`, from build_figure)
+    leaves the flow, so it is drawn once; any other line whose centre lies
+    inside the clip -- in a table or box built before the picture, or still
+    flowing -- is drawn twice, once as pixels and once as text. Measured on a
+    financial table whose cell fills fell through to stray shapes: their
+    merged pictures covered the table's figures, which its one-cell boxes also
+    set, so every amount appeared twice."""
+    x0, y0, x1, y1 = clip
+    for ln in _all_lines(blocks):
+        if id(ln) in own or not ln.text.strip():
+            continue
+        cx = (ln.bbox[0] + ln.bbox[2]) / 2.0
+        cy = (ln.bbox[1] + ln.bbox[3]) / 2.0
+        if x0 <= cx <= x1 and y0 <= cy <= y1:
+            return True
+    return False
+
+
+def _undo_figure(consumed, before, images, before_img) -> None:
+    """Return what a refused picture took: its lines to the flow, its images."""
+    consumed.clear()
+    consumed.update(before)
+    keep = {id(i) for i in before_img}
+    for im in images:
+        if getattr(im, "_consumed", False) and id(im) not in keep:
+            im._consumed = False
 
 
 # The tick labels build_figure takes from beside a chart: a bare number, a
@@ -5764,6 +5800,7 @@ _TAB_LAYOUTS = contextvars.ContextVar("exactdoc_infer_tab_layouts", default=True
 WP49_RULES = {
     "right_tab_fields": True,     # _right_tab_fields: right-tab fields are not a column
     "leader_levels": True,        # _leader_levels: a contents page in levels
+    "figure_covers_text": True,   # _covers_text: no picture paints text twice
 }
 
 
@@ -6807,7 +6844,27 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
                 # fixtures).
                 if in_side_margin(d.bbox, furniture_l, lay.margin_r, p.width):
                     continue
-                elements.append(build_figure([d], blocks, p.images, consumed, p))
+                if not _wp49("figure_covers_text") or d.kind != "fill":
+                    elements.append(build_figure([d], blocks, p.images, consumed, p))
+                    continue
+                # WP49 (C2): a stray FILL -- an area painted under text, a
+                # cell's or a panel's background -- is not pictured when the
+                # picture would paint text the page also writes
+                # (`_covers_text`): the text is what is kept. A stray stroke or
+                # curve is line art, whose labels belong to it, and is
+                # pictured as before. (Not the cluster's text budget: a bar
+                # chart drawn as one path is a stray fill too, and on a page
+                # of little text its own axis labels exceed the budget.)
+                before = set(consumed)
+                before_img = [im for im in p.images if getattr(im, "_consumed", False)]
+                fig = build_figure([d], blocks, p.images, consumed, p)
+                own = set(fig._own)
+                for e in elements:
+                    own |= getattr(e, "_own", frozenset())
+                if _covers_text(fig.clip, own, blocks):
+                    _undo_figure(consumed, before, p.images, before_img)
+                    continue
+                elements.append(fig)
 
         for im in p.images:
             if getattr(im, "_consumed", False) or im.data is None:
@@ -6822,7 +6879,8 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
             el._bbox = im.bbox
             elements.append(el)
 
-        elements = _merge_box_rows(_merge_figures(elements))
+        elements = _merge_box_rows(_merge_figures(
+            elements, blocks if _wp49("figure_covers_text") else None))
         elements = _merge_table_rows(elements, blocks, consumed)
         if cuts and _keeps_panel_cuts(blocks, consumed, lay):
             # Not a two-column page, so the piece left outside a panel is not
@@ -7457,8 +7515,12 @@ def _merge_graphic_rows(elements, blocks, page_no: int):
     return [e for e in elements if id(e) not in drop] + add
 
 
-def _merge_figures(elements):
+def _merge_figures(elements, blocks=None):
+    """Union figures whose clips touch. `blocks` (WP49, C2): not into a clip
+    that would paint a line the page also writes as text (`_covers_text`)."""
     figs = [e for e in elements if isinstance(e, FigureEl)]
+    owned = frozenset().union(*(getattr(f, "_own", frozenset()) for f in figs)) \
+        if blocks is not None else frozenset()
     other = [e for e in elements if not isinstance(e, FigureEl)]
     merged = True
     while merged:
@@ -7470,6 +7532,9 @@ def _merge_figures(elements):
                 if bbox_overlap(_expand(f.clip, FIG_MERGE_GAP), g.clip) > 0:
                     hit = g
                     break
+            if hit and blocks is not None and \
+                    _covers_text(bbox_union(hit.clip, f.clip), owned, blocks):
+                hit = None
             if hit:
                 nb = bbox_union(hit.clip, f.clip)
                 hit.clip = nb

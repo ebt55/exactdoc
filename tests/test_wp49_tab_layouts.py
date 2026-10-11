@@ -11,8 +11,11 @@ A  a resume's place and dates at a right tab on the entry lines' baselines
 D  a contents page in two levels, each level's numbers flush at its own edge
    a few points from the other's, was not read as leader lines at all, and
    its entries welded into one paragraph -- `infer._leader_levels`;
+C2 a picture made of a stray fill under a table -- or merged out of several
+   -- painted the table's text as pixels while its boxes wrote it again
+   (`infer._covers_text`): no picture may paint text the page also writes;
 B  section headings with a rule under each, read as a booktabs table, and
-C  table cells filled two rectangles to a path, read as a picture plus
+C1 table cells filled two rectangles to a path, read as a picture plus
    one-cell boxes, are recorded as known defects (expected failures): their
    fixes were deferred from 0.3.0b1.
 
@@ -65,6 +68,31 @@ def _shape(lay):
                 else:
                     out.append((type(el).__name__,))
     return out
+
+
+def _text_drawn_twice(lay):
+    """Characters of written text whose source box centre lies inside a
+    picture's clip on the same page: painted as pixels and written again."""
+    def paras(el):
+        if isinstance(el, Para):
+            yield el
+        elif isinstance(el, TableEl):
+            for r in el.rows:
+                for c in r:
+                    if c is not None:
+                        yield from c.paras
+    n = 0
+    for pl in lay.pages:
+        els = [e for ch in pl.chunks for e in ch.elements]
+        clips = [e.clip for e in els if isinstance(e, FigureEl)]
+        for e in els:
+            for q in paras(e):
+                if q.bbox is None:
+                    continue
+                cx, cy = (q.bbox[0] + q.bbox[2]) / 2, (q.bbox[1] + q.bbox[3]) / 2
+                if any(c[0] <= cx <= c[2] and c[1] <= cy <= c[3] for c in clips):
+                    n += len(q.text.strip())
+    return n
 
 
 # ------------------------------------------------------------- unit level
@@ -248,6 +276,16 @@ class TabLayoutsEndToEnd(unittest.TestCase):
         tables = [e for e in els if isinstance(e, TableEl)]
         self.assertEqual(len(tables), 1)
         self.assertGreaterEqual(len(tables[0].col_widths), 4)
+
+    def test_C2_no_picture_paints_text_the_page_also_writes(self):
+        for name in ("zebra_multirect_table", "one_path_bar_chart",
+                     "one_path_horizontal_bars", "right_tab_resume"):
+            with self.subTest(name):
+                self.assertEqual(_text_drawn_twice(_infer(self.paths[name])), 0)
+        # the defect, reproduced with WP49 off: the stray row fills' picture
+        # covers the whole table, whose amounts the cell boxes also write
+        self.assertGreater(_text_drawn_twice(
+            _infer(self.paths["zebra_multirect_table"], tab_layouts=False)), 0)
 
     def test_C_controls_one_path_bar_charts_are_pictures(self):
         for name in ("one_path_bar_chart", "one_path_horizontal_bars"):

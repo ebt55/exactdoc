@@ -312,10 +312,14 @@ def zebra_multirect_table(path):
     for i, (lab, row) in enumerate(zip(labels, vals)):
         grey = (0.93, 0.93, 0.93) if i % 2 else (1, 1, 1)
         y0 = H - (top + 12)
+        # the label cell and the row's last (end-padding) cell share one path,
+        # far apart, so the path's box spans the whole row; every other cell
+        # is a rectangle of its own
+        _two_rect_path(c, (L_MARGIN, y0, 250, 12), (cols[-1][1] + 2, y0, 8, 12), grey)
         c.setFillColorRGB(*grey)
-        c.rect(L_MARGIN, y0, 250, 12, fill=1, stroke=0)
         for a, b in cols:
-            _two_rect_path(c, (a - 8, y0, 8, 12), (a, y0, b - a, 12), grey)
+            c.rect(a - 8, y0, 8, 12, fill=1, stroke=0)
+            c.rect(a, y0, b - a, 12, fill=1, stroke=0)
         c.setFillColorRGB(0, 0, 0)
         c.setFont("Times-Roman", 9)
         c.drawString(L_MARGIN + 2, _y(top + 9), lab)
