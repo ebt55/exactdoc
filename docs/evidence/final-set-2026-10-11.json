@@ -1,0 +1,510 @@
+{
+ "schema": "exactdoc.final-set-summary.v1",
+ "date": "2026-10-11",
+ "commit": "910e6aac65e258af093b47b5d4de3ff7fd10af53",
+ "reading": "wp42",
+ "image": "exactdoc-gate:boot sha256:bab1cfc0d2cd",
+ "run": "scripts/dev/final_set.sh, steps b-f then g, state final-910e6aa.final; no --allow-* flags",
+ "inputs": {
+  "gate_log": {
+   "path": "C:\\lotmp\\scr\\runs\\final-910e6aa-gate.log",
+   "sha256": "da5110bf534f6f672c7d818ac665fd19104e881593c372a92bb93c2d1cba25fc",
+   "bytes": 46179
+  },
+  "gate_evidence": {
+   "path": "C:\\lotmp\\scr\\runs\\final-910e6aa-gate.batch\\evidence.json",
+   "sha256": "63699e9b70c17f57c8f118b6462408d7de46e3db3e45d6c67ccb27db9ab07b65",
+   "bytes": 52689
+  },
+  "gate_verdict_product": {
+   "path": "C:\\lotmp\\scr\\runs\\final-910e6aa-gate.batch\\lane_product\\verdict.json",
+   "sha256": "df83be41e1d20624f9dba5712d48fa545518a9e613637f8e4d2cae9a3af97b0d",
+   "bytes": 508
+  },
+  "gate_verdict_raw": {
+   "path": "C:\\lotmp\\scr\\runs\\final-910e6aa-gate.batch\\lane_raw\\verdict.json",
+   "sha256": "04cb4a8a972998356d9378abc77ffde499f70b34bb5b0806a94acf4cda31b0f4",
+   "bytes": 504
+  },
+  "product_sweep": {
+   "path": "C:\\lotmp\\scr\\runs\\final-910e6aa-prod.sweep.json",
+   "sha256": "7a75d318f4965ce753f2d029126eb45f3ad5ebf54ec0f036d59fe51286655f16",
+   "bytes": 92333
+  },
+  "raw_sweep": {
+   "path": "C:\\lotmp\\scr\\runs\\final-910e6aa-raw.sweep.json",
+   "sha256": "073b99881e36cdcff01b2125054db7144d7a30ae6ddd6c13de2b2df82e0a6856",
+   "bytes": 92382
+  },
+  "word_product_rows": {
+   "path": "C:\\lotmp\\scr\\runs\\final-910e6aa-word-prod\\rows.jsonl",
+   "sha256": "e7775bec185d056eb60f01f03429f5a0782fc68e203c6b002a6a1e62d2b6171b",
+   "bytes": 89860
+  },
+  "word_raw_rows": {
+   "path": "C:\\lotmp\\scr\\runs\\final-910e6aa-word-raw\\rows.jsonl",
+   "sha256": "9bd182f564c919b410822b517d66f2c5483786e21a32b1e034244db75395170a",
+   "bytes": 89866
+  },
+  "docs_live_rows": {
+   "path": "C:\\lotmp\\finalgd\\out\\rows.jsonl",
+   "sha256": "d0d78d20b721a8b4d71a61a344bb1c4610d9b13ff3e1decb30861d0015d6cb84",
+   "bytes": 42359
+  },
+  "product_serial_timing": {
+   "path": "C:\\lotmp\\scr\\runs\\final-910e6aa-product-serial.timing.json",
+   "sha256": "bf32f029c590e4d65765bef91e821cc6d4ea3288c32b8a225a4ed16e3cc2411a",
+   "bytes": 20415
+  },
+  "raw_serial_timing": {
+   "path": "C:\\lotmp\\scr\\runs\\final-910e6aa-raw-serial.timing.json",
+   "sha256": "15276ecd25a7f3ccea06ae0644fdef8f101beb2a72405305abe061454740ac19",
+   "bytes": 9327
+  },
+  "accepted_sweep": {
+   "path": "C:\\lotmp\\scr\\runs\\accepted-wp31-prod.rescored5.sweep.json",
+   "sha256": "fcb8ca9782cc62623e7c399a72a8877e667afb0c3e42d77187ea385de62b668c",
+   "bytes": 141918
+  },
+  "final_set_log": {
+   "path": "C:\\lotmp\\scr\\runs\\final-910e6aa.final\\final_set.log",
+   "sha256": "71ca98ded6b1a0668e4ac40d8ce0aa3de7d030cc1f7c2421b52cfdc8620080c2",
+   "bytes": 18964
+  },
+  "y37_churn_check": {
+   "path": "C:\\lotmp\\scr\\final1\\churn-y37-910e6aa.json",
+   "sha256": "850ac0a3d25c9aab75ba2c5bc9139fbb4f7085cfc9167b7252470deb1d30176a",
+   "bytes": 2529
+  }
+ },
+ "gate": {
+  "mode": "strict, baseline bound",
+  "tests": "1954 OK (2 skipped)",
+  "product": "PASS, 16/16 pages",
+  "raw": "PASS, 16/16 pages"
+ },
+ "page_exact": {
+  "libreoffice_product": {
+   "page_exact": 71,
+   "compared": 90
+  },
+  "libreoffice_raw": {
+   "page_exact": 66,
+   "compared": 90
+  },
+  "word_product": {
+   "page_exact": 69,
+   "compared": 90
+  },
+  "docs_live": {
+   "page_exact": 66,
+   "compared": 90
+  }
+ },
+ "word_opens": {
+  "rows": 90,
+  "opened": 90,
+  "repair_prompt": 0
+ },
+ "serial_timing_s": {
+  "product": {
+   "y03_nist_fips197.pdf": {
+    "pages": 46,
+    "convert_s": 20.89
+   },
+   "y06_irs_1040_instructions.pdf": {
+    "pages": 126,
+    "convert_s": 147.47
+   },
+   "y12_irs_pub15.pdf": {
+    "pages": 59,
+    "convert_s": 37.67
+   },
+   "y13_irs_pub501.pdf": {
+    "pages": 31,
+    "convert_s": 30.85
+   },
+   "y18_eurlex_ai_act.pdf": {
+    "pages": 144,
+    "convert_s": 62.01
+   },
+   "y21_worldbank_wdr24.pdf": {
+    "pages": 48,
+    "convert_s": 20.17
+   },
+   "y38_elife_arbortext_gs.pdf": {
+    "pages": 33,
+    "convert_s": 18.92
+   },
+   "y47_ar_ilo_word365.pdf": {
+    "pages": 57,
+    "convert_s": 45.25
+   },
+   "y60_cdc_mmwr_indd19.pdf": {
+    "pages": 24,
+    "convert_s": 20.15
+   },
+   "y64_bls_release_xpp.pdf": {
+    "pages": 39,
+    "convert_s": 24.29
+   }
+  },
+  "raw": {
+   "y06_irs_1040_instructions.pdf": {
+    "pages": 126,
+    "convert_s": 48.98
+   },
+   "y13_irs_pub501.pdf": {
+    "pages": 31,
+    "convert_s": 9.46
+   },
+   "y40_frontiers_dvips_gs.pdf": {
+    "pages": 10,
+    "convert_s": 2.84
+   },
+   "y41_arxiv_ieeetran.pdf": {
+    "pages": 8,
+    "convert_s": 2.51
+   },
+   "y42_arxiv_acmart.pdf": {
+    "pages": 5,
+    "convert_s": 1.61
+   },
+   "y56_scan_usda1921_lura.pdf": {
+    "pages": 10,
+    "convert_s": 3.69
+   },
+   "y61_fedreg_gpo_3col.pdf": {
+    "pages": 4,
+    "convert_s": 1.44
+   }
+  }
+ },
+ "documents": {
+  "y01_nist_sp80063b": {
+   "src_pages": 80,
+   "libreoffice_product": {
+    "out_pages": 80,
+    "word_recall": 0.9688,
+    "live_text_cov": 0.9229,
+    "textbox_frac": 0.0
+   },
+   "word_product": {
+    "out_pages": 80,
+    "word_recall": 0.969
+   },
+   "docs_live": {
+    "out_pages": 80,
+    "word_recall": 0.9671
+   }
+  },
+  "y02_nist_sp800171r2": {
+   "src_pages": 114,
+   "libreoffice_product": {
+    "out_pages": 114,
+    "word_recall": 0.966,
+    "live_text_cov": 0.8894,
+    "textbox_frac": 0.0
+   },
+   "word_product": {
+    "out_pages": 115,
+    "word_recall": 0.8573
+   },
+   "docs_live": {
+    "out_pages": 114,
+    "word_recall": 0.9656
+   }
+  },
+  "y08_nist_sp80088r1": {
+   "src_pages": 65,
+   "libreoffice_product": {
+    "out_pages": 65,
+    "word_recall": 0.9909,
+    "live_text_cov": 0.9754,
+    "textbox_frac": 0.0
+   },
+   "word_product": {
+    "out_pages": 65,
+    "word_recall": 0.9916
+   },
+   "docs_live": {
+    "out_pages": 65,
+    "word_recall": 0.9906
+   }
+  },
+  "y09_nist_sp800207": {
+   "src_pages": 59,
+   "libreoffice_product": {
+    "out_pages": 59,
+    "word_recall": 0.9759,
+    "live_text_cov": 0.9475,
+    "textbox_frac": 0.0
+   },
+   "word_product": {
+    "out_pages": 59,
+    "word_recall": 0.9761
+   },
+   "docs_live": {
+    "out_pages": 59,
+    "word_recall": 0.9734
+   }
+  },
+  "y06_irs_1040_instructions": {
+   "src_pages": 126,
+   "libreoffice_product": {
+    "out_pages": 135,
+    "word_recall": 0.2811,
+    "live_text_cov": 0.9508,
+    "textbox_frac": 0.0
+   },
+   "word_product": {
+    "out_pages": 145,
+    "word_recall": 0.1959
+   },
+   "docs_live": {
+    "out_pages": 154,
+    "word_recall": 0.2017
+   }
+  },
+  "y13_irs_pub501": {
+   "src_pages": 31,
+   "libreoffice_product": {
+    "out_pages": 45,
+    "word_recall": 0.2929,
+    "live_text_cov": 0.9736,
+    "textbox_frac": 0.0
+   },
+   "word_product": {
+    "out_pages": 54,
+    "word_recall": 0.2854
+   },
+   "docs_live": {
+    "out_pages": 57,
+    "word_recall": 0.2624
+   }
+  },
+  "y18_eurlex_ai_act": {
+   "src_pages": 144,
+   "libreoffice_product": {
+    "out_pages": 144,
+    "word_recall": 0.9844,
+    "live_text_cov": 0.9678,
+    "textbox_frac": 0.0
+   },
+   "word_product": {
+    "out_pages": 144,
+    "word_recall": 0.9855
+   },
+   "docs_live": {
+    "out_pages": 144,
+    "word_recall": 0.9873
+   }
+  },
+  "y12_irs_pub15": {
+   "src_pages": 59,
+   "libreoffice_product": {
+    "out_pages": 60,
+    "word_recall": 0.9137,
+    "live_text_cov": 0.9808,
+    "textbox_frac": 0.0
+   },
+   "word_product": {
+    "out_pages": 60,
+    "word_recall": 0.9119
+   },
+   "docs_live": {
+    "out_pages": 62,
+    "word_recall": 0.7375
+   }
+  },
+  "y21_worldbank_wdr24": {
+   "src_pages": 48,
+   "libreoffice_product": {
+    "out_pages": 49,
+    "word_recall": 0.8821,
+    "live_text_cov": 0.9145,
+    "textbox_frac": 0.0
+   },
+   "word_product": {
+    "out_pages": 49,
+    "word_recall": 0.8554
+   },
+   "docs_live": {
+    "out_pages": 52,
+    "word_recall": 0.5359
+   }
+  },
+  "y22_lshort": {
+   "src_pages": 153,
+   "libreoffice_product": {
+    "out_pages": 154,
+    "word_recall": 0.9459,
+    "live_text_cov": 0.9747,
+    "textbox_frac": 0.0
+   },
+   "word_product": {
+    "out_pages": 154,
+    "word_recall": 0.9438
+   },
+   "docs_live": {
+    "out_pages": 169,
+    "word_recall": 0.3386
+   }
+  },
+  "y34_census_slides_pptx365": {
+   "src_pages": 40,
+   "libreoffice_product": {
+    "out_pages": 40,
+    "word_recall": 0.9256,
+    "live_text_cov": 0.9408,
+    "textbox_frac": 0.727
+   },
+   "word_product": {
+    "out_pages": 40,
+    "word_recall": 0.9246
+   },
+   "docs_live": {
+    "out_pages": 54,
+    "word_recall": 0.2831
+   }
+  },
+  "y41_arxiv_ieeetran": {
+   "src_pages": 8,
+   "libreoffice_product": {
+    "out_pages": 9,
+    "word_recall": 0.6989,
+    "live_text_cov": 0.9316,
+    "textbox_frac": 0.0
+   },
+   "word_product": {
+    "out_pages": 9,
+    "word_recall": 0.6951
+   },
+   "docs_live": {
+    "out_pages": 10,
+    "word_recall": 0.6083
+   }
+  },
+  "y58_ssa_statement_indd20": {
+   "src_pages": 2,
+   "libreoffice_product": {
+    "out_pages": 2,
+    "word_recall": 0.8909,
+    "live_text_cov": 0.8877,
+    "textbox_frac": 0.0
+   },
+   "word_product": {
+    "out_pages": 2,
+    "word_recall": 0.8909
+   },
+   "docs_live": {
+    "out_pages": 4,
+    "word_recall": 0.3868
+   }
+  },
+  "y47_ar_ilo_word365": {
+   "src_pages": 57,
+   "libreoffice_product": {
+    "out_pages": 65,
+    "word_recall": 0.2363,
+    "live_text_cov": 0.8276,
+    "textbox_frac": 0.0
+   },
+   "word_product": {
+    "out_pages": 64,
+    "word_recall": 0.2674
+   },
+   "docs_live": {
+    "out_pages": 83,
+    "word_recall": 0.1742
+   }
+  },
+  "y49_he_word2016": {
+   "src_pages": 28,
+   "libreoffice_product": {
+    "out_pages": 29,
+    "word_recall": 0.6147,
+    "live_text_cov": 0.9569,
+    "textbox_frac": 0.0
+   },
+   "word_product": {
+    "out_pages": 28,
+    "word_recall": 0.8984
+   },
+   "docs_live": {
+    "out_pages": 53,
+    "word_recall": 0.16
+   }
+  }
+ },
+ "scorecard": {
+  "criteria": {
+   "1": {
+    "name": "crash-free",
+    "status": "PASS",
+    "detail": "0 error(s) in 365 conversions read; 5/5 unsupported refused with typed exit codes"
+   },
+   "2": {
+    "name": "time: product <=60s up to 40 pages, <=1.5s/page above; raw <=1s/page",
+    "status": "PASS",
+    "detail": "product: 0 of 90 over (10 timed serially, the rest from a sweep of 4 at a time); raw: 0 of 90 over (7 timed serially, the rest from a sweep of 4 at a time)"
+   },
+   "3": {
+    "name": "Word opens every DOCX with no repair prompt",
+    "status": "PASS",
+    "detail": "90 rows; compatibility modes 14 x90"
+   },
+   "4": {
+    "name": "promised <=20 pages: page-exact in every lane (41 documents)",
+    "status": "PASS",
+    "detail": "LO product 41/41 = 100.0%; Word 41/41 = 100.0%; Docs live 41/41 = 100.0%"
+   },
+   "5": {
+    "name": "promised >20 pages: |dpages|<=max(1,2%) and word_recall>=0.85 on >=80% (21 documents)",
+    "status": "PASS",
+    "detail": "LO product 21/21 = 100.0%; Word 21/21 = 100.0%; Docs live 18/21 = 85.7%"
+   },
+   "6": {
+    "name": "promised: none with char_recall<0.5 or |dpages|>20%, any lane (62 documents)",
+    "status": "PASS",
+    "detail": "LO product 62/62 = 100.0%; Word 62/62 = 100.0%; Docs live 62/62 = 100.0%"
+   },
+   "7": {
+    "name": "placement, promised <=20 pages: word_recall>=0.9 and dy_p50<=10pt on >=90%",
+    "status": "REPORTED",
+    "detail": "LO product 38/41 = 92.7%; Word 38/41 = 92.7%; Docs live 38/41 = 92.7%; would PASS for GA"
+   },
+   "8": {
+    "name": "no regression against the accepted sweep (gate.py tolerances)",
+    "status": "PASS",
+    "detail": "0 document(s) worse than accepted-wp31-prod.rescored5.sweep.json (product flavour); 1 waived: y37_plos_one_dvipdfmx dy_p50 27.64->32 <= ceiling 33.0, owner exception 2026-10-11; 1 dy_p50 flag(s) exempt under amendment 4: y55_th_pages_quartz"
+   },
+   "9": {
+    "name": "editability, promised: textbox_frac<=0.05, one-cell tables<=1/page, numpr_frac>=0.9 where lists exist",
+    "status": "REPORTED",
+    "detail": "46/62 = 74.2% pass (LO product sweep); would FAIL by 16 for GA"
+   },
+   "10": {
+    "name": "fonts: every declared family stock or listed in the README",
+    "status": "PASS",
+    "detail": "90 DOCX, 24 families declared; 0 outside the stock set and the README's 13"
+   },
+   "11": {
+    "name": "the gated 16 pass both gate lanes",
+    "status": "PASS",
+    "detail": "both lanes ok"
+   },
+   "12": {
+    "name": "README numbers match the release sweep",
+    "status": "FAIL",
+    "detail": "9 evidence file(s) cited, 8 dated; 1 stale or contradicted"
+   },
+   "13": {
+    "name": "ratified Google Docs quality policy's per-document thresholds on >=90% of promised documents, in every lane",
+    "status": "REPORTED",
+    "detail": "LO product 45/62 = 72.6%; Word 45/62 = 72.6%; Docs live 42/62 = 67.7%; would FAIL by 36 for GA"
+   }
+  },
+  "verdict": "NOT READY"
+ }
+}

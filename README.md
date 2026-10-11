@@ -41,9 +41,9 @@ That is all you need to convert PDFs. Two things are optional:
   layout. When it is installed, exactdoc opens its own DOCX in LibreOffice,
   compares each page with the PDF and corrects page breaks and spacing. Without
   it, exactdoc converts in one pass and prints a note saying so. The check takes
-  time: in the project's test container a 31-page IRS publication took 42
-  seconds with it
-  ([measurement](docs/evidence/refine-speed-2026-10-05c.json)). `--refine 0`
+  time: in the project's test container a 31-page IRS publication took 31
+  seconds with it, one conversion at a time
+  ([measurement](docs/evidence/final-set-2026-10-11.json)). `--refine 0`
   skips it.
 - **The Google Docs tools** (`pip install "exactdoc[gdocs]"`) measure a DOCX
   inside Google Docs with your own Google account. You do not need them to make
@@ -137,18 +137,17 @@ was rendered by LibreOffice in the project's pinned test container.</sub>
 Real-world documents vary more than test documents. These are the main gaps,
 shown on public documents converted with the default settings. The pictures
 come from the
-[4 October example run](docs/evidence/readme-examples-2026-10-04.json); the
-numbers under them are from the 5 October checkpoint
-([sweep](docs/evidence/checkpoint-2026-10-05-lo-sweeps.json)).
+[4 October example run](docs/evidence/readme-examples-2026-10-04.json). The
+numbers under them are from the final measurement of 11 October
+([measurement](docs/evidence/final-set-2026-10-11.json)).
 
 ![Slide 3 of a US Census Bureau presentation beside the DOCX page. In the DOCX the speaker names and titles run together and the layout falls apart.](docs/images/not-yet-slides.png)
 
 <sub><b>Slide decks.</b> Slide 3 of a US Census Bureau webinar deck (public domain).
 Slide layouts fall apart. The 40-slide deck now keeps its 40 pages in LibreOffice
-(72 in the pictured run), but about three quarters of its text sits in text boxes
-([sweep](docs/evidence/checkpoint-2026-10-05-lo-sweeps.json)), and Google Docs
-still makes 72 pages of it
-([live sweep](docs/evidence/checkpoint-2026-10-05-lanes.json)).</sub>
+and Word (72 in the pictured run), but about three quarters of its text sits in
+text boxes, and Google Docs makes 54 pages of it
+([measurement](docs/evidence/final-set-2026-10-11.json)).</sub>
 
 <table>
 <tr>
@@ -156,24 +155,24 @@ still makes 72 pages of it
 <td width="50%"><img src="docs/images/not-yet-designed.png" alt="A designed Social Security Statement beside the DOCX. It looks similar, but the grey panels are pictures and some text spills out at the bottom."></td>
 </tr>
 <tr>
-<td><b>Dense journal papers with equations.</b> Bu and Plancher, arXiv:2309.06427 (CC BY 4.0). Equations come apart. The 8-page paper became 19 pages in the pictured run and 9 pages at the checkpoint, with 60% of its words on the right page (<a href="docs/evidence/checkpoint-2026-10-05-lo-sweeps.json">sweep</a>).</td>
-<td><b>Heavily designed layouts.</b> A sample Social Security Statement (US government, public domain; "Wanda Worker" is SSA's fictional sample). In the pictured run the grey panels became pictures and only about 12% of the words stayed editable. At the checkpoint the panels are shaded text and 89% of the words are editable, but the layout still drifts: only 13% of the words land within 2 points of their place (<a href="docs/evidence/checkpoint-2026-10-05-lo-sweeps.json">sweep</a>).</td>
+<td><b>Dense journal papers with equations.</b> Bu and Plancher, arXiv:2309.06427 (CC BY 4.0). Equations come apart. The 8-page paper became 19 pages in the pictured run and 9 pages now in LibreOffice, with 70% of its words on the right page (<a href="docs/evidence/final-set-2026-10-11.json">measurement</a>).</td>
+<td><b>Heavily designed layouts.</b> A sample Social Security Statement (US government, public domain; "Wanda Worker" is SSA's fictional sample). In the pictured run the grey panels became pictures and only about 12% of the words stayed editable. Now the panels are shaded text and 89% of the words are editable, but Google Docs still turns its 2 pages into 4, with only 39% of the words on the right page (<a href="docs/evidence/final-set-2026-10-11.json">measurement</a>).</td>
 </tr>
 </table>
 
 | Kind of PDF | Today |
 |---|---|
-| Reports, memos, letters, whitepapers | ✅ Works well. Long reports mostly keep their page count: the four NIST publications of 59–114 pages come back page for page in LibreOffice. Some still grow: IRS form instructions of 126 pages became 147 ([sweep](docs/evidence/checkpoint-2026-10-05-lo-sweeps.json)) |
+| Reports, memos, letters, whitepapers | ✅ Works well. Long reports mostly keep their page count: the four NIST publications of 59–114 pages come back page for page in LibreOffice and Google Docs. Some still grow: IRS form instructions of 126 pages became 135 in LibreOffice ([measurement](docs/evidence/final-set-2026-10-11.json)) |
 | Tables (merged cells, tables over several pages) | ✅ Works well |
 | Simple two-column layouts | ✅ Works well |
 | Résumés | ✅ Mostly. Some designed two-column templates still spill onto an extra page |
 | Headers, footers, page numbers, footnotes, links | ✅ Works well |
 | Latin, Cyrillic and Greek text | ✅ Works well |
 | Chinese, Japanese and Korean text | ⚠️ Partly. The text survives, but some runs become pictures |
-| Long documents in Google Docs | ⚠️ Long documents can gain many pages. In the latest live Google Docs sweep, a 144-page EU regulation came back as 152 pages, IRS form instructions of 126 pages as 182, and a 40-slide deck as 72 ([sweep](docs/evidence/checkpoint-2026-10-05-lanes.json)) |
+| Long documents in Google Docs | ⚠️ Some long documents still gain pages. In the latest live Google Docs sweep, a 144-page EU regulation came back page for page, but IRS form instructions of 126 pages came back as 154, a 153-page LaTeX guide as 169, and a 40-slide deck as 54 ([measurement](docs/evidence/final-set-2026-10-11.json)) |
 | Dense journal papers, equations | ⚠️ Not yet. Equations are not rebuilt as editable math |
 | Slide decks, brochures, posters | ⚠️ Not yet. Layouts break or become pictures |
-| Arabic, Hebrew and Persian (right-to-left) | ⚠️ Partly. Text arrives in reading order as right-to-left Word paragraphs; pages can grow where the reader lacks the source's fonts (an Arabic report 57 → 65 pages, a Hebrew paper 28 → 29, in LibreOffice: [sweep](docs/evidence/checkpoint-2026-10-05-lo-sweeps.json)). The Google Docs output is not yet right-to-left |
+| Arabic, Hebrew and Persian (right-to-left) | ⚠️ Partly. Text arrives in reading order as right-to-left Word paragraphs; pages can grow where the reader lacks the source's fonts (an Arabic report 57 → 65 pages, a Hebrew paper 28 → 29, in LibreOffice: [measurement](docs/evidence/final-set-2026-10-11.json)). The Google Docs output is not yet right-to-left |
 | Scanned pages with no text layer | ⛔ Refused (exit code 17). No OCR is built in. Scans that already have an OCR text layer do convert |
 | Fillable forms | ⛔ Refused (exit code 19), because the result would look like the form without being one |
 | Over 250 pages | ⛔ Refused (exit code 20) unless you raise the limit with `--max-pages N` (`0` removes it) |
@@ -202,26 +201,27 @@ The short version, for anyone testing the beta:
   one converts.
 - **No fillable forms**, and nothing over 250 pages unless you pass
   `--max-pages`.
-- **Long documents are not yet good enough for the beta.** Expect extra pages
-  on long reports, and more of them in Google Docs than in LibreOffice. The
+- **Long documents can still gain pages, most of all in Google Docs.** The
   beta needs 17 of the 21 test documents over 20 pages to keep their page
   count (within 2%, or one page) with at least 85% of their words on the right
-  page. At the last checkpoint 11 did in LibreOffice, 15 in Word and 10 in
-  Google Docs
-  ([scorecard](docs/evidence/beta-readiness-2026-10-05-checkpoint.json)).
+  page. In the final measurement all 21 did in LibreOffice and in Word, and 18
+  in Google Docs. The three that did not, all in Google Docs: IRS Publication 15
+  came back with 62 pages for 59, a World Bank report with 52 for 48, and a
+  LaTeX guide with 169 for 153
+  ([scorecard](docs/evidence/beta-readiness-2026-10-11.json)).
 - **The LibreOffice layout check is slow on long documents.** It renders the
-  document up to four times: a 126-page IRS booklet took 2 min 35 s in the
+  document up to four times: a 126-page IRS booklet took 2 min 27 s in the
   project's test container, one conversion at a time
-  ([measurement](docs/evidence/refine-speed-2026-10-05c.json)).
+  ([measurement](docs/evidence/final-set-2026-10-11.json)).
   `--refine 1` is a middle way: about a third less time on long documents,
   for up to six more pages in our measurements
   ([measurement](docs/evidence/refine-speed-2026-10-05.json)).
 - **Equations, slides, brochures and posters** do not convert well yet.
 - **Word is measured too, and mostly agrees with LibreOffice.** The same DOCX
-  files rendered by Word 16 (Office 2024): with the default settings 65 of 90
-  test documents come back with exactly the right number of pages in Word
-  ([Word lane](docs/evidence/checkpoint-2026-10-05-lanes.json)), against 69 in
-  LibreOffice ([sweep](docs/evidence/checkpoint-2026-10-05-lo-sweeps.json)).
+  files rendered by Word 16 (Office 2024): with the default settings 69 of 90
+  test documents come back with exactly the right number of pages in Word,
+  against 71 in LibreOffice, and Word opened all 90 without asking to repair
+  one ([measurement](docs/evidence/final-set-2026-10-11.json)).
   Word differs most on long reports, where a page it
   sets slightly taller spills onto the next, and on Japanese and Chinese text.
   The files open in Word's Compatibility Mode on purpose: Word's newer layout
@@ -247,17 +247,20 @@ The fonts the test documents name this way are `Noto Sans CJK JP`,
 
 Every change has to pass a gate that converts 16 frozen test documents and
 renders the results in a pinned copy of LibreOffice. Today all 16 keep their page
-count, and on average 72% of the words land within 2 points of where the PDF puts
-them ([gate run](docs/evidence/checkpoint-2026-10-05-lo-sweeps.json)). No change
-may fall below the recorded baseline, 64%
-([`testkit/gate_baseline.json`](testkit/gate_baseline.json)). The Google Docs
+count, with and without the layout check
+([gate run](docs/evidence/final-set-2026-10-11.json)). No change may fall below
+the recorded baseline
+([`testkit/gate_baseline.json`](testkit/gate_baseline.json); re-recorded on
+11 October after a review:
+[record](docs/evidence/rerecord-2026-10-11.json)). The Google Docs
 output is checked in Google Docs itself: the same 16 documents are uploaded, and
 Google's own export is compared with the PDF
 ([latest pass](docs/evidence/gdocs-2026-10-04-pass9b-qualification.json)).
 Another 79 PDFs, most of them real-world documents, are measured too but do not
 gate changes. They show how much is left: in the latest live Google Docs sweep
-of all 95, 57 of the 90 compared came back with exactly the right number of pages
-([sweep](docs/evidence/checkpoint-2026-10-05-lanes.json)).
+of all 95, 66 of the 90 compared came back with exactly the right number of pages
+([measurement](docs/evidence/final-set-2026-10-11.json)); the other five are
+PDFs the converter refuses on purpose, and each was refused with its exit code.
 
 Every number on this page traces to a committed file (the gate baseline, the
 CHANGELOG, or a measurement record in [docs/evidence/](docs/evidence/)), not to

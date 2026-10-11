@@ -20,6 +20,23 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **The README's numbers come from the final measurement of 910e6aa
+  (WP47).** Every figure the README cites now comes from one clean run on one
+  commit (`scripts/dev/final_set.sh`, 2026-10-11): the strict gate,
+  LibreOffice product and raw sweeps, the Word lane, the live Google Docs sweep
+  of all 95, and quiet serial timing. The run is summarised, with each input's
+  path and SHA-256, in `docs/evidence/final-set-2026-10-11.json`, and its
+  scorecard is `docs/evidence/beta-readiness-2026-10-11.json`. New figures:
+  - live Docs, page-exact: 66 of 90 (from 57);
+  - page-exact, LibreOffice and Word: 71 and 69 of 90;
+  - long documents: 21/21 in LibreOffice, 21/21 in Word, 18/21 in Google Docs;
+  - the 126-page IRS booklet: 2 min 27 s.
+
+  Per the infra review, fine placement (within-2pt, dy_p50) is no longer cited
+  as quality evidence; page counts, word recall and refusals are. The "Not yet"
+  lists stay. `testkit/fixtures_sentinel/sentinel.json` gains the wp42 expected
+  row, flown on 2026-10-10 and kept beside wp29's.
+
 - **The gate baseline is re-recorded (2026-10-11).** This is a deliberate re-record, approved
   by the owner-delegated dual review (Fable 5.1 and Opus 5.5). `testkit/gate_baseline.json`
   (SHA-256 `c00ae596...21db`) now carries:
