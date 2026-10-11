@@ -584,6 +584,69 @@ def dy_exemption(acc, cur):
                          w20, w21, w2d, w50, w51, w5d)}
 
 
+def compare_rows(accepted_rows, current_rows, metrics, tolerance, by_waiver=()):
+    """Criterion 8's per-document comparison of two sweeps' rows.
+
+    `metrics` and `tolerance` are gate.py's METRICS and tolerance(); each of
+    BAR["regression_metrics"] is worse when it moved the wrong way by more than
+    its tolerance, unless it is a dy_p50 flag amendment 4 exempts (and the
+    document is not in `by_waiver`, whose dy_p50 is judged by a waiver).
+    Returns (worse, flags, both, exempted, better):
+
+      worse     [(document, metric | None, text)]; metric None = "now crashes"
+      flags     {(document, metric): (accepted, current, tolerance)}
+      both      the documents measured in both
+      exempted  amendment-4 exemptions, each with its document and tolerance
+      better    [(document, metric | None, text)]: moved the RIGHT way by more
+                than the same tolerance (metric None = "no longer crashes").
+                Criterion 8 does not read it; scripts/dev/quality_check.sh does.
+    """
+    base = {r["document"]: r for r in accepted_rows}
+    worse, flags, both, exempted, better = [], {}, set(), [], []
+    for r in current_rows:
+        b = base.get(r.get("document"))
+        if not b:
+            continue
+        if classify_failure(r) == "crash" and classify_failure(b) != "crash":
+            worse.append((r["document"], None,
+                          "%s now crashes" % _short(r["document"])))
+            continue
+        if classify_failure(b) == "crash" and measured(dict(r, doc=r["document"])):
+            better.append((r["document"], None,
+                           "%s no longer crashes" % _short(r["document"])))
+            continue
+        if not (measured(dict(r, doc=r["document"])) and
+                measured(dict(b, doc=b["document"]))):
+            continue
+        both.add(r["document"])
+        for m in BAR["regression_metrics"]:
+            spec = metrics.get(m)
+            if spec is None:
+                continue
+            if m == "page_err":
+                cur = abs(r["out_pages"] - r["src_pages"])
+                ref = abs(b["out_pages"] - b["src_pages"])
+            else:
+                cur, ref = r.get(m), b.get(m)
+            if not isinstance(cur, (int, float)) or not isinstance(ref, (int, float)):
+                continue
+            tol = tolerance(spec, ref)
+            delta = (ref - cur) if spec["dir"] == "higher" else (cur - ref)
+            if delta > tol + 1e-12:
+                ex = (dy_exemption(b, r) if m == "dy_p50"
+                      and r["document"] not in by_waiver else None)
+                if ex:
+                    exempted.append(dict(ex, document=r["document"], tolerance=tol))
+                    continue
+                flags[(r["document"], m)] = (ref, cur, tol)
+                worse.append((r["document"], m, "%s %s %.4g -> %.4g (tolerance %.3g)"
+                              % (_short(r["document"]), m, ref, cur, tol)))
+            elif -delta > tol + 1e-12:
+                better.append((r["document"], m, "%s %s %.4g -> %.4g (tolerance %.3g)"
+                               % (_short(r["document"]), m, ref, cur, tol)))
+    return worse, flags, both, exempted, better
+
+
 def judge_waivers(waivers, flags, measured_both, accepted, current, docs, metrics,
                   release=RELEASE):
     """[verdict] for every waiver entry, against criterion 8's flags.
@@ -1109,48 +1172,14 @@ def evaluate(docs, sweeps, lanes, gate, accepted=None, docx_dir=None,
             crit(8, "regression", "no regression", UNMEASURED,
                  "gate.py could not be imported (%s)" % err)
         else:
-            base = {r["document"]: r for r in accepted[1].get("documents", ())}
-            worse, flags, both = [], {}, set()     # worse: (doc, metric|None, text)
             waivers = waivers or {"path": None, "entries": [], "error": None}
             # Amendment 4 (d): a document is judged by the rule OR by a waiver,
             # never both. A document with a dy_p50 waiver entry (whatever its
             # verdict) is left to the waiver; the rule does not look at it.
             by_waiver = {d for d, m, _ in waivers.get("entries", ()) if m == "dy_p50"}
-            exempted = []
-            for r in sweeps[acc_kind][1].get("documents", ()):
-                b = base.get(r.get("document"))
-                if not b:
-                    continue
-                if classify_failure(r) == "crash" and classify_failure(b) != "crash":
-                    worse.append((r["document"], None,
-                                  "%s now crashes" % _short(r["document"])))
-                    continue
-                if not (measured(dict(r, doc=r["document"])) and
-                        measured(dict(b, doc=b["document"]))):
-                    continue
-                both.add(r["document"])
-                for m in BAR["regression_metrics"]:
-                    spec = metrics.get(m)
-                    if spec is None:
-                        continue
-                    if m == "page_err":
-                        cur = abs(r["out_pages"] - r["src_pages"])
-                        ref = abs(b["out_pages"] - b["src_pages"])
-                    else:
-                        cur, ref = r.get(m), b.get(m)
-                    if not isinstance(cur, (int, float)) or not isinstance(ref, (int, float)):
-                        continue
-                    tol = tolerance(spec, ref)
-                    delta = (ref - cur) if spec["dir"] == "higher" else (cur - ref)
-                    if delta > tol + 1e-12:
-                        ex = (dy_exemption(b, r) if m == "dy_p50"
-                              and r["document"] not in by_waiver else None)
-                        if ex:
-                            exempted.append(dict(ex, document=r["document"], tolerance=tol))
-                            continue
-                        flags[(r["document"], m)] = (ref, cur, tol)
-                        worse.append((r["document"], m, "%s %s %.4g -> %.4g (tolerance %.3g)"
-                                      % (_short(r["document"]), m, ref, cur, tol)))
+            worse, flags, both, exempted, _better = compare_rows(
+                accepted[1].get("documents", ()), sweeps[acc_kind][1].get("documents", ()),
+                metrics, tolerance, by_waiver)
             # Criterion-8 waivers (testkit/beta_waivers.json): a `waived` verdict
             # lifts exactly its own (document, metric) flag; every other verdict
             # leaves the flag where it is, and the blocking ones add their own.
