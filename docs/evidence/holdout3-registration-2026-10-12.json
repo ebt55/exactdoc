@@ -1,0 +1,8 @@
+{
+  "what": "Registration of the sealed holdout-3, the exam for 0.3.0b2, before any conversion and before any 0.3.0b2 fix merges",
+  "registered": "2026-10-12",
+  "manifest_sha256": "07d622997a13e00251786cf812801d3a30b5086b1b0980fc838e3d32ad315475",
+  "documents": 41,
+  "rule": "docs/beta-bar.md amendment 6 (R1-R3 gating, R4-R5 reported); run once with scripts/dev/holdout_exam.sh; the manifest is published after its single run",
+  "classification": "as recorded in the manifest before any run; Chrome web prints are classed promised (stricter than the README's 'Not yet'), and no document is reclassified after a result"
+}
