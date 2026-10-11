@@ -324,7 +324,28 @@ def contract_changes(changed):
                          for c in CONTRACT_PATHS))
 
 
-def compare(base, head, changed=None, repeat=False):
+def _lock_without_self(text):
+    """uv.lock without exactdoc's own version line: a release bump rewrites it
+    and changes no dependency."""
+    out, prev = [], ""
+    for line in (text or "").splitlines():
+        if prev.strip() == 'name = "exactdoc"' and line.strip().startswith("version ="):
+            prev = line
+            continue
+        out.append(line)
+        prev = line
+    return "\n".join(out)
+
+
+def dependencies_differ(base_lock, head_lock):
+    """Do the two commits' uv.lock files pin different dependencies? None
+    (unknown) when either is missing."""
+    if base_lock is None or head_lock is None:
+        return None
+    return _lock_without_self(base_lock) != _lock_without_self(head_lock)
+
+
+def compare(base, head, changed=None, repeat=False, locks=None):
     """The report: per-lane document verdicts, the gate, and one overall line."""
     problems = []          # reasons the two sides cannot be compared
     for name, side in (("BASE", base), ("HEAD", head)):
@@ -344,11 +365,11 @@ def compare(base, head, changed=None, repeat=False):
         warnings.append("the harness reading code differs under one name (%s vs %s): "
                         "check that harness.HARNESS_READING was bumped"
                         % (sorted(rb), sorted(rh)))
-    if "uv.lock" in (changed or ()):
-        problems.append("uv.lock differs between BASE and HEAD: both were measured with "
-                        "the image's installed dependencies, so the numbers do not describe "
-                        "HEAD; a dependency change is measured by the maintainer in a "
-                        "rebuilt image")
+    if locks and dependencies_differ(*locks):
+        problems.append("uv.lock pins different dependencies on BASE and HEAD: both were "
+                        "measured with the image's installed dependencies, so the numbers "
+                        "do not describe HEAD; a dependency change is measured by the "
+                        "maintainer in a rebuilt image")
     fb, fh = _fingerprint(base), _fingerprint(head)
     if fb and fh and fb != fh:
         problems.append("BASE and HEAD were measured in different environments "
@@ -545,6 +566,8 @@ def main(argv=None):
                    help="`git diff --name-only BASE HEAD`, one path per line")
     k.add_argument("--repeat", action="store_true",
                    help="the two sides are one commit measured twice: judge determinism")
+    k.add_argument("--locks", nargs=2, default=None, metavar=("BASE_LOCK", "HEAD_LOCK"),
+                   help="the two commits' uv.lock files: differing dependencies are UNMEASURED")
     a = ap.parse_args(argv)
 
     def pairs(items, conv):
@@ -575,7 +598,16 @@ def main(argv=None):
     if a.changed_files:
         with open(a.changed_files, encoding="utf-8") as f:
             changed = [l.strip() for l in f if l.strip()]
-    report, lanes = compare(side(a.base), side(a.head), changed, a.repeat)
+    locks = None
+    if a.locks:
+        def read(path):
+            try:
+                with open(path, encoding="utf-8") as f:
+                    return f.read()
+            except OSError:
+                return None
+        locks = (read(a.locks[0]), read(a.locks[1]))
+    report, lanes = compare(side(a.base), side(a.head), changed, a.repeat, locks)
     print(render(report, lanes))
     if a.json:
         with open(a.json, "w", encoding="utf-8", newline="\n") as f:

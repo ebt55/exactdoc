@@ -111,7 +111,8 @@ if [ $MODE = compare ] && [ "$HEAD_REF" = HEAD ] && [ -n "$(g status --porcelain
   echo "NOTE: the working tree has uncommitted changes; they are NOT measured. Commit first."
 fi
 if [ $MODE = compare ] && ! g diff --quiet "$BASE_SHA" "$HEAD_SHA" -- uv.lock; then
-  echo "NOTE: uv.lock differs between BASE and HEAD; the verdict will be UNMEASURED."
+  echo "NOTE: uv.lock differs between BASE and HEAD; if a dependency moved (not only"
+  echo "      exactdoc's own version), the verdict will be UNMEASURED."
 fi
 
 # ------------------------------------------------------------------ the image
@@ -185,6 +186,8 @@ if [ "$DRY" = 0 ]; then
   tar -C "$ROOT/testkit" -cf - quality_check.py gate.py beta_readiness.py \
     | docker exec -i "$C" tar -xf - -C /qc/tool
   g diff --name-only "$BASE_SHA" "$HEAD_SHA" | docker exec -i "$C" sh -c 'cat > /qc/out/changed_files.txt'
+  g show "$BASE_SHA:uv.lock" 2>/dev/null | docker exec -i "$C" sh -c 'cat > /qc/out/base.uv.lock'
+  g show "$HEAD_SHA:uv.lock" 2>/dev/null | docker exec -i "$C" sh -c 'cat > /qc/out/head.uv.lock'
 else
   echo "+ docker run -d --name $C -w /work $IMAGE sleep infinity" >&2
 fi
@@ -242,11 +245,12 @@ measure head "$HEAD_SHA" "$HEAD_NAME"
 REP=()
 [ $MODE = repeat ] && REP=(--repeat)
 if [ "$DRY" = 1 ]; then
-  echo "+ docker exec $C $P /qc/tool/quality_check.py compare /qc/out/base /qc/out/head --json /qc/out/report.json --changed-files /qc/out/changed_files.txt ${REP[*]+${REP[*]}}" >&2
+  echo "+ docker exec $C $P /qc/tool/quality_check.py compare /qc/out/base /qc/out/head --json /qc/out/report.json --changed-files /qc/out/changed_files.txt --locks /qc/out/base.uv.lock /qc/out/head.uv.lock ${REP[*]+${REP[*]}}" >&2
   exit 0
 fi
 docker exec "$C" "$P" /qc/tool/quality_check.py compare /qc/out/base /qc/out/head \
-    --json /qc/out/report.json --changed-files /qc/out/changed_files.txt ${REP[@]+"${REP[@]}"} \
+    --json /qc/out/report.json --changed-files /qc/out/changed_files.txt \
+    --locks /qc/out/base.uv.lock /qc/out/head.uv.lock ${REP[@]+"${REP[@]}"} \
   | tee "$OUT/verdict.txt"
 rc=${PIPESTATUS[0]}
 # Through the shell, not `docker cp`: with MSYS_NO_PATHCONV a Git Bash path does

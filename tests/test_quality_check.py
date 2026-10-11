@@ -148,9 +148,19 @@ class Verdicts(unittest.TestCase):
         r = self.verdict(side(), side(fp="1" * 64))
         self.assertEqual(r["verdict"], "UNMEASURED")
 
+    LOCK = ('[[package]]\nname = "exactdoc"\nversion = "%s"\n\n'
+            '[[package]]\nname = "lxml"\nversion = "%s"\n')
+
     def test_dependency_change_is_unmeasured_and_named(self):
-        r = self.verdict(side(), side(), changed=["uv.lock", "exactdoc/infer.py"])
+        r = self.verdict(side(), side(), changed=["uv.lock", "exactdoc/infer.py"],
+                         locks=(self.LOCK % ("0.2.0a1", "6.1.1"), self.LOCK % ("0.2.0a1", "6.1.2")))
         self.assertEqual(r["verdict"], "UNMEASURED")
+        self.assertEqual(r["contract_changes"], ["uv.lock"])
+
+    def test_a_version_bump_in_uv_lock_is_not_a_dependency_change(self):
+        r = self.verdict(side(), side(), changed=["uv.lock"],
+                         locks=(self.LOCK % ("1.0.0", "6.1.1"), self.LOCK % ("0.2.0a1", "6.1.1")))
+        self.assertEqual(r["verdict"], "NEUTRAL")
         self.assertEqual(r["contract_changes"], ["uv.lock"])
 
     def test_contract_paths_are_named(self):
