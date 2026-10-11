@@ -30,8 +30,9 @@ The shipping profile's refinement loop renders through LibreOffice headless
 without it. Conversion is local; nothing is uploaded. `exactdoc --version`
 prints the installed version.
 
-Python 3.9 or newer is required; the `install` workflow proves 3.9 and 3.12 on
-Linux, Windows and macOS on every push. One known difference: on a width
+Python 3.9 or newer is required; the `install` workflow proves 3.9, 3.12, 3.13
+and 3.14 on Linux, Windows and macOS, and 3.10 and 3.11 on Linux, on every
+push. One known difference: on a width
 that lands exactly on a rounding tie, Python 3.9–3.11 and 3.12+ can write a
 run's horizontal scale one percent apart, because 3.12 changed how `sum()`
 adds floats. Published numbers are measured on 3.12.

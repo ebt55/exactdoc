@@ -24,7 +24,7 @@ When a tag such as `v0.3.0b1` is pushed, `release.yml` runs four jobs:
 
 The `install` workflow (`.github/workflows/install.yml`) runs the same build
 and a wider install check on every push and pull request: Linux, Windows and
-macOS, Python 3.9 and 3.12, the wheel in a clean virtualenv with no
+macOS, Python 3.9, 3.12, 3.13 and 3.14 (and 3.10 and 3.11 on Linux), the wheel in a clean virtualenv with no
 LibreOffice, two conversions, and the unit tests. A release should only be
 tagged on a commit where `gate` and `install` are both green.
 
