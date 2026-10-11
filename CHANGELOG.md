@@ -58,6 +58,23 @@ traceable to a committed artifact under `docs/evidence/`.
   margin within one line of the page height could still leave a section with
   no body, which Word refuses; both margins are now clamped. No document in
   the corpus or the holdouts reaches it.
+- **A report's highlights sidebar reads beside its column (WP60).** A
+  Word-made audit report opens on a highlights page: a shaded panel down the
+  left and the findings column beside it, starting a few points from the
+  panel's fill. The page was not read side by side, and the panel stood above
+  its column, a page over -- every later page one place late. Three readings,
+  each with its own switch (`infer.WP60_RULES`), all the standard profile's
+  (the Google Docs profile is byte-identical):
+  - a drawn panel's edge is a gutter in itself; the region search no longer
+    asks for 6pt of white beside it (`PANEL_MIN_GUTTER`, 2pt);
+  - a panel is a sidebar, or not, whole: the gap is measured to the column
+    beside it, not to whichever piece a cut left (a bullet's hanging
+    continuation), so a line no longer reads across sidebar and column;
+  - a footer line below every panel ends the band instead of joining the
+    sidebar's cell.
+  A chart's frame read as a box of its labels above the chart (`figure_frame`)
+  is implemented and measured, and ships OFF: it trades the labels' text for
+  the picture that already paints them. `tests/test_wp60_reports.py`.
 
 ## 0.3.0b1 — 2026-10-12
 
