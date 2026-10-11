@@ -70,6 +70,19 @@ def _shape(lay):
     return out
 
 
+class _rule:
+    """Turn one WP49 switch (infer.WP49_RULES) on or off for a block."""
+    def __init__(self, name, on):
+        self.name, self.on = name, on
+
+    def __enter__(self):
+        self.was = I.WP49_RULES[self.name]
+        I.WP49_RULES[self.name] = self.on
+
+    def __exit__(self, *exc):
+        I.WP49_RULES[self.name] = self.was
+
+
 def _text_drawn_twice(lay):
     """Characters of written text whose source box centre lies inside a
     picture's clip on the same page: painted as pixels and written again."""
@@ -278,21 +291,26 @@ class TabLayoutsEndToEnd(unittest.TestCase):
         self.assertGreaterEqual(len(tables[0].col_widths), 4)
 
     def test_C2_no_picture_paints_text_the_page_also_writes(self):
-        for name in ("zebra_multirect_table", "one_path_bar_chart",
-                     "one_path_horizontal_bars", "right_tab_resume"):
-            with self.subTest(name):
-                self.assertEqual(_text_drawn_twice(_infer(self.paths[name])), 0)
-        # the defect, reproduced with WP49 off: the stray row fills' picture
-        # covers the whole table, whose amounts the cell boxes also write
-        self.assertGreater(_text_drawn_twice(
-            _infer(self.paths["zebra_multirect_table"], tab_layouts=False)), 0)
+        # C2 ships switched off (infer.WP49_RULES); its rule is tested on
+        with _rule("figure_covers_text", True):
+            for name in ("zebra_multirect_table", "one_path_bar_chart",
+                         "one_path_horizontal_bars", "right_tab_resume"):
+                with self.subTest(name):
+                    self.assertEqual(_text_drawn_twice(_infer(self.paths[name])), 0)
+        # the defect, reproduced with the rule off: the stray row fills'
+        # picture covers the whole table, whose amounts the cell boxes write
+        with _rule("figure_covers_text", False):
+            self.assertGreater(_text_drawn_twice(
+                _infer(self.paths["zebra_multirect_table"])), 0)
 
     def test_C_controls_one_path_bar_charts_are_pictures(self):
-        for name in ("one_path_bar_chart", "one_path_horizontal_bars"):
-            with self.subTest(name):
-                els = _elements(_infer(self.paths[name]))
-                self.assertTrue([e for e in els if isinstance(e, FigureEl)])
-                self.assertFalse([e for e in els if isinstance(e, TableEl)])
+        for on in (False, True):
+            with _rule("figure_covers_text", on):
+                for name in ("one_path_bar_chart", "one_path_horizontal_bars"):
+                    with self.subTest(name, c2=on):
+                        els = _elements(_infer(self.paths[name]))
+                        self.assertTrue([e for e in els if isinstance(e, FigureEl)])
+                        self.assertFalse([e for e in els if isinstance(e, TableEl)])
 
 
 if __name__ == "__main__":

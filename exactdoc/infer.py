@@ -5735,6 +5735,23 @@ def _covers_text(clip, own, blocks) -> bool:
     return False
 
 
+# A fill text is read on is light: Word's shading presets run from 5% to 25%
+# grey (#F2F2F2 .. #BFBFBF), and dark text needs a background at least that
+# light to stay legible. Every channel at or above this is a tint (WP49, C2).
+TINT_MIN_CHANNEL = 0xBF
+
+
+def _tint_fill(d: DrawCmd) -> bool:
+    """An unstroked fill light enough to be a background text sits on."""
+    if d.kind != "fill" or not d.fill or len(d.fill) != 7:
+        return False
+    try:
+        rgb = [int(d.fill[i:i + 2], 16) for i in (1, 3, 5)]
+    except ValueError:
+        return False
+    return min(rgb) >= TINT_MIN_CHANNEL
+
+
 def _undo_figure(consumed, before, images, before_img) -> None:
     """Return what a refused picture took: its lines to the flow, its images."""
     consumed.clear()
@@ -5800,7 +5817,11 @@ _TAB_LAYOUTS = contextvars.ContextVar("exactdoc_infer_tab_layouts", default=True
 WP49_RULES = {
     "right_tab_fields": True,     # _right_tab_fields: right-tab fields are not a column
     "leader_levels": True,        # _leader_levels: a contents page in levels
-    "figure_covers_text": True,   # _covers_text: no picture paints text twice
+    # _covers_text: no picture paints text twice. OFF for 0.3.0b1: it halves the
+    # text drawn twice on holdout-1 and the corpus, but four unpromised corpus
+    # documents (y06, y38, y47, y59) lose a page or placement where a tint's
+    # picture held text the flow now sets longer -- criterion-8 regressions.
+    "figure_covers_text": False,
 }
 
 
@@ -6844,15 +6865,16 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
                 # fixtures).
                 if in_side_margin(d.bbox, furniture_l, lay.margin_r, p.width):
                     continue
-                if not _wp49("figure_covers_text") or d.kind != "fill":
+                if not _wp49("figure_covers_text") or not _tint_fill(d):
                     elements.append(build_figure([d], blocks, p.images, consumed, p))
                     continue
-                # WP49 (C2): a stray FILL -- an area painted under text, a
-                # cell's or a panel's background -- is not pictured when the
-                # picture would paint text the page also writes
-                # (`_covers_text`): the text is what is kept. A stray stroke or
-                # curve is line art, whose labels belong to it, and is
-                # pictured as before. (Not the cluster's text budget: a bar
+                # WP49 (C2): a stray TINT -- a light area text is read on, a
+                # cell's or a panel's background (`_tint_fill`) -- is not
+                # pictured when the picture would paint text the page also
+                # writes (`_covers_text`): the text is what is kept. Ink -- a
+                # logo, line art, a dark band -- carries a look of its own and
+                # is pictured as before (y06's cover seeds its picture from
+                # the IRS mark). (Not the cluster's text budget: a bar
                 # chart drawn as one path is a stray fill too, and on a page
                 # of little text its own axis labels exceed the budget.)
                 before = set(consumed)
