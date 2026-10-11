@@ -115,7 +115,8 @@ more side-by-side pictures are in [docs/examples.md](docs/examples.md).
 
 ## How we know
 
-Measured, not eyeballed. Every change must pass 16 frozen test documents, and
+Measured, not eyeballed. Every change must pass 16 frozen test documents,
+gated on every push in CI inside the pinned measurement image, and
 each milestone converts 95 frozen PDFs (those 16 and 79 more, most of them
 public real-world documents), opens every DOCX in LibreOffice, Microsoft Word
 and Google Docs, and compares it with the PDF page by page. In the final

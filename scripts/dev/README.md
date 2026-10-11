@@ -9,6 +9,7 @@ Windows host with Git Bash, Docker, and the canonical image `exactdoc-gate:boot`
 
 | Script | What it does |
 |---|---|
+| `ci_image.sh [--no-chrome] [--from IMG] [--tag TAG]` | Makes the publishable CI image from the canonical snapshot without changing the environment: one container, `/work` emptied but for the venv, `docker export \| docker import` with the snapshot's config. Default `exactdoc-gate:boot` -> `exactdoc-gate:ci`. `--no-chrome` also drops Chrome for Testing (only the non-gating generator check uses it). Pushing is separate. |
 | `quality_check.sh [--base REF] [--corpus gated\|both] [--jobs N] [--repeat REF]` | **The contributor's check** (CONTRIBUTING.md), and the one script here that needs no maintainer setup: BASE and HEAD measured one after the other in ONE container (corpus identity, strict `runall`, and with `both` the product sweep on the expansion corpus), then `testkit/quality_check.py compare`: per-document better/same/worse with gate.py's tolerances (criterion 8's rule, `beta_readiness.compare_rows`), the gated 16 per lane, DOCX byte identity, and LIFTS / NEUTRAL / REGRESSES / UNMEASURED (exit 0/3/1/2). `--repeat REF` is the determinism proof (DETERMINISTIC 0 / NONDETERMINISTIC 4). Image: `$EXACTDOC_GATE_IMAGE`, else `exactdoc-gate:boot`, else `exactdoc-gate:local-boot` (`--build` makes it from `docker/gate.Dockerfile`); an unprovisioned image is bootstrapped in the container. Output: `$EXACTDOC_SCR/qc/<base>-<head>-<corpus>/report.json`. |
 | `gate_full.sh <name> <tree> [steps]` | The CI-equivalent gate in a fresh canonical container: manifest, unit suite, script suites, golden IR, `runall` in both lanes. Exit code = failed steps. Grep the log for `Ran N tests` / `OK` as well as `FAILED_STEPS=0`. |
 | `sweep.sh <name> <tree> [quality_sweep args]` | `testkit/quality_sweep.py` in a fresh canonical container, e.g. `--corpus both --jobs 6 --profile raw`. `KEEP_DOCX=1` keeps the DOCX (needed by the Word lane and the font census). |
@@ -135,10 +136,22 @@ written by `scripts/dev/record_env.sh` (`evidence.py --record-canonical
 done: `exactdoc-gate:boot` is now the Carlito image (bab1cfc0d2cd), the old
 snapshot is kept as `exactdoc-gate:boot-pre-carlito` (390a910873d6), and
 `testkit/canonical_env.json` was recorded in it with fingerprint 9cb0bc17,
-byte-identical to the proposed record, which was then deleted. Step 4 (the
-baseline re-record) waits for the owner to see the per-document numbers;
-step 5 was run as a dry run only; step 7 (CI image) is not done. A gate is
-valid only on a tree that contains the switch commit.
+byte-identical to the proposed record, which was then deleted. Step 4 is
+done too: the baseline was re-recorded in this image on 2026-10-11 (88a2831,
+owner-delegated dual review), so it is bound to 9cb0bc17 and reading wp42.
+Step 5 was run as a dry run only. A gate is valid only on a tree that contains
+the switch commit.
+
+**Step 7, done differently (WP55, 2026-10-11, owner-delegated decision).** CI
+does not run a rebuild. `exactdoc-gate:boot` (image id bab1cfc0d2cd) is
+flattened by `ci_image.sh` into `exactdoc-gate:ci` (e10381f24ec0): the same
+filesystem without the working tree its `docker commit` layer carried (which
+included local agent settings that must not be published), pushed to
+`ghcr.io/ebt55/exactdoc-gate`; `gate.yml` pins it by manifest digest and runs
+the strict gate inside it. Measured both ways as CI runs them, on 96ede05:
+fingerprint 9cb0bc17, canonical, every step green; so nothing in steps 3-5
+repeats. A rebuild from `gate-image.yml` would resolve today's apt and is still
+a new environment.
 
 Switching is a baseline migration and needs the owner's approval at step 3.
 Do it when no other run is using `exactdoc-gate:boot`:
@@ -168,5 +181,8 @@ Do it when no other run is using `exactdoc-gate:boot`:
 6. Update the two docstrings in `exactdoc/fonts.py` (module "What the canonical
    renderer has", and `writer_family`) that say Calibri and Cambria render as
    FreeSerif; comment-only, output unchanged.
-7. For CI, publish a full rebuild with `gate-image.yml` (it carries the same
-   pinned fonts) and pin its digest; that is a new environment and repeats 3-5.
+7. For CI, push the new canonical image and pin its digest in `gate.yml` and
+   `quality_check.sh` (how WP55 did it: the snapshot flattened by
+   `ci_image.sh`, so the environment is unchanged). A full
+   rebuild with `gate-image.yml` (it carries the same pinned fonts) is a new
+   environment and repeats 3-5.

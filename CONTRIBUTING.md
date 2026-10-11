@@ -153,16 +153,22 @@ the maintainer.
 
 ## The quality check: does my change make the output better?
 
-One command measures your change against the commit it started from, in a
-pinned environment, and prints a verdict:
+One command measures your change against the commit it started from, in the
+same pinned environment CI uses, and prints a verdict:
 
 ```bash
-bash scripts/dev/quality_check.sh --build      # the first time: builds the image
-bash scripts/dev/quality_check.sh              # every time after that
+bash scripts/dev/quality_check.sh
 ```
 
-`--build` builds `docker/gate.Dockerfile` and provisions it once (it needs the
-network and takes a while); later runs reuse the image.
+The first run pulls the canonical measurement image,
+`ghcr.io/ebt55/exactdoc-gate`, at the digest `.github/workflows/gate.yml` pins
+(several hundred MB, once). It is the image the `gate` workflow runs in, so the
+verdict you get locally is the one CI gets. To name it explicitly, pass
+`--image` with the image reference exactly as `gate.yml` writes it
+(`ghcr.io/ebt55/exactdoc-gate@sha256:...`). If you cannot pull it, `--build`
+builds `docker/gate.Dockerfile` yourself and provisions it once (it needs the
+network and takes a while); see *Which environment* below for what that
+changes.
 
 The check measures **two commits** (BASE: by default the point where your
 branch left `main`; HEAD: your last commit) one after the other, **in the
@@ -226,14 +232,17 @@ if its numbers moved anyway, the report lists it as noise.
 
 **Which environment.** Both commits are measured in one container, so the
 comparison between them is valid in any image. The gate's PASS or FAIL against
-its recorded baseline is different: that baseline is bound to the canonical
+its recorded baseline is stricter: that baseline is bound to the canonical
 measurement environment (`testkit/canonical_env.json`: the exact LibreOffice
-build, fonts and Python). An image you build yourself resolves today's
-packages and is usually not that environment, so the report says `NOT
-canonical: the gate is indicative`, and counts only the gate findings HEAD has
-and BASE does not. The maintainer re-runs the check in the canonical
-environment before merging. On Apple silicon the image builds for arm64,
-which works for the comparison and is never canonical.
+build, fonts and Python). The published image IS that environment: CI's `gate`
+workflow runs the strict two-lane gate inside it on every push and pull
+request, and the quality check run in it gives the same strict verdict. An
+image you build yourself with `--build` resolves today's packages and is
+usually not that environment, so the report then says `NOT canonical: the gate
+is indicative`, and counts only the gate findings HEAD has and BASE does not;
+CI's strict gate on your pull request is the number of record. On Apple
+silicon the published image runs under amd64 emulation (slow); a `--build`
+image builds for arm64, which works for the comparison and is never canonical.
 
 **What it does not tell you.** It does not open the DOCX in Microsoft Word or
 Google Docs, and it does not see the unseen holdout documents a release is
@@ -296,7 +305,8 @@ that change conversion then wait until the release is out.
 6. Open the pull request. The template asks for the mechanism, the fixture and
    the report; fill in every section, or say why one does not apply.
 7. **CI must be green**: the `install` workflow (the test suite and a real
-   install on Linux, Windows and macOS) and the `gate` workflow.
+   install on Linux, Windows and macOS) and the `gate` workflow (the strict
+   two-lane gate, inside the pinned canonical image).
 
 Do not commit generated output (DOCX files, rendered PDFs, `.scratch/`,
 `testkit/batch/`, `testkit/sweep/`); `.gitignore` covers the usual places.
@@ -327,8 +337,9 @@ silence as a no. To make review quick:
 - small pull requests are reviewed first;
 - a pull request with the mechanism, the fixture and a quality-check report is
   usually reviewed in one pass;
-- the maintainer re-runs the quality check in the canonical environment, and
-  the Word and Google Docs checks where they apply, and may push small fixes
+- the maintainer runs the quality check with `--corpus both` in the canonical
+  image if your report does not have it, and the Word and Google Docs checks
+  where they apply, and may push small fixes
   to your branch or ask for changes;
 - a pull request that needs a decision about the measurement (a baseline, a
   threshold, the corpus) waits for that decision, which is then recorded in

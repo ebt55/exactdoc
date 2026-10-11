@@ -20,6 +20,18 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **CI's gate runs strict, inside the pinned canonical image (WP55).** Since
+  the baseline binding (WP43) the `gate` workflow could not pass on a bare
+  `ubuntu-24.04` runner: the baseline is bound to environment 9cb0bc17, which
+  no runner reproduces. The maintainer's canonical snapshot
+  (`exactdoc-gate:boot`, image id bab1cfc0d2cd), flattened without the
+  working tree its last layer carried (`scripts/dev/ci_image.sh`), is pushed
+  to `ghcr.io/ebt55/exactdoc-gate`; `gate.yml` pins it by digest and runs every
+  step in it, with a first step that fails unless the environment is the
+  recorded one; no rebuild and no re-record. Measured locally the way CI runs
+  it, on 96ede05: fingerprint 9cb0bc17, canonical, the whole step list green.
+  The integration branch is gated on push too, and `quality_check.sh` uses
+  the same image by default, pulling it on first use.
 - **A contributor guide and a one-command quality check (WP54).**
   CONTRIBUTING.md is rewritten as the full guide: reporting with `--diagnose`,
   setup on Linux, macOS and Windows, the tests, how a fix is judged (a named

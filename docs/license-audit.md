@@ -371,6 +371,16 @@ exactly this use; neither font is embedded or redistributed.
 `fonts-wqy-zenhei` (GPL with font exception), `fonts-ipafont-gothic` (IPA Font
 License).
 
+**Published image (WP55, 2026-10-11).** CI's gate runs in
+`ghcr.io/ebt55/exactdoc-gate` (pinned by digest in `.github/workflows/gate.yml`),
+the canonical snapshot (flattened by `scripts/dev/ci_image.sh`): everything above, plus a Python venv at
+`/work/.venv` holding the measurement dependencies, including PyMuPDF
+(AGPL-3.0), an instrument that is never shipped in the wheel, and Playwright's
+Chrome for Testing (`chrome-headless-shell`), used only to regenerate corpus
+documents. Publishing the image does convey those binaries, so the
+"not distributed" reasoning below covers the wheel and the repository, not
+the image.
+
 **None of this constrains exactdoc's code licence, for three reasons.** It is
 not distributed with exactdoc — it is a container the project builds to measure
 in, and the published artifact is an image, not part of any wheel. It is not
