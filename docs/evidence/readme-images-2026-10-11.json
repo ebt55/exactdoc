@@ -1,0 +1,244 @@
+{
+ "schema": "exactdoc.readme-images.v1",
+ "date": "2026-10-11",
+ "_note": "Provenance of every picture in docs/images/. Nothing was converted or rendered for these pictures: scripts/readme_images.py rasterised existing PDFs from the final measurement of 910e6aa (docs/evidence/final-set-2026-10-11.json) and composed them. LibreOffice: the product sweep's kept renders, made in the canonical container. Word: the Word lane's PDFs (Word 16, Office 2024, exporting the product DOCX). Google Docs: Google's own PDF export of the uploaded gdocs-profile DOCX, from that measurement's live sweep. The red outlines on the not-yet pictures were placed by eye on these renders.",
+ "measurement": {
+  "commit": "910e6aac65e258af093b47b5d4de3ff7fd10af53",
+  "record": "docs/evidence/final-set-2026-10-11.json"
+ },
+ "script": {
+  "path": "scripts/readme_images.py",
+  "command": "python scripts/readme_images.py C:\\lotmp\\scr\\runs\\final-910e6aa-prod.docx --word C:\\lotmp\\scr\\runs\\final-910e6aa-word-prod --docs C:\\lotmp\\finalgd\\out",
+  "label_font": "Segoe UI (Windows)"
+ },
+ "still_current_at": {
+  "commit": "1ed252a7e90a790ab9c2a9ec0f7631ad39428b56",
+  "why": "The pictures still show this commit's output for these documents. (1) Their open-loop DOCX (standard and gdocs profiles, refine 0; SHA-256 over word/*.xml) is identical at both commits, converted locally for this record. (2) The default (product) DOCX refines that open-loop DOCX against LibreOffice, and the WP50 and WP49 before/after product sweeps (docs/evidence/wp50-2026-10-11.json, docs/evidence/wp49-2026-10-11.json) moved no pictured document (only y48 and y28 moved on the corpus), and the gdocs-profile DOCX of every corpus document is identical.",
+  "open_loop_word_xml_sha256_16": [
+   "01_whitepaper_market standard f737f58be1796a84",
+   "01_whitepaper_market gdocs eb1a3c7b0adb9ab6",
+   "c3_tables standard adf4d1b5ee4b8905",
+   "c3_tables gdocs e392dd6de92929ed",
+   "c2_paper2col standard 29b0d85d17c837b0",
+   "c2_paper2col gdocs ba3434d9ae98ad6a",
+   "x17_resume_twocol standard 7dfee0823cfc888f",
+   "x17_resume_twocol gdocs 31381d517d1a3273",
+   "x05_lo_quotes_notes standard 5fa91069162e7cac",
+   "x05_lo_quotes_notes gdocs 351e941abe5b3576",
+   "y34_census_slides_pptx365 standard 90ca52963ba92d8e",
+   "y34_census_slides_pptx365 gdocs 83b9878ac9a6465f",
+   "y41_arxiv_ieeetran standard 37fa8a06e2865214",
+   "y41_arxiv_ieeetran gdocs 5131680708300d22",
+   "y58_ssa_statement_indd20 standard 311bf20adc48c24b",
+   "y58_ssa_statement_indd20 gdocs 42ea4b99a28bfd8d"
+  ]
+ },
+ "images": {
+  "hero-readers.gif": {
+   "document": "01_whitepaper_market.pdf",
+   "page": 1,
+   "licence": "Apache-2.0 (a test document this project generated)",
+   "source_pdf": {
+    "path": "testkit/fixtures/01_whitepaper_market.pdf",
+    "sha256": "fc5b85dc4fd37c9e25a8e5e09d8e5acbeb09504aa6575be4acbf3b379362ca28"
+   },
+   "renders": {
+    "word": {
+     "path": "C:\\lotmp\\scr\\runs\\final-910e6aa-word-prod\\01_whitepaper_market.word.pdf",
+     "sha256": "96fab717bfd22efd5a19321917953d1bc6f2e0a51fef1d773624648c06bd441e"
+    },
+    "docs": {
+     "path": "C:\\lotmp\\finalgd\\out\\01_whitepaper_market.gdocs.pdf",
+     "sha256": "2bb49eed3bce01d140549f5611ea0cd79c627cbd60f32025ce1e77c7a60ed5cc"
+    },
+    "lo": {
+     "path": "C:\\lotmp\\scr\\runs\\final-910e6aa-prod.docx\\product\\01_whitepaper_market\\01_whitepaper_market.pdf",
+     "sha256": "2c022abfa28680c295d3e496e96dbb895dca73a214fb7cbfc8bcad3702205f46"
+    }
+   },
+   "image": {
+    "sha256": "30873e914da4630f05bf74f4ed4ec3a3698f80948b64b55f278c459b90e113da",
+    "bytes": 236028
+   }
+  },
+  "hero-readers.png": {
+   "document": "01_whitepaper_market.pdf",
+   "page": 1,
+   "licence": "Apache-2.0 (a test document this project generated)",
+   "source_pdf": {
+    "path": "testkit/fixtures/01_whitepaper_market.pdf",
+    "sha256": "fc5b85dc4fd37c9e25a8e5e09d8e5acbeb09504aa6575be4acbf3b379362ca28"
+   },
+   "renders": {
+    "word": {
+     "path": "C:\\lotmp\\scr\\runs\\final-910e6aa-word-prod\\01_whitepaper_market.word.pdf",
+     "sha256": "96fab717bfd22efd5a19321917953d1bc6f2e0a51fef1d773624648c06bd441e"
+    },
+    "docs": {
+     "path": "C:\\lotmp\\finalgd\\out\\01_whitepaper_market.gdocs.pdf",
+     "sha256": "2bb49eed3bce01d140549f5611ea0cd79c627cbd60f32025ce1e77c7a60ed5cc"
+    },
+    "lo": {
+     "path": "C:\\lotmp\\scr\\runs\\final-910e6aa-prod.docx\\product\\01_whitepaper_market\\01_whitepaper_market.pdf",
+     "sha256": "2c022abfa28680c295d3e496e96dbb895dca73a214fb7cbfc8bcad3702205f46"
+    }
+   },
+   "image": {
+    "sha256": "8ab39d2f8dd7142b5640d9837d068d0bcd80fabcea00b00d6cf04eed6d308ea0",
+    "bytes": 120386
+   }
+  },
+  "editable-structure.png": {
+   "document": "01_whitepaper_market.pdf",
+   "page": 2,
+   "licence": "Apache-2.0 (a test document this project generated)",
+   "source_pdf": {
+    "path": "testkit/fixtures/01_whitepaper_market.pdf",
+    "sha256": "fc5b85dc4fd37c9e25a8e5e09d8e5acbeb09504aa6575be4acbf3b379362ca28"
+   },
+   "renders": {
+    "lo": {
+     "path": "C:\\lotmp\\scr\\runs\\final-910e6aa-prod.docx\\product\\01_whitepaper_market\\01_whitepaper_market.pdf",
+     "sha256": "2c022abfa28680c295d3e496e96dbb895dca73a214fb7cbfc8bcad3702205f46"
+    }
+   },
+   "image": {
+    "sha256": "70f5f611648bab4129e679ebbaf48c85025e81e2be908ac3a6575930cac75c8e",
+    "bytes": 64828
+   }
+  },
+  "works-tables.png": {
+   "document": "c3_tables.pdf",
+   "page": 1,
+   "licence": "Apache-2.0 (a test document this project generated)",
+   "source_pdf": {
+    "path": "testkit/fixtures/c3_tables.pdf",
+    "sha256": "0ab88f4324bcde0db3f3222e296008a9385899e21367ab778ff5c7c75cc4e6c3"
+   },
+   "renders": {
+    "lo": {
+     "path": "C:\\lotmp\\scr\\runs\\final-910e6aa-prod.docx\\product\\c3_tables\\c3_tables.pdf",
+     "sha256": "bd8427d4b315773f9225e70858f1859f67055bbf9df0b2d8a21499139d1c11cf"
+    }
+   },
+   "image": {
+    "sha256": "33aca8e0242b95f7df4d5b4d3902c08aef6cbafbead31c5803a7a94b41ff4663",
+    "bytes": 31459
+   }
+  },
+  "works-two-column.png": {
+   "document": "c2_paper2col.pdf",
+   "page": 1,
+   "licence": "Apache-2.0 (a test document this project generated)",
+   "source_pdf": {
+    "path": "testkit/fixtures/c2_paper2col.pdf",
+    "sha256": "c4eaa6c035c44c71265a132a4481a9a4ee289464202287c9f1c6a4b024e14b4e"
+   },
+   "renders": {
+    "lo": {
+     "path": "C:\\lotmp\\scr\\runs\\final-910e6aa-prod.docx\\product\\c2_paper2col\\c2_paper2col.pdf",
+     "sha256": "875446991cd9253ee33294ee6d1597c7c460d691d65f630e3cce9803bdd8acdb"
+    }
+   },
+   "image": {
+    "sha256": "70b78fd0204cf7ad6e82ca6ec2e7ed3819dc9c3360878fafa8fb29ef937e15e1",
+    "bytes": 59450
+   }
+  },
+  "works-resume.png": {
+   "document": "x17_resume_twocol.pdf",
+   "page": 1,
+   "licence": "Apache-2.0",
+   "source_pdf": {
+    "path": "testkit/fixtures_expansion/x17_resume_twocol.pdf",
+    "sha256": "a761ae1269fbf49c6524a34fa2a75f3324223e8e1d88631b1210b42eb7323b56"
+   },
+   "renders": {
+    "lo": {
+     "path": "C:\\lotmp\\scr\\runs\\final-910e6aa-prod.docx\\product\\x17_resume_twocol\\x17_resume_twocol.pdf",
+     "sha256": "9f24fad9574b9daa533dc56ab25cdbc70f5a14ffd29659ef3c7aa6eb9b286246"
+    }
+   },
+   "image": {
+    "sha256": "9e22855d9640171f61c23499285aec910b3dd685e6674f435f91645cc93090f6",
+    "bytes": 35573
+   }
+  },
+  "works-footnotes.png": {
+   "document": "x05_lo_quotes_notes.pdf",
+   "page": 1,
+   "licence": "Apache-2.0",
+   "source_pdf": {
+    "path": "testkit/fixtures_expansion/x05_lo_quotes_notes.pdf",
+    "sha256": "686e936d3007505d76e49b2211d296f8f3045a2370d84e6e13fa431ab2ddcf10"
+   },
+   "renders": {
+    "lo": {
+     "path": "C:\\lotmp\\scr\\runs\\final-910e6aa-prod.docx\\product\\x05_lo_quotes_notes\\x05_lo_quotes_notes.pdf",
+     "sha256": "5673a281e999b30c2f0e88fa63cd1cd586514b54769a38e43f140b35f78ebe04"
+    }
+   },
+   "image": {
+    "sha256": "bdde09e32b5adbb1d34ab7d7a00ee5e79571101ed779cff97e2d6dab57a12df6",
+    "bytes": 49918
+   }
+  },
+  "not-yet-slides.png": {
+   "document": "y34_census_slides_pptx365.pdf",
+   "page": 3,
+   "licence": "US-Government-Public-Domain",
+   "source_pdf": {
+    "path": "testkit/fixtures_expansion/y34_census_slides_pptx365.pdf",
+    "sha256": "c0340ffc091606e635af4eb773dd288f3c01bedb0826e83224cf6875fa70b336"
+   },
+   "renders": {
+    "lo": {
+     "path": "C:\\lotmp\\scr\\runs\\final-910e6aa-prod.docx\\product\\y34_census_slides_pptx365\\y34_census_slides_pptx365.pdf",
+     "sha256": "d70743efd20f434045fe2a85f9d452ba5fbda4faddcdea2d4486eb76554206df"
+    }
+   },
+   "image": {
+    "sha256": "b83e23f7b788bcea1f1d2559bc6704161a0a2ae5f69ae83ee42f445a1415c63c",
+    "bytes": 24709
+   }
+  },
+  "not-yet-dense-paper.png": {
+   "document": "y41_arxiv_ieeetran.pdf",
+   "page": 1,
+   "licence": "CC-BY-4.0",
+   "source_pdf": {
+    "path": "testkit/fixtures_expansion/y41_arxiv_ieeetran.pdf",
+    "sha256": "1fb7472af171632e964018ce3a6e959e0443191789bb0d541720d8b7b57e0524"
+   },
+   "renders": {
+    "lo": {
+     "path": "C:\\lotmp\\scr\\runs\\final-910e6aa-prod.docx\\product\\y41_arxiv_ieeetran\\y41_arxiv_ieeetran.pdf",
+     "sha256": "b4eec864cf40132e3bbf629d6a4082e4437764e2214c6651c61160ade629b93e"
+    }
+   },
+   "image": {
+    "sha256": "644bb13ba3bdf51eb488c82cd49b40609bfff8825bf838ad60941bd5ebdd0c5e",
+    "bytes": 154588
+   }
+  },
+  "not-yet-designed.png": {
+   "document": "y58_ssa_statement_indd20.pdf",
+   "page": 1,
+   "licence": "US-Government-Public-Domain",
+   "source_pdf": {
+    "path": "testkit/fixtures_expansion/y58_ssa_statement_indd20.pdf",
+    "sha256": "e46451b00daaff807dd766b3c0352acfac1132422a9e3328b10b44926832b5a8"
+   },
+   "renders": {
+    "lo": {
+     "path": "C:\\lotmp\\scr\\runs\\final-910e6aa-prod.docx\\product\\y58_ssa_statement_indd20\\y58_ssa_statement_indd20.pdf",
+     "sha256": "700200eb5c694e3a07c8d1f98880cc40666bc50b3687b4564c73bd3672f48b42"
+    }
+   },
+   "image": {
+    "sha256": "e4696eed1ac560beb53c48739bcf1306490d882f533299eec4e5100b5c43e859",
+    "bytes": 121272
+   }
+  }
+ }
+}

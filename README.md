@@ -1,370 +1,176 @@
 # exactdoc
 
-**exactdoc turns a PDF into a Word document (DOCX) that looks like the original
-and that you can actually edit, measured page by page in Word, LibreOffice and
-live Google Docs.**
+**Turn a PDF into a Word document that looks like the original and that you
+can actually edit.**
 
-Most PDF-to-Word converters give you one of two things: text boxes frozen in
-place (looks right, painful to edit) or plain reflowed text (easy to edit, looks
-wrong). exactdoc writes real headings, paragraphs, lists and tables, and places
-them so the page matches the PDF. Every change is measured against real
-renderers, and conversion runs entirely on your machine.
+exactdoc writes a DOCX made of real headings, paragraphs, lists, tables,
+footnotes and page headers, and lays them out so each page matches the PDF.
+Its output is measured by opening it in Microsoft Word, LibreOffice and Google
+Docs and comparing every page with the original. It runs entirely on your
+machine: no telemetry, no account, and no network unless you ask for the
+optional Google Docs measurement ([details](docs/install.md#what-talks-to-the-network)).
 
-**Private by default.** Converting a PDF reads the file and writes the DOCX on
-your computer and nothing else: no telemetry, no network calls, no account. The
-only code that talks to the internet is the optional Google Docs measurement
-(`--oracle gdocs`, and the `exactdoc-gdocs` command that signs it in). It needs
-the `gdocs` extra and your own Google account, and a conversion uploads
-nothing unless you also pass `--allow-cloud-upload`.
+![Animation. On the left, page 1 of a whitepaper as the original PDF. On the right, the DOCX exactdoc made from it, shown in turn as Microsoft Word, Google Docs and LibreOffice lay it out. All four pages look almost the same.](docs/images/hero-readers.gif)
 
-> **Alpha (version 0.2.0a1).** It works well on documents written as flowing
-> text in Word, Google Docs, LibreOffice or LaTeX, and is still changing
-> quickly. [Which PDFs it is for](#which-pdfs-it-is-for) says how to tell
-> whether yours is one, and the sections after it show both sides with real
-> examples.
+<sub>Page 1 of one of the project's test whitepapers, converted with the default
+settings ([still image](docs/images/hero-readers.png), [how it was made](docs/images/README.md)).
+Small differences remain: Google Docs adds a thin white strip above the dark
+band and draws the quote box with a full border, and the footer's page number
+sits further left than in the PDF.</sub>
 
-![A whitepaper page as a PDF on the left, and the DOCX exactdoc made from it, opened in LibreOffice, on the right. The two pages look almost the same.](docs/images/hero-whitepaper.png)
-
-<sub>Page 1 of a test whitepaper from this project's own corpus, converted with the
-default settings. Small differences remain: the footer's page number sits further
-left than in the PDF.</sub>
+<!-- release: at 0.3.0b1 this callout and the Install command are the only lines that change (docs/releasing.md, step 2). -->
+> **Alpha (0.2.0a1).** The first beta, 0.3.0b1, is being prepared; until it is
+> on PyPI, install from a clone of this repository.
 
 ## Install
 
-You need Python 3.9 or newer (check with `python --version`). A clean install
-was checked on Linux and Windows
-([record](docs/evidence/beta-install-2026-10-05.json)):
+You need Python 3.9 or newer.
 
+<!-- release: becomes `pip install --pre exactdoc` and `exactdoc --version` -->
 ```bash
-pip install exactdoc
+git clone https://github.com/ebt55/exactdoc && cd exactdoc && pip install .
 exactdoc --version
 ```
 
-> **Not on PyPI yet.** The first beta (0.3.0b1) is being prepared, and until it
-> is published `pip install exactdoc` finds nothing. Install from a copy of this
-> repository instead:
-> `git clone https://github.com/ebt55/exactdoc && cd exactdoc && pip install .`
-
-That is all you need to convert PDFs. Two things are optional:
-
-- **[LibreOffice](https://www.libreoffice.org/download/)** (free) gives the best
-  layout. When it is installed, exactdoc opens its own DOCX in LibreOffice,
-  compares each page with the PDF and corrects page breaks and spacing. Without
-  it, exactdoc converts in one pass and prints a note saying so. The check takes
-  time: in the project's test container a 31-page IRS publication took 31
-  seconds with it, one conversion at a time
-  ([measurement](docs/evidence/final-set-2026-10-11.json)). `--refine 0`
-  skips it.
-
-  The check is only as good as the fonts LibreOffice draws with. The DOCX
-  names Calibri, Cambria, Arial and Times New Roman, and LibreOffice needs
-  their free metric twins (Carlito, Caladea and Liberation) to set them at the
-  right widths. On Linux, install them with LibreOffice (Debian and Ubuntu
-  package names):
-
-  ```bash
-  sudo apt install libreoffice-writer fonts-crosextra-carlito fonts-crosextra-caladea fonts-liberation
-  ```
-
-  On Windows and macOS the installers from libreoffice.org include these
-  fonts. Without them LibreOffice draws Calibri text in a different font, and
-  the check corrects the layout against the wrong widths: a NIST publication
-  whose text is 82% Calibri, rendered in LibreOffice without the layout check,
-  had 30% of its words on the right page without the twins and 74% with them
-  ([measurement](docs/evidence/carlito-2026-10-06.json)).
-- **The Google Docs tools** (`pip install "exactdoc[gdocs]"`) measure a DOCX
-  inside Google Docs with your own Google account. You do not need them to make
-  a DOCX for Google Docs: `--output-profile gdocs` works offline in every
-  install.
+Optional, and recommended: **[LibreOffice](https://www.libreoffice.org/download/)**
+(free). When it is installed, exactdoc opens its own DOCX in it, compares each
+page with the PDF and corrects page breaks and spacing. Without it, exactdoc
+converts in one pass and says so. [docs/install.md](docs/install.md) covers the
+fonts LibreOffice needs on Linux, how long the check takes, and the optional
+extras.
 
 ## Quick start
 
 ```bash
-# Convert one PDF: writes report.docx next to report.pdf
-exactdoc report.pdf
-
-# Choose the output name
-exactdoc report.pdf -o converted/report.docx
-
-# Make a DOCX for Google Docs (still offline: nothing is uploaded)
-exactdoc report.pdf -o report.docx --output-profile gdocs --refine 0
-
-# Convert a whole folder, including subfolders
-exactdoc --input-dir pdfs --out-dir docx --recursive
-
-# Faster: skip the LibreOffice layout check
-exactdoc report.pdf --refine 0
+exactdoc report.pdf                                    # writes report.docx next to it
+exactdoc report.pdf --output-profile gdocs --refine 0  # a DOCX made for Google Docs
+exactdoc --input-dir pdfs --out-dir docx --recursive   # a whole folder
 ```
-
-exactdoc never replaces a file you did not name: if `report.docx` already
-exists, `exactdoc report.pdf` stops and asks for `-o` or `--overwrite`. Long
-documents show their progress while they convert.
-
-From Python:
 
 ```python
 from exactdoc import convert
-
-# The same conversion as `exactdoc report.pdf`, with the LibreOffice layout check
-convert("report.pdf", "report.docx")
-
-# One pass, no LibreOffice needed (the same as `--refine 0`)
-convert("report.pdf", "report.docx", refine_rounds=0, oracle="none")
+convert("report.pdf", "report.docx")                                  # with LibreOffice's check
+convert("report.pdf", "report.docx", refine_rounds=0, oracle="none")  # without LibreOffice
 ```
 
-Unlike the command line, `convert()` does not fall back on its own when
-LibreOffice is missing: the first call raises `OracleUnavailableError`, so a
-script never receives an unchecked DOCX it did not ask for. Use the second call
-on a machine without LibreOffice.
+exactdoc never replaces a file you did not name. The Google Docs option writes
+the same document in a form Google Docs' importer reads correctly; it is still
+made offline, and you upload it to Drive yourself. Every option, the Python API
+and the exit codes are in [docs/usage.md](docs/usage.md).
 
-The Google Docs option writes the same document in a form that Google Docs'
-importer reads correctly. Upload the DOCX to Google Drive and open it with Google
-Docs. Every option, exit code and batch limit is in [docs/usage.md](docs/usage.md).
-
-## What "editable" means here
+## What you get
 
 The DOCX is built from the same pieces you would use to write the document in
 Word yourself, not from text boxes pinned to the page:
 
-![The DOCX from page 2 of the whitepaper, with its parts labelled: a header that repeats on every page, a bulleted list, Heading 2 and Heading 1 styles, a table with real rows and cells, a chart kept as a picture, and a footer with a live page number.](docs/images/editable-structure.png)
+![Page 2 of the whitepaper's DOCX with its parts labelled: a header that repeats on every page, a bulleted list, Heading 2 and Heading 1 styles, a table with real rows and cells, a chart kept as a picture, and a footer with a live page number.](docs/images/editable-structure.png)
 
-- **Headings** use Word's heading styles, so the navigation pane and Google Docs'
-  outline work.
+- **Headings** use Word's heading styles, so the navigation pane and Google
+  Docs' outline work.
 - **Paragraphs** flow and re-wrap when you edit them.
 - **Lists** are real bulleted and numbered lists.
-- **Tables** are real tables, including merged cells and tables that run over
-  several pages.
+- **Tables** are real tables, with merged cells and rows that run over pages.
 - **Headers and footers** repeat on every page, with live page numbers.
-- **Footnotes** are real Word footnotes. (In the Google Docs output they stay
-  ordinary text, because Docs moves real ones.) **Links** still work.
-- Charts, logos and artwork stay **pictures**, placed where the PDF has them.
+  **Footnotes** are real Word footnotes (plain text in the Google Docs output,
+  because Docs moves real ones), and links still work.
+- **Charts, logos and artwork** stay pictures, placed where the PDF has them.
 
 ## What works, and what does not yet
 
-### Which PDFs it is for
-
-What exactdoc promises depends on the program that made the PDF
-([beta bar, amendment 6](docs/beta-bar.md)):
-
-- **Promised:** documents written as flowing text in **Word, Google Docs,
-  LibreOffice or LaTeX**: reports, memos, letters, whitepapers, papers and
-  résumés.
-- **Not yet:** **designed reports** laid out in InDesign, Affinity Publisher,
-  QuarkXPress or Microsoft Publisher (multi-column pages with full-bleed
-  graphics), **annual reports**, and **multi-column booklets** in the style of
-  the IRS, the GPO and the Federal Register. They convert and their text stays
-  editable, but the layout does not hold: pages can be added and text can land
-  on the wrong page.
-
-To see which program made a PDF, open it in a PDF viewer and look at
-**File → Properties** (in some viewers *Document Properties*): the
-**PDF Producer** and **Application** (or *Creator*) fields usually name it, for
-example `Microsoft® Word for Microsoft 365`, `LibreOffice` with `Writer`,
-`pdfTeX` for LaTeX, `Skia/PDF … Google Docs Renderer` for Google Docs, or
-`Adobe InDesign`. `exactdoc --diagnose your.pdf` prints the same two fields, as
-its `producer` and `creator` lines, along with the page sizes, fonts and the
-layout exactdoc found; it writes nothing and prints none of the document's text.
-It does not say whether the PDF is in the promise; that is the list above. A
-PDF made with a "print to PDF" driver may name the driver rather than the
-program the document was written in.
-
-### Works well
-
-Documents written as flowing text in Word, Google Docs, LibreOffice or LaTeX:
-reports, memos, letters, whitepapers, simple papers and résumés.
-
-<table>
-<tr>
-<td width="50%"><img src="docs/images/works-tables.png" alt="A page of tables, PDF beside DOCX. A table with merged header cells, a table-within-a-table layout and a long striped table all look the same in both."></td>
-<td width="50%"><img src="docs/images/works-two-column.png" alt="A two-column paper page, PDF beside DOCX. Title, abstract, two columns and a footnote are in the same places."></td>
-</tr>
-<tr>
-<td><b>Tables</b> become real Word tables with merged cells. A table-within-a-table is rebuilt as one table with merged cells.</td>
-<td><b>Two-column pages</b> keep their columns as a real two-column section.</td>
-</tr>
-<tr>
-<td><img src="docs/images/works-resume.png" alt="A résumé page, PDF beside DOCX. Section rules, role and date rows, and bullets match."></td>
-<td><img src="docs/images/works-footnotes.png" alt="A consultation response, PDF beside DOCX. The block quotes and links match; the footnotes sit at the foot of the page."></td>
-</tr>
-<tr>
-<td><b>Résumés</b>: role and date on one line, rules under section headings, bullet lists.</td>
-<td><b>Quotes, links and footnotes.</b> Footnotes become real Word footnotes, so they move to the foot of the page.</td>
-</tr>
-</table>
-
-<sub>All four are test documents this project generated (Apache-2.0). Each DOCX
-was rendered by LibreOffice in the project's pinned test container.</sub>
-
-### Not yet
-
-Real-world documents vary more than test documents, and the designed and
-multi-column kinds above are outside the promise. These are the main gaps,
-shown on public documents converted with the default settings. The pictures
-come from the
-[4 October example run](docs/evidence/readme-examples-2026-10-04.json). The
-numbers under them are from the final measurement of 11 October
-([measurement](docs/evidence/final-set-2026-10-11.json)).
-
-![Slide 3 of a US Census Bureau presentation beside the DOCX page. In the DOCX the speaker names and titles run together and the layout falls apart.](docs/images/not-yet-slides.png)
-
-<sub><b>Slide decks.</b> Slide 3 of a US Census Bureau webinar deck (public domain).
-Slide layouts fall apart. The 40-slide deck now keeps its 40 pages in LibreOffice
-and Word (72 in the pictured run), but about three quarters of its text sits in
-text boxes, and Google Docs makes 54 pages of it
-([measurement](docs/evidence/final-set-2026-10-11.json)).</sub>
-
-<table>
-<tr>
-<td width="50%"><img src="docs/images/not-yet-dense-paper.png" alt="Page 1 of a two-column arXiv paper beside the DOCX. In the DOCX an equation is split over several lines and one word is stacked one letter per line."></td>
-<td width="50%"><img src="docs/images/not-yet-designed.png" alt="A designed Social Security Statement beside the DOCX. It looks similar, but the grey panels are pictures and some text spills out at the bottom."></td>
-</tr>
-<tr>
-<td><b>Dense journal papers with equations.</b> Bu and Plancher, arXiv:2309.06427 (CC BY 4.0). Equations come apart. The 8-page paper became 19 pages in the pictured run and 9 pages now in LibreOffice, with 70% of its words on the right page (<a href="docs/evidence/final-set-2026-10-11.json">measurement</a>).</td>
-<td><b>Heavily designed layouts.</b> A sample Social Security Statement (US government, public domain; "Wanda Worker" is SSA's fictional sample). In the pictured run the grey panels became pictures and only about 12% of the words stayed editable. Now the panels are shaded text and 89% of the words are editable, but Google Docs still turns its 2 pages into 4, with only 39% of the words on the right page (<a href="docs/evidence/final-set-2026-10-11.json">measurement</a>).</td>
-</tr>
-</table>
+What exactdoc promises depends on the program that made the PDF. Documents
+written as flowing text in **Word, Google Docs, LibreOffice or LaTeX** are
+promised. Designed layouts are not, yet. Page counts below are from the final
+measurement for the beta ([record](docs/evidence/final-set-2026-10-11.json)).
 
 | Kind of PDF | Today |
 |---|---|
-| Reports, memos, letters, whitepapers written in Word, Google Docs, LibreOffice or LaTeX | ✅ Works well. Long reports mostly keep their page count: the four NIST publications of 59–114 pages come back page for page in LibreOffice and Google Docs ([measurement](docs/evidence/final-set-2026-10-11.json)) |
-| Tables (merged cells, tables over several pages) | ✅ Works well |
-| Simple two-column layouts | ✅ Works well |
-| Résumés | ✅ Mostly. Some designed two-column templates still spill onto an extra page |
-| Headers, footers, page numbers, footnotes, links | ✅ Works well |
-| Latin, Cyrillic and Greek text | ✅ Works well |
-| Chinese, Japanese and Korean text | ⚠️ Partly. The text survives, but some runs become pictures |
-| Long documents in Google Docs | ⚠️ Some long documents still gain pages. In the latest live Google Docs sweep, a 144-page EU regulation came back page for page, but IRS Publication 15 came back with 62 pages for 59, a 153-page LaTeX guide as 169, and a 40-slide deck as 54 ([measurement](docs/evidence/final-set-2026-10-11.json)) |
-| Designed reports (InDesign, Affinity Publisher, QuarkXPress, Microsoft Publisher: multi-column with full-bleed graphics) | ⚠️ Not yet. The text converts and mostly stays editable, but the layout does not hold in every reader: the designed Social Security Statement above keeps its 2 pages in LibreOffice and Word and becomes 4 in Google Docs ([measurement](docs/evidence/final-set-2026-10-11.json)) |
-| Annual reports | ⚠️ Not yet. They are usually designed reports (above) |
-| Multi-column booklets (IRS / GPO / Federal Register style) | ⚠️ Not yet. Narrow columns of small type re-wrap and grow. IRS Publication 501 (31 pages) became 45 pages in LibreOffice, 54 in Word and 57 in Google Docs, with under 30% of its words on the right page; the 126-page Form 1040 instructions became 135, 145 and 154 pages ([measurement](docs/evidence/final-set-2026-10-11.json)). The text survives as editable text (95–97% of it in LibreOffice) |
-| Dense journal papers, equations | ⚠️ Not yet. A paper's flowing text converts, but equations are not rebuilt as editable math, and dense two-column journal layouts can gain a page |
-| Slide decks, brochures, posters | ⚠️ Not yet. Layouts break or become pictures |
-| Arabic, Hebrew and Persian (right-to-left) | ⚠️ Partly. Text arrives in reading order as right-to-left Word paragraphs; pages can grow where the reader lacks the source's fonts (an Arabic report 57 → 65 pages, a Hebrew paper 28 → 29, in LibreOffice: [measurement](docs/evidence/final-set-2026-10-11.json)). The Google Docs output is not yet right-to-left |
-| Scanned pages with no text layer | ⛔ Refused (exit code 17). No OCR is built in. Scans that already have an OCR text layer do convert |
-| Fillable forms | ⛔ Refused (exit code 19), because the result would look like the form without being one |
-| Over 250 pages | ⛔ Refused (exit code 20) unless you raise the limit with `--max-pages N` (`0` removes it) |
+| Reports, memos, letters, whitepapers, papers and résumés written in Word, Google Docs, LibreOffice or LaTeX | Works well |
+| Tables, simple two-column pages, headers, footers, footnotes, links | Works well |
+| Latin, Cyrillic and Greek text | Works well |
+| Chinese, Japanese and Korean text | Partly: the text survives, but some runs become pictures |
+| Arabic, Hebrew and Persian (right-to-left) | Partly: right-to-left paragraphs in reading order; pages can grow, and the Google Docs output is not yet right-to-left |
+| Long documents opened in Google Docs | Mostly: some gain pages (IRS Publication 15: 62 pages for 59) |
+| Designed reports and annual reports (InDesign, Affinity, QuarkXPress, Publisher) | Not yet: the text stays editable, but the layout does not hold |
+| Multi-column booklets (IRS, GPO, Federal Register style) | Not yet: IRS Publication 501 grows from 31 pages to 45 in LibreOffice |
+| Dense journal papers, equations | Not yet: equations come apart, and pages can be added |
+| Slide decks, brochures, posters | Not yet |
+| Scans without a text layer, fillable forms, over 250 pages | Refused with a clear message and exit code (no OCR is built in; `--max-pages` raises the cap) |
 
-A refusal writes nothing and says why. For example:
+<table>
+<tr>
+<td width="50%"><img src="docs/images/works-tables.png" alt="A page of tables, PDF beside DOCX. A table with merged header cells, a nested table and a long striped table look the same in both."></td>
+<td width="50%"><img src="docs/images/not-yet-dense-paper.png" alt="Page 1 of a two-column arXiv paper beside its DOCX. The text and columns match, but a summation equation is broken apart, outlined in red."></td>
+</tr>
+<tr>
+<td><b>Works:</b> tables become real Word tables, merged cells included.</td>
+<td><b>Not yet:</b> in a dense arXiv paper (CC BY 4.0) the text converts, but equations come apart.</td>
+</tr>
+</table>
 
-```text
-$ exactdoc scanned_letter.pdf -o letter.docx
-error: this PDF appears to require OCR before conversion
-  hint: run it through an OCR tool first (for example OCRmyPDF), then convert the result
+To see which program made a PDF, open **File → Properties** in a PDF viewer and
+read the Producer and Application fields, or run `exactdoc --diagnose your.pdf`,
+which prints them without any of the document's text. The full list, with
+numbers, is in [docs/deep-dive/limitations.md](docs/deep-dive/limitations.md);
+more side-by-side pictures are in [docs/examples.md](docs/examples.md).
 
-$ exactdoc f1040.pdf -o f1040.docx
-error: this PDF is an interactive form: its content lives in fillable fields,
-which this converter does not preserve. Converting it would produce a document
-that looks like the form and is not one.
-```
+## How we know
 
-The full list, with measurements, is in
-[docs/deep-dive/limitations.md](docs/deep-dive/limitations.md).
+Measured, not eyeballed. Every change must pass 16 frozen test documents, and
+each milestone converts 95 frozen PDFs (those 16 and 79 more, most of them
+public real-world documents), opens every DOCX in LibreOffice, Microsoft Word
+and Google Docs, and compares it with the PDF page by page. In the final
+measurement for the beta ([record](docs/evidence/final-set-2026-10-11.json),
+[scorecard](docs/evidence/beta-readiness-2026-10-11.json)):
 
-### Known limits
+- all 41 promised documents of up to 20 pages kept exactly their page count in
+  all three;
+- of the 21 promised documents over 20 pages, all 21 in LibreOffice and Word,
+  and 18 in Google Docs, kept their page count within 2% (or one page) with at
+  least 85% of their words on the right page;
+- across everything, including the kinds marked "Not yet", Word opened all 90
+  DOCX files without asking to repair one, and in Google Docs
+  66 of the 90 compared came back with exactly the right number of pages.
+  The other five are PDFs exactdoc refuses on purpose.
 
-The short version, for anyone testing the beta:
+These are the documents exactdoc was developed against, so they show how well
+it does on PDFs it has seen. How the measurement works:
+[docs/deep-dive/measured-state.md](docs/deep-dive/measured-state.md).
 
-- **No OCR.** A scan without a text layer is refused; a scan that already has
-  one converts.
-- **No fillable forms**, and nothing over 250 pages unless you pass
-  `--max-pages`.
-- **Long documents can still gain pages, most of all in Google Docs.** The
-  beta needs 17 of the 21 test documents over 20 pages to keep their page
-  count (within 2%, or one page) with at least 85% of their words on the right
-  page. In the final measurement all 21 did in LibreOffice and in Word, and 18
-  in Google Docs. The three that did not, all in Google Docs: IRS Publication 15
-  came back with 62 pages for 59, a World Bank report with 52 for 48, and a
-  LaTeX guide with 169 for 153
-  ([scorecard](docs/evidence/beta-readiness-2026-10-11.json)).
-- **The LibreOffice layout check is slow on long documents.** It renders the
-  document up to four times: a 126-page IRS booklet took 2 min 27 s in the
-  project's test container, one conversion at a time
-  ([measurement](docs/evidence/final-set-2026-10-11.json)).
-  `--refine 1` is a middle way: about a third less time on long documents,
-  for up to six more pages in our measurements
-  ([measurement](docs/evidence/refine-speed-2026-10-05.json)).
-- **Designed reports, annual reports and multi-column booklets** are outside
-  the promise (see [Which PDFs it is for](#which-pdfs-it-is-for)).
-- **Equations, slides, brochures and posters** do not convert well yet.
-- **Word is measured too, and mostly agrees with LibreOffice.** The same DOCX
-  files rendered by Word 16 (Office 2024): with the default settings 69 of 90
-  test documents come back with exactly the right number of pages in Word,
-  against 71 in LibreOffice, and Word opened all 90 without asking to repair
-  one ([measurement](docs/evidence/final-set-2026-10-11.json)).
-  Word differs most on long reports, where a page it
-  sets slightly taller spills onto the next, and on Japanese and Chinese text.
-  The files open in Word's Compatibility Mode on purpose: Word's newer layout
-  rules re-wrap justified paragraphs away from the PDF's own line breaks. If
-  Word shows something wrong, please
-  [report it](https://github.com/ebt55/exactdoc/issues/new?template=bad-conversion.yml).
-- **Reporting a bad conversion:** `exactdoc --diagnose your.pdf` prints a
-  summary with none of the document's text, which you can paste into the
-  report instead of attaching a private PDF.
+### Tested on documents it has never seen
 
-### Fonts
+Coming with 0.3.0b1: a sealed set of 32 public PDFs that were never used in
+development is converted once, on the release candidate, and its results go
+here beside the numbers above.
+
+## Fonts
 
 The DOCX names only fonts that a standard Windows 10 or 11 computer with
-Microsoft Office has, with one exception. Chinese, Japanese, Korean, Arabic,
-Hebrew, Persian and Thai text keeps the PDF's own font name in Word's East
-Asian and complex-script font settings, so that a reader who has the font sees
-it. A reader who does not gets Word's default font for that script instead.
+Microsoft Office has, with one exception: Chinese, Japanese, Korean, Arabic,
+Hebrew, Persian and Thai text keeps the PDF's own font name, so a reader who
+has that font sees it and one who does not gets Word's default for the script.
 The fonts the test documents name this way are `Noto Sans CJK JP`,
 `IPAPGothic`, `WenQuanYi Zen Hei`, `DFKai-SB`, `DejaVu Sans`,
 `Noto Naskh Arabic`, `David`, `Narkisim`, `BNazanin` and `Thonburi`.
 
-## How good is it, and how do we know?
+## Contributing
 
-*Read these numbers for what they are.* Every number in this section and in
-the tables above is measured on the documents exactdoc was developed against:
-the 16 gated test documents and the 79 others were all in view while the
-converter was tuned, so they show how well it does on PDFs it has seen. A
-result on documents it has never seen is reported separately, below.
-
-Every change has to pass a gate that converts 16 frozen test documents and
-renders the results in a pinned copy of LibreOffice. Today all 16 keep their page
-count, with and without the layout check
-([gate run](docs/evidence/final-set-2026-10-11.json)). No change may fall below
-the recorded baseline
-([`testkit/gate_baseline.json`](testkit/gate_baseline.json); re-recorded on
-11 October after a review:
-[record](docs/evidence/rerecord-2026-10-11.json)). The Google Docs
-output is checked in Google Docs itself: the same 16 documents are uploaded, and
-Google's own export is compared with the PDF
-([latest pass](docs/evidence/gdocs-2026-10-04-pass9b-qualification.json)).
-Another 79 PDFs, most of them real-world documents, are measured too but do not
-gate changes. They show how much is left: in the latest live Google Docs sweep
-of all 95, 66 of the 90 compared came back with exactly the right number of pages
-([measurement](docs/evidence/final-set-2026-10-11.json)); the other five are
-PDFs the converter refuses on purpose, and each was refused with its exit code.
-
-### Tested on documents it has never seen
-
-To be filled in. A sealed set of about 30 public PDFs that were never part of
-development (holdout-2, sealed on 11 October 2026 and recorded in
-[docs/beta-bar.md](docs/beta-bar.md), amendment 6) is converted once, on the
-release candidate, with the default settings. Its results go here, beside the
-numbers above, after that single run. Until then this page has no numbers for
-unseen documents.
-
-### Where the numbers come from
-
-Every number on this page traces to a committed file (the gate baseline, the
-CHANGELOG, or a measurement record in [docs/evidence/](docs/evidence/)), not to
-memory. The example images come from
-[this run](docs/evidence/readme-examples-2026-10-04.json).
+PRs welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for the one-command quality
+check every PR runs. If a conversion goes wrong,
+[report it](https://github.com/ebt55/exactdoc/issues/new?template=bad-conversion.yml)
+with the output of `exactdoc --diagnose your.pdf` instead of the PDF itself.
 
 ## Learn more
 
 | | |
 |---|---|
-| [docs/usage.md](docs/usage.md) | Every option, the Python API, batch mode, exit codes, what happens without LibreOffice |
+| [docs/install.md](docs/install.md) | LibreOffice and its fonts, timing, the optional extras, what talks to the network |
+| [docs/usage.md](docs/usage.md) | Every option, the Python API, batch mode, exit codes |
 | [docs/deep-dive/limitations.md](docs/deep-dive/limitations.md) | What does not work yet, with numbers |
-| [docs/deep-dive/measured-state.md](docs/deep-dive/measured-state.md) | Support by the program that made the PDF, and the measurements behind it |
-| [docs/deep-dive/how-it-works.md](docs/deep-dive/how-it-works.md) | How the converter works, and how it got here |
+| [docs/examples.md](docs/examples.md) | More pages side by side, the good and the bad |
+| [docs/deep-dive/measured-state.md](docs/deep-dive/measured-state.md) | How the numbers are measured |
 | [CHANGELOG.md](CHANGELOG.md) | What changed, release by release |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Reporting a bad conversion without sharing the PDF, and running the tests |
 | [SECURITY.md](SECURITY.md) | Reporting a security problem privately |
-| [docs/README.md](docs/README.md) | Index of all the deeper documents: design notes, status, roadmap, corpus, evidence |
+| [docs/README.md](docs/README.md) | Index of every deeper document |
 
 ## Licence
 

@@ -7,35 +7,14 @@ or misbehaves. The [README](../README.md) has the short version, and
 
 ## Install
 
-From PyPI, once the first beta (0.3.0b1) is published:
+[install.md](install.md) has everything about installing: Python versions, the
+clone-or-PyPI command, LibreOffice and its fonts, timing, and the extras
+(`gdocs`, `mupdf`, `test`). Conversion is local; nothing is uploaded.
 
-```bash
-pip install exactdoc            # core (PDFium backend) — no AGPL code
-pip install "exactdoc[gdocs]"   # + the exactdoc-gdocs CLI (Google auth + qualification)
-```
-
-From a clone (the only way before the beta, and the way to develop):
-
-```bash
-git clone https://github.com/ebt55/exactdoc && cd exactdoc
-pip install -e .            # core (PDFium backend) — no AGPL code
-# optional extras:
-pip install -e ".[mupdf]"   # PyMuPDF reference backend — AGPL-3.0, see deep-dive/licensing.md
-pip install -e ".[gdocs]"   # exactdoc-gdocs CLI (Google auth + qualification)
-pip install -e ".[test]"    # test/measurement toolkit
-```
-
-The shipping profile's refinement loop renders through LibreOffice headless
-(`soffice`); see *When LibreOffice is missing or fails* below for what happens
-without it. Conversion is local; nothing is uploaded. `exactdoc --version`
-prints the installed version.
-
-Python 3.9 or newer is required; the `install` workflow proves 3.9, 3.12, 3.13
-and 3.14 on Linux, Windows and macOS, and 3.10 and 3.11 on Linux, on every
-push. One known difference: on a width
-that lands exactly on a rounding tie, Python 3.9–3.11 and 3.12+ can write a
-run's horizontal scale one percent apart, because 3.12 changed how `sum()`
-adds floats. Published numbers are measured on 3.12.
+One known difference between Python versions: on a width that lands exactly on
+a rounding tie, Python 3.9–3.11 and 3.12+ can write a run's horizontal scale
+one percent apart, because 3.12 changed how `sum()` adds floats. Published
+numbers are measured on 3.12.
 
 ## Usage
 
@@ -107,7 +86,21 @@ code (`exactdoc/cli.py`, `EXIT_CODES`):
 
 The error is one line. For the failures you can fix yourself (a password, a
 scan, a damaged file, LibreOffice asked for but missing) a `hint:` line follows
-it.
+it. A refusal writes nothing and says why. For example:
+
+```text
+$ exactdoc scanned_letter.pdf -o letter.docx
+error: this PDF appears to require OCR before conversion
+  hint: run it through an OCR tool first (for example OCRmyPDF), then convert the result
+
+$ exactdoc f1040.pdf -o f1040.docx
+error: this PDF is an interactive form: its content lives in fillable fields,
+which this converter does not preserve. Converting it would produce a document
+that looks like the form and is not one.
+```
+
+A scan that already has an OCR text layer converts; only a scan without one
+is refused.
 
 ### What the command prints
 

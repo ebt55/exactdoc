@@ -23,6 +23,16 @@ DOCX and render PDFs, and only rasterises and composes.
    docs/evidence/ (see docs/evidence/readme-examples-2026-10-04.json), because
    the README quotes page counts from it.
 
+3. The hero (hero-readers.gif and its still, hero-readers.png) also shows the
+   same DOCX in Word and in Google Docs. Those renders are never made here:
+   pass the Word lane's folder (testkit/word_oracle.py sweep, `<stem>.word.pdf`)
+   and the live Google Docs lane's folder (`<stem>.gdocs.pdf`, Google's own PDF
+   export of the uploaded gdocs-profile DOCX):
+
+       python scripts/readme_images.py RUN --word WORD_DIR --docs DOCS_DIR
+
+   Record which runs the pictures came from in docs/images/README.md.
+
 Needs pypdfium2 and Pillow (both core dependencies). The label font is Segoe UI
 on Windows and DejaVu Sans elsewhere; images differ slightly between the two.
 """
@@ -227,34 +237,123 @@ def editable(run, name, stem, page_no, height):
     save(canvas, name, 200)
 
 
+# The three readers, in the order the hero shows them, with their label colours.
+READERS = [("word", "Microsoft Word", BLUE), ("docs", "Google Docs", GREEN),
+           ("lo", "LibreOffice", PURPLE)]
+
+
+def reader_pdf(run, dirs, reader, stem):
+    """The render of `stem`'s DOCX in one reader: a PDF that reader wrote."""
+    if reader == "lo":
+        return run.render_pdf(stem)
+    suffix = {"word": ".word.pdf", "docs": ".gdocs.pdf"}[reader]
+    if not dirs.get(reader):
+        raise SystemExit("the hero needs --%s DIR (the %s renders)" % (reader, reader))
+    p = os.path.join(dirs[reader], stem + suffix)
+    if not os.path.exists(p):
+        raise SystemExit("no %s render for %s in %s" % (reader, stem, dirs[reader]))
+    return p
+
+
+def readers_gif(run, name, stem, page_no, height, dirs, hold_ms=2200):
+    """Source page beside the DOCX page, the DOCX cycling Word -> Docs -> LibreOffice.
+
+    The left page never changes, so a reader can compare the two at any moment;
+    the right one is the same DOCX file as each reader lays it out."""
+    left = render(src_path(stem), page_no - 1, height)[0]
+    rights = [(label, colour, render(reader_pdf(run, dirs, key, stem), page_no - 1, height)[0])
+              for key, label, colour in READERS]
+    m, arrow_w, top, bottom = 28 * SS, 56 * SS, 58 * SS, 34 * SS
+    rw = max(r.width for _, _, r in rights)
+    width = m + left.width + arrow_w + rw + m
+    frames = []
+    for i, (label, colour, right) in enumerate(rights):
+        canvas = Image.new("RGB", (width, top + max(left.height, right.height) + bottom), BG)
+        draw = ImageDraw.Draw(canvas)
+        pill(draw, (m, 16 * SS), "Original PDF", MUTED)
+        framed(canvas, left, m, top)
+        ax, ay = m + left.width + arrow_w // 2, top + left.height // 2
+        draw.polygon([(ax - 12 * SS, ay - 16 * SS), (ax + 12 * SS, ay),
+                      (ax - 12 * SS, ay + 16 * SS)], fill=(140, 149, 159))
+        x = m + left.width + arrow_w
+        pill(draw, (x, 16 * SS), "exactdoc's DOCX in " + label, colour)
+        framed(canvas, right, x, top)
+        draw = ImageDraw.Draw(canvas)
+        # which of the three readers this frame is: one dot each, under the page
+        cy, cx0 = top + right.height + 18 * SS, x + right.width // 2 - 24 * SS
+        for k, (_, c, _) in enumerate(rights):
+            r = 5 * SS
+            draw.ellipse((cx0 + k * 24 * SS - r, cy - r, cx0 + k * 24 * SS + r, cy + r),
+                         fill=c if k == i else BORDER)
+        frames.append(canvas.resize((canvas.width // SS, canvas.height // SS), Image.LANCZOS))
+    # One palette for every frame, so nothing flickers between them.
+    sheet = Image.new("RGB", (frames[0].width, frames[0].height * len(frames)))
+    for k, f in enumerate(frames):
+        sheet.paste(f, (0, k * f.height))
+    pal = sheet.quantize(colors=128, method=Image.MEDIANCUT, dither=Image.NONE)
+    out = [f.quantize(palette=pal, dither=Image.NONE) for f in frames]
+    path = os.path.join(OUT, name)
+    out[0].save(path, save_all=True, append_images=out[1:], duration=hold_ms, loop=0,
+                optimize=True, disposal=1)
+    print("%-26s %4dx%-4d %6.1f KB, %d frames" % (name, frames[0].width, frames[0].height,
+                                                  os.path.getsize(path) / 1024.0, len(out)))
+
+
+def readers_strip(run, name, stem, page_no, height, dirs):
+    """The hero's still: PDF | Word | Google Docs | LibreOffice, side by side."""
+    pages = [("Original PDF", MUTED, render(src_path(stem), page_no - 1, height)[0])]
+    pages += [(label, colour, render(reader_pdf(run, dirs, key, stem), page_no - 1, height)[0])
+              for key, label, colour in READERS]
+    m, gap, top, bottom = 28 * SS, 28 * SS, 58 * SS, 24 * SS
+    width = 2 * m + sum(p.width for _, _, p in pages) + gap * (len(pages) - 1)
+    canvas = Image.new("RGB", (width, top + max(p.height for _, _, p in pages) + bottom), BG)
+    x = m
+    for label, colour, img in pages:
+        pill(ImageDraw.Draw(canvas), (x, 16 * SS), label, colour)
+        framed(canvas, img, x, top)
+        x += img.width + gap
+    save(canvas, name, 160)
+
+
 LO = "exactdoc's DOCX, opened in LibreOffice"
 IMAGES = {
-    "hero-whitepaper.png": lambda r, n: pair(r, n, "01_whitepaper_market", 1, 640, LO, BLUE),
+    "hero-readers.gif": lambda r, n: readers_gif(r, n, "01_whitepaper_market", 1, 640, DIRS),
+    "hero-readers.png": lambda r, n: readers_strip(r, n, "01_whitepaper_market", 1, 420, DIRS),
     "editable-structure.png": lambda r, n: editable(r, n, "01_whitepaper_market", 2, 760),
     "works-tables.png": lambda r, n: pair(r, n, "c3_tables", 1, 470, LO, BLUE),
     "works-two-column.png": lambda r, n: pair(r, n, "c2_paper2col", 1, 470, LO, BLUE),
     "works-resume.png": lambda r, n: pair(r, n, "x17_resume_twocol", 1, 470, LO, BLUE),
     "works-footnotes.png": lambda r, n: pair(r, n, "x05_lo_quotes_notes", 1, 470, LO, BLUE),
-    # The red outlines point at the failure on THIS render; re-check them by eye
+    # The red outlines point at the failure on THIS render (final-910e6aa); re-check them by eye
     # whenever the images are rebuilt, because a better converter moves them.
     "not-yet-slides.png": lambda r, n: pair(
         r, n, "y34_census_slides_pptx365", 3, 300, "exactdoc's DOCX: the layout falls apart", RED,
-        highlights=[(0.20, 0.17, 0.97, 0.55)]),
+        highlights=[(0.20, 0.17, 0.97, 0.62)]),
     "not-yet-dense-paper.png": lambda r, n: pair(
-        r, n, "y41_arxiv_ieeetran", 1, 560, "exactdoc's DOCX: equations break, pages multiply", RED,
-        highlights=[(0.55, 0.53, 0.92, 0.63), (0.48, 0.74, 0.545, 0.975)]),
+        r, n, "y41_arxiv_ieeetran", 1, 560, "exactdoc's DOCX: equations come apart", RED,
+        highlights=[(0.55, 0.745, 0.92, 0.797)]),
     "not-yet-designed.png": lambda r, n: pair(
-        r, n, "y58_ssa_statement_indd20", 1, 560, "exactdoc's DOCX: panels become pictures", RED,
-        highlights=[(0.06, 0.92, 0.97, 0.985)]),
+        r, n, "y58_ssa_statement_indd20", 1, 560, "exactdoc's DOCX: the design loosens", RED,
+        highlights=[(0.05, 0.08, 0.80, 0.19), (0.05, 0.78, 0.53, 0.88)]),
 }
 
 
+DIRS = {}                   # --word / --docs folders, for the hero
+
+
 def main(argv=None):
-    argv = sys.argv[1:] if argv is None else argv
+    argv = list(sys.argv[1:] if argv is None else argv)
+    for flag in ("--word", "--docs"):
+        if flag in argv:
+            k = argv.index(flag)
+            DIRS[flag[2:]] = argv[k + 1]
+            del argv[k:k + 2]
     if not argv:
         print(__doc__)
         return 2
-    run, names = Run(argv[0]), argv[1:] or sorted(IMAGES)
+    run = Run(argv[0])
+    names = argv[1:] or sorted(n for n in IMAGES
+                               if not n.startswith("hero-readers") or len(DIRS) == 2)
     os.makedirs(OUT, exist_ok=True)
     for name in names:
         if name not in IMAGES:

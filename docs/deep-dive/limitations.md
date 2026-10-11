@@ -1,8 +1,10 @@
 # Limitations, with numbers
 
-> Moved from the README in October 2026: the limitation tiers, the specific
-> limitations with their measurements, and the queue of what is not done, as
-> they stood. The [README](../../README.md) keeps a short, visual version;
+> Moved from the README in October 2026: which PDFs exactdoc is for, the full
+> table by kind of PDF, the notes for beta testers, the limitation tiers, the
+> specific limitations with their measurements, and the queue of what is not
+> done. The [README](../../README.md) keeps a short version;
+> [examples.md](../examples.md) shows the cases side by side;
 > [status.md](status.md) has the defect register, and the
 > [CHANGELOG](../../CHANGELOG.md) records what has moved since.
 >
@@ -10,6 +12,86 @@
 > [docs/evidence/final-set-2026-10-11.json](../evidence/final-set-2026-10-11.json)
 > (LibreOffice and Word with the default settings, and a live Google Docs
 > sweep). A number below without a date is from that file.
+
+## Which PDFs it is for
+
+What exactdoc promises depends on the program that made the PDF
+([beta bar, amendment 6](../beta-bar.md)):
+
+- **Promised:** documents written as flowing text in **Word, Google Docs,
+  LibreOffice or LaTeX**: reports, memos, letters, whitepapers, papers and
+  résumés.
+- **Not yet:** **designed reports** laid out in InDesign, Affinity Publisher,
+  QuarkXPress or Microsoft Publisher (multi-column pages with full-bleed
+  graphics), **annual reports**, and **multi-column booklets** in the style of
+  the IRS, the GPO and the Federal Register. They convert and their text stays
+  editable, but the layout does not hold: pages can be added and text can land
+  on the wrong page.
+
+To see which program made a PDF, open it in a PDF viewer and look at
+**File → Properties** (in some viewers *Document Properties*): the
+**PDF Producer** and **Application** (or *Creator*) fields usually name it, for
+example `Microsoft® Word for Microsoft 365`, `LibreOffice` with `Writer`,
+`pdfTeX` for LaTeX, `Skia/PDF … Google Docs Renderer` for Google Docs, or
+`Adobe InDesign`. `exactdoc --diagnose your.pdf` prints the same two fields, as
+its `producer` and `creator` lines, along with the page sizes, fonts and the
+layout exactdoc found; it writes nothing and prints none of the document's text.
+It does not say whether the PDF is in the promise; that is the list above. A
+PDF made with a "print to PDF" driver may name the driver rather than the
+program the document was written in.
+
+## By kind of PDF
+
+The README's table, with its numbers. Every figure is from the final
+measurement of 11 October ([measurement](../evidence/final-set-2026-10-11.json)) unless it says otherwise.
+
+| Kind of PDF | Today |
+|---|---|
+| Reports, memos, letters, whitepapers written in Word, Google Docs, LibreOffice or LaTeX | Works well. Long reports mostly keep their page count: the four NIST publications of 59–114 pages come back page for page in LibreOffice and Google Docs |
+| Tables (merged cells, tables over several pages) | Works well |
+| Simple two-column layouts | Works well |
+| Résumés | Mostly. Some designed two-column templates still spill onto an extra page |
+| Headers, footers, page numbers, footnotes, links | Works well |
+| Latin, Cyrillic and Greek text | Works well |
+| Chinese, Japanese and Korean text | Partly. The text survives, but some runs become pictures |
+| Long documents in Google Docs | Some long documents still gain pages. In the live Google Docs sweep, a 144-page EU regulation came back page for page, but IRS Publication 15 came back with 62 pages for 59, a World Bank report with 52 for 48, a 153-page LaTeX guide as 169, and a 40-slide deck as 54 |
+| Designed reports (InDesign, Affinity Publisher, QuarkXPress, Microsoft Publisher: multi-column with full-bleed graphics) | Not yet. The text converts and mostly stays editable, but the layout does not hold in every reader: a designed Social Security Statement keeps its 2 pages in LibreOffice and Word, with 89% of its words on the right page, and becomes 4 in Google Docs, with 39% |
+| Annual reports | Not yet. They are usually designed reports (above) |
+| Multi-column booklets (IRS / GPO / Federal Register style) | Not yet. Narrow columns of small type re-wrap and grow. IRS Publication 501 (31 pages) became 45 pages in LibreOffice, 54 in Word and 57 in Google Docs, with under 30% of its words on the right page; the 126-page Form 1040 instructions became 135, 145 and 154 pages. The text survives as editable text (95–97% of it in LibreOffice) |
+| Dense journal papers, equations | Not yet. A paper's flowing text converts, but equations are not rebuilt as editable math, and dense two-column journal layouts can gain a page: an 8-page arXiv paper became 9 pages in LibreOffice and Word and 10 in Google Docs, with 70% of its words on the right page in LibreOffice |
+| Slide decks, brochures, posters | Not yet. Layouts break or become pictures: a 40-slide deck keeps its 40 pages in LibreOffice and Word, but about three quarters of its text sits in text boxes, and Google Docs makes 54 pages of it |
+| Arabic, Hebrew and Persian (right-to-left) | Partly. Text arrives in reading order as right-to-left Word paragraphs; pages can grow where the reader lacks the source's fonts (an Arabic report 57 → 65 pages, a Hebrew paper 28 → 29, in LibreOffice). The Google Docs output is not yet right-to-left |
+| Scanned pages with no text layer | Refused (exit code 17). No OCR is built in. Scans that already have an OCR text layer do convert |
+| Fillable forms | Refused (exit code 19), because the result would look like the form without being one |
+| Over 250 pages | Refused (exit code 20) unless you raise the limit with `--max-pages N` (`0` removes it) |
+
+A refusal writes nothing and says why; [usage.md](../usage.md#exit-codes)
+shows what it prints.
+
+## Notes for beta testers
+
+- **Long documents can still gain pages, most of all in Google Docs.** The
+  beta needs 17 of the 21 promised test documents over 20 pages to keep their
+  page count (within 2%, or one page) with at least 85% of their words on the
+  right page. In the final measurement all 21 did in LibreOffice and in Word,
+  and 18 in Google Docs. The three that did not, all in Google Docs: IRS
+  Publication 15 came back with 62 pages for 59, a World Bank report with 52
+  for 48, and a LaTeX guide with 169 for 153
+  ([scorecard](../evidence/beta-readiness-2026-10-11.json)).
+- **Word is measured too, and mostly agrees with LibreOffice.** The same DOCX
+  files rendered by Word 16 (Office 2024): with the default settings 69 of 90
+  test documents come back with exactly the right number of pages in Word,
+  against 71 in LibreOffice, and Word opened all 90 without asking to repair
+  one ([measurement](../evidence/final-set-2026-10-11.json)). Word differs most on long reports, where a page it
+  sets slightly taller spills onto the next, and on Japanese and Chinese text.
+  The files open in Word's Compatibility Mode on purpose: Word's newer layout
+  rules re-wrap justified paragraphs away from the PDF's own line breaks.
+- **The LibreOffice layout check is slow on long documents**; see
+  [install.md](../install.md#how-long-it-takes).
+- **Reporting a bad conversion:** `exactdoc --diagnose your.pdf` prints a
+  summary with none of the document's text, which you can paste into a
+  [report](https://github.com/ebt55/exactdoc/issues/new?template=bad-conversion.yml)
+  instead of attaching a private PDF.
 
 ## Limitations, in tiers
 

@@ -3,7 +3,7 @@
     python scripts/pypi_readme.py --ref v0.3.0b1      # rewrites README.md in place
 
 README.md is written for GitHub, where `docs/usage.md` and
-`docs/images/hero-whitepaper.png` resolve against the repository. PyPI renders
+`docs/images/hero-readers.gif` resolve against the repository. PyPI renders
 the same file as the project page (pyproject's `readme`), resolves nothing, and
 shows every picture broken and every link dead. The release workflow runs this
 in its own checkout just before `python -m build`, so the uploaded description
