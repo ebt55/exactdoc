@@ -371,6 +371,25 @@ exactly this use; neither font is embedded or redistributed.
 `fonts-wqy-zenhei` (GPL with font exception), `fonts-ipafont-gothic` (IPA Font
 License).
 
+**Published image (WP55, 2026-10-11).** CI's gate runs in
+`ghcr.io/ebt55/exactdoc-gate` (pinned by digest in `.github/workflows/gate.yml`),
+the canonical snapshot (flattened by `scripts/dev/ci_image.sh --no-chrome`): everything above but Chrome, plus a Python venv at
+`/work/.venv` holding the measurement dependencies, including PyMuPDF
+(AGPL-3.0), an instrument that is never shipped in the wheel. Playwright's
+Chrome for Testing is removed from it (`--no-chrome`): the gate never needs
+it, it only regenerates corpus documents. Publishing the image does convey
+the remaining binaries, so the
+"not distributed" reasoning below covers the wheel and the repository, not
+the image. For the image, [docs/gate-image.md](gate-image.md) is the
+source-availability notice: it names the GPL, LGPL, AGPL and MPL components
+(the Ubuntu 24.04 packages, LibreOffice, GNU FreeFont, WenQuanYi Zen Hei,
+PyMuPDF/MuPDF, fpdf2) and the permissively licensed fonts (Liberation,
+Carlito, Caladea, DejaVu, IPA), with the versions in the image and where each
+one's source is: the Ubuntu archive (`apt-get source <package>=<version>`),
+LibreOffice's source pages, PyMuPDF's and MuPDF's GitHub repositories and the
+font projects. The image's OCI label `org.opencontainers.image.documentation`
+points to it from the next build on.
+
 **None of this constrains exactdoc's code licence, for three reasons.** It is
 not distributed with exactdoc — it is a container the project builds to measure
 in, and the published artifact is an image, not part of any wheel. It is not

@@ -352,6 +352,14 @@ class Script(unittest.TestCase):
         self.assertTrue(local <= shipped, local - shipped)
         self.assertIn("quality_check.py", shipped)
 
+    def test_the_published_image_is_the_one_ci_gates_in(self):
+        with open(self.SH, encoding="utf-8") as f:
+            pub = re.search(r"^PUBLISHED=(\S+)$", f.read(), re.M).group(1)
+        with open(os.path.join(ROOT, ".github", "workflows", "gate.yml"),
+                  encoding="utf-8") as f:
+            ci = re.search(r"^\s+image:\s*(\S+)\s*$", f.read(), re.M).group(1)
+        self.assertEqual(pub, ci)
+
     def test_the_gate_is_never_run_with_the_stale_baseline_allowance(self):
         with open(self.SH, encoding="utf-8") as f:
             code = [l for l in f if not l.lstrip().startswith("#")]

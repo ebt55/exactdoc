@@ -36,7 +36,10 @@
 #   --jobs N          documents side by side in the sweep (default 4)
 #   --image IMG       measurement image. Default: $EXACTDOC_GATE_IMAGE, else
 #                     exactdoc-gate:boot if it exists (the maintainer's canonical
-#                     snapshot), else exactdoc-gate:local-boot (made by --build)
+#                     snapshot), else the published canonical image CI's gate
+#                     runs in (PUBLISHED below, pulled on first use), else
+#                     exactdoc-gate:local-boot (made by --build). A registry
+#                     reference that is not present locally is pulled.
 #   --build           build docker/gate.Dockerfile as exactdoc-gate:local, then
 #                     provision it with scripts/bootstrap.sh --strict and save it
 #                     as exactdoc-gate:local-boot (needs the network; ~10 min once)
@@ -67,7 +70,7 @@ while [ $# -gt 0 ]; do
     --out) OUT="${2:?}"; shift 2;;
     --keep) KEEP=1; shift;;
     --dry-run) DRY=1; shift;;
-    -h|--help) sed -n '2,51p' "$0"; exit 0;;
+    -h|--help) sed -n '2,54p' "$0"; exit 0;;
     *) die "unknown option $1 (see --help)";;
   esac
 done
@@ -105,6 +108,9 @@ B7="${BASE_SHA:0:7}"; H7="${HEAD_SHA:0:7}"
 SCR="${EXACTDOC_SCR:-$ROOT/.scratch}"
 OUT="${OUT:-$SCR/qc/$B7-$H7$( [ $MODE = repeat ] && echo -repeat)-$CORPUS}"
 C="exq-$B7-$H7-$$"
+# The canonical measurement image, exactly as .github/workflows/gate.yml pins
+# it (tests/test_quality_check.py keeps the two equal).
+PUBLISHED=ghcr.io/ebt55/exactdoc-gate@sha256:b46332899ad379ce6afa3bfadaead5bfaad039b2d5556bc78fdb7c17c3b32eb4
 DIGEST=sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90
 
 if [ $MODE = compare ] && [ "$HEAD_REF" = HEAD ] && [ -n "$(g status --porcelain --untracked-files=no)" ]; then
@@ -154,9 +160,15 @@ if [ "$BUILD" = 1 ]; then
 fi
 if [ -z "$IMAGE" ]; then
   if have_image exactdoc-gate:boot; then IMAGE=exactdoc-gate:boot
+  elif [ "${PUBLISHED##*:}" != PENDING ]; then IMAGE="$PUBLISHED"
   elif have_image exactdoc-gate:local-boot; then IMAGE=exactdoc-gate:local-boot
   elif [ "$DRY" = 1 ]; then IMAGE=exactdoc-gate:local-boot
   else die "no measurement image: run once with --build (or pass --image)"; fi
+fi
+if [ "$DRY" = 0 ] && ! have_image "$IMAGE"; then
+  case "$IMAGE" in
+    */*) echo "== pulling $IMAGE"; docker pull "$IMAGE" || die "could not pull $IMAGE";;
+  esac
 fi
 IMAGE_ID="$(docker image inspect -f '{{.Id}}' "$IMAGE" 2>/dev/null)"
 [ -n "$IMAGE_ID" ] || [ "$DRY" = 1 ] || die "image $IMAGE not found"

@@ -42,6 +42,23 @@ one verified fix at a time, each gated against the frozen 16.
   profile is byte-identical over the 95 corpus documents; the gdocs DOCX of
   documents without such boxes is identical. Live evidence pending (probe
   set `C:\lotmp\scr\wp56\gdocs_probe`).
+- **CI's gate runs strict, inside the pinned canonical image (WP55).** Since
+  the baseline binding (WP43) the `gate` workflow could not pass on a bare
+  `ubuntu-24.04` runner: the baseline is bound to environment 9cb0bc17, which
+  no runner reproduces. The maintainer's canonical snapshot
+  (`exactdoc-gate:boot`, image id bab1cfc0d2cd), flattened without the
+  working tree its last layer carried, its pip/uv caches and Chrome for
+  Testing, which the gate does not use (`scripts/dev/ci_image.sh
+  --no-chrome`), is pushed
+  to `ghcr.io/ebt55/exactdoc-gate`; `gate.yml` pins it by digest and runs every
+  step in it, with a first step that fails unless the environment is the
+  recorded one; no rebuild and no re-record. Measured locally the way CI runs
+  it, on 96ede05: fingerprint 9cb0bc17, canonical, the whole step list green.
+  It is published as `ghcr.io/ebt55/exactdoc-gate:snapshot-2026-10-11`;
+  docs/gate-image.md says what is in it and where the source of every
+  GPL/LGPL/AGPL/MPL component is. The integration branch is gated on push
+  too, and `quality_check.sh` uses
+  the same image by default, pulling it on first use.
 - **A contributor guide and a one-command quality check (WP54).**
   CONTRIBUTING.md is rewritten as the full guide: reporting with `--diagnose`,
   setup on Linux, macOS and Windows, the tests, how a fix is judged (a named

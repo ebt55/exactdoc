@@ -1,5 +1,10 @@
 # Build and publish the canonical measurement image.
 #
+# NOTE (WP55): the digest gate.yml pins is NOT a build of this workflow. It is
+# the maintainer's snapshot exactdoc-gate:boot (image id bab1cfc0d2cd),
+# flattened without its old working tree by scripts/dev/ci_image.sh and pushed,
+# because a rebuild resolves today's apt and is a new environment.
+#
 # Manual only. Publishing a new image is not a routine event: the fidelity
 # numbers are a property of the renderer inside it, so a new digest is a new
 # environment, and adopting one is a deliberate baseline migration -- never a
