@@ -93,7 +93,7 @@ code (`exactdoc/cli.py`, `EXIT_CODES`):
 | 3 | Invalid configuration, or an output that would replace something it should not: the default `<name>.docx` already exists (pass `-o` or `--overwrite`), or `-o` names the input PDF |
 | 4 | A cloud oracle was asked for without `--allow-cloud-upload` |
 | 5 | Unsupported input, such as an encrypted PDF |
-| 6 | Not a readable PDF: empty, not a PDF at all (no `%PDF-` header), or malformed or truncated |
+| 6 | Not a readable PDF: empty, not a PDF at all (no `%PDF-` header; a Word, Excel, PowerPoint or OpenDocument file is named as one), or malformed or truncated |
 | 7 | The requested parser backend is not installed |
 | 8 | The output could not be written: its path is a folder, or its folder cannot be written. Checked before converting, so it fails in a second |
 | 9 | A resource limit was exceeded |
@@ -170,7 +170,9 @@ Two different situations, deliberately handled differently:
   purpose:
   - **`exactdoc file.pdf` with no refinement options** converts in one pass
     (exactly `--refine 0`), exits **0**, and prints a note to stderr saying
-    LibreOffice was not found, what that skips, and where to get it. A
+    LibreOffice was not found, what that skips, and where to get it. The note
+    comes once the PDF has been read and accepted, so it never stands above
+    an error about the input (a password, a scan, a file that is not a PDF). A
     first-time user without an office suite is the commonest case, not a
     misconfiguration. The note is printed every time, so the fallback is never
     silent; `--refine 0` hides it.

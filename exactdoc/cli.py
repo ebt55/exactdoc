@@ -12,7 +12,8 @@ not installed an optional office suite is not misconfigured; they are the
 commonest case. The strict behaviour stays wherever refinement was asked for
 by name -- an explicit `--refine N` or `--oracle libreoffice` is still exit 11
 -- and `convert()` is unchanged, so a script that wants the old contract has
-it. The fallback is never silent: the note goes to stderr every time.
+it. The fallback is never silent: the note goes to stderr every time a
+document is accepted for conversion (not above an error about the input).
 """
 import argparse
 import os
@@ -246,8 +247,11 @@ def main(argv=None):
         print("error: %s" % e.message, file=sys.stderr)
         if e.detail:
             print("  %s" % e.detail, file=sys.stderr)
-        if HINTS.get(e.code):
-            print("  hint: %s" % HINTS[e.code], file=sys.stderr)
+        # An error that knows better than its code's general hint carries its
+        # own (a Word document passed as the input: input._office_kind).
+        hint = getattr(e, "hint", None) or HINTS.get(e.code)
+        if hint:
+            print("  hint: %s" % hint, file=sys.stderr)
         return code
     except KeyboardInterrupt:
         print("interrupted", file=sys.stderr)
@@ -314,7 +318,11 @@ class _Progress:
     a stage has run for a second, so short documents print nothing extra.
     """
 
-    def __init__(self, name, stream=None, enabled=None):
+    #: Stages that begin only once the input has been read and every refusal
+    #: (password, scan, form, page cap) has been checked.
+    ACCEPTED_STAGES = ("write", "refine")
+
+    def __init__(self, name, stream=None, enabled=None, notes=None):
         self.stream = stream or sys.stderr
         self.enabled = _isatty(self.stream) if enabled is None else enabled
         self.name = name
@@ -324,8 +332,18 @@ class _Progress:
         self._stop = threading.Event()
         self._thread = None
         self._width = 0
+        self._lock = threading.Lock()
+        # Shared across the run's documents: a note is printed once, by the
+        # first document that gets as far as writing (see _run).
+        self.notes = notes if notes is not None else []
 
     def __call__(self, stage, info):
+        if stage in self.ACCEPTED_STAGES and self.notes:
+            with self._lock:
+                self._clear()
+                while self.notes:
+                    print(self.notes.pop(0), file=self.stream)
+                self.stream.flush()
         if info.get("pages"):
             self.pages = info["pages"]
         n = "%d pages" % self.pages if self.pages else "the pages"
@@ -355,18 +373,23 @@ class _Progress:
     def _draw(self, line):
         cols = shutil.get_terminal_size((80, 20)).columns
         line = line[:max(10, cols - 1)]
-        self.stream.write("\r" + line + " " * max(0, self._width - len(line)))
-        self.stream.flush()
-        self._width = len(line)
+        with self._lock:
+            self.stream.write("\r" + line + " " * max(0, self._width - len(line)))
+            self.stream.flush()
+            self._width = len(line)
+
+    def _clear(self):
+        if self._width:
+            self.stream.write("\r" + " " * self._width + "\r")
+            self.stream.flush()
+            self._width = 0
 
     def close(self):
         self._stop.set()
         if self._thread is not None:
             self._thread.join(2.0)
-        if self._width:
-            self.stream.write("\r" + " " * self._width + "\r")
-            self.stream.flush()
-            self._width = 0
+        with self._lock:
+            self._clear()
 
 
 def _libreoffice_fallback(args):
@@ -479,10 +502,12 @@ def _run(ap, argv):
         if args.out or args.verify or args.report_dir:
             ap.error("-o, --verify, and --report-dir are not supported for batch conversion")
         refine, oracle, fell_back = _libreoffice_fallback(args)
-        if fell_back and not args.scan_only:
-            print(FALLBACK_NOTE, file=sys.stderr)
         from .batch import make_items, run
         items = make_items(args.input_dir, args.out_dir, recursive=args.recursive)
+        # After the folder is found to hold PDFs, not before: a typo in
+        # --input-dir gets its one-line error without the note above it.
+        if fell_back and not args.scan_only:
+            print(FALLBACK_NOTE, file=sys.stderr)
         report = run(items, backend=args.backend, dpi=args.dpi,
                      refine_rounds=refine, output_profile=args.output_profile,
                      oracle=oracle, allow_cloud_upload=args.allow_cloud_upload,
@@ -531,8 +556,12 @@ def _run(ap, argv):
 
     jobs = _check_jobs(args)
     refine, oracle, fell_back = _libreoffice_fallback(args)
-    if fell_back:
-        print(FALLBACK_NOTE, file=sys.stderr)
+    # The note is printed when the first document is accepted -- read, and
+    # past every refusal -- not here. Printed up front, it stood above every
+    # "password-protected", "not a PDF" and "needs OCR" error on a machine
+    # without LibreOffice, five lines about a layout check for a file that was
+    # never going to be converted (pre-release audit, 2026-10-11).
+    notes = [FALLBACK_NOTE] if fell_back else []
 
     import warnings
     from .convert import convert_result
@@ -544,7 +573,8 @@ def _run(ap, argv):
         legacy = {"target": args.target} if args.target else {
             "output_profile": args.output_profile, "oracle": oracle}
         progress = _Progress(os.path.basename(p),
-                             enabled=False if args.verbose else None)
+                             enabled=False if args.verbose else None,
+                             notes=notes)
         try:
             with warnings.catch_warnings():
                 # Reported below from the result, once, in the CLI's own words.

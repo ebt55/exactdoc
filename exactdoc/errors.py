@@ -41,6 +41,10 @@ class ExactdocError(Exception):
 
     #: Short stable slug for machine consumers and `--json`. Subclasses set it.
     code = "error"
+    #: A one-line suggestion the CLI prints under the error, when this
+    #: instance knows better than the general hint for its code. Same rules as
+    #: `detail`: nothing from the document, no paths.
+    hint = None
 
     def __init__(self, message, detail=None):
         super().__init__(message)

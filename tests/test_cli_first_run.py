@@ -157,6 +157,52 @@ class InputErrors(_TempDir):
         proc = _cli(src, "--refine", "0", "-o", self.path("o.docx"))
         self.assertOneLineError(proc, 6, "not a PDF")
 
+    def _zip(self, name, members):
+        import zipfile
+        src = self.path(name)
+        with zipfile.ZipFile(src, "w") as zf:
+            for member, data in members:
+                zf.writestr(member, data)
+        return src
+
+    def test_a_word_document_is_named_as_one(self):
+        src = self._zip("report.docx", [
+            ("[Content_Types].xml", "<Types/>"),
+            ("word/document.xml", "<w:document/>")])
+        proc = _cli(src, "--refine", "0", "-o", self.path("o.docx"))
+        self.assertOneLineError(proc, 6, "this is a Word document (DOCX), not a PDF")
+        self.assertIn("hint: a Word document needs no conversion", proc.stderr)
+        self.assertNotIn("PDF viewer", proc.stderr)
+        self.assertNotIn("saved with a .pdf name", proc.stderr)
+
+    def test_other_office_files_are_named_too(self):
+        cases = (
+            ("book.xlsx", [("[Content_Types].xml", "<Types/>"),
+                           ("xl/workbook.xml", "<workbook/>")], "Excel workbook"),
+            ("deck.pptx", [("[Content_Types].xml", "<Types/>"),
+                           ("ppt/presentation.xml", "<p/>")], "PowerPoint"),
+            ("notes.odt", [("mimetype",
+                            "application/vnd.oasis.opendocument.text")],
+             "OpenDocument text"),
+        )
+        for name, members, needle in cases:
+            with self.subTest(name=name):
+                src = self._zip(name, members)
+                proc = _cli(src, "--refine", "0", "-o", self.path("o.docx"))
+                self.assertOneLineError(proc, 6, needle, "not a PDF")
+                self.assertIn("hint:", proc.stderr)
+        old = self.path("old.doc")
+        with open(old, "wb") as fh:
+            fh.write(b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\0" * 600)
+        proc = _cli(old, "--refine", "0", "-o", self.path("o.docx"))
+        self.assertOneLineError(proc, 6, "older Microsoft Office document")
+        self.assertIn("export or save the document as a PDF", proc.stderr)
+
+    def test_a_plain_zip_is_still_just_not_a_pdf(self):
+        src = self._zip("bundle.pdf", [("readme.txt", "hello")])
+        proc = _cli(src, "--refine", "0", "-o", self.path("o.docx"))
+        self.assertOneLineError(proc, 6, "no PDF header")
+
     def test_an_empty_file(self):
         src = self.path("empty.pdf")
         open(src, "wb").close()
@@ -295,6 +341,32 @@ class WithoutLibreOffice(_TempDir):
         self.assertIn("note: LibreOffice was not found", err)
         self.assertIn("--refine 0", err)
         self.assertIn("wrote ", out)
+
+    def test_no_note_above_an_error_about_the_input(self):
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from test_input_errors import ENCRYPTED_PDF
+        locked = self.path("locked.pdf")
+        with open(locked, "wb") as fh:
+            fh.write(ENCRYPTED_PDF)
+        page = self.path("page.pdf")
+        with open(page, "w") as fh:
+            fh.write("<!doctype html><title>Not found</title>\n")
+        scan = _scan_pdf(self.path("scan.pdf"), self.path("scan.png"))
+        for src, code in ((locked, 5), (page, 6), (scan, 17)):
+            with self.subTest(src=os.path.basename(src)):
+                got, _, err = self._main(src, "-o", self.path("x.docx"))
+                self.assertEqual(got, code, err)
+                self.assertTrue(err.startswith("error: "), err)
+                self.assertNotIn("LibreOffice was not found", err)
+
+    def test_the_note_is_printed_once_for_several_documents(self):
+        other = _text_pdf(self.path("other.pdf"))
+        code, out, err = self._main(self.src, other)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(err.count("note: LibreOffice was not found"), 1, err)
+        self.assertEqual(out.count("wrote "), 2, out)
+        # and before the first "wrote" line it explains
+        self.assertTrue(err.startswith("note: "), err)
 
     def test_refinement_asked_for_by_name_is_still_exit_11(self):
         for args in (("--refine", "3"), ("--oracle", "libreoffice")):

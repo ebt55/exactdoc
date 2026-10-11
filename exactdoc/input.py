@@ -54,6 +54,58 @@ def _os_error(path, exc):
     return None
 
 
+_EXPORT_HINT = ("exactdoc reads PDFs only; export or save the document as a "
+                "PDF first, then convert that")
+_DOCX_HINT = ("a Word document needs no conversion: open it as it is in Word, "
+              "LibreOffice or Google Docs")
+# OOXML packages, by the part that names their kind (ECMA-376 part 2).
+_OOXML_PARTS = (
+    ("word/", "a Word document (DOCX)", _DOCX_HINT),
+    ("xl/", "an Excel workbook (XLSX)", _EXPORT_HINT),
+    ("ppt/", "a PowerPoint presentation (PPTX)", _EXPORT_HINT),
+)
+_ODF_KINDS = (
+    (b"opendocument.text", "an OpenDocument text document (ODT)", _DOCX_HINT),
+    (b"opendocument.spreadsheet", "an OpenDocument spreadsheet (ODS)",
+     _EXPORT_HINT),
+    (b"opendocument.presentation", "an OpenDocument presentation (ODP)",
+     _EXPORT_HINT),
+)
+# The OLE2 compound-file signature: .doc, .xls and .ppt before 2007.
+_OLE2 = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1"
+
+
+def _office_kind(path, head):
+    """(what it is, hint) for an office document given a .pdf's job, or None.
+
+    "is it another kind of document saved with a .pdf name?" was the answer for
+    a Word document passed as it is -- `exactdoc report.docx` -- where the name
+    was never .pdf and the hint (save a fresh copy from a PDF viewer) could not
+    help (pre-release audit, 2026-10-11). Only the ZIP directory and the first
+    bytes are read; nothing is extracted.
+    """
+    if head.startswith(_OLE2):
+        return ("an older Microsoft Office document (.doc, .xls or .ppt)",
+                _EXPORT_HINT)
+    if not head.startswith(b"PK\x03\x04"):
+        return None
+    import zipfile
+    try:
+        with zipfile.ZipFile(path) as zf:
+            names = zf.namelist()
+            mimetype = zf.read("mimetype")[:100] if "mimetype" in names else b""
+    except (zipfile.BadZipFile, OSError, KeyError, RuntimeError, ValueError):
+        return None
+    for marker, what, hint in _ODF_KINDS:
+        if marker in mimetype:
+            return what, hint
+    if "[Content_Types].xml" in names:
+        for prefix, what, hint in _OOXML_PARTS:
+            if any(n.startswith(prefix) for n in names):
+                return what, hint
+    return None
+
+
 def _format_error(path):
     """Which kind of unreadable the file is, for the one-line error.
 
@@ -71,6 +123,12 @@ def _format_error(path):
     if head is not None and not head.strip():
         return ParseError("the file is empty, so it is not a readable PDF")
     if head is not None and b"%PDF-" not in head:
+        office = _office_kind(path, head)
+        if office is not None:
+            what, hint = office
+            err = ParseError("this is %s, not a PDF" % what)
+            err.hint = hint
+            return err
         return ParseError(
             "the file is not a PDF: it has no PDF header (is it another kind of "
             "document saved with a .pdf name?)")
