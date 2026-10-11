@@ -5755,6 +5755,21 @@ def _figure_in_budget(cl_ds, blocks, images, consumed, page, text_area):
 # the spacing: y22 154 pages for 153 in both. `infer(examples=...)`.
 _EXAMPLES = contextvars.ContextVar("exactdoc_infer_examples", default=True)
 
+# WP49's readings of tab- and right-aligned layouts. They are the standard
+# profile's: the Google Docs profile is held byte-identical, because no live
+# Docs flight was budgeted for them before 0.3.0b1. `infer(tab_layouts=...)`
+# turns them all off; each also has its own switch here, so one that regresses
+# can be turned off alone.
+_TAB_LAYOUTS = contextvars.ContextVar("exactdoc_infer_tab_layouts", default=True)
+WP49_RULES = {
+    "right_tab_fields": True,     # _right_tab_fields: right-tab fields are not a column
+    "leader_levels": True,        # _leader_levels: a contents page in levels
+}
+
+
+def _wp49(rule: str) -> bool:
+    return _TAB_LAYOUTS.get() and WP49_RULES.get(rule, False)
+
 
 def _clipped_strokes(ir: DocIR) -> None:
     """Each page's strokes at the box their clip shows, and a stroke wholly
@@ -5774,7 +5789,7 @@ def _clipped_strokes(ir: DocIR) -> None:
 
 def infer(ir: DocIR, anchored: bool = True,
           anchor_pictures: Optional[bool] = None,
-          examples: bool = True) -> DocLayout:
+          examples: bool = True, tab_layouts: bool = True) -> DocLayout:
     """DocIR -> DocLayout.
 
     The document's hyphenation evidence is built first and made current for
@@ -5794,15 +5809,20 @@ def infer(ir: DocIR, anchored: bool = True,
 
     `examples`: WP46's readings (see _EXAMPLES); False under the gdocs
     profile.
+
+    `tab_layouts`: WP49's readings (see _TAB_LAYOUTS); False under the gdocs
+    profile.
     """
     if examples:
         _clipped_strokes(ir)
     token = hyphen.activate(hyphen.HyphenEvidence.from_ir(ir) if ir.pages else None)
     ex_token = _EXAMPLES.set(examples)
+    tl_token = _TAB_LAYOUTS.set(tab_layouts)
     try:
         lay = _infer(ir, anchored,
                      anchored if anchor_pictures is None else anchor_pictures)
     finally:
+        _TAB_LAYOUTS.reset(tl_token)
         _EXAMPLES.reset(ex_token)
         hyphen.deactivate(token)
     hyphen.mark_unhyphenated(lay)
@@ -7727,9 +7747,10 @@ def _row_contrast(left: Line, right: Line) -> bool:
     return a[0] != b[0] or a[2] != b[2] or a[3] != b[3] or abs(a[1] - b[1]) >= 0.5
 
 
-def _row_candidates(lines, col_l, col_r):
+def _row_candidates(lines, col_l, col_r, tab_edge=None):
     """-> ([(left, right)], n_rows): the geometric half of `_row_pairs`,
-    before any column evidence is asked for."""
+    before any column evidence is asked for. `tab_edge`: the right halves end
+    at this measured tab (WP49) rather than at the content edge."""
     if col_r - col_l <= 0:
         return [], 0
     lines = [ln for ln in lines if ln.horizontal and ln.spans]
@@ -7752,7 +7773,7 @@ def _row_candidates(lines, col_l, col_r):
         left, right = row
         if left.bbox[0] > col_l + _ROW_LEFT_TOL:
             continue
-        if right.bbox[2] < col_r - _ROW_EDGE_TOL:
+        if right.bbox[2] < (col_r if tab_edge is None else tab_edge) - _ROW_EDGE_TOL:
             continue
         if right.bbox[0] - left.bbox[2] < _ROW_MIN_GAP:
             continue
@@ -7778,7 +7799,7 @@ def _doc_row_evidence(pages_lines, col_l, col_r):
     return out
 
 
-def _row_pairs(items, col_l, col_r, doc_rows=None):
+def _row_pairs(items, col_l, col_r, doc_rows=None, tab_edge=None):
     """-> ([(left_line, right_line)], {id(line) consumed}).
 
     The discriminator is the RIGHT half's right edge, and it is deliberately
@@ -7803,7 +7824,7 @@ def _row_pairs(items, col_l, col_r, doc_rows=None):
     for kind, _bb, o in items:
         if kind == "blk":
             lines.extend(_blk_lines(o))
-    pairs, n_rows = _row_candidates(lines, col_l, col_r)
+    pairs, n_rows = _row_candidates(lines, col_l, col_r, tab_edge=tab_edge)
     if not pairs:
         return [], set()
     # A tab STOP is a column, so require the evidence of one: at least two rows
@@ -7855,7 +7876,9 @@ def _row_pairs(items, col_l, col_r, doc_rows=None):
             if same >= 2:
                 kept.append((left, right))
     pairs = kept
-    if not pairs or len(pairs) > _ROW_MAX_SHARE * n_rows:
+    # (`tab_edge`: the caller has ruled the columnar page out -- WP49's
+    # `_right_tab_fields` -- so a resume dense with entries keeps its rows.)
+    if not pairs or (len(pairs) > _ROW_MAX_SHARE * n_rows and tab_edge is None):
         return [], set()
     consumed = set()
     for left, right in pairs:
@@ -7864,7 +7887,8 @@ def _row_pairs(items, col_l, col_r, doc_rows=None):
     return pairs, consumed
 
 
-def _row_para(left: Line, right: Line, col_l: float, col_r: float) -> Para:
+def _row_para(left: Line, right: Line, col_l: float, col_r: float,
+              tab_edge: Optional[float] = None) -> Para:
     """One paragraph: left runs, a tab, right runs, one right stop at the edge."""
     p = para_from_lines([left], col_l, col_r)
     # Only the LAST run's trailing space is the gap before the tab. Stripping
@@ -7887,8 +7911,12 @@ def _row_para(left: Line, right: Line, col_l: float, col_r: float) -> Para:
     # para_from_lines could have inferred one from the left half alone.
     p.align = "left"
     # The stop is the CONTENT WIDTH, not the measured x of the right half:
-    # anchoring to the margin is the entire point of the change.
-    p.tab_stops = [(round(col_r - col_l, 1), "right")]
+    # anchoring to the margin is the entire point of the change. A page read
+    # as right-tab fields (WP49) has measured its tab -- the x every field
+    # ends at -- and the inferred margin may stand either side of it: the
+    # stop is there.
+    stop = col_r if tab_edge is None else tab_edge
+    p.tab_stops = [(round(stop - col_l, 1), "right")]
     p.bbox = bbox_union(left.bbox, right.bbox)
     p.src_lines = 1
     p.src_widths = [round(right.bbox[2] - left.bbox[0], 1)]
@@ -7963,6 +7991,20 @@ _LEADER_RE = re.compile(
 # 300.1, 293.1... -- literal text, not a tab -- and is left exactly as it is.
 _LEADER_EDGE_TOL = 2.0
 _LEADER_EDGE_SHARE = 0.6   # of the page's leader lines that must share the edge
+# A contents page in LEVELS (WP49). Word sets every level's number at one right
+# tab, but the tab aligns the end of a run that carries a trailing space, and
+# each level's TOC style sets that space (and the digits) in its own face and
+# size: the visible numbers of each level end at exactly one x, and the levels
+# end a fraction of an em apart -- a two-level contents page measured 539.5 for
+# every level-2 entry and 543.3 for every level-1 entry. Neither level held
+# the share above, so no entry was read as a leader line, and the entries
+# welded into one paragraph whose dots wrapped. A level is a tab stop when its
+# numbers end at ONE x (a tab places them to the coordinate rounding; a fixed
+# run of dots scatters them -- x15's three nearest agree only to 0.6pt), and
+# the levels pooled together must hold the share. Only read where the
+# single-edge reading kept nothing, so a page it already reads is unchanged.
+_LEADER_LEVEL_EXACT = 0.5      # pt: one level's numbers end within this
+_LEADER_LEVEL_SPREAD_EM = 0.5  # levels' edges lie within this many em of the outermost
 
 
 def _leader_lines(items, col_l, col_r):
@@ -7998,7 +8040,30 @@ def _leader_lines(items, col_l, col_r):
             continue
         edge = max(l.bbox[2] for l in grp)
         out.extend((l, edge) for l in grp)
+    if not out and _wp49("leader_levels"):
+        out = _leader_levels(kept, len(cands))
     return out, {id(l) for l, _ in out}
+
+
+def _leader_levels(groups, n_cands: int):
+    """[(line, edge)] for a contents page whose levels each end at their own
+    exact edge, the edges a fraction of an em apart (see _LEADER_LEVEL_EXACT),
+    or [] when the pooled levels do not hold the page's share. All levels take
+    the outermost edge: it is the one right tab the word processor set (the
+    levels' offsets are their trailing spaces and digits, not stops of their
+    own), and one stop keeps the entries' numbers in one column."""
+    levels = [g for g in groups
+              if max(l.bbox[2] for l in g) - min(l.bbox[2] for l in g)
+              <= _LEADER_LEVEL_EXACT]
+    if len(levels) < 2:
+        return []
+    edge_out = max(l.bbox[2] for g in levels for l in g)
+    em = max(_line_size(l) for g in levels for l in g)
+    pooled = [g for g in levels
+              if edge_out - max(l.bbox[2] for l in g) <= _LEADER_LEVEL_SPREAD_EM * em]
+    if len(pooled) < 2 or sum(len(g) for g in pooled) < _LEADER_EDGE_SHARE * n_cands:
+        return []
+    return [(l, edge_out) for g in pooled for l in g]
 
 
 def _slice_runs_at(runs: List[Run], a: int, b: int) -> List[Run]:
@@ -9091,10 +9156,12 @@ def _with_field_label(p: Para, lab: Line, col_l: float) -> Para:
     return p
 
 
-def _to_flow(items, col_l, col_r, doc_rows=None, forced=None):
+def _to_flow(items, col_l, col_r, doc_rows=None, forced=None, tab_edge=None):
     """`forced`: a text edge; also break paragraphs where the source broke a
     line short of it by hand (`_forced_break`) -- inside panels and layout
-    columns only."""
+    columns only. `tab_edge`: the page's right-hand side was read as fields
+    at a right tab at this x (`_right_tab_fields`); its rows are paired
+    against it (`_row_pairs`, `_row_para`)."""
     items = _split_blocks_at_elements(items)
     leaders, lconsumed = _leader_lines(items, col_l, col_r)
     if lconsumed:
@@ -9132,7 +9199,8 @@ def _to_flow(items, col_l, col_r, doc_rows=None, forced=None):
     list_starts = _inline_list_starts(
         [list(o) if isinstance(o, list) else list(o.lines)
          for kind, _bb, o in items if kind == "blk"])
-    pairs, consumed = _row_pairs(items, col_l, col_r, doc_rows)
+    pairs, consumed = _row_pairs(items, col_l, col_r, doc_rows,
+                                 tab_edge=tab_edge)
     if consumed:
         items = _drop_row_lines(items, consumed) + \
             [("row", bbox_union(l.bbox, r.bbox), (l, r)) for l, r in pairs]
@@ -9159,7 +9227,7 @@ def _to_flow(items, col_l, col_r, doc_rows=None, forced=None):
         elif kind == "grid":
             out.append(_grid_para(o, col_l, col_r))
         elif kind == "row":
-            out.append(_row_para(o[0], o[1], col_l, col_r))
+            out.append(_row_para(o[0], o[1], col_l, col_r, tab_edge=tab_edge))
         elif kind == "blk":
             ls = list(o) if isinstance(o, list) else list(o.lines)
             ps = paras_from_line_list(ls, col_l, col_r, list_starts, forced=forced)
@@ -10561,6 +10629,71 @@ def _lead_bottom(lines, content_l: float, content_r: float) -> Optional[float]:
     return None
 
 
+RIGHT_TAB_MIN_LINES = 3       # fewer right-hand lines are no evidence either way
+RIGHT_TAB_FLUSH_EM = 0.5      # a right tab ends every field within this (em)
+RIGHT_TAB_FLUSH_SHARE = 0.8   # of the right-hand lines that must end there
+RIGHT_TAB_RAGGED_EM = 1.5     # ...while their starts spread at least this (em)
+RIGHT_TAB_PAIRED_SHARE = 2 / 3  # ...and this many stand beside a left-hand line
+RIGHT_TAB_MAX_RUN = 3         # a field is at most this many consecutive lines
+RIGHT_TAB_RUN_PITCH_EM = 1.8  # baselines this close (em) are consecutive lines
+
+
+def _right_tab_fields(lines, content_l: float, content_r: float) -> Optional[float]:
+    """The right tab's x when the page's right-hand "column" is a run of
+    fields set at a right tab, else None.
+
+    WP49. A resume sets each entry's place and dates at a right tab on the
+    same baselines as the employer and role at the margin. Those fields stack
+    into blocks down the right of the page, and the block-cluster test read
+    them as a second text column: every date went behind a column break,
+    away from its entry, the full-width bullets between the entries were
+    moved after the columns, and a heading caught in the narrow column broke
+    one letter to a line. A column is set at its LEFT edge and runs on from
+    line to line; right-tab fields are the opposite on every count: they END
+    at one x and start wherever their text makes them start, each is short
+    and a line or two long, and each stands beside a line at the margin on
+    its own baseline. All are required, so a justified, ragged-right or
+    grid-aligned column (flush left) is never read this way, nor is a
+    right-aligned sidebar (it runs on for many lines). Refuting the split
+    leaves the page to the one-column path, whose `_row_pairs` sets each pair
+    as label, tab, field against a stop at the returned x -- the fields' own
+    edge, which need not be the page's widest line."""
+    w = content_r - content_l
+    if w <= 0:
+        return None
+    right = [l for l in lines if l.horizontal and l.text.strip() and
+             l.bbox[0] >= content_l + 0.35 * w]
+    if len(right) < RIGHT_TAB_MIN_LINES:
+        return None
+    sizes = sorted(_line_size(l) for l in right)
+    em = sizes[len(sizes) // 2] or 10.0
+    edge = max(l.bbox[2] for l in right)
+    flush = [l for l in right if edge - l.bbox[2] <= RIGHT_TAB_FLUSH_EM * em]
+    if len(flush) < max(RIGHT_TAB_MIN_LINES, RIGHT_TAB_FLUSH_SHARE * len(right)):
+        return None
+    starts = [l.bbox[0] for l in flush]
+    if max(starts) - min(starts) < RIGHT_TAB_RAGGED_EM * em:
+        return None
+    if any(l.bbox[2] - l.bbox[0] > _ROW_MAX_RIGHT * w for l in flush):
+        return None
+    # A field is a line or two (a place, a date range); a right-aligned
+    # sidebar or pull quote runs on for many. Lines a line pitch apart are
+    # one run.
+    run, prev = 0, None
+    for l in sorted(flush, key=lambda l: l.baseline):
+        run = run + 1 if prev is not None and \
+            l.baseline - prev <= RIGHT_TAB_RUN_PITCH_EM * em else 1
+        if run > RIGHT_TAB_MAX_RUN:
+            return None
+        prev = l.baseline
+    beside = sum(1 for l in flush if any(
+        m is not l and m.horizontal and m.bbox[2] <= l.bbox[0] - _ROW_MIN_GAP and
+        abs(m.baseline - l.baseline) <= _ROW_BASELINE_TOL for m in lines))
+    if beside < RIGHT_TAB_PAIRED_SHARE * len(flush):
+        return None
+    return edge
+
+
 def _split_crossed(lines, col_split: float, content_l: float,
                    content_r: float) -> bool:
     """Is a block-cluster split refuted by the lines that run across it?
@@ -10934,10 +11067,18 @@ def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
                    or _split_unfilled(flow_lines, col_split, col_y0,
                                       content_l, content_r)):
         twocol = False
+    # WP49: the split's right-hand side is fields at a right tab. The page is
+    # one column of rows, so it is not offered to the side-by-side reader
+    # either, and its rows are paired whatever share of the page they are
+    # (`_row_pairs`' columnar-page refusal is what this test has just ruled out).
+    tab_edge = _right_tab_fields(flow_lines, content_l, content_r) \
+        if twocol and _wp49("right_tab_fields") else None
+    if tab_edge is not None:
+        twocol = False
 
     items = _page_items(elements, flow_blocks, content_l, content_r)
 
-    if not twocol:
+    if not twocol and tab_edge is None:
         # Only where the two-column path above did not fire: every page it
         # owns keeps exactly its layout.
         sbs = _side_by_side_chunks(items, lay, page, content_l, content_r, lay_rows)
@@ -10948,7 +11089,8 @@ def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
     if not twocol:
         ch = Chunk(n_cols=1)
         ch.elements = _merge_flow_paras(
-            _to_flow(items, content_l, content_r, doc_rows=lay_rows), content_r,
+            _to_flow(items, content_l, content_r, doc_rows=lay_rows,
+                     tab_edge=tab_edge), content_r,
             content_l)
         chunks.append(ch)
     else:

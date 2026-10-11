@@ -190,7 +190,10 @@ def convert_result(pdf_path: str, out_path: Optional[str] = None,
                 anchor_pictures="anchored" in caps or "anchor_pictures" in caps,
                 # WP46's side-by-side examples lost 9 pages live in Docs
                 # (infer._EXAMPLES)
-                examples=opts.output_profile != "gdocs")
+                examples=opts.output_profile != "gdocs",
+                # WP49's tab- and right-aligned layouts were not flown live
+                # in Docs (infer._TAB_LAYOUTS)
+                tab_layouts=opts.output_profile != "gdocs")
     if scales:
         from .metrics import get_metrics
         from .tracking import apply_advance_tracking
