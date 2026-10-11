@@ -1,0 +1,870 @@
+{
+ "about": "WP50: full-sheet cover band (F1 clamp, F1b), cover footer (F2), first-page composition as a slide (F4); F1b is not in this branch (wp50-f1b). Before = fe8e948 (holdout) / final-910e6aa (corpus); after = the WP50 head.",
+ "corpus_product": {
+  "after": {
+   "path": "C:\\lotmp\\scr\\runs\\wp50-b1-prod.sweep.json",
+   "sha256": "ea11eaf9418cbdc93b808864499281f468251fcd3794354da0e56fea85b643a5"
+  },
+  "before": {
+   "path": "C:\\lotmp\\scr\\runs\\final-910e6aa-prod.sweep.json",
+   "sha256": "7a75d318f4965ce753f2d029126eb45f3ad5ebf54ec0f036d59fe51286655f16"
+  },
+  "documents_compared": 90,
+  "moved": {
+   "y48_ar_weasyprint.pdf": {
+    "after": {
+     "dy_p50": 31.22,
+     "out_pages": 9,
+     "src_pages": 7,
+     "within2pt": 0.0057,
+     "word_recall": 0.1623
+    },
+    "before": {
+     "dy_p50": 35.51,
+     "out_pages": 9,
+     "src_pages": 7,
+     "within2pt": 0.0058,
+     "word_recall": 0.1591
+    }
+   }
+  }
+ },
+ "corpus_raw": {
+  "after": {
+   "path": "C:\\lotmp\\scr\\runs\\wp50-a1-raw.sweep.json",
+   "sha256": "07c876233b271a2d23949d552a9238c81b59913895eb6eb5d753c47660eb590a"
+  },
+  "before": {
+   "path": "C:\\lotmp\\scr\\runs\\final-910e6aa-raw.sweep.json",
+   "sha256": "073b99881e36cdcff01b2125054db7144d7a30ae6ddd6c13de2b2df82e0a6856"
+  },
+  "documents_compared": 90,
+  "moved": {
+   "y48_ar_weasyprint.pdf": {
+    "after": {
+     "dy_p50": 30.23,
+     "out_pages": 10,
+     "src_pages": 7,
+     "within2pt": 0.0057,
+     "word_recall": 0.1623
+    },
+    "before": {
+     "dy_p50": 34.74,
+     "out_pages": 10,
+     "src_pages": 7,
+     "within2pt": 0.0058,
+     "word_recall": 0.1591
+    }
+   }
+  }
+ },
+ "f4_census": [
+  {
+   "applied": true,
+   "beside": 1,
+   "cap": 740.5,
+   "doc": "h05_ncdoi_newsletter_2024_09.pdf",
+   "gap_budget": 82.2,
+   "graphics": 5,
+   "page": 1,
+   "used": 1455.4
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 727.3,
+   "doc": "h01_uscis_i90_instructions.pdf",
+   "gap_budget": 115.2,
+   "graphics": 1,
+   "page": 1,
+   "used": 714.3
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 659.2,
+   "doc": "h09_cmu_11601_syllabus.pdf",
+   "gap_budget": 75.4,
+   "graphics": 1,
+   "page": 1,
+   "used": 637.9
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 661.1,
+   "doc": "h11_cmu_17639_syllabus.pdf",
+   "gap_budget": 153.4,
+   "graphics": 1,
+   "page": 1,
+   "used": 606.8
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 706.4,
+   "doc": "h12_ut_i302_graphic_syllabus.pdf",
+   "gap_budget": 30.9,
+   "graphics": 1,
+   "page": 1,
+   "used": 739.4
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 710.5,
+   "doc": "h02_uscis_n400_instructions.pdf",
+   "gap_budget": 18.8,
+   "graphics": 1,
+   "page": 1,
+   "used": 707.9
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 801.7,
+   "doc": "h17_mit_resume_undergrad.pdf",
+   "gap_budget": 410.6,
+   "graphics": 1,
+   "page": 1,
+   "used": 706.8
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 684.8,
+   "doc": "h15_arxiv_transformer.pdf",
+   "gap_budget": 153.9,
+   "graphics": 1,
+   "page": 1,
+   "used": 713.2
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 763.5,
+   "doc": "h20_wikipedia_pdf_en.pdf",
+   "gap_budget": 82.6,
+   "graphics": 2,
+   "page": 1,
+   "used": 1095.1
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 682.3,
+   "doc": "h16_arxiv_msc_thesis.pdf",
+   "gap_budget": 337.5,
+   "graphics": 1,
+   "page": 1,
+   "used": 686.6
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 792.4,
+   "doc": "h21_wikipedia_egypt_ar.pdf",
+   "gap_budget": 46.8,
+   "graphics": 4,
+   "page": 1,
+   "used": 1139.0
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 723.6,
+   "doc": "h26_cisa_ir_playbooks.pdf",
+   "gap_budget": 113.2,
+   "graphics": 2,
+   "page": 1,
+   "used": 769.9
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 749.3,
+   "doc": "h28_fed_monetary_policy_report_2024_07.pdf",
+   "gap_budget": 226.5,
+   "graphics": 2,
+   "page": 1,
+   "used": 973.5
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 733.5,
+   "doc": "h29_fed_financial_stability_2024_04.pdf",
+   "gap_budget": 78.5,
+   "graphics": 2,
+   "page": 1,
+   "used": 973.1
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 785.0,
+   "doc": "h04_omb_budget_fy2025.pdf",
+   "gap_budget": 0.0,
+   "graphics": 1,
+   "page": 1,
+   "used": 906.0
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 688.1,
+   "doc": "h31_nist_sp800_61r2.pdf",
+   "gap_budget": 121.2,
+   "graphics": 1,
+   "page": 1,
+   "used": 676.6
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 738.9,
+   "doc": "h32_uk_national_ai_strategy.pdf",
+   "gap_budget": 51.0,
+   "graphics": 2,
+   "page": 1,
+   "used": 172.1
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 689.3,
+   "doc": "h30_nist_sp800_115.pdf",
+   "gap_budget": 103.8,
+   "graphics": 2,
+   "page": 1,
+   "used": 544.1
+  },
+  {
+   "applied": true,
+   "beside": 12,
+   "cap": 686.0,
+   "doc": "h36_cisa_secure_by_design.pdf",
+   "gap_budget": 79.0,
+   "graphics": 11,
+   "page": 1,
+   "used": 771.4
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 654.5,
+   "doc": "c5_graphics.pdf",
+   "gap_budget": 144.1,
+   "graphics": 1,
+   "page": 1,
+   "used": 597.6
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 661.5,
+   "doc": "h35_nist_sp800_12r1.pdf",
+   "gap_budget": 269.3,
+   "graphics": 2,
+   "page": 1,
+   "used": 690.1
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 666.8,
+   "doc": "y03_nist_fips197.pdf",
+   "gap_budget": 170.4,
+   "graphics": 1,
+   "page": 1,
+   "used": 618.0
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 662.7,
+   "doc": "y10_nist_fips180.pdf",
+   "gap_budget": 205.9,
+   "graphics": 1,
+   "page": 1,
+   "used": 618.9
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 691.0,
+   "doc": "y01_nist_sp80063b.pdf",
+   "gap_budget": 123.0,
+   "graphics": 1,
+   "page": 1,
+   "used": 680.3
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 662.3,
+   "doc": "y09_nist_sp800207.pdf",
+   "gap_budget": 279.5,
+   "graphics": 2,
+   "page": 1,
+   "used": 686.3
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 691.9,
+   "doc": "y08_nist_sp80088r1.pdf",
+   "gap_budget": 141.8,
+   "graphics": 1,
+   "page": 1,
+   "used": 680.3
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 708.5,
+   "doc": "y02_nist_sp800171r2.pdf",
+   "gap_budget": 133.8,
+   "graphics": 1,
+   "page": 1,
+   "used": 694.6
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 729.0,
+   "doc": "y13_irs_pub501.pdf",
+   "gap_budget": 132.8,
+   "graphics": 2,
+   "page": 1,
+   "used": 1241.9
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 686.3,
+   "doc": "y20_typst_report.pdf",
+   "gap_budget": 334.6,
+   "graphics": 1,
+   "page": 1,
+   "used": 628.5
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 709.7,
+   "doc": "y21_worldbank_wdr24.pdf",
+   "gap_budget": 304.8,
+   "graphics": 2,
+   "page": 1,
+   "used": 812.1
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 751.4,
+   "doc": "y06_irs_1040_instructions.pdf",
+   "gap_budget": 40.0,
+   "graphics": 2,
+   "page": 1,
+   "used": 779.1
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 712.4,
+   "doc": "y28_doe_oig_word365.pdf",
+   "gap_budget": 0.0,
+   "graphics": 1,
+   "page": 1,
+   "used": 792.0
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 709.4,
+   "doc": "y29_uk_letter_word365.pdf",
+   "gap_budget": 110.0,
+   "graphics": 1,
+   "page": 1,
+   "used": 619.5
+  },
+  {
+   "applied": false,
+   "beside": 2,
+   "cap": 729.6,
+   "doc": "y30_nz_guideline_word365.pdf",
+   "gap_budget": 363.2,
+   "graphics": 6,
+   "page": 1,
+   "used": 816.3
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 710.8,
+   "doc": "y31_uk_policy_printtopdf.pdf",
+   "gap_budget": 427.6,
+   "graphics": 2,
+   "page": 1,
+   "used": 696.6
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 712.5,
+   "doc": "y32_uk_response_gdocs.pdf",
+   "gap_budget": 221.8,
+   "graphics": 1,
+   "page": 1,
+   "used": 667.8
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 706.9,
+   "doc": "y33_nz_paper_powerpdf.pdf",
+   "gap_budget": 135.7,
+   "graphics": 3,
+   "page": 1,
+   "used": 299.6
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 740.3,
+   "doc": "y36_lo_writer_guide.pdf",
+   "gap_budget": 154.0,
+   "graphics": 1,
+   "page": 1,
+   "used": 378.6
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 662.1,
+   "doc": "y42_arxiv_acmart.pdf",
+   "gap_budget": 50.6,
+   "graphics": 1,
+   "page": 1,
+   "used": 1112.8
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 683.2,
+   "doc": "y26_bash_reference.pdf",
+   "gap_budget": 358.9,
+   "graphics": 1,
+   "page": 1,
+   "used": 620.2
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 736.9,
+   "doc": "y43_arxiv_neurips.pdf",
+   "gap_budget": 151.9,
+   "graphics": 1,
+   "page": 1,
+   "used": 759.7
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 701.8,
+   "doc": "y54_hi_gdocs.pdf",
+   "gap_budget": 152.7,
+   "graphics": 1,
+   "page": 1,
+   "used": 554.5
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 540.9,
+   "doc": "y59_cms_notice_inddcs4.pdf",
+   "gap_budget": 208.2,
+   "graphics": 2,
+   "page": 1,
+   "used": 719.1
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 771.5,
+   "doc": "y47_ar_ilo_word365.pdf",
+   "gap_budget": 116.2,
+   "graphics": 4,
+   "page": 1,
+   "used": 801.5
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 742.7,
+   "doc": "y64_bls_release_xpp.pdf",
+   "gap_budget": 97.4,
+   "graphics": 2,
+   "page": 1,
+   "used": 649.3
+  },
+  {
+   "applied": false,
+   "beside": 0,
+   "cap": 709.7,
+   "doc": "y11_nist_sp80053r5_overcap.pdf",
+   "gap_budget": 323.5,
+   "graphics": 2,
+   "page": 1,
+   "used": 724.3
+  }
+ ],
+ "holdout1_product": {
+  "after": {
+   "path": "C:\\lotmp\\wp50x\\hold\\b1-prod.sweep.json",
+   "sha256": "072bc8cf34b8b0b177a8aee7e5f8ca31fa7e6fae0b2b08177680209b76ef861e"
+  },
+  "before": {
+   "path": "C:\\lotmp\\rv_hold\\runs\\prod.sweep.json",
+   "sha256": "3bbf2a7e1fd18fc548ff36370507f2f9cd2e7ac3fc98373a1fd9739d8ab4b6a6"
+  },
+  "documents_compared": 37,
+  "moved": {
+   "h05_ncdoi_newsletter_2024_09.pdf": {
+    "after": {
+     "dy_p50": 5.48,
+     "out_pages": 10,
+     "src_pages": 10,
+     "within2pt": 0.059,
+     "word_recall": 0.9919
+    },
+    "before": {
+     "dy_p50": 14.17,
+     "out_pages": 11,
+     "src_pages": 10,
+     "within2pt": 0.0373,
+     "word_recall": 0.3575
+    }
+   },
+   "h06_epa_lead_brochure.pdf": {
+    "after": {
+     "dy_p50": 60.55,
+     "out_pages": 22,
+     "src_pages": 20,
+     "within2pt": 0.005,
+     "word_recall": 0.2394
+    },
+    "before": {
+     "dy_p50": 64.2,
+     "out_pages": 23,
+     "src_pages": 20,
+     "within2pt": 0.0,
+     "word_recall": 0.2276
+    }
+   },
+   "h14_berkshire_annual_report_2023.pdf": {
+    "after": {
+     "dy_p50": 0.06,
+     "out_pages": 228,
+     "src_pages": 152,
+     "within2pt": 0.1785,
+     "word_recall": 0.455
+    },
+    "before": {
+     "dy_p50": 45.97,
+     "out_pages": 229,
+     "src_pages": 152,
+     "within2pt": 0.0109,
+     "word_recall": 0.2325
+    }
+   },
+   "h33_uk_biological_security_strategy.pdf": {
+    "after": {
+     "dy_p50": 48.64,
+     "out_pages": 102,
+     "src_pages": 81,
+     "within2pt": 0.0154,
+     "word_recall": 0.191
+    },
+    "before": {
+     "dy_p50": 44.02,
+     "out_pages": 103,
+     "src_pages": 81,
+     "within2pt": 0.0215,
+     "word_recall": 0.208
+    }
+   },
+   "h34_uk_integrated_review_refresh.pdf": {
+    "after": {
+     "dy_p50": 30.61,
+     "out_pages": 72,
+     "src_pages": 63,
+     "within2pt": 0.0103,
+     "word_recall": 0.3001
+    },
+    "before": {
+     "dy_p50": 46.15,
+     "out_pages": 73,
+     "src_pages": 63,
+     "within2pt": 0.0007,
+     "word_recall": 0.2534
+    }
+   },
+   "h36_cisa_secure_by_design.pdf": {
+    "after": {
+     "dy_p50": 7.82,
+     "out_pages": 16,
+     "src_pages": 15,
+     "within2pt": 0.0171,
+     "word_recall": 0.6728
+    },
+    "before": {
+     "dy_p50": 40.33,
+     "out_pages": 17,
+     "src_pages": 15,
+     "within2pt": 0.0,
+     "word_recall": 0.3046
+    }
+   }
+  }
+ },
+ "holdout1_raw": {
+  "after": {
+   "path": "C:\\lotmp\\wp50x\\hold\\b1-raw.sweep.json",
+   "sha256": "322c932f583d8eff74ab9976ad927a18e4cd7a48d6000423ae3ea71b2f5b69d5"
+  },
+  "before": {
+   "path": "C:\\lotmp\\rv_hold\\runs\\raw.sweep.json",
+   "sha256": "157a51a593f04d521e62567777009fb28999f05cbe360538ad178588723d6299"
+  },
+  "documents_compared": 37,
+  "moved": {
+   "h05_ncdoi_newsletter_2024_09.pdf": {
+    "after": {
+     "dy_p50": 3.11,
+     "out_pages": 10,
+     "src_pages": 10,
+     "within2pt": 0.0892,
+     "word_recall": 0.9919
+    },
+    "before": {
+     "dy_p50": 14.22,
+     "out_pages": 11,
+     "src_pages": 10,
+     "within2pt": 0.0373,
+     "word_recall": 0.3575
+    }
+   },
+   "h14_berkshire_annual_report_2023.pdf": {
+    "after": {
+     "dy_p50": 0.56,
+     "out_pages": 236,
+     "src_pages": 152,
+     "within2pt": 0.1629,
+     "word_recall": 0.4537
+    },
+    "before": {
+     "dy_p50": 45.43,
+     "out_pages": 237,
+     "src_pages": 152,
+     "within2pt": 0.0097,
+     "word_recall": 0.2267
+    }
+   },
+   "h33_uk_biological_security_strategy.pdf": {
+    "after": {
+     "dy_p50": 44.97,
+     "out_pages": 127,
+     "src_pages": 81,
+     "within2pt": 0.0212,
+     "word_recall": 0.1806
+    },
+    "before": {
+     "dy_p50": 54.52,
+     "out_pages": 128,
+     "src_pages": 81,
+     "within2pt": 0.0176,
+     "word_recall": 0.159
+    }
+   },
+   "h34_uk_integrated_review_refresh.pdf": {
+    "after": {
+     "dy_p50": 38.52,
+     "out_pages": 118,
+     "src_pages": 63,
+     "within2pt": 0.0,
+     "word_recall": 0.1612
+    },
+    "before": {
+     "dy_p50": 46.95,
+     "out_pages": 119,
+     "src_pages": 63,
+     "within2pt": 0.0005,
+     "word_recall": 0.1516
+    }
+   },
+   "h36_cisa_secure_by_design.pdf": {
+    "after": {
+     "dy_p50": 25.49,
+     "out_pages": 21,
+     "src_pages": 15,
+     "within2pt": 0.0074,
+     "word_recall": 0.3276
+    },
+    "before": {
+     "dy_p50": 30.71,
+     "out_pages": 22,
+     "src_pages": 15,
+     "within2pt": 0.0,
+     "word_recall": 0.2325
+    }
+   }
+  }
+ },
+ "schema": "exactdoc.evidence.wp50.v1",
+ "word_movers": [
+  {
+   "blank_first6": [],
+   "doc": "h05_ncdoi_newsletter_2024_09.after.docx",
+   "p1_recall": 0.997,
+   "src_blank_first6": [],
+   "src_pages": 10,
+   "word_pages": 10
+  },
+  {
+   "blank_first6": [],
+   "doc": "h05_ncdoi_newsletter_2024_09.before.docx",
+   "p1_recall": 0.014,
+   "src_blank_first6": [],
+   "src_pages": 10,
+   "word_pages": 12
+  },
+  {
+   "blank_first6": [
+    3
+   ],
+   "doc": "h06_epa_lead_brochure.after.docx",
+   "p1_recall": 0.724,
+   "src_blank_first6": [],
+   "src_pages": 20,
+   "word_pages": 25
+  },
+  {
+   "blank_first6": [],
+   "doc": "h06_epa_lead_brochure.before.docx",
+   "p1_recall": 0.724,
+   "src_blank_first6": [],
+   "src_pages": 20,
+   "word_pages": 25
+  },
+  {
+   "blank_first6": [
+    2
+   ],
+   "doc": "h14_berkshire_annual_report_2023.after.docx",
+   "p1_recall": 1.0,
+   "src_blank_first6": [
+    2
+   ],
+   "src_pages": 152,
+   "word_pages": 266
+  },
+  {
+   "blank_first6": [],
+   "doc": "h14_berkshire_annual_report_2023.before.docx",
+   "p1_recall": 0.5,
+   "src_blank_first6": [
+    2
+   ],
+   "src_pages": 152,
+   "word_pages": 267
+  },
+  {
+   "blank_first6": [],
+   "doc": "h27_ecb_economic_bulletin_2024_02.after.docx",
+   "p1_recall": 1.0,
+   "src_blank_first6": [],
+   "src_pages": 149,
+   "word_pages": 175
+  },
+  {
+   "blank_first6": [],
+   "doc": "h27_ecb_economic_bulletin_2024_02.before.docx",
+   "p1_recall": 1.0,
+   "src_blank_first6": [],
+   "src_pages": 149,
+   "word_pages": 175
+  },
+  {
+   "blank_first6": [],
+   "doc": "h33_uk_biological_security_strategy.after.docx",
+   "p1_recall": 1.0,
+   "src_blank_first6": [
+    2
+   ],
+   "src_pages": 81,
+   "word_pages": 160
+  },
+  {
+   "blank_first6": [],
+   "doc": "h33_uk_biological_security_strategy.before.docx",
+   "p1_recall": 0.571,
+   "src_blank_first6": [
+    2
+   ],
+   "src_pages": 81,
+   "word_pages": 162
+  },
+  {
+   "blank_first6": [],
+   "doc": "h34_uk_integrated_review_refresh.after.docx",
+   "p1_recall": 1.0,
+   "src_blank_first6": [],
+   "src_pages": 63,
+   "word_pages": 117
+  },
+  {
+   "blank_first6": [],
+   "doc": "h34_uk_integrated_review_refresh.before.docx",
+   "p1_recall": 0.857,
+   "src_blank_first6": [],
+   "src_pages": 63,
+   "word_pages": 118
+  },
+  {
+   "blank_first6": [],
+   "doc": "h36_cisa_secure_by_design.after.docx",
+   "p1_recall": 0.98,
+   "src_blank_first6": [],
+   "src_pages": 15,
+   "word_pages": 21
+  },
+  {
+   "blank_first6": [],
+   "doc": "h36_cisa_secure_by_design.before.docx",
+   "p1_recall": 0.192,
+   "src_blank_first6": [],
+   "src_pages": 15,
+   "word_pages": 22
+  },
+  {
+   "blank_first6": [
+    2
+   ],
+   "doc": "y48_ar_weasyprint.after.docx",
+   "p1_recall": 0.425,
+   "src_blank_first6": [],
+   "src_pages": 7,
+   "word_pages": 10
+  },
+  {
+   "blank_first6": [],
+   "doc": "y48_ar_weasyprint.before.docx",
+   "p1_recall": 0.356,
+   "src_blank_first6": [],
+   "src_pages": 7,
+   "word_pages": 10
+  }
+ ]
+}
