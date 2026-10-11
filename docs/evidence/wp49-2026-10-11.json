@@ -1,0 +1,82 @@
+{
+ "schema": "exactdoc.wp-evidence.v1",
+ "about": "WP49: tab- and right-aligned layouts read as columns or tables. A (right-tab fields are not a column) and D (contents pages in levels, and leader lines keep their indent) ship ON; C2 (no picture paints text the page also writes) ships OFF behind its switch; C1 (multi-rectangle cell paths) dropped after the promised census; B (underlined section headings) cut to 0.3.0b2. Measured on the wp49 tree merged with integration 234a77f (90db76d) against 234a77f. Every rule is off under the gdocs profile (infer(tab_layouts=False)) and has its own switch in infer.WP49_RULES.",
+ "tree": "wp49 90db76d (6831a98, 5d7ab1b, c663d22, 324d301 merged with 234a77f)",
+ "baseline": "234a77f (WP50's listed sweeps: corpus wp50-b1-prod / wp50-a1-raw, holdout-1 C:\\lotmp\\wp50x\\hold\\b1-*)",
+ "image": "exactdoc-gate:boot sha256:bab1cfc0d2cd",
+ "gate": {
+  "log": {"path": "C:\\lotmp\\scr\\runs\\wp49m-gate.log", "sha256_16": "53a8b645d53395d0"},
+  "mode": "strict, baseline bound",
+  "tests": "1998 OK (2 skipped, 2 expected failures: the B and C1 fixtures, deferred)",
+  "product": "PASS 16/16", "raw": "PASS 16/16"
+ },
+ "gdocs_identity": {
+  "what": "word/*.xml SHA-256 of the gdocs-profile DOCX, 95 corpus + 37 holdout-1 documents, 234a77f vs the merged tree (converted on Windows, oracle none, refine 0)",
+  "identical": 132, "different": 0, "refused_both": ["h03_irs_w4_fillable_form", "y07_irs_f1040_form", "y14_irs_fw9_form"]
+ },
+ "movers_standard_profile": {
+  "what": "raw-profile word/*.xml SHA-256, same 132 documents, 234a77f vs merged",
+  "moved": ["h19_harvard_hes_resume_samples (A)", "h36_cisa_secure_by_design (D)", "y28_doe_oig_word365 (D indent: two appendix contents entries at source x 90 were set at the margin)"]
+ },
+ "corpus_product": {
+  "after": {"path": "C:\\lotmp\\scr\\runs\\wp49m-prod.sweep.json", "sha256_16": "3ef6f71258a3f1f0"},
+  "before": {"path": "C:\\lotmp\\scr\\runs\\wp50-b1-prod.sweep.json", "sha256_16": "ea11eaf9418cbdc9"},
+  "documents_compared": 90,
+  "moved": {"y28_doe_oig_word365.pdf": {"within2pt": [0.354, 0.3543]}},
+  "criterion_8": "0 documents worse (gate.py tolerances)"
+ },
+ "corpus_raw": {
+  "after": {"path": "C:\\lotmp\\scr\\runs\\wp49m-raw.sweep.json", "sha256_16": "c8c48d267f54cbd0"},
+  "before": {"path": "C:\\lotmp\\scr\\runs\\wp50-a1-raw.sweep.json", "sha256_16": "07c876233b271a2d"},
+  "documents_compared": 90,
+  "moved": {"y28_doe_oig_word365.pdf": {"within2pt": [0.3049, 0.3052]}},
+  "criterion_8": "0 documents worse (gate.py tolerances)"
+ },
+ "holdout1_product": {
+  "after": {"path": "C:\\lotmp\\rv_hold\\runs\\wp49m-prod.sweep.json", "sha256_16": "dc75a2bd5f22692c"},
+  "before": {"path": "C:\\lotmp\\wp50x\\hold\\b1-prod.sweep.json", "sha256_16": "072bc8cf34b8b0b1"},
+  "moved": {
+   "h19_harvard_hes_resume_samples.pdf": {"pages": "17->18 unchanged", "word_recall": [0.402, 0.4025], "within2pt": [0.0949, 0.1596], "dy_p50": [34.27, 23.09]},
+   "h36_cisa_secure_by_design.pdf": {"pages": "15->16 unchanged", "word_recall": [0.6728, 0.6732], "within2pt": [0.0171, 0.0212], "dy_p50": [7.82, 7.75]}
+  }
+ },
+ "holdout1_raw": {
+  "after": {"path": "C:\\lotmp\\rv_hold\\runs\\wp49m-raw.sweep.json", "sha256_16": "2338e4033640bc4a"},
+  "before": {"path": "C:\\lotmp\\wp50x\\hold\\b1-raw.sweep.json", "sha256_16": "322c932f583d8eff"},
+  "moved": {
+   "h19_harvard_hes_resume_samples.pdf": {"out_pages": [22, 20], "word_recall": [0.29, 0.3655], "char_recall": [0.5927, 0.7371]},
+   "h36_cisa_secure_by_design.pdf": {"word_recall": [0.3276, 0.328], "dy_p50": [25.49, 18.03]}
+  }
+ },
+ "word_lane_movers": {
+  "what": "testkit/word_oracle.py on the product DOCX, base = 234a77f's (WP50 holdout b1 / final-910e6aa for y28)",
+  "rows": {
+   "h19_harvard_hes_resume_samples": {"base": {"out_pages": 18, "word_recall": 0.4019, "dy_p50": 34.05}, "wp49": {"out_pages": 18, "word_recall": 0.4023, "dy_p50": 23.01}},
+   "h36_cisa_secure_by_design": {"base": {"out_pages": 16, "word_recall": 0.6734, "dy_p50": 7.77}, "wp49": {"out_pages": 16, "word_recall": 0.6734, "dy_p50": 7.64}},
+   "y28_doe_oig_word365": {"base": {"out_pages": 21, "word_recall": 0.9906, "dy_p50": 0.21}, "wp49": {"out_pages": 21, "word_recall": 0.9906, "dy_p50": 0.21}}
+  },
+  "repair_prompts": 0, "compat_mode": 14
+ },
+ "reading_order_lcs": {
+  "what": "word-sequence matching share (difflib matching blocks over source words) of the product render, base vs wp49",
+  "h19_harvard_hes_resume_samples": [0.9623, 0.9836],
+  "h36_cisa_secure_by_design": [0.9759, 0.9759],
+  "y28_doe_oig_word365": [0.9747, 0.9747]
+ },
+ "text_drawn_twice": {
+  "what": "characters of written text whose source box centre lies inside a picture's clip on the same page, standard profile infer(), 132 documents",
+  "shipping (C2 off)": "unchanged from base: no document rises",
+  "with C2 on (measured, not shipped)": {"total_chars": [112530, 20785], "documents_rising": 0},
+  "why_C2_is_off": "with C2 on, y06 (135->136 pages), y38 (47->48), y47 (65->67) and y59 (dy_p50 33.5->41.5) regress beyond gate.py tolerances against final-910e6aa: a tint's picture held text that the flow now sets longer. All four are unpromised; criterion 8 covers every document."
+ },
+ "C1_promised_census": "of the 8 holdout-1 documents that drew text twice, 2 are promised under amendment 6 (h08 LaTeX notes, h27 ECB Word bulletin; one page each); the multi-rectangle cell-path mechanism's main case is the Berkshire annual report (not promised). Dropped per the review's rule.",
+ "D_last_non_space_glyph": "checked: on the CISA contents page the last non-space glyph of every level-1 number ends at 543.3 and every level-2 number at 539.5 (rawdict per-glyph boxes), so measuring at the last non-space glyph does not unify the levels; the levels reading is kept, with one stop at the outermost edge and an x15-style negative (unit and end-to-end).",
+ "criterion_2": "not timed: deferred to the quiet serial timing in the release measurement (owner's request, 2026-10-11; the machine was busy). A runs only on pages the block-cluster two-column test already split; D only where the single-edge leader reading kept nothing; C2 is off.",
+ "fixtures": "tests/wp49_fixtures.py (reportlab, generated at test time): right_tab_resume, two_column_prose, grid_aligned_columns, right_aligned_sidebar, two_level_contents, fixed_dot_contents, underlined_sections, booktabs_table, zebra_multirect_table, one_path_bar_chart, one_path_horizontal_bars; tests/test_wp49_tab_layouts.py",
+ "follow_ups": [
+  "B (0.3.0b2): resume rows pass build_rules_table's 60% two-fragment test (multi >= 0.6 rows), so section underlines bound a rules table; a captioned booktabs table also has a lone line over its top rule, so the heading-underline rule needs another discriminator",
+  "C1: split a fill path of disjoint axis-aligned rectangles in an infer pre-pass (standard profile only), with the review's guards",
+  "C2: a tint's picture refused only where the covered text is another element's, or the tint drawn behind the text as a float, to avoid the four corpus regressions",
+  "A: a right field beside a left label narrower than _ROW_MIN_LEFT (e.g. 'Lakeside Academy') stays unpaired"
+ ]
+}
