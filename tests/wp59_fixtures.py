@@ -78,6 +78,8 @@ def _resume_page(c, page_no, text_colour=(0, 0, 0)):
     top = 80.0
     for k in range(3):
         for t, font, size, align in RESUME_TEXT:
+            if align == "center" and k:
+                continue              # the name block heads the page once
             c.setFont(font, size)
             t2 = t if k == 0 else t.replace("Internal Revenue Service",
                                              "Ace Financial %d-%d" % (page_no, k))
