@@ -35,8 +35,8 @@ by path and SHA-256). The run had:
 |---|---|---|
 | 2026-10-10 | **Carlito switch.** The canonical image is the Carlito/Caladea layer (`exactdoc-gate:boot` = bab1cfc0d2cd, fingerprint 9cb0bc17). The old snapshot is kept as `boot-pre-carlito`. WP32 | owner |
 | 2026-10-10 | **Amendment 3.** Placement (within-2pt, dy_p50/p90) is read at the text baseline, not the word box top, on source and render alike (`docs/beta-bar.md`). WP36 | owner |
-| round 4 | **Accepted sweep for criterion 8.** `wp31-prod` (the checkpoint code + WP31 in the Carlito image), compared in the current reading. Final form: `accepted-wp31-prod.rescored5.sweep.json`, reading wp42, SHA-256 `fcb8ca97…` | owner |
-| 2026-10-10 | **y37 decision #1.** A bounded dy_p50 exception for WP33's column split (27.38 → 30.96, wp29 reading). Reverted unused when WP33n removed the flag (`b496c0a`) | decided, then reverted |
+| 2026-10-10 | **Accepted sweep for criterion 8.** `accepted-wp31-prod.rescored`: the round-3 checkpoint code run in the Carlito image, re-scored. Chosen after an independent Opus plan review. Its wp42 re-score, `accepted-wp31-prod.rescored5.sweep.json` (SHA-256 `fcb8ca97…`), is the final like-for-like reference | owner-delegated: the coordinator (the owner: "figure that out and recommend the best one") |
+| 2026-10-10 | **y37 decision #1, option A.** A bounded dy_p50 waiver, ceiling 32.0, for WP33's column split (27.38 → 30.96, wp29 reading). Reverted unused (`b496c0a`) when WP33n removed the flag | owner-delegated: Fable 5.1 (the owner: "make a fable5.1 subagent decide") |
 | 2026-10-10 | **Amendment 4, "A+cap".** A dy_p50 rise beyond tolerance is not a criterion-8 regression when within-2pt rose by more than 0.05, within-5pt fell by at most 0.05, and the rise is at most max(3 pt, 30%). WP41b | owner-delegated: Fable 5.1 |
 | 2026-10-10 | **Amendment 5.** A letter-spaced run reads as the word it spells (harness reading `wp42`). WP42 | owner |
 | 2026-10-11 | **y37 decision #2, option A.** Land WP38b and re-instate a bounded waiver: y37 dy_p50 only, ceiling **33.0** pt (measured 32.00), release 0.3.0b1, reading wp42, against the accepted sweep by SHA-256. Void unless all four d′ bounds of `churn.py --check-y37` hold on the final renders; they hold on 910e6aa (recall 0.39, common dy ratio 0.991, within-2pt drop 0.0001, 24 pages < 27) | owner-delegated: Fable 5.1 |
@@ -47,7 +47,7 @@ by path and SHA-256). The run had:
 | WP | Change | Measured effect |
 |---|---|---|
 | WP32 | Carlito image made canonical; round 4's "before" measured in both images | gate unchanged in the new image (0.7304 / 0.5466); 84/90 DOCX identical across round-3 code |
-| WP33, 33n, 33r | columns welded at the gutter are cut there; y64's table titles are written (heads must clear the body). The spacing-cursor hold was narrowed to tables (33n), then to rules only (`b32abf6`) | LO raw y64 44 → 39 (wr 0.34 → 0.97); y06 163 → 151, y13 58 → 50; criterion 5 Word and Docs 16 → 17 |
+| WP33, 33n, 33r | columns welded at the gutter are cut there; y64's table titles are written (heads must clear the body). The spacing-cursor hold was narrowed to the table just stacked (33n). Then only a rule inside that table holds the cursor (33r, `b32abf6`); tables and pictures inside it no longer do, which brings y59 in Word back from 25 pages to 23. land1b extends the hold to a rule inside a figure just stacked (y21 p39) | LO raw y64 44 → 39 (wr 0.34 → 0.97); y06 163 → 151, y13 58 → 50; criterion 5 Word and Docs 16 → 17 |
 | WP34 | page-fit planner on for LibreOffice and Word (gentle-plan cap, hanging row is its body, planned once under the loop) | raw y18 156 → 144 (wr 0.40 → 0.98), page-exact 60 → 62; Word y18 154 → 144 |
 | WP35 | gdocs: EUR-Lex run-in numbered articles stay typed; NIST shaded notice boxes written whole | live Docs y18 146 → 144 (wr 0.70 → 0.99) |
 | WP35b | a typewriter table's columns are its typed spaces | y03 Docs 47 → 46 (wr 0.854 → 0.948) |
