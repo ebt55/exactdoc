@@ -20,6 +20,17 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **The 0.3.0b1 release exam is one command (WP52; developer tooling, the
+  converter is unchanged).** `scripts/dev/holdout_exam.sh` runs the sealed
+  holdout-2 once on the release candidate -- manifest and PDF hashes checked,
+  product and raw sweeps, the real CLI's exit status for every refusal, Word
+  over the product DOCX -- and `holdout_exam.py` reads R1-R5 exactly as
+  beta-bar.md amendment 6 defines them into `docs/evidence/holdout2-<date>.json`.
+  It refuses a dirty tree and a second exam (`--rerun-reason` overrides, and
+  is logged); `--dry-run` proves the plumbing on a 2-PDF synthetic set. The
+  rule's reading is pinned by 36 unit tests on synthetic rows, written before
+  any holdout-2 result existed.
+
 - **A full-sheet cover stays one page, and prints no footer it does not
   print (WP50).** A cover painted as one sheet-sized filled shape (a Word
   full-page shape, exported bled past the paper) is read as a page-one cover

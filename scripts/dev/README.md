@@ -15,6 +15,7 @@ Windows host with Git Bash, Docker, and the canonical image `exactdoc-gate:boot`
 | `record_env.sh <name> <tree> [file]` | `evidence.py --record-canonical` in a fresh container, written to `testkit/<file>` (default `canonical_env.proposed.json`, which nothing compares against). Writing `canonical_env.json` redefines canonical: owner approval only. |
 | `gdsweep.py OUT [--corpus both] [--only a,b]` | Live Google Docs sweep: convert with the gdocs candidate profile, upload, Google's own PDF export, score. Resumable. Needs `EXACTDOC_ROOT=<tree>` and the `EXACTDOC_GDOCS_CREDENTIALS` / `EXACTDOC_GDOCS_TOKEN` env vars; uploads to the owner's Drive. |
 | `final_set.sh [--dry-run] [--only "a b"] --accepted SWEEP <tree> <name>` | The final measurement set for the beta scorecard in one resumable command: preflight, strict gate, product + raw sweeps, Word on both, the Docs command printed, quiet serial timing, `beta_readiness` into `docs/evidence/beta-readiness-<date>.json`. See [below](#the-final-measurement-set-wp44-final_setsh). Helpers: `final_set_helpers.py`. |
+| `holdout_exam.sh [--dry-run] [--print] [--rerun-reason T] <tree> <name>` | The single-use 0.3.0b1 release exam on the sealed holdout-2 (beta-bar.md, amendment 6): verify the manifest and PDFs, product + raw sweeps over them, the CLI's exit status for every refusal, Word over the product DOCX, R1-R5 into `docs/evidence/holdout2-<date>.json`. See [below](#the-holdout-2-release-exam-wp52-holdout_examsh). Parts: `holdout_exam.py`, `holdout_sweep.py`, `holdout_word.py`, `holdout_dryset.py`. |
 | `flypairs.py PROBE OUT A B` | Fly a probe set's `<doc>.<A>.gdocs.docx` / `<doc>.<B>.gdocs.docx` pairs live and score them (a missing variant is skipped). |
 
 The Word lane is in the package's testkit: `python testkit/word_oracle.py sweep
@@ -73,6 +74,40 @@ findings are reported, not enforced). `--only "a b c"` restricts sweeps, Word
 and timing to a subset (the gate always runs the gated 16); `--steps b,c,d`
 runs a selection. `--allow-busy` and `--no-docs` exist for testing the script
 and are written into the evidence as "not a final measurement".
+
+## The holdout-2 release exam (WP52): `holdout_exam.sh`
+
+    EXACTDOC_SCR='C:\lotmp\scr' bash scripts/dev/holdout_exam.sh <tree> <name>
+
+Run once, on the frozen release candidate, after `final_set.sh`. In order:
+**(a)** refuse a tree that is not a clean git checkout, any container that is
+not this exam's, and a second exam: a `holdout2-*.json` already in
+`<tree>/docs/evidence/`, or a ledger (`$SCR/holdout2-exam.ledger.jsonl`) that
+records a finished exam or one started under another name or commit. Resuming
+the same name on the same commit is not a second exam. `--rerun-reason TEXT`
+overrides the refusal and is written into the ledger, the log and the
+evidence. Then the manifest's SHA-256 (the sealed `4db48b08...0d61`) and
+every PDF's are verified, and the start is recorded; **(b)** product and raw
+sweeps over the PDFs, two containers in parallel (`holdout_sweep.py`:
+quality_sweep's own code with `select()` swapped, as holdout-1 ran), DOCX
+kept; the product container then runs each refused document through the real
+CLI and records its exit status; **(c)** the Word lane over the product DOCX
+(`holdout_word.py`: word_oracle's own sweep and lock, `select()` swapped);
+**(d)** `holdout_exam.py verdict`: R1-R5 exactly as amendment 6 states them
+(the reading of each is in its docstring and printed with the verdict),
+PASS/FAIL per criterion, "announce: yes/no", and a per-document table;
+**(e)** `holdout_exam.py wrap` into `<tree>/docs/evidence/holdout2-<date>.json`
+(never overwritten): the verdict, every input and exam script by path and
+SHA-256, the tree's commit as the host read it (passed into the containers as
+`EXACTDOC_GIT_COMMIT`), the image id. The sealed directory is only read.
+State: `$SCR/runs/<name>.holdout2/`.
+
+`--dry-run` runs the same steps on a 2-PDF synthetic set (`holdout_dryset.py`,
+reportlab, byte-reproducible) with its own manifest, state, ledger and
+evidence under `C:\lotmp\wp52\scratch\dry` (`EXACTDOC_DRY_DIR`); every verdict
+read from it carries a SYNTHETIC banner. `--print` prints every command and
+runs none. `--steps b,c,d,e` runs a selection; `--docs-rows` adds a live Docs
+lane to R5.
 
 ## Candidate images and switching the canonical image (WP31, Carlito/Caladea)
 
