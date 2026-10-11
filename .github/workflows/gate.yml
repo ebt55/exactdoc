@@ -1,21 +1,37 @@
-# The fidelity gate, run on a pinned Linux oracle.
+# The fidelity gate, run STRICT inside the pinned canonical measurement image.
 #
-# Determinism has two halves and this workflow needed both:
+# Determinism has two halves and this workflow needs both:
 #
 #   inputs       16 PDFs frozen in testkit/fixtures/, pinned by SHA-256. They
 #                used to be regenerated here, so a Chromium update on the runner
 #                silently changed a corpus document and moved a gated metric 5x.
 #   environment  the renderer decides the numbers. `evidence.environment()`
-#                fingerprints OS, Python minor, LibreOffice, the metric fonts and
-#                every measurement dependency, and `canonical` means that exact
-#                combination -- it used to mean `os == "linux"`, which cannot
-#                tell Chromium 149 from 150 or Python 3.12.3 from 3.12.13.
+#                fingerprints the OS, the exact Python, the LibreOffice build,
+#                scripts/fonts.conf, every visible font file and every
+#                measurement dependency, and `canonical` means exactly the
+#                combination recorded in testkit/canonical_env.json.
 #
-# Why Linux is canonical: the fidelity numbers depend on the renderer's fonts.
-# Local Windows runs render with real Arial/Times New Roman; this runner renders
-# with Liberation metrics-compatible substitutes. Same code, different wraps. One
-# environment has to be the reference, and it must be the one everyone can
-# reproduce -- so CI is the number of record and local runs are indicative.
+# So the job runs in a container, not on the runner. The image is the
+# maintainer's canonical snapshot `exactdoc-gate:boot` (docker/gate.Dockerfile,
+# the Carlito layer and a bootstrapped /work/.venv), flattened with its old
+# working tree removed by scripts/dev/ci_image.sh, pushed to
+# ghcr.io/ebt55/exactdoc-gate and pinned below by digest. It is NOT rebuilt,
+# because a rebuild resolves today's apt and is a new environment; flattening
+# changes no file the fingerprint reads. Inside it the run
+# reproduces fingerprint 9cb0bc17, the environment testkit/gate_baseline.json
+# was recorded in, so the baseline binding (testkit/gate.py, WP43) holds and
+# the gate is strict: no stale-baseline allowance is ever set here. A bare
+# ubuntu-24.04 runner cannot reproduce it (its Python, LibreOffice and font
+# set differ), which is why this job stopped running on one. A new digest is a
+# new environment and a baseline migration (gate-image.yml, scripts/dev/README.md).
+#
+# Fingerprint inputs set below, each checked against canonical_env.json:
+# EXACTDOC_BASE_IMAGE_DIGEST is the ubuntu:24.04 digest the image was built
+# FROM (recorded as image.base_digest); EXACTDOC_GATE_IMAGE_DIGEST is recorded
+# as null and must stay unset; FONTCONFIG_FILE restricts the renderer to the
+# pinned font set. EXACTDOC_GATE_IMAGE and EXACTDOC_GATE_IMAGE_ID are
+# provenance only. The tree is copied to /work, where the image's venv expects
+# it; `uv sync --frozen` there re-installs only exactdoc itself.
 #
 # Two lanes (testkit/runall.py): `raw` is the open-loop control and `product` is
 # exactdoc.options.PRODUCT -- the PDFium/standard/LibreOffice profile the API
@@ -29,9 +45,8 @@
 # those things -- see the docstrings in testkit/gate.py for the list, each entry
 # of which is now a test in tests/test_gate_mutations.py.
 #
-# Provisioning is scripts/bootstrap.sh, the same command a contributor runs, so
-# CI cannot drift away from the documented setup without going red. --strict
-# makes a missing oracle a failure.
+# The same image is what `scripts/dev/quality_check.sh --image <this digest>`
+# measures in, so a contributor's local verdict and this one agree.
 #
 # The dependency versions come from uv.lock (--frozen). Backend-namespaced
 # goldens record the selected parser package version. The flat golden directory
@@ -43,42 +58,88 @@ name: gate
 
 on:
   push:
-    branches: [main]
+    # The integration branch too, so the gate is green before main is
+    # fast-forwarded to it.
+    branches: [main, claude/exactdoc-pdf-docx-tool-d4bf20]
   pull_request:
   # Manual trigger: Actions outages drop push events and never backfill them,
   # which stranded two green-ready commits with no way to summon the gate.
   workflow_dispatch:
 
+permissions:
+  contents: read
+  packages: read          # pull the pinned image if the package is not public
+
 jobs:
   gate:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
+    container:
+      # exactdoc-gate:ci = scripts/dev/ci_image.sh on exactdoc-gate:boot (bab1cfc0d2cd).
+      image: ghcr.io/ebt55/exactdoc-gate@sha256:PENDING
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    env:
+      FONTCONFIG_FILE: /work/scripts/fonts.conf
+      EXACTDOC_BASE_IMAGE_DIGEST: sha256:4fbb8e6a8395de5a7550b33509421a2bafbc0aab6c06ba2cef9ebffbc7092d90
+      EXACTDOC_GATE_IMAGE: ghcr.io/ebt55/exactdoc-gate
+      EXACTDOC_GATE_IMAGE_ID: sha256:e10381f24ec0ad789d445a16e0ca7e2a706d3822787df00ef628dea413abdad1
+      EXACTDOC_GATE_IMAGE_REF: ghcr.io/ebt55/exactdoc-gate@sha256:PENDING
+      # The container's /work holds no .git (see the copy step), so the
+      # commit is passed in, as scripts/dev/gate_full.sh does.
+      EXACTDOC_GIT_COMMIT: ${{ github.sha }}
+      EXACTDOC_GIT_DIRTY: "0"
+      EXACTDOC_GIT_BRANCH: ${{ github.head_ref || github.ref_name }}
+      # The image's Python, never a downloaded one: the fingerprint pins 3.12.3.
+      UV_PYTHON: /usr/bin/python3
+      UV_PYTHON_DOWNLOADS: never
+    defaults:
+      run:
+        shell: bash
+        working-directory: /work
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+      # The image's venv lives at /work/.venv and was installed against /work.
+      # Everything else in /work is replaced by this commit's tree; .git is
+      # left behind (the commit is in EXACTDOC_GIT_COMMIT).
+      - name: Put this commit's tree in /work, keeping the image's venv
+        working-directory: /
+        run: |
+          find /work -mindepth 1 -maxdepth 1 ! -name .venv -exec rm -rf {} +
+          cp -a "$GITHUB_WORKSPACE"/. /work/
+          rm -rf /work/.git
 
-      - name: Install uv (uv.lock is the pinned truth)
-        uses: astral-sh/setup-uv@v5
-        with:
-          enable-cache: true
+      # Measured in the image on 96ede05: uv.lock and the venv agree on every
+      # dependency, so this re-installs only exactdoc itself (editable, the
+      # current version) and the fingerprint is unchanged.
+      - name: Sync the venv with uv.lock (--frozen)
+        run: uv sync --frozen --extra test --extra mupdf
 
-      - name: Provision the oracles (LibreOffice, Chromium, fonts) + deps
-        run: bash scripts/bootstrap.sh --strict
+      # Fail in seconds, not after the gate: is this the recorded environment?
+      - name: The environment is the canonical one (testkit/canonical_env.json)
+        run: |
+          uv run python - <<'EOF'
+          import sys
+          sys.path.insert(0, "testkit")
+          import evidence
+          env = evidence.environment()
+          print("fingerprint", env["fingerprint"])
+          for m in env["canonical_mismatches"]:
+              print("  MISMATCH", m)
+          sys.exit(0 if env["canonical"] else 1)
+          EOF
 
-      # Restrict the renderer to the pinned font set for every later step. A
+      # The renderer sees only the pinned font set (FONTCONFIG_FILE above). A
       # runner image ships a large font collection; with the corpus already
-      # frozen byte-for-byte, that alone still moved c4_i18n's dy_p50 from
+      # frozen byte-for-byte, that alone once moved c4_i18n's dy_p50 from
       # 0.15pt to 2.1pt, because LibreOffice resolved its CJK and RTL runs to
       # faces the measurement environment does not have. See scripts/fonts.conf.
       - name: Pin the font environment
         run: |
           mkdir -p /tmp/exactdoc-fontconfig
-          echo "FONTCONFIG_FILE=$GITHUB_WORKSPACE/scripts/fonts.conf" >> "$GITHUB_ENV"
-          FONTCONFIG_FILE="$GITHUB_WORKSPACE/scripts/fonts.conf" fc-list : family \
-            | tr ',' '\n' | sort -u
+          fc-list : family | tr ',' '\n' | sort -u
 
 
       # The metric corpus is 16 PDFs frozen in testkit/fixtures/ and pinned by
@@ -162,9 +223,10 @@ jobs:
         with:
           name: gate-results
           path: |
-            testkit/batch/evidence.json
-            testkit/batch/lane_product/results.json
-            testkit/batch/lane_product/verdict.json
-            testkit/batch/lane_raw/results.json
-            testkit/batch/lane_raw/verdict.json
+            /work/testkit/batch/evidence.json
+            /work/testkit/batch/provenance.json
+            /work/testkit/batch/lane_product/results.json
+            /work/testkit/batch/lane_product/verdict.json
+            /work/testkit/batch/lane_raw/results.json
+            /work/testkit/batch/lane_raw/verdict.json
           if-no-files-found: error
