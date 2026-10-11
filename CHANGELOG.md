@@ -20,6 +20,48 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **The README's promise is narrowed by producer (WP51; beta bar,
+  amendment 6).** Promised: documents written as flowing text in Word, Google
+  Docs, LibreOffice or LaTeX. Not yet: designed reports (InDesign, Affinity
+  Publisher, QuarkXPress, Microsoft Publisher), annual reports and
+  multi-column booklets (IRS, GPO, Federal Register). A new "Which PDFs it is
+  for" section says how to tell (File → Properties, PDF Producer and
+  Application; `exactdoc --diagnose` prints both as its `producer` and
+  `creator` lines), the table and Known limits follow the same framing, and
+  the measurement section now says plainly that its numbers are measured on
+  the documents exactdoc was developed against. A placeholder, "Tested on
+  documents it has never seen", waits for holdout-2's single run; it has no
+  numbers yet. Docs only.
+- **Right-tab fields are not a column, and contents pages keep their levels
+  (WP49 A and D).** Holdout-1 found tab-set layouts read as columns. A
+  résumé's place and dates set at a right tab (ending at one x, short, beside
+  a line at the margin) were read as a second text column; the two-column
+  split is now refuted there and the rows are paired against the measured tab
+  edge. A contents page whose levels each end their page numbers at their own
+  x a fraction of an em apart is read as leader lines with one right stop, and
+  a leader line read as centred keeps its own indent. Both are off under the
+  gdocs profile, whose output is byte-identical on all 132 corpus and
+  holdout-1 documents (`word/*.xml`), and each has a switch in
+  `infer.WP49_RULES`. In the standard profile three documents move: a résumé
+  sample in holdout-1 (product dy_p50 34.27 -> 23.09pt, within-2pt 0.095 ->
+  0.160), a CISA report's contents page, and two appendix entries of y28's
+  contents, now at the source's indent; the corpus shows 0 documents worse
+  (criterion 8) in both lanes, and the strict gate passes 16/16 in both
+  lanes with 1998 tests OK. Synthetic fixtures with look-alike controls in
+  `tests/wp49_fixtures.py`, tests in `tests/test_wp49_tab_layouts.py`.
+  Evidence: `docs/evidence/wp49-2026-10-11.json`.
+- **No picture paints text the page also writes: built, measured, and shipped
+  OFF (WP49 C2).** A light tint drawn under text could become a picture that
+  painted the text a second time beside the written copy. Refusing such a
+  picture cuts text drawn twice from 112,530 to 20,785 characters over the
+  corpus and holdout-1 with no document rising, but four unpromised corpus
+  documents (y06, y38, y47, y59) then lose a page or placement beyond the
+  gate's tolerances. So the rule ships off
+  (`infer.WP49_RULES["figure_covers_text"]`) and its tests switch it on; the
+  shipping output is unchanged. Underlined section headings read as a table (B) have a fixture
+  and an expected-failure test, and the fix is deferred to 0.3.0b2; cell fills
+  drawn as one path (C1) were dropped, because a census found their main case
+  in an annual report, which the promise does not cover.
 - **A full-sheet cover stays one page, and prints no footer it does not
   print (WP50).** A cover painted as one sheet-sized filled shape (a Word
   full-page shape, exported bled past the paper) is read as a page-one cover
