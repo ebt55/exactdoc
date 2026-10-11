@@ -376,14 +376,15 @@ class TheFooterEcho(unittest.TestCase):
     """`_drop_footer_echoes`: a foot line below the panels that the footer
     part already prints is that footer."""
 
-    def _run(self, lines, panel=True, footer="www.example.gov 4 RPT-25-01"):
+    def _run(self, lines, panel=True, footer="www.example.gov 4 RPT-25-01",
+             wide=False):
         from exactdoc.layout import Cell, HFPart
         from exactdoc.model import PageIR
         els = []
         if panel:
             els.append(TableEl(rows=[[Cell(shading="#D6E3EB", borders={})]],
                                col_widths=[154.0], role="box",
-                               bbox=(37.0, 108.0, 191.0, 715.0)))
+                               bbox=(37.0, 108.0, 300.0 if wide else 191.0, 715.0)))
         part = HFPart(elements=[Para(runs=[], leading=11.0)])
         part.elements[0].runs = []
         from exactdoc.layout import Run
@@ -391,7 +392,8 @@ class TheFooterEcho(unittest.TestCase):
                                      color="#000000")]
         consumed = set()
         I._drop_footer_echoes([_blk(lines)], consumed, els,
-                              PageIR(number=4, width=W, height=H), [part, None, None])
+                              PageIR(number=4, width=W, height=H), [part, None, None],
+                              486.0)
         return consumed
 
     def test_the_folio_less_footer_is_the_footer(self):
@@ -407,6 +409,12 @@ class TheFooterEcho(unittest.TestCase):
     def test_no_panel_no_rule(self):
         foot = _ln(72, 746, 145, "www.example.gov", 9)
         self.assertEqual(self._run([foot], panel=False), set())
+
+    def test_a_column_wide_box_is_no_sidebar_page(self):
+        """MMWR's summary boxes fill a column of two (0.48 of the measure):
+        their pages keep their foot lines."""
+        foot = _ln(72, 746, 145, "www.example.gov", 9)
+        self.assertEqual(self._run([foot], wide=True), set())
 
 
 @unittest.skipUnless(_canvas is not None, "needs reportlab")

@@ -7363,7 +7363,7 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
         if _wp60("foot_not_band"):
             _drop_footer_echoes(blocks, consumed, elements, p,
                                 [doc_lay.footer_default, doc_lay.footer_even,
-                                 doc_lay.footer_first])
+                                 doc_lay.footer_first], lay.content_w)
 
         # rebuild flow blocks from unconsumed lines (contiguous runs)
         flow_blocks = []
@@ -10905,7 +10905,8 @@ def _side_splits(items, x_lo: float, x_hi: float):
     return [f[1:] for f in found]
 
 
-def _drop_footer_echoes(blocks, consumed, elements, p: PageIR, parts) -> None:
+def _drop_footer_echoes(blocks, consumed, elements, p: PageIR, parts,
+                        content_w: float) -> None:
     """A line in the page's foot band, below every drawn panel, whose text
     the document's own footer already prints, is that footer: consumed.
 
@@ -10916,9 +10917,12 @@ def _drop_footer_echoes(blocks, consumed, elements, p: PageIR, parts) -> None:
     (`foot_not_band` in `_sbs_regions`) or, kept out of it, was written as a
     paragraph after the band -- a line the page had no room for, and the
     footer printed twice. Only below panels (the sidebar pages this is
-    about), only in BOTZ, and only text the footer part already states."""
+    about: a panel narrower than SIDEBAR_MAX_FRAC of the measure -- MMWR's
+    summary boxes, which fill a column, are not sidebars), only in BOTZ, and
+    only text the footer part already states."""
     panels = [e.bbox[3] for e in elements if isinstance(e, TableEl) and
-              e.role == "box" and e.bbox and any(
+              e.role == "box" and e.bbox and
+              e.bbox[2] - e.bbox[0] < SIDEBAR_MAX_FRAC * max(1.0, content_w) and any(
                   c is not None and (c.shading or any(c.borders.values()))
                   for row in e.rows for c in row)]
     if not panels:
