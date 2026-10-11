@@ -1,0 +1,1697 @@
+{
+ "schema": "exactdoc.holdout-exam-evidence.v1",
+ "generated_utc": "2026-10-11T15:56:35Z",
+ "run": "holdout2-rc",
+ "release": "0.3.0b1",
+ "tree_commit": "71af76e2232775389d7c843065bc72ec2daa7944",
+ "commit_source": "host: git rev-parse HEAD of the measured tree, passed into each container as EXACTDOC_GIT_COMMIT (as gate_full.sh does)",
+ "exam_scripts_commit": "71af76e2232775389d7c843065bc72ec2daa7944",
+ "image": {
+  "ref": "exactdoc-gate:boot",
+  "id": "sha256:bab1cfc0d2cd15c1c1a63d6db86fb1bfcb7f8f33ce7ee608568303fa58536f20"
+ },
+ "rerun_reason": null,
+ "synthetic": false,
+ "verdict": {
+  "valid": true,
+  "announce": false,
+  "R1": true,
+  "R2": false,
+  "R3": false
+ },
+ "inputs": {
+  "manifest": {
+   "path": "C:\\lotmp\\rv_hold2/holdout2.json",
+   "sha256": "4db48b08935795065af12016dd3c975eb37860e6299d101554cf61fde3460d61"
+  },
+  "product_sweep": {
+   "path": "C:\\lotmp\\scr/runs/holdout2-rc.holdout2/prod.sweep.json",
+   "sha256": "0e744553e9a4cec9e25b1f2c1694f5f2259e80d836c1b6fbcd724cfa583d99e0"
+  },
+  "raw_sweep": {
+   "path": "C:\\lotmp\\scr/runs/holdout2-rc.holdout2/raw.sweep.json",
+   "sha256": "44cba341ce0894a85587834dbda2a6c4eb0b775a7438a153f2d4a44cb90279d0"
+  },
+  "word_rows": {
+   "path": "C:\\lotmp\\scr/runs/holdout2-rc.holdout2/word-prod/rows.jsonl",
+   "sha256": "2f9146bd5e8e63bcb50390dd1680f9d1c396302e1f32ccb568b082826a611b20"
+  },
+  "cli_exits": {
+   "path": "C:\\lotmp\\scr/runs/holdout2-rc.holdout2/cli_exits.json",
+   "sha256": "fd5da08161d2104cfd2c983760e518b730b448a68a4ba9c73673995bab5bf8f7"
+  },
+  "product_sweep_log": {
+   "path": "C:\\lotmp\\scr/runs/holdout2-rc.holdout2/prod.sweep.log",
+   "sha256": "de630268547af485e5ea2629f223ce02264599f8c80c6753af808fa64c22002c"
+  },
+  "raw_sweep_log": {
+   "path": "C:\\lotmp\\scr/runs/holdout2-rc.holdout2/raw.sweep.log",
+   "sha256": "600f21e9ebdb5bf458aed6a35fa4e5ae6095655fb006b746303c7be4e7973ba6"
+  },
+  "holdout_exam.py": {
+   "path": "C:/lotmp/rc1/scripts/dev/holdout_exam.py",
+   "sha256": "fea747051304bb6db77b0c9e339caa3695580222bdc2d7a947c783c3761d5e8a"
+  },
+  "holdout_sweep.py": {
+   "path": "C:/lotmp/rc1/scripts/dev/holdout_sweep.py",
+   "sha256": "d7dde95b6e1304d5a73f1780c34656ac2b9297d44e417ebaf517afad286d35b4"
+  },
+  "holdout_word.py": {
+   "path": "C:/lotmp/rc1/scripts/dev/holdout_word.py",
+   "sha256": "4efe0cf3de11659c560bf49a7c4f3a5544ef9721978d589a81d116d7fd70ed44"
+  },
+  "holdout_exam.sh": {
+   "path": "C:/lotmp/rc1/scripts/dev/holdout_exam.sh",
+   "sha256": "1a3ee099741d193a706ff377539d71c57469ddc429ce5cb2f0359e6d38a552b4"
+  }
+ },
+ "exam": {
+  "R1": {
+   "cli_confirmed": true,
+   "crashes": [],
+   "kind": "gating",
+   "pass": true,
+   "raw_crashes_reported": [],
+   "refusals": [],
+   "untyped_refusals": [],
+   "word_expected": 32,
+   "word_open_failures": [],
+   "word_opened_clean": 32,
+   "word_scoring_errors": [
+    {
+     "doc": "h2_04_memphis_federal_resume.pdf",
+     "error": "word: The export failed. The document could not be prepared for exporting."
+    }
+   ]
+  },
+  "R2": {
+   "kind": "gating",
+   "lo": {
+    "misses_pages": [
+     "h2_01_cmu_dietrich_sample_resumes.pdf",
+     "h2_04_memphis_federal_resume.pdf",
+     "h2_30_wikipedia_resume_chrome_print.pdf"
+    ],
+    "misses_wr": [
+     "h2_01_cmu_dietrich_sample_resumes.pdf",
+     "h2_04_memphis_federal_resume.pdf",
+     "h2_06_altacv_latex_resume.pdf",
+     "h2_30_wikipedia_resume_chrome_print.pdf"
+    ],
+    "n": 16,
+    "page_exact": 13,
+    "page_exact_ok": true,
+    "page_exact_pct": 81.2,
+    "wr_ok": false,
+    "wr_ok_count": 12,
+    "wr_ok_pct": 75.0
+   },
+   "n": 16,
+   "pass": false,
+   "word": {
+    "misses_pages": [
+     "h2_01_cmu_dietrich_sample_resumes.pdf",
+     "h2_04_memphis_federal_resume.pdf",
+     "h2_30_wikipedia_resume_chrome_print.pdf"
+    ],
+    "misses_wr": [
+     "h2_01_cmu_dietrich_sample_resumes.pdf",
+     "h2_04_memphis_federal_resume.pdf",
+     "h2_06_altacv_latex_resume.pdf",
+     "h2_30_wikipedia_resume_chrome_print.pdf"
+    ],
+    "n": 16,
+    "page_exact": 13,
+    "page_exact_ok": true,
+    "page_exact_pct": 81.2,
+    "wr_ok": false,
+    "wr_ok_count": 12,
+    "wr_ok_pct": 75.0
+   }
+  },
+  "R3": {
+   "by_lane": {
+    "lo": [
+     "h2_04_memphis_federal_resume.pdf"
+    ],
+    "word": [
+     "h2_04_memphis_federal_resume.pdf"
+    ]
+   },
+   "kind": "gating",
+   "long_catastrophic": [],
+   "pass": false,
+   "short_catastrophic": [
+    "h2_04_memphis_federal_resume.pdf"
+   ],
+   "unpromised_catastrophic_reported": [
+    "h2_24_ipcc_ar6_syr_spm.pdf",
+    "h2_25_nasa_artemis_plan.pdf",
+    "h2_27_usps_annual_report_fy2023.pdf",
+    "h2_29_nps_redwood_unigrid_brochure.pdf"
+   ]
+  },
+  "R4": {
+   "kind": "reported",
+   "lo": {
+    "measured": 7,
+    "median_abs_delta_pages_pct": 1.3,
+    "n": 7,
+    "within_max1_2pct": 4,
+    "within_max1_2pct_share": 57.1,
+    "wr_ge_085": 3,
+    "wr_ge_085_share": 42.9
+   },
+   "n": 7,
+   "word": {
+    "measured": 7,
+    "median_abs_delta_pages_pct": 1.3,
+    "n": 7,
+    "within_max1_2pct": 4,
+    "within_max1_2pct_share": 57.1,
+    "wr_ge_085": 3,
+    "wr_ge_085_share": 42.9
+   }
+  },
+  "R5": {
+   "kind": "reported",
+   "note": "no live Docs lane was flown for this exam; the gated-16 live qualification stays as recorded",
+   "run": false
+  },
+  "announce": false,
+  "commit": "71af76e2232775389d7c843065bc72ec2daa7944",
+  "counts": {
+   "documents": 32,
+   "long_promised": 7,
+   "promised": 23,
+   "short_promised": 16
+  },
+  "documents": [
+   {
+    "catastrophic": {
+     "lo": false,
+     "word": false
+    },
+    "design_class": "resume",
+    "doc": "h2_01_cmu_dietrich_sample_resumes.pdf",
+    "length": "short",
+    "lo": {
+     "catastrophic": false,
+     "char_recall": 0.8657,
+     "delta_pages": 1,
+     "delta_pct": 12.5,
+     "exact": false,
+     "out_pages": 9,
+     "src_pages": 8,
+     "status": "measured",
+     "word_recall": 0.8312
+    },
+    "pages": 8,
+    "promised": true,
+    "raw": {
+     "catastrophic": true,
+     "char_recall": 0.8642,
+     "delta_pages": 2,
+     "delta_pct": 25.0,
+     "exact": false,
+     "out_pages": 10,
+     "src_pages": 8,
+     "status": "measured",
+     "word_recall": 0.794
+    },
+    "word": {
+     "catastrophic": false,
+     "char_recall": 0.8657,
+     "delta_pages": 1,
+     "delta_pct": 12.5,
+     "exact": false,
+     "hang": false,
+     "opened": true,
+     "out_pages": 9,
+     "repair_prompt": false,
+     "src_pages": 8,
+     "status": "measured",
+     "word_recall": 0.8312
+    }
+   },
+   {
+    "catastrophic": {
+     "lo": false,
+     "word": false
+    },
+    "design_class": "resume",
+    "doc": "h2_02_memphis_chronological_resume.pdf",
+    "length": "short",
+    "lo": {
+     "catastrophic": false,
+     "char_recall": 1.0,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "out_pages": 1,
+     "src_pages": 1,
+     "status": "measured",
+     "word_recall": 1.0
+    },
+    "pages": 1,
+    "promised": true,
+    "raw": {
+     "catastrophic": false,
+     "char_recall": 1.0,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "out_pages": 1,
+     "src_pages": 1,
+     "status": "measured",
+     "word_recall": 1.0
+    },
+    "word": {
+     "catastrophic": false,
+     "char_recall": 1.0,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "hang": false,
+     "opened": true,
+     "out_pages": 1,
+     "repair_prompt": false,
+     "src_pages": 1,
+     "status": "measured",
+     "word_recall": 1.0
+    }
+   },
+   {
+    "catastrophic": {
+     "lo": false,
+     "word": false
+    },
+    "design_class": "resume",
+    "doc": "h2_03_memphis_experienced_resume.pdf",
+    "length": "short",
+    "lo": {
+     "catastrophic": false,
+     "char_recall": 1.0,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "out_pages": 1,
+     "src_pages": 1,
+     "status": "measured",
+     "word_recall": 0.9954
+    },
+    "pages": 1,
+    "promised": true,
+    "raw": {
+     "catastrophic": false,
+     "char_recall": 1.0,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "out_pages": 1,
+     "src_pages": 1,
+     "status": "measured",
+     "word_recall": 0.9954
+    },
+    "word": {
+     "catastrophic": false,
+     "char_recall": 1.0,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "hang": false,
+     "opened": true,
+     "out_pages": 1,
+     "repair_prompt": false,
+     "src_pages": 1,
+     "status": "measured",
+     "word_recall": 0.9954
+    }
+   },
+   {
+    "catastrophic": {
+     "lo": true,
+     "word": true
+    },
+    "design_class": "resume",
+    "doc": "h2_04_memphis_federal_resume.pdf",
+    "length": "short",
+    "lo": {
+     "catastrophic": true,
+     "char_recall": 0.3708,
+     "delta_pages": 3,
+     "delta_pct": 100.0,
+     "exact": false,
+     "out_pages": 6,
+     "src_pages": 3,
+     "status": "measured",
+     "word_recall": 0.3552
+    },
+    "pages": 3,
+    "promised": true,
+    "raw": {
+     "catastrophic": true,
+     "char_recall": 0.3708,
+     "delta_pages": 3,
+     "delta_pct": 100.0,
+     "exact": false,
+     "out_pages": 6,
+     "src_pages": 3,
+     "status": "measured",
+     "word_recall": 0.3552
+    },
+    "word": {
+     "error": "word: The export failed. The document could not be prepared for exporting.",
+     "hang": false,
+     "opened": true,
+     "repair_prompt": false,
+     "status": "error"
+    }
+   },
+   {
+    "catastrophic": {
+     "lo": false,
+     "word": false
+    },
+    "design_class": "resume",
+    "doc": "h2_05_awesomecv_latex_resume.pdf",
+    "length": "short",
+    "lo": {
+     "catastrophic": false,
+     "char_recall": 0.9947,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "out_pages": 3,
+     "src_pages": 3,
+     "status": "measured",
+     "word_recall": 0.9515
+    },
+    "pages": 3,
+    "promised": true,
+    "raw": {
+     "catastrophic": false,
+     "char_recall": 0.9947,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "out_pages": 3,
+     "src_pages": 3,
+     "status": "measured",
+     "word_recall": 0.9515
+    },
+    "word": {
+     "catastrophic": false,
+     "char_recall": 0.9947,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "hang": false,
+     "opened": true,
+     "out_pages": 3,
+     "repair_prompt": false,
+     "src_pages": 3,
+     "status": "measured",
+     "word_recall": 0.953
+    }
+   },
+   {
+    "catastrophic": {
+     "lo": false,
+     "word": false
+    },
+    "design_class": "resume",
+    "doc": "h2_06_altacv_latex_resume.pdf",
+    "length": "short",
+    "lo": {
+     "catastrophic": false,
+     "char_recall": 0.9761,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "out_pages": 2,
+     "src_pages": 2,
+     "status": "measured",
+     "word_recall": 0.8787
+    },
+    "pages": 2,
+    "promised": true,
+    "raw": {
+     "catastrophic": false,
+     "char_recall": 0.94,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "out_pages": 2,
+     "src_pages": 2,
+     "status": "measured",
+     "word_recall": 0.8462
+    },
+    "word": {
+     "catastrophic": false,
+     "char_recall": 0.9761,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "hang": false,
+     "opened": true,
+     "out_pages": 2,
+     "repair_prompt": false,
+     "src_pages": 2,
+     "status": "measured",
+     "word_recall": 0.8787
+    }
+   },
+   {
+    "catastrophic": {
+     "lo": false,
+     "word": false
+    },
+    "design_class": "resume",
+    "doc": "h2_07_boisestate_physics_resume_packet.pdf",
+    "length": "short",
+    "lo": {
+     "catastrophic": false,
+     "char_recall": 0.9861,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "out_pages": 7,
+     "src_pages": 7,
+     "status": "measured",
+     "word_recall": 1.0
+    },
+    "pages": 7,
+    "promised": true,
+    "raw": {
+     "catastrophic": false,
+     "char_recall": 0.9861,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "out_pages": 7,
+     "src_pages": 7,
+     "status": "measured",
+     "word_recall": 1.0
+    },
+    "word": {
+     "catastrophic": false,
+     "char_recall": 0.9861,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "hang": false,
+     "opened": true,
+     "out_pages": 7,
+     "repair_prompt": false,
+     "src_pages": 7,
+     "status": "measured",
+     "word_recall": 1.0
+    }
+   },
+   {
+    "catastrophic": {
+     "lo": false,
+     "word": false
+    },
+    "design_class": "resume",
+    "doc": "h2_08_boisestate_nursing_resume_packet.pdf",
+    "length": "short",
+    "lo": {
+     "catastrophic": false,
+     "char_recall": 0.9872,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "out_pages": 5,
+     "src_pages": 5,
+     "status": "measured",
+     "word_recall": 0.998
+    },
+    "pages": 5,
+    "promised": true,
+    "raw": {
+     "catastrophic": false,
+     "char_recall": 0.9872,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "out_pages": 5,
+     "src_pages": 5,
+     "status": "measured",
+     "word_recall": 0.998
+    },
+    "word": {
+     "catastrophic": false,
+     "char_recall": 0.9872,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "hang": false,
+     "opened": true,
+     "out_pages": 5,
+     "repair_prompt": false,
+     "src_pages": 5,
+     "status": "measured",
+     "word_recall": 0.998
+    }
+   },
+   {
+    "catastrophic": {
+     "lo": false,
+     "word": false
+    },
+    "design_class": "ordinary-word",
+    "doc": "h2_09_ed_ocr_dear_colleague_letter.pdf",
+    "length": "short",
+    "lo": {
+     "catastrophic": false,
+     "char_recall": 1.0,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "out_pages": 4,
+     "src_pages": 4,
+     "status": "measured",
+     "word_recall": 0.9877
+    },
+    "pages": 4,
+    "promised": true,
+    "raw": {
+     "catastrophic": false,
+     "char_recall": 1.0,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "out_pages": 4,
+     "src_pages": 4,
+     "status": "measured",
+     "word_recall": 0.9877
+    },
+    "word": {
+     "catastrophic": false,
+     "char_recall": 1.0,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "hang": false,
+     "opened": true,
+     "out_pages": 4,
+     "repair_prompt": false,
+     "src_pages": 4,
+     "status": "measured",
+     "word_recall": 0.9871
+    }
+   },
+   {
+    "catastrophic": {
+     "lo": false,
+     "word": false
+    },
+    "design_class": "ordinary-word",
+    "doc": "h2_10_doe_oig_management_letter.pdf",
+    "length": "short",
+    "lo": {
+     "catastrophic": false,
+     "char_recall": 0.9673,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "out_pages": 4,
+     "src_pages": 4,
+     "status": "measured",
+     "word_recall": 0.9699
+    },
+    "pages": 4,
+    "promised": true,
+    "raw": {
+     "catastrophic": false,
+     "char_recall": 0.9673,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "out_pages": 4,
+     "src_pages": 4,
+     "status": "measured",
+     "word_recall": 0.9699
+    },
+    "word": {
+     "catastrophic": false,
+     "char_recall": 0.9673,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "hang": false,
+     "opened": true,
+     "out_pages": 4,
+     "repair_prompt": false,
+     "src_pages": 4,
+     "status": "measured",
+     "word_recall": 0.9699
+    }
+   },
+   {
+    "catastrophic": {
+     "lo": false,
+     "word": false
+    },
+    "design_class": "ordinary-word",
+    "doc": "h2_11_rit_oce_investigations_policy.pdf",
+    "length": "short",
+    "lo": {
+     "catastrophic": false,
+     "char_recall": 1.0,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "out_pages": 9,
+     "src_pages": 9,
+     "status": "measured",
+     "word_recall": 0.9928
+    },
+    "pages": 9,
+    "promised": true,
+    "raw": {
+     "catastrophic": false,
+     "char_recall": 1.0,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "out_pages": 9,
+     "src_pages": 9,
+     "status": "measured",
+     "word_recall": 0.9928
+    },
+    "word": {
+     "catastrophic": false,
+     "char_recall": 0.998,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "hang": false,
+     "opened": true,
+     "out_pages": 9,
+     "repair_prompt": false,
+     "src_pages": 9,
+     "status": "measured",
+     "word_recall": 0.9878
+    }
+   },
+   {
+    "catastrophic": {
+     "lo": false,
+     "word": false
+    },
+    "design_class": "ordinary-word",
+    "doc": "h2_12_mwsu_policy_on_policies.pdf",
+    "length": "short",
+    "lo": {
+     "catastrophic": false,
+     "char_recall": 0.9952,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "out_pages": 9,
+     "src_pages": 9,
+     "status": "measured",
+     "word_recall": 0.9951
+    },
+    "pages": 9,
+    "promised": true,
+    "raw": {
+     "catastrophic": false,
+     "char_recall": 0.9952,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "out_pages": 9,
+     "src_pages": 9,
+     "status": "measured",
+     "word_recall": 0.9951
+    },
+    "word": {
+     "catastrophic": false,
+     "char_recall": 0.9952,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "hang": false,
+     "opened": true,
+     "out_pages": 9,
+     "repair_prompt": false,
+     "src_pages": 9,
+     "status": "measured",
+     "word_recall": 0.9951
+    }
+   },
+   {
+    "catastrophic": {
+     "lo": false,
+     "word": false
+    },
+    "design_class": "ordinary-word",
+    "doc": "h2_13_njit_cs506_syllabus.pdf",
+    "length": "short",
+    "lo": {
+     "catastrophic": false,
+     "char_recall": 0.9999,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "out_pages": 8,
+     "src_pages": 8,
+     "status": "measured",
+     "word_recall": 0.9951
+    },
+    "pages": 8,
+    "promised": true,
+    "raw": {
+     "catastrophic": false,
+     "char_recall": 0.9999,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "out_pages": 8,
+     "src_pages": 8,
+     "status": "measured",
+     "word_recall": 0.9951
+    },
+    "word": {
+     "catastrophic": false,
+     "char_recall": 0.9999,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "hang": false,
+     "opened": true,
+     "out_pages": 8,
+     "repair_prompt": false,
+     "src_pages": 8,
+     "status": "measured",
+     "word_recall": 0.9995
+    }
+   },
+   {
+    "catastrophic": {
+     "lo": false,
+     "word": false
+    },
+    "design_class": "ordinary-word",
+    "doc": "h2_14_rpi_csci1100_syllabus.pdf",
+    "length": "short",
+    "lo": {
+     "catastrophic": false,
+     "char_recall": 1.0,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "out_pages": 8,
+     "src_pages": 8,
+     "status": "measured",
+     "word_recall": 1.0
+    },
+    "pages": 8,
+    "promised": true,
+    "raw": {
+     "catastrophic": false,
+     "char_recall": 1.0,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "out_pages": 8,
+     "src_pages": 8,
+     "status": "measured",
+     "word_recall": 1.0
+    },
+    "word": {
+     "catastrophic": false,
+     "char_recall": 1.0,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "hang": false,
+     "opened": true,
+     "out_pages": 8,
+     "repair_prompt": false,
+     "src_pages": 8,
+     "status": "measured",
+     "word_recall": 1.0
+    }
+   },
+   {
+    "catastrophic": {
+     "lo": false,
+     "word": false
+    },
+    "design_class": "ordinary-gdocs",
+    "doc": "h2_15_csu_cs150b_syllabus_gdocs.pdf",
+    "length": "short",
+    "lo": {
+     "catastrophic": false,
+     "char_recall": 0.9968,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "out_pages": 13,
+     "src_pages": 13,
+     "status": "measured",
+     "word_recall": 1.0
+    },
+    "pages": 13,
+    "promised": true,
+    "raw": {
+     "catastrophic": false,
+     "char_recall": 0.9968,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "out_pages": 13,
+     "src_pages": 13,
+     "status": "measured",
+     "word_recall": 1.0
+    },
+    "word": {
+     "catastrophic": false,
+     "char_recall": 0.9968,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "hang": false,
+     "opened": true,
+     "out_pages": 13,
+     "repair_prompt": false,
+     "src_pages": 13,
+     "status": "measured",
+     "word_recall": 1.0
+    }
+   },
+   {
+    "catastrophic": {
+     "lo": false,
+     "word": false
+    },
+    "design_class": "long-report-ordinary",
+    "doc": "h2_16_ctan_hyperref_manual.pdf",
+    "length": "long",
+    "lo": {
+     "catastrophic": false,
+     "char_recall": 0.9995,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "out_pages": 64,
+     "src_pages": 64,
+     "status": "measured",
+     "word_recall": 0.9915
+    },
+    "pages": 64,
+    "promised": true,
+    "raw": {
+     "catastrophic": false,
+     "char_recall": 0.9995,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "out_pages": 64,
+     "src_pages": 64,
+     "status": "measured",
+     "word_recall": 0.9915
+    },
+    "word": {
+     "catastrophic": false,
+     "char_recall": 0.9999,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "hang": false,
+     "opened": true,
+     "out_pages": 64,
+     "repair_prompt": false,
+     "src_pages": 64,
+     "status": "measured",
+     "word_recall": 0.9872
+    }
+   },
+   {
+    "catastrophic": {
+     "lo": false,
+     "word": false
+    },
+    "design_class": "long-report-ordinary",
+    "doc": "h2_17_ctan_latex_usrguide.pdf",
+    "length": "long",
+    "lo": {
+     "catastrophic": false,
+     "char_recall": 0.9989,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "out_pages": 27,
+     "src_pages": 27,
+     "status": "measured",
+     "word_recall": 0.9842
+    },
+    "pages": 27,
+    "promised": true,
+    "raw": {
+     "catastrophic": false,
+     "char_recall": 0.9989,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "out_pages": 27,
+     "src_pages": 27,
+     "status": "measured",
+     "word_recall": 0.9842
+    },
+    "word": {
+     "catastrophic": false,
+     "char_recall": 0.9999,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "hang": false,
+     "opened": true,
+     "out_pages": 27,
+     "repair_prompt": false,
+     "src_pages": 27,
+     "status": "measured",
+     "word_recall": 0.9795
+    }
+   },
+   {
+    "catastrophic": {
+     "lo": false,
+     "word": false
+    },
+    "design_class": "long-report-ordinary",
+    "doc": "h2_18_arxiv_llama2_tech_report.pdf",
+    "length": "long",
+    "lo": {
+     "catastrophic": false,
+     "char_recall": 0.7745,
+     "delta_pages": 1,
+     "delta_pct": 1.3,
+     "exact": false,
+     "out_pages": 78,
+     "src_pages": 77,
+     "status": "measured",
+     "word_recall": 0.4174
+    },
+    "pages": 77,
+    "promised": true,
+    "raw": {
+     "catastrophic": false,
+     "char_recall": 0.6741,
+     "delta_pages": 5,
+     "delta_pct": 6.49,
+     "exact": false,
+     "out_pages": 82,
+     "src_pages": 77,
+     "status": "measured",
+     "word_recall": 0.2307
+    },
+    "word": {
+     "catastrophic": false,
+     "char_recall": 0.7751,
+     "delta_pages": 1,
+     "delta_pct": 1.3,
+     "exact": false,
+     "hang": false,
+     "opened": true,
+     "out_pages": 78,
+     "repair_prompt": false,
+     "src_pages": 77,
+     "status": "measured",
+     "word_recall": 0.4149
+    }
+   },
+   {
+    "catastrophic": {
+     "lo": false,
+     "word": false
+    },
+    "design_class": "long-report-ordinary",
+    "doc": "h2_19_matrix_cookbook.pdf",
+    "length": "long",
+    "lo": {
+     "catastrophic": false,
+     "char_recall": 0.6747,
+     "delta_pages": 5,
+     "delta_pct": 6.94,
+     "exact": false,
+     "out_pages": 77,
+     "src_pages": 72,
+     "status": "measured",
+     "word_recall": 0.452
+    },
+    "pages": 72,
+    "promised": false,
+    "raw": {
+     "catastrophic": true,
+     "char_recall": 0.5636,
+     "delta_pages": 20,
+     "delta_pct": 27.78,
+     "exact": false,
+     "out_pages": 92,
+     "src_pages": 72,
+     "status": "measured",
+     "word_recall": 0.3277
+    },
+    "word": {
+     "catastrophic": false,
+     "char_recall": 0.6192,
+     "delta_pages": 6,
+     "delta_pct": 8.33,
+     "exact": false,
+     "hang": false,
+     "opened": true,
+     "out_pages": 78,
+     "repair_prompt": false,
+     "src_pages": 72,
+     "status": "measured",
+     "word_recall": 0.3812
+    }
+   },
+   {
+    "catastrophic": {
+     "lo": false,
+     "word": false
+    },
+    "design_class": "long-report-ordinary",
+    "doc": "h2_20_dhs_oig_25_46_cisa.pdf",
+    "length": "long",
+    "lo": {
+     "catastrophic": false,
+     "char_recall": 0.6702,
+     "delta_pages": 2,
+     "delta_pct": 7.14,
+     "exact": false,
+     "out_pages": 30,
+     "src_pages": 28,
+     "status": "measured",
+     "word_recall": 0.3303
+    },
+    "pages": 28,
+    "promised": true,
+    "raw": {
+     "catastrophic": false,
+     "char_recall": 0.6701,
+     "delta_pages": 2,
+     "delta_pct": 7.14,
+     "exact": false,
+     "out_pages": 30,
+     "src_pages": 28,
+     "status": "measured",
+     "word_recall": 0.3298
+    },
+    "word": {
+     "catastrophic": false,
+     "char_recall": 0.6702,
+     "delta_pages": 2,
+     "delta_pct": 7.14,
+     "exact": false,
+     "hang": false,
+     "opened": true,
+     "out_pages": 30,
+     "repair_prompt": false,
+     "src_pages": 28,
+     "status": "measured",
+     "word_recall": 0.3303
+    }
+   },
+   {
+    "catastrophic": {
+     "lo": false,
+     "word": false
+    },
+    "design_class": "long-report-ordinary",
+    "doc": "h2_21_dhs_oig_25_49_title42.pdf",
+    "length": "long",
+    "lo": {
+     "catastrophic": false,
+     "char_recall": 0.719,
+     "delta_pages": 2,
+     "delta_pct": 4.55,
+     "exact": false,
+     "out_pages": 46,
+     "src_pages": 44,
+     "status": "measured",
+     "word_recall": 0.3179
+    },
+    "pages": 44,
+    "promised": true,
+    "raw": {
+     "catastrophic": false,
+     "char_recall": 0.7173,
+     "delta_pages": 2,
+     "delta_pct": 4.55,
+     "exact": false,
+     "out_pages": 46,
+     "src_pages": 44,
+     "status": "measured",
+     "word_recall": 0.3163
+    },
+    "word": {
+     "catastrophic": false,
+     "char_recall": 0.717,
+     "delta_pages": 2,
+     "delta_pct": 4.55,
+     "exact": false,
+     "hang": false,
+     "opened": true,
+     "out_pages": 46,
+     "repair_prompt": false,
+     "src_pages": 44,
+     "status": "measured",
+     "word_recall": 0.3163
+    }
+   },
+   {
+    "catastrophic": {
+     "lo": false,
+     "word": false
+    },
+    "design_class": "long-report-ordinary",
+    "doc": "h2_22_opm_oig_2025_iag_022.pdf",
+    "length": "long",
+    "lo": {
+     "catastrophic": false,
+     "char_recall": 0.7143,
+     "delta_pages": 4,
+     "delta_pct": 7.41,
+     "exact": false,
+     "out_pages": 58,
+     "src_pages": 54,
+     "status": "measured",
+     "word_recall": 0.2656
+    },
+    "pages": 54,
+    "promised": true,
+    "raw": {
+     "catastrophic": false,
+     "char_recall": 0.7159,
+     "delta_pages": 4,
+     "delta_pct": 7.41,
+     "exact": false,
+     "out_pages": 58,
+     "src_pages": 54,
+     "status": "measured",
+     "word_recall": 0.2669
+    },
+    "word": {
+     "catastrophic": false,
+     "char_recall": 0.7142,
+     "delta_pages": 4,
+     "delta_pct": 7.41,
+     "exact": false,
+     "hang": false,
+     "opened": true,
+     "out_pages": 58,
+     "repair_prompt": false,
+     "src_pages": 54,
+     "status": "measured",
+     "word_recall": 0.2656
+    }
+   },
+   {
+    "catastrophic": {
+     "lo": false,
+     "word": false
+    },
+    "design_class": "long-report-ordinary",
+    "doc": "h2_23_ed_oig_a26dc0288.pdf",
+    "length": "long",
+    "lo": {
+     "catastrophic": false,
+     "char_recall": 0.9517,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "out_pages": 30,
+     "src_pages": 30,
+     "status": "measured",
+     "word_recall": 0.9472
+    },
+    "pages": 30,
+    "promised": true,
+    "raw": {
+     "catastrophic": false,
+     "char_recall": 0.7332,
+     "delta_pages": 1,
+     "delta_pct": 3.33,
+     "exact": false,
+     "out_pages": 31,
+     "src_pages": 30,
+     "status": "measured",
+     "word_recall": 0.4371
+    },
+    "word": {
+     "catastrophic": false,
+     "char_recall": 0.9517,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "hang": false,
+     "opened": true,
+     "out_pages": 30,
+     "repair_prompt": false,
+     "src_pages": 30,
+     "status": "measured",
+     "word_recall": 0.9477
+    }
+   },
+   {
+    "catastrophic": {
+     "lo": true,
+     "word": true
+    },
+    "design_class": "designed-report",
+    "doc": "h2_24_ipcc_ar6_syr_spm.pdf",
+    "length": "long",
+    "lo": {
+     "catastrophic": true,
+     "char_recall": 0.559,
+     "delta_pages": 13,
+     "delta_pct": 30.95,
+     "exact": false,
+     "out_pages": 55,
+     "src_pages": 42,
+     "status": "measured",
+     "word_recall": 0.3614
+    },
+    "pages": 42,
+    "promised": false,
+    "raw": {
+     "catastrophic": true,
+     "char_recall": 0.417,
+     "delta_pages": 25,
+     "delta_pct": 59.52,
+     "exact": false,
+     "out_pages": 67,
+     "src_pages": 42,
+     "status": "measured",
+     "word_recall": 0.1734
+    },
+    "word": {
+     "catastrophic": true,
+     "char_recall": 0.4787,
+     "delta_pages": 14,
+     "delta_pct": 33.33,
+     "exact": false,
+     "hang": false,
+     "opened": true,
+     "out_pages": 56,
+     "repair_prompt": false,
+     "src_pages": 42,
+     "status": "measured",
+     "word_recall": 0.213
+    }
+   },
+   {
+    "catastrophic": {
+     "lo": true,
+     "word": true
+    },
+    "design_class": "designed-report",
+    "doc": "h2_25_nasa_artemis_plan.pdf",
+    "length": "long",
+    "lo": {
+     "catastrophic": true,
+     "char_recall": 0.397,
+     "delta_pages": 34,
+     "delta_pct": 45.95,
+     "exact": false,
+     "out_pages": 108,
+     "src_pages": 74,
+     "status": "measured",
+     "word_recall": 0.2198
+    },
+    "pages": 74,
+    "promised": false,
+    "raw": {
+     "catastrophic": true,
+     "char_recall": 0.4024,
+     "delta_pages": 34,
+     "delta_pct": 45.95,
+     "exact": false,
+     "out_pages": 108,
+     "src_pages": 74,
+     "status": "measured",
+     "word_recall": 0.2207
+    },
+    "word": {
+     "catastrophic": true,
+     "char_recall": 0.3236,
+     "delta_pages": 35,
+     "delta_pct": 47.3,
+     "exact": false,
+     "hang": false,
+     "opened": true,
+     "out_pages": 109,
+     "repair_prompt": false,
+     "src_pages": 74,
+     "status": "measured",
+     "word_recall": 0.178
+    }
+   },
+   {
+    "catastrophic": {
+     "lo": false,
+     "word": false
+    },
+    "design_class": "designed-report",
+    "doc": "h2_26_nasa_2022_strategic_plan.pdf",
+    "length": "long",
+    "lo": {
+     "catastrophic": false,
+     "char_recall": 0.6788,
+     "delta_pages": 15,
+     "delta_pct": 12.1,
+     "exact": false,
+     "out_pages": 139,
+     "src_pages": 124,
+     "status": "measured",
+     "word_recall": 0.246
+    },
+    "pages": 124,
+    "promised": false,
+    "raw": {
+     "catastrophic": true,
+     "char_recall": 0.5447,
+     "delta_pages": 36,
+     "delta_pct": 29.03,
+     "exact": false,
+     "out_pages": 160,
+     "src_pages": 124,
+     "status": "measured",
+     "word_recall": 0.1904
+    },
+    "word": {
+     "catastrophic": false,
+     "char_recall": 0.6757,
+     "delta_pages": 14,
+     "delta_pct": 11.29,
+     "exact": false,
+     "hang": false,
+     "opened": true,
+     "out_pages": 138,
+     "repair_prompt": false,
+     "src_pages": 124,
+     "status": "measured",
+     "word_recall": 0.2443
+    }
+   },
+   {
+    "catastrophic": {
+     "lo": true,
+     "word": true
+    },
+    "design_class": "annual-report",
+    "doc": "h2_27_usps_annual_report_fy2023.pdf",
+    "length": "long",
+    "lo": {
+     "catastrophic": true,
+     "char_recall": 0.4616,
+     "delta_pages": 16,
+     "delta_pct": 25.0,
+     "exact": false,
+     "out_pages": 80,
+     "src_pages": 64,
+     "status": "measured",
+     "word_recall": 0.1684
+    },
+    "pages": 64,
+    "promised": false,
+    "raw": {
+     "catastrophic": true,
+     "char_recall": 0.3772,
+     "delta_pages": 27,
+     "delta_pct": 42.19,
+     "exact": false,
+     "out_pages": 91,
+     "src_pages": 64,
+     "status": "measured",
+     "word_recall": 0.1248
+    },
+    "word": {
+     "catastrophic": true,
+     "char_recall": 0.4301,
+     "delta_pages": 18,
+     "delta_pct": 28.12,
+     "exact": false,
+     "hang": false,
+     "opened": true,
+     "out_pages": 82,
+     "repair_prompt": false,
+     "src_pages": 64,
+     "status": "measured",
+     "word_recall": 0.1518
+    }
+   },
+   {
+    "catastrophic": {
+     "lo": false,
+     "word": false
+    },
+    "design_class": "annual-report",
+    "doc": "h2_28_sensirion_annual_report_2024.pdf",
+    "length": "long",
+    "lo": {
+     "catastrophic": false,
+     "char_recall": 0.5751,
+     "delta_pages": 22,
+     "delta_pct": 11.46,
+     "exact": false,
+     "out_pages": 214,
+     "src_pages": 192,
+     "status": "measured",
+     "word_recall": 0.2085
+    },
+    "pages": 192,
+    "promised": false,
+    "raw": {
+     "catastrophic": true,
+     "char_recall": 0.5305,
+     "delta_pages": 41,
+     "delta_pct": 21.35,
+     "exact": false,
+     "out_pages": 233,
+     "src_pages": 192,
+     "status": "measured",
+     "word_recall": 0.1761
+    },
+    "word": {
+     "catastrophic": false,
+     "char_recall": 0.5761,
+     "delta_pages": 19,
+     "delta_pct": 9.9,
+     "exact": false,
+     "hang": false,
+     "opened": true,
+     "out_pages": 211,
+     "repair_prompt": false,
+     "src_pages": 192,
+     "status": "measured",
+     "word_recall": 0.2094
+    }
+   },
+   {
+    "catastrophic": {
+     "lo": true,
+     "word": true
+    },
+    "design_class": "designed-report",
+    "doc": "h2_29_nps_redwood_unigrid_brochure.pdf",
+    "length": "short",
+    "lo": {
+     "catastrophic": true,
+     "char_recall": 0.393,
+     "delta_pages": 1,
+     "delta_pct": 50.0,
+     "exact": false,
+     "out_pages": 3,
+     "src_pages": 2,
+     "status": "measured",
+     "word_recall": 0.3313
+    },
+    "pages": 2,
+    "promised": false,
+    "raw": {
+     "catastrophic": true,
+     "char_recall": 0.385,
+     "delta_pages": 2,
+     "delta_pct": 100.0,
+     "exact": false,
+     "out_pages": 4,
+     "src_pages": 2,
+     "status": "measured",
+     "word_recall": 0.312
+    },
+    "word": {
+     "catastrophic": true,
+     "char_recall": 0.3215,
+     "delta_pages": 7,
+     "delta_pct": 350.0,
+     "exact": false,
+     "hang": false,
+     "opened": true,
+     "out_pages": 9,
+     "repair_prompt": false,
+     "src_pages": 2,
+     "status": "measured",
+     "word_recall": 0.2994
+    }
+   },
+   {
+    "catastrophic": {
+     "lo": false,
+     "word": false
+    },
+    "design_class": "web-print",
+    "doc": "h2_30_wikipedia_resume_chrome_print.pdf",
+    "length": "short",
+    "lo": {
+     "catastrophic": false,
+     "char_recall": 0.712,
+     "delta_pages": 1,
+     "delta_pct": 14.29,
+     "exact": false,
+     "out_pages": 8,
+     "src_pages": 7,
+     "status": "measured",
+     "word_recall": 0.3314
+    },
+    "pages": 7,
+    "promised": true,
+    "raw": {
+     "catastrophic": false,
+     "char_recall": 0.7115,
+     "delta_pages": 1,
+     "delta_pct": 14.29,
+     "exact": false,
+     "out_pages": 8,
+     "src_pages": 7,
+     "status": "measured",
+     "word_recall": 0.3195
+    },
+    "word": {
+     "catastrophic": false,
+     "char_recall": 0.712,
+     "delta_pages": 1,
+     "delta_pct": 14.29,
+     "exact": false,
+     "hang": false,
+     "opened": true,
+     "out_pages": 8,
+     "repair_prompt": false,
+     "src_pages": 7,
+     "status": "measured",
+     "word_recall": 0.3314
+    }
+   },
+   {
+    "catastrophic": {
+     "lo": false,
+     "word": false
+    },
+    "design_class": "slides",
+    "doc": "h2_31_epa_nca5_webinar_slides.pdf",
+    "length": "long",
+    "lo": {
+     "catastrophic": false,
+     "char_recall": 0.8674,
+     "delta_pages": 0,
+     "delta_pct": 0.0,
+     "exact": true,
+     "out_pages": 31,
+     "src_pages": 31,
+     "status": "measured",
+     "word_recall": 0.8935
+    },
+    "pages": 31,
+    "promised": false,
+    "raw": {
+     "catastrophic": false,
+     "char_recall": 0.5652,
+     "delta_pages": 1,
+     "delta_pct": 3.23,
+     "exact": false,
+     "out_pages": 32,
+     "src_pages": 31,
+     "status": "measured",
+     "word_recall": 0.2621
+    },
+    "word": {
+     "catastrophic": false,
+     "char_recall": 0.859,
+     "delta_pages": 1,
+     "delta_pct": 3.23,
+     "exact": false,
+     "hang": false,
+     "opened": true,
+     "out_pages": 32,
+     "repair_prompt": false,
+     "src_pages": 31,
+     "status": "measured",
+     "word_recall": 0.8828
+    }
+   },
+   {
+    "catastrophic": {
+     "lo": false,
+     "word": false
+    },
+    "design_class": "multicolumn-booklet",
+    "doc": "h2_32_irs_publication_970.pdf",
+    "length": "long",
+    "lo": {
+     "catastrophic": false,
+     "char_recall": 0.7848,
+     "delta_pages": 4,
+     "delta_pct": 4.94,
+     "exact": false,
+     "out_pages": 85,
+     "src_pages": 81,
+     "status": "measured",
+     "word_recall": 0.4211
+    },
+    "pages": 81,
+    "promised": false,
+    "raw": {
+     "catastrophic": false,
+     "char_recall": 0.7328,
+     "delta_pages": 14,
+     "delta_pct": 17.28,
+     "exact": false,
+     "out_pages": 95,
+     "src_pages": 81,
+     "status": "measured",
+     "word_recall": 0.3502
+    },
+    "word": {
+     "catastrophic": false,
+     "char_recall": 0.7906,
+     "delta_pages": 7,
+     "delta_pct": 8.64,
+     "exact": false,
+     "hang": false,
+     "opened": true,
+     "out_pages": 88,
+     "repair_prompt": false,
+     "src_pages": 81,
+     "status": "measured",
+     "word_recall": 0.4688
+    }
+   }
+  ],
+  "interpretation": "R2: the word-recall share is required in each lane (LibreOffice and Word); refused/crashed/unmeasured short promised documents count as misses. R3: catastrophic in either lane counts; no output in a lane is catastrophic; char recall = right-page char_recall. R1: crashes are product-sweep rows; raw is reported; a refusal is typed when its code maps to an exit code other than 1, and the real CLI's exit status must equal it when confirmed.",
+  "manifest_sha256": "4db48b08935795065af12016dd3c975eb37860e6299d101554cf61fde3460d61",
+  "promise_field": "promised_b_narrowed",
+  "schema": "exactdoc.holdout-exam.v1",
+  "synthetic": false,
+  "valid": true,
+  "warnings": []
+ },
+ "text": "holdout exam (beta-bar.md amendment 6): 32 documents, 23 promised (16 short, 7 long) under promised_b_narrowed\nR1 PASS  crashes 0; refusals 0 (untyped 0, CLI-confirmed); Word opened clean 32/32\n     (Word scoring errors, opened fine: h2_04_memphis_federal_resume.pdf)\nR2 FAIL  LibreOffice short promised page-exact 13/16 = 81% (ok); word recall >= 0.9 12/16 = 75% (below 80%)\nR2 FAIL  Word        short promised page-exact 13/16 = 81% (ok); word recall >= 0.9 12/16 = 75% (below 80%)\nR3 FAIL  promised catastrophic: short 1 (allowed 0) h2_04_memphis_federal_resume.pdf; long 0 (allowed 1) \nR4 reported LibreOffice long promised n=7 (measured 7): median |dpages| 1.3%; within max(1,2%) 4/7 = 57%; word recall >= 0.85 3/7 = 43%\nR4 reported Word        long promised n=7 (measured 7): median |dpages| 1.3%; within max(1,2%) 4/7 = 57%; word recall >= 0.85 3/7 = 43%\nR5 reported: no live Docs lane was flown for this exam; the gated-16 live qualification stays as recorded\nannounce: no   (R1 PASS, R2 FAIL, R3 FAIL)\nreading: R2: the word-recall share is required in each lane (LibreOffice and Word); refused/crashed/unmeasured short promised documents count as misses. R3: catastrophic in either lane counts; no output in a lane is catastrophic; char recall = right-page char_recall. R1: crashes are product-sweep rows; raw is reported; a refusal is typed when its code maps to an exit code other than 1, and the real CLI's exit status must equal it when confirmed.\n\ndocument                                     class                 P   pp len   | LO pages  wr   cr    | Word pages wr  cr    open | raw pages wr   | flags\nh2_01_cmu_dietrich_sample_resumes.pdf        resume                P    8 short |   9/8   0.83 0.87  |   9/8   0.83 0.87  ok   |  10/8   0.79 | lo-pages lo-wr word-pages word-wr\nh2_02_memphis_chronological_resume.pdf       resume                P    1 short |   1/1   1.00 1.00  |   1/1   1.00 1.00  ok   |   1/1   1.00 | \nh2_03_memphis_experienced_resume.pdf         resume                P    1 short |   1/1   1.00 1.00  |   1/1   1.00 1.00  ok   |   1/1   1.00 | \nh2_04_memphis_federal_resume.pdf             resume                P    3 short |   6/3   0.36 0.37  | error          -     ok   |   6/3   0.36 | CATASTROPHIC(lo,word) lo-pages lo-wr word-pages word-wr\nh2_05_awesomecv_latex_resume.pdf             resume                P    3 short |   3/3   0.95 0.99  |   3/3   0.95 0.99  ok   |   3/3   0.95 | \nh2_06_altacv_latex_resume.pdf                resume                P    2 short |   2/2   0.88 0.98  |   2/2   0.88 0.98  ok   |   2/2   0.85 | lo-wr word-wr\nh2_07_boisestate_physics_resume_packet.pdf   resume                P    7 short |   7/7   1.00 0.99  |   7/7   1.00 0.99  ok   |   7/7   1.00 | \nh2_08_boisestate_nursing_resume_packet.pdf   resume                P    5 short |   5/5   1.00 0.99  |   5/5   1.00 0.99  ok   |   5/5   1.00 | \nh2_09_ed_ocr_dear_colleague_letter.pdf       ordinary-word         P    4 short |   4/4   0.99 1.00  |   4/4   0.99 1.00  ok   |   4/4   0.99 | \nh2_10_doe_oig_management_letter.pdf          ordinary-word         P    4 short |   4/4   0.97 0.97  |   4/4   0.97 0.97  ok   |   4/4   0.97 | \nh2_11_rit_oce_investigations_policy.pdf      ordinary-word         P    9 short |   9/9   0.99 1.00  |   9/9   0.99 1.00  ok   |   9/9   0.99 | \nh2_12_mwsu_policy_on_policies.pdf            ordinary-word         P    9 short |   9/9   1.00 1.00  |   9/9   1.00 1.00  ok   |   9/9   1.00 | \nh2_13_njit_cs506_syllabus.pdf                ordinary-word         P    8 short |   8/8   1.00 1.00  |   8/8   1.00 1.00  ok   |   8/8   1.00 | \nh2_14_rpi_csci1100_syllabus.pdf              ordinary-word         P    8 short |   8/8   1.00 1.00  |   8/8   1.00 1.00  ok   |   8/8   1.00 | \nh2_15_csu_cs150b_syllabus_gdocs.pdf          ordinary-gdocs        P   13 short |  13/13  1.00 1.00  |  13/13  1.00 1.00  ok   |  13/13  1.00 | \nh2_16_ctan_hyperref_manual.pdf               long-report-ordinary  P   64 long  |  64/64  0.99 1.00  |  64/64  0.99 1.00  ok   |  64/64  0.99 | \nh2_17_ctan_latex_usrguide.pdf                long-report-ordinary  P   27 long  |  27/27  0.98 1.00  |  27/27  0.98 1.00  ok   |  27/27  0.98 | \nh2_18_arxiv_llama2_tech_report.pdf           long-report-ordinary  P   77 long  |  78/77  0.42 0.77  |  78/77  0.41 0.78  ok   |  82/77  0.23 | \nh2_19_matrix_cookbook.pdf                    long-report-ordinary  -   72 long  |  77/72  0.45 0.67  |  78/72  0.38 0.62  ok   |  92/72  0.33 | \nh2_20_dhs_oig_25_46_cisa.pdf                 long-report-ordinary  P   28 long  |  30/28  0.33 0.67  |  30/28  0.33 0.67  ok   |  30/28  0.33 | \nh2_21_dhs_oig_25_49_title42.pdf              long-report-ordinary  P   44 long  |  46/44  0.32 0.72  |  46/44  0.32 0.72  ok   |  46/44  0.32 | \nh2_22_opm_oig_2025_iag_022.pdf               long-report-ordinary  P   54 long  |  58/54  0.27 0.71  |  58/54  0.27 0.71  ok   |  58/54  0.27 | \nh2_23_ed_oig_a26dc0288.pdf                   long-report-ordinary  P   30 long  |  30/30  0.95 0.95  |  30/30  0.95 0.95  ok   |  31/30  0.44 | \nh2_24_ipcc_ar6_syr_spm.pdf                   designed-report       -   42 long  |  55/42  0.36 0.56  |  56/42  0.21 0.48  ok   |  67/42  0.17 | \nh2_25_nasa_artemis_plan.pdf                  designed-report       -   74 long  | 108/74  0.22 0.40  | 109/74  0.18 0.32  ok   | 108/74  0.22 | \nh2_26_nasa_2022_strategic_plan.pdf           designed-report       -  124 long  | 139/124 0.25 0.68  | 138/124 0.24 0.68  ok   | 160/124 0.19 | \nh2_27_usps_annual_report_fy2023.pdf          annual-report         -   64 long  |  80/64  0.17 0.46  |  82/64  0.15 0.43  ok   |  91/64  0.12 | \nh2_28_sensirion_annual_report_2024.pdf       annual-report         -  192 long  | 214/192 0.21 0.58  | 211/192 0.21 0.58  ok   | 233/192 0.18 | \nh2_29_nps_redwood_unigrid_brochure.pdf       designed-report       -    2 short |   3/2   0.33 0.39  |   9/2   0.30 0.32  ok   |   4/2   0.31 | \nh2_30_wikipedia_resume_chrome_print.pdf      web-print             P    7 short |   8/7   0.33 0.71  |   8/7   0.33 0.71  ok   |   8/7   0.32 | lo-pages lo-wr word-pages word-wr\nh2_31_epa_nca5_webinar_slides.pdf            slides                -   31 long  |  31/31  0.89 0.87  |  32/31  0.88 0.86  ok   |  32/31  0.26 | \nh2_32_irs_publication_970.pdf                multicolumn-booklet   -   81 long  |  85/81  0.42 0.78  |  88/81  0.47 0.79  ok   |  95/81  0.35 | \n"
+}

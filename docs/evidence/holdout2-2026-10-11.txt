@@ -1,0 +1,45 @@
+holdout exam (beta-bar.md amendment 6): 32 documents, 23 promised (16 short, 7 long) under promised_b_narrowed
+R1 PASS  crashes 0; refusals 0 (untyped 0, CLI-confirmed); Word opened clean 32/32
+     (Word scoring errors, opened fine: h2_04_memphis_federal_resume.pdf)
+R2 FAIL  LibreOffice short promised page-exact 13/16 = 81% (ok); word recall >= 0.9 12/16 = 75% (below 80%)
+R2 FAIL  Word        short promised page-exact 13/16 = 81% (ok); word recall >= 0.9 12/16 = 75% (below 80%)
+R3 FAIL  promised catastrophic: short 1 (allowed 0) h2_04_memphis_federal_resume.pdf; long 0 (allowed 1) 
+R4 reported LibreOffice long promised n=7 (measured 7): median |dpages| 1.3%; within max(1,2%) 4/7 = 57%; word recall >= 0.85 3/7 = 43%
+R4 reported Word        long promised n=7 (measured 7): median |dpages| 1.3%; within max(1,2%) 4/7 = 57%; word recall >= 0.85 3/7 = 43%
+R5 reported: no live Docs lane was flown for this exam; the gated-16 live qualification stays as recorded
+announce: no   (R1 PASS, R2 FAIL, R3 FAIL)
+reading: R2: the word-recall share is required in each lane (LibreOffice and Word); refused/crashed/unmeasured short promised documents count as misses. R3: catastrophic in either lane counts; no output in a lane is catastrophic; char recall = right-page char_recall. R1: crashes are product-sweep rows; raw is reported; a refusal is typed when its code maps to an exit code other than 1, and the real CLI's exit status must equal it when confirmed.
+
+document                                     class                 P   pp len   | LO pages  wr   cr    | Word pages wr  cr    open | raw pages wr   | flags
+h2_01_cmu_dietrich_sample_resumes.pdf        resume                P    8 short |   9/8   0.83 0.87  |   9/8   0.83 0.87  ok   |  10/8   0.79 | lo-pages lo-wr word-pages word-wr
+h2_02_memphis_chronological_resume.pdf       resume                P    1 short |   1/1   1.00 1.00  |   1/1   1.00 1.00  ok   |   1/1   1.00 | 
+h2_03_memphis_experienced_resume.pdf         resume                P    1 short |   1/1   1.00 1.00  |   1/1   1.00 1.00  ok   |   1/1   1.00 | 
+h2_04_memphis_federal_resume.pdf             resume                P    3 short |   6/3   0.36 0.37  | error          -     ok   |   6/3   0.36 | CATASTROPHIC(lo,word) lo-pages lo-wr word-pages word-wr
+h2_05_awesomecv_latex_resume.pdf             resume                P    3 short |   3/3   0.95 0.99  |   3/3   0.95 0.99  ok   |   3/3   0.95 | 
+h2_06_altacv_latex_resume.pdf                resume                P    2 short |   2/2   0.88 0.98  |   2/2   0.88 0.98  ok   |   2/2   0.85 | lo-wr word-wr
+h2_07_boisestate_physics_resume_packet.pdf   resume                P    7 short |   7/7   1.00 0.99  |   7/7   1.00 0.99  ok   |   7/7   1.00 | 
+h2_08_boisestate_nursing_resume_packet.pdf   resume                P    5 short |   5/5   1.00 0.99  |   5/5   1.00 0.99  ok   |   5/5   1.00 | 
+h2_09_ed_ocr_dear_colleague_letter.pdf       ordinary-word         P    4 short |   4/4   0.99 1.00  |   4/4   0.99 1.00  ok   |   4/4   0.99 | 
+h2_10_doe_oig_management_letter.pdf          ordinary-word         P    4 short |   4/4   0.97 0.97  |   4/4   0.97 0.97  ok   |   4/4   0.97 | 
+h2_11_rit_oce_investigations_policy.pdf      ordinary-word         P    9 short |   9/9   0.99 1.00  |   9/9   0.99 1.00  ok   |   9/9   0.99 | 
+h2_12_mwsu_policy_on_policies.pdf            ordinary-word         P    9 short |   9/9   1.00 1.00  |   9/9   1.00 1.00  ok   |   9/9   1.00 | 
+h2_13_njit_cs506_syllabus.pdf                ordinary-word         P    8 short |   8/8   1.00 1.00  |   8/8   1.00 1.00  ok   |   8/8   1.00 | 
+h2_14_rpi_csci1100_syllabus.pdf              ordinary-word         P    8 short |   8/8   1.00 1.00  |   8/8   1.00 1.00  ok   |   8/8   1.00 | 
+h2_15_csu_cs150b_syllabus_gdocs.pdf          ordinary-gdocs        P   13 short |  13/13  1.00 1.00  |  13/13  1.00 1.00  ok   |  13/13  1.00 | 
+h2_16_ctan_hyperref_manual.pdf               long-report-ordinary  P   64 long  |  64/64  0.99 1.00  |  64/64  0.99 1.00  ok   |  64/64  0.99 | 
+h2_17_ctan_latex_usrguide.pdf                long-report-ordinary  P   27 long  |  27/27  0.98 1.00  |  27/27  0.98 1.00  ok   |  27/27  0.98 | 
+h2_18_arxiv_llama2_tech_report.pdf           long-report-ordinary  P   77 long  |  78/77  0.42 0.77  |  78/77  0.41 0.78  ok   |  82/77  0.23 | 
+h2_19_matrix_cookbook.pdf                    long-report-ordinary  -   72 long  |  77/72  0.45 0.67  |  78/72  0.38 0.62  ok   |  92/72  0.33 | 
+h2_20_dhs_oig_25_46_cisa.pdf                 long-report-ordinary  P   28 long  |  30/28  0.33 0.67  |  30/28  0.33 0.67  ok   |  30/28  0.33 | 
+h2_21_dhs_oig_25_49_title42.pdf              long-report-ordinary  P   44 long  |  46/44  0.32 0.72  |  46/44  0.32 0.72  ok   |  46/44  0.32 | 
+h2_22_opm_oig_2025_iag_022.pdf               long-report-ordinary  P   54 long  |  58/54  0.27 0.71  |  58/54  0.27 0.71  ok   |  58/54  0.27 | 
+h2_23_ed_oig_a26dc0288.pdf                   long-report-ordinary  P   30 long  |  30/30  0.95 0.95  |  30/30  0.95 0.95  ok   |  31/30  0.44 | 
+h2_24_ipcc_ar6_syr_spm.pdf                   designed-report       -   42 long  |  55/42  0.36 0.56  |  56/42  0.21 0.48  ok   |  67/42  0.17 | 
+h2_25_nasa_artemis_plan.pdf                  designed-report       -   74 long  | 108/74  0.22 0.40  | 109/74  0.18 0.32  ok   | 108/74  0.22 | 
+h2_26_nasa_2022_strategic_plan.pdf           designed-report       -  124 long  | 139/124 0.25 0.68  | 138/124 0.24 0.68  ok   | 160/124 0.19 | 
+h2_27_usps_annual_report_fy2023.pdf          annual-report         -   64 long  |  80/64  0.17 0.46  |  82/64  0.15 0.43  ok   |  91/64  0.12 | 
+h2_28_sensirion_annual_report_2024.pdf       annual-report         -  192 long  | 214/192 0.21 0.58  | 211/192 0.21 0.58  ok   | 233/192 0.18 | 
+h2_29_nps_redwood_unigrid_brochure.pdf       designed-report       -    2 short |   3/2   0.33 0.39  |   9/2   0.30 0.32  ok   |   4/2   0.31 | 
+h2_30_wikipedia_resume_chrome_print.pdf      web-print             P    7 short |   8/7   0.33 0.71  |   8/7   0.33 0.71  ok   |   8/7   0.32 | lo-pages lo-wr word-pages word-wr
+h2_31_epa_nca5_webinar_slides.pdf            slides                -   31 long  |  31/31  0.89 0.87  |  32/31  0.88 0.86  ok   |  32/31  0.26 | 
+h2_32_irs_publication_970.pdf                multicolumn-booklet   -   81 long  |  85/81  0.42 0.78  |  88/81  0.47 0.79  ok   |  95/81  0.35 | 

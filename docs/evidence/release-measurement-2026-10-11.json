@@ -1,0 +1,293 @@
+{
+ "schema": "exactdoc.release-measurement.v1",
+ "generated_utc": "2026-10-11T16:03:14Z",
+ "release": "0.3.0b1",
+ "commit": "71af76e2232775389d7c843065bc72ec2daa7944",
+ "tree": "clean detached worktree at 71af76e (C:/lotmp/rc1)",
+ "image": {
+  "ref": "exactdoc-gate:boot",
+  "id": "sha256:bab1cfc0d2cd15c1c1a63d6db86fb1bfcb7f8f33ce7ee608568303fa58536f20"
+ },
+ "command": "EXACTDOC_SCR='C:\\lotmp\\scr' bash scripts/dev/final_set.sh --steps b,c,d,f --accepted 'C:\\lotmp\\scr\\runs\\accepted-wp31-prod.rescored5.sweep.json' C:/lotmp/rc1 final-71af76e (step f then re-run alone with --steps f; see retimed)",
+ "gate": "strict: Ran 2067 tests OK (skipped=2, expected failures=2); FAILED_STEPS=0; BASELINE_BINDING=strict; product PASS pagematch 16/16 <2pt 0.8142 live 0.9784 dy50 0.3; raw PASS pagematch 16/16 <2pt 0.6168 live 0.9784 dy50 0.65",
+ "sweeps": {
+  "product": {
+   "profile": "pdfium/standard/libreoffice/refine3@240dpi",
+   "rows": 90,
+   "summary": {
+    "documents": 90,
+    "errors": 0,
+    "mean_abs_ratio_err": 0.0522,
+    "mean_char_doc_recall": 0.9816,
+    "mean_char_recall": 0.9203,
+    "mean_doc_recall": 0.9554,
+    "mean_edit_score": 0.6282,
+    "mean_live_text_cov": 0.9562,
+    "mean_ssim": 0.7569,
+    "mean_within2pt": 0.4258,
+    "mean_word_recall": 0.8659,
+    "measured": 90,
+    "median_ratio": 1.0,
+    "page_exact": 71,
+    "refused": 0,
+    "total_convert_s": 1525.4
+   },
+   "provenance": {
+    "canonical": false,
+    "environment_fingerprint": "2f950c647f7cfc7b869b51fbd3f4af7df6ce584b8fe96c1312ce6294491f67ff",
+    "git_commit": "71af76e2232775389d7c843065bc72ec2daa7944",
+    "git_dirty": false,
+    "git_source": "host (EXACTDOC_GIT_COMMIT)",
+    "image_id": "sha256:bab1cfc0d2cd15c1c1a63d6db86fb1bfcb7f8f33ce7ee608568303fa58536f20",
+    "image_ref": "exactdoc-gate:boot",
+    "reading": {
+     "scorer": "wp42",
+     "source": "ca563181d6ad"
+    }
+   }
+  },
+  "raw": {
+   "profile": "pdfium/standard/none/refine0@240dpi",
+   "rows": 90,
+   "summary": {
+    "documents": 90,
+    "errors": 0,
+    "mean_abs_ratio_err": 0.1056,
+    "mean_char_doc_recall": 0.9817,
+    "mean_char_recall": 0.8829,
+    "mean_doc_recall": 0.9554,
+    "mean_edit_score": 0.6294,
+    "mean_live_text_cov": 0.9562,
+    "mean_ssim": 0.7133,
+    "mean_within2pt": 0.3183,
+    "mean_word_recall": 0.8225,
+    "measured": 90,
+    "median_ratio": 1.0,
+    "page_exact": 66,
+    "refused": 0,
+    "total_convert_s": 481.0
+   },
+   "provenance": {
+    "canonical": false,
+    "environment_fingerprint": "2f950c647f7cfc7b869b51fbd3f4af7df6ce584b8fe96c1312ce6294491f67ff",
+    "git_commit": "71af76e2232775389d7c843065bc72ec2daa7944",
+    "git_dirty": false,
+    "git_source": "host (EXACTDOC_GIT_COMMIT)",
+    "image_id": "sha256:bab1cfc0d2cd15c1c1a63d6db86fb1bfcb7f8f33ce7ee608568303fa58536f20",
+    "image_ref": "exactdoc-gate:boot",
+    "reading": {
+     "scorer": "wp42",
+     "source": "ca563181d6ad"
+    }
+   }
+  }
+ },
+ "word": {
+  "product": {
+   "rows": 90,
+   "errors": 0,
+   "hangs": 0,
+   "repair_prompts": 0,
+   "page_exact": 69
+  },
+  "raw": {
+   "rows": 90,
+   "errors": 0,
+   "hangs": 0,
+   "repair_prompts": 0,
+   "page_exact": 63
+  }
+ },
+ "docs_lane": {
+  "rows": "C:\\lotmp\\rcgd\\out\\rows.jsonl",
+  "commit": "410d3700ed2bb13e3613bef11cc3f39771b4fbf8",
+  "note": "flown by the coordinator on 410d370 = 71af76e + WP56 (gdocs-profile only) + docs/images"
+ },
+ "serial_timing": [
+  {
+   "profile": "product",
+   "document": "y03_nist_fips197.pdf",
+   "src_pages": 46,
+   "convert_s": 20.9,
+   "host_cpu_before": 17,
+   "host_cpu_after": 1
+  },
+  {
+   "profile": "product",
+   "document": "y06_irs_1040_instructions.pdf",
+   "src_pages": 126,
+   "convert_s": 154.37,
+   "host_cpu_before": 28,
+   "host_cpu_after": 46
+  },
+  {
+   "profile": "product",
+   "document": "y12_irs_pub15.pdf",
+   "src_pages": 59,
+   "convert_s": 37.49,
+   "host_cpu_before": 2,
+   "host_cpu_after": 5
+  },
+  {
+   "profile": "product",
+   "document": "y13_irs_pub501.pdf",
+   "src_pages": 31,
+   "convert_s": 30.97,
+   "host_cpu_before": 2,
+   "host_cpu_after": 12
+  },
+  {
+   "profile": "product",
+   "document": "y18_eurlex_ai_act.pdf",
+   "src_pages": 144,
+   "convert_s": 62.67,
+   "host_cpu_before": 2,
+   "host_cpu_after": 19
+  },
+  {
+   "profile": "product",
+   "document": "y21_worldbank_wdr24.pdf",
+   "src_pages": 48,
+   "convert_s": 20.54,
+   "host_cpu_before": 0,
+   "host_cpu_after": 6
+  },
+  {
+   "profile": "product",
+   "document": "y38_elife_arbortext_gs.pdf",
+   "src_pages": 33,
+   "convert_s": 18.77,
+   "host_cpu_before": 8,
+   "host_cpu_after": 3
+  },
+  {
+   "profile": "product",
+   "document": "y47_ar_ilo_word365.pdf",
+   "src_pages": 57,
+   "convert_s": 45.64,
+   "host_cpu_before": 5,
+   "host_cpu_after": 23
+  },
+  {
+   "profile": "product",
+   "document": "y60_cdc_mmwr_indd19.pdf",
+   "src_pages": 24,
+   "convert_s": 20.42,
+   "host_cpu_before": 2,
+   "host_cpu_after": 7
+  },
+  {
+   "profile": "product",
+   "document": "y64_bls_release_xpp.pdf",
+   "src_pages": 39,
+   "convert_s": 24.25,
+   "host_cpu_before": 0,
+   "host_cpu_after": 4
+  },
+  {
+   "profile": "raw",
+   "document": "y06_irs_1040_instructions.pdf",
+   "src_pages": 126,
+   "convert_s": 49.87,
+   "host_cpu_before": 7,
+   "host_cpu_after": 5
+  },
+  {
+   "profile": "raw",
+   "document": "y13_irs_pub501.pdf",
+   "src_pages": 31,
+   "convert_s": 9.67,
+   "host_cpu_before": 6,
+   "host_cpu_after": 5
+  },
+  {
+   "profile": "raw",
+   "document": "y41_arxiv_ieeetran.pdf",
+   "src_pages": 8,
+   "convert_s": 2.57,
+   "host_cpu_before": 2,
+   "host_cpu_after": 4
+  },
+  {
+   "profile": "raw",
+   "document": "y42_arxiv_acmart.pdf",
+   "src_pages": 5,
+   "convert_s": 1.52,
+   "host_cpu_before": 10,
+   "host_cpu_after": 9
+  },
+  {
+   "profile": "raw",
+   "document": "y56_scan_usda1921_lura.pdf",
+   "src_pages": 10,
+   "convert_s": 3.81,
+   "host_cpu_before": 7,
+   "host_cpu_after": 2
+  },
+  {
+   "profile": "raw",
+   "document": "y61_fedreg_gpo_3col.pdf",
+   "src_pages": 4,
+   "convert_s": 1.73,
+   "host_cpu_before": 15,
+   "host_cpu_after": 18
+  }
+ ],
+ "retimed": "# Step (f) re-timed, 2026-10-11\n\nThe first serial timings of this run (product y06_irs_1040_instructions,\ny18_eurlex_ai_act, y47_ar_ilo_word365; timed 19:37-19:45 local) started while\nthe coordinator's live Google Docs sweep (host-side conversions, no container)\nwas still running: the container-count rule held, but the host load it put on\nthe machine inflated them (y47: host CPU 27% after). The Docs sweep finished\nat ~19:48; step (f) was stopped (any document then in progress was discarded\nwith its container) and every document timed before then was re-timed after\nit, by re-running `final_set.sh --steps f` on the same run. The superseded\nparts are kept beside this file as `*.json.superseded` (not merged).\n\nAlso superseded: product y12_irs_pub15 (timed 19:53). Stopping the first\nfinal_set left its process running (TaskStop ended the wrapper, not the\nscript); that orphan timed y12 at 19:51-19:53, after the Docs sweep had ended\nand before the restarted run's first timing (y06, ~20:03-20:05), so it did not\noverlap, but it ran outside the restarted run's bookkeeping. The orphan was\nkilled at 20:21 and y12 is re-timed by the restarted run like the others.\nEvery timing merged into final-71af76e-{product,raw}-serial.timing.json is\nfrom the restarted run (19:49 onward), each after its own 60 s quiet window.\n",
+ "inputs": {
+  "gate_log": {
+   "path": "C:\\lotmp\\scr\\runs\\final-71af76e-gate.log",
+   "sha256": "6554ada5a422e2510af8d7ee5fce71ac2ebb1e17d45f85d39e8a46e66362c8d7"
+  },
+  "product_sweep": {
+   "path": "C:\\lotmp\\scr\\runs\\final-71af76e-prod.sweep.json",
+   "sha256": "4fb4ff9ab467525128621ec7d44c0512534878cac7b20ed2dddee3ee1deff3d7"
+  },
+  "raw_sweep": {
+   "path": "C:\\lotmp\\scr\\runs\\final-71af76e-raw.sweep.json",
+   "sha256": "df408e39eae513cf302c5b04a4e339c22f7735d3b80bab4cb57e9fc482044e8d"
+  },
+  "word_product": {
+   "path": "C:\\lotmp\\scr\\runs\\final-71af76e-word-prod\\rows.jsonl",
+   "sha256": "92ec741b07738c2fc62b8cd8dd912ae6765f726bbccdeff2109f222d70793bbd"
+  },
+  "word_raw": {
+   "path": "C:\\lotmp\\scr\\runs\\final-71af76e-word-raw\\rows.jsonl",
+   "sha256": "01f12d1ffd61808652625194027a07dc7dcc83a95c8402f37c090874ae35721a"
+  },
+  "timing_product": {
+   "path": "C:\\lotmp\\scr\\runs\\final-71af76e-product-serial.timing.json",
+   "sha256": "045e48b7242981319bde3f241d9489689b45b3a0f2a1e9c7f3e1b1d326aea4d1"
+  },
+  "timing_raw": {
+   "path": "C:\\lotmp\\scr\\runs\\final-71af76e-raw-serial.timing.json",
+   "sha256": "490f049ab9b6c4a557297c2a54609fc32403dccbeae1cadb097b069690751bb0"
+  },
+  "final_set_log": {
+   "path": "C:\\lotmp\\scr\\runs\\final-71af76e.final\\final_set.log",
+   "sha256": "b7d804265fe9cf8b4b2fffc4a825b80cfe076f30f4eb01081f869cb6d94eac88"
+  },
+  "accepted": {
+   "path": "C:\\lotmp\\scr\\runs\\accepted-wp31-prod.rescored5.sweep.json",
+   "sha256": "fcb8ca9782cc62623e7c399a72a8877e667afb0c3e42d77187ea385de62b668c"
+  },
+  "docs_rows": {
+   "path": "C:\\lotmp\\rcgd\\out\\rows.jsonl",
+   "sha256": "b772687bfb0c2f74a6296b4074911bfbdb405b0a594d8db018c64080a8521317"
+  }
+ },
+ "scorecard": "docs/evidence/beta-readiness-2026-10-11.json (READY: 10 pass, 0 fail, 0 unmeasured, 3 reported)",
+ "holdout2_exam": "docs/evidence/holdout2-2026-10-11.json (announce: no; R1 PASS, R2 FAIL, R3 FAIL)",
+ "quality_check": {
+  "repeat_71af76e_gated": {
+   "verdict": "DETERMINISTIC (exit 0): word/*.xml, whole DOCX and numbers identical 32/32; gate PASS both lanes",
+   "report": "C:\\lotmp\\scr\\qc\\71af76e-71af76e-repeat-gated\\report.json",
+   "sha256": "daabeb38f593606c60ca1e002ba59610dd146d1d9d0aaa50a6792a746d860ced"
+  },
+  "fe8e948_vs_71af76e_gated": {
+   "verdict": "NEUTRAL (exit 3): both sides PASS, 0 new findings, DOCX changed on 0/16 in either lane; measurement contract changed: testkit/beta_readiness.py, uv.lock",
+   "report": "C:\\lotmp\\scr\\qc\\fe8e948-71af76e-gated\\report.json",
+   "sha256": "901874554be6b7c3b92596e9ead1d979b411cb35631a151eea3eb890d3f34245"
+  }
+ }
+}

@@ -20,6 +20,25 @@ DOCX, with the converter deliberately frozen. That campaign's defect catalogue
 (recorded in the handoff; summarised below) is being ported into the converter
 one verified fix at a time, each gated against the frozen 16.
 
+- **The 0.3.0b1 release candidate, measured; the holdout-2 exam says do not
+  announce (WP57; evidence only).** On integration 71af76e in the canonical
+  image: the strict gate passes (2,067 tests; both lanes 16/16), the product
+  and raw sweeps and Word have no errors over 90 documents, and every serial
+  timing is within criterion 2, each taken on a quiet machine (the first
+  timings, begun while a live Docs sweep loaded the host, were re-timed). With the Docs lane
+  flown on 410d370 (71af76e plus the gdocs-only WP56) the scorecard reads
+  READY, 10 pass and 3 reported ([evidence](docs/evidence/beta-readiness-2026-10-11.json),
+  [summary](docs/evidence/release-measurement-2026-10-11.json)). The sealed
+  holdout-2, run once ([evidence](docs/evidence/holdout2-2026-10-11.json)):
+  R1 passes (no crash, no refusal, Word opens 32/32); R2 fails: page-exact
+  13/16 short promised documents in LibreOffice and in Word, but word recall
+  >= 0.9 on 12/16 = 75%, below 80%; R3 fails: one short promised resume
+  (h2_04) renders 6 pages for 3 with char recall 0.37. Long promised (R4):
+  median |dpages| 1.3%, 4/7 within max(1, 2%), 3/7 with word recall >= 0.85.
+  Under amendment 6 the beta ships quietly, with these numbers in the README,
+  and is announced after 0.3.0b2. The quality check proves 71af76e
+  deterministic and neutral against fe8e948 on the gated 16.
+
 - **A box written as bordered paragraphs wraps where its source did, and an
   accent bar stays a bar, in Google Docs (WP56, gdocs profile only).** The
   README hero showed Docs setting 01_whitepaper_market's "Key Insight" panel
