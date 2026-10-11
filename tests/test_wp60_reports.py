@@ -372,6 +372,43 @@ class TheFootIsNoSide(unittest.TestCase):
         self.assertGreater(band[0][5], 745)
 
 
+class TheFooterEcho(unittest.TestCase):
+    """`_drop_footer_echoes`: a foot line below the panels that the footer
+    part already prints is that footer."""
+
+    def _run(self, lines, panel=True, footer="www.example.gov 4 RPT-25-01"):
+        from exactdoc.layout import Cell, HFPart
+        from exactdoc.model import PageIR
+        els = []
+        if panel:
+            els.append(TableEl(rows=[[Cell(shading="#D6E3EB", borders={})]],
+                               col_widths=[154.0], role="box",
+                               bbox=(37.0, 108.0, 191.0, 715.0)))
+        part = HFPart(elements=[Para(runs=[], leading=11.0)])
+        part.elements[0].runs = []
+        from exactdoc.layout import Run
+        part.elements[0].runs = [Run(text=footer, font="Helvetica", size=9,
+                                     color="#000000")]
+        consumed = set()
+        I._drop_footer_echoes([_blk(lines)], consumed, els,
+                              PageIR(number=4, width=W, height=H), [part, None, None])
+        return consumed
+
+    def test_the_folio_less_footer_is_the_footer(self):
+        foot = _ln(72, 746, 145, "www.example.gov", 9)
+        tag = _ln(500, 746, 544, "RPT-25-01", 9)
+        self.assertEqual(self._run([foot, tag]), {id(foot), id(tag)})
+
+    def test_body_text_and_unknown_lines_stay(self):
+        body = _ln(196, 700, 550, "the findings continue here")
+        other = _ln(72, 746, 300, "Printed on recycled paper", 9)
+        self.assertEqual(self._run([body, other]), set())
+
+    def test_no_panel_no_rule(self):
+        foot = _ln(72, 746, 145, "www.example.gov", 9)
+        self.assertEqual(self._run([foot], panel=False), set())
+
+
 @unittest.skipUnless(_canvas is not None, "needs reportlab")
 class TheFramedChart(unittest.TestCase):
     @classmethod

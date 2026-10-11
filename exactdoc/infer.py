@@ -7360,6 +7360,10 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
                     elements, blocks, lay, p.width, p.height, pictures_only=True)
                 pl.floats = list(pl.floats or ()) + floated
             elements = _merge_graphic_rows(elements, blocks, p.number)
+        if _wp60("foot_not_band"):
+            _drop_footer_echoes(blocks, consumed, elements, p,
+                                [doc_lay.footer_default, doc_lay.footer_even,
+                                 doc_lay.footer_first])
 
         # rebuild flow blocks from unconsumed lines (contiguous runs)
         flow_blocks = []
@@ -10899,6 +10903,40 @@ def _side_splits(items, x_lo: float, x_hi: float):
             found.append(((len(band), y1 - y0), xs, band, gl, gr))
     found.sort(key=lambda f: f[0], reverse=True)
     return [f[1:] for f in found]
+
+
+def _drop_footer_echoes(blocks, consumed, elements, p: PageIR, parts) -> None:
+    """A line in the page's foot band, below every drawn panel, whose text
+    the document's own footer already prints, is that footer: consumed.
+
+    An OIG highlights page prints its footer without the folio every other
+    page carries ('DOE-OIG-26-22' where the rest say 'DOE-OIG-26-22 3'), so
+    the furniture pass, which signs lines by text, never matched it, and it
+    stayed in the flow. Under a sidebar page it then either joined the band
+    (`foot_not_band` in `_sbs_regions`) or, kept out of it, was written as a
+    paragraph after the band -- a line the page had no room for, and the
+    footer printed twice. Only below panels (the sidebar pages this is
+    about), only in BOTZ, and only text the footer part already states."""
+    panels = [e.bbox[3] for e in elements if isinstance(e, TableEl) and
+              e.role == "box" and e.bbox and any(
+                  c is not None and (c.shading or any(c.borders.values()))
+                  for row in e.rows for c in row)]
+    if not panels:
+        return
+
+    def norm(t):
+        return re.sub(r"[\W\d_]+", "", t.lower())
+    said = " ".join(norm(el.text) for part in parts if part is not None
+                    for el in part.elements if isinstance(el, Para))
+    if not said:
+        return
+    foot = max([p.height - BOTZ] + panels)
+    for ln in _all_lines(blocks):
+        if id(ln) in consumed or ln.bbox[1] < foot:
+            continue
+        t = norm(ln.text)
+        if t and t in said:
+            consumed.add(id(ln))
 
 
 def _panel_item(it) -> bool:
