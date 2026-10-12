@@ -127,6 +127,119 @@ class PageColourUnit(unittest.TestCase):
         self.assertIsNone(I._page_colour(_ir([[_fill(half)]] * 3)))
 
 
+def _span(text, x0, x1, base, size=10.0, font="Cambria", box=None):
+    from exactdoc.model import Span
+    top, bot = box if box else (base - 0.9 * size, base + 0.2 * size)
+    return Span(text=text, font=font, size=size, color="#000000", bold=False,
+                italic=False, mono=False, serif=True, superscript=False,
+                bbox=(x0, top, x1, bot), origin=(x0, base))
+
+
+def _text_ir(lines_per_page):
+    from exactdoc.model import Line, TextBlock
+    pages = []
+    for i, lines in enumerate(lines_per_page):
+        blocks = [TextBlock(lines=[ln], bbox=ln.bbox) for ln in lines]
+        pages.append(PageIR(i + 1, 612.0, 792.0, blocks=blocks, drawings=[]))
+    return DocIR(path="synthetic.pdf", pages=pages)
+
+
+def _line(span, direction=(1.0, 0.0)):
+    from exactdoc.model import Line
+    return Line(spans=[span], bbox=span.bbox, dir=direction)
+
+
+class TextFontBoxesUnit(unittest.TestCase):
+    """`_true_text_boxes`: a text face with inflated boxes gets its glyphs'."""
+
+    def _inflated(self, text, base, font="Cambria", direction=(1.0, 0.0)):
+        # Word's Cambria: a box 5.6x the size, standing far above the baseline
+        return _line(_span(text, 72.0, 300.0, base, font=font,
+                           box=(base - 40.0, base + 16.0)), direction)
+
+    def test_a_text_face_with_inflated_boxes_is_set_on_its_baselines(self):
+        lines = [self._inflated("Carnegie Mellon University", 100.0 + 20 * k)
+                 for k in range(6)]
+        ir = _text_ir([lines])
+        self.assertEqual(I._true_text_boxes(ir), 6)
+        for k, ln in enumerate(lines):
+            base = 100.0 + 20 * k
+            self.assertAlmostEqual(ln.bbox[1], base - I.TEXT_ASCENT_EM * 10.0)
+            self.assertAlmostEqual(ln.bbox[3], base + I.TEXT_DESCENT_EM * 10.0)
+            self.assertEqual(ln.spans[0].origin[1], base)
+        # each line's block follows its line
+        self.assertEqual(ir.pages[0].blocks[0].bbox, lines[0].bbox)
+
+    def test_a_maths_face_setting_one_glyph_at_a_time_keeps_its_boxes(self):
+        lines = [self._inflated(g, 100.0 + 20 * k, font="CMEX10")
+                 for k, g in enumerate("∑∫(){}")]
+        before = [ln.bbox for ln in lines]
+        self.assertEqual(I._true_text_boxes(_text_ir([lines])), 0)
+        self.assertEqual([ln.bbox for ln in lines], before)
+
+    def test_ordinary_boxes_are_left_alone(self):
+        lines = [_line(_span("an ordinary line of text", 72.0, 300.0, 100.0 + 14 * k))
+                 for k in range(8)]
+        before = [ln.bbox for ln in lines]
+        self.assertEqual(I._true_text_boxes(_text_ir([lines])), 0)
+        self.assertEqual([ln.bbox for ln in lines], before)
+
+    def test_a_rotated_line_keeps_its_box(self):
+        lines = [self._inflated("Carnegie Mellon University", 100.0 + 20 * k)
+                 for k in range(6)]
+        rotated = self._inflated("Carnegie Mellon University", 400.0, direction=(0.0, 1.0))
+        before = rotated.bbox
+        self.assertEqual(I._true_text_boxes(_text_ir([lines + [rotated]])), 6)
+        self.assertEqual(rotated.bbox, before)
+
+    def test_switched_off_by_the_flag(self):
+        lines = [self._inflated("Carnegie Mellon University", 100.0 + 20 * k)
+                 for k in range(6)]
+        before = [ln.bbox for ln in lines]
+        I.infer(_text_ir([lines]), tab_layouts=False)
+        self.assertEqual([ln.bbox for ln in lines], before)
+
+
+class TallStripUnit(unittest.TestCase):
+    """detect_hf: a running strip reaching past mid-page is not a header."""
+
+    def _ir(self, strip_h):
+        pages = []
+        for n in range(4):
+            line = _line(_span("Body text on page %d" % (n + 1), 72.0, 300.0, 700.0,
+                               font="Times-Roman"))
+            from exactdoc.model import TextBlock
+            pages.append(PageIR(n + 1, 612.0, 792.0,
+                                blocks=[TextBlock(lines=[line], bbox=line.bbox)],
+                                drawings=[_fill((0.0, 0.0, 612.0, strip_h), "#1f487c")]))
+        return DocIR(path="synthetic.pdf", pages=pages)
+
+    def test_a_strip_past_mid_page_is_no_header(self):
+        tok = I._TAB_LAYOUTS.set(True)
+        try:
+            with self.assertLogs("exactdoc.infer", "WARNING"):
+                res = I.detect_hf(self._ir(500.0))
+        finally:
+            I._TAB_LAYOUTS.reset(tok)
+        self.assertIsNone(res["band_def"])
+
+    def test_a_real_header_strip_stays_a_strip(self):
+        tok = I._TAB_LAYOUTS.set(True)
+        try:
+            res = I.detect_hf(self._ir(60.0))
+        finally:
+            I._TAB_LAYOUTS.reset(tok)
+        self.assertIsNotNone(res["band_def"])
+
+    def test_with_the_flag_off_the_tall_strip_is_read_as_before(self):
+        tok = I._TAB_LAYOUTS.set(False)
+        try:
+            res = I.detect_hf(self._ir(500.0))
+        finally:
+            I._TAB_LAYOUTS.reset(tok)
+        self.assertIsNotNone(res["band_def"])
+
+
 class SectionBackstop(unittest.TestCase):
     def test_margins_that_leave_no_body_are_clamped_and_counted(self):
         from exactdoc.layout import DocLayout
@@ -216,6 +329,14 @@ class PageColourEndToEnd(unittest.TestCase):
         xml = self.out("dark", lay)
         self.assertIn('<w:background w:color="1F2A44"/>', xml["word/document.xml"])
         self.assertIn('w:color w:val="FFFFFF"', xml["word/document.xml"])
+
+    def test_R1_a_table_drawn_to_the_page_edge_is_no_page_border(self):
+        path = F.full_page_table(os.path.join(self._dir.name, "table.pdf"))
+        self.assertEqual(I._strip_page_border(_parse(path)), 0)
+        lay, old = _infer(path), _infer(path, tab_layouts=False)
+        self.assertEqual(_shape(lay), _shape(old))
+        self.assertTrue([e for pl in lay.pages for ch in pl.chunks for e in ch.elements
+                         if isinstance(e, TableEl)])
 
     def test_R1_flag_off_writes_no_background(self):
         lay = _infer(self.paths["all"], tab_layouts=False)

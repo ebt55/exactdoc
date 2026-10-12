@@ -242,3 +242,25 @@ def two_column_short_lines(path):
             top += 8
     c.save()
     return path
+
+
+def full_page_table(path, inset=36.0):
+    """R1 control: a table drawn out to near the paper's edge -- its frame
+    within the band a page border sits in -- whose row and column rules end
+    on that frame. It is a table, not a page border."""
+    c = _canvas.Canvas(path, pagesize=(W, H))
+    x0, y0, x1, y1 = inset, inset, W - inset, H - inset
+    c.setLineWidth(1.0)
+    c.rect(x0, y0, x1 - x0, y1 - y0, fill=0, stroke=1)
+    cols = (x0, 200.0, 380.0, x1)
+    for x in cols[1:-1]:
+        c.line(x, y0, x, y1)
+    rows = [y1 - 40 * k for k in range(1, 19)]
+    for y in rows:
+        c.line(x0, y, x1, y)
+    c.setFont("Helvetica", 9)
+    for r, y in enumerate([y1] + rows[:-1]):
+        for k, (a, b) in enumerate(zip(cols, cols[1:])):
+            c.drawString(a + 4, y - 22, "Row %d, column %d" % (r + 1, k + 1))
+    c.save()
+    return path

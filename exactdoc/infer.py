@@ -5866,6 +5866,7 @@ FULL_SHEET_FRAC = 0.95
 def _full_sheet(d: DrawCmd, p: PageIR) -> bool:
     x0, y0, x1, y1 = d.bbox
     return bool(d.fill) and d.kind in ("fill", "fillstroke") and \
+        d.opacity >= 0.99 and \
         (x1 - x0) >= FULL_SHEET_FRAC * p.width and \
         (y1 - y0) >= FULL_SHEET_FRAC * p.height
 
@@ -5932,6 +5933,8 @@ def _true_text_boxes(ir: DocIR) -> int:
     for p in ir.pages:
         for b in p.blocks:
             for ln in b.lines:
+                if not ln.horizontal:
+                    continue          # a rotated span's box is not origin +- ascent
                 for s in ln.spans:
                     if s.text.strip() and s.size > 0:
                         by_font[s.font].append(s)
@@ -5952,7 +5955,10 @@ def _true_text_boxes(ir: DocIR) -> int:
     n = 0
     for p in ir.pages:
         for b in p.blocks:
+            block_hit = False
             for ln in b.lines:
+                if not ln.horizontal:
+                    continue
                 hit = False
                 for s in ln.spans:
                     if s.font in bad and s.size > 0:
@@ -5962,9 +5968,10 @@ def _true_text_boxes(ir: DocIR) -> int:
                         hit = True
                         n += 1
                 if hit:
+                    block_hit = True
                     ln.bbox = (min(s.bbox[0] for s in ln.spans), min(s.bbox[1] for s in ln.spans),
                                max(s.bbox[2] for s in ln.spans), max(s.bbox[3] for s in ln.spans))
-            if b.lines:
+            if block_hit:
                 b.bbox = (min(l.bbox[0] for l in b.lines), min(l.bbox[1] for l in b.lines),
                           max(l.bbox[2] for l in b.lines), max(l.bbox[3] for l in b.lines))
     return n
@@ -5983,10 +5990,36 @@ def _strip_page_colour(ir: DocIR) -> Optional[str]:
 
 # A page border (Word's Page Borders) is four rules framing the sheet near its
 # edges: each side at least this share of the page long, within this share of
-# the page from its edge, no thicker than a rule.
+# the page from its edge, no thicker than a rule. Word measures a page border
+# from the paper's edge (24pt by default, 0.04 of a Letter page); 0.08 keeps
+# a frame drawn at one-inch text margins (0.118 of the width) -- a full-page
+# bordered table, a framed form -- out of it, so it keeps its outer rules.
 PAGE_BORDER_LEN_FRAC = 0.80
-PAGE_BORDER_EDGE_FRAC = 0.12
+PAGE_BORDER_EDGE_FRAC = 0.08
 PAGE_BORDER_JOINT = 3.0       # the junction squares Word paints at the corners
+
+
+def _closed_frame(frame, box) -> bool:
+    """Do a page border's four sides (top, bottom, left, right) meet at the
+    corners of one rectangle?"""
+    fx0, fy0, fx1, fy1 = box
+    tol = PAGE_BORDER_JOINT + 1.0
+    t, b, l, r = frame
+    return all(abs(d.bbox[0] - fx0) <= tol and abs(d.bbox[2] - fx1) <= tol for d in (t, b)) \
+        and all(abs(d.bbox[1] - fy0) <= tol and abs(d.bbox[3] - fy1) <= tol for d in (l, r))
+
+
+def _ends_on_frame(d: DrawCmd, ids, box) -> bool:
+    """Does a rule inside the frame end on one of its sides, as a table's row
+    and column rules end on the table's border?"""
+    if id(d) in ids or d.shape not in ("hline", "vline"):
+        return False
+    fx0, fy0, fx1, fy1 = box
+    tol = PAGE_BORDER_JOINT + 1.0
+    x0, y0, x1, y1 = d.bbox
+    if d.shape == "hline":
+        return fy0 + tol < y0 < fy1 - tol and (abs(x0 - fx0) <= tol or abs(x1 - fx1) <= tol)
+    return fx0 + tol < x0 < fx1 - tol and (abs(y0 - fy0) <= tol or abs(y1 - fy1) <= tol)
 
 
 def _strip_page_border(ir: DocIR) -> int:
@@ -5995,8 +6028,13 @@ def _strip_page_border(ir: DocIR) -> int:
     Word draws a page border as four filled rules a few points in from the
     paper's edges, with a small square at each corner. It frames the sheet;
     it is not a box around the text (a box makes a one-cell table of the
-    whole page) and not a rule in the flow. All four sides are required, so
-    a rule at the head or the foot of a page is left alone."""
+    whole page) and not a rule in the flow. What tells it from a table drawn
+    out to the page is how it is joined: it lies in the paper's edge band
+    (PAGE_BORDER_EDGE_FRAC), its four sides close one rectangle at their
+    corners, no other rule ends on a side (a table's row and column rules end
+    on its frame), and every line of the page's text lies inside it. All four
+    sides are required, so a rule at the head or the foot of a page is left
+    alone."""
     n = 0
     for p in ir.pages:
         W, H = p.width, p.height
@@ -6017,6 +6055,12 @@ def _strip_page_border(ir: DocIR) -> int:
         fx1 = max(d.bbox[2] for d in frame)
         fy1 = max(d.bbox[3] for d in frame)
         ids = {id(d) for d in frame}
+        if not _closed_frame(frame, (fx0, fy0, fx1, fy1)) or \
+                any(_ends_on_frame(d, ids, (fx0, fy0, fx1, fy1)) for d in p.drawings) or \
+                any(not (fx0 <= ln.bbox[0] and ln.bbox[2] <= fx1 and
+                         fy0 <= ln.bbox[1] and ln.bbox[3] <= fy1)
+                    for blk in p.blocks for ln in blk.lines if ln.text.strip()):
+            continue
 
         def joint(d):
             x0, y0, x1, y1 = d.bbox
