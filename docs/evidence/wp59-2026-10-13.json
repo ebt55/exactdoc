@@ -1,0 +1,44 @@
+{
+ "schema": "exactdoc.wp-evidence.v1",
+ "about": "WP59: resume layouts from holdout-2 (development set since its single exam run). R1 page colour (with page border, tall-strip guard and a standard-profile section backstop), R2 two-sided lists, R3a left-tab fields, and text-font boxes; every rule behind infer(tab_layouts=...), off under the gdocs profile, with a switch each in infer.WP59_RULES. Cut: R3b, R4, FontAwesome ActualText, h19's underlined-section table.",
+ "tree": "wp59 a6e4a11 on integration 4399354 (44a3277 dropped; WP62's sealed-digest check kept)",
+ "baseline": "4399354 (standard-profile code identical to d7ac34e, whose sweeps C:\\lotmp\\scr\\runs\\wp59-base-* and C:\\lotmp\\wp49scr\\runs\\h{1,2}-base-* are the before)",
+ "image": "exactdoc-gate:boot sha256:bab1cfc0d2cd",
+ "gate": {"log": "C:\\lotmp\\scr\\runs\\wp59-gate3.log", "commit": "a6e4a11", "mode": "strict, baseline bound",
+          "tests": "2099 OK (2 skipped, 2 expected failures)", "product": "PASS 16/16", "raw": "PASS 16/16"},
+ "criterion_8": {"current": "C:\\lotmp\\scr\\runs\\wp59r-prod.sweep.json (a6e4a11)",
+                 "accepted": "accepted-wp31-prod.rescored5.sweep.json (the sweep of record)",
+                 "verdict": "PASS (1 waived: y37 dy_p50 27.64 -> 32 <= 33.0; 1 exempt under amendment 4: y55); 0 documents worse",
+                 "corpus_product_vs_base": "90 compared, 0 moved"},
+ "gdocs_identity": {"what": "word/*.xml SHA-256, gdocs profile, 95 corpus + 37 holdout-1 + 32 holdout-2, 4399354 vs a6e4a11",
+                    "identical": 164, "different": 0},
+ "movers_standard_profile": {
+  "what": "raw-profile word/*.xml SHA-256, the same 164 documents",
+  "moved": ["h19 (text-font boxes)", "h2_01 (two-sided list, left-tab rows, text-font boxes)",
+            "h2_04 (page colour, page border, left-tab rows)", "h2_22 (page border)",
+            "h2_23 (text-font boxes)", "h2_29 (no full-sheet band on page 2)", "y12 (three left-tab rows on p56; product metrics unchanged)"],
+  "sections_without_body": {"before": ["h2_04", "h2_29"], "after": []},
+  "writer_backstop_clamps": 0,
+  "pages_losing_the_row_share_guard": {"h2_01_cmu_dietrich_sample_resumes.pdf": [7]}
+ },
+ "holdout2_movers_product": {
+  "h2_01": {"pages": "9 -> 8 / 8", "word_recall": [0.831, 0.998], "char_recall": [0.866, 1.0]},
+  "h2_04": {"pages": "6 -> 3 / 3", "word_recall": [0.355, 1.0], "char_recall": [0.371, 1.0], "word_lane": "export failed -> 3 pages, recall 1.00, no repair prompt"},
+  "h2_22": {"pages": "58 -> 58 / 54", "word_recall": [0.266, 0.266]},
+  "h2_23": {"pages": "30 -> 30 / 30", "word_recall": [0.947, 0.948]},
+  "h2_29": {"pages": "3 -> 4 / 2", "word_recall": [0.331, 0.252], "char_recall": [0.393, 0.384], "word_lane_pages": "9 -> 5"}
+ },
+ "accepted": {
+  "h2_29_nps_redwood_unigrid_brochure.pdf": {
+   "decision": "accepted (coordinator, after review, 2026-10-12)",
+   "what": "LibreOffice product 3 -> 4 pages (source 2), word recall 0.331 -> 0.252, reading-order LCS 0.25 -> 0.13; Word 9 -> 5 pages.",
+   "why": "Unpromised designed brochure. The before was a section whose top margin (37010tw) passed its page (33676tw) -- page 2's full-sheet fill read as a running strip -- which breaks the new sections invariant; WP59 invariant (a) says a full-sheet fill on page 2 or later is never a band. Both outputs are poor."
+  },
+  "h19_harvard_hes_resume_samples.pdf": {
+   "decision": "accepted (coordinator, after review, 2026-10-12)",
+   "what": "raw lane only: char recall 0.737 -> 0.704 while pages 20 -> 19 and dy_p50 26 -> 16; product lane unchanged (18 pages, word recall 0.403, within-2pt 0.160 -> 0.194).",
+   "why": "Right-page char recall from page 4 on measures drift: both before and after are a page off there (h19's underlined-section table, cut from WP59); pages 1-3 improve."
+  }
+ },
+ "timing": "not taken (owner's machine busy; deferred to the quiet serial timing in the release measurement)"
+}
