@@ -84,7 +84,7 @@ where they say "never seen", from [the test below](#tested-on-documents-it-has-n
 
 | Kind of PDF | Today |
 |---|---|
-| Letters, memos, policies, syllabi and other documents of up to 20 pages written in Word, Google Docs, LibreOffice or LaTeX | Works well |
+| Letters, memos, policies, syllabi and other documents of up to 20 pages written in Word, Google Docs, LibreOffice or LaTeX | Works well on the documents it was developed against. On documents it had never seen, 12 of 16 short ones cleared the bar, below the 80% target set in advance |
 | Résumés | Mostly: of 8 never seen, 5 kept their page count and words; a federal-style résumé went from 3 pages to 6 |
 | Reports over 20 pages written in Word | Mixed: of 4 never seen, one came back exact; three US government audit reports gained 2–4 pages, with about a third of their words on the right page |
 | Long documents written in LaTeX | Mostly: two manuals never seen came back page for page; a 77-page technical report came back with 78 pages and 42% of its words on the right page |
