@@ -115,7 +115,7 @@ The commands below use `0.3.0b1`; replace it with the version being released.
 
    - Push the commit and wait for `gate` and `install` to pass on it.
 
-3. **Fast-forward `main` to the release commit. Do not skip this.** `main` is
+3. **Bring `main` up to the release commit through a pull request. Do not skip this.** `main` is
    what people see: the GitHub front page, the README that PyPI's *Homepage*
    link opens, and the targets of the *Documentation* and *Changelog* links
    (`pyproject.toml`) and of `exactdoc --help`'s usage link
@@ -123,14 +123,27 @@ The commands below use `0.3.0b1`; replace it with the version being released.
    `main` carries the release, those links show an older project or 404 (on
    2026-10-11 `main` was 461 commits behind and had no `docs/usage.md`).
 
+   Since 2026-10-13, `main` is protected by the GitHub ruleset "Protect main".
+   It has no bypass, so it applies to everyone, including the owner and any
+   tool using their login:
+   - nobody can push to `main` directly, force-push it or delete it;
+   - every change arrives as a pull request;
+   - the pull request merges only when these checks pass on its latest
+     commit: `gate`, `build sdist + wheel` and `install + smoke` (Ubuntu and
+     Windows, Python 3.12).
+
    ```bash
-   git fetch origin
-   git merge-base --is-ancestor origin/main <release-commit> && \
-     git push origin <release-commit>:main
+   gh pr create --base main --head <release-branch> \
+     --title "Release <version>" --body "Release commit <sha>; gate and install green."
    ```
 
-   The first command makes it a fast-forward only. If it fails, `main` has
-   commits the release does not; stop and merge them first.
+   The owner merges it on GitHub with **Create a merge commit**. Then check
+   that the release commit is in `main`'s history:
+
+   ```bash
+   git fetch origin
+   git merge-base --is-ancestor <release-commit> origin/main && echo ok
+   ```
 
 4. **Tag and push the tag.** The tag must be `v` followed by exactly the
    version in `pyproject.toml`, or the `build` job stops:
