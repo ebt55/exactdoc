@@ -1,24 +1,39 @@
-"""The release exam for 0.3.0b1: R1-R5 on the sealed holdout-2 (beta-bar.md, amendment 6).
+"""A release exam: R1-R5 on a sealed holdout set (beta-bar.md, amendment 6).
 
-    python scripts/dev/holdout_exam.py verdict --manifest M --manifest-sha256 H \\
+    python scripts/dev/holdout_exam.py resolve [--exam holdout3] [--hold DIR] [--locate]
+    python scripts/dev/holdout_exam.py verdict --exam holdout3 --manifest M \\
         --product P.sweep.json --word ROWS.jsonl [--raw R.sweep.json] \\
         [--cli-exits CLI.json] [--docs ROWS.jsonl] [--commit C] \\
         --json OUT.json --text OUT.txt
-    python scripts/dev/holdout_exam.py verify-manifest M --sha256 H [--pdfs DIR]
+    python scripts/dev/holdout_exam.py verify-manifest M --exam holdout3 [--pdfs DIR] \\
+        [--expect-promised N]
     python scripts/dev/holdout_exam.py guard --ledger L --evidence-dir D --run NAME \\
         --commit C [--rerun-reason TEXT] [--record]
     python scripts/dev/holdout_exam.py finish --ledger L --run NAME --commit C --evidence E
     python scripts/dev/holdout_exam.py wrap OUT.json --exam EXAM.json --text EXAM.txt \\
         --commit C --input label=path ... [--rerun-reason TEXT]
 
+**Which exam** is one row of `EXAMS`: the release it decides, the sealed
+manifest's SHA-256 and document count, the set's directory and manifest name,
+the promise field, and the ledger, state suffix and evidence prefix that keep
+one exam's single use apart from another's. Holdout-3 (0.3.0b2, the default)
+reads its SHA-256 and count from its registration,
+`docs/evidence/holdout3-registration-2026-10-12.json`, committed before the
+set was opened; holdout-2 (0.3.0b1, run 2026-10-11) stays selectable for
+history. `resolve` prints the row for the shell runner.
+
 `verdict` is a pure reading of rows already measured; it converts nothing. Its
 exit status: 0 = R1-R3 pass ("announce: yes"), 1 = a gating criterion failed
 ("announce: no"), 3 = the inputs are not a valid exam (wrong manifest, wrong
 profile, another commit, a lane that did not finish) and no verdict is given.
 
-**What is promised** is the manifest's NARROWED field (`promised_b_narrowed`,
-amendment 6 point 2), written down before anything was converted. A document is
-short when the manifest's page count is <= 20, long when it is > 20.
+**What is promised** is the manifest's own classification, written down before
+anything was converted: the first of the exam's promise fields that every
+document carries as a boolean (holdout-2: `promised_b_narrowed`, the narrowed
+promise of amendment 6 point 2; holdout-3: `promised_b_narrowed`, else
+`promised`). A field some documents lack is refused, never mixed. R2's and R3's
+denominators are that exam's own promised documents. A document is short when
+the manifest's page count is <= 20, long when it is > 20.
 
 **The criteria, as amendment 6 states them, and how each is read here** (the
 reading is fixed in this file before the exam runs, and printed with it):
@@ -49,7 +64,7 @@ R4 (reported) -- long promised: median |delta pages| %, the share within
     lane, LibreOffice first (the README number). Shares are over every long
     promised document; the median is over the measured ones.
 R5 (reported) -- Google Docs: short promised documents, from `--docs` rows when
-    a live Docs lane was flown (none is expected for 0.3.0b1's run); the gated-16
+    a live Docs lane was flown; the gated-16
     live qualification stays, and is not read here.
 
 "announce: yes" iff R1, R2 and R3 pass.
@@ -59,13 +74,34 @@ import datetime
 import hashlib
 import json
 import os
+import re
 import statistics
 import sys
 
 SCHEMA = "exactdoc.holdout-exam.v1"
 EVIDENCE_SCHEMA = "exactdoc.holdout-exam-evidence.v1"
+HERE = os.path.dirname(os.path.abspath(__file__))
+PROJECT = os.path.dirname(os.path.dirname(HERE))
+# holdout-2's sealed manifest (docs/beta-bar.md, "Holdout-2 sealed"), run once on
+# 2026-10-11 for 0.3.0b1 and published as docs/evidence/holdout2-manifest.json
 SEALED_SHA256 = "4db48b08935795065af12016dd3c975eb37860e6299d101554cf61fde3460d61"
 PROMISE_FIELD = "promised_b_narrowed"
+# One row per sealed set. Everything that ties a run to its set is here, so two
+# exams never share a ledger, a state directory, an evidence name or a hash.
+EXAMS = {
+    "holdout2": {"release": "0.3.0b1", "sha256": SEALED_SHA256, "documents": 32,
+                 "set_dir": r"C:\lotmp\rv_hold2", "manifest": "holdout2.json",
+                 "promise_fields": ("promised_b_narrowed",),
+                 "ledger": "holdout2-exam.ledger.jsonl", "state_suffix": ".holdout2",
+                 "prefix": "holdout2-", "tag": "h2"},
+    "holdout3": {"release": "0.3.0b2",
+                 "registration": "docs/evidence/holdout3-registration-2026-10-12.json",
+                 "set_dir": r"C:\lotmp\rv_hold3", "manifest": "holdout3.json",
+                 "promise_fields": ("promised_b_narrowed", "promised"),
+                 "ledger": "holdout3-exam.ledger.jsonl", "state_suffix": ".holdout3",
+                 "prefix": "holdout3-", "tag": "h3"},
+}
+DEFAULT_EXAM = "holdout3"
 SHORT_MAX_PAGES = 20          # amendment 6: short = <= 20 pages
 SHARE_NEEDED = (80, 100)      # >= 80%, compared in integers (no float edge)
 WR_SHORT = 0.9                # R2 word recall
@@ -97,23 +133,80 @@ def sha256(path):
     return h.hexdigest()
 
 
-def load_manifest(path, expected_sha256, promise_field=PROMISE_FIELD):
-    """(manifest, {file name: spec}). Refuses another manifest or a missing promise."""
+def exam(name=DEFAULT_EXAM, root=PROJECT):
+    """The EXAMS row `name`, with a registered set's SHA-256 and count filled in
+    from its registration file (refused when it cannot be read)."""
+    if name not in EXAMS:
+        raise ExamInvalid("unknown exam %r (known: %s)" % (name, ", ".join(sorted(EXAMS))))
+    row = dict(EXAMS[name], name=name)
+    if row.get("registration"):
+        path = os.path.join(root, row["registration"])
+        try:
+            with open(path, encoding="utf-8") as fh:
+                reg = json.load(fh)
+        except (OSError, ValueError) as e:
+            raise ExamInvalid("%s: the registration cannot be read: %s" % (name, e))
+        sha, n = reg.get("manifest_sha256"), reg.get("documents")
+        if not (isinstance(sha, str) and re.fullmatch(r"[0-9a-f]{64}", sha)) \
+                or not isinstance(n, int) or n < 1:
+            raise ExamInvalid("%s: the registration names no SHA-256 or document count" % name)
+        row["sha256"], row["documents"] = sha, n
+    return row
+
+
+def locate_manifest(set_dir, name, sha):
+    """set_dir/name if it exists, else the one *.json in set_dir with the sealed
+    SHA-256 (the hash, not the name, identifies the sealed manifest)."""
+    path = os.path.join(set_dir, name)
+    if os.path.isfile(path):
+        return path
+    hits = []
+    if os.path.isdir(set_dir):
+        hits = [os.path.join(set_dir, f) for f in sorted(os.listdir(set_dir))
+                if f.lower().endswith(".json") and sha256(os.path.join(set_dir, f)) == sha]
+    if len(hits) != 1:
+        raise ExamInvalid("%s: no %s, and %d *.json there with the sealed SHA-256 %s"
+                          % (set_dir, name, len(hits), sha))
+    return hits[0]
+
+
+def load_manifest(path, expected_sha256, promise_fields=(PROMISE_FIELD,), documents=None):
+    """(manifest, {file name: spec}). Refuses another manifest, another document
+    count, or a promise no field carries for every document. Each spec gets
+    `_promised` (bool) and `_promise_field`, the field it was read from."""
+    if isinstance(promise_fields, str):
+        promise_fields = (promise_fields,)
     got = sha256(path)
-    if expected_sha256 and got != expected_sha256.lower():
+    if not expected_sha256:
+        raise ExamInvalid("no sealed SHA-256 to check the manifest against")
+    if got != expected_sha256.lower():
         raise ExamInvalid("manifest SHA-256 %s is not the sealed %s" % (got, expected_sha256))
     with open(path, encoding="utf-8") as fh:
         man = json.load(fh)
+    specs = man.get("documents") or {}
+    if not specs:
+        raise ExamInvalid("the manifest lists no documents")
+    if documents is not None and len(specs) != documents:
+        raise ExamInvalid("the manifest lists %d documents, the registration %d"
+                          % (len(specs), documents))
+    field = None
+    for f in promise_fields:
+        have = [isinstance(s.get(f), bool) for s in specs.values()]
+        if all(have):
+            field = f
+            break
+        if any(have):
+            raise ExamInvalid("the promise field %r is a boolean on %d of %d documents only"
+                              % (f, sum(have), len(have)))
+    if field is None:
+        raise ExamInvalid("no document carries a boolean promise field (looked for %s)"
+                          % ", ".join(promise_fields))
     docs = {}
-    for key, spec in (man.get("documents") or {}).items():
+    for key, spec in specs.items():
         name = spec.get("file") or key
-        if not isinstance(spec.get(promise_field), bool):
-            raise ExamInvalid("%s: the manifest has no boolean %r" % (key, promise_field))
         if not isinstance(spec.get("pages"), int) or spec["pages"] < 1:
             raise ExamInvalid("%s: the manifest has no page count" % key)
-        docs[name] = dict(spec, _key=key)
-    if not docs:
-        raise ExamInvalid("the manifest lists no documents")
+        docs[name] = dict(spec, _key=key, _promised=spec[field], _promise_field=field)
     return man, docs
 
 
@@ -245,8 +338,12 @@ def _r_long(docs, lane):
 
 # -------------------------------------------------------------------- verdict
 def evaluate(man_docs, product, word_rows, raw=None, cli_exits=None, docs_rows=None,
-             exit_map=None, expect_commit=None, profiles=(None, None), manifest_meta=None):
-    """The exam. Raises ExamInvalid when the inputs cannot carry a verdict."""
+             exit_map=None, expect_commit=None, profiles=(None, None), manifest_meta=None,
+             exam_name=None):
+    """The exam. Raises ExamInvalid when the inputs cannot carry a verdict.
+
+    `man_docs` is load_manifest's {file: spec}: each spec's `_promised` is the
+    exam's own classification (a spec without it is read from PROMISE_FIELD)."""
     invalid = []
     prod_id, raw_id = profiles
     if product is None:
@@ -300,7 +397,8 @@ def evaluate(man_docs, product, word_rows, raw=None, cli_exits=None, docs_rows=N
         spec = man_docs[name]
         pages = spec["pages"]
         d = {"doc": name, "design_class": spec.get("design_class"),
-             "promised": spec[PROMISE_FIELD], "pages": pages,
+             "promised": spec["_promised"] if "_promised" in spec else spec[PROMISE_FIELD],
+             "pages": pages,
              "length": "short" if pages <= SHORT_MAX_PAGES else "long",
              "lo": _lane_from_sweep(p_rows.get(name), pages),
              "word": _lane_from_word(word_rows.get(name), pages)}
@@ -399,9 +497,10 @@ def evaluate(man_docs, product, word_rows, raw=None, cli_exits=None, docs_rows=N
               "note": "the gated-16 live qualification stays as recorded"}
 
     announce = r1["pass"] and r2["pass"] and r3["pass"]
-    return {"schema": SCHEMA, "valid": True, "announce": announce,
+    fields = sorted({s.get("_promise_field") or PROMISE_FIELD for s in man_docs.values()})
+    return {"schema": SCHEMA, "valid": True, "announce": announce, "exam": exam_name,
             "synthetic": bool((manifest_meta or {}).get("synthetic")),
-            "promise_field": PROMISE_FIELD, "interpretation": INTERPRETATION,
+            "promise_field": ",".join(fields), "interpretation": INTERPRETATION,
             "counts": {"documents": len(docs), "promised": len(short) + len(long_),
                        "short_promised": len(short), "long_promised": len(long_)},
             "R1": r1, "R2": r2, "R3": r3, "R4": r4, "R5": r5,
@@ -426,12 +525,13 @@ def render_text(res):
     L = []
     pf = lambda ok: "PASS" if ok else "FAIL"
     if res.get("synthetic"):
-        L.append("*** SYNTHETIC DRY RUN: plumbing only, not the holdout-2 exam ***")
+        L.append("*** SYNTHETIC DRY RUN: plumbing only, not the %s exam ***"
+                 % (res.get("exam") or "holdout"))
     c = res["counts"]
-    L.append("holdout exam (beta-bar.md amendment 6): %d documents, %d promised "
+    L.append("%s exam (beta-bar.md amendment 6): %d documents, %d promised "
              "(%d short, %d long) under %s"
-             % (c["documents"], c["promised"], c["short_promised"], c["long_promised"],
-                res["promise_field"]))
+             % (res.get("exam") or "holdout", c["documents"], c["promised"],
+                c["short_promised"], c["long_promised"], res["promise_field"]))
     r1 = res["R1"]
     L.append("R1 %s  crashes %d; refusals %d (untyped %d%s); Word opened clean %d/%d"
              % (pf(r1["pass"]), len(r1["crashes"]), len(r1["refusals"]),
@@ -539,19 +639,30 @@ def _append(path, entry):
         fh.write(json.dumps(entry, sort_keys=True) + "\n")
 
 
-def guard(ledger, evidence_dir, run, commit, rerun_reason=None, prefix="holdout2-"):
+def results_pattern(prefix):
+    """The names an exam's results file can have: <prefix><date>.json, its
+    -rerunN siblings, and the dry run's <prefix>dry-<run>-<date>.json. Nothing
+    else with the prefix counts (holdout3-registration-....json is not a result)."""
+    return re.compile(r"^%s(dry-.+-)?\d{4}-\d{2}-\d{2}(-rerun\d+)?\.json$" % re.escape(prefix))
+
+
+def guard(ledger, evidence_dir, run, commit, rerun_reason=None, prefix=None):
     """('fresh'|'resume'|'rerun', [reasons]) or raise ExamInvalid when refused.
 
-    The exam is single-use. Refused: a results file already exists in the
-    evidence directory; the ledger records a finished exam; or it records a
-    started exam under another run name or commit. Resuming the same run on
-    the same commit is not a second exam. `rerun_reason` overrides a refusal
-    and is logged."""
+    The exam is single-use. Refused: a results file of THIS exam already exists
+    in the evidence directory (results_pattern(prefix)); the exam's own ledger
+    records a finished exam; or it records a started exam under another run
+    name or commit. Resuming the same run on the same commit is not a second
+    exam. `rerun_reason` overrides a refusal and is logged. Each exam has its
+    own ledger and prefix (EXAMS), so another set's finished exam never blocks
+    this one."""
+    if not prefix:
+        raise ExamInvalid("guard needs the exam's results prefix")
     entries = _ledger(ledger)
     reasons = []
     if evidence_dir and os.path.isdir(evidence_dir):
-        found = sorted(f for f in os.listdir(evidence_dir)
-                       if f.startswith(prefix) and f.endswith(".json"))
+        pat = results_pattern(prefix)
+        found = sorted(f for f in os.listdir(evidence_dir) if pat.match(f))
         if found:
             reasons.append("results already exist: %s" % " ".join(found))
     fin = [e for e in entries if e.get("event") == "finish"]
@@ -577,7 +688,10 @@ def _cmd_verdict(a):
     if a.tree and a.tree not in sys.path:
         sys.path.insert(0, a.tree)
     try:
-        man, docs = load_manifest(a.manifest, a.manifest_sha256)
+        ex = exam(a.exam)
+        man, docs = load_manifest(a.manifest, a.manifest_sha256 or ex["sha256"],
+                                  ex["promise_fields"],
+                                  None if a.manifest_sha256 else ex["documents"])
         product = load_sweep(a.product)
         raw = load_sweep(a.raw) if a.raw else None
         word = load_jsonl(a.word)
@@ -590,7 +704,8 @@ def _cmd_verdict(a):
             gd = {k: v for k, v in gd.items() if not k.startswith("_")}   # the sentinel row
         commit = a.commit or os.environ.get("EXACTDOC_GIT_COMMIT") or None
         res = evaluate(docs, product, word, raw=raw, cli_exits=cli, docs_rows=gd,
-                       expect_commit=commit, profiles=shipped_profiles(), manifest_meta=man)
+                       expect_commit=commit, profiles=shipped_profiles(), manifest_meta=man,
+                       exam_name=ex["name"])
         res["commit"] = commit
         res["manifest_sha256"] = sha256(a.manifest)
         text = render_text(res)
@@ -611,10 +726,20 @@ def _cmd_verdict(a):
 
 
 def _cmd_verify(a):
+    """--sha256 replaces the exam's registered hash and count (the dry run's
+    synthetic set); otherwise both come from the exam's row."""
     try:
-        _, docs = load_manifest(a.manifest, a.sha256)
+        ex = exam(a.exam)
+        _, docs = load_manifest(a.manifest, a.sha256 or ex["sha256"], ex["promise_fields"],
+                                None if a.sha256 else ex["documents"])
     except ExamInvalid as e:
         print("REFUSED: %s" % e)
+        return 3
+    promised = sum(1 for d in docs.values() if d["_promised"])
+    field = next(iter(docs.values()))["_promise_field"]
+    if a.expect_promised is not None and promised != a.expect_promised:
+        print("REFUSED: %d documents are promised under %s, expected %d"
+              % (promised, field, a.expect_promised))
         return 3
     bad = []
     if a.pdfs:
@@ -627,14 +752,40 @@ def _cmd_verify(a):
     if bad:
         print("REFUSED: %s" % "; ".join(bad))
         return 3
-    print("manifest %s OK (SHA-256 %s); %d documents%s" % (
-        a.manifest, sha256(a.manifest), len(docs), ", every PDF's SHA-256 matches" if a.pdfs else ""))
+    print("manifest %s OK (exam %s, SHA-256 %s); %d documents, %d promised under %s%s" % (
+        a.manifest, ex["name"], sha256(a.manifest), len(docs), promised, field,
+        ", every PDF's SHA-256 matches" if a.pdfs else ""))
+    return 0
+
+
+def _cmd_resolve(a):
+    """The exam's row as shell assignments (holdout_exam.sh evals them). Only
+    --locate looks inside the set directory, to find its manifest."""
+    try:
+        ex = exam(a.exam)
+        hold = a.hold or ex["set_dir"]
+        manifest = os.path.join(hold, ex["manifest"])
+        if a.locate:
+            manifest = locate_manifest(hold, ex["manifest"], ex["sha256"])
+    except ExamInvalid as e:
+        print("REFUSED: %s" % e, file=sys.stderr)
+        return 3
+    from shlex import quote
+    vals = {"EXAM": ex["name"], "EXAM_RELEASE": ex["release"], "EXAM_SHA": ex["sha256"],
+            "EXAM_DOCS": ex["documents"], "EXAM_HOLD": hold,
+            "EXAM_MANIFEST": manifest, "EXAM_MANIFEST_NAME": os.path.basename(manifest),
+            "EXAM_LEDGER": ex["ledger"], "EXAM_SUFFIX": ex["state_suffix"],
+            "EXAM_PREFIX": ex["prefix"], "EXAM_TAG": ex["tag"]}
+    for k, v in vals.items():
+        print("%s=%s" % (k, quote(str(v))))
     return 0
 
 
 def _cmd_guard(a):
     try:
-        state, reasons = guard(a.ledger, a.evidence_dir, a.run, a.commit, a.rerun_reason)
+        prefix = a.prefix or exam(a.exam)["prefix"]
+        state, reasons = guard(a.ledger, a.evidence_dir, a.run, a.commit, a.rerun_reason,
+                               prefix=prefix)
     except ExamInvalid as e:
         print(str(e))
         return 4
@@ -643,6 +794,7 @@ def _cmd_guard(a):
                                         % (a.rerun_reason, "; ".join(reasons))) if reasons else ""))
     if a.record and state != "resume":
         _append(a.ledger, {"event": "start", "run": a.run, "commit": a.commit,
+                           "exam": a.exam,
                            "state": state, "rerun_reason": a.rerun_reason,
                            "overrode": reasons})
     return 0
@@ -657,8 +809,8 @@ def _cmd_finish(a):
 
 
 def _cmd_wrap(a):
-    with open(a.exam, encoding="utf-8") as fh:
-        exam = json.load(fh)
+    with open(a.exam_json, encoding="utf-8") as fh:
+        result = json.load(fh)
     with open(a.text, encoding="utf-8") as fh:
         text = fh.read()
     if os.path.exists(a.out):
@@ -678,22 +830,23 @@ def _cmd_wrap(a):
     out = {"schema": EVIDENCE_SCHEMA,
            "generated_utc": datetime.datetime.now(datetime.timezone.utc)
            .strftime("%Y-%m-%dT%H:%M:%SZ"),
-           "run": a.run, "release": a.release,
+           "run": a.run, "exam_set": a.exam,
+           "release": a.release or exam(a.exam)["release"],
            "tree_commit": a.commit, "commit_source": "host: git rev-parse HEAD of the measured "
            "tree, passed into each container as EXACTDOC_GIT_COMMIT (as gate_full.sh does)",
            "exam_scripts_commit": a.scripts_commit, "image": {"ref": a.image_ref, "id": a.image_id},
            "rerun_reason": a.rerun_reason or None,
-           "synthetic": bool(exam.get("synthetic")),
-           "verdict": {"valid": exam.get("valid"), "announce": exam.get("announce"),
-                       "R1": (exam.get("R1") or {}).get("pass"),
-                       "R2": (exam.get("R2") or {}).get("pass"),
-                       "R3": (exam.get("R3") or {}).get("pass")},
-           "inputs": inputs, "exam": exam, "text": text}
+           "synthetic": bool(result.get("synthetic")),
+           "verdict": {"valid": result.get("valid"), "announce": result.get("announce"),
+                       "R1": (result.get("R1") or {}).get("pass"),
+                       "R2": (result.get("R2") or {}).get("pass"),
+                       "R3": (result.get("R3") or {}).get("pass")},
+           "inputs": inputs, "exam": result, "text": text}
     os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
     with open(a.out, "w", encoding="utf-8", newline="\n") as fh:
         json.dump(out, fh, indent=1, ensure_ascii=False)
         fh.write("\n")
-    print("wrote %s (announce: %s)" % (a.out, "yes" if exam.get("announce") else "no"))
+    print("wrote %s (announce: %s)" % (a.out, "yes" if result.get("announce") else "no"))
     return 0
 
 
@@ -701,8 +854,10 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
     v = sub.add_parser("verdict")
+    v.add_argument("--exam", default=DEFAULT_EXAM, choices=sorted(EXAMS))
     v.add_argument("--manifest", required=True)
-    v.add_argument("--manifest-sha256", default=SEALED_SHA256)
+    v.add_argument("--manifest-sha256", default=None,
+                   help="replaces the exam's registered hash (the dry run's synthetic set)")
     v.add_argument("--product", required=True)
     v.add_argument("--word", required=True)
     v.add_argument("--raw")
@@ -714,9 +869,20 @@ def main(argv=None):
     v.add_argument("--text")
     m = sub.add_parser("verify-manifest")
     m.add_argument("manifest")
-    m.add_argument("--sha256", default=SEALED_SHA256)
+    m.add_argument("--exam", default=DEFAULT_EXAM, choices=sorted(EXAMS))
+    m.add_argument("--sha256", default=None,
+                   help="replaces the exam's registered hash and count (the dry run)")
     m.add_argument("--pdfs")
+    m.add_argument("--expect-promised", type=int, default=None,
+                   help="refuse unless exactly N documents are promised")
+    r = sub.add_parser("resolve")
+    r.add_argument("--exam", default=DEFAULT_EXAM, choices=sorted(EXAMS))
+    r.add_argument("--hold", default=None, help="another set directory (the dry run)")
+    r.add_argument("--locate", action="store_true",
+                   help="find the manifest in the set directory (by name, else by SHA-256)")
     g = sub.add_parser("guard")
+    g.add_argument("--exam", default=DEFAULT_EXAM, choices=sorted(EXAMS))
+    g.add_argument("--prefix", default=None, help="results prefix (default: the exam's)")
     g.add_argument("--ledger", required=True)
     g.add_argument("--evidence-dir")
     g.add_argument("--run", required=True)
@@ -730,11 +896,12 @@ def main(argv=None):
     f.add_argument("--evidence", required=True)
     w = sub.add_parser("wrap")
     w.add_argument("out")
-    w.add_argument("--exam", required=True)
+    w.add_argument("--exam-json", required=True, help="holdout_exam.py verdict's JSON")
+    w.add_argument("--exam", default=DEFAULT_EXAM, choices=sorted(EXAMS))
     w.add_argument("--text", required=True)
     w.add_argument("--input", action="append")
     w.add_argument("--run", default="")
-    w.add_argument("--release", default="0.3.0b1")
+    w.add_argument("--release", default=None, help="default: the exam's release")
     w.add_argument("--commit", default="")
     w.add_argument("--scripts-commit", default="")
     w.add_argument("--image-ref", default="")
@@ -742,7 +909,7 @@ def main(argv=None):
     w.add_argument("--rerun-reason")
     a = ap.parse_args(argv)
     return {"verdict": _cmd_verdict, "verify-manifest": _cmd_verify, "guard": _cmd_guard,
-            "finish": _cmd_finish, "wrap": _cmd_wrap}[a.cmd](a)
+            "finish": _cmd_finish, "wrap": _cmd_wrap, "resolve": _cmd_resolve}[a.cmd](a)
 
 
 if __name__ == "__main__":

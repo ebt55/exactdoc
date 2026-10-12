@@ -234,9 +234,10 @@ STOCK_FONTS = {
 }
 
 # The release this scorecard gates. A criterion-8 waiver names the release it
-# was granted for; once this moves on (0.3.0b2, GA), a waiver for 0.3.0b1 is
-# stale and blocks until it is deleted (docs/beta-bar.md, "Exceptions").
-RELEASE = "0.3.0b1"
+# was granted for; once this moves on (the next beta, GA), a waiver for an
+# earlier release is stale and blocks until it is renewed or deleted
+# (docs/beta-bar.md, "Exceptions"). 0.3.0b1 was published 2026-10-11.
+RELEASE = "0.3.0b2"
 
 # ------------------------------------------------------- criterion-8 waivers
 # Bounded, self-retiring exceptions to criterion 8, in the shape of the gdocs
@@ -1543,7 +1544,8 @@ def render(result, inputs, show=8):
     lines += ["", "verdict: %s  (%d pass, %d fail, %d unmeasured, %d reported)" % (
         result["verdict"], counts[PASS], counts[FAIL], counts[UNMEASURED], counts[REPORTED]),
               "gating: 1-6, 8, 10-12; reported for beta, gating for GA: 7, 9, 13.",
-              "0.3.0b1 is not tagged while any gating criterion fails."]
+              "%s is not tagged while any gating criterion fails."
+              % result.get("release", RELEASE)]
     return "\n".join(lines)
 
 

@@ -1,6 +1,6 @@
 """Run testkit/quality_sweep.py over a holdout set instead of the corpus (in the container).
 
-    HOLD_DIR=/hold HOLD_MANIFEST=/hold/holdout2.json [HOLD_CLI_EXITS=/work/cli_exits.json] \\
+    HOLD_DIR=/hold HOLD_MANIFEST=/hold/<manifest>.json [HOLD_CLI_EXITS=/work/cli_exits.json] \\
         python -I holdout_sweep.py --json /work/sweep.json --profile product --jobs 4
 
 Everything -- conversion, harness scoring, char recall, editability, payload,
@@ -27,7 +27,11 @@ os.chdir("/work")
 import quality_sweep as qs  # noqa: E402
 
 HOLD = os.environ.get("HOLD_DIR", "/hold")
-MANIFEST = os.environ.get("HOLD_MANIFEST", os.path.join(HOLD, "holdout2.json"))
+# The exam's manifest, named by holdout_exam.sh from its EXAMS row: never a
+# default, so one set's sweep can never read another set's manifest.
+MANIFEST = os.environ.get("HOLD_MANIFEST")
+if not MANIFEST:
+    raise SystemExit("HOLD_MANIFEST is not set (holdout_exam.sh names the exam's manifest)")
 
 
 def _documents():

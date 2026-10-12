@@ -6,6 +6,23 @@ traceable to a committed artifact under `docs/evidence/`.
 
 ## Unreleased
 
+- **The release exam runs holdout-3 for 0.3.0b2 (WP63; developer tooling).**
+  `scripts/dev/holdout_exam.sh` was hard-wired to holdout-2: run for the next
+  beta it would have refused, or recorded 0.3.0b2's exam as a rerun of
+  0.3.0b1's. Each sealed set is now one row of `EXAMS` in `holdout_exam.py`
+  -- release, sealed SHA-256 and count (holdout-3's read from its
+  registration), set directory, manifest, promise field, ledger, state suffix
+  and evidence prefix -- selected with `--exam` (default `holdout3`;
+  `holdout2` kept for history). Holdout-3 has its own ledger and results
+  name, so holdout-2's finished exam does not block it and a second holdout-3
+  run is refused; R2's denominator is holdout-3's own promised documents
+  (Chrome prints included, as registered). `--expect-promised N` refuses
+  before anything is converted unless N documents are promised. The
+  scorecard's release is 0.3.0b2 (`beta_readiness.RELEASE`, `final_set.sh`),
+  so the y37 waiver granted for 0.3.0b1 now reads as stale until the owner
+  renews or deletes it. The host Python defaults to a `.venv` in the tree or
+  its main checkout instead of one user's path.
+
 ## 0.3.0b1 — 2026-10-12
 
 Porting the live-verified defect catalogue into the converter.

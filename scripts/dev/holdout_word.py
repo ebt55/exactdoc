@@ -1,8 +1,8 @@
 """The Word lane over a holdout set: testkit/word_oracle.py's own sweep, select() swapped.
 
     (cd TREE && PYTHONPATH=TREE python scripts/dev/holdout_word.py \\
-        --manifest HOLD/holdout2.json --pdfs HOLD/pdfs -- \\
-        sweep OUT --docx-dir RUNS/<name>.holdout2/prod.docx/product --lane product)
+        --manifest HOLD/<manifest>.json --pdfs HOLD/pdfs -- \\
+        sweep OUT --docx-dir RUNS/<name>.<exam>/prod.docx/product --lane product)
 
 Everything after `--` is word_oracle.py's command line, unchanged: its own Word
 instance, its batch lock (the named mutex and C:\\lotmp\\word.lock), its
