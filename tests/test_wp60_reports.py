@@ -419,6 +419,16 @@ class TheFooterEcho(unittest.TestCase):
         other = _ln(72, 746, 300, "Printed on recycled paper", 9)
         self.assertEqual(self._run([body, other]), set())
 
+    def test_a_word_the_footer_contains_is_not_the_footer(self):
+        """Review S5: whole words in order, and enough of them. A foot line
+        'of' or 'Page' (or a bare folio) inside 'Page 4 of 12' stays."""
+        short = [_ln(72, 746, 90, "of", 9), _ln(300, 746, 330, "Page", 9),
+                 _ln(500, 746, 510, "4", 9)]
+        self.assertEqual(self._run(short, footer="Page 4 of 12 www.example.gov"),
+                         set())
+        part = _ln(72, 746, 140, "ample.gov", 9)       # not a whole-word run
+        self.assertEqual(self._run([part], footer="www.example.gov 4"), set())
+
     def test_no_panel_no_rule(self):
         foot = _ln(72, 746, 145, "www.example.gov", 9)
         self.assertEqual(self._run([foot], panel=False), set())

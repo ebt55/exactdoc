@@ -10928,19 +10928,40 @@ def _drop_footer_echoes(blocks, consumed, elements, p: PageIR, parts,
     if not panels:
         return
 
-    def norm(t):
-        return re.sub(r"[\W\d_]+", "", t.lower())
-    said = " ".join(norm(el.text) for part in parts if part is not None
-                    for el in part.elements if isinstance(el, Para))
+    said = [_echo_tokens(el.text) for part in parts if part is not None
+            for el in part.elements if isinstance(el, Para)]
+    said = [t for t in said if t]
     if not said:
         return
     foot = max([p.height - BOTZ] + panels)
     for ln in _all_lines(blocks):
         if id(ln) in consumed or ln.bbox[1] < foot:
             continue
-        t = norm(ln.text)
-        if t and t in said:
+        t = _echo_tokens(ln.text)
+        # whole words, in order, and enough of them to be the footer's: a
+        # foot line 'of' or 'Page' is a word the footer happens to contain
+        if len(t) < FOOTER_ECHO_MIN_TOKENS and \
+                len("".join(t)) < FOOTER_ECHO_MIN_CHARS:
+            continue
+        if any(_has_run(f, t) for f in said):
             consumed.add(id(ln))
+
+
+# A foot line is the footer's echo only when it is this much of it: two whole
+# words, or one token of six characters ('DOE-OIG-26-22' is three tokens;
+# 'of', 'Page' and a bare folio are not enough) (WP60, review S5).
+FOOTER_ECHO_MIN_TOKENS = 2
+FOOTER_ECHO_MIN_CHARS = 6
+
+
+def _echo_tokens(text: str) -> List[str]:
+    return re.findall(r"[^\W_]+", text.lower())
+
+
+def _has_run(hay: List[str], needle: List[str]) -> bool:
+    """Is `needle` a contiguous run of whole tokens of `hay`?"""
+    n = len(needle)
+    return n > 0 and any(hay[i:i + n] == needle for i in range(len(hay) - n + 1))
 
 
 def _panel_item(it) -> bool:
