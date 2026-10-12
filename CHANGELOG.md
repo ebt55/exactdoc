@@ -71,7 +71,10 @@ traceable to a committed artifact under `docs/evidence/`.
     beside it, not to whichever piece a cut left (a bullet's hanging
     continuation), so a line no longer reads across sidebar and column;
   - a footer line below every panel ends the band instead of joining the
-    sidebar's cell.
+    sidebar's cell, and on a sidebar page one the footer part already prints
+    is that footer, not a paragraph after the band;
+  - the white between the panel's fill and its column is a cell of its own,
+    so the column's cell starts at its text.
   A chart's frame read as a box of its labels above the chart (`figure_frame`)
   is implemented and measured, and ships OFF: it trades the labels' text for
   the picture that already paints them. `tests/test_wp60_reports.py`.
