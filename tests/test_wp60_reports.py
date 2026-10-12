@@ -258,6 +258,19 @@ class TheHighlightsSidebar(unittest.TestCase):
         self.assertIn("What We Found", right)
         self.assertNotIn("www.example.gov", " ".join(p.text for p in cells[0].paras))
 
+    def test_the_column_cell_starts_at_its_text(self):
+        """The white between the panel's fill and its column is a cell of its
+        own; the column's cell starts at its text, so its paragraphs are not
+        read as indented (and pinned line by line) inside a wider cell."""
+        tab = [e for e in _els(self.lay.pages[0])
+               if isinstance(e, TableEl) and e.role == "layout"][0]
+        self.assertEqual(len(tab.rows[0]), 3, "panel | gutter | column")
+        self.assertFalse(tab.rows[0][1].paras)
+        # the heading and the column's first paragraph start at x 196, the
+        # column's own edge (its list, at 216, hangs rightly)
+        for p in tab.rows[0][-1].paras[:2]:
+            self.assertLess(p.left_indent or 0.0, 3.0, p.text[:40])
+
     def test_no_line_reads_across_panel_and_column(self):
         for e in _els(self.lay.pages[0]):
             if isinstance(e, Para) and e.bbox and e.bbox[1] > 108:

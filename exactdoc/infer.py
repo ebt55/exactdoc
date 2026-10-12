@@ -11210,6 +11210,18 @@ def _layout_table(sides, top: float, bottom: float, content_l: float,
                 cells.append(Cell(borders={}, pad=(0.0, 0.0, 0.0, 0.0)))
                 widths.append(max(0.0, x0 - left))
                 left = x0
+            elif panels[k] is None and panels[k - 1] is not None and \
+                    _wp60("panel_gutter") and x0 > left:
+                # A column beside a panel starts at its own text, the white
+                # between the panel's fill and it a column of its own (as
+                # between two panels). Owning that gutter, the text cell began
+                # at the fill's edge, every paragraph of it 13pt in, and the
+                # writer pinned each source line with a break that, in a face
+                # a hair wider than the source, wrapped one word early (DOE
+                # OIG's highlights: 4 -> 5 pages).
+                cells.append(Cell(borders={}, pad=(0.0, 0.0, 0.0, 0.0)))
+                widths.append(max(0.0, x0 - left))
+                left = x0
             elif panels[k] is None:
                 x0 = left               # a text side owns the gutter before it
         right = x1 if (panels[k] is not None or k == len(sides) - 1) \
