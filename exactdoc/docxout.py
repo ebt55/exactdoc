@@ -4990,16 +4990,21 @@ _CLAMP_SECTIONS = [True]
 def _config_section(sec, lay: DocLayout, margin_t=None, cols: int = 1,
                     col_gap: float = 24.0, margin_lr=None, col_widths=None):
     top = lay.margin_t if margin_t is None else margin_t
-    if _CLAMP_SECTIONS[0] and top + lay.margin_b > lay.page_h - MIN_BODY_PT:
+    bottom = lay.margin_b
+    if _CLAMP_SECTIONS[0] and top + bottom > lay.page_h - MIN_BODY_PT:
         # Backstop, never the reading: inference must not produce this, and
-        # on the corpus it does not. Keep the bottom margin and give the
-        # body one line.
-        clamped = max(0.0, lay.page_h - MIN_BODY_PT - lay.margin_b)
+        # on the corpus it does not. The body gets one line: the bottom
+        # margin is kept unless it alone leaves none (then it gives way
+        # first), and the top margin takes what remains.
+        room = max(0.0, lay.page_h - MIN_BODY_PT)
+        new_bottom = min(bottom, room)
+        new_top = min(top, max(0.0, room - new_bottom))
         SECTION_CLAMPS[0] += 1
         _log.warning("section margins %.1f + %.1f leave no body on a %.1fpt page; "
-                     "top margin clamped to %.1f (%d so far)", top, lay.margin_b,
-                     lay.page_h, clamped, SECTION_CLAMPS[0])
-        margin_t = top = clamped
+                     "clamped to %.1f + %.1f (%d so far)", top, bottom,
+                     lay.page_h, new_top, new_bottom, SECTION_CLAMPS[0])
+        margin_t = top = new_top
+        bottom = new_bottom
     sec.page_width = Emu(int(lay.page_w * 12700))
     sec.page_height = Emu(int(lay.page_h * 12700))
     # Stated, not inferred from the size: Word prints by w:orient, and a new
@@ -5012,7 +5017,7 @@ def _config_section(sec, lay: DocLayout, margin_t=None, cols: int = 1,
     sec.left_margin = Emu(int(ml * 12700))
     sec.right_margin = Emu(int(mr * 12700))
     sec.top_margin = Emu(int(top * 12700))
-    sec.bottom_margin = Emu(int(lay.margin_b * 12700))
+    sec.bottom_margin = Emu(int(bottom * 12700))
     hd = _part_distance(lay, "header")
     fd = _part_distance(lay, "footer")
     sec.header_distance = Emu(int(max(0.0, hd) * 12700))
@@ -5402,6 +5407,9 @@ def write_docx(lay: DocLayout, out_path: str, dpi: int = 240,
     try:
         return _write_docx(lay, out_path, ctx)
     finally:
+        # back to the default, so a direct _config_section call after a gdocs
+        # write is not left without its backstop
+        _CLAMP_SECTIONS[0] = True
         if session is not None:
             session.close()
 

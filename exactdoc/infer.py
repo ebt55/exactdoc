@@ -5814,7 +5814,7 @@ def _figure_in_budget(cl_ds, blocks, images, consumed, page, text_area):
 # (`_picture_glyph_draws`), a stroke is read at the box its clip shows
 # (`_clipped_strokes`) -- are the standard profile's. Under the gdocs
 # profile y22 (lshort), the one document they move, was flown live
-# (2026-10-11, C:\lotmp\wp46live): 169 -> 178 pages for 153 (word recall
+# (2026-10-11, the WP46 live flight): 169 -> 178 pages for 153 (word recall
 # 0.339 -> 0.381). Docs drops the letter-spacing that holds a monospaced
 # line to its source measure, so in a cell beside its output every source
 # line of the example wraps ("Add $a$ squared and $b$ / squared") and the
