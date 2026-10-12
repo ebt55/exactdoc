@@ -1,11 +1,11 @@
-"""A 2-PDF synthetic stand-in for holdout-2, to prove the exam's plumbing end to end.
+"""A 2-PDF synthetic stand-in for a sealed holdout, to prove the exam's plumbing end to end.
 
-    python scripts/dev/holdout_dryset.py OUTDIR
+    python scripts/dev/holdout_dryset.py OUTDIR [--manifest-name holdout3.json]
 
 Writes OUTDIR/pdfs/{d01_short_letter.pdf, d02_long_report.pdf} with reportlab
-(invariant mode: the same bytes every time), OUTDIR/holdout2.json in the sealed
+(invariant mode: the same bytes every time), OUTDIR/<manifest name> in the sealed
 manifest's shape (`file`, `sha256`, `pages`, `design_class`, both promise
-fields) marked `"synthetic": true`, and OUTDIR/holdout2.sha256. One short
+fields) marked `"synthetic": true`, and OUTDIR/<stem>.sha256. One short
 promised document (3 pages, so R2 and R3-short have a denominator) and one long
 promised one (22 pages, so R4 and R3-long do). Nothing here touches the sealed
 set; the exam prints a SYNTHETIC banner over any verdict read from it.
@@ -45,7 +45,7 @@ def _sha(path):
         return hashlib.sha256(fh.read()).hexdigest()
 
 
-def build(out):
+def build(out, manifest_name="holdout2.json"):
     pdfs = os.path.join(out, "pdfs")
     os.makedirs(pdfs, exist_ok=True)
     specs = [("d01_short_letter", "A short letter", 3, "ordinary-word"),
@@ -65,19 +65,23 @@ def build(out):
                      "design_class": cls, "promised_a_current_bar": True,
                      "promised_b_narrowed": True, "reason_b": "synthetic"}
     man = {"schema": "exactdoc.holdout2.v0", "synthetic": True, "sealed": False,
-           "note": "SYNTHETIC dry-run set for scripts/dev/holdout_exam.sh; not holdout-2",
+           "note": "SYNTHETIC dry-run set for scripts/dev/holdout_exam.sh; not a sealed holdout",
            "documents": docs}
-    mpath = os.path.join(out, "holdout2.json")
+    mpath = os.path.join(out, manifest_name)
     with open(mpath, "w", encoding="utf-8", newline="\n") as fh:
         json.dump(man, fh, indent=1, sort_keys=True)
         fh.write("\n")
     digest = _sha(mpath)
-    with open(os.path.join(out, "holdout2.sha256"), "w", encoding="utf-8", newline="\n") as fh:
-        fh.write("%s  holdout2.json\n" % digest)
+    stem = os.path.splitext(manifest_name)[0]
+    with open(os.path.join(out, stem + ".sha256"), "w", encoding="utf-8", newline="\n") as fh:
+        fh.write("%s  %s\n" % (digest, manifest_name))
     return digest
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        raise SystemExit("usage: holdout_dryset.py OUTDIR")
-    print(build(sys.argv[1]))
+    import argparse
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("outdir")
+    ap.add_argument("--manifest-name", default="holdout2.json")
+    a = ap.parse_args()
+    print(build(a.outdir, a.manifest_name))

@@ -206,7 +206,7 @@ class Reading(unittest.TestCase):
         self.assertEqual(res["verdict"], "NOT READY")
         text = B.render(res, [("raw sweep", "r.sweep.json", "x", False)])
         self.assertIn("ratified by the owner on 2026-10-05, amended 2026-10-06", text)
-        self.assertIn("0.3.0b1 is not tagged while any gating criterion fails", text)
+        self.assertIn("%s is not tagged while any gating criterion fails" % B.RELEASE, text)
         self.assertIn(" 2 FAIL by 1 ", text)
 
     def test_a_crash_and_a_failed_lane_fail(self):
@@ -363,7 +363,7 @@ class Waivers(unittest.TestCase):
         return path
 
     def _spec(self, **over):
-        spec = {"ceiling": 25.0, "release": "0.3.0b1",
+        spec = {"ceiling": 25.0, "release": B.RELEASE,
                 "accepted_sweep": {"name": "accepted-x.sweep.json", "sha256": self.sha},
                 "reading": "wp29",
                 "measured": {"accepted": 20.0, "current": 23.0, "sweep": "cur.sweep.json"},
@@ -450,9 +450,9 @@ class Waivers(unittest.TestCase):
     def test_another_release_is_stale(self):
         c, _ = self._read(self._current(), self._waivers(spec=self._spec(release="0.2.0")))
         self.assertEqual((c["status"], c["waivers"][0]["verdict"]), ("FAIL", "stale"))
-        self.assertIn("granted for 0.2.0, this is 0.3.0b1", _last(c))
-        # the same 0.3.0b1 waiver, read for the next release
-        c, _ = self._read(self._current(), release="0.3.0b2")
+        self.assertIn("granted for 0.2.0, this is %s" % B.RELEASE, _last(c))
+        # the same waiver, read for a later release
+        c, _ = self._read(self._current(), release="0.3.0")
         self.assertEqual((c["status"], c["waivers"][0]["verdict"]), ("FAIL", "stale"))
 
     def test_another_reading_is_not_like_for_like(self):
@@ -515,11 +515,11 @@ class Waivers(unittest.TestCase):
         with open(out, encoding="utf-8") as fh:
             res = json.load(fh)
         c = {c["key"]: c for c in res["criteria"]}["regression"]
-        self.assertEqual(res["release"], "0.3.0b1")
+        self.assertEqual(res["release"], B.RELEASE)
         self.assertEqual([(v["document"], v["metric"], v["verdict"]) for v in c["waivers"]],
                          [("paper.pdf", "dy_p50", "waived")])
         self.assertEqual(c["waiver_file"]["entries"], 1)
-        self.assertIn("1 criterion-8 waiver(s) for release 0.3.0b1", printed.getvalue())
+        self.assertIn("1 criterion-8 waiver(s) for release %s" % B.RELEASE, printed.getvalue())
 
     def test_the_committed_waiver_file(self):
         w = B.load_waivers(B.WAIVERS)
@@ -529,7 +529,12 @@ class Waivers(unittest.TestCase):
         for doc, metric, spec in w["entries"]:
             self.assertIsNone(B._waiver_refusal(doc, metric, spec, docs, gate.METRICS),
                               (doc, metric))
-            self.assertEqual(spec["release"], B.RELEASE)
+            # A new waiver names the release it is granted for. y37's was
+            # granted for 0.3.0b1 (docs/beta-bar.md, Exceptions) and reads as
+            # stale under a later RELEASE until the owner renews or deletes it;
+            # no other waiver may name another release.
+            if spec["release"] != B.RELEASE:
+                self.assertEqual((doc, spec["release"]), ("y37_plos_one_dvipdfmx.pdf", "0.3.0b1"))
 
 
 class Amendment4(unittest.TestCase):
@@ -642,7 +647,7 @@ class Amendment4(unittest.TestCase):
         with open(acc, "rb") as fh:
             import hashlib
             sha = hashlib.sha256(fh.read()).hexdigest()
-        spec = {"ceiling": 12.0, "release": "0.3.0b1",
+        spec = {"ceiling": 12.0, "release": B.RELEASE,
                 "accepted_sweep": {"name": "acc.sweep.json", "sha256": sha},
                 "reading": "wp29",
                 "measured": {"accepted": 8.79, "current": 10.64, "sweep": "cur.sweep.json"},
