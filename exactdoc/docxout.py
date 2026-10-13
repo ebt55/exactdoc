@@ -7,6 +7,7 @@ No floating text boxes, no embedded fonts, no VML.
 """
 import copy
 import dataclasses
+import logging
 import io
 import math
 import re
@@ -4971,8 +4972,39 @@ def _section_widths(ch, ctx) -> Optional[tuple]:
     return tuple(round(x, 1) for x in w)
 
 
+_log = logging.getLogger("exactdoc.docxout")
+
+
+# One body line: the least height a section's margins may leave its body. A
+# section whose top and bottom margins meet or pass the page has no body, and
+# Word refuses to lay it out ("the document could not be prepared for
+# exporting") -- holdout-2's h2_04 was written with a top margin of 792pt on a
+# 792pt page when its page colour was read as a running header (WP59).
+MIN_BODY_PT = 14.0
+SECTION_CLAMPS = [0]     # sections clamped by _config_section (WP59 backstop)
+# The backstop is the standard profile's: the gdocs profile is held
+# byte-identical until a live Docs flight (set per write_docx call).
+_CLAMP_SECTIONS = [True]
+
+
 def _config_section(sec, lay: DocLayout, margin_t=None, cols: int = 1,
                     col_gap: float = 24.0, margin_lr=None, col_widths=None):
+    top = lay.margin_t if margin_t is None else margin_t
+    bottom = lay.margin_b
+    if _CLAMP_SECTIONS[0] and top + bottom > lay.page_h - MIN_BODY_PT:
+        # Backstop, never the reading: inference must not produce this, and
+        # on the corpus it does not. The body gets one line: the bottom
+        # margin is kept unless it alone leaves none (then it gives way
+        # first), and the top margin takes what remains.
+        room = max(0.0, lay.page_h - MIN_BODY_PT)
+        new_bottom = min(bottom, room)
+        new_top = min(top, max(0.0, room - new_bottom))
+        SECTION_CLAMPS[0] += 1
+        _log.warning("section margins %.1f + %.1f leave no body on a %.1fpt page; "
+                     "clamped to %.1f + %.1f (%d so far)", top, bottom,
+                     lay.page_h, new_top, new_bottom, SECTION_CLAMPS[0])
+        margin_t = top = new_top
+        bottom = new_bottom
     sec.page_width = Emu(int(lay.page_w * 12700))
     sec.page_height = Emu(int(lay.page_h * 12700))
     # Stated, not inferred from the size: Word prints by w:orient, and a new
@@ -4984,8 +5016,8 @@ def _config_section(sec, lay: DocLayout, margin_t=None, cols: int = 1,
     mr = lay.margin_r if margin_lr is None else margin_lr
     sec.left_margin = Emu(int(ml * 12700))
     sec.right_margin = Emu(int(mr * 12700))
-    sec.top_margin = Emu(int((lay.margin_t if margin_t is None else margin_t) * 12700))
-    sec.bottom_margin = Emu(int(lay.margin_b * 12700))
+    sec.top_margin = Emu(int(top * 12700))
+    sec.bottom_margin = Emu(int(bottom * 12700))
     hd = _part_distance(lay, "header")
     fd = _part_distance(lay, "footer")
     sec.header_distance = Emu(int(max(0.0, hd) * 12700))
@@ -5017,6 +5049,36 @@ def _config_section(sec, lay: DocLayout, margin_t=None, cols: int = 1,
         for a in ("w:space", "w:equalWidth"):
             if cols_el.get(qn(a)):
                 cols_el.attrib.pop(qn(a))
+
+
+# CT_Settings children that precede w:displayBackgroundShape (ECMA-376).
+_BEFORE_BG_SHAPE = ("w:writeProtection", "w:view", "w:zoom",
+                    "w:removePersonalInformation", "w:removeDateAndTime",
+                    "w:doNotDisplayPageBoundaries")
+
+
+def _write_page_colour(doc, colour: str) -> None:
+    """Word's page colour (WP59, infer._page_colour): `w:background` on the
+    document, and `w:displayBackgroundShape` in the settings so Word shows it.
+    Written, not dropped: dark text on a pale page survives either way, but
+    light text on a dark page colour would vanish on white paper."""
+    root = doc.element
+    bg = root.find(qn("w:background"))
+    if bg is None:
+        bg = OxmlElement("w:background")
+        root.insert(0, bg)
+    bg.set(qn("w:color"), colour.lstrip("#").upper())
+    st = doc.settings.element
+    if st.find(qn("w:displayBackgroundShape")) is None:
+        el = OxmlElement("w:displayBackgroundShape")
+        after = None
+        for child in st:
+            if child.tag in {qn(t) for t in _BEFORE_BG_SHAPE}:
+                after = child
+        if after is not None:
+            after.addnext(el)
+        else:
+            st.insert(0, el)
 
 
 # w:sectPr children that must FOLLOW w:pgNumType (ECMA-376 CT_SectPr order).
@@ -5341,9 +5403,13 @@ def write_docx(lay: DocLayout, out_path: str, dpi: int = 240,
     ctx = WriteCtx(output_profile=output_profile,
                    line_mode=line_mode_for(output_profile), dpi=dpi,
                    render_clip=render_clip, image_report=image_report)
+    _CLAMP_SECTIONS[0] = output_profile != "gdocs"
     try:
         return _write_docx(lay, out_path, ctx)
     finally:
+        # back to the default, so a direct _config_section call after a gdocs
+        # write is not left without its backstop
+        _CLAMP_SECTIONS[0] = True
         if session is not None:
             session.close()
 
@@ -6324,6 +6390,8 @@ def _write_docx(lay: DocLayout, out_path: str, ctx: WriteCtx) -> str:
                 st.append(ah)
                 st.append(caps)
 
+    if getattr(lay, "page_colour", None):
+        _write_page_colour(doc, lay.page_colour)
     sec = doc.sections[0]
     has_cover = lay.cover_band is not None
     # Cover-band section side margins. The 4pt was a hedge against renderers

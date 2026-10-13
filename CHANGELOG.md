@@ -6,6 +6,112 @@ traceable to a committed artifact under `docs/evidence/`.
 
 ## Unreleased
 
+## 0.3.0b2 — 2026-10-13
+
+Fixes for the résumés and Word reports that failed 0.3.0b1's test on documents
+never seen in development, published quietly: like 0.3.0b1, this release did
+not meet the bar set in advance for announcing it.
+
+### Known issues
+
+Measured on holdout-3, a sealed set of 41 public PDFs never used in
+development (35 of them promised), converted once on the release candidate in
+LibreOffice and Word ([results](docs/evidence/holdout3-2026-10-13.txt),
+[data](docs/evidence/holdout3-2026-10-13.json)). Verdict: **announce: no**.
+No crashes, and Word opened all 41 cleanly; but of the 26 short promised
+documents only 20 kept their page count in LibreOffice and 18 in Word (the bar
+is 80%), and four came back unusable. 0.3.0b3 is the fix release.
+
+- Three short documents made in Word come back unusable: an NSF audit
+  transmittal letter (6 pages: 7, with 17% of its words on the right page), a
+  Dallas city council memo exported from Word (2 pages: 3; the council's memos
+  exported from Google Docs or printed through Acrobat Distiller come back
+  exact) and a HUD audit summary (8 pages: 9, under half its text on the
+  right page).
+- A 12-page course page saved as PDF from Chrome on a Mac comes back with 15
+  pages.
+- A 50-page semiannual audit report from Word comes back with 109 pages.
+- Long promised documents drift: a median page-count error of 5.3%; 3 of 9
+  within 2% (or one page), and 4 of 9 in LibreOffice (2 in Word) with at least
+  85% of their words on the right page.
+
+### Changes
+
+- **The release rules for 0.3.0b3 (amendment 7 to the beta bar, WP66).**
+  From holdout-4 on, a promised document counts as unusable when it is
+  refused, crashes or has no output, when fewer than 90% of its words appear
+  anywhere in the output, or when its page count is off by more than one page
+  and 20%; text that is all there but pushed onto the next page is judged by
+  the page-exact test instead. Holdout-3 keeps the rule it was run under, and
+  re-scored under the new one for information it still fails (3 short
+  documents unusable instead of 4, and 1 long;
+  [re-score](docs/evidence/holdout3-rescore-r3v2-2026-10-13.json)). A stop
+  rule ends the loop: one fix round, holdout-4 sealed and run once, and
+  0.3.0b3 announced whatever it shows. The no-regression check now compares
+  with 0.3.0b1's final measurement, so the y37 exception granted for 0.3.0b1
+  is removed; on that basis the 0.3.0b2 scorecard reads ready
+  ([scorecard](docs/evidence/beta-readiness-2026-10-13b.json)).
+- **The release exam runs holdout-3 for 0.3.0b2 (WP63; developer tooling).**
+  The script that runs the sealed exam was written for holdout-2 only: run for
+  this beta it would have refused, or recorded 0.3.0b2's exam as a rerun of
+  0.3.0b1's. Each sealed set is now one entry in a table (its release, sealed
+  hash and count, files and promise rule), chosen with `--exam`. Holdout-3 has
+  its own record, so holdout-2's finished exam does not block it and a second
+  holdout-3 run is refused, and `--expect-promised N` refuses before anything
+  is converted unless N documents are promised. The scorecard now reads for
+  0.3.0b2.
+- **Résumé layouts that failed the holdout-2 exam (WP59).** Holdout-2's
+  résumés (a development set since its single run) failed on six layout
+  mechanisms. Each is now read for what it is, with a synthetic test page in
+  `tests/test_wp59_resumes.py` beside the look-alike it must leave alone:
+  - **Page colour.** Word's page colour paints one fill over the whole sheet
+    of every page. It was read as a cover band and a page-tall header, so the
+    text went into the header and the body section was left with no room, and
+    Word refused to export the file. It is now the document's background
+    colour, and light text on a dark page colour stays readable.
+  - **Tall strip.** A running strip that reaches past the middle of the page
+    is not a header. As a backstop, no section is written whose margins leave
+    the body less than one line (it fires on no corpus document).
+  - **Page border.** Word's page border (four rules near the paper's edges)
+    is no longer read as a box around the whole page.
+  - **Two-sided lists.** A skills list set flush right beside a coursework
+    list no longer turns a résumé page into two columns, and the dates stay
+    beside their entries.
+  - **Left-tab fields.** A place or date set at a left tab stays on its
+    entry's line instead of being welded into the next paragraph.
+  - **Text-font boxes.** A text face whose glyph boxes are several times its
+    size (Word's Cambria) no longer puts entries above their own headings.
+
+  On holdout-2 the federal résumé comes back with 3 pages for 3 (it was 6)
+  with all its words on the right page, and Word now exports it; the CMU set
+  comes back with 8 pages for 8 (it was 9) and 99.8% of its words on the
+  right page. No corpus document is worse than in the accepted sweep, and the
+  Google Docs output is byte-identical on every document
+  ([evidence](docs/evidence/wp59-2026-10-13.json)). One unpromised designed
+  brochure got worse in LibreOffice (4 pages for 2, it was 3) and better in
+  Word (5, it was 9); the evidence records why it was accepted.
+- **The section backstop covers the bottom margin too (WP64).** A bottom
+  margin within one line of the page height could still leave a section with
+  no body, which Word refuses; both margins are now clamped. No document in
+  the corpus or the holdouts reaches it.
+- **A report's highlights sidebar reads beside its column (WP60).** A
+  Word-made audit report often opens on a highlights page: a shaded panel down
+  the left and the findings column beside it, starting a few points from the
+  panel. That page was not read side by side, so the panel stood above its
+  column and every later page came out one place late. Now:
+  - a drawn panel's edge counts as the gap between panel and column, however
+    narrow the white beside it;
+  - a panel is read as a sidebar, or not, as a whole, so a line no longer
+    reads across the sidebar and the column;
+  - a footer line below the panel ends it instead of joining the sidebar, and
+    a footer the page already prints is not repeated as a paragraph;
+  - the white between the panel and its column is kept, so the column starts
+    where its text starts.
+  Each reading has its own switch, and the Google Docs output is unchanged. A
+  fourth, which would read a chart's labels as text instead of leaving them in
+  the chart's picture, is measured and ships off. Tests:
+  `tests/test_wp60_reports.py`.
+
 ## 0.3.0b1 — 2026-10-12
 
 Porting the live-verified defect catalogue into the converter.

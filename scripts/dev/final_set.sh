@@ -27,19 +27,19 @@
 #   --keep-going        continue after a failed gate (it is still reported)
 #   --allow-busy        start (a)-(e) beside other containers (testing only; printed;
 #                       the quiet wait in (f) is never waived)
-#   --release V         default 0.3.0b1
+#   --release V         default 0.3.0b2
 #   --frac F            (f) time documents whose sweep time is >= F of their limit
 #                       (default 0.4; sweeps run 1.4-2.3x a lone conversion, WP20b)
 #
 # Environment: EXACTDOC_SCR (default C:\lotmp\scr; runs under $SCR/runs),
-# EXACTDOC_PY (host Python, default the shared venv), EXACTDOC_GATE_IMAGE
-# (default exactdoc-gate:boot). State: $SCR/runs/<name>.final/ (one marker per
-# finished step, final_set.log with every command run).
+# EXACTDOC_PY (host Python; default a .venv in the tree or in the main checkout),
+# EXACTDOC_GATE_IMAGE (default exactdoc-gate:boot). State: $SCR/runs/<name>.final/
+# (one marker per finished step, final_set.log with every command run).
 export MSYS_NO_PATHCONV=1
 set -u
 
 DRY=0; ONLY=""; STEPS="a,b,c,d,e,f,g"; ACCEPTED=""; DOCS_ROWS=""; NO_DOCS=0
-KEEP_GOING=0; RELEASE="0.3.0b1"; FRAC="0.4"; ALLOW_BUSY=0
+KEEP_GOING=0; RELEASE="0.3.0b2"; FRAC="0.4"; ALLOW_BUSY=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) DRY=1; shift;;
@@ -65,7 +65,19 @@ HERE="$(cd "$(dirname "$0")" && (pwd -W 2>/dev/null || pwd))"
 SCR="${EXACTDOC_SCR:-C:\\lotmp\\scr}"
 RUNS="$SCR/runs"
 STATE="$RUNS/$NAME.final"
-PY="${EXACTDOC_PY:-C:/Users/ebin/claude-ground/pdftodoc/.venv/Scripts/python.exe}"
+# The host Python: $EXACTDOC_PY, else a .venv in the measured tree, else one in
+# the main checkout this worktree belongs to (git's common dir), else python3.
+default_py() {
+  local root c
+  for root in "$1" "$(git -C "$HERE" rev-parse --path-format=absolute --git-common-dir 2>/dev/null | sed 's#/\.git/*$##')"; do
+    [ -n "$root" ] || continue
+    for c in "$root/.venv/Scripts/python.exe" "$root/.venv/bin/python"; do
+      [ -x "$c" ] && { echo "$c"; return 0; }
+    done
+  done
+  command -v python3 2>/dev/null || command -v python
+}
+PY="${EXACTDOC_PY:-$(default_py "$TREE")}"
 IMAGE="${EXACTDOC_GATE_IMAGE:-exactdoc-gate:boot}"
 OURS="^(exs-$NAME-(prod|raw)|exg-$NAME-gate|exf-$NAME-serial)\$"
 SERIAL_C="exf-$NAME-serial"

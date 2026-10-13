@@ -433,3 +433,54 @@ catastrophic if it is catastrophic in either lane (char recall is the
 right-page `char_recall`). R1's crash count is the product lane; raw-lane
 crashes are reported. Short or long is decided by the manifest's page count.
 The exam is run with `scripts/dev/holdout_exam.sh`, which refuses a second run.
+
+## Amendment 7, 2026-10-13, adopted by the owner: R3 for holdout-4, the stop rule, and y37
+
+**Why.** Holdout-3 decided 0.3.0b2: announce NO (R1 PASS, R2 FAIL, R3 FAIL;
+[evidence](evidence/holdout3-2026-10-13.json)). The owner accepted a plan of
+six decisions (Fable 5.1) for one more round and a stop. This amendment
+records the rules part.
+
+**(a) R3, from holdout-4 on (verbatim).** "R3. A promised document is
+catastrophic if, in either lane: (a) it is refused, crashes or has no output;
+(b) document-level word recall (words found anywhere in the output,
+`doc_recall`) < 0.9; or (c) |Δpages| > max(1, 20% of the source pages).
+Right-page recall and drift inside (c) belong to R2 and are reported per
+document." R1, R2, R4 and R5 are unchanged, and so are the allowances: 0
+short, ≤ 1 long. `scripts/dev/holdout_exam.py` reads this rule for the
+holdout4 exam (`r3_rule` "v2", pinned by `tests/test_holdout_exam.py`);
+holdout-2 and holdout-3 keep the R3 they were run under (v1) for their
+recorded verdicts. Every sweep and Word row already carries `doc_recall`; an
+exam under v2 whose measured row lacks it is invalid, not scored.
+
+**(b) Legitimacy conditions.** The text lands before holdout-4 exists.
+Holdout-3 is re-scored under it as a reported line only, never as a pass:
+0.3.0b2's verdict stays announce NO. Under the new rule h3_34 (and h3_15, h3_13,
+and the long h3_28) is still catastrophic, and R2 fails anyway
+([re-score, reported, not a verdict](evidence/holdout3-rescore-r3v2-2026-10-13.json)).
+The README says so.
+
+**(c) The stop rule.** One fix round: mechanisms A and B plus three small
+readings, each with a synthetic fixture. Code freeze Friday 31 October.
+Holdout-4 collected and sealed by an agent independent of the fixes, before
+the freeze. Holdout-4 run once by Wednesday 5 November. 0.3.0b3 tagged and
+announced by about Tuesday 10 November whatever holdout-4 shows, with R1–R5
+verbatim in the README. After 0.3.0b3, holdouts are a per-release report
+card, not a gate, and R2's 80% becomes the 1.0 target.
+
+**(d) The owner's caveat.** We release as soon as we have a strong baseline:
+the dates are deadlines, not waits. If the fix round is done and verified
+earlier, holdout-4 can be sealed and run earlier.
+
+**(e) y37.** Criterion 8's accepted sweep is re-based to b1's final product
+sweep, what shipped as 0.3.0b1: `final-71af76e-prod.sweep.json`, the product
+sweep of the 0.3.0b1 release measurement
+([evidence](evidence/release-measurement-2026-10-11.json)), SHA-256
+`4fb4ff9ab467525128621ec7d44c0512534878cac7b20ed2dddee3ee1deff3d7`, reading
+wp42. The y37 waiver ("Exceptions for 0.3.0b1" above) is deleted from
+`testkit/beta_waivers.json`; that section stays as the record of the b1
+decision. Amendment 4(e), the paired common-word reading of criterion 8's
+dy_p50, is deferred to 0.3.0b3. Re-scored on the 0.3.0b2 release measurement
+(final-34d4413), the scorecard reads READY: 10 pass, 0 fail, 0 unmeasured, 3
+reported; criterion 8 finds 0 documents worse than b1's final product sweep
+([evidence](evidence/beta-readiness-2026-10-13b.json)).

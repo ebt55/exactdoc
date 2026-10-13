@@ -1,8 +1,10 @@
-"""scripts/dev/holdout_exam.py: the 0.3.0b1 release rule R1-R5 (beta-bar.md, amendment 6).
+"""scripts/dev/holdout_exam.py: the release rule R1-R5 (beta-bar.md, amendment 6).
 
-Synthetic rows only. No holdout-2 result is read here, nor the sealed manifest:
-every manifest, sweep and Word row below is made up in the test, so the rule's
-reading is pinned before the exam is run, not fitted to its outcome.
+Synthetic rows only. No holdout result is read here, nor any sealed set's
+directory: every manifest, sweep and Word row below is made up in the test, so
+the rule's reading is pinned before an exam is run, not fitted to its outcome.
+The only real file read is holdout-3's registration, committed before its set
+was opened, whose hash the exam must use.
 """
 import importlib.util
 import json
@@ -22,6 +24,10 @@ EXIT_MAP = {"InteractiveFormError": ("interactive-form", 19),
             "OcrRequiredError": ("ocr-required", 17),
             "ExactdocError": ("error", 1)}
 COMMIT = "c0ffee"
+# holdout-3's sealed manifest, as registered on 2026-10-12 before any conversion
+# (docs/evidence/holdout3-registration-2026-10-12.json); 0.3.0b2's exam.
+HOLDOUT3_SHA256 = "07d622997a13e00251786cf812801d3a30b5086b1b0980fc838e3d32ad315475"
+HOLDOUT3_DOCUMENTS = 41
 PROFILES = ("prod/id", "raw/id")
 
 
@@ -131,6 +137,34 @@ class Validity(unittest.TestCase):
                                            "promised_a_current_bar": True}}}, fh)
         with self.assertRaises(X.ExamInvalid):        # only the NARROWED field is read
             X.load_manifest(path, X.sha256(path))
+        with self.assertRaises(X.ExamInvalid):        # nor holdout-3's sealed hash
+            X.load_manifest(path, HOLDOUT3_SHA256)
+
+    def test_holdout3_sha_is_pinned_and_read_from_its_registration(self):
+        ex = X.exam("holdout3")
+        self.assertEqual((ex["sha256"], ex["documents"]), (HOLDOUT3_SHA256, HOLDOUT3_DOCUMENTS))
+        with open(os.path.join(ROOT, ex["registration"]), encoding="utf-8") as fh:
+            reg = json.load(fh)
+        self.assertEqual((reg["manifest_sha256"], reg["documents"]),
+                         (HOLDOUT3_SHA256, HOLDOUT3_DOCUMENTS))
+        self.assertEqual(X.DEFAULT_EXAM, "holdout3")
+        self.assertEqual((X.exam("holdout2")["sha256"], X.exam("holdout2")["documents"]),
+                         (X.SEALED_SHA256, 32))
+        with self.assertRaises(X.ExamInvalid):
+            X.exam("holdout9")
+
+    def test_a_registration_without_a_hash_refuses(self):
+        d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, d)
+        reg = os.path.join(d, X.EXAMS["holdout3"]["registration"])
+        os.makedirs(os.path.dirname(reg))
+        with open(reg, "w", encoding="utf-8") as fh:
+            json.dump({"documents": 41}, fh)
+        with self.assertRaises(X.ExamInvalid):
+            X.exam("holdout3", root=d)
+        os.remove(reg)
+        with self.assertRaises(X.ExamInvalid):
+            X.exam("holdout3", root=d)
 
     def test_verdict_cli_exit_codes(self):
         d = tempfile.mkdtemp()
@@ -146,7 +180,7 @@ class Validity(unittest.TestCase):
             fh.write(json.dumps(wd("a.pdf", 3, 3)) + "\n")
         args = ["verdict", "--manifest", mp, "--manifest-sha256", X.sha256(mp), "--product", pp,
                 "--word", wp, "--commit", COMMIT, "--json", os.path.join(d, "o.json"),
-                "--text", os.path.join(d, "o.txt")]
+                "--text", os.path.join(d, "o.txt"), "--exam", "holdout2"]
         out = sys.stdout
         sys.stdout = open(os.devnull, "w")
         try:
@@ -374,26 +408,27 @@ class SingleUse(unittest.TestCase):
         os.makedirs(self.ev)
 
     def test_fresh_resume_then_refused_after_finish(self):
-        self.assertEqual(X.guard(self.ledger, self.ev, "r1", "c1")[0], "fresh")
+        self.assertEqual(X.guard(self.ledger, self.ev, "r1", "c1", prefix="holdout2-")[0], "fresh")
         X._append(self.ledger, {"event": "start", "run": "r1", "commit": "c1"})
-        self.assertEqual(X.guard(self.ledger, self.ev, "r1", "c1")[0], "resume")
+        self.assertEqual(X.guard(self.ledger, self.ev, "r1", "c1", prefix="holdout2-")[0], "resume")
         with self.assertRaises(X.ExamInvalid):                 # another run name
-            X.guard(self.ledger, self.ev, "r2", "c1")
+            X.guard(self.ledger, self.ev, "r2", "c1", prefix="holdout2-")
         with self.assertRaises(X.ExamInvalid):                 # same name, other commit
-            X.guard(self.ledger, self.ev, "r1", "c2")
+            X.guard(self.ledger, self.ev, "r1", "c2", prefix="holdout2-")
         X._append(self.ledger, {"event": "finish", "run": "r1", "commit": "c1"})
         with self.assertRaises(X.ExamInvalid):
-            X.guard(self.ledger, self.ev, "r1", "c1")
-        state, reasons = X.guard(self.ledger, self.ev, "r2", "c1", rerun_reason="owner asked")
+            X.guard(self.ledger, self.ev, "r1", "c1", prefix="holdout2-")
+        state, reasons = X.guard(self.ledger, self.ev, "r2", "c1", rerun_reason="owner asked",
+                                 prefix="holdout2-")
         self.assertEqual(state, "rerun")
         self.assertTrue(reasons)
         with self.assertRaises(X.ExamInvalid):                 # a blank reason is no reason
-            X.guard(self.ledger, self.ev, "r2", "c1", rerun_reason="  ")
+            X.guard(self.ledger, self.ev, "r2", "c1", rerun_reason="  ", prefix="holdout2-")
 
     def test_existing_results_file_refuses(self):
         open(os.path.join(self.ev, "holdout2-2026-10-12.json"), "w").close()
         with self.assertRaises(X.ExamInvalid):
-            X.guard(self.ledger, self.ev, "r1", "c1")
+            X.guard(self.ledger, self.ev, "r1", "c1", prefix="holdout2-")
 
     def test_guard_cli_records_start_and_reason(self):
         out = sys.stdout
@@ -421,7 +456,7 @@ class SingleUse(unittest.TestCase):
         so = sys.stdout
         sys.stdout = open(os.devnull, "w")
         try:
-            args = ["wrap", out, "--exam", exam, "--text", text, "--commit", "c1",
+            args = ["wrap", out, "--exam-json", exam, "--text", text, "--commit", "c1",
                     "--input", "exam=" + exam, "--input", "gone=" + os.path.join(self.d, "nope")]
             self.assertEqual(X.main(args), 0)
             self.assertEqual(X.main(args), 4)
@@ -434,6 +469,338 @@ class SingleUse(unittest.TestCase):
         self.assertEqual(e["inputs"]["exam"]["sha256"], X.sha256(exam))
         self.assertTrue(e["inputs"]["gone"]["missing"])
         self.assertTrue(e["verdict"]["announce"])
+        self.assertEqual((e["exam_set"], e["release"]), ("holdout3", "0.3.0b2"))
+
+    def test_a_guard_needs_a_prefix(self):
+        with self.assertRaises(X.ExamInvalid):
+            X.guard(self.ledger, self.ev, "r1", "c1")
+
+    def test_results_pattern(self):
+        pat = X.results_pattern("holdout3-")
+        for name in ("holdout3-2026-10-13.json", "holdout3-2026-10-13-rerun2.json",
+                     "holdout3-dry-dry-rc-2026-10-13.json"):
+            self.assertTrue(pat.match(name), name)
+        for name in ("holdout3-registration-2026-10-12.json", "holdout3-manifest.json",
+                     "holdout2-2026-10-11.json", "holdout3-2026-10-13.txt"):
+            self.assertFalse(pat.match(name), name)
+
+
+class Holdout3(unittest.TestCase):
+    """Holdout-3 is its own exam: its own row, ledger, prefix, promise and hash.
+    Synthetic directories only; the sealed set is never opened."""
+
+    def setUp(self):
+        self.d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.d)
+        self.scr = os.path.join(self.d, "scr")
+        self.ev = os.path.join(self.d, "evidence")
+        os.makedirs(self.scr)
+        os.makedirs(self.ev)
+
+    def _quiet(self, argv):
+        out = sys.stdout
+        sys.stdout = open(os.devnull, "w")
+        try:
+            return X.main(argv)
+        finally:
+            sys.stdout.close()
+            sys.stdout = out
+
+    def test_every_path_and_prefix_resolves_together(self):
+        import contextlib
+        import io
+        buf = io.StringIO()
+        nowhere = os.path.join(self.d, "no-such-set")      # resolve opens nothing
+        with contextlib.redirect_stdout(buf):
+            self.assertEqual(X.main(["resolve", "--exam", "holdout3", "--hold", nowhere]), 0)
+        row = dict(line.split("=", 1) for line in buf.getvalue().splitlines())
+        row = {k: v.strip("'") for k, v in row.items()}
+        self.assertEqual(row["EXAM"], "holdout3")
+        self.assertEqual(row["EXAM_RELEASE"], "0.3.0b2")
+        self.assertEqual(row["EXAM_SHA"], HOLDOUT3_SHA256)
+        self.assertEqual(row["EXAM_DOCS"], str(HOLDOUT3_DOCUMENTS))
+        self.assertEqual(row["EXAM_HOLD"], nowhere)
+        self.assertEqual(row["EXAM_MANIFEST_NAME"], "holdout3.json")
+        self.assertEqual(row["EXAM_LEDGER"], "holdout3-exam.ledger.jsonl")
+        self.assertEqual(row["EXAM_SUFFIX"], ".holdout3")
+        self.assertEqual(row["EXAM_PREFIX"], "holdout3-")
+        self.assertEqual(row["EXAM_TAG"], "h3")
+        self.assertFalse([k for k, v in row.items() if "holdout2" in v or "rv_hold2" in v])
+        self.assertFalse(os.path.exists(nowhere))
+        ex = X.exam("holdout3")
+        self.assertEqual(ex["set_dir"], r"C:\lotmp\rv_hold3")
+        h2, h3 = X.exam("holdout2"), X.exam("holdout3")
+        for k in ("sha256", "set_dir", "manifest", "ledger", "state_suffix", "prefix", "tag",
+                  "release"):
+            self.assertNotEqual(h2[k], h3[k], k)
+
+    def test_holdout2s_finished_exam_does_not_block_holdout3(self):
+        X._append(os.path.join(self.scr, "holdout2-exam.ledger.jsonl"),
+                  {"event": "start", "run": "holdout2-rc", "commit": "71af76e"})
+        X._append(os.path.join(self.scr, "holdout2-exam.ledger.jsonl"),
+                  {"event": "finish", "run": "holdout2-rc", "commit": "71af76e"})
+        for name in ("holdout2-2026-10-11.json", "holdout2-manifest.json",
+                     "holdout3-registration-2026-10-12.json"):
+            open(os.path.join(self.ev, name), "w").close()
+        ledger3 = os.path.join(self.scr, X.exam("holdout3")["ledger"])
+        base = ["guard", "--exam", "holdout3", "--ledger", ledger3, "--evidence-dir", self.ev,
+                "--commit", "1d7812b", "--record"]
+        self.assertEqual(self._quiet(base + ["--run", "holdout3-rc"]), 0)   # no --rerun-reason
+        self.assertEqual([e["event"] for e in X._ledger(ledger3)], ["start"])
+        # holdout-2's own guard still refuses its own second run
+        with self.assertRaises(X.ExamInvalid):
+            X.guard(os.path.join(self.scr, "holdout2-exam.ledger.jsonl"), self.ev, "again",
+                    "1d7812b", prefix="holdout2-")
+
+    def test_a_second_holdout3_exam_refuses(self):
+        ledger3 = os.path.join(self.scr, X.exam("holdout3")["ledger"])
+        base = ["guard", "--exam", "holdout3", "--ledger", ledger3, "--evidence-dir", self.ev,
+                "--commit", "1d7812b", "--record"]
+        self.assertEqual(self._quiet(base + ["--run", "holdout3-rc"]), 0)
+        self.assertEqual(self._quiet(base + ["--run", "holdout3-rc"]), 0)    # a resume
+        self.assertEqual(self._quiet(base + ["--run", "holdout3-again"]), 4)
+        X._append(ledger3, {"event": "finish", "run": "holdout3-rc", "commit": "1d7812b"})
+        open(os.path.join(self.ev, "holdout3-2026-10-13.json"), "w").close()
+        self.assertEqual(self._quiet(base + ["--run", "holdout3-rc"]), 4)
+        self.assertEqual(self._quiet(base + ["--run", "holdout3-rc", "--rerun-reason", "x"]), 0)
+        self.assertEqual(X._ledger(ledger3)[-1]["state"], "rerun")
+
+    def _manifest(self, docs, name="holdout3.json", where=None):
+        where = where or self.d
+        path = os.path.join(where, name)
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump({"documents": docs}, fh)
+        return path
+
+    def test_a_wrong_sha_refuses(self):
+        path = self._manifest({"a": {"file": "a.pdf", "pages": 3, "promised_narrowed": True}})
+        with self.assertRaises(X.ExamInvalid):
+            X.load_manifest(path, X.exam("holdout3")["sha256"], X.exam("holdout3")["promise_fields"])
+        self.assertEqual(self._quiet(["verify-manifest", path, "--exam", "holdout3"]), 3)
+        self.assertEqual(self._quiet(["verify-manifest", path, "--exam", "holdout3",
+                                      "--sha256", X.sha256(path)]), 0)
+
+    def test_the_document_count_is_the_registrations(self):
+        path = self._manifest({"a": {"file": "a.pdf", "pages": 3, "promised_narrowed": True}})
+        with self.assertRaises(X.ExamInvalid):
+            X.load_manifest(path, X.sha256(path), ("promised_narrowed",),
+                            documents=HOLDOUT3_DOCUMENTS)
+
+    def test_holdout3_reads_its_own_promise_and_r2_counts_it(self):
+        fields = X.exam("holdout3")["promise_fields"]
+        self.assertEqual(fields, ("promised_narrowed",))
+        docs = {"r%d" % i: {"file": "r%d.pdf" % i, "pages": 2, "promised_narrowed": True,
+                            "design_class": "resume"} for i in range(4)}
+        docs["w"] = {"file": "w.pdf", "pages": 5, "promised_narrowed": True,
+                     "design_class": "web-print"}
+        docs["s"] = {"file": "s.pdf", "pages": 9, "promised_narrowed": False,
+                     "design_class": "slides"}
+        path = self._manifest(docs)
+        _, m = X.load_manifest(path, X.sha256(path), fields)
+        self.assertEqual({d["_promise_field"] for d in m.values()}, {"promised_narrowed"})
+        prows = [lo(n, s["pages"], s["pages"]) for n, s in m.items()]
+        wrows = [wd(n, s["pages"], s["pages"]) for n, s in m.items()]
+        res = ev(m, prows, wrows, exam_name="holdout3")
+        self.assertEqual(res["R2"]["n"], 5)                  # the Chrome print counts
+        self.assertEqual(res["promise_field"], "promised_narrowed")
+        self.assertIn("holdout3 exam", X.render_text(res))
+        # holdout-2's field is not holdout-3's; a field some documents lack is refused
+        for d in docs.values():
+            d["promised_b_narrowed"] = d.pop("promised_narrowed")
+        path = self._manifest(docs)
+        with self.assertRaises(X.ExamInvalid):
+            X.load_manifest(path, X.sha256(path), fields)
+        for d in docs.values():
+            d["promised_narrowed"] = d["promised_b_narrowed"]
+        del docs["s"]["promised_narrowed"]
+        path = self._manifest(docs)
+        with self.assertRaises(X.ExamInvalid):
+            X.load_manifest(path, X.sha256(path), fields)
+
+    def test_expect_promised(self):
+        docs = {"a": {"file": "a.pdf", "pages": 3, "promised_narrowed": True},
+                "b": {"file": "b.pdf", "pages": 3, "promised_narrowed": False}}
+        path = self._manifest(docs)
+        sha = X.sha256(path)
+        base = ["verify-manifest", path, "--exam", "holdout3", "--sha256", sha]
+        self.assertEqual(self._quiet(base + ["--expect-promised", "1"]), 0)
+        self.assertEqual(self._quiet(base + ["--expect-promised", "35"]), 3)
+
+    def test_a_missing_promise_field_names_what_is_there(self):
+        docs = {"a": {"file": "a.pdf", "pages": 3, "in_scope": True, "scan": False},
+                "b": {"file": "b.pdf", "pages": 3, "in_scope": False, "scan": False,
+                      "extra": True}}
+        path = self._manifest(docs)
+        with self.assertRaises(X.ExamInvalid) as cm:
+            X.load_manifest(path, X.sha256(path), X.exam("holdout3")["promise_fields"])
+        msg = str(cm.exception)
+        self.assertIn("boolean fields on every document: in_scope (1 true), scan (0 true)", msg)
+        self.assertIn("every document's fields: file, in_scope, pages, scan", msg)
+        self.assertNotIn("a.pdf", msg)                    # names and counts, no document
+
+    def test_locate_by_name_then_by_hash(self):
+        setd = os.path.join(self.d, "set")
+        os.makedirs(setd)
+        path = self._manifest({"a": {"file": "a.pdf", "pages": 1, "promised": True}},
+                              name="sealed-manifest.json", where=setd)
+        sha = X.sha256(path)
+        self.assertEqual(X.locate_manifest(setd, "holdout3.json", sha), path)
+        named = self._manifest({"a": {"file": "a.pdf", "pages": 1, "promised": True}},
+                               name="holdout3.json", where=setd)
+        self.assertEqual(X.locate_manifest(setd, "holdout3.json", sha), named)
+        with self.assertRaises(X.ExamInvalid):
+            X.locate_manifest(setd, "nothing.json", "0" * 64)
+
+
+def r3v2(m, prows, wrows, **kw):
+    return ev(m, prows, wrows, r3_rule="v2", **kw)
+
+
+def clean_v2(**kw):
+    m, p, w = clean(**kw)
+    for r in p + w:
+        r["doc_recall"] = 0.99
+    return m, p, w
+
+
+class R3v2(unittest.TestCase):
+    """Amendment 7's R3 (owner-adopted 2026-10-13), for holdout-4 on: no output,
+    doc_recall < 0.9, or |dpages| > max(1, 20% of the source), in either lane."""
+
+    def test_the_rule_text_is_amendment_7s(self):
+        self.assertIn("doc_recall) < 0.9", X.R3_RULES["v2"])
+        self.assertIn("|dpages| > max(1, 20% of the source pages)", X.R3_RULES["v2"])
+        self.assertIn("belong to R2", X.R3_RULES["v2"])
+
+    def test_clean_run_passes_and_names_its_rule(self):
+        m, p, w = clean_v2()
+        res = r3v2(m, p, w)
+        self.assertTrue(res["R3"]["pass"])
+        self.assertEqual(res["R3"]["rule"], "v2")
+        self.assertIn("(v2)", X.render_text(res))
+
+    def test_doc_recall_below_0_9_is_catastrophic_0_9_is_not(self):
+        m, p, w = clean_v2()
+        p = replace(p, "document", "s00.pdf", lo("s00.pdf", 4, 4, doc_recall=0.89))
+        res = r3v2(m, p, w)
+        self.assertEqual(res["R3"]["short_catastrophic"], ["s00.pdf"])
+        self.assertIn("doc_recall 0.890 < 0.9",
+                      next(d for d in res["documents"] if d["doc"] == "s00.pdf")["r3_why"]["lo"])
+        p = replace(p, "document", "s00.pdf", lo("s00.pdf", 4, 4, doc_recall=0.9))
+        self.assertTrue(r3v2(m, p, w)["R3"]["pass"])
+
+    def test_either_lane(self):
+        m, p, w = clean_v2()
+        w = replace(w, "doc", "s01.pdf", wd("s01.pdf", 4, 4, doc_recall=0.5))
+        self.assertEqual(r3v2(m, p, w)["R3"]["by_lane"]["word"], ["s01.pdf"])
+
+    def test_page_allowance_is_max_of_one_page_and_20_percent(self):
+        m, p, w = clean_v2(short_pages=2)
+        p = replace(p, "document", "s00.pdf", lo("s00.pdf", 2, 3, doc_recall=0.99))   # +1: allowed
+        self.assertTrue(r3v2(m, p, w)["R3"]["pass"])
+        self.assertFalse(ev(m, p, w)["R3"]["pass"])         # v1: +50% was catastrophic
+        p = replace(p, "document", "s00.pdf", lo("s00.pdf", 2, 4, doc_recall=0.99))   # +2: not
+        self.assertFalse(r3v2(m, p, w)["R3"]["pass"])
+        m, p, w = clean_v2(short_pages=10)
+        p = replace(p, "document", "s00.pdf", lo("s00.pdf", 10, 12, doc_recall=0.99))  # 2 of 2
+        self.assertTrue(r3v2(m, p, w)["R3"]["pass"])
+        p = replace(p, "document", "s00.pdf", lo("s00.pdf", 10, 7, doc_recall=0.99))   # -3 > 2
+        self.assertFalse(r3v2(m, p, w)["R3"]["pass"])
+
+    def test_right_page_recall_is_r2s_not_r3s(self):
+        m, p, w = clean_v2()
+        p = replace(p, "document", "s00.pdf", lo("s00.pdf", 4, 4, cr=0.3, doc_recall=0.95))
+        self.assertTrue(r3v2(m, p, w)["R3"]["pass"])
+        self.assertFalse(ev(m, p, w)["R3"]["pass"])          # v1 read char_recall
+
+    def test_no_output_is_catastrophic(self):
+        m, p, w = clean_v2()
+        p = replace(p, "document", "s02.pdf", {"document": "s02.pdf", "refused": "OcrRequiredError"})
+        w = replace(w, "doc", "s02.pdf", {"doc": "s02.pdf", "flavour": "product", "opened": False,
+                                          "error": X.NO_DOCX})
+        self.assertEqual(r3v2(m, p, w)["R3"]["short_catastrophic"], ["s02.pdf"])
+
+    def test_one_long_allowed(self):
+        m, p, w = clean_v2(n_long=3)
+        p = replace(p, "document", "l00.pdf", lo("l00.pdf", 40, 40, doc_recall=0.5))
+        self.assertTrue(r3v2(m, p, w)["R3"]["pass"])
+        p = replace(p, "document", "l01.pdf", lo("l01.pdf", 40, 50, doc_recall=0.99))
+        self.assertFalse(r3v2(m, p, w)["R3"]["pass"])
+
+    def test_a_row_without_doc_recall_is_an_invalid_exam_under_v2_only(self):
+        m, p, w = clean_v2()
+        del p[0]["doc_recall"]
+        with self.assertRaises(X.ExamInvalid):
+            r3v2(m, p, w)
+        self.assertTrue(ev(m, p, w)["R3"]["pass"])           # v1 never reads it
+
+    def test_holdout2_and_holdout3_keep_v1_holdout4_reads_v2(self):
+        self.assertEqual((X.EXAMS["holdout2"]["r3_rule"], X.EXAMS["holdout3"]["r3_rule"],
+                          X.EXAMS["holdout4"]["r3_rule"]), ("v1", "v1", "v2"))
+
+
+class Holdout4(unittest.TestCase):
+    def setUp(self):
+        self.root = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.root)
+        os.makedirs(os.path.join(self.root, "docs", "evidence"))
+
+    def _register(self, name, **reg):
+        path = os.path.join(self.root, "docs", "evidence", name)
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(reg, fh)
+        return path
+
+    def test_unregistered_is_refused(self):
+        with self.assertRaises(X.ExamInvalid) as cm:
+            X.exam("holdout4", root=self.root)
+        self.assertIn("not registered", str(cm.exception))
+        if not any(f.startswith("holdout4-registration-")
+                   for f in os.listdir(os.path.join(ROOT, "docs", "evidence"))):
+            with self.assertRaises(X.ExamInvalid):
+                X.exam("holdout4")
+
+    def test_a_registration_fills_the_row(self):
+        self._register("holdout4-registration-2026-10-30.json", manifest_sha256="a" * 64,
+                       documents=40, promise_field="promised")
+        ex = X.exam("holdout4", root=self.root)
+        self.assertEqual((ex["sha256"], ex["documents"], ex["promise_fields"], ex["release"],
+                          ex["r3_rule"], ex["prefix"], ex["ledger"]),
+                         ("a" * 64, 40, ("promised",), "0.3.0b3", "v2", "holdout4-",
+                          "holdout4-exam.ledger.jsonl"))
+        self.assertEqual(ex["registration"],
+                         "docs/evidence/holdout4-registration-2026-10-30.json")
+
+    def test_two_registrations_refuse(self):
+        self._register("holdout4-registration-2026-10-30.json", manifest_sha256="a" * 64,
+                       documents=40)
+        self._register("holdout4-registration-2026-10-31.json", manifest_sha256="b" * 64,
+                       documents=40)
+        with self.assertRaises(X.ExamInvalid):
+            X.exam("holdout4", root=self.root)
+
+    def test_a_registration_is_not_a_result(self):
+        self.assertFalse(X.results_pattern("holdout4-").match(
+            "holdout4-registration-2026-10-30.json"))
+
+
+class Rescore(unittest.TestCase):
+    def test_reported_never_a_verdict_and_the_recorded_rule_reproduces(self):
+        m, p, w = clean_v2(short_pages=2)
+        p = replace(p, "document", "s00.pdf", lo("s00.pdf", 2, 3, cr=0.45, doc_recall=0.99))
+        p = replace(p, "document", "s01.pdf", lo("s01.pdf", 2, 2, doc_recall=0.89))
+        r = X.rescore_r3(m, sweep(p), {x["doc"]: x for x in w}, exit_map=EXIT_MAP,
+                         expect_commit=COMMIT, profiles=PROFILES, exam_name="holdout3")
+        self.assertEqual(r["status"], "reported, not a verdict")
+        self.assertFalse(r["recorded_verdict"]["R3"])
+        self.assertEqual(r["R3"]["v1"]["short_catastrophic"], ["s00.pdf"])
+        self.assertEqual(r["R3"]["v2"]["short_catastrophic"], ["s01.pdf"])
+        row = {d["doc"]: d for d in r["documents"]}
+        self.assertEqual((row["s00.pdf"]["catastrophic_v1"], row["s00.pdf"]["catastrophic_v2"]),
+                         (True, False))
+        text = X.render_rescore(r)
+        self.assertIn("REPORTED, NOT A VERDICT", text)
+        self.assertIn("recorded verdict (stands)", text)
 
 
 class DrySet(unittest.TestCase):
@@ -449,8 +816,9 @@ class DrySet(unittest.TestCase):
         spec.loader.exec_module(D)
         d = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, d)
-        digest = D.build(d)
-        man, docs = X.load_manifest(os.path.join(d, "holdout2.json"), digest)
+        digest = D.build(d, "holdout3.json")
+        self.assertTrue(os.path.exists(os.path.join(d, "holdout3.sha256")))
+        man, docs = X.load_manifest(os.path.join(d, "holdout3.json"), digest)
         self.assertTrue(man["synthetic"])
         self.assertEqual(sorted((s["pages"], s[X.PROMISE_FIELD]) for s in docs.values()),
                          [(3, True), (22, True)])

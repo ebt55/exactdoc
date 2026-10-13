@@ -1,0 +1,1321 @@
+{
+ "schema": "exactdoc.holdout-r3-rescore.v1",
+ "status": "reported, not a verdict",
+ "exam": "holdout3",
+ "recorded_verdict": {
+  "announce": false,
+  "R1": true,
+  "R2": false,
+  "R3": false,
+  "r3_rule": "v1"
+ },
+ "R3": {
+  "v1": {
+   "pass_if_it_were_the_rule": false,
+   "short_catastrophic": [
+    "h3_15_nsf_oig_fs_audit_transmittal.pdf",
+    "h3_17_dallas_council_memo_word.pdf",
+    "h3_22_hud_oig_single_audit_summary.pdf",
+    "h3_34_sjsu_cs47_greensheet_chrome_quartz.pdf"
+   ],
+   "long_catastrophic": [
+    "h3_28_peace_corps_oig_semiannual_2025_03.pdf"
+   ],
+   "rule_text": "R3 v1 (amendment 6): a promised document is catastrophic if, in either lane, it is refused, crashes or has no output, or its right-page char recall is < 0.5, or |out/src - 1| > 0.20."
+  },
+  "v2": {
+   "pass_if_it_were_the_rule": false,
+   "short_catastrophic": [
+    "h3_13_europecv_latex_minimal.pdf",
+    "h3_15_nsf_oig_fs_audit_transmittal.pdf",
+    "h3_34_sjsu_cs47_greensheet_chrome_quartz.pdf"
+   ],
+   "long_catastrophic": [
+    "h3_28_peace_corps_oig_semiannual_2025_03.pdf"
+   ],
+   "rule_text": "R3 v2 (amendment 7): a promised document is catastrophic if, in either lane: (a) it is refused, crashes or has no output; (b) document-level word recall (words found anywhere in the output, doc_recall) < 0.9; or (c) |dpages| > max(1, 20% of the source pages). Right-page recall and drift inside (c) belong to R2 and are reported per document."
+  }
+ },
+ "R2_unchanged": {
+  "pass": false,
+  "lo": {
+   "n": 26,
+   "page_exact": 20,
+   "page_exact_pct": 76.9,
+   "page_exact_ok": false,
+   "wr_ok_count": 20,
+   "wr_ok_pct": 76.9,
+   "wr_ok": false,
+   "misses_pages": [
+    "h3_02_boisestate_resume_blank_samples.pdf",
+    "h3_14_house_rep_letter_to_ed_ocr.pdf",
+    "h3_15_nsf_oig_fs_audit_transmittal.pdf",
+    "h3_17_dallas_council_memo_word.pdf",
+    "h3_22_hud_oig_single_audit_summary.pdf",
+    "h3_34_sjsu_cs47_greensheet_chrome_quartz.pdf"
+   ],
+   "misses_wr": [
+    "h3_02_boisestate_resume_blank_samples.pdf",
+    "h3_13_europecv_latex_minimal.pdf",
+    "h3_15_nsf_oig_fs_audit_transmittal.pdf",
+    "h3_17_dallas_council_memo_word.pdf",
+    "h3_22_hud_oig_single_audit_summary.pdf",
+    "h3_34_sjsu_cs47_greensheet_chrome_quartz.pdf"
+   ]
+  },
+  "word": {
+   "n": 26,
+   "page_exact": 18,
+   "page_exact_pct": 69.2,
+   "page_exact_ok": false,
+   "wr_ok_count": 18,
+   "wr_ok_pct": 69.2,
+   "wr_ok": false,
+   "misses_pages": [
+    "h3_01_boisestate_cv_samples_packet.pdf",
+    "h3_02_boisestate_resume_blank_samples.pdf",
+    "h3_14_house_rep_letter_to_ed_ocr.pdf",
+    "h3_15_nsf_oig_fs_audit_transmittal.pdf",
+    "h3_17_dallas_council_memo_word.pdf",
+    "h3_22_hud_oig_single_audit_summary.pdf",
+    "h3_32_sjsu_cs22a_syllabus_chrome_print.pdf",
+    "h3_34_sjsu_cs47_greensheet_chrome_quartz.pdf"
+   ],
+   "misses_wr": [
+    "h3_01_boisestate_cv_samples_packet.pdf",
+    "h3_02_boisestate_resume_blank_samples.pdf",
+    "h3_13_europecv_latex_minimal.pdf",
+    "h3_15_nsf_oig_fs_audit_transmittal.pdf",
+    "h3_17_dallas_council_memo_word.pdf",
+    "h3_22_hud_oig_single_audit_summary.pdf",
+    "h3_32_sjsu_cs22a_syllabus_chrome_print.pdf",
+    "h3_34_sjsu_cs47_greensheet_chrome_quartz.pdf"
+   ]
+  }
+ },
+ "documents": [
+  {
+   "doc": "h3_01_boisestate_cv_samples_packet.pdf",
+   "length": "short",
+   "pages": 11,
+   "lanes": {
+    "lo": {
+     "status": "measured",
+     "out_pages": 11,
+     "src_pages": 11,
+     "word_recall": 0.9953,
+     "doc_recall": 0.9953,
+     "char_recall": 0.9912
+    },
+    "word": {
+     "status": "measured",
+     "out_pages": 12,
+     "src_pages": 11,
+     "word_recall": 0.6586,
+     "doc_recall": 0.9994,
+     "char_recall": 0.818
+    }
+   },
+   "catastrophic_v1": false,
+   "catastrophic_v2": false,
+   "why_v1": {
+    "lo": [],
+    "word": []
+   },
+   "why_v2": {
+    "lo": [],
+    "word": []
+   }
+  },
+  {
+   "doc": "h3_02_boisestate_resume_blank_samples.pdf",
+   "length": "short",
+   "pages": 11,
+   "lanes": {
+    "lo": {
+     "status": "measured",
+     "out_pages": 13,
+     "src_pages": 11,
+     "word_recall": 0.5642,
+     "doc_recall": 0.9962,
+     "char_recall": 0.6595
+    },
+    "word": {
+     "status": "measured",
+     "out_pages": 13,
+     "src_pages": 11,
+     "word_recall": 0.5642,
+     "doc_recall": 0.9962,
+     "char_recall": 0.6606
+    }
+   },
+   "catastrophic_v1": false,
+   "catastrophic_v2": false,
+   "why_v1": {
+    "lo": [],
+    "word": []
+   },
+   "why_v2": {
+    "lo": [],
+    "word": []
+   }
+  },
+  {
+   "doc": "h3_03_boisestate_engineering_resume_packet.pdf",
+   "length": "short",
+   "pages": 8,
+   "lanes": {
+    "lo": {
+     "status": "measured",
+     "out_pages": 8,
+     "src_pages": 8,
+     "word_recall": 0.997,
+     "doc_recall": 0.997,
+     "char_recall": 0.9824
+    },
+    "word": {
+     "status": "measured",
+     "out_pages": 8,
+     "src_pages": 8,
+     "word_recall": 0.9985,
+     "doc_recall": 0.9985,
+     "char_recall": 0.9824
+    }
+   },
+   "catastrophic_v1": false,
+   "catastrophic_v2": false,
+   "why_v1": {
+    "lo": [],
+    "word": []
+   },
+   "why_v2": {
+    "lo": [],
+    "word": []
+   }
+  },
+  {
+   "doc": "h3_04_memphis_first_year_resume.pdf",
+   "length": "short",
+   "pages": 1,
+   "lanes": {
+    "lo": {
+     "status": "measured",
+     "out_pages": 1,
+     "src_pages": 1,
+     "word_recall": 1.0,
+     "doc_recall": 1.0,
+     "char_recall": 1.0
+    },
+    "word": {
+     "status": "measured",
+     "out_pages": 1,
+     "src_pages": 1,
+     "word_recall": 1.0,
+     "doc_recall": 1.0,
+     "char_recall": 1.0
+    }
+   },
+   "catastrophic_v1": false,
+   "catastrophic_v2": false,
+   "why_v1": {
+    "lo": [],
+    "word": []
+   },
+   "why_v2": {
+    "lo": [],
+    "word": []
+   }
+  },
+  {
+   "doc": "h3_05_memphis_study_abroad_resume.pdf",
+   "length": "short",
+   "pages": 2,
+   "lanes": {
+    "lo": {
+     "status": "measured",
+     "out_pages": 2,
+     "src_pages": 2,
+     "word_recall": 0.9962,
+     "doc_recall": 0.9962,
+     "char_recall": 1.0
+    },
+    "word": {
+     "status": "measured",
+     "out_pages": 2,
+     "src_pages": 2,
+     "word_recall": 0.9962,
+     "doc_recall": 0.9962,
+     "char_recall": 1.0
+    }
+   },
+   "catastrophic_v1": false,
+   "catastrophic_v2": false,
+   "why_v1": {
+    "lo": [],
+    "word": []
+   },
+   "why_v2": {
+    "lo": [],
+    "word": []
+   }
+  },
+  {
+   "doc": "h3_06_memphis_military_resume.pdf",
+   "length": "short",
+   "pages": 1,
+   "lanes": {
+    "lo": {
+     "status": "measured",
+     "out_pages": 1,
+     "src_pages": 1,
+     "word_recall": 1.0,
+     "doc_recall": 1.0,
+     "char_recall": 1.0
+    },
+    "word": {
+     "status": "measured",
+     "out_pages": 1,
+     "src_pages": 1,
+     "word_recall": 1.0,
+     "doc_recall": 1.0,
+     "char_recall": 1.0
+    }
+   },
+   "catastrophic_v1": false,
+   "catastrophic_v2": false,
+   "why_v1": {
+    "lo": [],
+    "word": []
+   },
+   "why_v2": {
+    "lo": [],
+    "word": []
+   }
+  },
+  {
+   "doc": "h3_07_ubalt_applied_it_resume.pdf",
+   "length": "short",
+   "pages": 1,
+   "lanes": {
+    "lo": {
+     "status": "measured",
+     "out_pages": 1,
+     "src_pages": 1,
+     "word_recall": 1.0,
+     "doc_recall": 1.0,
+     "char_recall": 1.0
+    },
+    "word": {
+     "status": "measured",
+     "out_pages": 1,
+     "src_pages": 1,
+     "word_recall": 1.0,
+     "doc_recall": 1.0,
+     "char_recall": 1.0
+    }
+   },
+   "catastrophic_v1": false,
+   "catastrophic_v2": false,
+   "why_v1": {
+    "lo": [],
+    "word": []
+   },
+   "why_v2": {
+    "lo": [],
+    "word": []
+   }
+  },
+  {
+   "doc": "h3_08_ubalt_digital_communication_resume.pdf",
+   "length": "short",
+   "pages": 1,
+   "lanes": {
+    "lo": {
+     "status": "measured",
+     "out_pages": 1,
+     "src_pages": 1,
+     "word_recall": 0.9941,
+     "doc_recall": 0.9941,
+     "char_recall": 0.9989
+    },
+    "word": {
+     "status": "measured",
+     "out_pages": 1,
+     "src_pages": 1,
+     "word_recall": 0.9941,
+     "doc_recall": 0.9941,
+     "char_recall": 0.9989
+    }
+   },
+   "catastrophic_v1": false,
+   "catastrophic_v2": false,
+   "why_v1": {
+    "lo": [],
+    "word": []
+   },
+   "why_v2": {
+    "lo": [],
+    "word": []
+   }
+  },
+  {
+   "doc": "h3_09_ubalt_psychology_resume.pdf",
+   "length": "short",
+   "pages": 1,
+   "lanes": {
+    "lo": {
+     "status": "measured",
+     "out_pages": 1,
+     "src_pages": 1,
+     "word_recall": 1.0,
+     "doc_recall": 1.0,
+     "char_recall": 1.0
+    },
+    "word": {
+     "status": "measured",
+     "out_pages": 1,
+     "src_pages": 1,
+     "word_recall": 1.0,
+     "doc_recall": 1.0,
+     "char_recall": 1.0
+    }
+   },
+   "catastrophic_v1": false,
+   "catastrophic_v2": false,
+   "why_v1": {
+    "lo": [],
+    "word": []
+   },
+   "why_v2": {
+    "lo": [],
+    "word": []
+   }
+  },
+  {
+   "doc": "h3_10_ecu_federal_resume_guide.pdf",
+   "length": "short",
+   "pages": 4,
+   "lanes": {
+    "lo": {
+     "status": "measured",
+     "out_pages": 4,
+     "src_pages": 4,
+     "word_recall": 0.9984,
+     "doc_recall": 0.9984,
+     "char_recall": 1.0
+    },
+    "word": {
+     "status": "measured",
+     "out_pages": 4,
+     "src_pages": 4,
+     "word_recall": 0.9984,
+     "doc_recall": 0.9984,
+     "char_recall": 1.0
+    }
+   },
+   "catastrophic_v1": false,
+   "catastrophic_v2": false,
+   "why_v1": {
+    "lo": [],
+    "word": []
+   },
+   "why_v2": {
+    "lo": [],
+    "word": []
+   }
+  },
+  {
+   "doc": "h3_11_ecu_graphic_design_resume.pdf",
+   "length": "short",
+   "pages": 1,
+   "lanes": {
+    "lo": {
+     "status": "measured",
+     "out_pages": 1,
+     "src_pages": 1,
+     "word_recall": 1.0,
+     "doc_recall": 1.0,
+     "char_recall": 1.0
+    },
+    "word": {
+     "status": "measured",
+     "out_pages": 1,
+     "src_pages": 1,
+     "word_recall": 1.0,
+     "doc_recall": 1.0,
+     "char_recall": 1.0
+    }
+   },
+   "catastrophic_v1": false,
+   "catastrophic_v2": false,
+   "why_v1": {
+    "lo": [],
+    "word": []
+   },
+   "why_v2": {
+    "lo": [],
+    "word": []
+   }
+  },
+  {
+   "doc": "h3_12_sb2nov_latex_resume.pdf",
+   "length": "short",
+   "pages": 1,
+   "lanes": {
+    "lo": {
+     "status": "measured",
+     "out_pages": 1,
+     "src_pages": 1,
+     "word_recall": 1.0,
+     "doc_recall": 1.0,
+     "char_recall": 1.0
+    },
+    "word": {
+     "status": "measured",
+     "out_pages": 1,
+     "src_pages": 1,
+     "word_recall": 0.9744,
+     "doc_recall": 0.9744,
+     "char_recall": 1.0
+    }
+   },
+   "catastrophic_v1": false,
+   "catastrophic_v2": false,
+   "why_v1": {
+    "lo": [],
+    "word": []
+   },
+   "why_v2": {
+    "lo": [],
+    "word": []
+   }
+  },
+  {
+   "doc": "h3_13_europecv_latex_minimal.pdf",
+   "length": "short",
+   "pages": 1,
+   "lanes": {
+    "lo": {
+     "status": "measured",
+     "out_pages": 1,
+     "src_pages": 1,
+     "word_recall": 0.8889,
+     "doc_recall": 0.8889,
+     "char_recall": 0.8222
+    },
+    "word": {
+     "status": "measured",
+     "out_pages": 1,
+     "src_pages": 1,
+     "word_recall": 0.8889,
+     "doc_recall": 0.8889,
+     "char_recall": 0.8222
+    }
+   },
+   "catastrophic_v1": false,
+   "catastrophic_v2": true,
+   "why_v1": {
+    "lo": [],
+    "word": []
+   },
+   "why_v2": {
+    "lo": [
+     "doc_recall 0.889 < 0.9"
+    ],
+    "word": [
+     "doc_recall 0.889 < 0.9"
+    ]
+   }
+  },
+  {
+   "doc": "h3_14_house_rep_letter_to_ed_ocr.pdf",
+   "length": "short",
+   "pages": 6,
+   "lanes": {
+    "lo": {
+     "status": "measured",
+     "out_pages": 7,
+     "src_pages": 6,
+     "word_recall": 0.9477,
+     "doc_recall": 0.9666,
+     "char_recall": 0.9876
+    },
+    "word": {
+     "status": "measured",
+     "out_pages": 7,
+     "src_pages": 6,
+     "word_recall": 0.9477,
+     "doc_recall": 0.9666,
+     "char_recall": 0.9876
+    }
+   },
+   "catastrophic_v1": false,
+   "catastrophic_v2": false,
+   "why_v1": {
+    "lo": [],
+    "word": []
+   },
+   "why_v2": {
+    "lo": [],
+    "word": []
+   }
+  },
+  {
+   "doc": "h3_15_nsf_oig_fs_audit_transmittal.pdf",
+   "length": "short",
+   "pages": 6,
+   "lanes": {
+    "lo": {
+     "status": "measured",
+     "out_pages": 7,
+     "src_pages": 6,
+     "word_recall": 0.1746,
+     "doc_recall": 0.767,
+     "char_recall": 0.4544
+    },
+    "word": {
+     "status": "measured",
+     "out_pages": 7,
+     "src_pages": 6,
+     "word_recall": 0.1746,
+     "doc_recall": 0.767,
+     "char_recall": 0.4544
+    }
+   },
+   "catastrophic_v1": true,
+   "catastrophic_v2": true,
+   "why_v1": {
+    "lo": [
+     "char_recall 0.454 < 0.5"
+    ],
+    "word": [
+     "char_recall 0.454 < 0.5"
+    ]
+   },
+   "why_v2": {
+    "lo": [
+     "doc_recall 0.767 < 0.9"
+    ],
+    "word": [
+     "doc_recall 0.767 < 0.9"
+    ]
+   }
+  },
+  {
+   "doc": "h3_16_dallas_council_memo_gdocs.pdf",
+   "length": "short",
+   "pages": 2,
+   "lanes": {
+    "lo": {
+     "status": "measured",
+     "out_pages": 2,
+     "src_pages": 2,
+     "word_recall": 1.0,
+     "doc_recall": 1.0,
+     "char_recall": 1.0
+    },
+    "word": {
+     "status": "measured",
+     "out_pages": 2,
+     "src_pages": 2,
+     "word_recall": 0.9973,
+     "doc_recall": 0.9973,
+     "char_recall": 1.0
+    }
+   },
+   "catastrophic_v1": false,
+   "catastrophic_v2": false,
+   "why_v1": {
+    "lo": [],
+    "word": []
+   },
+   "why_v2": {
+    "lo": [],
+    "word": []
+   }
+  },
+  {
+   "doc": "h3_17_dallas_council_memo_word.pdf",
+   "length": "short",
+   "pages": 2,
+   "lanes": {
+    "lo": {
+     "status": "measured",
+     "out_pages": 3,
+     "src_pages": 2,
+     "word_recall": 0.5919,
+     "doc_recall": 0.989,
+     "char_recall": 0.637
+    },
+    "word": {
+     "status": "measured",
+     "out_pages": 3,
+     "src_pages": 2,
+     "word_recall": 0.5919,
+     "doc_recall": 0.989,
+     "char_recall": 0.637
+    }
+   },
+   "catastrophic_v1": true,
+   "catastrophic_v2": false,
+   "why_v1": {
+    "lo": [
+     "pages 3/2 off by more than 20%"
+    ],
+    "word": [
+     "pages 3/2 off by more than 20%"
+    ]
+   },
+   "why_v2": {
+    "lo": [],
+    "word": []
+   }
+  },
+  {
+   "doc": "h3_18_dallas_council_memo_distiller.pdf",
+   "length": "short",
+   "pages": 1,
+   "lanes": {
+    "lo": {
+     "status": "measured",
+     "out_pages": 1,
+     "src_pages": 1,
+     "word_recall": 1.0,
+     "doc_recall": 1.0,
+     "char_recall": 1.0
+    },
+    "word": {
+     "status": "measured",
+     "out_pages": 1,
+     "src_pages": 1,
+     "word_recall": 1.0,
+     "doc_recall": 1.0,
+     "char_recall": 1.0
+    }
+   },
+   "catastrophic_v1": false,
+   "catastrophic_v2": false,
+   "why_v1": {
+    "lo": [],
+    "word": []
+   },
+   "why_v2": {
+    "lo": [],
+    "word": []
+   }
+  },
+  {
+   "doc": "h3_19_rwu_syllabus_guidelines_fall2025.pdf",
+   "length": "short",
+   "pages": 13,
+   "lanes": {
+    "lo": {
+     "status": "measured",
+     "out_pages": 13,
+     "src_pages": 13,
+     "word_recall": 0.985,
+     "doc_recall": 0.985,
+     "char_recall": 0.9982
+    },
+    "word": {
+     "status": "measured",
+     "out_pages": 13,
+     "src_pages": 13,
+     "word_recall": 0.9886,
+     "doc_recall": 0.9886,
+     "char_recall": 0.9982
+    }
+   },
+   "catastrophic_v1": false,
+   "catastrophic_v2": false,
+   "why_v1": {
+    "lo": [],
+    "word": []
+   },
+   "why_v2": {
+    "lo": [],
+    "word": []
+   }
+  },
+  {
+   "doc": "h3_20_wa_jlarc_i900_status_2025.pdf",
+   "length": "short",
+   "pages": 12,
+   "lanes": {
+    "lo": {
+     "status": "measured",
+     "out_pages": 12,
+     "src_pages": 12,
+     "word_recall": 0.9054,
+     "doc_recall": 0.9072,
+     "char_recall": 0.9066
+    },
+    "word": {
+     "status": "measured",
+     "out_pages": 12,
+     "src_pages": 12,
+     "word_recall": 0.9054,
+     "doc_recall": 0.9072,
+     "char_recall": 0.9066
+    }
+   },
+   "catastrophic_v1": false,
+   "catastrophic_v2": false,
+   "why_v1": {
+    "lo": [],
+    "word": []
+   },
+   "why_v2": {
+    "lo": [],
+    "word": []
+   }
+  },
+  {
+   "doc": "h3_21_duke_independent_study_form.pdf",
+   "length": "short",
+   "pages": 1,
+   "lanes": {
+    "lo": {
+     "status": "measured",
+     "out_pages": 1,
+     "src_pages": 1,
+     "word_recall": 0.9865,
+     "doc_recall": 0.9865,
+     "char_recall": 1.0
+    },
+    "word": {
+     "status": "measured",
+     "out_pages": 1,
+     "src_pages": 1,
+     "word_recall": 0.9865,
+     "doc_recall": 0.9865,
+     "char_recall": 1.0
+    }
+   },
+   "catastrophic_v1": false,
+   "catastrophic_v2": false,
+   "why_v1": {
+    "lo": [],
+    "word": []
+   },
+   "why_v2": {
+    "lo": [],
+    "word": []
+   }
+  },
+  {
+   "doc": "h3_22_hud_oig_single_audit_summary.pdf",
+   "length": "short",
+   "pages": 8,
+   "lanes": {
+    "lo": {
+     "status": "measured",
+     "out_pages": 9,
+     "src_pages": 8,
+     "word_recall": 0.2422,
+     "doc_recall": 0.99,
+     "char_recall": 0.445
+    },
+    "word": {
+     "status": "measured",
+     "out_pages": 9,
+     "src_pages": 8,
+     "word_recall": 0.2422,
+     "doc_recall": 0.99,
+     "char_recall": 0.445
+    }
+   },
+   "catastrophic_v1": true,
+   "catastrophic_v2": false,
+   "why_v1": {
+    "lo": [
+     "char_recall 0.445 < 0.5"
+    ],
+    "word": [
+     "char_recall 0.445 < 0.5"
+    ]
+   },
+   "why_v2": {
+    "lo": [],
+    "word": []
+   }
+  },
+  {
+   "doc": "h3_23_dol_oig_19_25_003_pandemic_ui.pdf",
+   "length": "long",
+   "pages": 38,
+   "lanes": {
+    "lo": {
+     "status": "measured",
+     "out_pages": 40,
+     "src_pages": 38,
+     "word_recall": 0.2976,
+     "doc_recall": 0.965,
+     "char_recall": 0.652
+    },
+    "word": {
+     "status": "measured",
+     "out_pages": 40,
+     "src_pages": 38,
+     "word_recall": 0.2983,
+     "doc_recall": 0.965,
+     "char_recall": 0.6523
+    }
+   },
+   "catastrophic_v1": false,
+   "catastrophic_v2": false,
+   "why_v1": {
+    "lo": [],
+    "word": []
+   },
+   "why_v2": {
+    "lo": [],
+    "word": []
+   }
+  },
+  {
+   "doc": "h3_24_dol_oig_22_25_007_piia.pdf",
+   "length": "long",
+   "pages": 31,
+   "lanes": {
+    "lo": {
+     "status": "measured",
+     "out_pages": 31,
+     "src_pages": 31,
+     "word_recall": 0.992,
+     "doc_recall": 0.9921,
+     "char_recall": 0.9991
+    },
+    "word": {
+     "status": "measured",
+     "out_pages": 31,
+     "src_pages": 31,
+     "word_recall": 0.992,
+     "doc_recall": 0.9921,
+     "char_recall": 0.9991
+    }
+   },
+   "catastrophic_v1": false,
+   "catastrophic_v2": false,
+   "why_v1": {
+    "lo": [],
+    "word": []
+   },
+   "why_v2": {
+    "lo": [],
+    "word": []
+   }
+  },
+  {
+   "doc": "h3_25_dol_oig_22_25_003_management_advisory.pdf",
+   "length": "long",
+   "pages": 25,
+   "lanes": {
+    "lo": {
+     "status": "measured",
+     "out_pages": 26,
+     "src_pages": 25,
+     "word_recall": 0.4109,
+     "doc_recall": 0.9963,
+     "char_recall": 0.8183
+    },
+    "word": {
+     "status": "measured",
+     "out_pages": 26,
+     "src_pages": 25,
+     "word_recall": 0.4109,
+     "doc_recall": 0.9963,
+     "char_recall": 0.8183
+    }
+   },
+   "catastrophic_v1": false,
+   "catastrophic_v2": false,
+   "why_v1": {
+    "lo": [],
+    "word": []
+   },
+   "why_v2": {
+    "lo": [],
+    "word": []
+   }
+  },
+  {
+   "doc": "h3_26_tigta_2025_filing_season_final.pdf",
+   "length": "long",
+   "pages": 26,
+   "lanes": {
+    "lo": {
+     "status": "measured",
+     "out_pages": 29,
+     "src_pages": 26,
+     "word_recall": 0.3618,
+     "doc_recall": 0.9857,
+     "char_recall": 0.7448
+    },
+    "word": {
+     "status": "measured",
+     "out_pages": 29,
+     "src_pages": 26,
+     "word_recall": 0.3627,
+     "doc_recall": 0.9857,
+     "char_recall": 0.7457
+    }
+   },
+   "catastrophic_v1": false,
+   "catastrophic_v2": false,
+   "why_v1": {
+    "lo": [],
+    "word": []
+   },
+   "why_v2": {
+    "lo": [],
+    "word": []
+   }
+  },
+  {
+   "doc": "h3_27_va_oig_chip_pacific_islands.pdf",
+   "length": "long",
+   "pages": 78,
+   "lanes": {
+    "lo": {
+     "status": "measured",
+     "out_pages": 80,
+     "src_pages": 78,
+     "word_recall": 0.8796,
+     "doc_recall": 0.9742,
+     "char_recall": 0.9505
+    },
+    "word": {
+     "status": "measured",
+     "out_pages": 80,
+     "src_pages": 78,
+     "word_recall": 0.8834,
+     "doc_recall": 0.9789,
+     "char_recall": 0.9501
+    }
+   },
+   "catastrophic_v1": false,
+   "catastrophic_v2": false,
+   "why_v1": {
+    "lo": [],
+    "word": []
+   },
+   "why_v2": {
+    "lo": [],
+    "word": []
+   }
+  },
+  {
+   "doc": "h3_28_peace_corps_oig_semiannual_2025_03.pdf",
+   "length": "long",
+   "pages": 50,
+   "lanes": {
+    "lo": {
+     "status": "measured",
+     "out_pages": 109,
+     "src_pages": 50,
+     "word_recall": 0.0575,
+     "doc_recall": 0.7293,
+     "char_recall": 0.1637
+    },
+    "word": {
+     "status": "measured",
+     "out_pages": 109,
+     "src_pages": 50,
+     "word_recall": 0.0541,
+     "doc_recall": 0.7296,
+     "char_recall": 0.1612
+    }
+   },
+   "catastrophic_v1": true,
+   "catastrophic_v2": true,
+   "why_v1": {
+    "lo": [
+     "char_recall 0.164 < 0.5",
+     "pages 109/50 off by more than 20%"
+    ],
+    "word": [
+     "char_recall 0.161 < 0.5",
+     "pages 109/50 off by more than 20%"
+    ]
+   },
+   "why_v2": {
+    "lo": [
+     "doc_recall 0.729 < 0.9",
+     "|dpages| 59 > 10"
+    ],
+    "word": [
+     "doc_recall 0.730 < 0.9",
+     "|dpages| 59 > 10"
+    ]
+   }
+  },
+  {
+   "doc": "h3_29_sba_oig_semiannual_spring2025.pdf",
+   "length": "long",
+   "pages": 69,
+   "lanes": {
+    "lo": {
+     "status": "measured",
+     "out_pages": 75,
+     "src_pages": 69,
+     "word_recall": 0.5607,
+     "doc_recall": 0.9979,
+     "char_recall": 0.804
+    },
+    "word": {
+     "status": "measured",
+     "out_pages": 75,
+     "src_pages": 69,
+     "word_recall": 0.5612,
+     "doc_recall": 0.9985,
+     "char_recall": 0.804
+    }
+   },
+   "catastrophic_v1": false,
+   "catastrophic_v2": false,
+   "why_v1": {
+    "lo": [],
+    "word": []
+   },
+   "why_v2": {
+    "lo": [],
+    "word": []
+   }
+  },
+  {
+   "doc": "h3_30_arxiv_gpt4_technical_report.pdf",
+   "length": "long",
+   "pages": 100,
+   "lanes": {
+    "lo": {
+     "status": "measured",
+     "out_pages": 100,
+     "src_pages": 100,
+     "word_recall": 0.9772,
+     "doc_recall": 0.9778,
+     "char_recall": 0.9906
+    },
+    "word": {
+     "status": "measured",
+     "out_pages": 101,
+     "src_pages": 100,
+     "word_recall": 0.3413,
+     "doc_recall": 0.9701,
+     "char_recall": 0.762
+    }
+   },
+   "catastrophic_v1": false,
+   "catastrophic_v2": false,
+   "why_v1": {
+    "lo": [],
+    "word": []
+   },
+   "why_v2": {
+    "lo": [],
+    "word": []
+   }
+  },
+  {
+   "doc": "h3_31_ctan_fancyhdr_manual.pdf",
+   "length": "long",
+   "pages": 137,
+   "lanes": {
+    "lo": {
+     "status": "measured",
+     "out_pages": 147,
+     "src_pages": 137,
+     "word_recall": 0.9073,
+     "doc_recall": 0.9749,
+     "char_recall": 0.9439
+    },
+    "word": {
+     "status": "measured",
+     "out_pages": 148,
+     "src_pages": 137,
+     "word_recall": 0.523,
+     "doc_recall": 0.977,
+     "char_recall": 0.8212
+    }
+   },
+   "catastrophic_v1": false,
+   "catastrophic_v2": false,
+   "why_v1": {
+    "lo": [],
+    "word": []
+   },
+   "why_v2": {
+    "lo": [],
+    "word": []
+   }
+  },
+  {
+   "doc": "h3_32_sjsu_cs22a_syllabus_chrome_print.pdf",
+   "length": "short",
+   "pages": 7,
+   "lanes": {
+    "lo": {
+     "status": "measured",
+     "out_pages": 7,
+     "src_pages": 7,
+     "word_recall": 0.9456,
+     "doc_recall": 0.9456,
+     "char_recall": 0.9999
+    },
+    "word": {
+     "status": "measured",
+     "out_pages": 8,
+     "src_pages": 7,
+     "word_recall": 0.7997,
+     "doc_recall": 0.9449,
+     "char_recall": 0.8764
+    }
+   },
+   "catastrophic_v1": false,
+   "catastrophic_v2": false,
+   "why_v1": {
+    "lo": [],
+    "word": []
+   },
+   "why_v2": {
+    "lo": [],
+    "word": []
+   }
+  },
+  {
+   "doc": "h3_33_sjsu_cs46b_syllabus_chrome_print.pdf",
+   "length": "short",
+   "pages": 7,
+   "lanes": {
+    "lo": {
+     "status": "measured",
+     "out_pages": 7,
+     "src_pages": 7,
+     "word_recall": 0.9941,
+     "doc_recall": 0.9941,
+     "char_recall": 1.0
+    },
+    "word": {
+     "status": "measured",
+     "out_pages": 7,
+     "src_pages": 7,
+     "word_recall": 1.0,
+     "doc_recall": 1.0,
+     "char_recall": 1.0
+    }
+   },
+   "catastrophic_v1": false,
+   "catastrophic_v2": false,
+   "why_v1": {
+    "lo": [],
+    "word": []
+   },
+   "why_v2": {
+    "lo": [],
+    "word": []
+   }
+  },
+  {
+   "doc": "h3_34_sjsu_cs47_greensheet_chrome_quartz.pdf",
+   "length": "short",
+   "pages": 12,
+   "lanes": {
+    "lo": {
+     "status": "measured",
+     "out_pages": 15,
+     "src_pages": 12,
+     "word_recall": 0.5257,
+     "doc_recall": 0.9657,
+     "char_recall": 0.7075
+    },
+    "word": {
+     "status": "measured",
+     "out_pages": 15,
+     "src_pages": 12,
+     "word_recall": 0.5264,
+     "doc_recall": 0.9657,
+     "char_recall": 0.7075
+    }
+   },
+   "catastrophic_v1": true,
+   "catastrophic_v2": true,
+   "why_v1": {
+    "lo": [
+     "pages 15/12 off by more than 20%"
+    ],
+    "word": [
+     "pages 15/12 off by more than 20%"
+    ]
+   },
+   "why_v2": {
+    "lo": [
+     "|dpages| 3 > 2.4"
+    ],
+    "word": [
+     "|dpages| 3 > 2.4"
+    ]
+   }
+  },
+  {
+   "doc": "h3_35_wikipedia_curriculum_vitae_chrome_print.pdf",
+   "length": "short",
+   "pages": 4,
+   "lanes": {
+    "lo": {
+     "status": "measured",
+     "out_pages": 4,
+     "src_pages": 4,
+     "word_recall": 0.9959,
+     "doc_recall": 0.9959,
+     "char_recall": 1.0
+    },
+    "word": {
+     "status": "measured",
+     "out_pages": 4,
+     "src_pages": 4,
+     "word_recall": 0.9959,
+     "doc_recall": 0.9959,
+     "char_recall": 1.0
+    }
+   },
+   "catastrophic_v1": false,
+   "catastrophic_v2": false,
+   "why_v1": {
+    "lo": [],
+    "word": []
+   },
+   "why_v2": {
+    "lo": [],
+    "word": []
+   }
+  }
+ ],
+ "inputs": {
+  "manifest": {
+   "path": "docs/evidence/holdout3-manifest.json",
+   "sha256": "07d622997a13e00251786cf812801d3a30b5086b1b0980fc838e3d32ad315475"
+  },
+  "product_sweep": {
+   "path": "C:\\lotmp\\scr\\runs\\holdout3-rc.holdout3\\prod.sweep.json",
+   "sha256": "b748c93248da465986f1c312fbdac6b86c7b65e9af7706b373cfb0af4442d2c9"
+  },
+  "word_rows": {
+   "path": "C:\\lotmp\\scr\\runs\\holdout3-rc.holdout3\\word-prod\\rows.jsonl",
+   "sha256": "ad272e6ac0f7f043cb6b0429d4cb94f7dab6222a85029241ebe4dc173f0b6c02"
+  },
+  "raw_sweep": {
+   "path": "C:\\lotmp\\scr\\runs\\holdout3-rc.holdout3\\raw.sweep.json",
+   "sha256": "a1bbf7c15b682a6d5fce4a07254358ae08adfdd5b592a095319acf19b1c65d60"
+  },
+  "cli_exits": {
+   "path": "C:\\lotmp\\scr\\runs\\holdout3-rc.holdout3\\cli_exits.json",
+   "sha256": "fd5da08161d2104cfd2c983760e518b730b448a68a4ba9c73673995bab5bf8f7"
+  },
+  "recorded_exam": {
+   "path": "docs/evidence/holdout3-2026-10-13.json",
+   "sha256": "918f02d9222c8dbd362ab7e9caa953f9021d2b1a2059f5b2deeefc2c7ee8ee35"
+  }
+ },
+ "recorded_verdict_reproduced": true,
+ "text": "*** REPORTED, NOT A VERDICT: holdout3's R3 re-read under v2 ***\nrecorded verdict (stands): announce no (R1 PASS, R2 FAIL, R3 FAIL under v1)\nR3 v1: would fail  short 4 h3_15_nsf_oig_fs_audit_transmittal.pdf h3_17_dallas_council_memo_word.pdf h3_22_hud_oig_single_audit_summary.pdf h3_34_sjsu_cs47_greensheet_chrome_quartz.pdf; long 1 h3_28_peace_corps_oig_semiannual_2025_03.pdf\nR3 v2: would fail  short 3 h3_13_europecv_latex_minimal.pdf h3_15_nsf_oig_fs_audit_transmittal.pdf h3_34_sjsu_cs47_greensheet_chrome_quartz.pdf; long 1 h3_28_peace_corps_oig_semiannual_2025_03.pdf\n\npromised document                              len   pages  | LO out/src doc_rec cr    | Word out/src doc_rec cr  | v1      v2     \nh3_01_boisestate_cv_samples_packet.pdf         short 11     |  11/11   1.00  0.99       |  12/11   1.00  0.82       | -       -      \nh3_02_boisestate_resume_blank_samples.pdf      short 11     |  13/11   1.00  0.66       |  13/11   1.00  0.66       | -       -      \nh3_03_boisestate_engineering_resume_packet.pdf short 8      |   8/8    1.00  0.98       |   8/8    1.00  0.98       | -       -      \nh3_04_memphis_first_year_resume.pdf            short 1      |   1/1    1.00  1.00       |   1/1    1.00  1.00       | -       -      \nh3_05_memphis_study_abroad_resume.pdf          short 2      |   2/2    1.00  1.00       |   2/2    1.00  1.00       | -       -      \nh3_06_memphis_military_resume.pdf              short 1      |   1/1    1.00  1.00       |   1/1    1.00  1.00       | -       -      \nh3_07_ubalt_applied_it_resume.pdf              short 1      |   1/1    1.00  1.00       |   1/1    1.00  1.00       | -       -      \nh3_08_ubalt_digital_communication_resume.pdf   short 1      |   1/1    0.99  1.00       |   1/1    0.99  1.00       | -       -      \nh3_09_ubalt_psychology_resume.pdf              short 1      |   1/1    1.00  1.00       |   1/1    1.00  1.00       | -       -      \nh3_10_ecu_federal_resume_guide.pdf             short 4      |   4/4    1.00  1.00       |   4/4    1.00  1.00       | -       -      \nh3_11_ecu_graphic_design_resume.pdf            short 1      |   1/1    1.00  1.00       |   1/1    1.00  1.00       | -       -      \nh3_12_sb2nov_latex_resume.pdf                  short 1      |   1/1    1.00  1.00       |   1/1    0.97  1.00       | -       -      \nh3_13_europecv_latex_minimal.pdf               short 1      |   1/1    0.89  0.82       |   1/1    0.89  0.82       | -       CAT    \nh3_14_house_rep_letter_to_ed_ocr.pdf           short 6      |   7/6    0.97  0.99       |   7/6    0.97  0.99       | -       -      \nh3_15_nsf_oig_fs_audit_transmittal.pdf         short 6      |   7/6    0.77  0.45       |   7/6    0.77  0.45       | CAT     CAT    \nh3_16_dallas_council_memo_gdocs.pdf            short 2      |   2/2    1.00  1.00       |   2/2    1.00  1.00       | -       -      \nh3_17_dallas_council_memo_word.pdf             short 2      |   3/2    0.99  0.64       |   3/2    0.99  0.64       | CAT     -      \nh3_18_dallas_council_memo_distiller.pdf        short 1      |   1/1    1.00  1.00       |   1/1    1.00  1.00       | -       -      \nh3_19_rwu_syllabus_guidelines_fall2025.pdf     short 13     |  13/13   0.98  1.00       |  13/13   0.99  1.00       | -       -      \nh3_20_wa_jlarc_i900_status_2025.pdf            short 12     |  12/12   0.91  0.91       |  12/12   0.91  0.91       | -       -      \nh3_21_duke_independent_study_form.pdf          short 1      |   1/1    0.99  1.00       |   1/1    0.99  1.00       | -       -      \nh3_22_hud_oig_single_audit_summary.pdf         short 8      |   9/8    0.99  0.45       |   9/8    0.99  0.45       | CAT     -      \nh3_23_dol_oig_19_25_003_pandemic_ui.pdf        long  38     |  40/38   0.96  0.65       |  40/38   0.96  0.65       | -       -      \nh3_24_dol_oig_22_25_007_piia.pdf               long  31     |  31/31   0.99  1.00       |  31/31   0.99  1.00       | -       -      \nh3_25_dol_oig_22_25_003_management_advisory.pd long  25     |  26/25   1.00  0.82       |  26/25   1.00  0.82       | -       -      \nh3_26_tigta_2025_filing_season_final.pdf       long  26     |  29/26   0.99  0.74       |  29/26   0.99  0.75       | -       -      \nh3_27_va_oig_chip_pacific_islands.pdf          long  78     |  80/78   0.97  0.95       |  80/78   0.98  0.95       | -       -      \nh3_28_peace_corps_oig_semiannual_2025_03.pdf   long  50     | 109/50   0.73  0.16       | 109/50   0.73  0.16       | CAT     CAT    \nh3_29_sba_oig_semiannual_spring2025.pdf        long  69     |  75/69   1.00  0.80       |  75/69   1.00  0.80       | -       -      \nh3_30_arxiv_gpt4_technical_report.pdf          long  100    | 100/100  0.98  0.99       | 101/100  0.97  0.76       | -       -      \nh3_31_ctan_fancyhdr_manual.pdf                 long  137    | 147/137  0.97  0.94       | 148/137  0.98  0.82       | -       -      \nh3_32_sjsu_cs22a_syllabus_chrome_print.pdf     short 7      |   7/7    0.95  1.00       |   8/7    0.94  0.88       | -       -      \nh3_33_sjsu_cs46b_syllabus_chrome_print.pdf     short 7      |   7/7    0.99  1.00       |   7/7    1.00  1.00       | -       -      \nh3_34_sjsu_cs47_greensheet_chrome_quartz.pdf   short 12     |  15/12   0.97  0.71       |  15/12   0.97  0.71       | CAT     CAT    \nh3_35_wikipedia_curriculum_vitae_chrome_print. short 4      |   4/4    1.00  1.00       |   4/4    1.00  1.00       | -       -      \n"
+}

@@ -7,13 +7,14 @@ when a version tag is pushed. Nothing here uses an API token: PyPI's *Trusted
 Publishing* gives the workflow a credential that lasts minutes, for one upload,
 and only from this repository's release workflow.
 
-The first public beta will be **0.3.0b1**. The version in `pyproject.toml`
-stays `0.2.0a1` until the release commit itself, and that commit is not made
-while any gating criterion of [the beta bar](beta-bar.md) fails.
+The first public beta, **0.3.0b1**, was published on PyPI on 2026-10-12; the
+next is 0.3.0b2. The version in `pyproject.toml` changes only in the release
+commit itself, and that commit is not made while any gating criterion of
+[the beta bar](beta-bar.md) fails.
 
 ## What runs, in order
 
-When a tag such as `v0.3.0b1` is pushed, `release.yml` runs four jobs:
+When a tag such as `v0.3.0b2` is pushed, `release.yml` runs four jobs:
 
 | Job | What it does | Stops the release when |
 |---|---|---|
@@ -72,38 +73,34 @@ image) and `install` are both green.
 
 ## Each release
 
-The commands below use `0.3.0b1`; replace it with the version being released.
+The commands below use `0.3.0b2`; replace it with the version being released.
 
 1. **Check readiness against [the beta bar](beta-bar.md)**, ratified by the
    owner on 2026-10-05. On the commit to release: the canonical gate is green
    in both lanes, the `install` workflow is green, and
    `python testkit/beta_readiness.py --runs <your runs folder>` reports no
-   gating criterion as FAIL or UNMEASURED (criteria 1–6, 8, 10–12). **0.3.0b1
-   is not tagged while any gating criterion fails.** Criteria 7, 9 and 13 are
+   gating criterion as FAIL or UNMEASURED (criteria 1–6, 8, 10–12). **No
+   version is tagged while any gating criterion fails.** Criteria 7, 9 and 13 are
    reported for the beta and gate 1.0.
 
 2. **Bump the version, in one commit.**
-   - `pyproject.toml`: `version = "0.3.0b1"`, and the classifier
-     `"Development Status :: 3 - Alpha"` → `"Development Status :: 4 - Beta"`.
+   - `pyproject.toml`: `version = "0.3.0b2"`. The classifier is already
+     `"Development Status :: 4 - Beta"` (since 0.3.0b1) and stays so until 1.0.
    - `uv.lock`: run `uv lock`, then `uv lock --check`. The lock records the
      project's own version; the gate's `uv sync --frozen` never compares it
      with `pyproject.toml`, which is how it said 1.0.0 for two months after
      the renumbering to 0.2.0a1. The diff should be that one line.
-   - `README.md`: the two places marked with a `<!-- release: ... -->`
-     comment, and nothing else: the status callout becomes
-     "**Beta (0.3.0b1).**" with a line saying it is on PyPI, and the Install
-     command becomes `pip install --pre exactdoc`. `docs/install.md` says
-     "until the first beta is on PyPI"; reword that too.
-   - `CHANGELOG.md`: the heading line `## Unreleased (0.2.0a1, alpha) — …`
-     becomes exactly
+   - `README.md`: the places marked with a `<!-- release: ... -->` comment,
+     and nothing else: the status callout names the new version.
+     `docs/install.md` says which version `--pre` is for; check it too.
+   - `CHANGELOG.md`: the heading line `## Unreleased` becomes exactly
 
      ```text
-     ## 0.3.0b1 — 2026-MM-DD
+     ## 0.3.0b2 — 2026-MM-DD
      ```
 
      with the release date in ISO form and an em dash, the same shape as
-     `## 1.0.1 — 2026-08-07`. Anything after the dash in the old heading moves
-     to the section's first line. Then add a new, empty `## Unreleased` above
+     `## 0.3.0b1 — 2026-10-12`. Then add a new, empty `## Unreleased` above
      it. Step 9 copies this section into the GitHub release.
    - Check the build locally before pushing:
 
@@ -115,7 +112,7 @@ The commands below use `0.3.0b1`; replace it with the version being released.
 
    - Push the commit and wait for `gate` and `install` to pass on it.
 
-3. **Fast-forward `main` to the release commit. Do not skip this.** `main` is
+3. **Bring `main` up to the release commit through a pull request. Do not skip this.** `main` is
    what people see: the GitHub front page, the README that PyPI's *Homepage*
    link opens, and the targets of the *Documentation* and *Changelog* links
    (`pyproject.toml`) and of `exactdoc --help`'s usage link
@@ -123,21 +120,34 @@ The commands below use `0.3.0b1`; replace it with the version being released.
    `main` carries the release, those links show an older project or 404 (on
    2026-10-11 `main` was 461 commits behind and had no `docs/usage.md`).
 
+   Since 2026-10-13, `main` is protected by the GitHub ruleset "Protect main".
+   It has no bypass, so it applies to everyone, including the owner and any
+   tool using their login:
+   - nobody can push to `main` directly, force-push it or delete it;
+   - every change arrives as a pull request;
+   - the pull request merges only when these checks pass on its latest
+     commit: `gate`, `build sdist + wheel` and `install + smoke` (Ubuntu and
+     Windows, Python 3.12).
+
    ```bash
-   git fetch origin
-   git merge-base --is-ancestor origin/main <release-commit> && \
-     git push origin <release-commit>:main
+   gh pr create --base main --head <release-branch> \
+     --title "Release <version>" --body "Release commit <sha>; gate and install green."
    ```
 
-   The first command makes it a fast-forward only. If it fails, `main` has
-   commits the release does not; stop and merge them first.
+   The owner merges it on GitHub with **Create a merge commit**. Then check
+   that the release commit is in `main`'s history:
+
+   ```bash
+   git fetch origin
+   git merge-base --is-ancestor <release-commit> origin/main && echo ok
+   ```
 
 4. **Tag and push the tag.** The tag must be `v` followed by exactly the
    version in `pyproject.toml`, or the `build` job stops:
 
    ```bash
-   git tag -a v0.3.0b1 -m "exactdoc 0.3.0b1"
-   git push origin v0.3.0b1
+   git tag -a v0.3.0b2 -m "exactdoc 0.3.0b2"
+   git push origin v0.3.0b2
    ```
 
 5. **Watch it run.** GitHub → **Actions → release**. `build`, `testpypi` and
@@ -151,9 +161,9 @@ The commands below use `0.3.0b1`; replace it with the version being released.
 
    ```bash
    python -m venv /tmp/try && . /tmp/try/bin/activate          # Windows: py -m venv %TEMP%\try && %TEMP%\try\Scripts\activate
-   pip download --no-deps --index-url https://test.pypi.org/simple/ exactdoc==0.3.0b1 -d dl
-   pip install dl/exactdoc-0.3.0b1-py3-none-any.whl
-   exactdoc --version          # exactdoc 0.3.0b1
+   pip download --no-deps --index-url https://test.pypi.org/simple/ exactdoc==0.3.0b2 -d dl
+   pip install dl/exactdoc-0.3.0b2-py3-none-any.whl
+   exactdoc --version          # exactdoc 0.3.0b2
    exactdoc some.pdf           # writes some.docx; without LibreOffice it says so
    exactdoc "résumé 日本.pdf" > log.txt   # a non-Latin name, stdout to a file: exit 0
    ```
@@ -167,7 +177,7 @@ The commands below use `0.3.0b1`; replace it with the version being released.
 8. **Check the real thing** in another fresh virtualenv:
 
    ```bash
-   pip install --pre exactdoc==0.3.0b1
+   pip install --pre exactdoc==0.3.0b2
    exactdoc --version
    ```
 
@@ -177,38 +187,33 @@ The commands below use `0.3.0b1`; replace it with the version being released.
    `pip install exactdoc` installs it; once a final version exists, testers
    need `pip install --pre exactdoc` to get a newer beta.
 
-9. **Create the GitHub pre-release, and retire the stale "Latest".** The
-   workflow does not create a GitHub release, and until someone does, the
-   repository's front page shows **exactdoc 1.0.1** as *Latest* (published
-   2026-08-07, from before the renumbering): a visitor sees a 1.x that looks
-   newer than the beta. With the GitHub CLI:
+9. **Create the GitHub pre-release.** The workflow does not create a GitHub
+   release. With the GitHub CLI:
 
    ```bash
    # the CHANGELOG section written in step 2, without its heading
-   awk '/^## 0\.3\.0b1 /{f=1; next} /^## /{f=0} f' CHANGELOG.md > notes-0.3.0b1.md
-   gh release create v0.3.0b1 --prerelease --verify-tag \
-     --title "exactdoc 0.3.0b1" --notes-file notes-0.3.0b1.md
-
-   # v1.0.1 stops being "Latest": mark it a pre-release, and say why at the top
-   gh release view v1.0.1 --json body --jq .body > notes-1.0.1.md
-   { echo "**Superseded.** This was renumbered 0.2.0a1 and is not on PyPI; the current release is v0.3.0b1 (pip install exactdoc)."
-     echo; cat notes-1.0.1.md; } > notes-1.0.1.md.new
-   gh release edit v1.0.1 --prerelease --notes-file notes-1.0.1.md.new
+   awk '/^## 0\.3\.0b2 /{f=1; next} /^## /{f=0} f' CHANGELOG.md > notes-0.3.0b2.md
+   gh release create v0.3.0b2 --prerelease --verify-tag \
+     --title "exactdoc 0.3.0b2" --notes-file notes-0.3.0b2.md
    ```
 
    Check the front page afterwards: no release should be marked *Latest*
-   until the first final version (a pre-release never is). The 1.0.0 tag has
-   no GitHub release and needs nothing. `docs/release-notes-1.0.1.md` stays as
-   history.
+   until the first final version (a pre-release never is).
+
+   *Historical, done once for 0.3.0b1:* the GitHub release v1.0.1 (from
+   before the renumbering to 0.2.0a1) showed as *Latest* and was marked a
+   pre-release with a "superseded" note, so a 1.x no longer looks newer than
+   the beta. There is nothing to repeat. `docs/release-notes-1.0.1.md` stays
+   as history.
 
 ## When something goes wrong
 
 - **`build` says the tag does not match.** Delete the tag
-  (`git push --delete origin v0.3.0b1` and `git tag -d v0.3.0b1`), fix the
+  (`git push --delete origin v0.3.0b2` and `git tag -d v0.3.0b2`), fix the
   version, tag again.
 - **An upload says the file already exists.** PyPI and TestPyPI never accept
   the same file name twice, even after a deletion. Bump to the next number
-  (`0.3.0b2`) and release that.
+  (`0.3.0b3`) and release that.
 - **`invalid-publisher`.** One of the five fields in setup step 3 does not
   match the run: owner, repository, workflow file name (`release.yml`),
   environment name, or the project name.
@@ -235,5 +240,6 @@ The commands below use `0.3.0b1`; replace it with the version being released.
 - **Old tags.** `v1.0.0` and `v1.0.1` exist on GitHub from before the version
   was renumbered to 0.2.0a1. They were never uploaded to PyPI and do not
   trigger the release workflow (it did not exist when they were pushed; pushing
-  them again would fail its version check). GitHub shows v1.0.1 as the
-  "Latest" release; step 9 retires it.
+  them again would fail its version check). The v1.0.1 GitHub release was
+  marked a pre-release for 0.3.0b1, so it no longer shows as "Latest"
+  (step 9, historical).

@@ -404,6 +404,9 @@ class DocLayout:
     hyphenated: bool = False               # source uses hyphenated justification
     cover_band: Optional[TableEl] = None   # page-1 full-width band (own section, small top margin)
     cover_top: float = 0.0                 # top margin for the cover section
+    # Word's page colour (#rrggbb) -- infer._page_colour -- written as the
+    # document background; None when the source sets none.
+    page_colour: Optional[str] = None
     pages: List[PageLayout] = field(default_factory=list)
     src_path: str = ""
     ladder_report: dict = field(default_factory=dict)  # see ladder.py

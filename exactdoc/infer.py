@@ -1,5 +1,6 @@
 """Structure inference: PageIR -> DocLayout (semantic, writer-ready)."""
 import contextvars
+import logging
 import copy
 import math
 import re
@@ -7,6 +8,8 @@ from collections import Counter, defaultdict
 from dataclasses import replace
 from statistics import median
 from typing import List, Optional, Tuple, Dict, Any
+
+_log = logging.getLogger("exactdoc.infer")
 
 from .model import (DocIR, PageIR, TextBlock, Line, Span, DrawCmd, ImageObj,
                     BBox, bbox_union, bbox_overlap, bbox_area, contains,
@@ -1963,6 +1966,10 @@ def detect_hf(ir: DocIR):
         cands = []
         for i, d in enumerate(p.drawings):
             x0, y0, x1, y1 = d.bbox
+            # WP59 (R1): a fill over the whole sheet of a later page is that
+            # page's colour or artwork, never a running band or strip.
+            if p.number >= 2 and _wp59("page_colour") and _full_sheet(d, p):
+                continue
             if d.fill and (x1 - x0) >= 0.95 * p.width and (y1 - y0) >= 2.5 and y0 <= 220:
                 cands.append((i, d))
         cands.sort(key=lambda t: t[1].bbox[1])
@@ -1984,6 +1991,13 @@ def detect_hf(ir: DocIR):
     strip_h = _mode([h for h in later_h if h > 0]) if any(later_h) else 0
     have_strip = n >= 2 and sum(
         1 for h in later_h if h > 0 and abs(h - strip_h) < 3) >= max(1, int(0.6 * (n - 1)))
+    if have_strip and strip_h > 0.5 * H and _wp59("tall_strip"):
+        # WP59: a running strip reaching past the middle of the page is not a
+        # header -- the header part would leave the body less than half the
+        # page. Its drawings stay in the body.
+        _log.warning("detect_hf: a %.0fpt running strip on a %.0fpt page is not "
+                     "a header; left in the body", strip_h, H)
+        have_strip = False
 
     if b1 and b1_h > 45:
         res["band_first"] = b1
@@ -5132,6 +5146,67 @@ def _sidebar_cut(cut, rects, consumed, content_w: float) -> bool:
     return True
 
 
+def _cut_box(cut, rects, consumed):
+    """The panel the inside piece of a cut belongs to, or None."""
+    inside = [p for p in cut[2] if id(p) in consumed]
+    return next((r for r in rects
+                 if any(bbox_overlap(p.bbox, r) > 0.55 * max(1e-6, bbox_area(p.bbox))
+                        for p in inside)), None)
+
+
+def _sidebar_boxes(cuts, rects, blocks, consumed, content_w: float) -> set:
+    """The panels among `rects` that are sidebars, judged per PANEL (WP60).
+
+    `_sidebar_cut` judged each cut on its own piece, so one panel could keep
+    some of its cuts and have the others welded back by `_restore_uncut`,
+    and the welded line then read across the sidebar and the column beside
+    it -- a DHS OIG highlights page: 'CBP's ability to meet the' (sidebar)
+    joined to 'from DHS components and ...' (column), which closed the gutter,
+    so the region reader never saw a side-by-side page, the sidebar stood
+    above the column and every later page was a page late. And the piece is
+    not the column: that piece was a bullet's hanging continuation, 25pt off
+    the panel (2.1em), where the column itself starts 5pt off it.
+
+    So a panel is a sidebar when it is narrower than SIDEBAR_MAX_FRAC of the
+    measure and the COLUMN beside it starts within SIDEBAR_GAP_EM of its
+    side: the column's edge is the lowest x0 (for a panel on the left; the
+    highest x1 for a panel on the right) of the flow lines within the panel's
+    height on that side, the cut pieces themselves left out. Every cut of a
+    sidebar stands; every cut of any other panel goes back to
+    `_restore_uncut`."""
+    cut_ids = {id(p) for _b, _ln, ps in cuts for p in ps}
+    flow = [l for l in _all_lines(blocks)
+            if id(l) not in consumed and id(l) not in cut_ids and l.text.strip()]
+    out = set()
+    by_box = defaultdict(list)
+    for c in cuts:
+        box = _cut_box(c, rects, consumed)
+        if box is not None:
+            by_box[tuple(box)].append(c)
+    for box, cs in by_box.items():
+        if box[2] - box[0] >= SIDEBAR_MAX_FRAC * max(1.0, content_w):
+            continue
+        outside = [p for _b, _ln, ps in cs for p in ps if id(p) not in consumed]
+        if not outside:
+            continue
+        right = all(p.bbox[0] >= box[2] - 1.0 for p in outside)
+        left = all(p.bbox[2] <= box[0] + 1.0 for p in outside)
+        if right == left:
+            continue
+        beside = [l for l in flow
+                  if box[1] <= (l.bbox[1] + l.bbox[3]) / 2 <= box[3] and
+                  (l.bbox[0] >= box[2] - 1.0 if right else l.bbox[2] <= box[0] + 1.0)]
+        if not beside:
+            continue
+        sizes = sorted(s.size for l in beside for s in l.spans if s.text.strip())
+        size = sizes[len(sizes) // 2] if sizes else 10.0
+        gap = (min(l.bbox[0] for l in beside) - box[2]) if right else \
+            (box[0] - max(l.bbox[2] for l in beside))
+        if gap <= SIDEBAR_GAP_EM * size:
+            out.add(box)
+    return out
+
+
 def _restore_uncut(cuts, consumed) -> None:
     """Put back each cut line unless regions took EVERY piece of it.
 
@@ -5769,6 +5844,91 @@ _AXIS_TICK_RE = re.compile(r"^[-+−–]?[$€£¥]?\d{1,7}(?:[.,]\d{1,3})*\s?[%
 AXIS_TICK_REACH = 24.0
 
 
+def _text_runs(ln: Line) -> List[Tuple[float, float]]:
+    """The x extents of a line's runs of text: its spans, joined where the
+    white between them is under an em. A chart's labels on one baseline
+    ('150 135 129 125 117 104 105' across a plot) are one extracted line of
+    many short runs; a line of a paragraph is one run."""
+    sp = sorted((s for s in ln.spans if s.text.strip()), key=lambda s: s.bbox[0])
+    out: List[Tuple[float, float]] = []
+    for s in sp:
+        if out and s.bbox[0] - out[-1][1] <= max(1.0, s.size):
+            out[-1] = (out[-1][0], max(out[-1][1], s.bbox[2]))
+        else:
+            out.append((s.bbox[0], s.bbox[2]))
+    return out
+
+
+# A frame is a chart's when its figures fill at least this share of it: a
+# chart fills its chart area. Census over both corpora and both holdouts
+# (2026-10-11, every box holding a figure): the charts' figures cover 0.59 to
+# 4.0 of their frames (overlapping clips summed), the text boxes that merely
+# hold an icon or a thumbnail 0.01 to 0.48 (Sensirion's 254-word box around a
+# logo 0.02, NASA's strategic-plan panel 0.48).
+FRAME_FIG_MIN_SHARE = 0.5
+
+
+def _frames_to_figures(elements, blocks, page: PageIR) -> List[Any]:
+    """A box that is a chart's frame becomes part of the chart (WP60).
+
+    A chart drawn by Word or a plotting library sits in a frame -- an
+    outlined plot area, a white background rectangle -- and its axis ticks,
+    data labels and legend are text inside that frame. The frame was built as
+    a BOX holding those labels as paragraphs, and the chart's own ink as a
+    figure after it: the writer stacked the box (the labels) above the figure
+    (the same labels again, rasterised with its clip). DHS OIG's Figure 3 set
+    290pt of the chart's numbers as text above the chart, Llama 2's attention
+    heatmaps their tick labels in a box above both plots; each page ran a
+    page over, and every label was drawn twice.
+
+    A box is the frame of the figures it CONTAINS when every line inside it
+    is a label: no run of text in it as wide as half the frame, so nothing
+    in it is a wrapped paragraph (`_text_runs`: labels on one baseline are
+    one extracted line of many short runs). The first figure grows to the
+    frame and owns its lines; the box and the other contained figures go. A
+    tinted table is no box, and a callout's icon sits beside a paragraph:
+    both stay as they are. Nor is a box a frame when its figures fill less
+    than FRAME_FIG_MIN_SHARE of it -- a text panel around a logo -- or when it
+    is the page itself (PAGE_COVER_FRAC: a background painted under the
+    page's text)."""
+    out = list(elements)
+    lines = [ln for ln in _all_lines(blocks) if ln.text.strip()]
+    for box in [e for e in elements if isinstance(e, TableEl) and
+                e.role == "box" and e.bbox]:
+        rect = box.bbox
+        area = max(1.0, bbox_area(rect))
+        if area >= PAGE_COVER_FRAC * page.width * page.height:
+            continue
+        figs = [e for e in out if isinstance(e, FigureEl) and
+                contains(rect, e.clip, pad=3.0)]
+        if not figs or sum(bbox_overlap(f.clip, rect) for f in figs) < \
+                FRAME_FIG_MIN_SHARE * area:
+            continue
+        w = max(1.0, rect[2] - rect[0])
+        inside = [ln for ln in lines
+                  if rect[0] <= (ln.bbox[0] + ln.bbox[2]) / 2 <= rect[2] and
+                  rect[1] <= (ln.bbox[1] + ln.bbox[3]) / 2 <= rect[3]]
+        if any(r1 - r0 >= 0.5 * w for ln in inside for r0, r1 in _text_runs(ln)):
+            continue
+        keep = figs[0]
+        clip = rect
+        took = set(getattr(keep, "_own", frozenset()))
+        for f in figs:
+            clip = bbox_union(clip, f.clip)
+        for f in figs[1:]:
+            took |= set(getattr(f, "_own", frozenset()))
+            out.remove(f)
+        keep.clip = clip
+        keep.width, keep.height = clip[2] - clip[0], clip[3] - clip[1]
+        keep._own = frozenset(took | {id(ln) for ln in inside})
+        out.remove(box)
+        # a rule drawn inside the frame (the plot's axis) is in its picture
+        out = [e for e in out if not (isinstance(e, RuleEl) and
+                                      getattr(e, "_bbox", None) and
+                                      contains(rect, e._bbox, pad=1.0))]
+    return out
+
+
 def _figure_in_budget(cl_ds, blocks, images, consumed, page, text_area):
     """build_figure, rolled back if it would rasterise too much of the page.
 
@@ -5800,7 +5960,7 @@ def _figure_in_budget(cl_ds, blocks, images, consumed, page, text_area):
 # (`_picture_glyph_draws`), a stroke is read at the box its clip shows
 # (`_clipped_strokes`) -- are the standard profile's. Under the gdocs
 # profile y22 (lshort), the one document they move, was flown live
-# (2026-10-11, C:\lotmp\wp46live): 169 -> 178 pages for 153 (word recall
+# (2026-10-11, the WP46 live flight): 169 -> 178 pages for 153 (word recall
 # 0.339 -> 0.381). Docs drops the letter-spacing that holds a monospaced
 # line to its source measure, so in a cell beside its output every source
 # line of the example wraps ("Add $a$ squared and $b$ / squared") and the
@@ -5827,6 +5987,252 @@ WP49_RULES = {
 
 def _wp49(rule: str) -> bool:
     return _TAB_LAYOUTS.get() and WP49_RULES.get(rule, False)
+
+
+# WP59's readings of resume pages -- the same standard-profile gate
+# (`infer(tab_layouts=...)`, off under the gdocs profile), a switch each.
+WP59_RULES = {
+    "page_colour": True,          # _page_colour: Word's page colour is no band
+    "page_border": True,          # _strip_page_border: a page border is no box
+    "tall_strip": True,           # detect_hf: a strip past mid-page is no header
+    "two_sided_lists": True,      # _two_sided_run: a right list beside a left list
+    "text_font_boxes": True,      # _true_text_boxes: a text font's inflated boxes
+    "left_tab_fields": True,      # _left_tab_pairs: fields set at a left tab
+}
+
+
+def _wp59(rule: str) -> bool:
+    return _TAB_LAYOUTS.get() and WP59_RULES.get(rule, False)
+
+
+# A fill covering the sheet: this share of the page in BOTH directions.
+FULL_SHEET_FRAC = 0.95
+
+
+def _full_sheet(d: DrawCmd, p: PageIR) -> bool:
+    x0, y0, x1, y1 = d.bbox
+    return bool(d.fill) and d.kind in ("fill", "fillstroke") and \
+        d.opacity >= 0.99 and \
+        (x1 - x0) >= FULL_SHEET_FRAC * p.width and \
+        (y1 - y0) >= FULL_SHEET_FRAC * p.height
+
+
+def _page_colour(ir: DocIR) -> Optional[str]:
+    """The document's page colour, or None (WP59, R1).
+
+    Word's Design > Page Color paints one fill over the whole sheet of EVERY
+    page, under everything. It is not a band: read as one by `detect_hf`, a
+    resume's pale-blue page colour became a 792pt header strip -- every page's
+    text went into the header part and the body section was written with a
+    top margin taller than the page, which Word refuses to export (holdout-2,
+    h2_04: 3 pages -> 6, character recall 0.37). The evidence is repetition:
+    the same colour over the whole sheet of every page after the first, on
+    two sheets at least. Page 1 may carry it too, or a cover of its own; a
+    sheet that page 1 ALONE fills is a cover, as WP50 reads it."""
+    if len(ir.pages) < 2:
+        return None
+    common = None
+    for p in ir.pages[1:]:
+        cols = {d.fill.lower() for d in p.drawings if _full_sheet(d, p)}
+        common = cols if common is None else common & cols
+        if not common:
+            return None
+    if not common:
+        return None
+    colour = sorted(common)[0]
+    # Repetition needs two sheets: on a two-page document page 2's sheet
+    # alone is that page's artwork (a brochure's back panel), unless page 1
+    # carries it as well.
+    if len(ir.pages) == 2 and not any(
+            _full_sheet(d, ir.pages[0]) and d.fill.lower() == colour
+            for d in ir.pages[0].drawings):
+        return None
+    return colour
+
+
+# A text font whose glyph boxes are this many times its size is inflated: a
+# word's box is about 1.2 of the size in any ordinary face.
+INFLATED_BOX_RATIO = 2.0
+INFLATED_MIN_SPANS = 5
+INFLATED_MIN_LETTERS = 3      # letters in the face's median span: it sets words
+# Where a corrected box puts the text: ascent and descent, in em, those of the
+# faces a renderer substitutes (Liberation 0.905 / 0.212).
+TEXT_ASCENT_EM, TEXT_DESCENT_EM = 0.905, 0.212
+
+
+def _true_text_boxes(ir: DocIR) -> int:
+    """Give the spans of a text font with inflated boxes their glyphs' height.
+
+    WP59. Some PDFs carry a text face whose box is the font's own bounding box,
+    several times the type size: Word's Cambria arrives with boxes 5.6x its
+    size (holdout-1 h19, holdout-2 h2_01 and h2_23). Every line in it then
+    stands tens of points above its baseline, and the flow, ordered by box
+    tops, set a resume's entries above their section headings. Only a TEXT
+    face is corrected -- most of its characters letters; a maths extension or
+    symbol face (CMEX, MnSymbol) draws glyphs as tall as their boxes -- and
+    only one whose spans are inflated as a rule (the median span), so a line
+    of display maths keeps its height. A text face is one whose median span
+    holds a word (INFLATED_MIN_LETTERS letters); a maths face sets one glyph
+    at a time. Positions keep their baselines."""
+    import statistics
+    by_font = defaultdict(list)
+    for p in ir.pages:
+        for b in p.blocks:
+            for ln in b.lines:
+                if not ln.horizontal:
+                    continue          # a rotated span's box is not origin +- ascent
+                for s in ln.spans:
+                    if s.text.strip() and s.size > 0:
+                        by_font[s.font].append(s)
+    bad = set()
+    for font, spans in by_font.items():
+        if len(spans) < INFLATED_MIN_SPANS:
+            continue
+        ratios = [(s.bbox[3] - s.bbox[1]) / s.size for s in spans]
+        if statistics.median(ratios) <= INFLATED_BOX_RATIO:
+            continue
+        # a text face sets words: its typical span holds a few letters, where
+        # a maths or symbol face sets one glyph at a time ('b', a brace piece)
+        if statistics.median(sum(1 for c in s.text if c.isalpha())
+                             for s in spans) >= INFLATED_MIN_LETTERS:
+            bad.add(font)
+    if not bad:
+        return 0
+    n = 0
+    for p in ir.pages:
+        for b in p.blocks:
+            block_hit = False
+            for ln in b.lines:
+                if not ln.horizontal:
+                    continue
+                hit = False
+                for s in ln.spans:
+                    if s.font in bad and s.size > 0:
+                        base = s.origin[1]
+                        s.bbox = (s.bbox[0], base - TEXT_ASCENT_EM * s.size,
+                                  s.bbox[2], base + TEXT_DESCENT_EM * s.size)
+                        hit = True
+                        n += 1
+                if hit:
+                    block_hit = True
+                    ln.bbox = (min(s.bbox[0] for s in ln.spans), min(s.bbox[1] for s in ln.spans),
+                               max(s.bbox[2] for s in ln.spans), max(s.bbox[3] for s in ln.spans))
+            if block_hit:
+                b.bbox = (min(l.bbox[0] for l in b.lines), min(l.bbox[1] for l in b.lines),
+                          max(l.bbox[2] for l in b.lines), max(l.bbox[3] for l in b.lines))
+    return n
+
+
+def _strip_page_colour(ir: DocIR) -> Optional[str]:
+    """Remove the page colour's sheets from every page; return the colour."""
+    colour = _page_colour(ir)
+    if colour is None:
+        return None
+    for p in ir.pages:
+        p.drawings = [d for d in p.drawings
+                      if not (_full_sheet(d, p) and d.fill.lower() == colour)]
+    return colour
+
+
+# A page border (Word's Page Borders) is four rules framing the sheet near its
+# edges: each side at least this share of the page long, within this share of
+# the page from its edge, no thicker than a rule. Word measures a page border
+# from the paper's edge (24pt by default, 0.04 of a Letter page); 0.08 keeps
+# a frame drawn at one-inch text margins (0.118 of the width) -- a full-page
+# bordered table, a framed form -- out of it, so it keeps its outer rules.
+PAGE_BORDER_LEN_FRAC = 0.80
+PAGE_BORDER_EDGE_FRAC = 0.08
+PAGE_BORDER_JOINT = 3.0       # the junction squares Word paints at the corners
+
+
+def _closed_frame(frame, box) -> bool:
+    """Do a page border's four sides (top, bottom, left, right) meet at the
+    corners of one rectangle?"""
+    fx0, fy0, fx1, fy1 = box
+    tol = PAGE_BORDER_JOINT + 1.0
+    t, b, l, r = frame
+    return all(abs(d.bbox[0] - fx0) <= tol and abs(d.bbox[2] - fx1) <= tol for d in (t, b)) \
+        and all(abs(d.bbox[1] - fy0) <= tol and abs(d.bbox[3] - fy1) <= tol for d in (l, r))
+
+
+def _ends_on_frame(d: DrawCmd, ids, box) -> bool:
+    """Does a rule inside the frame end on one of its sides, as a table's row
+    and column rules end on the table's border?"""
+    if id(d) in ids or d.shape not in ("hline", "vline"):
+        return False
+    fx0, fy0, fx1, fy1 = box
+    tol = PAGE_BORDER_JOINT + 1.0
+    x0, y0, x1, y1 = d.bbox
+    if d.shape == "hline":
+        return fy0 + tol < y0 < fy1 - tol and (abs(x0 - fx0) <= tol or abs(x1 - fx1) <= tol)
+    return fx0 + tol < x0 < fx1 - tol and (abs(y0 - fy0) <= tol or abs(y1 - fy1) <= tol)
+
+
+def _strip_page_border(ir: DocIR) -> int:
+    """Drop a page border's rules and their corner joints (WP59, R1).
+
+    Word draws a page border as four filled rules a few points in from the
+    paper's edges, with a small square at each corner. It frames the sheet;
+    it is not a box around the text (a box makes a one-cell table of the
+    whole page) and not a rule in the flow. What tells it from a table drawn
+    out to the page is how it is joined: it lies in the paper's edge band
+    (PAGE_BORDER_EDGE_FRAC), its four sides close one rectangle at their
+    corners, no other rule ends on a side (a table's row and column rules end
+    on its frame), and every line of the page's text lies inside it. All four
+    sides are required, so a rule at the head or the foot of a page is left
+    alone."""
+    n = 0
+    for p in ir.pages:
+        W, H = p.width, p.height
+        ex, ey = PAGE_BORDER_EDGE_FRAC * W, PAGE_BORDER_EDGE_FRAC * H
+        hl = [d for d in p.drawings if d.shape == "hline" and
+              d.bbox[2] - d.bbox[0] >= PAGE_BORDER_LEN_FRAC * W]
+        vl = [d for d in p.drawings if d.shape == "vline" and
+              d.bbox[3] - d.bbox[1] >= PAGE_BORDER_LEN_FRAC * H]
+        top = [d for d in hl if d.bbox[1] <= ey]
+        bot = [d for d in hl if d.bbox[3] >= H - ey]
+        left = [d for d in vl if d.bbox[0] <= ex]
+        right = [d for d in vl if d.bbox[2] >= W - ex]
+        if not (top and bot and left and right):
+            continue
+        frame = top[:1] + bot[:1] + left[:1] + right[:1]
+        fx0 = min(d.bbox[0] for d in frame)
+        fy0 = min(d.bbox[1] for d in frame)
+        fx1 = max(d.bbox[2] for d in frame)
+        fy1 = max(d.bbox[3] for d in frame)
+        ids = {id(d) for d in frame}
+        if not _closed_frame(frame, (fx0, fy0, fx1, fy1)) or \
+                any(_ends_on_frame(d, ids, (fx0, fy0, fx1, fy1)) for d in p.drawings) or \
+                any(not (fx0 <= ln.bbox[0] and ln.bbox[2] <= fx1 and
+                         fy0 <= ln.bbox[1] and ln.bbox[3] <= fy1)
+                    for blk in p.blocks for ln in blk.lines if ln.text.strip()):
+            continue
+
+        def joint(d):
+            x0, y0, x1, y1 = d.bbox
+            if x1 - x0 > PAGE_BORDER_JOINT or y1 - y0 > PAGE_BORDER_JOINT:
+                return False
+            return (min(abs(x0 - fx0), abs(x1 - fx1)) <= 1.0 and
+                    min(abs(y0 - fy0), abs(y1 - fy1)) <= 1.0)
+        keep = [d for d in p.drawings if id(d) not in ids and not joint(d)]
+        n += len(p.drawings) - len(keep)
+        p.drawings = keep
+    return n
+
+
+# WP60's readings of long Word-made reports (OIG highlights sidebars, framed
+# charts). Standard profile only, exactly as WP49's: keyed on _TAB_LAYOUTS,
+# so the Google Docs profile is byte-identical; each has its own switch.
+WP60_RULES = {
+    "sidebar_per_box": True,      # _sidebar_boxes: a panel is a sidebar or not, whole
+    "panel_gutter": True,         # _side_splits: a drawn panel's edge is a gutter
+    "foot_not_band": True,        # _sbs_regions: a foot-band line ends a band
+    "figure_frame": False,        # _frames_to_figures: a chart's frame is the chart's
+}
+
+
+def _wp60(rule: str) -> bool:
+    return _TAB_LAYOUTS.get() and WP60_RULES.get(rule, False)
 
 
 def _clipped_strokes(ir: DocIR) -> None:
@@ -5873,6 +6279,17 @@ def infer(ir: DocIR, anchored: bool = True,
     """
     if examples:
         _clipped_strokes(ir)
+    colour = None
+    tl_pre = _TAB_LAYOUTS.set(tab_layouts)
+    try:
+        if _wp59("page_colour"):
+            colour = _strip_page_colour(ir)
+        if _wp59("page_border"):
+            _strip_page_border(ir)
+        if _wp59("text_font_boxes"):
+            _true_text_boxes(ir)
+    finally:
+        _TAB_LAYOUTS.reset(tl_pre)
     token = hyphen.activate(hyphen.HyphenEvidence.from_ir(ir) if ir.pages else None)
     ex_token = _EXAMPLES.set(examples)
     tl_token = _TAB_LAYOUTS.set(tab_layouts)
@@ -5883,6 +6300,7 @@ def infer(ir: DocIR, anchored: bool = True,
         _TAB_LAYOUTS.reset(tl_token)
         _EXAMPLES.reset(ex_token)
         hyphen.deactivate(token)
+    lay.page_colour = colour
     hyphen.mark_unhyphenated(lay)
     from .layout import iter_paras
     for p in iter_paras(lay):
@@ -6901,6 +7319,8 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
             el._bbox = im.bbox
             elements.append(el)
 
+        if _wp60("figure_frame"):
+            elements = _frames_to_figures(elements, blocks, p)
         elements = _merge_box_rows(_merge_figures(
             elements, blocks if _wp49("figure_covers_text") else None))
         elements = _merge_table_rows(elements, blocks, consumed)
@@ -6916,8 +7336,13 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
             # Kept cut, the region readers lay the two out side by side. Only
             # for a sidebar's cut (`_sidebar_cut`).
             rects = [d.bbox for _, d in draws if _box_candidate(d)]
-            cuts = [c for c in cuts
-                    if not _sidebar_cut(c, rects, consumed, lay.content_w)]
+            if _wp60("sidebar_per_box"):
+                side = _sidebar_boxes(cuts, rects, blocks, consumed, lay.content_w)
+                cuts = [c for c in cuts
+                        if tuple(_cut_box(c, rects, consumed) or ()) not in side]
+            else:
+                cuts = [c for c in cuts
+                        if not _sidebar_cut(c, rects, consumed, lay.content_w)]
         _restore_uncut(cuts, consumed)
         # the page's elements before the float passes, for `_float_overfull`
         pre_float = list(elements)
@@ -6935,6 +7360,10 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
                     elements, blocks, lay, p.width, p.height, pictures_only=True)
                 pl.floats = list(pl.floats or ()) + floated
             elements = _merge_graphic_rows(elements, blocks, p.number)
+        if _wp60("foot_not_band"):
+            _drop_footer_echoes(blocks, consumed, elements, p,
+                                [doc_lay.footer_default, doc_lay.footer_even,
+                                 doc_lay.footer_first], lay.content_w)
 
         # rebuild flow blocks from unconsumed lines (contiguous runs)
         flow_blocks = []
@@ -7965,7 +8394,14 @@ def _row_candidates(lines, col_l, col_r, tab_edge=None):
         left, right = row
         if left.bbox[0] > col_l + _ROW_LEFT_TOL:
             continue
-        if right.bbox[2] < (col_r if tab_edge is None else tab_edge) - _ROW_EDGE_TOL:
+        if tab_edge is None:
+            reach = col_r - _ROW_EDGE_TOL
+        elif _wp59("two_sided_lists"):
+            # (WP59: the fields' band of right edges, _right_tab_fields)
+            reach = tab_edge - max(_ROW_EDGE_TOL, RIGHT_TAB_EDGE_EM * _line_size(right))
+        else:
+            reach = tab_edge - _ROW_EDGE_TOL
+        if right.bbox[2] < reach:
             continue
         if right.bbox[0] - left.bbox[2] < _ROW_MIN_GAP:
             continue
@@ -8079,8 +8515,100 @@ def _row_pairs(items, col_l, col_r, doc_rows=None, tab_edge=None):
     return pairs, consumed
 
 
+# WP59 (R3a): fields at a LEFT tab. Each starts at one x within this, and at
+# least this many share it on the page.
+LEFT_TAB_X_TOL = 1.0
+LEFT_TAB_MIN_ROWS = 3
+
+
+def _left_tab_pairs(items, col_l, col_r, n_right: int = 0):
+    """-> ([(label, field, tab_x)], {id(line)}): fields set at a LEFT tab.
+
+    WP59 (R3a). A resume can set each entry's place and dates at a left tab
+    rather than a right one: every field STARTS at one x and ends wherever
+    its text ends, beside a label at the margin. `_row_pairs` asks a field to
+    end at the margin, so these were never paired, and label, field and the
+    next line welded into one paragraph ("Carnegie Mellon University
+    Pittsburgh, PA B.S. Information Systems Summer 2017", holdout-2 h2_01 p6).
+    A left tab is also how a two-column page and a contents page with
+    left-aligned numbers look, so all of these are required:
+
+    * at least LEFT_TAB_MIN_ROWS pairs share the x;
+    * the fields differ in style from their labels (`_row_contrast`) in at
+      least half of the pairs -- a contents page sets every number in its
+      title's face, while a resume's degree line and its date may share one;
+    * the x is the fields' own: EVERY line starting there is a short field
+      beside a label at the margin; a column's lines start there too, and
+      run on without a partner;
+    * the page's rows, right-tab pairs included, stay under `_ROW_MAX_SHARE`
+      of its baselines -- never waived here.
+    """
+    lines = []
+    for kind, _bb, o in items:
+        if kind == "blk":
+            lines.extend(l for l in _blk_lines(o) if l.horizontal and l.spans
+                         and l.text.strip())
+    width = col_r - col_l
+    if width <= 0 or len(lines) < 2 * LEFT_TAB_MIN_ROWS:
+        return [], set()
+    lines.sort(key=lambda l: (round(l.baseline, 1), l.bbox[0]))
+    rows = []
+    for ln in lines:
+        if rows and abs(ln.baseline - rows[-1][0].baseline) <= _ROW_BASELINE_TOL:
+            rows[-1].append(ln)
+        else:
+            rows.append([ln])
+    cands = []
+    for row in rows:
+        if len(row) != 2:
+            continue
+        left, right = row
+        if left.bbox[0] > col_l + _ROW_LEFT_TOL:
+            continue
+        if right.bbox[0] < col_l + 0.35 * width:
+            continue
+        if right.bbox[0] - left.bbox[2] < _ROW_MIN_GAP:
+            continue
+        if right.bbox[2] - right.bbox[0] > _ROW_MAX_RIGHT * width:
+            continue
+        if left.bbox[2] - left.bbox[0] < _ROW_MIN_LEFT * width:
+            continue
+        if _line_starts_with_marker(left) or _is_marker_text(left.text):
+            continue
+        cands.append((left, right))
+    cands.sort(key=lambda pr: pr[1].bbox[0])
+    groups, cur = [], []
+    for pr in cands:
+        if cur and pr[1].bbox[0] - cur[0][1].bbox[0] > LEFT_TAB_X_TOL:
+            groups.append(cur)
+            cur = []
+        cur.append(pr)
+    if cur:
+        groups.append(cur)
+    out = []
+    for grp in groups:
+        if len(grp) < LEFT_TAB_MIN_ROWS:
+            continue
+        if 2 * sum(1 for l, r in grp if _row_contrast(l, r)) < len(grp):
+            continue                      # one face: a contents page's numbers
+        x = min(pr[1].bbox[0] for pr in grp)
+        fields = {id(pr[1]) for pr in grp}
+        at_x = [l for l in lines if abs(l.bbox[0] - x) <= LEFT_TAB_X_TOL]
+        if any(id(l) not in fields for l in at_x):
+            continue                      # a column starts here too
+        out.extend((l, r, round(x, 1)) for l, r in grp)
+    if not out or n_right + len(out) > _ROW_MAX_SHARE * len(rows):
+        return [], set()
+    consumed = set()
+    for l, r, _x in out:
+        consumed.add(id(l))
+        consumed.add(id(r))
+    return out, consumed
+
+
 def _row_para(left: Line, right: Line, col_l: float, col_r: float,
-              tab_edge: Optional[float] = None) -> Para:
+              tab_edge: Optional[float] = None,
+              left_tab: Optional[float] = None) -> Para:
     """One paragraph: left runs, a tab, right runs, one right stop at the edge."""
     p = para_from_lines([left], col_l, col_r)
     # Only the LAST run's trailing space is the gap before the tab. Stripping
@@ -8109,6 +8637,9 @@ def _row_para(left: Line, right: Line, col_l: float, col_r: float,
     # stop is there.
     stop = col_r if tab_edge is None else tab_edge
     p.tab_stops = [(round(stop - col_l, 1), "right")]
+    if left_tab is not None:
+        # WP59 (R3a): a field at a left tab starts where the source starts it
+        p.tab_stops = [(round(left_tab - col_l, 1), "left")]
     p.bbox = bbox_union(left.bbox, right.bbox)
     p.src_lines = 1
     p.src_widths = [round(right.bbox[2] - left.bbox[0], 1)]
@@ -9402,6 +9933,11 @@ def _to_flow(items, col_l, col_r, doc_rows=None, forced=None, tab_edge=None):
     if consumed:
         items = _drop_row_lines(items, consumed) + \
             [("row", bbox_union(l.bbox, r.bbox), (l, r)) for l, r in pairs]
+    if _wp59("left_tab_fields"):
+        lpairs, lconsumed = _left_tab_pairs(items, col_l, col_r, n_right=len(pairs))
+        if lconsumed:
+            items = _drop_row_lines(items, lconsumed) + \
+                [("row", bbox_union(l.bbox, r.bbox), (l, r, x)) for l, r, x in lpairs]
     # After every row construct has taken its lines: what is left on a shared
     # baseline is a broken line of prose, not cells.
     items = _absorb_fragments(items)
@@ -9425,7 +9961,8 @@ def _to_flow(items, col_l, col_r, doc_rows=None, forced=None, tab_edge=None):
         elif kind == "grid":
             out.append(_grid_para(o, col_l, col_r))
         elif kind == "row":
-            out.append(_row_para(o[0], o[1], col_l, col_r, tab_edge=tab_edge))
+            out.append(_row_para(o[0], o[1], col_l, col_r, tab_edge=tab_edge,
+                                 left_tab=o[2] if len(o) > 2 else None))
         elif kind == "blk":
             ls = list(o) if isinstance(o, list) else list(o.lines)
             ps = paras_from_line_list(ls, col_l, col_r, list_starts, forced=forced)
@@ -10126,6 +10663,13 @@ SBS_FIG_MIN_PT = 40.0
 # docxout._write_cell_blocks' 1pt carrier after a nested table, plus a point.
 NESTED_CARRIER_PT = 2.0
 SBS_MIN_SIDE_PT = 60.0      # a side narrower than this is a marker or a stub
+# ... except beside a drawn panel, whose edge is the author's own statement of
+# where the side ends (as a box edge is to `_split_lines_at_box_edges`): the
+# white between its fill and the column beside it need only be white. DHS
+# OIG's highlights sidebar is filled to x 191 and its column starts at 196 --
+# 5pt, under SBS_MIN_GUTTER, so the page never read side by side and the
+# sidebar stood above its column (WP60).
+PANEL_MIN_GUTTER = 2.0
 # How far a side may overhang the equal columns a section would give it and
 # still be set in one. A box's text, not its shading, has to fit -- y58's
 # panels bleed 9pt past the text margin on both sides -- and a line drawn
@@ -10307,6 +10851,10 @@ def _side_splits(items, x_lo: float, x_hi: float):
     the gutter's edges. The candidates are the items' own left edges: a
     column starts where its text does. Ranked by the items a band holds."""
     idx = [i for i, it in enumerate(items) if it[1] is not None]
+
+    def gut(i):
+        return PANEL_MIN_GUTTER if _wp60("panel_gutter") and \
+            _panel_item(items[i]) else SBS_MIN_GUTTER
     cand = sorted({round(items[i][1][0], 1) for i in idx
                    if x_lo + SBS_MIN_SIDE_PT <= items[i][1][0] <= x_hi - SBS_MIN_SIDE_PT})
     order = sorted(idx, key=lambda i: (items[i][1][1], items[i][1][0]))
@@ -10315,7 +10863,7 @@ def _side_splits(items, x_lo: float, x_hi: float):
         bands, cur = [], []
         for i in order:
             bb = items[i][1]
-            if bb[2] <= xs - SBS_MIN_GUTTER:
+            if bb[2] <= xs - gut(i):
                 cur.append((i, 0))
             elif bb[0] >= xs - 0.5:
                 cur.append((i, 1))
@@ -10334,7 +10882,10 @@ def _side_splits(items, x_lo: float, x_hi: float):
             if min(ly1, ry1) - max(ly0, ry0) < 0.5 * min(ly1 - ly0, ry1 - ry0):
                 continue
             gl, gr = max(b[2] for b in L), min(b[0] for b in R)
-            if gr - gl < SBS_MIN_GUTTER:
+            edge = [i for i, s in band
+                    if (s == 0 and items[i][1][2] >= gl - 0.5) or
+                    (s == 1 and items[i][1][0] <= gr + 0.5)]
+            if gr - gl < min((gut(i) for i in edge), default=SBS_MIN_GUTTER):
                 continue
             # The split must be clean over the band's whole HEIGHT, not just
             # in reading order: an item outside the band that crosses x while
@@ -10352,6 +10903,81 @@ def _side_splits(items, x_lo: float, x_hi: float):
             found.append(((len(band), y1 - y0), xs, band, gl, gr))
     found.sort(key=lambda f: f[0], reverse=True)
     return [f[1:] for f in found]
+
+
+def _drop_footer_echoes(blocks, consumed, elements, p: PageIR, parts,
+                        content_w: float) -> None:
+    """A line in the page's foot band, below every drawn panel, whose text
+    the document's own footer already prints, is that footer: consumed.
+
+    An OIG highlights page prints its footer without the folio every other
+    page carries ('DOE-OIG-26-22' where the rest say 'DOE-OIG-26-22 3'), so
+    the furniture pass, which signs lines by text, never matched it, and it
+    stayed in the flow. Under a sidebar page it then either joined the band
+    (`foot_not_band` in `_sbs_regions`) or, kept out of it, was written as a
+    paragraph after the band -- a line the page had no room for, and the
+    footer printed twice. Only below panels (the sidebar pages this is
+    about: a panel narrower than SIDEBAR_MAX_FRAC of the measure -- MMWR's
+    summary boxes, which fill a column, are not sidebars), only in BOTZ, and
+    only text the footer part already states."""
+    panels = [e.bbox[3] for e in elements if isinstance(e, TableEl) and
+              e.role == "box" and e.bbox and
+              e.bbox[2] - e.bbox[0] < SIDEBAR_MAX_FRAC * max(1.0, content_w) and any(
+                  c is not None and (c.shading or any(c.borders.values()))
+                  for row in e.rows for c in row)]
+    if not panels:
+        return
+
+    said = [_echo_tokens(el.text) for part in parts if part is not None
+            for el in part.elements if isinstance(el, Para)]
+    said = [t for t in said if t]
+    if not said:
+        return
+    foot = max([p.height - BOTZ] + panels)
+    lines = list(_all_lines(blocks))
+    for ln in lines:
+        if id(ln) in consumed or ln.bbox[1] < foot:
+            continue
+        # Only the page's lowest text row: a footer is the last thing on the
+        # page. A paragraph's short last line just above the footer ('Border
+        # Security.' over 'Audit of Border Security Operations 4') is whole
+        # words of the footer too, and it was consumed (WP60 final review).
+        if any(o.bbox[1] > ln.bbox[3] for o in lines if o is not ln):
+            continue
+        t = _echo_tokens(ln.text)
+        # whole words, in order, and enough of them to be the footer's: a
+        # foot line 'of' or 'Page' is a word the footer happens to contain
+        if len(t) < FOOTER_ECHO_MIN_TOKENS and \
+                len("".join(t)) < FOOTER_ECHO_MIN_CHARS:
+            continue
+        if any(_has_run(f, t) for f in said):
+            consumed.add(id(ln))
+
+
+# A foot line is the footer's echo only when it is this much of it: two whole
+# words, or one token of six characters ('DOE-OIG-26-22' is three tokens;
+# 'of', 'Page' and a bare folio are not enough) (WP60, review S5).
+FOOTER_ECHO_MIN_TOKENS = 2
+FOOTER_ECHO_MIN_CHARS = 6
+
+
+def _echo_tokens(text: str) -> List[str]:
+    return re.findall(r"[^\W_]+", text.lower())
+
+
+def _has_run(hay: List[str], needle: List[str]) -> bool:
+    """Is `needle` a contiguous run of whole tokens of `hay`?"""
+    n = len(needle)
+    return n > 0 and any(hay[i:i + n] == needle for i in range(len(hay) - n + 1))
+
+
+def _panel_item(it) -> bool:
+    """Is this region item a drawn panel -- a box with a fill or a border?"""
+    o = it[2] if len(it) > 2 else None
+    if it[0] != "el" or not isinstance(o, TableEl) or o.role != "box":
+        return False
+    return any(c is not None and (c.shading or any(c.borders.values()))
+               for row in o.rows for c in row)
 
 
 def _split_side(items):
@@ -10612,6 +11238,18 @@ def _layout_table(sides, top: float, bottom: float, content_l: float,
                 cells.append(Cell(borders={}, pad=(0.0, 0.0, 0.0, 0.0)))
                 widths.append(max(0.0, x0 - left))
                 left = x0
+            elif panels[k] is None and panels[k - 1] is not None and \
+                    _wp60("panel_gutter") and x0 > left:
+                # A column beside a panel starts at its own text, the white
+                # between the panel's fill and it a column of its own (as
+                # between two panels). Owning that gutter, the text cell began
+                # at the fill's edge, every paragraph of it 13pt in, and the
+                # writer pinned each source line with a break that, in a face
+                # a hair wider than the source, wrapped one word early (DOE
+                # OIG's highlights: 4 -> 5 pages).
+                cells.append(Cell(borders={}, pad=(0.0, 0.0, 0.0, 0.0)))
+                widths.append(max(0.0, x0 - left))
+                left = x0
             elif panels[k] is None:
                 x0 = left               # a text side owns the gutter before it
         right = x1 if (panels[k] is not None or k == len(sides) - 1) \
@@ -10660,7 +11298,27 @@ def _sbs_regions(items, page: PageIR, content_l: float, content_r: float):
     columns under it are two regions of one page (y46)."""
     if not items:
         return []
-    for xs, band, gl, gr in _side_splits(items, content_l, content_r):
+    probe = items
+    if _wp60("foot_not_band"):
+        # A line in the page's foot band (BOTZ) is the page's, not a side's:
+        # a page footer the furniture pass left in the flow (DHS OIG's
+        # highlights page prints its footer without the folio every other
+        # page carries, so its signature never repeats) has a piece under
+        # each side of a sidebar page, and joined to the band it put the
+        # site address on top of the sidebar's cell -- so the sidebar was no
+        # longer one panel, lost its shading, and its column grew by a line.
+        # It is presented to the split search as spanning the measure, so it
+        # ends the band; the region it then falls into is the flow below.
+        # Only a line that starts below every panel on the page: a column
+        # or a panel's own text may run down into the foot band (a syllabus
+        # whose sidebar and closing panel reach 775 on 792), and that text
+        # is a side's.
+        panels = [it[1][3] for it in items if it[1] is not None and _panel_item(it)]
+        foot = max([page.height - BOTZ] + panels)
+        probe = [(it[0], (content_l, it[1][1], content_r, it[1][3])) + tuple(it[2:])
+                 if panels and it[1] is not None and it[1][1] >= foot else it
+                 for it in items]
+    for xs, band, gl, gr in _side_splits(probe, content_l, content_r):
         left = [items[i] for i, s in band if s == 0]
         right = [items[i] for i, s in band if s == 1]
         why = _side_evidence(left, right, gl, gr, page, content_r - content_l)
@@ -10829,10 +11487,20 @@ def _lead_bottom(lines, content_l: float, content_r: float) -> Optional[float]:
 
 RIGHT_TAB_MIN_LINES = 3       # fewer right-hand lines are no evidence either way
 RIGHT_TAB_FLUSH_EM = 0.5      # a right tab ends every field within this (em)
+# WP59 (R2): a resume's paragraphs need not share ONE right tab -- the
+# entries' dates, a skills list and a later entry ended at 547-560pt on one
+# page (holdout-2 h2_01 p7) -- while its name and contact block, set flush
+# right at the margin, ended at 583. The fields' edge is the band of right
+# edges, this wide, that holds the most right-hand lines, not the widest line.
+RIGHT_TAB_EDGE_EM = 1.5
 RIGHT_TAB_FLUSH_SHARE = 0.8   # of the right-hand lines that must end there
 RIGHT_TAB_RAGGED_EM = 1.5     # ...while their starts spread at least this (em)
 RIGHT_TAB_PAIRED_SHARE = 2 / 3  # ...and this many stand beside a left-hand line
 RIGHT_TAB_MAX_RUN = 3         # a field is at most this many consecutive lines
+# WP59 (R2): a longer run is still fields when EVERY line of it stands beside
+# a left line at the margin that ends well short of it -- within this share
+# of the room between the margin and the right line's start.
+RIGHT_TAB_LIST_SHARE = 0.6
 RIGHT_TAB_RUN_PITCH_EM = 1.8  # baselines this close (em) are consecutive lines
 
 
@@ -10865,8 +11533,15 @@ def _right_tab_fields(lines, content_l: float, content_r: float) -> Optional[flo
         return None
     sizes = sorted(_line_size(l) for l in right)
     em = sizes[len(sizes) // 2] or 10.0
-    edge = max(l.bbox[2] for l in right)
-    flush = [l for l in right if edge - l.bbox[2] <= RIGHT_TAB_FLUSH_EM * em]
+    if _wp59("two_sided_lists"):
+        band = RIGHT_TAB_EDGE_EM * em
+        ends = sorted(l.bbox[2] for l in right)
+        lo = max(ends, key=lambda e: sum(1 for x in ends if e <= x <= e + band))
+        flush = [l for l in right if lo <= l.bbox[2] <= lo + band]
+        edge = max(l.bbox[2] for l in flush)
+    else:
+        edge = max(l.bbox[2] for l in right)
+        flush = [l for l in right if edge - l.bbox[2] <= RIGHT_TAB_FLUSH_EM * em]
     if len(flush) < max(RIGHT_TAB_MIN_LINES, RIGHT_TAB_FLUSH_SHARE * len(right)):
         return None
     starts = [l.bbox[0] for l in flush]
@@ -10877,19 +11552,47 @@ def _right_tab_fields(lines, content_l: float, content_r: float) -> Optional[flo
     # A field is a line or two (a place, a date range); a right-aligned
     # sidebar or pull quote runs on for many. Lines a line pitch apart are
     # one run.
-    run, prev = 0, None
+    runs, prev = [], None
     for l in sorted(flush, key=lambda l: l.baseline):
-        run = run + 1 if prev is not None and \
-            l.baseline - prev <= RIGHT_TAB_RUN_PITCH_EM * em else 1
-        if run > RIGHT_TAB_MAX_RUN:
-            return None
+        if prev is not None and l.baseline - prev <= RIGHT_TAB_RUN_PITCH_EM * em:
+            runs[-1].append(l)
+        else:
+            runs.append([l])
         prev = l.baseline
+    for run in runs:
+        if len(run) > RIGHT_TAB_MAX_RUN and not (
+                _wp59("two_sided_lists") and _two_sided_run(run, lines, content_l)):
+            return None
     beside = sum(1 for l in flush if any(
         m is not l and m.horizontal and m.bbox[2] <= l.bbox[0] - _ROW_MIN_GAP and
         abs(m.baseline - l.baseline) <= _ROW_BASELINE_TOL for m in lines))
     if beside < RIGHT_TAB_PAIRED_SHARE * len(flush):
         return None
     return edge
+
+
+def _two_sided_run(run, lines, content_l: float) -> bool:
+    """Is a run of right-aligned lines one side of a two-sided list?
+
+    WP59 (R2). A resume sets a skills list flush right beside a coursework
+    list at the margin: four or more right-aligned lines in a row, which
+    WP49's sidebar guard refused, and the page's dates went behind a column
+    break again (holdout-2 h2_01 p7, 8 -> 9 pages). The two cases differ in
+    what stands beside the run: a list's partner is a short item at the
+    margin with the page's white between it and the field; a pull quote's
+    partner is prose that runs up to it. So every line of the run must have a
+    partner at the margin, on its baseline, ending within RIGHT_TAB_LIST_SHARE
+    of the room before the right line starts."""
+    for l in run:
+        room = l.bbox[0] - content_l
+        if room <= 0 or not any(
+                m is not l and m.horizontal and m.text.strip() and
+                abs(m.baseline - l.baseline) <= _ROW_BASELINE_TOL and
+                m.bbox[0] <= content_l + _ROW_LEFT_TOL and
+                m.bbox[2] - content_l <= RIGHT_TAB_LIST_SHARE * room
+                for m in lines):
+            return False
+    return True
 
 
 def _split_crossed(lines, col_split: float, content_l: float,
