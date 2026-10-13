@@ -5,6 +5,11 @@ exam), each its own switch in `infer.WP71_RULES`, standard profile only.
      fields that all say the same thing cannot start ragged; a banner centred
      across the page's middle and a list set two-up are neither fields nor
      column lines; one long field set beside the page's white is a field.
+  3. A grid of pictures over short captions (`infer._picture_grid`): a
+     letter's signature pages, one layout row per row of signers.
+  4. A small label in the margin heads the line it stands beside
+     (`infer._margin_labels`); a full line indented on the left is not
+     right-aligned unless a paragraph beside it is (`_settle_wide_right`).
 
     python -m unittest tests.test_wp71_readings
 """
@@ -183,6 +188,73 @@ class PictureGrid(unittest.TestCase):
         self.assertEqual(q.text, "Signer 0a" + chr(10) + "Member of Congress")
         self.assertTrue(q.line_breaks)
         self.assertEqual((q.align, q.right_indent), ("left", 0.0))
+
+
+# ------------------------------------------- 4. small labels, wide lines
+def _sized(text, x0, x1, base, size):
+    s = Span(text=text, font="Arial", size=size, color="#000000", bold=False,
+             italic=False, mono=False, serif=False, superscript=False,
+             bbox=(x0, base - 0.8 * size, x0 + (x1 - x0), base + 0.25 * size),
+             origin=(x0, base))
+    return Line(spans=[s], bbox=s.bbox)
+
+
+def _memo_head(label_base_shift=2.2, label_size=6.0):
+    blocks = []
+    for k, (lab, val) in enumerate((("DATE", "September 9, 2025"), ("TO", "Mark Swann"),
+                                    ("SUBJECT", "Prioritized Suggestions"))):
+        base = 155.0 + 24.0 * k
+        blocks.append(I._mk_block([_sized(val, 72.9, 175.0, base, 12.0)]))
+        blocks.append(I._mk_block([_sized(lab, 67.1 - 4.0 * len(lab), 67.1,
+                                          base - label_base_shift, label_size)]))
+    return blocks
+
+
+class MarginLabels(unittest.TestCase):
+    def test_a_small_label_heads_its_line(self):
+        out = I._merge_list_markers(_memo_head())
+        texts = [l.text for b in out for l in b.lines]
+        self.assertEqual(len(texts), 3)
+        self.assertTrue(texts[0].startswith("DATE") and "September" in texts[0])
+        ln = out[0].lines[0]
+        self.assertEqual(I._marker_split_idx(ln.spans), 0)
+
+    def test_switched_off_they_stay_apart(self):
+        self.addCleanup(_off("margin_labels"))
+        self.assertEqual(len([l for b in I._merge_list_markers(_memo_head()) for l in b.lines]), 6)
+
+    def test_a_label_a_line_off_its_row_is_not(self):
+        # 6pt lines stacked: the baselines differ by more than 0.45 of a pitch
+        out = I._merge_list_markers(_memo_head(label_base_shift=6.0))
+        self.assertEqual(len([l for b in out for l in b.lines]), 6)
+
+    def test_text_the_same_size_is_not_a_label(self):
+        out = I._merge_list_markers(_memo_head(label_size=12.0))
+        self.assertEqual(len([l for b in out for l in b.lines]), 6)
+
+
+class WideLinesAreNotRightAligned(unittest.TestCase):
+    def _para(self, x0, x1):
+        return I.para_from_lines([_sized("Fire Department Staffing Models: Evaluate whether",
+                                         x0, x1, 326.0, 12.0)], 72.0, 540.0)
+
+    def test_a_full_line_indented_on_the_left_is_left(self):
+        p = self._para(108.0, 540.0)
+        self.assertEqual(p.align, "right")      # settled with its neighbours
+        I._settle_wide_right([p])
+        self.assertEqual(p.align, "left")
+
+    def test_beside_a_flush_right_paragraph_it_stays_right(self):
+        p = self._para(108.0, 540.0)
+        q = self._para(400.0, 540.0)
+        self.assertEqual(q.align, "right")
+        I._settle_wide_right([q, p])
+        self.assertEqual(p.align, "right")
+
+    def test_a_short_flush_right_line_is_right(self):
+        p = self._para(400.0, 540.0)
+        I._settle_wide_right([p])
+        self.assertEqual(p.align, "right")
 
 
 if __name__ == "__main__":

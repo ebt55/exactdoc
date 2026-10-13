@@ -992,6 +992,10 @@ def _marker_split_idx(spans) -> Optional[int]:
     own trailing space (WeasyPrint markers sit flush against the text box).
     """
     for j in range(min(3, len(spans) - 1)):
+        if getattr(spans[j], "_margin_label", False) and \
+                not getattr(spans[j + 1], "_margin_label", False) and \
+                all(getattr(x, "_margin_label", False) for x in spans[:j + 1]):
+            return j             # WP71: a margin label (`_margin_labels`)
         prefix = "".join(s.text for s in spans[:j + 1])
         sep = (spans[j + 1].bbox[0] - spans[j].bbox[2] >= 2.0) or \
             prefix.endswith(" ")
@@ -1663,6 +1667,11 @@ def para_from_lines(lines: List[Line], col_l: float, col_r: float,
         elif col_r - x1 < 2.5 and x0 - col_l > 10 and \
                 not getattr(lines[0], "_main_col", False):
             p.align = "right"
+            if _wp71("wide_not_right") and \
+                    x1 - x0 > WIDE_NOT_RIGHT_FRAC * (col_r - col_l):
+                # WP71: settled by `_merge_flow_paras`, which sees the
+                # paragraphs around it (`_settle_wide_right`)
+                p._wide_right = True
     minx = min(xs0)
     p.left_indent = max(0.0, round(minx - col_l, 1))
     if p.align in ("left", "justify"):
@@ -6435,6 +6444,8 @@ WP71_RULES = {
     "tab_fields_two_up": True,     # _right_tab_fields: a two-up list is no field
     "tab_fields_wide_field": True,  # _right_tab_fields: one long field beside white
     "picture_grid": True,          # _picture_grid_chunks: pictures over captions, a grid
+    "margin_labels": True,         # _merge_list_markers: a small label beside its line
+    "wide_not_right": True,        # para_from_lines: a full line is not right-aligned
 }
 
 
@@ -10382,7 +10393,30 @@ def _runs_in(a: Para, b: Para) -> bool:
         abs(b.bbox[0] - a.bbox[0]) <= 2.5
 
 
+# WP71: a one-line paragraph flush with the column's right edge and wider than
+# this share of the column is a full line indented on the left -- a list
+# item's first line its block builder cut from the rest (h3 memo bullets) --
+# not text set flush right, unless a paragraph beside it is flush right too
+# (an address block).
+WIDE_NOT_RIGHT_FRAC = 0.8
+
+
+def _settle_wide_right(seq) -> None:
+    paras = [el for el in seq if isinstance(el, Para)]
+    for k, el in enumerate(paras):
+        if not getattr(el, "_wide_right", False) or el.align != "right":
+            continue
+        near = paras[max(0, k - 1):k] + paras[k + 1:k + 2]
+        if any(q.align == "right" and not getattr(q, "_wide_right", False)
+               for q in near):
+            continue
+        el.align = "left"
+        el._wide_right = False
+
+
 def _merge_flow_paras(seq, col_r, col_l=None):
+    if _wp71("wide_not_right"):
+        _settle_wide_right(seq)
     out = []
     for el in seq:
         if out and isinstance(el, Para) and isinstance(out[-1], Para) \
@@ -10583,6 +10617,10 @@ def _merge_list_markers(flow_blocks):
             # number opened the block of the item's LAST lines ("2.
             # criteria:", two lines) and the first line stood alone above it.
             marker_lines.append((b.lines[0], b))
+    labels = {}
+    if _wp71("margin_labels"):
+        labels = _margin_labels(flow_blocks, {id(l) for l, _ in marker_lines})
+        marker_lines += [(l, b) for l, b, _host in labels.values()]
     marker_lines = _drop_leader_values(marker_lines, flow_blocks)
     marker_ids = {id(l) for l, _ in marker_lines}
     consumed = set()
@@ -10590,7 +10628,14 @@ def _merge_list_markers(flow_blocks):
         best = None  # (gap, line, block)
         raised = False
         msz = _line_size(ln)
-        for c in flow_blocks:
+        if id(ln) in labels:
+            host = labels[id(ln)][2]
+            hb = [c for c in flow_blocks if any(fl is host for fl in c.lines)]
+            if hb:
+                best = (host.bbox[0] - ln.bbox[2], host, hb[0])
+            for sp in ln.spans:
+                sp._margin_label = True
+        for c in ([] if id(ln) in labels else flow_blocks):
             for fl in c.lines:
                 if id(fl) in marker_ids or id(fl) in consumed or not fl.spans:
                     continue
@@ -10669,6 +10714,66 @@ def _merge_list_markers(flow_blocks):
         for l in keep:
             bb = bbox_union(bb, l.bbox)
         out.append(TextBlock(lines=keep, bbox=bb))
+    return out
+
+
+# WP71: a margin label -- "DATE", "TO", "SUBJECT" set small in the margin
+# of a memo's head, each beside its line -- is read as that line's hanging
+# label. Its row partner sits on its baseline as far as type of two sizes
+# can: the baselines differ by at most this share of the smaller line's
+# pitch, and the label's box lies at least this much inside the line's.
+LABEL_BASELINE_PITCH = 0.45
+LABEL_BOX_OVERLAP = 0.5
+LABEL_MAX_CHARS = 12          # a word or two
+LABEL_MAX_GAP_EM = 3.0        # of the host line's size, label to line
+LABEL_SIZE_SHARE = 0.85       # a label is set smaller than its line
+
+
+def _margin_labels(flow_blocks, taken) -> dict:
+    """{id(label line): (label line, its block, host line)}.
+
+    A block of one short line set smaller than the line it stands beside,
+    ending just left of where that line starts, on that line's row: the
+    baselines within LABEL_BASELINE_PITCH of the smaller line's pitch and the
+    label's box at least LABEL_BOX_OVERLAP inside the line's. Two 6pt lines
+    stacked a line apart are no row: each pitch is the other's distance."""
+    out = {}
+    lines = [(l, b) for b in flow_blocks for l in b.lines
+             if l.horizontal and l.spans and l.text.strip()]
+    for b in flow_blocks:
+        if len(b.lines) != 1:
+            continue
+        lab = b.lines[0]
+        t = lab.text.strip()
+        if id(lab) in taken or not t or len(t) > LABEL_MAX_CHARS or \
+                len(t.split()) > 2 or not lab.horizontal or not lab.spans:
+            continue
+        lsz = _line_size(lab)
+        best = None
+        for host, hb in lines:
+            if host is lab or hb is b:
+                continue
+            hsz = _line_size(host)
+            if lsz > LABEL_SIZE_SHARE * hsz:
+                continue
+            gap = host.bbox[0] - lab.bbox[2]
+            if not (0.0 <= gap <= LABEL_MAX_GAP_EM * hsz):
+                continue
+            pitch = 1.2 * min(lsz, hsz)
+            if abs(host.baseline - lab.baseline) > LABEL_BASELINE_PITCH * pitch:
+                continue
+            ov = min(lab.bbox[3], host.bbox[3]) - max(lab.bbox[1], host.bbox[1])
+            short = min(lab.bbox[3] - lab.bbox[1], host.bbox[3] - host.bbox[1])
+            if short <= 0 or ov < LABEL_BOX_OVERLAP * short:
+                continue
+            # the host opens its block: a label heads a line, never the
+            # middle of a paragraph
+            if hb.lines[0] is not host:
+                continue
+            if best is None or gap < best[0]:
+                best = (gap, host)
+        if best is not None:
+            out[id(lab)] = (lab, b, best[1])
     return out
 
 
