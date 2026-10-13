@@ -525,6 +525,7 @@ class Holdout3(unittest.TestCase):
         self.assertEqual(row["EXAM_SUFFIX"], ".holdout3")
         self.assertEqual(row["EXAM_PREFIX"], "holdout3-")
         self.assertEqual(row["EXAM_TAG"], "h3")
+        self.assertEqual(row["EXAM_PROMISE_FIELD"], "promised_narrowed")
         self.assertFalse([k for k, v in row.items() if "holdout2" in v or "rv_hold2" in v])
         self.assertFalse(os.path.exists(nowhere))
         ex = X.exam("holdout3")
@@ -824,6 +825,32 @@ class DrySet(unittest.TestCase):
                          [(3, True), (22, True)])
         for name, s in docs.items():
             self.assertEqual(X.sha256(os.path.join(d, "pdfs", name)), s["sha256"])
+
+    def test_the_synthetic_manifest_carries_the_exams_promise_field(self):
+        # The holdout-4 dry run of 2026-10-13 refused at step (a): the synthetic
+        # manifest named its promise promised_b_narrowed, the holdout4 row reads
+        # promised_narrowed. The set is now built with the exam's own field.
+        try:
+            import reportlab  # noqa: F401
+            import fitz  # noqa: F401
+        except ImportError:
+            self.skipTest("reportlab/fitz not installed")
+        spec = importlib.util.spec_from_file_location(
+            "holdout_dryset", os.path.join(ROOT, "scripts", "dev", "holdout_dryset.py"))
+        D = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(D)
+        d = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, d)
+        digest = D.build(d, "holdout4.json", "promised_narrowed")
+        _, docs = X.load_manifest(os.path.join(d, "holdout4.json"), digest,
+                                  ("promised_narrowed",))
+        self.assertEqual({s["_promise_field"] for s in docs.values()}, {"promised_narrowed"})
+        self.assertEqual(sum(s["_promised"] for s in docs.values()), 2)
+
+    def test_the_runner_builds_the_dry_set_with_the_exams_field(self):
+        with open(os.path.join(ROOT, "scripts", "dev", "holdout_exam.sh"), encoding="utf-8") as fh:
+            sh = fh.read()
+        self.assertIn('--promise-field "$EXAM_PROMISE_FIELD"', sh)
 
 
 if __name__ == "__main__":

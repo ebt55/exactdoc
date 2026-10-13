@@ -981,7 +981,8 @@ def _cmd_resolve(a):
             "EXAM_DOCS": ex["documents"], "EXAM_HOLD": hold,
             "EXAM_MANIFEST": manifest, "EXAM_MANIFEST_NAME": os.path.basename(manifest),
             "EXAM_LEDGER": ex["ledger"], "EXAM_SUFFIX": ex["state_suffix"],
-            "EXAM_PREFIX": ex["prefix"], "EXAM_TAG": ex["tag"]}
+            "EXAM_PREFIX": ex["prefix"], "EXAM_TAG": ex["tag"],
+            "EXAM_PROMISE_FIELD": ex["promise_fields"][0]}
     for k, v in vals.items():
         print("%s=%s" % (k, quote(str(v))))
     return 0
