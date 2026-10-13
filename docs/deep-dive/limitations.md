@@ -94,6 +94,14 @@ shows what it prints.
   rules re-wrap justified paragraphs away from the PDF's own line breaks.
 - **The LibreOffice layout check is slow on long documents**; see
   [install.md](../install.md#how-long-it-takes).
+- **A web address copied out of the DOCX may carry invisible characters.**
+  Since 0.3.0b3, a URL the PDF broke across two lines is joined into one, with
+  an invisible zero-width space (U+200B) after each `/ ? & =` in it, so a long
+  address can still wrap at the margin. Only the visible text carries them; a
+  link the PDF had keeps its own target. Text copied from the visible address
+  can include them, and a browser or terminal may then reject it: copy the
+  link instead (right-click, Copy link), or delete the zero-width spaces
+  after pasting.
 - **Reporting a bad conversion:** `exactdoc --diagnose your.pdf` prints a
   summary with none of the document's text, which you can paste into a
   [report](https://github.com/ebt55/exactdoc/issues/new?template=bad-conversion.yml)
