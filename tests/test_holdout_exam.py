@@ -180,7 +180,7 @@ class Validity(unittest.TestCase):
             fh.write(json.dumps(wd("a.pdf", 3, 3)) + "\n")
         args = ["verdict", "--manifest", mp, "--manifest-sha256", X.sha256(mp), "--product", pp,
                 "--word", wp, "--commit", COMMIT, "--json", os.path.join(d, "o.json"),
-                "--text", os.path.join(d, "o.txt")]
+                "--text", os.path.join(d, "o.txt"), "--exam", "holdout2"]
         out = sys.stdout
         sys.stdout = open(os.devnull, "w")
         try:
@@ -573,7 +573,7 @@ class Holdout3(unittest.TestCase):
         return path
 
     def test_a_wrong_sha_refuses(self):
-        path = self._manifest({"a": {"file": "a.pdf", "pages": 3, "promised": True}})
+        path = self._manifest({"a": {"file": "a.pdf", "pages": 3, "promised_narrowed": True}})
         with self.assertRaises(X.ExamInvalid):
             X.load_manifest(path, X.exam("holdout3")["sha256"], X.exam("holdout3")["promise_fields"])
         self.assertEqual(self._quiet(["verify-manifest", path, "--exam", "holdout3"]), 3)
@@ -581,44 +581,62 @@ class Holdout3(unittest.TestCase):
                                       "--sha256", X.sha256(path)]), 0)
 
     def test_the_document_count_is_the_registrations(self):
-        path = self._manifest({"a": {"file": "a.pdf", "pages": 3, "promised": True}})
+        path = self._manifest({"a": {"file": "a.pdf", "pages": 3, "promised_narrowed": True}})
         with self.assertRaises(X.ExamInvalid):
-            X.load_manifest(path, X.sha256(path), ("promised",), documents=HOLDOUT3_DOCUMENTS)
+            X.load_manifest(path, X.sha256(path), ("promised_narrowed",),
+                            documents=HOLDOUT3_DOCUMENTS)
 
     def test_holdout3_reads_its_own_promise_and_r2_counts_it(self):
         fields = X.exam("holdout3")["promise_fields"]
-        docs = {"r%d" % i: {"file": "r%d.pdf" % i, "pages": 2, "promised": True,
+        self.assertEqual(fields, ("promised_narrowed",))
+        docs = {"r%d" % i: {"file": "r%d.pdf" % i, "pages": 2, "promised_narrowed": True,
                             "design_class": "resume"} for i in range(4)}
-        docs["w"] = {"file": "w.pdf", "pages": 5, "promised": True, "design_class": "web-print"}
-        docs["s"] = {"file": "s.pdf", "pages": 9, "promised": False, "design_class": "slides"}
+        docs["w"] = {"file": "w.pdf", "pages": 5, "promised_narrowed": True,
+                     "design_class": "web-print"}
+        docs["s"] = {"file": "s.pdf", "pages": 9, "promised_narrowed": False,
+                     "design_class": "slides"}
         path = self._manifest(docs)
         _, m = X.load_manifest(path, X.sha256(path), fields)
-        self.assertEqual({d["_promise_field"] for d in m.values()}, {"promised"})
+        self.assertEqual({d["_promise_field"] for d in m.values()}, {"promised_narrowed"})
         prows = [lo(n, s["pages"], s["pages"]) for n, s in m.items()]
         wrows = [wd(n, s["pages"], s["pages"]) for n, s in m.items()]
         res = ev(m, prows, wrows, exam_name="holdout3")
         self.assertEqual(res["R2"]["n"], 5)                  # the Chrome print counts
-        self.assertEqual(res["promise_field"], "promised")
+        self.assertEqual(res["promise_field"], "promised_narrowed")
         self.assertIn("holdout3 exam", X.render_text(res))
-        # with both fields, the narrowed one is read; a field some lack is refused
+        # holdout-2's field is not holdout-3's; a field some documents lack is refused
         for d in docs.values():
-            d["promised_b_narrowed"] = d["design_class"] != "web-print" and d["promised"]
+            d["promised_b_narrowed"] = d.pop("promised_narrowed")
         path = self._manifest(docs)
-        _, m = X.load_manifest(path, X.sha256(path), fields)
-        self.assertEqual(sum(d["_promised"] for d in m.values()), 4)
-        del docs["s"]["promised_b_narrowed"]
+        with self.assertRaises(X.ExamInvalid):
+            X.load_manifest(path, X.sha256(path), fields)
+        for d in docs.values():
+            d["promised_narrowed"] = d["promised_b_narrowed"]
+        del docs["s"]["promised_narrowed"]
         path = self._manifest(docs)
         with self.assertRaises(X.ExamInvalid):
             X.load_manifest(path, X.sha256(path), fields)
 
     def test_expect_promised(self):
-        docs = {"a": {"file": "a.pdf", "pages": 3, "promised": True},
-                "b": {"file": "b.pdf", "pages": 3, "promised": False}}
+        docs = {"a": {"file": "a.pdf", "pages": 3, "promised_narrowed": True},
+                "b": {"file": "b.pdf", "pages": 3, "promised_narrowed": False}}
         path = self._manifest(docs)
         sha = X.sha256(path)
         base = ["verify-manifest", path, "--exam", "holdout3", "--sha256", sha]
         self.assertEqual(self._quiet(base + ["--expect-promised", "1"]), 0)
         self.assertEqual(self._quiet(base + ["--expect-promised", "35"]), 3)
+
+    def test_a_missing_promise_field_names_what_is_there(self):
+        docs = {"a": {"file": "a.pdf", "pages": 3, "in_scope": True, "scan": False},
+                "b": {"file": "b.pdf", "pages": 3, "in_scope": False, "scan": False,
+                      "extra": True}}
+        path = self._manifest(docs)
+        with self.assertRaises(X.ExamInvalid) as cm:
+            X.load_manifest(path, X.sha256(path), X.exam("holdout3")["promise_fields"])
+        msg = str(cm.exception)
+        self.assertIn("boolean fields on every document: in_scope (1 true), scan (0 true)", msg)
+        self.assertIn("every document's fields: file, in_scope, pages, scan", msg)
+        self.assertNotIn("a.pdf", msg)                    # names and counts, no document
 
     def test_locate_by_name_then_by_hash(self):
         setd = os.path.join(self.d, "set")
