@@ -756,8 +756,12 @@ _URL_SEP = re.compile(r"[/?&=]")
 
 # WP71: what a joined URL may break at in the output. None: nowhere but where
 # the renderer must; "zwsp": a zero-width space after each / ? & = inside it;
-# "lock": a line break where the source broke it.
-URL_OVERFLOW = None
+# "lock": a line break where the source broke it. Measured on holdout-3 in
+# the canonical container (product lane): the Chrome-printed greensheet,
+# 15 pages for 12 before WP71, is 14 with None, 13 with "zwsp" (word recall
+# 0.53 -> 0.96) and 15 with "lock", which also put a blank resume template
+# back a page late (11 -> 12). A copied URL keeps its zero-width spaces.
+URL_OVERFLOW = "zwsp"
 _ZWSP = chr(0x200B)
 _URL_SEP_BREAK = re.compile(r"(?<=[/?&=])(?=[^\s\u200b])")
 

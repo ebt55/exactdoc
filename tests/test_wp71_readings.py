@@ -289,6 +289,18 @@ class UrlJoin(unittest.TestCase):
         self.assertEqual(_join("see https://example.org/courses/", "1595954/files"),
                          "see https://example.org/courses/ ")
 
+    def test_a_joined_url_breaks_after_its_separators(self):
+        from exactdoc.layout import Para, Run
+        r = Run(text="see https://example.org/courses/1595954/files?x=1", font="Arial",
+                size=10.0, color="#000000")
+        r._url_join = True
+        q = Para(runs=[r])
+        I._url_overflow(q)
+        z = chr(0x200B)
+        self.assertEqual(q.runs[0].text, "see https:/" + z + "/" + z + "example.org/" + z +
+                         "courses/" + z + "1595954/" + z + "files?" + z + "x=" + z + "1")
+        self.assertEqual(I.URL_OVERFLOW, "zwsp")
+
     def test_halves_the_document_uses_as_words_keep_their_space(self):
         from exactdoc import hyphen
         ev = hyphen.HyphenEvidence([["see the files and the courses here"]])
