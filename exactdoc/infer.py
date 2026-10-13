@@ -6426,6 +6426,21 @@ def _wp68(rule: str) -> bool:
     return _TAB_LAYOUTS.get() and WP68_RULES.get(rule, False)
 
 
+# WP71's readings (holdout-3's short documents, development data since its
+# exam). Standard profile only, exactly as WP49's: keyed on _TAB_LAYOUTS, so
+# the Google Docs profile is byte-identical; each has its own switch.
+WP71_RULES = {
+    "tab_fields_same_text": True,  # _right_tab_fields: identical fields need no rag
+    "tab_fields_not_banner": True,  # _right_tab_fields: a centred banner is no field
+    "tab_fields_two_up": True,     # _right_tab_fields: a two-up list is no field
+    "tab_fields_wide_field": True,  # _right_tab_fields: one long field beside white
+}
+
+
+def _wp71(rule: str) -> bool:
+    return _TAB_LAYOUTS.get() and WP71_RULES.get(rule, False)
+
+
 def _clipped_strokes(ir: DocIR) -> None:
     """Each page's strokes at the box their clip shows, and a stroke wholly
     outside its clip dropped (parse_pdfium._clip_path_bbox)."""
@@ -11710,6 +11725,66 @@ RIGHT_TAB_MAX_RUN = 3         # a field is at most this many consecutive lines
 # of the room between the margin and the right line's start.
 RIGHT_TAB_LIST_SHARE = 0.6
 RIGHT_TAB_RUN_PITCH_EM = 1.8  # baselines this close (em) are consecutive lines
+# WP71: a right-hand line centred on the page's middle within this (em) is a
+# banner, not a field (`_right_tab_fields`); and fields whose texts number at
+# most this many distinct strings need not start ragged.
+RIGHT_TAB_CENTRE_EM = 1.5
+RIGHT_TAB_SAME_TEXTS = 2
+# WP71: a two-up list's cells are within this share of each other's width.
+TWO_UP_WIDTH_SHARE = 0.25
+
+
+def _two_up_item(l, lines, content_l: float, w: float) -> bool:
+    """Is `l` the right-hand item of a list set two-up?
+
+    WP71. A template sets a coursework list two items to a row: `- Class` at
+    the list indent and `- Class` again half a page across, on one baseline.
+    The right-hand items are neither fields at a right tab nor lines of a
+    column, and counted as right-hand lines they kept the fields beside them
+    from reading as fields. Its partner on the baseline starts at the margin
+    side with the same first glyph and is of a like width, and both are
+    narrow."""
+    t = l.text.strip()
+    if not t or l.bbox[2] - l.bbox[0] > _ROW_MAX_RIGHT * w:
+        return False
+    lw = l.bbox[2] - l.bbox[0]
+    for m in lines:
+        if m is l or not m.horizontal or abs(m.baseline - l.baseline) > _ROW_BASELINE_TOL:
+            continue
+        mt = m.text.strip()
+        if not mt or mt[0] != t[0] or t[0].isalnum():
+            continue
+        if m.bbox[2] > l.bbox[0] - _ROW_MIN_GAP or m.bbox[0] >= content_l + 0.35 * w:
+            continue
+        # the partner item: its marker and the text the parser may have read
+        # as a line of its own beside it, up to the gap before `l`
+        x1 = max(n.bbox[2] for n in lines if n.horizontal and
+                 abs(n.baseline - l.baseline) <= _ROW_BASELINE_TOL and
+                 n.bbox[0] >= m.bbox[0] and n.bbox[2] <= l.bbox[0] - _ROW_MIN_GAP)
+        mw = x1 - m.bbox[0]
+        if abs(mw - lw) <= TWO_UP_WIDTH_SHARE * max(mw, lw):
+            return True
+    return False
+
+
+# WP71: at most this share of a page's fields may be wider than _ROW_MAX_RIGHT,
+# each alone on its baseline's band and beside a margin line that ends at
+# least RIGHT_TAB_WIDE_GAP_EM before it starts.
+RIGHT_TAB_WIDE_SHARE = 1 / 3
+RIGHT_TAB_WIDE_GAP_EM = 4.0
+
+
+def _wide_field(l, lines, em: float) -> bool:
+    """Is the wide right-hand line `l` a field set beside a line with white
+    between them (`_right_tab_fields`, WP71)?"""
+    near = [m for m in lines if m is not l and m.horizontal and m.text.strip()
+            and abs(m.baseline - l.baseline) <= RIGHT_TAB_RUN_PITCH_EM * em
+            and m.bbox[2] > l.bbox[0] - _ROW_MIN_GAP]
+    if near:
+        return False        # another line runs up to it or stacks on it
+    return any(m is not l and m.horizontal and m.text.strip() and
+               abs(m.baseline - l.baseline) <= _ROW_BASELINE_TOL and
+               m.bbox[2] <= l.bbox[0] - RIGHT_TAB_WIDE_GAP_EM * em for m in lines)
 
 
 def _right_tab_fields(lines, content_l: float, content_r: float) -> Optional[float]:
@@ -11737,6 +11812,18 @@ def _right_tab_fields(lines, content_l: float, content_r: float) -> Optional[flo
         return None
     right = [l for l in lines if l.horizontal and l.text.strip() and
              l.bbox[0] >= content_l + 0.35 * w]
+    if right and _wp71("tab_fields_not_banner"):
+        # WP71: a line set centred on the page -- a name, a section heading in
+        # a template whose headings are centred -- crosses the page's middle
+        # and belongs to neither side; it is no field and no column line.
+        mid = content_l + 0.5 * w
+        sizes = sorted(_line_size(l) for l in right)
+        em0 = sizes[len(sizes) // 2] or 10.0
+        right = [l for l in right if not (
+            l.bbox[0] < mid <= l.bbox[2] and
+            abs((l.bbox[0] + l.bbox[2]) / 2.0 - mid) <= RIGHT_TAB_CENTRE_EM * em0)]
+    if right and _wp71("tab_fields_two_up"):
+        right = [l for l in right if not _two_up_item(l, lines, content_l, w)]
     if len(right) < RIGHT_TAB_MIN_LINES:
         return None
     sizes = sorted(_line_size(l) for l in right)
@@ -11753,9 +11840,20 @@ def _right_tab_fields(lines, content_l: float, content_r: float) -> Optional[flo
     if len(flush) < max(RIGHT_TAB_MIN_LINES, RIGHT_TAB_FLUSH_SHARE * len(right)):
         return None
     starts = [l.bbox[0] for l in flush]
-    if max(starts) - min(starts) < RIGHT_TAB_RAGGED_EM * em:
+    if max(starts) - min(starts) < RIGHT_TAB_RAGGED_EM * em and not (
+            _wp71("tab_fields_same_text") and
+            len({l.text.strip() for l in flush}) <= RIGHT_TAB_SAME_TEXTS):
+        # WP71: the starts of fields that all say the same thing ("City, ST"
+        # down a blank template) cannot spread, and a column's lines -- even a
+        # two-column skills list's -- do not all say the same thing.
         return None
-    if any(l.bbox[2] - l.bbox[0] > _ROW_MAX_RIGHT * w for l in flush):
+    wide = [l for l in flush if l.bbox[2] - l.bbox[0] > _ROW_MAX_RIGHT * w]
+    if wide and not (_wp71("tab_fields_wide_field") and
+                     len(wide) <= RIGHT_TAB_WIDE_SHARE * len(flush) and
+                     all(_wide_field(l, lines, em) for l in wide)):
+        # WP71: one long field ("Expected Graduation: Month Year") among short
+        # ones is still a field when the page's white stands between it and
+        # the line it is set beside; a column's line abuts its gutter.
         return None
     # A field is a line or two (a place, a date range); a right-aligned
     # sidebar or pull quote runs on for many. Lines a line pitch apart are
