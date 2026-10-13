@@ -5146,6 +5146,67 @@ def _sidebar_cut(cut, rects, consumed, content_w: float) -> bool:
     return True
 
 
+def _cut_box(cut, rects, consumed):
+    """The panel the inside piece of a cut belongs to, or None."""
+    inside = [p for p in cut[2] if id(p) in consumed]
+    return next((r for r in rects
+                 if any(bbox_overlap(p.bbox, r) > 0.55 * max(1e-6, bbox_area(p.bbox))
+                        for p in inside)), None)
+
+
+def _sidebar_boxes(cuts, rects, blocks, consumed, content_w: float) -> set:
+    """The panels among `rects` that are sidebars, judged per PANEL (WP60).
+
+    `_sidebar_cut` judged each cut on its own piece, so one panel could keep
+    some of its cuts and have the others welded back by `_restore_uncut`,
+    and the welded line then read across the sidebar and the column beside
+    it -- a DHS OIG highlights page: 'CBP's ability to meet the' (sidebar)
+    joined to 'from DHS components and ...' (column), which closed the gutter,
+    so the region reader never saw a side-by-side page, the sidebar stood
+    above the column and every later page was a page late. And the piece is
+    not the column: that piece was a bullet's hanging continuation, 25pt off
+    the panel (2.1em), where the column itself starts 5pt off it.
+
+    So a panel is a sidebar when it is narrower than SIDEBAR_MAX_FRAC of the
+    measure and the COLUMN beside it starts within SIDEBAR_GAP_EM of its
+    side: the column's edge is the lowest x0 (for a panel on the left; the
+    highest x1 for a panel on the right) of the flow lines within the panel's
+    height on that side, the cut pieces themselves left out. Every cut of a
+    sidebar stands; every cut of any other panel goes back to
+    `_restore_uncut`."""
+    cut_ids = {id(p) for _b, _ln, ps in cuts for p in ps}
+    flow = [l for l in _all_lines(blocks)
+            if id(l) not in consumed and id(l) not in cut_ids and l.text.strip()]
+    out = set()
+    by_box = defaultdict(list)
+    for c in cuts:
+        box = _cut_box(c, rects, consumed)
+        if box is not None:
+            by_box[tuple(box)].append(c)
+    for box, cs in by_box.items():
+        if box[2] - box[0] >= SIDEBAR_MAX_FRAC * max(1.0, content_w):
+            continue
+        outside = [p for _b, _ln, ps in cs for p in ps if id(p) not in consumed]
+        if not outside:
+            continue
+        right = all(p.bbox[0] >= box[2] - 1.0 for p in outside)
+        left = all(p.bbox[2] <= box[0] + 1.0 for p in outside)
+        if right == left:
+            continue
+        beside = [l for l in flow
+                  if box[1] <= (l.bbox[1] + l.bbox[3]) / 2 <= box[3] and
+                  (l.bbox[0] >= box[2] - 1.0 if right else l.bbox[2] <= box[0] + 1.0)]
+        if not beside:
+            continue
+        sizes = sorted(s.size for l in beside for s in l.spans if s.text.strip())
+        size = sizes[len(sizes) // 2] if sizes else 10.0
+        gap = (min(l.bbox[0] for l in beside) - box[2]) if right else \
+            (box[0] - max(l.bbox[2] for l in beside))
+        if gap <= SIDEBAR_GAP_EM * size:
+            out.add(box)
+    return out
+
+
 def _restore_uncut(cuts, consumed) -> None:
     """Put back each cut line unless regions took EVERY piece of it.
 
@@ -5783,6 +5844,91 @@ _AXIS_TICK_RE = re.compile(r"^[-+−–]?[$€£¥]?\d{1,7}(?:[.,]\d{1,3})*\s?[%
 AXIS_TICK_REACH = 24.0
 
 
+def _text_runs(ln: Line) -> List[Tuple[float, float]]:
+    """The x extents of a line's runs of text: its spans, joined where the
+    white between them is under an em. A chart's labels on one baseline
+    ('150 135 129 125 117 104 105' across a plot) are one extracted line of
+    many short runs; a line of a paragraph is one run."""
+    sp = sorted((s for s in ln.spans if s.text.strip()), key=lambda s: s.bbox[0])
+    out: List[Tuple[float, float]] = []
+    for s in sp:
+        if out and s.bbox[0] - out[-1][1] <= max(1.0, s.size):
+            out[-1] = (out[-1][0], max(out[-1][1], s.bbox[2]))
+        else:
+            out.append((s.bbox[0], s.bbox[2]))
+    return out
+
+
+# A frame is a chart's when its figures fill at least this share of it: a
+# chart fills its chart area. Census over both corpora and both holdouts
+# (2026-10-11, every box holding a figure): the charts' figures cover 0.59 to
+# 4.0 of their frames (overlapping clips summed), the text boxes that merely
+# hold an icon or a thumbnail 0.01 to 0.48 (Sensirion's 254-word box around a
+# logo 0.02, NASA's strategic-plan panel 0.48).
+FRAME_FIG_MIN_SHARE = 0.5
+
+
+def _frames_to_figures(elements, blocks, page: PageIR) -> List[Any]:
+    """A box that is a chart's frame becomes part of the chart (WP60).
+
+    A chart drawn by Word or a plotting library sits in a frame -- an
+    outlined plot area, a white background rectangle -- and its axis ticks,
+    data labels and legend are text inside that frame. The frame was built as
+    a BOX holding those labels as paragraphs, and the chart's own ink as a
+    figure after it: the writer stacked the box (the labels) above the figure
+    (the same labels again, rasterised with its clip). DHS OIG's Figure 3 set
+    290pt of the chart's numbers as text above the chart, Llama 2's attention
+    heatmaps their tick labels in a box above both plots; each page ran a
+    page over, and every label was drawn twice.
+
+    A box is the frame of the figures it CONTAINS when every line inside it
+    is a label: no run of text in it as wide as half the frame, so nothing
+    in it is a wrapped paragraph (`_text_runs`: labels on one baseline are
+    one extracted line of many short runs). The first figure grows to the
+    frame and owns its lines; the box and the other contained figures go. A
+    tinted table is no box, and a callout's icon sits beside a paragraph:
+    both stay as they are. Nor is a box a frame when its figures fill less
+    than FRAME_FIG_MIN_SHARE of it -- a text panel around a logo -- or when it
+    is the page itself (PAGE_COVER_FRAC: a background painted under the
+    page's text)."""
+    out = list(elements)
+    lines = [ln for ln in _all_lines(blocks) if ln.text.strip()]
+    for box in [e for e in elements if isinstance(e, TableEl) and
+                e.role == "box" and e.bbox]:
+        rect = box.bbox
+        area = max(1.0, bbox_area(rect))
+        if area >= PAGE_COVER_FRAC * page.width * page.height:
+            continue
+        figs = [e for e in out if isinstance(e, FigureEl) and
+                contains(rect, e.clip, pad=3.0)]
+        if not figs or sum(bbox_overlap(f.clip, rect) for f in figs) < \
+                FRAME_FIG_MIN_SHARE * area:
+            continue
+        w = max(1.0, rect[2] - rect[0])
+        inside = [ln for ln in lines
+                  if rect[0] <= (ln.bbox[0] + ln.bbox[2]) / 2 <= rect[2] and
+                  rect[1] <= (ln.bbox[1] + ln.bbox[3]) / 2 <= rect[3]]
+        if any(r1 - r0 >= 0.5 * w for ln in inside for r0, r1 in _text_runs(ln)):
+            continue
+        keep = figs[0]
+        clip = rect
+        took = set(getattr(keep, "_own", frozenset()))
+        for f in figs:
+            clip = bbox_union(clip, f.clip)
+        for f in figs[1:]:
+            took |= set(getattr(f, "_own", frozenset()))
+            out.remove(f)
+        keep.clip = clip
+        keep.width, keep.height = clip[2] - clip[0], clip[3] - clip[1]
+        keep._own = frozenset(took | {id(ln) for ln in inside})
+        out.remove(box)
+        # a rule drawn inside the frame (the plot's axis) is in its picture
+        out = [e for e in out if not (isinstance(e, RuleEl) and
+                                      getattr(e, "_bbox", None) and
+                                      contains(rect, e._bbox, pad=1.0))]
+    return out
+
+
 def _figure_in_budget(cl_ds, blocks, images, consumed, page, text_area):
     """build_figure, rolled back if it would rasterise too much of the page.
 
@@ -6072,6 +6218,21 @@ def _strip_page_border(ir: DocIR) -> int:
         n += len(p.drawings) - len(keep)
         p.drawings = keep
     return n
+
+
+# WP60's readings of long Word-made reports (OIG highlights sidebars, framed
+# charts). Standard profile only, exactly as WP49's: keyed on _TAB_LAYOUTS,
+# so the Google Docs profile is byte-identical; each has its own switch.
+WP60_RULES = {
+    "sidebar_per_box": True,      # _sidebar_boxes: a panel is a sidebar or not, whole
+    "panel_gutter": True,         # _side_splits: a drawn panel's edge is a gutter
+    "foot_not_band": True,        # _sbs_regions: a foot-band line ends a band
+    "figure_frame": False,        # _frames_to_figures: a chart's frame is the chart's
+}
+
+
+def _wp60(rule: str) -> bool:
+    return _TAB_LAYOUTS.get() and WP60_RULES.get(rule, False)
 
 
 def _clipped_strokes(ir: DocIR) -> None:
@@ -7158,6 +7319,8 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
             el._bbox = im.bbox
             elements.append(el)
 
+        if _wp60("figure_frame"):
+            elements = _frames_to_figures(elements, blocks, p)
         elements = _merge_box_rows(_merge_figures(
             elements, blocks if _wp49("figure_covers_text") else None))
         elements = _merge_table_rows(elements, blocks, consumed)
@@ -7173,8 +7336,13 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
             # Kept cut, the region readers lay the two out side by side. Only
             # for a sidebar's cut (`_sidebar_cut`).
             rects = [d.bbox for _, d in draws if _box_candidate(d)]
-            cuts = [c for c in cuts
-                    if not _sidebar_cut(c, rects, consumed, lay.content_w)]
+            if _wp60("sidebar_per_box"):
+                side = _sidebar_boxes(cuts, rects, blocks, consumed, lay.content_w)
+                cuts = [c for c in cuts
+                        if tuple(_cut_box(c, rects, consumed) or ()) not in side]
+            else:
+                cuts = [c for c in cuts
+                        if not _sidebar_cut(c, rects, consumed, lay.content_w)]
         _restore_uncut(cuts, consumed)
         # the page's elements before the float passes, for `_float_overfull`
         pre_float = list(elements)
@@ -7192,6 +7360,10 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
                     elements, blocks, lay, p.width, p.height, pictures_only=True)
                 pl.floats = list(pl.floats or ()) + floated
             elements = _merge_graphic_rows(elements, blocks, p.number)
+        if _wp60("foot_not_band"):
+            _drop_footer_echoes(blocks, consumed, elements, p,
+                                [doc_lay.footer_default, doc_lay.footer_even,
+                                 doc_lay.footer_first], lay.content_w)
 
         # rebuild flow blocks from unconsumed lines (contiguous runs)
         flow_blocks = []
@@ -10491,6 +10663,13 @@ SBS_FIG_MIN_PT = 40.0
 # docxout._write_cell_blocks' 1pt carrier after a nested table, plus a point.
 NESTED_CARRIER_PT = 2.0
 SBS_MIN_SIDE_PT = 60.0      # a side narrower than this is a marker or a stub
+# ... except beside a drawn panel, whose edge is the author's own statement of
+# where the side ends (as a box edge is to `_split_lines_at_box_edges`): the
+# white between its fill and the column beside it need only be white. DHS
+# OIG's highlights sidebar is filled to x 191 and its column starts at 196 --
+# 5pt, under SBS_MIN_GUTTER, so the page never read side by side and the
+# sidebar stood above its column (WP60).
+PANEL_MIN_GUTTER = 2.0
 # How far a side may overhang the equal columns a section would give it and
 # still be set in one. A box's text, not its shading, has to fit -- y58's
 # panels bleed 9pt past the text margin on both sides -- and a line drawn
@@ -10672,6 +10851,10 @@ def _side_splits(items, x_lo: float, x_hi: float):
     the gutter's edges. The candidates are the items' own left edges: a
     column starts where its text does. Ranked by the items a band holds."""
     idx = [i for i, it in enumerate(items) if it[1] is not None]
+
+    def gut(i):
+        return PANEL_MIN_GUTTER if _wp60("panel_gutter") and \
+            _panel_item(items[i]) else SBS_MIN_GUTTER
     cand = sorted({round(items[i][1][0], 1) for i in idx
                    if x_lo + SBS_MIN_SIDE_PT <= items[i][1][0] <= x_hi - SBS_MIN_SIDE_PT})
     order = sorted(idx, key=lambda i: (items[i][1][1], items[i][1][0]))
@@ -10680,7 +10863,7 @@ def _side_splits(items, x_lo: float, x_hi: float):
         bands, cur = [], []
         for i in order:
             bb = items[i][1]
-            if bb[2] <= xs - SBS_MIN_GUTTER:
+            if bb[2] <= xs - gut(i):
                 cur.append((i, 0))
             elif bb[0] >= xs - 0.5:
                 cur.append((i, 1))
@@ -10699,7 +10882,10 @@ def _side_splits(items, x_lo: float, x_hi: float):
             if min(ly1, ry1) - max(ly0, ry0) < 0.5 * min(ly1 - ly0, ry1 - ry0):
                 continue
             gl, gr = max(b[2] for b in L), min(b[0] for b in R)
-            if gr - gl < SBS_MIN_GUTTER:
+            edge = [i for i, s in band
+                    if (s == 0 and items[i][1][2] >= gl - 0.5) or
+                    (s == 1 and items[i][1][0] <= gr + 0.5)]
+            if gr - gl < min((gut(i) for i in edge), default=SBS_MIN_GUTTER):
                 continue
             # The split must be clean over the band's whole HEIGHT, not just
             # in reading order: an item outside the band that crosses x while
@@ -10717,6 +10903,81 @@ def _side_splits(items, x_lo: float, x_hi: float):
             found.append(((len(band), y1 - y0), xs, band, gl, gr))
     found.sort(key=lambda f: f[0], reverse=True)
     return [f[1:] for f in found]
+
+
+def _drop_footer_echoes(blocks, consumed, elements, p: PageIR, parts,
+                        content_w: float) -> None:
+    """A line in the page's foot band, below every drawn panel, whose text
+    the document's own footer already prints, is that footer: consumed.
+
+    An OIG highlights page prints its footer without the folio every other
+    page carries ('DOE-OIG-26-22' where the rest say 'DOE-OIG-26-22 3'), so
+    the furniture pass, which signs lines by text, never matched it, and it
+    stayed in the flow. Under a sidebar page it then either joined the band
+    (`foot_not_band` in `_sbs_regions`) or, kept out of it, was written as a
+    paragraph after the band -- a line the page had no room for, and the
+    footer printed twice. Only below panels (the sidebar pages this is
+    about: a panel narrower than SIDEBAR_MAX_FRAC of the measure -- MMWR's
+    summary boxes, which fill a column, are not sidebars), only in BOTZ, and
+    only text the footer part already states."""
+    panels = [e.bbox[3] for e in elements if isinstance(e, TableEl) and
+              e.role == "box" and e.bbox and
+              e.bbox[2] - e.bbox[0] < SIDEBAR_MAX_FRAC * max(1.0, content_w) and any(
+                  c is not None and (c.shading or any(c.borders.values()))
+                  for row in e.rows for c in row)]
+    if not panels:
+        return
+
+    said = [_echo_tokens(el.text) for part in parts if part is not None
+            for el in part.elements if isinstance(el, Para)]
+    said = [t for t in said if t]
+    if not said:
+        return
+    foot = max([p.height - BOTZ] + panels)
+    lines = list(_all_lines(blocks))
+    for ln in lines:
+        if id(ln) in consumed or ln.bbox[1] < foot:
+            continue
+        # Only the page's lowest text row: a footer is the last thing on the
+        # page. A paragraph's short last line just above the footer ('Border
+        # Security.' over 'Audit of Border Security Operations 4') is whole
+        # words of the footer too, and it was consumed (WP60 final review).
+        if any(o.bbox[1] > ln.bbox[3] for o in lines if o is not ln):
+            continue
+        t = _echo_tokens(ln.text)
+        # whole words, in order, and enough of them to be the footer's: a
+        # foot line 'of' or 'Page' is a word the footer happens to contain
+        if len(t) < FOOTER_ECHO_MIN_TOKENS and \
+                len("".join(t)) < FOOTER_ECHO_MIN_CHARS:
+            continue
+        if any(_has_run(f, t) for f in said):
+            consumed.add(id(ln))
+
+
+# A foot line is the footer's echo only when it is this much of it: two whole
+# words, or one token of six characters ('DOE-OIG-26-22' is three tokens;
+# 'of', 'Page' and a bare folio are not enough) (WP60, review S5).
+FOOTER_ECHO_MIN_TOKENS = 2
+FOOTER_ECHO_MIN_CHARS = 6
+
+
+def _echo_tokens(text: str) -> List[str]:
+    return re.findall(r"[^\W_]+", text.lower())
+
+
+def _has_run(hay: List[str], needle: List[str]) -> bool:
+    """Is `needle` a contiguous run of whole tokens of `hay`?"""
+    n = len(needle)
+    return n > 0 and any(hay[i:i + n] == needle for i in range(len(hay) - n + 1))
+
+
+def _panel_item(it) -> bool:
+    """Is this region item a drawn panel -- a box with a fill or a border?"""
+    o = it[2] if len(it) > 2 else None
+    if it[0] != "el" or not isinstance(o, TableEl) or o.role != "box":
+        return False
+    return any(c is not None and (c.shading or any(c.borders.values()))
+               for row in o.rows for c in row)
 
 
 def _split_side(items):
@@ -10977,6 +11238,18 @@ def _layout_table(sides, top: float, bottom: float, content_l: float,
                 cells.append(Cell(borders={}, pad=(0.0, 0.0, 0.0, 0.0)))
                 widths.append(max(0.0, x0 - left))
                 left = x0
+            elif panels[k] is None and panels[k - 1] is not None and \
+                    _wp60("panel_gutter") and x0 > left:
+                # A column beside a panel starts at its own text, the white
+                # between the panel's fill and it a column of its own (as
+                # between two panels). Owning that gutter, the text cell began
+                # at the fill's edge, every paragraph of it 13pt in, and the
+                # writer pinned each source line with a break that, in a face
+                # a hair wider than the source, wrapped one word early (DOE
+                # OIG's highlights: 4 -> 5 pages).
+                cells.append(Cell(borders={}, pad=(0.0, 0.0, 0.0, 0.0)))
+                widths.append(max(0.0, x0 - left))
+                left = x0
             elif panels[k] is None:
                 x0 = left               # a text side owns the gutter before it
         right = x1 if (panels[k] is not None or k == len(sides) - 1) \
@@ -11025,7 +11298,27 @@ def _sbs_regions(items, page: PageIR, content_l: float, content_r: float):
     columns under it are two regions of one page (y46)."""
     if not items:
         return []
-    for xs, band, gl, gr in _side_splits(items, content_l, content_r):
+    probe = items
+    if _wp60("foot_not_band"):
+        # A line in the page's foot band (BOTZ) is the page's, not a side's:
+        # a page footer the furniture pass left in the flow (DHS OIG's
+        # highlights page prints its footer without the folio every other
+        # page carries, so its signature never repeats) has a piece under
+        # each side of a sidebar page, and joined to the band it put the
+        # site address on top of the sidebar's cell -- so the sidebar was no
+        # longer one panel, lost its shading, and its column grew by a line.
+        # It is presented to the split search as spanning the measure, so it
+        # ends the band; the region it then falls into is the flow below.
+        # Only a line that starts below every panel on the page: a column
+        # or a panel's own text may run down into the foot band (a syllabus
+        # whose sidebar and closing panel reach 775 on 792), and that text
+        # is a side's.
+        panels = [it[1][3] for it in items if it[1] is not None and _panel_item(it)]
+        foot = max([page.height - BOTZ] + panels)
+        probe = [(it[0], (content_l, it[1][1], content_r, it[1][3])) + tuple(it[2:])
+                 if panels and it[1] is not None and it[1][1] >= foot else it
+                 for it in items]
+    for xs, band, gl, gr in _side_splits(probe, content_l, content_r):
         left = [items[i] for i, s in band if s == 0]
         right = [items[i] for i, s in band if s == 1]
         why = _side_evidence(left, right, gl, gr, page, content_r - content_l)

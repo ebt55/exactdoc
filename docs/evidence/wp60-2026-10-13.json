@@ -1,0 +1,157 @@
+{
+ "schema": "exactdoc.wp-evidence.v1",
+ "about": "WP60: long Word-made reports from holdout-2 (development set since its single exam run). R1a: an OIG highlights sidebar reads beside its column -- a drawn panel's edge is a gutter (panel_gutter), a panel is a sidebar or not as a whole (sidebar_per_box), a footer line below the panels ends the band and, when the footer part already prints it, is that footer (foot_not_band), and the column beside a panel starts at its own text. R2 (a chart's frame is the chart's) is implemented and ships OFF. R1b and R1c were traced and not implemented. All readings are the standard profile's (WP60_RULES, keyed on tab_layouts); the Google Docs profile is byte-identical.",
+ "tree": "wp60 b5c1eac on integration f4580b0 (WP63 + WP64 merged)",
+ "baseline": "1d7812b (WP59 merged). Corpus sweeps C:\\lotmp\\scr\\runs\\wp60b-h-{raw,prod} (1d7812b) against wp60-h-{raw,prod} (693e603: WP60's code identical to b5c1eac; the rebase brought only WP63/WP64, whose own changes are theirs); holdout lanes C:\\lotmp\\wp60x\\hold\\h{1,2}bh-* (1d7812b) against h{1,2}h-* (693e603).",
+ "image": "exactdoc-gate:boot sha256:bab1cfc0d2cd",
+ "gate": {
+  "log": "C:\\lotmp\\scr\\runs\\wp60-g5.log",
+  "commit": "b5c1eac",
+  "mode": "strict, baseline bound (environment 9cb0bc17, reading wp42)",
+  "tests": "2136 OK (2 skipped, 2 expected failures)",
+  "product": "PASS 16/16 (<2pt 0.8142, live 0.9784, dy50 0.3)",
+  "raw": "PASS 16/16 (<2pt 0.6168, live 0.9784, dy50 0.65)",
+  "failed_steps": 0
+ },
+ "criterion_8": {
+  "current": "C:\\lotmp\\scr\\runs\\wp60-h-prod.sweep.json (693e603)",
+  "accepted": "accepted-wp31-prod.rescored5.sweep.json (the sweep of record)",
+  "verdict_line": "FAIL by 1 -- the y37 waiver reads as stale because RELEASE is 0.3.0b2 (pending the owner, as for every WP since the bump); no other document worse; 1 exempt under amendment 4 (y55)",
+  "y37_plos_one_dvipdfmx": {
+   "dy_p50": "27.64 -> 32",
+   "tolerance": 2.76,
+   "waiver_cap": 33.0,
+   "note": "within the waiver's cap; identical to WP59's numbers"
+  },
+  "y55_th_pages_quartz": "exempt, amendment 4: dy_p50 15.56 -> 17.26 (cap 4.67), within2pt 0.0184 -> 0.0829",
+  "corpus_vs_base": {
+   "raw": "90 compared, 2 moved (y06, y28), 0 worse beyond gate tolerances",
+   "product": "90 compared, 2 moved (y06, y28), 0 worse beyond gate tolerances"
+  }
+ },
+ "gdocs_identity": {
+  "what": "word/*.xml SHA-256, gdocs profile, 95 corpus + 37 holdout-1 + 32 holdout-2 (161 convertible; 3 interactive forms refused), 1d7812b vs WP60",
+  "identical": 161,
+  "different": 0,
+  "file": "C:\\lotmp\\wp60x\\census_hash.txt"
+ },
+ "movers_standard_profile": {
+  "what": "raw-profile word/*.xml SHA-256, the same 161 documents, 1d7812b vs WP60",
+  "file": "C:\\lotmp\\wp60x\\census_hash.txt",
+  "moved": [
+   "h12_ut_i302_graphic_syllabus",
+   "h26_cisa_ir_playbooks",
+   "h2_10_doe_oig_management_letter",
+   "h2_20_dhs_oig_25_46_cisa",
+   "h2_21_dhs_oig_25_49_title42",
+   "h32_uk_national_ai_strategy",
+   "y06_irs_1040_instructions",
+   "y28_doe_oig_word365",
+   "y47_ar_ilo_word365"
+  ],
+  "unchanged": 152,
+  "per_document": {
+   "_columns": "pages (out/src), word_recall, within2pt, dy_p50; before -> after",
+   "y06_irs_1040_instructions": {
+    "raw": "149/126 -> 149/126; 0.2212 -> 0.2212; 0.0008 -> 0.0008; 55.66 -> 55.79",
+    "product": "135/126 -> 135/126; 0.2811 -> 0.2815; 0.0024 -> 0.0024; 58.89 -> 59.04",
+    "word": "145 -> 145 pages; page word recall 0.1843 -> 0.1852",
+    "what": "p68: the '2025 Tax Table' tab panel and the heading beside it read side by side"
+   },
+   "y28_doe_oig_word365": {
+    "raw": "21/21 -> 21/21; 0.9933 -> 0.9933; 0.3052 -> 0.3057; 1.76 -> 1.76",
+    "product": "21/21 -> 21/21; 0.9933 -> 0.9933; 0.3543 -> 0.3617; 0.24 -> 0.24",
+    "word": "21 -> 21 pages; 0.9908 -> 0.9908",
+    "what": "p3 highlights page: the folio-less footer no longer joins the sidebar band; the panel becomes the shaded cell itself"
+   },
+   "h2_10_doe_oig_management_letter": {
+    "raw": "4/4 -> 4/4; 0.9699 -> 0.9699; 0.1021 -> 0.0969; 13.98 -> 13.98",
+    "product": "4/4 -> 4/4; 0.9699 -> 0.9699; 0.0969 -> 0.3114; 13.66 -> 13.87",
+    "word": "4 -> 4 pages; 0.9695 -> 0.9695",
+    "what": "p4 highlights page: shaded sidebar cell, footer echo consumed"
+   },
+   "h2_20_dhs_oig_25_46_cisa": {
+    "raw": "30/28 -> 29/28; 0.3298 -> 0.5454; 0.0 -> 0.0022; 39.55 -> 23.07",
+    "product": "30/28 -> 29/28; 0.3303 -> 0.5459; 0.0101 -> 0.056; 30.73 -> 16.29",
+    "word": "30 -> 29 pages; 0.3303 -> 0.5462",
+    "what": "p3 highlights page reads side by side (the 5pt panel gutter); the p9 framed-chart spill remains (R2 off)"
+   },
+   "h2_21_dhs_oig_25_49_title42": {
+    "raw": "46/44 -> 46/44; 0.3163 -> 0.3365; 0.0406 -> 0.0381; 42.02 -> 46.49",
+    "product": "46/44 -> 45/44; 0.3179 -> 0.6454; 0.0212 -> 0.0731; 41.67 -> 17.13",
+    "word": "46 -> 46 pages; 0.3141 -> 0.3071",
+    "what": "p4 highlights page reads side by side; see `accepted`"
+   },
+   "h26_cisa_ir_playbooks": {
+    "raw": "unchanged",
+    "product": "47/44 -> 47/44; 0.2996 -> 0.2996; 0.1418 -> 0.1418; 25.47 -> 25.75",
+    "word": "54 -> 54 pages; 0.2666 -> 0.2666"
+   },
+   "h12_ut_i302_graphic_syllabus": {
+    "raw": "unchanged",
+    "product": "unchanged",
+    "word": "16 -> 16 pages; 0.1872 -> 0.1872"
+   },
+   "h32_uk_national_ai_strategy": {
+    "raw": "unchanged",
+    "product": "unchanged",
+    "word": "40 -> 40 pages; 0.3342 -> 0.3342"
+   },
+   "y47_ar_ilo_word365": {
+    "raw": "unchanged",
+    "product": "unchanged",
+    "word": "64 -> 64 pages; 0.2636 -> 0.2636 (blank p24 before and after)"
+   }
+  },
+  "holdout_lanes": {
+   "holdout1": "37 compared: raw 0 moved; product 1 moved (h26 dy_p50 +0.28, within tolerance)",
+   "holdout2": "32 compared: raw 3 moved, product 3 moved (h2_10, h2_20, h2_21)"
+  },
+  "word_lane": "C:\\lotmp\\wp60x\\word\\m60out\\rows.json -- testkit/word_oracle.py under C:\\lotmp\\word.lock, product DOCX of every mover, before and after; no repair prompt, no new blank page"
+ },
+ "rules": {
+  "sidebar_per_box": "ON -- _sidebar_boxes: the gap is measured from the panel to the column beside it",
+  "panel_gutter": "ON -- _side_splits: beside a drawn panel PANEL_MIN_GUTTER (2pt), not SBS_MIN_GUTTER; the column's cell starts at its own text",
+  "foot_not_band": "ON -- _sbs_regions + _drop_footer_echoes: a foot line below every sidebar panel ends the band; one the footer part already prints is consumed",
+  "figure_frame": "OFF (R2) -- _frames_to_figures is implemented and tested. It removes the labels drawn twice on DHS OIG 25-46 p9 and Llama 2 p17, but by construction turns the labels' text into the picture that already paints them, so the page's text reading-order LCS falls (Llama 2 p17 569 -> 469 words), which the acceptance does not allow; its census flipped 40 boxes across 9 documents, some of them prose (UK integrated review p24: 526 words). Decided OFF by the coordinator, 2026-10-13."
+ },
+ "traced_not_implemented": {
+  "R1b": "Hypothesis: Word's square wrap continues the column under the sidebar and ends the band (_side_splits). Traced on DHS OIG 25-46 p3: not so -- the column's body was dropped from the band by the same 6pt SBS_MIN_GUTTER beside the panel's fill; panel_gutter mends it.",
+  "R1c": "Hypothesis: a tint fill holding text lines read as art. Traced on OPM OIG 2025-IAG-022 p2-3: p2's panel is part of ONE grid cluster with the compliance table beside it (and Word's per-line paragraph shading strips); p3's panel is EMPTY and seeds a figure that grows over the column's bullets. Neither matches the narrowed rule; not implemented."
+ },
+ "accepted": {
+  "h2_21_dhs_oig_25_49_title42.pdf": {
+   "decision": "accepted (coordinator, option 1, 2026-10-13)",
+   "what": "raw lane: dy_p50 42.02 -> 46.49 (tolerance 4.20); Word: page word recall 0.3141 -> 0.3071 (-0.007)",
+   "why": "raw lane and Word only; product lane 46->45 pages and word recall 0.318->0.645, dy_p50 41.7->17.1; cause: the highlights title wraps to three lines in the canonical font so the side-by-side row overruns the page by one line, which only the refine loop absorbs; a fit step for overrunning side-by-side rows is logged as follow-up."
+  }
+ },
+ "follow_ups": [
+  "a fit step for side-by-side rows that overrun their page (h2_21 p4: one line, absorbed only by refine)",
+  "R3: a filled band set over a full-cover picture (OPM OIG cover) -- WP50 F4's page-1 trigger to cover overlapping graphics",
+  "R4: a picture with its caption set as a column beside text that continues full-width under it (DHS OIG 25-49 p20)",
+  "OPM OIG 2025-IAG-022 p6: one more page lost, not traced",
+  "R1c's real causes: a tint panel swallowed into a grid cluster with its neighbouring table (OPM p2); an empty tint panel seeding a figure that grows over text (OPM p3)",
+  "R2's trade (chart labels as text vs drawn twice) for the owner",
+  "footnote reference marks printed twice ('decompress3636', DHS OIG 25-49)",
+  "fake-bold text drawn twice not merged ('RReeppoorrtt', OPM OIG)",
+  "foot_not_band's widening in _sbs_regions has no SIDEBAR_MAX_FRAC width check: any drawn panel's foot moves the foot band, where _drop_footer_echoes already counts only sidebar-width panels (final review, 2026-10-13)"
+ ],
+ "timing": "not taken (owner's machine busy; deferred to the quiet serial timing in the release measurement)",
+ "review_change": {
+  "date": "2026-10-13",
+  "commit": "0cffc5b",
+  "what": "_drop_footer_echoes counts a foot-band line only when it is the page's lowest text row (no line of the page's blocks, consumed or not, starts below its foot). The final review's probe -- a paragraph's short last line 'Border Security.' just above the footer 'Audit of Border Security Operations 4' -- was consumed before; it is a negative fixture in TheFooterEcho, failing on b5c1eac and passing now.",
+  "tests": "tests/test_wp60_reports.py: 23 OK (all six TheFooterEcho tests pass)",
+  "movers_check": "the 9 movers re-converted with b5c1eac and with 0cffc5b, raw and product (Windows, same LibreOffice for both): word/*.xml identical, 9/9 in each profile",
+  "gate": {
+   "log": "C:\\lotmp\\scr\\runs\\wp60-g6.log",
+   "commit": "0cffc5b",
+   "mode": "strict, baseline bound (environment 9cb0bc17, reading wp42)",
+   "tests": "2137 OK (2 skipped, 2 expected failures)",
+   "product": "PASS 16/16 (<2pt 0.8142, live 0.9784, dy50 0.3)",
+   "raw": "PASS 16/16 (<2pt 0.6168, live 0.9784, dy50 0.65)",
+   "failed_steps": 0
+  }
+ }
+}
