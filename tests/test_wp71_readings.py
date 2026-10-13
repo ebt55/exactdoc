@@ -157,6 +157,23 @@ def _signatures(rows=4, caption=2, sizes=None, extra=None):
     return items
 
 
+def _icons(centred, caption, sizes=(30.0, 45.0, 55.0)):
+    """A brochure's feature grid: an icon over a short caption, two to a row,
+    the captions of a row on one line whatever the icon's size."""
+    items = []
+    for r in range(4):
+        y = 90.0 + 110.0 * r
+        lines = []
+        for c, cx in enumerate((150.0, 420.0)):
+            w = sizes[(2 * r + c) % len(sizes)]
+            items.append(_pic(cx - w / 2 if centred else cx - 60.0, y, w, w))
+            for k in range(caption):
+                lx = cx - 60.0
+                lines.append(_line("Feature text %d" % k, lx, lx + 120.0, y + 70.0 + 13.0 * k))
+        items.append(_blk(lines))
+    return items
+
+
 class PictureGrid(unittest.TestCase):
     def test_signatures_are_a_grid(self):
         g = I._picture_grid(_signatures())
@@ -172,8 +189,22 @@ class PictureGrid(unittest.TestCase):
         # a brochure's icon over a paragraph of four lines and more
         self.assertIsNone(I._picture_grid(_signatures(caption=4)))
 
-    def test_pictures_of_different_sizes_are_not(self):
-        self.assertIsNone(I._picture_grid(_signatures(sizes=[140.0, 60.0])))
+    def test_signatures_of_varied_widths_are_a_grid(self):
+        # a short scrawl and a long one, about 2:1 (a letter's signature pages)
+        g = I._picture_grid(_signatures(sizes=[140.0, 140.0, 70.0]))
+        self.assertIsNotNone(g)
+        self.assertEqual(len(g[0]), 4)
+
+    def test_pictures_far_apart_in_size_are_not(self):
+        self.assertIsNone(I._picture_grid(_signatures(sizes=[140.0, 140.0, 40.0])))
+
+    def test_a_brochures_icon_grid_is_not(self):
+        # icons of varied size over captions of one to three lines, the
+        # captions of a row on one line: left-aligned or centred under them
+        for centred in (False, True):
+            for lines in (1, 2, 3):
+                self.assertIsNone(I._picture_grid(_icons(centred, lines)),
+                                  (centred, lines))
 
     def test_other_text_in_the_band_is_not(self):
         self.assertIsNone(I._picture_grid(_signatures(

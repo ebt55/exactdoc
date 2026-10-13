@@ -11780,9 +11780,12 @@ def _by_pos(its):
 GRID_MIN_ROWS = 3            # rows of cells, each row in every column
 GRID_MIN_COLS = 2
 GRID_MAX_CELL_LINES = 3      # a caption: a name and a title or two
-GRID_PIC_SIZE_SHARE = 0.25   # each picture's width within this of the median
+# A signature grid's pictures are of a size only roughly: signatures run from
+# a short scrawl to a long one (a letter's signature pages: 71-162pt wide).
+GRID_PIC_SIZE_SHARE = 0.55   # each picture's width within this of the median
 GRID_X_TOL = 12.0            # pictures of one column start within this
 GRID_ROW_TOL = 4.0           # the captions of one row start within this
+GRID_PIC_CAPTION_SHARE = 0.5  # a picture is at least this wide against its caption
 
 
 def _picture_grid(items):
@@ -11855,9 +11858,19 @@ def _picture_grid(items):
     if cur:
         rows.append(cur)
 
+    def signed(c, i):
+        # A signature is signed where the name is set: the caption starts at
+        # the picture's left edge and the picture is about as wide as it. A
+        # brochure's icon is small over a wider caption, often centred.
+        pic, lns = cols[c][i], cells[(c, i)]
+        pw = pic[1][2] - pic[1][0]
+        return abs(min(l.bbox[0] for l in lns) - pic[1][0]) <= GRID_X_TOL and \
+            pw >= GRID_PIC_CAPTION_SHARE * max(l.bbox[2] - l.bbox[0] for l in lns)
+
     def good(row):
         return sorted(c for _y, c, _i in row) == list(range(len(cols))) and \
-            all(len(cells[(c, i)]) <= GRID_MAX_CELL_LINES for _y, c, i in row)
+            all(len(cells[(c, i)]) <= GRID_MAX_CELL_LINES and signed(c, i)
+                for _y, c, i in row)
     run, best = [], []
     for row in rows:
         if good(row):
