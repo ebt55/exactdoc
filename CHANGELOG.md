@@ -8,6 +8,20 @@ traceable to a committed artifact under `docs/evidence/`.
 
 ### Changes
 
+- **Four readings for short documents that ran long (WP71).** A blank
+  resume template whose placeholder fields all say the same thing ("City,
+  ST" down the right of every entry), whose headings are centred across the
+  page or whose coursework list is set two to a row, is no longer laid out as
+  two columns. A letter's signature pages -- a signature picture over each
+  signer's name and title, two signers to a row -- are a grid of rows, the
+  pictures anchored where they stand, not one paragraph per row with the
+  pictures stacked between. A memo's small DATE / TO / SUBJECT labels head
+  the line they stand beside, and a list item's full first line is no longer
+  read as right-aligned (so it rejoins its item). A URL a line broke inside
+  of at the margin is joined with nothing, with a zero-width break
+  opportunity after each `/ ? & =` in it. Each reading is its own switch
+  (`infer.WP71_RULES`), standard profile only: the Google Docs profile is
+  byte-identical. `tests/test_wp71_readings.py`.
 - **A stray drawing no longer grows into a picture of the whole page (WP68).**
   A logo touching a page's full-page background picture became a picture of
   the sheet with every line on it (an NSF audit transmittal's summary page);
