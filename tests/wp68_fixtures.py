@@ -20,13 +20,18 @@ cover_band_stripe  a cover: a dark band across the page with the title on it
                    drawn a few points taller than the band
 thumb_tab          a report's full-height tinted thumb tab at the paper's
                    edge, standing a few points into the text column, under a
-                   header banner picture that reaches it
+                   header banner picture that reaches it; CONTROL variant:
+                   the tab labelled up its edge (rotated text), kept
 cover_photo        CONTROL: a cover photograph (not the whole sheet) with
                    its headline set on it and a small drawn mark over its
                    corner -- pictured whole, headline included, as before
 text_strip         CONTROL: a tinted strip down the margin that carries its
                    own text (a chapter label) -- not furniture
 card_chart         CONTROL: a small bar chart drawn inside a ruled card
+dark_card          CONTROL: a one-colour dark raster card holding a
+                   photograph and white text -- its background, not a shadow
+mask_overlay       CONTROL: an opaque alpha-shaped mask (a silhouette) under
+                   a photograph -- not translucent, not a shadow
 back_cover         CONTROL: a back cover -- a drawn wave across the page and
                    two large photographs under it, no text on them: the
                    wave's picture takes them, as before (refused, each would
@@ -184,7 +189,7 @@ def _dark(img):
     img.paste((20, 50, 90), (0, 0) + img.size)
 
 
-def thumb_tab(path, pages=3):
+def thumb_tab(path, pages=3, label=None):
     """Every page: a header banner picture (x 36-540, y 27-68) with the
     section title on it in white, a 56pt tinted tab down the paper's full
     height at the outer edge (right on odd pages, left on even), standing
@@ -198,6 +203,14 @@ def thumb_tab(path, pages=3):
         else:
             c.rect(20, 0, 57, H, stroke=0, fill=1)
         c.setFillColorRGB(0, 0, 0)
+        if label:
+            # the section's name set up the tab, rotated a quarter turn
+            c.saveState()
+            c.translate(566 if right else 52, 300)
+            c.rotate(90)
+            c.setFont("Helvetica-Bold", 14)
+            c.drawString(0, 0, label)
+            c.restoreState()
         _image(c, 36, 27, 540, 68, _dark)
         _text(c, 60, 38, "Management and Administration", 16, "Helvetica-Bold",
               (1, 1, 1))
@@ -274,13 +287,13 @@ def card_chart(path):
 
 def _shadow_png(w, h):
     """A drop shadow as an office suite exports it: black, the shape in the
-    soft mask (alpha falling off toward the edge)."""
+    soft mask (alpha falling off toward the edge, at most 100 of 255)."""
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
     px = img.load()
     for y in range(h):
         for x in range(w):
             e = min(x, y, w - 1 - x, h - 1 - y)
-            px[x, y] = (0, 0, 0, max(0, min(160, e * 12)))
+            px[x, y] = (0, 0, 0, max(0, min(100, e * 12)))
     buf = io.BytesIO()
     img.save(buf, "PNG")
     buf.seek(0)
@@ -341,7 +354,58 @@ def back_cover(path):
     return path
 
 
+def _flat_png(w, h, rgb, alpha=None):
+    img = Image.new("RGBA" if alpha else "RGB", (w, h), rgb + ((0,) if alpha else ()))
+    if alpha:
+        px = img.load()
+        for y in range(h):
+            for x in range(w):
+                px[x, y] = rgb + (alpha(x, y, w, h),)
+    buf = io.BytesIO()
+    img.save(buf, "PNG")
+    buf.seek(0)
+    return buf
+
+
+def dark_card(path):
+    """CONTROL. Text, then a one-colour dark raster card (x 72-540, y 200-440)
+    holding a photograph (x 84-284, y 212-428) and four lines of white text
+    beside it; text under it."""
+    c = _canvas.Canvas(path, pagesize=(W, H))
+    _body(c, 72, 8)
+    c.drawImage(ImageReader(_flat_png(234, 120, (20, 40, 70))), 72, H - 440, 468, 240)
+    _image(c, 84, 212, 284, 428, _photo)
+    for i, t in enumerate(("Message from the", "Inspector General", "Semiannual report",
+                           "to the Congress")):
+        _text(c, 300, 240 + 22 * i, t, 14, "Helvetica-Bold", (1, 1, 1))
+    _body(c, 470, 10, k0=30)
+    c.showPage()
+    c.save()
+    return path
+
+
+def mask_overlay(path):
+    """CONTROL. Text, an opaque alpha-shaped mask (a black disc, alpha 255
+    inside it, 0 outside) x 80-532 y 200-560 under a photograph x 98-514
+    y 220-540; text under it."""
+    c = _canvas.Canvas(path, pagesize=(W, H))
+    _body(c, 72, 8)
+
+    def disc(x, y, w, h):
+        dx, dy = (x - w / 2) / (w / 2), (y - h / 2) / (h / 2)
+        return 255 if dx * dx + dy * dy <= 1 else 0
+    c.drawImage(ImageReader(_flat_png(226, 180, (0, 0, 0), disc)), 80, H - 560, 452, 360,
+                mask="auto")
+    _image(c, 98, 220, 514, 540, _photo)
+    _body(c, 580, 10, k0=30)
+    c.showPage()
+    c.save()
+    return path
+
+
 BUILDERS = {
+    "dark_card": dark_card,
+    "mask_overlay": mask_overlay,
     "back_cover": back_cover,
     "photo_shadow": photo_shadow,
     "two_photos": two_photos,

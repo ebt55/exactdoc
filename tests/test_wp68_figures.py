@@ -18,9 +18,11 @@ own, stood 372pt tall in the flow before the cover (HUD OIG: page 1 blank).
   margin is furniture, as a shape wholly in the margin already is.
 * `box_bar`: a tall narrow bar inside a built box that would take no text is
   the box's decoration.
-* `image_shadow`: a one-colour raster under a photograph it holds is the
+* `image_shadow`: a one-colour raster, translucent throughout, under a
+  photograph it holds and little larger than it, with no text on it, is the
   photograph's drop shadow (freed from the pictures above, each stood in the
-  flow as a grey box).
+  flow as a grey box). A dark card holding a photograph and white text, and
+  an opaque alpha-shaped mask, are not.
 
 Every reading is the standard profile's (`_wp68`, keyed on the gdocs
 profile's `tab_layouts=False`), each with its switch in `infer.WP68_RULES`.
@@ -225,6 +227,52 @@ class ABackCover(_Control):
 
     def test_no_photograph_stands_in_the_flow(self):
         self.assertFalse([e for e in _els(self.lay.pages[1]) if isinstance(e, ImageEl)])
+
+
+class ADarkCard(_Control):
+    """A one-colour raster card holding a photograph and white text is the
+    text's background, not the photograph's shadow."""
+    builder = "dark_card"
+
+    def test_the_card_stays_behind_its_text(self):
+        pg = self.lay.pages[0]
+        ims = [e for e in _els(pg) + [f.el for f in pg.floats] if isinstance(e, ImageEl)]
+        self.assertIn([72, 200, 540, 440], [[round(v) for v in e._bbox] for e in ims])
+
+
+class AMaskOverlay(_Control):
+    """An opaque alpha-shaped mask under a photograph is no shadow."""
+    builder = "mask_overlay"
+
+    def test_both_pictures_stay(self):
+        ims = [e for e in _els(self.lay.pages[0]) if isinstance(e, ImageEl)]
+        self.assertEqual(len(ims), 2)
+
+
+class ALabelledThumbTab(_Control):
+    """A thumb tab labelled up its edge carries text (the parser's rotated
+    lines): it is kept, with its label, as before."""
+    builder = "thumb_tab"
+
+    @classmethod
+    def setUpClass(cls):
+        cls._dir = tempfile.TemporaryDirectory()
+        cls.pdf = F.thumb_tab(os.path.join(cls._dir.name, "t.pdf"), label="Audit Unit")
+        cls.lay = _infer(cls.pdf)
+        with _Rules(False):
+            cls.off = _infer(cls.pdf)
+
+    def test_the_label_makes_it_no_strip(self):
+        from exactdoc.backend import get_backend
+        from exactdoc.dialect import normalize
+        from exactdoc.input import parse as parse_input
+        from exactdoc.model import DrawCmd
+        ir = normalize(parse_input(get_backend("pdfium"), self.pdf))
+        page = ir.pages[0]
+        self.assertTrue(page.rotated, "the label is a rotated line")
+        tab = DrawCmd(kind="fill", shape="rect", bbox=(534.0, 0.0, 590.0, H),
+                      fill="#dce3e6", stroke=None, width=0.0, opacity=1.0, n_items=1)
+        self.assertFalse(I._margin_strip([tab], page, [], 72.0, 72.0))
 
 
 class ATextStrip(_Control):

@@ -5778,28 +5778,43 @@ def _margin_strip(ds: List[DrawCmd], page: PageIR, blocks, margin_l: float,
     outside = max(0.0, min(x1, margin_l) - x0) + max(0.0, x1 - max(x0, body_r))
     if outside < 0.5 * w:
         return False
-    for ln in _all_lines(blocks):
+    # Its text includes the rotated lines the parser keeps out of the flow
+    # (`page.rotated`): a thumb tab labelled up its edge is kept, with its
+    # label, as before.
+    for ln in list(_all_lines(blocks)) + list(page.rotated or ()):
         if not ln.text.strip():
             continue
         cx = (ln.bbox[0] + ln.bbox[2]) / 2.0
         cy = (ln.bbox[1] + ln.bbox[3]) / 2.0
         if x0 <= cx <= x1 and y0 <= cy <= y1:
-            return False        # text set on it: a column's panel, not a tab
+            return False        # text set on it: a panel or a labelled tab
     return True
 
 
-# A drop shadow: a raster of ONE colour (a soft mask over a flat fill, as an
-# office suite exports a picture's shadow) lying under a photograph it holds
-# (SHADOW_HOLDS of the photograph's area). Composited by the page it is a
-# shadow; as a picture of its own in the flow it is a grey box the
-# photograph's height, stacked above the photograph. A report sets one under
-# each of its photographs (h3_28, 33 of them); pictured with the page around
-# them they never reached the flow -- until WP68 stopped those pictures
-# growing over the page. It is dropped.
+# A drop shadow: a raster of ONE colour, translucent throughout (a soft mask
+# over a flat fill, as an office suite exports a picture's shadow: h3_28's
+# are black, alpha at most 102 of 255), lying under a photograph it holds
+# (SHADOW_HOLDS of the photograph's area) and little larger than it
+# (SHADOW_MAX_GROWTH of its area), with no text set on it and not the whole
+# sheet. Composited by the page it is a shadow; as a picture of its own in
+# the flow it is a grey box the photograph's height, stacked above the
+# photograph. A report sets one under each of its photographs (h3_28);
+# pictured with the page around them they never reached the flow -- until
+# WP68 stopped those pictures growing over the page. It is dropped.
+#
+# What it must not take: a one-colour card or page background that holds a
+# photograph AND text (white text on a dark card) -- `_float_backgrounds`
+# sets that behind its text, and dropped, the text would be white on white;
+# an opaque alpha-shaped mask or overlay (a silhouette), which is not
+# translucent throughout.
 SHADOW_HOLDS = 0.8
+SHADOW_MAX_GROWTH = 2.0
+SHADOW_MAX_ALPHA = 128
 
 
 def _flat_raster(im: ImageObj) -> bool:
+    """One colour, and -- where the raster has an alpha channel -- no pixel
+    more than half opaque (a shadow's soft mask, not a shape cut out)."""
     cached = getattr(im, "_flat", None)
     if cached is not None:
         return cached
@@ -5808,19 +5823,38 @@ def _flat_raster(im: ImageObj) -> bool:
         import io
         from PIL import Image
         with Image.open(io.BytesIO(im.data)) as a:
-            flat = all(lo == hi for lo, hi in a.convert("RGB").getextrema())
+            alpha = "A" in a.getbands() or "transparency" in a.info
+            if alpha:
+                rgba = a.convert("RGBA")
+                lo_hi = rgba.getextrema()
+                flat = all(lo == hi for lo, hi in lo_hi[:3]) and                     lo_hi[3][1] <= SHADOW_MAX_ALPHA
+            else:
+                flat = all(lo == hi for lo, hi in a.convert("RGB").getextrema())
     except Exception:
         flat = False
     im._flat = flat
     return flat
 
 
-def _image_shadow(im: ImageObj, images) -> bool:
+def _image_shadow(im: ImageObj, images, blocks, page: PageIR) -> bool:
+    if _fills_page(im.bbox, page.width, page.height):
+        return False
+    a = bbox_area(im.bbox)
     held = [o for o in images if o is not im and o.data is not None
-            and bbox_area(o.bbox) <= bbox_area(im.bbox)
+            and bbox_area(o.bbox) <= a
+            and SHADOW_MAX_GROWTH * bbox_area(o.bbox) >= a
             and bbox_overlap(o.bbox, im.bbox) >= SHADOW_HOLDS * max(1e-6, bbox_area(o.bbox))]
-    return bool(held) and _flat_raster(im) and \
-        any(not _flat_raster(o) for o in held)
+    if not held:
+        return False
+    x0, y0, x1, y1 = im.bbox
+    for ln in _all_lines(blocks):
+        if not ln.text.strip():
+            continue
+        cx = (ln.bbox[0] + ln.bbox[2]) / 2.0
+        cy = (ln.bbox[1] + ln.bbox[3]) / 2.0
+        if x0 <= cx <= x1 and y0 <= cy <= y1:
+            return False        # text set on it: a card or a background
+    return _flat_raster(im) and any(not _flat_raster(o) for o in held)
 
 
 def _image_leaves(ib: BBox, seed: BBox, blocks, page: PageIR) -> bool:
@@ -7486,7 +7520,7 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
                 # Marginal logo/icon: furniture, not flow. A slide anchors
                 # it where it is instead, which costs the flow nothing.
                 continue
-            if _wp68("image_shadow") and _image_shadow(im, p.images):
+            if _wp68("image_shadow") and _image_shadow(im, p.images, blocks, p):
                 continue            # WP68: a photograph's drop shadow
             el = ImageEl(data=im.data, ext=im.ext,
                          width=im.bbox[2] - im.bbox[0], height=im.bbox[3] - im.bbox[1])
