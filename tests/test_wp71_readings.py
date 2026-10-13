@@ -118,5 +118,72 @@ class BannersTwoUpAndWideFields(unittest.TestCase):
         self.assertIsNone(I._right_tab_fields(lines, L, R))
 
 
+# --------------------------------------------------------- 3. picture grid
+def _pic(x0, y0, w=140.0, h=40.0):
+    from exactdoc.layout import ImageEl
+    e = ImageEl(data=b"", ext="png", width=w, height=h)
+    e._bbox = (x0, y0, x0 + w, y0 + h)
+    return ("el", e._bbox, e)
+
+
+def _blk(lines):
+    b = I._mk_block(lines)
+    return ("blk", b.bbox, b)
+
+
+def _signatures(rows=4, caption=2, sizes=None, extra=None):
+    """A letter's signature page: two signers to a row, a signature picture
+    over each signer's name and title."""
+    items = []
+    for r in range(rows):
+        y = 90.0 + 92.0 * r
+        lines = []
+        for c, x in enumerate((42.0, 402.0)):
+            w = sizes[(2 * r + c) % len(sizes)] if sizes else 140.0
+            items.append(_pic(x, y, w))
+            for k in range(caption):
+                t = ("Signer %d%s" % (r, "ab"[c])) if k == 0 else "Member of Congress"
+                lines.append(_line(t, x, x + 100.0, y + 52.0 + 15.0 * k))
+        items.append(_blk(lines))
+    if extra:
+        items.append(_blk([extra]))
+    return items
+
+
+class PictureGrid(unittest.TestCase):
+    def test_signatures_are_a_grid(self):
+        g = I._picture_grid(_signatures())
+        self.assertIsNotNone(g)
+        rows = g[0]
+        self.assertEqual(len(rows), 4)
+        self.assertTrue(all(len(r) == 2 for r in rows))
+        # the two names of a row are two cells, not one line
+        self.assertEqual([l.text for l in rows[0][0][1]], ["Signer 0a", "Member of Congress"])
+        self.assertEqual([l.text for l in rows[0][1][1]], ["Signer 0b", "Member of Congress"])
+
+    def test_icons_beside_paragraphs_are_not(self):
+        # a brochure's icon over a paragraph of four lines and more
+        self.assertIsNone(I._picture_grid(_signatures(caption=4)))
+
+    def test_pictures_of_different_sizes_are_not(self):
+        self.assertIsNone(I._picture_grid(_signatures(sizes=[140.0, 60.0])))
+
+    def test_other_text_in_the_band_is_not(self):
+        self.assertIsNone(I._picture_grid(_signatures(
+            extra=_line("A note set across the grid", 200.0, 380.0, 200.0))))
+
+    def test_two_rows_are_not(self):
+        self.assertIsNone(I._picture_grid(_signatures(rows=2)))
+
+    def test_a_caption_line_keeps_its_break(self):
+        from exactdoc.layout import Para, Run
+        q = Para(runs=[Run(text="Signer 0a Member of Congress", font="Arial", size=10.0,
+                           color="#000000")], align="justify", right_indent=220.0)
+        I._caption_lines(q, ["Signer 0a", "Member of Congress"])
+        self.assertEqual(q.text, "Signer 0a" + chr(10) + "Member of Congress")
+        self.assertTrue(q.line_breaks)
+        self.assertEqual((q.align, q.right_indent), ("left", 0.0))
+
+
 if __name__ == "__main__":
     unittest.main()

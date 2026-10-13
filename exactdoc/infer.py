@@ -6434,6 +6434,7 @@ WP71_RULES = {
     "tab_fields_not_banner": True,  # _right_tab_fields: a centred banner is no field
     "tab_fields_two_up": True,     # _right_tab_fields: a two-up list is no field
     "tab_fields_wide_field": True,  # _right_tab_fields: one long field beside white
+    "picture_grid": True,          # _picture_grid_chunks: pictures over captions, a grid
 }
 
 
@@ -7567,6 +7568,12 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
                 cuts = [c for c in cuts
                         if not _sidebar_cut(c, rects, consumed, lay.content_w)]
         _restore_uncut(cuts, consumed)
+        grid_pics = []
+        if anchored and _wp71("picture_grid") and p.number not in deck:
+            grid_pics = _stash_picture_grid(p, elements, blocks, consumed)
+            if grid_pics:
+                gone = {id(e) for e in grid_pics}
+                elements = [e for e in elements if id(e) not in gone]
         # the page's elements before the float passes, for `_float_overfull`
         pre_float = list(elements)
         if p.number in deck:
@@ -7583,6 +7590,12 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
                     elements, blocks, lay, p.width, p.height, pictures_only=True)
                 pl.floats = list(pl.floats or ()) + floated
             elements = _merge_graphic_rows(elements, blocks, p.number)
+        for e in grid_pics:
+            # anchored at its own position, as a picture set on a text line is
+            bb = _el_bbox(e)
+            e.align = "left"
+            e.left_indent = max(0.0, round(bb[0] - lay.margin_l, 1))
+            pl.floats = list(pl.floats or ()) + [FloatEl(el=e, bbox=tuple(bb))]
         if _wp60("foot_not_band"):
             _drop_footer_echoes(blocks, consumed, elements, p,
                                 [doc_lay.footer_default, doc_lay.footer_even,
@@ -11564,6 +11577,262 @@ def _by_pos(its):
     return sorted(its, key=lambda t: (t[1][1], t[1][0]) if t[1] else (0.0, 0.0))
 
 
+# WP71: a grid of pictures over short captions (a letter's signature page).
+GRID_MIN_ROWS = 3            # rows of cells, each row in every column
+GRID_MIN_COLS = 2
+GRID_MAX_CELL_LINES = 3      # a caption: a name and a title or two
+GRID_PIC_SIZE_SHARE = 0.25   # each picture's width within this of the median
+GRID_X_TOL = 12.0            # pictures of one column start within this
+GRID_ROW_TOL = 4.0           # the captions of one row start within this
+
+
+def _picture_grid(items):
+    """The rows of a grid of pictures over captions, or None.
+
+    WP71. A letter's signature pages set a signature picture over each
+    signer's name and title, two signers to a row, row under row. Nothing
+    read it as a grid: the two names of a row, one parser block, became one
+    paragraph ("Sheila ... Henry ... Member of Congress Member of Congress"),
+    the pictures fell between the rows, and the page ran long. A cell is a
+    picture with the lines under it that overlap it, at most
+    GRID_MAX_CELL_LINES of them; the columns' pictures are of a size (within
+    GRID_PIC_SIZE_SHARE of their median width); a cell is narrower than the
+    columns' pitch; and nothing else -- no other line, picture or table --
+    lies in the grid's band. A rule a cell's picture sits on (the signature
+    line) is the cell's.
+
+    Returns (rows, y0, y1, used): rows top to bottom, each a list of cells
+    left to right, each cell a list of items; `used` the ids of the items it
+    took (a block's lines are cut into one block per cell)."""
+    pics = [it for it in items if it[0] == "el" and it[1] is not None and
+            isinstance(it[2], (ImageEl, FigureEl))]
+    if len(pics) < GRID_MIN_ROWS * GRID_MIN_COLS:
+        return None
+    widths = sorted(it[1][2] - it[1][0] for it in pics)
+    med = widths[len(widths) // 2]
+    if med <= 0 or any(abs(w - med) > GRID_PIC_SIZE_SHARE * med for w in widths):
+        return None
+    xs = _cluster([it[1][0] for it in pics], GRID_X_TOL)
+    if len(xs) < GRID_MIN_COLS:
+        return None
+    cols = [sorted((it for it in pics if abs(it[1][0] - x) < GRID_X_TOL),
+                   key=lambda t: t[1][1]) for x in xs]
+    if sum(len(c) for c in cols) != len(pics):
+        return None
+    pitch = min(b - a for a, b in zip(xs, xs[1:]))
+    spans = [(x, x + max(it[1][2] - it[1][0] for it in c)) for x, c in zip(xs, cols)]
+    if any(x1 - x0 >= pitch for x0, x1 in spans):
+        return None
+    # every text line, by the column it overlaps
+    cells = {}                       # (col, pic index) -> lines
+    loose = []
+    for it in items:
+        if it[0] != "blk":
+            continue
+        for ln in it[2].lines:
+            if not ln.text.strip():
+                continue
+            k = [j for j, (x0, x1) in enumerate(spans)
+                 if ln.bbox[0] < x1 and ln.bbox[2] > x0]
+            if len(k) != 1 or ln.bbox[2] > spans[k[0]][0] + pitch - GRID_X_TOL:
+                loose.append(ln)
+                continue
+            above = [i for i, pic in enumerate(cols[k[0]]) if pic[1][1] <= ln.bbox[1]]
+            if not above:
+                loose.append(ln)
+                continue
+            cells.setdefault((k[0], above[-1]), []).append(ln)
+    # rows: one cell per column whose captions start together
+    heads = []
+    for (c, i), lns in cells.items():
+        heads.append((min(l.bbox[1] for l in lns), c, i))
+    heads.sort()
+    rows, cur = [], []
+    for y, c, i in heads:
+        if cur and y - cur[0][0] > GRID_ROW_TOL:
+            rows.append(cur)
+            cur = []
+        cur.append((y, c, i))
+    if cur:
+        rows.append(cur)
+
+    def good(row):
+        return sorted(c for _y, c, _i in row) == list(range(len(cols))) and \
+            all(len(cells[(c, i)]) <= GRID_MAX_CELL_LINES for _y, c, i in row)
+    run, best = [], []
+    for row in rows:
+        if good(row):
+            run.append(row)
+            if len(run) > len(best):
+                best = list(run)
+        else:
+            run = []
+    if len(best) < GRID_MIN_ROWS:
+        return None
+    out = []
+    taken_pics = set()
+    for row in best:
+        r = []
+        for _y, c, i in sorted(row, key=lambda t: t[1]):
+            pic = cols[c][i]
+            taken_pics.add(id(pic))
+            r.append((pic, cells[(c, i)]))
+        out.append(r)
+    y0 = min(min(pic[1][1], min(l.bbox[1] for l in lns)) for r in out for pic, lns in r)
+    y1 = max(max(pic[1][3], max(l.bbox[3] for l in lns)) for r in out for pic, lns in r)
+    taken_lines = {id(l) for r in out for _p, lns in r for l in lns}
+    # nothing else in the band: rules the pictures sit on are the cells'
+    rules = {}
+    for it in items:
+        if it[1] is None or it[1][3] < y0 or it[1][1] > y1 or id(it) in taken_pics:
+            continue
+        if it[0] == "blk":
+            if any(id(l) not in taken_lines and l.text.strip() for l in it[2].lines):
+                return None
+            continue
+        if isinstance(it[2], RuleEl):
+            k = [j for j, (x0, x1) in enumerate(spans)
+                 if it[1][0] < x1 and it[1][2] > x0]
+            if len(k) == 1:
+                rules[id(it)] = (k[0], it)
+                continue
+        return None
+    return out, y0, y1, rules, taken_pics, taken_lines
+
+
+def _stash_picture_grid(p: PageIR, elements, blocks, consumed) -> list:
+    """WP71: a picture grid's pictures, taken out of the flow (returned, to be
+    anchored at their own positions), and its rows stashed on the page for
+    `_assemble_chunks` (`_picture_grid_chunks`). Read before the float
+    passes, which would anchor some of the pictures (those a name is set on)
+    and merge each row of the rest into one figure."""
+    items = []
+    for e in elements:
+        bb = _el_bbox(e)
+        if bb is not None:
+            items.append(("el", tuple(bb), e))
+    for b in blocks:
+        keep = [l for l in b.lines if id(l) not in consumed]
+        if keep:
+            nb = _mk_block(keep)
+            items.append(("blk", nb.bbox, nb))
+    g = _picture_grid(items)
+    if g is None:
+        return []
+    rows, y0, y1, _rules, _taken_pics, _taken_lines = g
+    xs = sorted({round(pic[1][0], 1) for r in rows for pic, _l in r})
+    spans = []
+    for c in range(len(rows[0])):
+        x0 = min(r[c][0][1][0] for r in rows)
+        x1 = max(r[c][0][1][2] for r in rows)
+        spans.append((x0, x1))
+    p._wp71_grid = {
+        "y0": y0, "y1": y1, "spans": spans, "xs": xs,
+        "rows": [[(pic[1], {id(l) for l in lns}) for pic, lns in r] for r in rows]}
+    return [pic[2] for r in rows for pic, _l in r]
+
+
+def _caption_lines(p: Para, lines) -> None:
+    """A grid cell's caption keeps the source's lines (a name over a title):
+    the joins `_soft_join` made between them become soft breaks, the
+    paragraph left-aligned to its cell. Untouched unless its text is exactly
+    those lines, joined."""
+    full = "".join(r.text for r in p.runs)
+    ls = [t for t in lines if t]
+    if len(ls) < 2 or full.rstrip() != " ".join(ls):
+        return
+    cuts, at = set(), 0
+    for t in ls[:-1]:
+        at += len(t)
+        cuts.add(at)
+        at += 1
+    pos = 0
+    for r in p.runs:
+        chars = list(r.text)
+        for k in range(len(chars)):
+            if pos + k in cuts and chars[k] == " ":
+                chars[k] = "\n"
+        pos += len(r.text)
+        r.text = "".join(chars)
+    p.line_breaks = True
+    p.align = "left"
+    p.right_indent = 0.0
+
+
+def _picture_grid_chunks(items, grid, lay: DocLayout, content_l: float,
+                         content_r: float, lay_rows) -> Optional[List[Chunk]]:
+    """The page as flow / a picture grid's rows / flow, one borderless layout
+    row per grid row (the grid `_stash_picture_grid` read), or None when the
+    flow items no longer make that grid. The pictures are anchored at their
+    own positions; a row holds its cells' captions and the rules the
+    pictures sit on, and is pinned to the row's height, picture included."""
+    y0, y1, spans, rows = grid["y0"], grid["y1"], grid["spans"], grid["rows"]
+    row_tops = [min(pb[1] for pb, _ids in r) for r in rows]
+    cell_of = {}
+    for k, r in enumerate(rows):
+        for c, (_pb, ids) in enumerate(r):
+            for i in ids:
+                cell_of[i] = (k, c)
+    cells = [[[] for _c in r] for r in rows]
+    above, below = [], []
+    for it in items:
+        bb = it[1]
+        if bb is None or bb[3] < y0 - 1.0 or bb[1] > y1 + 1.0:
+            (above if bb is None or bb[1] < y0 else below).append(it)
+            continue
+        if it[0] == "blk":
+            for l in it[2].lines:
+                if id(l) in cell_of:
+                    k, c = cell_of[id(l)]
+                    cells[k][c].append(l)
+                elif l.text.strip():
+                    return None
+            continue
+        if isinstance(it[2], RuleEl):
+            ks = [c for c, (x0, x1) in enumerate(spans) if bb[0] < x1 and bb[2] > x0]
+            rk = [k for k, t in enumerate(row_tops) if t <= bb[1] + 1.0]
+            if len(ks) == 1 and rk:
+                cells[rk[-1]][ks[0]].append(it)
+                continue
+        return None
+    if any(not any(isinstance(x, Line) for x in cell) for r in cells for cell in r):
+        return None
+    chunks: List[Chunk] = []
+
+    def flow(its):
+        if its:
+            ch = Chunk(n_cols=1)
+            ch.elements = _merge_flow_paras(
+                _to_flow(_by_pos(its), content_l, content_r, doc_rows=lay_rows),
+                content_r)
+            chunks.append(ch)
+    flow(above)
+    for k, r in enumerate(cells):
+        top = row_tops[k]
+        bot = max(max(pb[3] for pb, _ids in rows[k]),
+                  max((x.bbox[3] if isinstance(x, Line) else x[1][3]) for cell in r for x in cell))
+        sides = []
+        for cell in r:
+            # a caption is set line by line (a name, a title): each line
+            # a paragraph of its own, as the source breaks it
+            its = [("blk", l.bbox, _mk_block([l])) for l in cell if isinstance(l, Line)]
+            sides.append(_by_pos(its + [x for x in cell if not isinstance(x, Line)]))
+        lt = _layout_table(sides, top, bot, content_l, content_r, lay_rows)
+        for c, cell in enumerate(lt.rows[0]):
+            lines = [l.text.strip() for l in r[c] if isinstance(l, Line)] \
+                if c < len(r) else []
+            for q in cell.blocks:
+                if isinstance(q, Para):
+                    _caption_lines(q, lines)
+        lt.row_heights = [_layout_row_pin(lt, top, lay)]
+        lt._sbs = "grid"
+        ch = Chunk(n_cols=1)
+        ch.elements = [lt]
+        chunks.append(ch)
+    flow(below)
+    return chunks
+
+
 def _side_by_side_chunks(items, lay: DocLayout, page: PageIR, content_l: float,
                          content_r: float, lay_rows) -> Optional[List[Chunk]]:
     """The page as flow / side-by-side regions, or None when it has none."""
@@ -12288,6 +12557,11 @@ def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
     if not twocol and tab_edge is None:
         # Only where the two-column path above did not fire: every page it
         # owns keeps exactly its layout.
+        if getattr(page, "_wp71_grid", None) is not None:
+            grid = _picture_grid_chunks(items, page._wp71_grid, lay, content_l,
+                                        content_r, lay_rows)
+            if grid:
+                return _position_chunks(grid, lay, page_top)
         sbs = _side_by_side_chunks(items, lay, page, content_l, content_r, lay_rows)
         if sbs:
             return _position_chunks(sbs, lay, page_top)
