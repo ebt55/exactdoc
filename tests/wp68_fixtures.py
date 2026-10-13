@@ -27,6 +27,10 @@ cover_photo        CONTROL: a cover photograph (not the whole sheet) with
 text_strip         CONTROL: a tinted strip down the margin that carries its
                    own text (a chapter label) -- not furniture
 card_chart         CONTROL: a small bar chart drawn inside a ruled card
+back_cover         CONTROL: a back cover -- a drawn wave across the page and
+                   two large photographs under it, no text on them: the
+                   wave's picture takes them, as before (refused, each would
+                   stand in the flow at its own height)
 photo_shadow       a photograph over its drop shadow -- a one-colour raster
                    with a soft mask, a little larger -- in a page of text;
                    control: the same photograph without a shadow, and two
@@ -310,7 +314,35 @@ def two_photos(path):
     return path
 
 
+def back_cover(path):
+    """CONTROL. Page 1: text. Page 2, a back cover: a drawn wave (one path of
+    curves) across the page at y 380-440, a photograph x -1-238 y 233-730 and
+    another x 237-613 y 410-730 under and beside it, the office's address at
+    the foot; no text on the photographs."""
+    c = _canvas.Canvas(path, pagesize=(W, H))
+    _body(c, 72, 40)
+    c.showPage()
+    _image(c, -1, 233, 238, 730, _photo)
+    _image(c, 237, 410, 613, 730, _photo)
+    c.setFillColorRGB(0.1, 0.27, 0.48)
+    p = c.beginPath()
+    p.moveTo(0, H - 440)
+    for k in range(6):
+        x = k * 102
+        p.curveTo(x + 34, H - 380, x + 68, H - 380, x + 102, H - 440)
+    p.lineTo(612, H - 445)
+    p.lineTo(0, H - 445)
+    p.close()
+    c.drawPath(p, stroke=0, fill=1)
+    c.setFillColorRGB(0, 0, 0)
+    _text(c, 72, 750, "Office of Inspector General | 245 Murray Lane SW | Washington, DC", 9)
+    c.showPage()
+    c.save()
+    return path
+
+
 BUILDERS = {
+    "back_cover": back_cover,
     "photo_shadow": photo_shadow,
     "two_photos": two_photos,
     "page_background": page_background,

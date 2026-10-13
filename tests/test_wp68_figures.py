@@ -9,9 +9,11 @@ took a report's pages one by one from a thumb tab at the paper's edge (Peace
 Corps OIG: 50 pages became 109), and a cover band's stripe, pictured on its
 own, stood 372pt tall in the flow before the cover (HUD OIG: page 1 blank).
 
-* `image_budget`: an image grows the picture under the budget lines have; a
-  photograph with a headline on it that a small mark stands on is the
-  exception (`_cover_art`, y06's cover), and keeps its old reading.
+* `image_budget`: an image grows the picture under the budget lines have,
+  where refusing it places it out of the flow (`_image_leaves`): the whole
+  sheet, or an image with text on it -- but not cover art a small mark
+  stands on (y06's cover), which keeps its old reading, nor an image that,
+  refused, would stand in the flow at its own height (a back cover).
 * `margin_strip`: a text-free full-height strip standing half in a side
   margin is furniture, as a shape wholly in the margin already is.
 * `box_bar`: a tall narrow bar inside a built box that would take no text is
@@ -216,6 +218,13 @@ class ACoverPhotograph(_Control):
         self.assertTrue(figs)
         self.assertGreater(figs[0].clip[3] - figs[0].clip[1], 500)
         self.assertNotIn("Instructions for the Year", _text(self.lay.pages[0]))
+
+
+class ABackCover(_Control):
+    builder = "back_cover"
+
+    def test_no_photograph_stands_in_the_flow(self):
+        self.assertFalse([e for e in _els(self.lay.pages[1]) if isinstance(e, ImageEl)])
 
 
 class ATextStrip(_Control):

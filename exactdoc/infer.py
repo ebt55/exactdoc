@@ -5823,19 +5823,30 @@ def _image_shadow(im: ImageObj, images) -> bool:
         any(not _flat_raster(o) for o in held)
 
 
-def _cover_art(ib: BBox, seed: BBox, blocks, page: PageIR) -> bool:
-    """Is this image cover art a small drawn mark stands on: a photograph
-    (not the whole sheet) with live text set on it, the mark at most
-    1/MAX_FIG_GROWTH of its area? Then the mark's picture takes it whole, as
-    before WP68: a headline on a photograph is rendered faithfully only as
-    the picture (y06's cover, the IRS mark on the cover photograph)."""
+def _image_leaves(ib: BBox, seed: BBox, blocks, page: PageIR) -> bool:
+    """May build_figure refuse this image, over its budget? Only where the
+    image, refused, is placed out of the flow -- never where it would stand
+    in the flow at its own height:
+
+    * the whole sheet: the writer's full-page rule (FULL_PAGE_FRAC) anchors
+      it behind the text (h3_15's "At a Glance" background);
+    * live text set on it: `_float_backgrounds` anchors it behind that text
+      -- except cover art a small drawn mark stands on (the mark at most
+      1/MAX_FIG_GROWTH of its area), which the mark's picture takes whole as
+      before: a headline on a photograph is rendered faithfully only as the
+      picture (y06's cover, the IRS mark on the cover photograph).
+
+    Any other image stays in the picture, as before WP68. Freed into the
+    flow, a 497pt picture on a report's back cover stood at its own height
+    below the picture it had been part of, and cost the report two pages
+    (h2_20, h2_21)."""
     if _fills_page(ib, page.width, page.height):
-        return False
-    if bbox_area(seed) * MAX_FIG_GROWTH > bbox_area(ib):
-        return False
+        return True
     n = sum(1 for l in _all_lines(blocks)
             if l.text.strip() and contains(ib, l.bbox, pad=0.5))
-    return n >= BACKGROUND_MIN_LINES
+    if n < BACKGROUND_MIN_LINES:
+        return False
+    return bbox_area(seed) * MAX_FIG_GROWTH > bbox_area(ib)
 
 
 def build_figure(cl_ds: List[DrawCmd], blocks, images, consumed, page: PageIR) -> FigureEl:
@@ -5880,12 +5891,12 @@ def build_figure(cl_ds: List[DrawCmd], blocks, images, consumed, page: PageIR) -
                 # touching a full-page background picture grew to the sheet
                 # and took every line on it (h3_15's "At a Glance" page).
                 # Refused, the image goes the way an image no drawing touched
-                # goes: the writer's full-page rule, or `_float_backgrounds`.
-                # Cover art a small mark stands on keeps its old reading
-                # (`_cover_art`).
+                # goes: the writer's full-page rule, or `_float_backgrounds`
+                # -- and only where that places it out of the flow
+                # (`_image_leaves`).
                 if _wp68("image_budget") and bbox_area(cand) > max_area and \
                         bbox_overlap(im.bbox, bb) <= 0.8 * max(1e-6, bbox_area(im.bbox)) \
-                        and not _cover_art(im.bbox, seed, blocks, page):
+                        and _image_leaves(im.bbox, seed, blocks, page):
                     continue
                 bb = cand
                 im._consumed = True
