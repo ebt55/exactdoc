@@ -284,6 +284,10 @@ class UrlJoin(unittest.TestCase):
         self.assertEqual(_join("see https://example.org/courses/", "1595954/files",
                                at_edge=False), "see https://example.org/courses/ ")
 
+    def test_a_url_that_starts_the_next_line_keeps_its_space(self):
+        self.assertEqual(_join("Legislature; 2023.", "https://app.leg.wa.gov/x"),
+                         "Legislature; 2023. ")
+
     def test_prose_keeps_its_space(self):
         self.assertEqual(_join("the department generally", "implemented it"),
                          "the department generally ")

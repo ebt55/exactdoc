@@ -790,6 +790,8 @@ def _url_continues(last: str, next_text: str, line_text: Optional[str] = None) -
         return False
     x = last.rsplit(None, 1)[-1]
     y = next_text.split(None, 1)[0]
+    if _URL_TOKEN.match(y):
+        return False        # a URL that STARTS the next line is a token of its own
     # (`line_text` is passed only for a line that spans its measure; a token
     # that short -- a figure stacked in a table cell, a lone bullet -- is not
     # one the line had to break)
