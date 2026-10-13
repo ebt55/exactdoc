@@ -529,12 +529,11 @@ class Waivers(unittest.TestCase):
         for doc, metric, spec in w["entries"]:
             self.assertIsNone(B._waiver_refusal(doc, metric, spec, docs, gate.METRICS),
                               (doc, metric))
-            # A new waiver names the release it is granted for. y37's was
-            # granted for 0.3.0b1 (docs/beta-bar.md, Exceptions) and reads as
-            # stale under a later RELEASE until the owner renews or deletes it;
-            # no other waiver may name another release.
-            if spec["release"] != B.RELEASE:
-                self.assertEqual((doc, spec["release"]), ("y37_plos_one_dvipdfmx.pdf", "0.3.0b1"))
+            # A waiver names the release it is granted for. (y37's 0.3.0b1
+            # waiver was deleted by amendment 7 (e), 2026-10-13, when criterion
+            # 8's accepted sweep was re-based to b1's final product sweep.)
+            self.assertEqual(spec["release"], B.RELEASE, (doc, metric))
+        self.assertNotIn("y37_plos_one_dvipdfmx.pdf", {d for d, _, _ in w["entries"]})
 
 
 class Amendment4(unittest.TestCase):
