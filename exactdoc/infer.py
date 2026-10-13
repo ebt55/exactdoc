@@ -799,16 +799,37 @@ def _url_continues(last: str, next_text: str, line_text: Optional[str] = None) -
         len(line_text.strip()) >= URL_WIDE_MIN_CHARS and \
         not any(ch.isspace() for ch in next_text.split(None, 1)[0]) and \
         _URL_SEP.search(line_text) is not None
-    if not (wide or _URL_TOKEN.search(x + y) or
-            (_URL_SEP.search(x) and _URL_SEP.search(y))):
+    scheme = _URL_TOKEN.search(x + y) is not None
+    if not (wide or scheme or (_URL_SEP.search(x) and _URL_SEP.search(y))):
         return False
     ev = hyphen.current()
+    if not (wide or scheme):
+        # Separators alone are no URL: "and/or" + "input/output", "1/2" +
+        # "3/4", "x=1" + "y=2" are words, figures and formulas a justified
+        # line happened to end and begin with.
+        if any(_URL_FIGURE.fullmatch(h) or _URL_FORMULA.fullmatch(h) for h in (x, y)):
+            return False
+        if ev is not None and all(_attested(ev, h) for h in (x, y)):
+            return False
     if ev is not None:
         for half in (x, y):
             w = half.strip("()[]<>.,;:\"'").lower()
             if w and ev.words.get(w):
                 return False
     return True
+
+
+# WP71 (review): a half that is a figure ("1/2", "3,4") or a short formula
+# ("x=1", "a/b") is no piece of a URL.
+_URL_FIGURE = re.compile(r"[\d.,/=+\-*()%]+")
+_URL_FORMULA = re.compile(r"[\w.]{0,3}[=/][\w.]{0,3}[.,;:)]?")
+
+
+def _attested(ev, half: str) -> bool:
+    """Is every word in `half` one the document uses (the vocabulary is
+    letters only, `hyphen._TOKEN`)?"""
+    toks = hyphen._TOKEN.findall(half.lower())
+    return bool(toks) and all(ev.words.get(t) for t in toks)
 
 
 def _soft_join(runs: List[Run], next_text: str, dehyphenate: bool = True,
@@ -10724,10 +10745,12 @@ def _merge_list_markers(flow_blocks):
         if id(ln) in labels:
             host = labels[id(ln)][2]
             hb = [c for c in flow_blocks if any(fl is host for fl in c.lines)]
-            if hb:
+            # (never into a marker line: it is consumed into its own item
+            # line below, and a label put on it would go with it, unseen)
+            if hb and id(host) not in marker_ids and id(host) not in consumed:
                 best = (host.bbox[0] - ln.bbox[2], host, hb[0])
-            for sp in ln.spans:
-                sp._margin_label = True
+                for sp in ln.spans:
+                    sp._margin_label = True
         for c in ([] if id(ln) in labels else flow_blocks):
             for fl in c.lines:
                 if id(fl) in marker_ids or id(fl) in consumed or not fl.spans:
@@ -10845,7 +10868,7 @@ def _margin_labels(flow_blocks, taken) -> dict:
         lsz = _line_size(lab)
         best = None
         for host, hb in lines:
-            if host is lab or hb is b:
+            if host is lab or hb is b or id(host) in taken:
                 continue
             hsz = _line_size(host)
             if lsz > LABEL_SIZE_SHARE * hsz:
@@ -12640,6 +12663,17 @@ def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
     body_h = lay.page_h - lay.margin_t - lay.margin_b
     flow_blocks = _merge_list_markers(flow_blocks)
 
+    # WP71: a picture grid read before the float passes (`_stash_picture_grid`)
+    # decides the page before any column test: its pictures are already out of
+    # the flow, and a producer that blocks the captions per column would have
+    # the column readers set them as two columns under the anchored pictures.
+    if getattr(page, "_wp71_grid", None) is not None:
+        grid = _picture_grid_chunks(
+            _page_items(elements, flow_blocks, content_l, content_r),
+            page._wp71_grid, lay, content_l, content_r, lay_rows)
+        if grid:
+            return _position_chunks(grid, lay, page_top)
+
     # A >=3 column grid is checked first and, when found, decides the page on
     # its own. The two-column path below is left exactly as it was: it owns
     # every page it already handled, so its reference fixture cannot move.
@@ -12769,11 +12803,6 @@ def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
     if not twocol and tab_edge is None:
         # Only where the two-column path above did not fire: every page it
         # owns keeps exactly its layout.
-        if getattr(page, "_wp71_grid", None) is not None:
-            grid = _picture_grid_chunks(items, page._wp71_grid, lay, content_l,
-                                        content_r, lay_rows)
-            if grid:
-                return _position_chunks(grid, lay, page_top)
         sbs = _side_by_side_chunks(items, lay, page, content_l, content_r, lay_rows)
         if sbs:
             return _position_chunks(sbs, lay, page_top)

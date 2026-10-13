@@ -15,6 +15,7 @@ exam), each its own switch in `infer.WP71_RULES`, standard profile only.
 
     python -m unittest tests.test_wp71_readings
 """
+import importlib.util
 import os
 import sys
 import unittest
@@ -269,6 +270,18 @@ class MarginLabels(unittest.TestCase):
         self.assertEqual(len(texts), 4)          # TO and SUBJECT head their lines
         self.assertIn(chr(0x2032), texts)        # the glyph stands alone
 
+    def test_a_label_beside_a_marker_keeps_its_text(self):
+        # the label's nearest line is a bullet glyph of its own, which is
+        # consumed into its item line: the label must not ride on it
+        blocks = [I._mk_block([_sized("•", 90.0, 95.0, 155.0, 10.0)]),
+                  I._mk_block([_sized("Fire Department Staffing Models", 108.0, 300.0,
+                                      155.0, 12.0)]),
+                  I._mk_block([_sized("DATE", 70.0, 86.0, 153.0, 6.0)])]
+        out = I._merge_list_markers(blocks)
+        text = " ".join(l.text for b in out for l in b.lines)
+        for w in ("DATE", "•", "Fire Department"):
+            self.assertIn(w, text)
+
     def test_text_the_same_size_is_not_a_label(self):
         out = I._merge_list_markers(_memo_head(label_size=12.0))
         self.assertEqual(len([l for b in out for l in b.lines]), 6)
@@ -340,6 +353,20 @@ class UrlJoin(unittest.TestCase):
         self.assertFalse(I._row_of_cells(_sized("Fire Department Staffing", 108.0, 540.0,
                                                  300.0, 11.0)))
 
+    def test_words_figures_and_formulas_keep_their_space(self):
+        from exactdoc import hyphen
+        ev = hyphen.HyphenEvidence([["input and output or the and/or form, input/output"]])
+        tok = hyphen.activate(ev)
+        try:
+            self.assertEqual(_join("send it and/or", "input/output data"), "send it and/or ")
+            self.assertEqual(_join("between 1/2", "3/4 of them"), "between 1/2 ")
+            self.assertEqual(_join("let x=1", "y=2 hold"), "let x=1 ")
+            # a URL still joins
+            self.assertEqual(_join("see https://example.org/courses/", "q7x9/files"),
+                             "see https://example.org/courses/")
+        finally:
+            hyphen.deactivate(tok)
+
     def test_switched_off_it_is_a_space(self):
         self.addCleanup(_off("url_join"))
         self.assertEqual(_join("see https://example.org/courses/", "1595954/files"),
@@ -368,6 +395,63 @@ class UrlJoin(unittest.TestCase):
                              "at https://example.org/")
         finally:
             hyphen.deactivate(tok)
+
+
+def _signature_pdf(path, per_column=True):
+    """A signature page drawn by reportlab: two signers to a row, four rows,
+    a signature picture over each name and title; `per_column`: every caption
+    of the left column is drawn before any of the right, so the parser
+    blocks them per column."""
+    from reportlab.pdfgen import canvas
+    from PIL import Image, ImageDraw
+    import tempfile as _t
+    d = _t.mkdtemp()
+    c = canvas.Canvas(path, pagesize=(612.0, 792.0))
+    cells = []
+    for r in range(4):
+        for k, x in enumerate((72.0, 340.0)):
+            w = (150.0, 120.0, 80.0)[(2 * r + k) % 3]
+            im = Image.new("RGB", (int(w * 2), 60), "white")
+            ImageDraw.Draw(im).line([(5, 50), (int(w * 2) - 5, 10)], fill="black", width=4)
+            f = os.path.join(d, "s%d%d.png" % (r, k))
+            im.save(f)
+            top = 700.0 - 150.0 * r
+            c.drawImage(f, x, top - 30.0, width=w, height=30.0)
+            cells.append((k, x, top))
+    order = sorted(cells, key=lambda t: (t[0], -t[2])) if per_column else         sorted(cells, key=lambda t: (-t[2], t[0]))
+    for k, x, top in order:
+        c.setFont("Helvetica", 11)
+        c.drawString(x, top - 44.0, "Signer %d%s" % (int((700.0 - top) / 150.0), "ab"[k]))
+        c.drawString(x, top - 58.0, "Member of Congress")
+    c.save()
+    return path
+
+
+@unittest.skipUnless(importlib.util.find_spec("reportlab") and importlib.util.find_spec("PIL"),
+                     "draws its fixture with reportlab and PIL")
+class PictureGridEndToEnd(unittest.TestCase):
+    def _rows(self, per_column):
+        import tempfile as _t
+        from exactdoc.dialect import normalize
+        from exactdoc.layout import TableEl
+        from exactdoc.parse_pdfium import parse_pdf
+        pdf = _signature_pdf(os.path.join(_t.mkdtemp(), "sig.pdf"), per_column)
+        lay = I.infer(normalize(parse_pdf(pdf, keep_image_data=True)), anchored=True,
+                      anchor_pictures=True, examples=True, tab_layouts=True)
+        pl = lay.pages[0]
+        rows = [el for ch in pl.chunks for el in ch.elements
+                if isinstance(el, TableEl) and getattr(el, "_sbs", None) == "grid"]
+        return rows, pl
+
+    def test_captions_blocked_per_column_are_still_a_grid(self):
+        rows, pl = self._rows(per_column=True)
+        self.assertEqual(len(rows), 4)
+        self.assertTrue(all(ch.n_cols == 1 for ch in pl.chunks))
+        self.assertEqual(len(pl.floats), 8)          # the pictures, anchored
+
+    def test_captions_drawn_row_by_row_are_a_grid(self):
+        rows, _pl = self._rows(per_column=False)
+        self.assertEqual(len(rows), 4)
 
 
 if __name__ == "__main__":
