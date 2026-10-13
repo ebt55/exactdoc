@@ -1,0 +1,53 @@
+holdout3 exam (beta-bar.md amendment 6): 41 documents, 35 promised (26 short, 9 long) under promised_narrowed
+R1 PASS  crashes 0; refusals 0 (untyped 0, CLI-confirmed); Word opened clean 41/41
+R2 FAIL  LibreOffice short promised page-exact 20/26 = 77% (below 80%); word recall >= 0.9 20/26 = 77% (below 80%)
+R2 FAIL  Word        short promised page-exact 18/26 = 69% (below 80%); word recall >= 0.9 18/26 = 69% (below 80%)
+R3 FAIL  promised catastrophic: short 4 (allowed 0) h3_15_nsf_oig_fs_audit_transmittal.pdf h3_17_dallas_council_memo_word.pdf h3_22_hud_oig_single_audit_summary.pdf h3_34_sjsu_cs47_greensheet_chrome_quartz.pdf; long 1 (allowed 1) h3_28_peace_corps_oig_semiannual_2025_03.pdf
+R4 reported LibreOffice long promised n=9 (measured 9): median |dpages| 5.3%; within max(1,2%) 3/9 = 33%; word recall >= 0.85 4/9 = 44%
+R4 reported Word        long promised n=9 (measured 9): median |dpages| 5.3%; within max(1,2%) 3/9 = 33%; word recall >= 0.85 2/9 = 22%
+R5 reported: no live Docs lane was flown for this exam; the gated-16 live qualification stays as recorded
+announce: no   (R1 PASS, R2 FAIL, R3 FAIL)
+reading: R2: the word-recall share is required in each lane (LibreOffice and Word); refused/crashed/unmeasured short promised documents count as misses. R3: catastrophic in either lane counts; no output in a lane is catastrophic; char recall = right-page char_recall. R1: crashes are product-sweep rows; raw is reported; a refusal is typed when its code maps to an exit code other than 1, and the real CLI's exit status must equal it when confirmed.
+
+document                                     class                 P   pp len   | LO pages  wr   cr    | Word pages wr  cr    open | raw pages wr   | flags
+h3_01_boisestate_cv_samples_packet.pdf       resume                P   11 short |  11/11  1.00 0.99  |  12/11  0.66 0.82  ok   |  11/11  1.00 | word-pages word-wr
+h3_02_boisestate_resume_blank_samples.pdf    resume                P   11 short |  13/11  0.56 0.66  |  13/11  0.56 0.66  ok   |  16/11  0.53 | lo-pages lo-wr word-pages word-wr
+h3_03_boisestate_engineering_resume_packet.p resume                P    8 short |   8/8   1.00 0.98  |   8/8   1.00 0.98  ok   |   8/8   1.00 | 
+h3_04_memphis_first_year_resume.pdf          resume                P    1 short |   1/1   1.00 1.00  |   1/1   1.00 1.00  ok   |   1/1   1.00 | 
+h3_05_memphis_study_abroad_resume.pdf        resume                P    2 short |   2/2   1.00 1.00  |   2/2   1.00 1.00  ok   |   2/2   1.00 | 
+h3_06_memphis_military_resume.pdf            resume                P    1 short |   1/1   1.00 1.00  |   1/1   1.00 1.00  ok   |   1/1   1.00 | 
+h3_07_ubalt_applied_it_resume.pdf            resume                P    1 short |   1/1   1.00 1.00  |   1/1   1.00 1.00  ok   |   1/1   1.00 | 
+h3_08_ubalt_digital_communication_resume.pdf resume                P    1 short |   1/1   0.99 1.00  |   1/1   0.99 1.00  ok   |   1/1   0.99 | 
+h3_09_ubalt_psychology_resume.pdf            resume                P    1 short |   1/1   1.00 1.00  |   1/1   1.00 1.00  ok   |   1/1   1.00 | 
+h3_10_ecu_federal_resume_guide.pdf           resume                P    4 short |   4/4   1.00 1.00  |   4/4   1.00 1.00  ok   |   4/4   1.00 | 
+h3_11_ecu_graphic_design_resume.pdf          resume                P    1 short |   1/1   1.00 1.00  |   1/1   1.00 1.00  ok   |   1/1   1.00 | 
+h3_12_sb2nov_latex_resume.pdf                resume                P    1 short |   1/1   1.00 1.00  |   1/1   0.97 1.00  ok   |   1/1   1.00 | 
+h3_13_europecv_latex_minimal.pdf             resume                P    1 short |   1/1   0.89 0.82  |   1/1   0.89 0.82  ok   |   1/1   0.89 | lo-wr word-wr
+h3_14_house_rep_letter_to_ed_ocr.pdf         ordinary-word         P    6 short |   7/6   0.95 0.99  |   7/6   0.95 0.99  ok   |   6/6   0.97 | lo-pages word-pages
+h3_15_nsf_oig_fs_audit_transmittal.pdf       ordinary-word         P    6 short |   7/6   0.17 0.45  |   7/6   0.17 0.45  ok   |   7/6   0.17 | CATASTROPHIC(lo,word) lo-pages lo-wr word-pages word-wr
+h3_16_dallas_council_memo_gdocs.pdf          ordinary-gdocs        P    2 short |   2/2   1.00 1.00  |   2/2   1.00 1.00  ok   |   2/2   1.00 | 
+h3_17_dallas_council_memo_word.pdf           ordinary-word         P    2 short |   3/2   0.59 0.64  |   3/2   0.59 0.64  ok   |   3/2   0.54 | CATASTROPHIC(lo,word) lo-pages lo-wr word-pages word-wr
+h3_18_dallas_council_memo_distiller.pdf      ordinary-word         P    1 short |   1/1   1.00 1.00  |   1/1   1.00 1.00  ok   |   1/1   1.00 | 
+h3_19_rwu_syllabus_guidelines_fall2025.pdf   ordinary-word         P   13 short |  13/13  0.98 1.00  |  13/13  0.99 1.00  ok   |  13/13  0.98 | 
+h3_20_wa_jlarc_i900_status_2025.pdf          ordinary-word         P   12 short |  12/12  0.91 0.91  |  12/12  0.91 0.91  ok   |  14/12  0.25 | 
+h3_21_duke_independent_study_form.pdf        ordinary-word         P    1 short |   1/1   0.99 1.00  |   1/1   0.99 1.00  ok   |   1/1   0.99 | 
+h3_22_hud_oig_single_audit_summary.pdf       ordinary-word         P    8 short |   9/8   0.24 0.45  |   9/8   0.24 0.45  ok   |   9/8   0.24 | CATASTROPHIC(lo,word) lo-pages lo-wr word-pages word-wr
+h3_23_dol_oig_19_25_003_pandemic_ui.pdf      long-report-ordinary  P   38 long  |  40/38  0.30 0.65  |  40/38  0.30 0.65  ok   |  43/38  0.26 | 
+h3_24_dol_oig_22_25_007_piia.pdf             long-report-ordinary  P   31 long  |  31/31  0.99 1.00  |  31/31  0.99 1.00  ok   |  32/31  0.56 | 
+h3_25_dol_oig_22_25_003_management_advisory. long-report-ordinary  P   25 long  |  26/25  0.41 0.82  |  26/25  0.41 0.82  ok   |  26/25  0.41 | 
+h3_26_tigta_2025_filing_season_final.pdf     long-report-ordinary  P   26 long  |  29/26  0.36 0.74  |  29/26  0.36 0.75  ok   |  33/26  0.25 | 
+h3_27_va_oig_chip_pacific_islands.pdf        long-report-ordinary  P   78 long  |  80/78  0.88 0.95  |  80/78  0.88 0.95  ok   |  82/78  0.33 | 
+h3_28_peace_corps_oig_semiannual_2025_03.pdf long-report-ordinary  P   50 long  | 109/50  0.06 0.16  | 109/50  0.05 0.16  ok   | 119/50  0.05 | CATASTROPHIC(lo,word)
+h3_29_sba_oig_semiannual_spring2025.pdf      long-report-ordinary  P   69 long  |  75/69  0.56 0.80  |  75/69  0.56 0.80  ok   |  73/69  0.59 | 
+h3_30_arxiv_gpt4_technical_report.pdf        long-report-ordinary  P  100 long  | 100/100 0.98 0.99  | 101/100 0.34 0.76  ok   | 107/100 0.22 | 
+h3_31_ctan_fancyhdr_manual.pdf               long-report-ordinary  P  137 long  | 147/137 0.91 0.94  | 148/137 0.52 0.82  ok   | 147/137 0.91 | 
+h3_32_sjsu_cs22a_syllabus_chrome_print.pdf   web-print             P    7 short |   7/7   0.95 1.00  |   8/7   0.80 0.88  ok   |   8/7   0.80 | word-pages word-wr
+h3_33_sjsu_cs46b_syllabus_chrome_print.pdf   web-print             P    7 short |   7/7   0.99 1.00  |   7/7   1.00 1.00  ok   |   7/7   0.99 | 
+h3_34_sjsu_cs47_greensheet_chrome_quartz.pdf web-print             P   12 short |  15/12  0.53 0.71  |  15/12  0.53 0.71  ok   |  15/12  0.51 | CATASTROPHIC(lo,word) lo-pages lo-wr word-pages word-wr
+h3_35_wikipedia_curriculum_vitae_chrome_prin web-print             P    4 short |   4/4   1.00 1.00  |   4/4   1.00 1.00  ok   |   4/4   1.00 | 
+h3_36_nasa_oig_semiannual_spring2025.pdf     designed-report       -   42 long  |  47/42  0.07 0.24  |  47/42  0.07 0.24  ok   |  50/42  0.08 | 
+h3_37_usda_oig_50024_0017_11_piia.pdf        designed-report       -   35 long  |  37/35  0.37 0.76  |  37/35  0.37 0.76  ok   |  41/35  0.34 | 
+h3_38_nsf_fy2024_agency_financial_report.pdf annual-report         -  147 long  | 163/147 0.22 0.62  | 163/147 0.22 0.62  ok   | 232/147 0.13 | 
+h3_39_illinois_auditor_general_annual_2025.p annual-report         -   48 long  |  54/48  0.27 0.67  |  54/48  0.27 0.67  ok   |  61/48  0.22 | 
+h3_40_library_of_congress_annual_report_fy20 annual-report         -   49 long  |  94/49  0.17 0.40  | 137/49  0.12 0.26  ok   | 111/49  0.13 | 
+h3_41_wm_ombuds_annual_report_2024_25.pdf    designed-report       -   17 short |  28/17  0.13 0.37  |  27/17  0.13 0.37  ok   |  33/17  0.11 | 
