@@ -209,5 +209,29 @@
  "follow_ups": [
   "(c) keep the full-sheet raster when live text would overflow it: a page whose text, freed from a full-page picture, sets longer than the page (h34, h33, h3_40, h3_41).",
   "h3_15's cover: the cover-art picture (618pt, kept by the _image_leaves exemption) stands in the flow under the title and spills the cover onto a second page (mechanism B); every later page is one page late."
- ]
+ ],
+ "review_round": {
+  "commit": "f57d360",
+  "changes": "image_shadow: not the whole sheet, no line centre on it, at most 2x the photograph it holds; with an alpha channel, translucent throughout (max alpha <= 128: an opaque alpha-shaped mask or overlay is not a shadow); margin_strip's text test includes page.rotated (a labelled tab is kept). Controls dark_card, mask_overlay, thumb_tab(label=...), each failing at ff70576.",
+  "gate": {
+   "log": "C:\\lotmp\\scr\\runs\\wp68-g3.log",
+   "commit": "f57d360",
+   "mode": "strict, baseline bound",
+   "tests": "2180 OK (3 skipped, 2 expected failures)",
+   "product": "PASS 16/16",
+   "raw": "PASS 16/16",
+   "failed_steps": 0
+  },
+  "raw_hash_vs_ff70576": {
+   "file": "C:\\lotmp\\wp68x\\census_hash3.txt",
+   "moved": {
+    "h3_28_peace_corps_oig_semiannual_2025_03": "one shadow (p10, x 351-513) with a line centre on it is kept; the other shadows are still dropped",
+    "h3_37_usda_oig_50024_0017_11_piia": "a one-colour card with 27 lines on it (p2) is kept again: byte-identical to 2d7788c",
+    "h3_38_nsf_fy2024_agency_financial_report": "11 one-colour cards with 4-9 lines on each (pp8-24, 1.9-2.9x the photograph) are kept again"
+   },
+   "unchanged": 199
+  },
+  "movers_vs_2d7788c": "15 (h3_37 no longer moves)",
+  "gdocs_identity": "202 identical, 0 different"
+ }
 }
