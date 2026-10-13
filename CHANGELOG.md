@@ -6,24 +6,47 @@ traceable to a committed artifact under `docs/evidence/`.
 
 ## Unreleased
 
+## 0.3.0b2 — 2026-10-1x
+
+Fixes for the résumés and Word reports that failed 0.3.0b1's test on documents
+never seen in development, published quietly: like 0.3.0b1, this release did
+not meet the bar set in advance for announcing it.
+
+### Known issues
+
+Measured on holdout-3, a sealed set of 41 public PDFs never used in
+development (35 of them promised), converted once on the release candidate in
+LibreOffice and Word ([results](docs/evidence/holdout3-2026-10-13.txt),
+[data](docs/evidence/holdout3-2026-10-13.json)). Verdict: **announce: no**.
+No crashes, and Word opened all 41 cleanly; but of the 26 short promised
+documents only 20 kept their page count in LibreOffice and 18 in Word (the bar
+is 80%), and four came back unusable. 0.3.0b3 is the fix release.
+
+- Three short documents made in Word come back unusable: an NSF audit
+  transmittal letter (6 pages: 7, with 17% of its words on the right page), a
+  Dallas city council memo exported from Word (2 pages: 3; the council's memos
+  exported from Google Docs or printed through Acrobat Distiller come back
+  exact) and a HUD audit summary (8 pages: 9, under half its text on the
+  right page).
+- A 12-page course page saved as PDF from Chrome on a Mac comes back with 15
+  pages.
+- A 50-page semiannual audit report from Word comes back with 109 pages.
+- Long promised documents drift: a median page-count error of 5.3%; 3 of 9
+  within 2% (or one page), and 4 of 9 in LibreOffice (2 in Word) with at least
+  85% of their words on the right page.
+
 ### Changes
 
 - **The release exam runs holdout-3 for 0.3.0b2 (WP63; developer tooling).**
-  `scripts/dev/holdout_exam.sh` was hard-wired to holdout-2: run for the next
-  beta it would have refused, or recorded 0.3.0b2's exam as a rerun of
-  0.3.0b1's. Each sealed set is now one row of `EXAMS` in `holdout_exam.py`
-  -- release, sealed SHA-256 and count (holdout-3's read from its
-  registration), set directory, manifest, promise field, ledger, state suffix
-  and evidence prefix -- selected with `--exam` (default `holdout3`;
-  `holdout2` kept for history). Holdout-3 has its own ledger and results
-  name, so holdout-2's finished exam does not block it and a second holdout-3
-  run is refused; R2's denominator is holdout-3's own promised documents
-  (Chrome prints included, as registered). `--expect-promised N` refuses
-  before anything is converted unless N documents are promised. The
-  scorecard's release is 0.3.0b2 (`beta_readiness.RELEASE`, `final_set.sh`),
-  so the y37 waiver granted for 0.3.0b1 now reads as stale until the owner
-  renews or deletes it. The host Python defaults to a `.venv` in the tree or
-  its main checkout instead of one user's path.
+  The script that runs the sealed exam was written for holdout-2 only: run for
+  this beta it would have refused, or recorded 0.3.0b2's exam as a rerun of
+  0.3.0b1's. Each sealed set is now one entry in a table (its release, sealed
+  hash and count, files and promise rule), chosen with `--exam`. Holdout-3 has
+  its own record, so holdout-2's finished exam does not block it and a second
+  holdout-3 run is refused, and `--expect-promised N` refuses before anything
+  is converted unless N documents are promised. The scorecard now reads for
+  0.3.0b2, so the y37 exception granted for 0.3.0b1 reads as stale until the
+  owner renews or deletes it.
 - **Résumé layouts that failed the holdout-2 exam (WP59).** Holdout-2's
   résumés (a development set since its single run) failed on six layout
   mechanisms. Each is now read for what it is, with a synthetic test page in
@@ -59,25 +82,22 @@ traceable to a committed artifact under `docs/evidence/`.
   no body, which Word refuses; both margins are now clamped. No document in
   the corpus or the holdouts reaches it.
 - **A report's highlights sidebar reads beside its column (WP60).** A
-  Word-made audit report opens on a highlights page: a shaded panel down the
-  left and the findings column beside it, starting a few points from the
-  panel's fill. The page was not read side by side, and the panel stood above
-  its column, a page over -- every later page one place late. Three readings,
-  each with its own switch (`infer.WP60_RULES`), all the standard profile's
-  (the Google Docs profile is byte-identical):
-  - a drawn panel's edge is a gutter in itself; the region search no longer
-    asks for 6pt of white beside it (`PANEL_MIN_GUTTER`, 2pt);
-  - a panel is a sidebar, or not, whole: the gap is measured to the column
-    beside it, not to whichever piece a cut left (a bullet's hanging
-    continuation), so a line no longer reads across sidebar and column;
-  - a footer line below every panel ends the band instead of joining the
-    sidebar's cell, and on a sidebar page one the footer part already prints
-    is that footer, not a paragraph after the band;
-  - the white between the panel's fill and its column is a cell of its own,
-    so the column's cell starts at its text.
-  A chart's frame read as a box of its labels above the chart (`figure_frame`)
-  is implemented and measured, and ships OFF: it trades the labels' text for
-  the picture that already paints them. `tests/test_wp60_reports.py`.
+  Word-made audit report often opens on a highlights page: a shaded panel down
+  the left and the findings column beside it, starting a few points from the
+  panel. That page was not read side by side, so the panel stood above its
+  column and every later page came out one place late. Now:
+  - a drawn panel's edge counts as the gap between panel and column, however
+    narrow the white beside it;
+  - a panel is read as a sidebar, or not, as a whole, so a line no longer
+    reads across the sidebar and the column;
+  - a footer line below the panel ends it instead of joining the sidebar, and
+    a footer the page already prints is not repeated as a paragraph;
+  - the white between the panel and its column is kept, so the column starts
+    where its text starts.
+  Each reading has its own switch, and the Google Docs output is unchanged. A
+  fourth, which would read a chart's labels as text instead of leaving them in
+  the chart's picture, is measured and ships off. Tests:
+  `tests/test_wp60_reports.py`.
 
 ## 0.3.0b1 — 2026-10-12
 
