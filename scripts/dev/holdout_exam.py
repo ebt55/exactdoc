@@ -30,8 +30,10 @@ profile, another commit, a lane that did not finish) and no verdict is given.
 **What is promised** is the manifest's own classification, written down before
 anything was converted: the first of the exam's promise fields that every
 document carries as a boolean (holdout-2: `promised_b_narrowed`, the narrowed
-promise of amendment 6 point 2; holdout-3: `promised_b_narrowed`, else
-`promised`). A field some documents lack is refused, never mixed. R2's and R3's
+promise of amendment 6 point 2; holdout-3: `promised_narrowed`, the field its
+sealed manifest carries, 35 of 41 true). A field some documents lack is
+refused, never mixed; a missing field is refused with the names of the
+boolean fields that are there. R2's and R3's
 denominators are that exam's own promised documents. A document is short when
 the manifest's page count is <= 20, long when it is > 20.
 
@@ -97,7 +99,10 @@ EXAMS = {
     "holdout3": {"release": "0.3.0b2",
                  "registration": "docs/evidence/holdout3-registration-2026-10-12.json",
                  "set_dir": r"C:\lotmp\rv_hold3", "manifest": "holdout3.json",
-                 "promise_fields": ("promised_b_narrowed", "promised"),
+                 # the field holdout-3's sealed manifest carries (named by the
+                 # harness's own refusal on 2026-10-13, before any start was
+                 # recorded: "promised_narrowed (35 true)")
+                 "promise_fields": ("promised_narrowed",),
                  "ledger": "holdout3-exam.ledger.jsonl", "state_suffix": ".holdout3",
                  "prefix": "holdout3-", "tag": "h3"},
 }
@@ -199,8 +204,16 @@ def load_manifest(path, expected_sha256, promise_fields=(PROMISE_FIELD,), docume
             raise ExamInvalid("the promise field %r is a boolean on %d of %d documents only"
                               % (f, sum(have), len(have)))
     if field is None:
-        raise ExamInvalid("no document carries a boolean promise field (looked for %s)"
-                          % ", ".join(promise_fields))
+        # Name what IS there (field names and how many documents are true under
+        # each, never a document's own classification), so the exam's row can be
+        # corrected without anyone opening the sealed manifest.
+        keys = sorted(set.intersection(*(set(s) for s in specs.values())))
+        common = [k for k in keys if all(isinstance(s[k], bool) for s in specs.values())]
+        raise ExamInvalid("no document carries a boolean promise field (looked for %s); "
+                          "boolean fields on every document: %s; every document's fields: %s"
+                          % (", ".join(promise_fields),
+                             ", ".join("%s (%d true)" % (k, sum(s[k] for s in specs.values()))
+                                       for k in common) or "none", ", ".join(keys)))
     docs = {}
     for key, spec in specs.items():
         name = spec.get("file") or key

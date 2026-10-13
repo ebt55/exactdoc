@@ -89,7 +89,7 @@ decided 0.3.0b1 on 2026-10-11). Each exam is one row of `EXAMS` in
 count (holdout-3's are read from its registration,
 `docs/evidence/holdout3-registration-2026-10-12.json`), the set directory
 (`C:\lotmp\rv_hold3`), the manifest name (found by its SHA-256 if the name
-differs), the promise field (`promised_b_narrowed`, else `promised`), the
+differs), the promise field (`promised_narrowed`), the
 ledger (`$SCR/holdout3-exam.ledger.jsonl`), the state suffix
 (`$SCR/runs/<name>.holdout3/`) and the evidence prefix (`holdout3-<date>.json`).
 `holdout_exam.py resolve --exam holdout3` prints the row without opening the
