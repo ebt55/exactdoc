@@ -5719,6 +5719,170 @@ def _ornament_on_box(d: DrawCmd, elements) -> bool:
                and contains(e.bbox, d.bbox, 0.5) for e in elements)
 
 
+# WP68: a stray shape grown into a page-sized picture. Three readings, each
+# with its switch in WP68_RULES (standard profile only, keyed on the gdocs
+# profile's `tab_layouts=False`, as WP49's are).
+#
+# A bar of a box -- a stripe down a cover band's end, a rule down a sidebar
+# box -- is at least this many times as tall as it is wide and at least this
+# share of the page tall, and lies (BOX_BAR_INSIDE of its area) inside a box
+# already built. Pictured, it stood in the flow at its full height after the
+# box: a 7x369pt white stripe of a cover band put the cover a page down. It
+# is the box's decoration, and is dropped when its picture would take no text
+# (it is never floated: a raster floated behind a box sits under the cell's
+# shading, and a box that flows lands off the bar's source y).
+BOX_BAR_MIN_ASPECT = 8.0
+BOX_BAR_MIN_H_FRAC = 0.25
+BOX_BAR_INSIDE = 0.9
+
+
+def _box_bar(d: DrawCmd, page: PageIR, elements) -> bool:
+    x0, y0, x1, y1 = d.bbox
+    w, h = x1 - x0, y1 - y0
+    if h < BOX_BAR_MIN_ASPECT * max(w, 0.1) or h < BOX_BAR_MIN_H_FRAC * page.height:
+        return False
+    a = max(1e-6, bbox_area(d.bbox))
+    return any(isinstance(e, TableEl) and e.role in ("box", "cards", "band") and e.bbox
+               and bbox_overlap(d.bbox, e.bbox) >= BOX_BAR_INSIDE * a
+               for e in elements)
+
+
+# A thumb tab or bleed strip: a fill the page's full height (VLINE_FLOAT_MIN_FRAC
+# and more), no wider than this share of the paper, standing at least half
+# its width in a side margin, with no text set on it. `in_side_margin` wants
+# the shape wholly outside the column with 2pt to spare; a report's tabs
+# stand 5-12pt into it (x 20-77 and 27-84 against a 72pt margin, 531-590
+# against 540), so each was pictured, grew over the header banner it
+# touches, and took the page with it: one page-sized picture in the flow per
+# page. It is furniture and is dropped, as a margin shape is. 0.15 of the
+# width: the tabs measured are 0.09-0.093 of it; a margin panel that holds a
+# column of its own text is wider, and is refused by the text test anyway.
+MARGIN_STRIP_MAX_W_FRAC = 0.15
+
+
+def _margin_strip(ds: List[DrawCmd], page: PageIR, blocks, margin_l: float,
+                  margin_r: float) -> bool:
+    """Is this drawing -- or this cluster of fills, a tab drawn in pieces --
+    a text-free margin strip (above)?"""
+    if not ds or not all(d.fill for d in ds):
+        return False
+    bb = None
+    for d in ds:
+        bb = bbox_union(bb, d.bbox)
+    x0, y0, x1, y1 = bb
+    w, h = x1 - x0, y1 - y0
+    if h < VLINE_FLOAT_MIN_FRAC * page.height or \
+            w > MARGIN_STRIP_MAX_W_FRAC * page.width:
+        return False
+    body_r = page.width - margin_r
+    outside = max(0.0, min(x1, margin_l) - x0) + max(0.0, x1 - max(x0, body_r))
+    if outside < 0.5 * w:
+        return False
+    # Its text includes the rotated lines the parser keeps out of the flow
+    # (`page.rotated`): a thumb tab labelled up its edge is kept, with its
+    # label, as before.
+    for ln in list(_all_lines(blocks)) + list(page.rotated or ()):
+        if not ln.text.strip():
+            continue
+        cx = (ln.bbox[0] + ln.bbox[2]) / 2.0
+        cy = (ln.bbox[1] + ln.bbox[3]) / 2.0
+        if x0 <= cx <= x1 and y0 <= cy <= y1:
+            return False        # text set on it: a panel or a labelled tab
+    return True
+
+
+# A drop shadow: a raster of ONE colour, translucent throughout (a soft mask
+# over a flat fill, as an office suite exports a picture's shadow: h3_28's
+# are black, alpha at most 102 of 255), lying under a photograph it holds
+# (SHADOW_HOLDS of the photograph's area) and little larger than it
+# (SHADOW_MAX_GROWTH of its area), with no text set on it and not the whole
+# sheet. Composited by the page it is a shadow; as a picture of its own in
+# the flow it is a grey box the photograph's height, stacked above the
+# photograph. A report sets one under each of its photographs (h3_28);
+# pictured with the page around them they never reached the flow -- until
+# WP68 stopped those pictures growing over the page. It is dropped.
+#
+# What it must not take: a one-colour card or page background that holds a
+# photograph AND text (white text on a dark card) -- `_float_backgrounds`
+# sets that behind its text, and dropped, the text would be white on white;
+# an opaque alpha-shaped mask or overlay (a silhouette), which is not
+# translucent throughout.
+SHADOW_HOLDS = 0.8
+SHADOW_MAX_GROWTH = 2.0
+SHADOW_MAX_ALPHA = 128
+
+
+def _flat_raster(im: ImageObj) -> bool:
+    """One colour, and -- where the raster has an alpha channel -- no pixel
+    more than half opaque (a shadow's soft mask, not a shape cut out)."""
+    cached = getattr(im, "_flat", None)
+    if cached is not None:
+        return cached
+    flat = False
+    try:
+        import io
+        from PIL import Image
+        with Image.open(io.BytesIO(im.data)) as a:
+            alpha = "A" in a.getbands() or "transparency" in a.info
+            if alpha:
+                rgba = a.convert("RGBA")
+                lo_hi = rgba.getextrema()
+                flat = all(lo == hi for lo, hi in lo_hi[:3]) and                     lo_hi[3][1] <= SHADOW_MAX_ALPHA
+            else:
+                flat = all(lo == hi for lo, hi in a.convert("RGB").getextrema())
+    except Exception:
+        flat = False
+    im._flat = flat
+    return flat
+
+
+def _image_shadow(im: ImageObj, images, blocks, page: PageIR) -> bool:
+    if _fills_page(im.bbox, page.width, page.height):
+        return False
+    a = bbox_area(im.bbox)
+    held = [o for o in images if o is not im and o.data is not None
+            and bbox_area(o.bbox) <= a
+            and SHADOW_MAX_GROWTH * bbox_area(o.bbox) >= a
+            and bbox_overlap(o.bbox, im.bbox) >= SHADOW_HOLDS * max(1e-6, bbox_area(o.bbox))]
+    if not held:
+        return False
+    x0, y0, x1, y1 = im.bbox
+    for ln in _all_lines(blocks):
+        if not ln.text.strip():
+            continue
+        cx = (ln.bbox[0] + ln.bbox[2]) / 2.0
+        cy = (ln.bbox[1] + ln.bbox[3]) / 2.0
+        if x0 <= cx <= x1 and y0 <= cy <= y1:
+            return False        # text set on it: a card or a background
+    return _flat_raster(im) and any(not _flat_raster(o) for o in held)
+
+
+def _image_leaves(ib: BBox, seed: BBox, blocks, page: PageIR) -> bool:
+    """May build_figure refuse this image, over its budget? Only where the
+    image, refused, is placed out of the flow -- never where it would stand
+    in the flow at its own height:
+
+    * the whole sheet: the writer's full-page rule (FULL_PAGE_FRAC) anchors
+      it behind the text (h3_15's "At a Glance" background);
+    * live text set on it: `_float_backgrounds` anchors it behind that text
+      -- except cover art a small drawn mark stands on (the mark at most
+      1/MAX_FIG_GROWTH of its area), which the mark's picture takes whole as
+      before: a headline on a photograph is rendered faithfully only as the
+      picture (y06's cover, the IRS mark on the cover photograph).
+
+    Any other image stays in the picture, as before WP68. Freed into the
+    flow, a 497pt picture on a report's back cover stood at its own height
+    below the picture it had been part of, and cost the report two pages
+    (h2_20, h2_21)."""
+    if _fills_page(ib, page.width, page.height):
+        return True
+    n = sum(1 for l in _all_lines(blocks)
+            if l.text.strip() and contains(ib, l.bbox, pad=0.5))
+    if n < BACKGROUND_MIN_LINES:
+        return False
+    return bbox_area(seed) * MAX_FIG_GROWTH > bbox_area(ib)
+
+
 def build_figure(cl_ds: List[DrawCmd], blocks, images, consumed, page: PageIR) -> FigureEl:
     bb = None
     for d in cl_ds:
@@ -5755,7 +5919,20 @@ def build_figure(cl_ds: List[DrawCmd], blocks, images, consumed, page: PageIR) -
             if getattr(im, "_consumed", False):
                 continue
             if bbox_overlap(im.bbox, _expand(bb, 6)) > 0:
-                bb = bbox_union(bb, im.bbox)
+                cand = bbox_union(bb, im.bbox)
+                # WP68 (image_budget): an image grows the picture under the
+                # same budget a line does. It had none, so one drawn logo
+                # touching a full-page background picture grew to the sheet
+                # and took every line on it (h3_15's "At a Glance" page).
+                # Refused, the image goes the way an image no drawing touched
+                # goes: the writer's full-page rule, or `_float_backgrounds`
+                # -- and only where that places it out of the flow
+                # (`_image_leaves`).
+                if _wp68("image_budget") and bbox_area(cand) > max_area and \
+                        bbox_overlap(im.bbox, bb) <= 0.8 * max(1e-6, bbox_area(im.bbox)) \
+                        and _image_leaves(im.bbox, seed, blocks, page):
+                    continue
+                bb = cand
                 im._consumed = True
                 changed = True
         if not changed:
@@ -6233,6 +6410,20 @@ WP60_RULES = {
 
 def _wp60(rule: str) -> bool:
     return _TAB_LAYOUTS.get() and WP60_RULES.get(rule, False)
+
+
+# WP68's readings of a stray shape grown into a page-sized picture -- the same
+# standard-profile gate (off under the gdocs profile), a switch each.
+WP68_RULES = {
+    "image_budget": True,         # build_figure: an image grows a picture on budget
+    "margin_strip": True,         # _margin_strip: a thumb tab is margin furniture
+    "box_bar": True,              # _box_bar: a box's tall bar is its decoration
+    "image_shadow": True,         # _image_shadow: a photograph's drop shadow
+}
+
+
+def _wp68(rule: str) -> bool:
+    return _TAB_LAYOUTS.get() and WP68_RULES.get(rule, False)
 
 
 def _clipped_strokes(ir: DocIR) -> None:
@@ -7042,6 +7233,9 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
             if len(cl) == 1:
                 leftover.append(cl[0])
                 continue
+            if _wp68("margin_strip") and _margin_strip(
+                    [d for _, d in cl], p, blocks, furniture_l, lay.margin_r):
+                continue            # WP68: a tab drawn in pieces is still a tab
             kind = _classify_cluster(cl)
             el = None
 
@@ -7283,6 +7477,18 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
                 # fixtures).
                 if in_side_margin(d.bbox, furniture_l, lay.margin_r, p.width):
                     continue
+                if _wp68("margin_strip") and _margin_strip(
+                        [d], p, blocks, furniture_l, lay.margin_r):
+                    continue            # WP68: a thumb tab is margin furniture
+                if _wp68("box_bar") and _box_bar(d, p, elements):
+                    # WP68: a box's bar is its decoration -- unless its
+                    # picture would take text, which then reads as before.
+                    before = set(consumed)
+                    before_img = [im for im in p.images if getattr(im, "_consumed", False)]
+                    fig = build_figure([d], blocks, p.images, consumed, p)
+                    _undo_figure(consumed, before, p.images, before_img)
+                    if not fig._own:
+                        continue
                 if not _wp49("figure_covers_text") or not _tint_fill(d):
                     elements.append(build_figure([d], blocks, p.images, consumed, p))
                     continue
@@ -7314,6 +7520,8 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
                 # Marginal logo/icon: furniture, not flow. A slide anchors
                 # it where it is instead, which costs the flow nothing.
                 continue
+            if _wp68("image_shadow") and _image_shadow(im, p.images, blocks, p):
+                continue            # WP68: a photograph's drop shadow
             el = ImageEl(data=im.data, ext=im.ext,
                          width=im.bbox[2] - im.bbox[0], height=im.bbox[3] - im.bbox[1])
             el._bbox = im.bbox
