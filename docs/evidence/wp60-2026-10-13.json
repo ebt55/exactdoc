@@ -134,7 +134,24 @@
   "R1c's real causes: a tint panel swallowed into a grid cluster with its neighbouring table (OPM p2); an empty tint panel seeding a figure that grows over text (OPM p3)",
   "R2's trade (chart labels as text vs drawn twice) for the owner",
   "footnote reference marks printed twice ('decompress3636', DHS OIG 25-49)",
-  "fake-bold text drawn twice not merged ('RReeppoorrtt', OPM OIG)"
+  "fake-bold text drawn twice not merged ('RReeppoorrtt', OPM OIG)",
+  "foot_not_band's widening in _sbs_regions has no SIDEBAR_MAX_FRAC width check: any drawn panel's foot moves the foot band, where _drop_footer_echoes already counts only sidebar-width panels (final review, 2026-10-13)"
  ],
- "timing": "not taken (owner's machine busy; deferred to the quiet serial timing in the release measurement)"
+ "timing": "not taken (owner's machine busy; deferred to the quiet serial timing in the release measurement)",
+ "review_change": {
+  "date": "2026-10-13",
+  "commit": "0cffc5b",
+  "what": "_drop_footer_echoes counts a foot-band line only when it is the page's lowest text row (no line of the page's blocks, consumed or not, starts below its foot). The final review's probe -- a paragraph's short last line 'Border Security.' just above the footer 'Audit of Border Security Operations 4' -- was consumed before; it is a negative fixture in TheFooterEcho, failing on b5c1eac and passing now.",
+  "tests": "tests/test_wp60_reports.py: 23 OK (all six TheFooterEcho tests pass)",
+  "movers_check": "the 9 movers re-converted with b5c1eac and with 0cffc5b, raw and product (Windows, same LibreOffice for both): word/*.xml identical, 9/9 in each profile",
+  "gate": {
+   "log": "C:\\lotmp\\scr\\runs\\wp60-g6.log",
+   "commit": "0cffc5b",
+   "mode": "strict, baseline bound (environment 9cb0bc17, reading wp42)",
+   "tests": "2137 OK (2 skipped, 2 expected failures)",
+   "product": "PASS 16/16 (<2pt 0.8142, live 0.9784, dy50 0.3)",
+   "raw": "PASS 16/16 (<2pt 0.6168, live 0.9784, dy50 0.65)",
+   "failed_steps": 0
+  }
+ }
 }
