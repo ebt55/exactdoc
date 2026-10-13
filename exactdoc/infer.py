@@ -762,6 +762,7 @@ _URL_SEP = re.compile(r"[/?&=]")
 # 0.53 -> 0.96) and 15 with "lock", which also put a blank resume template
 # back a page late (11 -> 12). A copied URL keeps its zero-width spaces.
 URL_OVERFLOW = "zwsp"
+URL_WIDE_MIN_CHARS = 20       # a one-token line this long, margin to edge
 _ZWSP = chr(0x200B)
 _URL_SEP_BREAK = re.compile(r"(?<=[/?&=])(?=[^\s\u200b/])")   # never inside "//"
 
@@ -789,7 +790,13 @@ def _url_continues(last: str, next_text: str, line_text: Optional[str] = None) -
         return False
     x = last.rsplit(None, 1)[-1]
     y = next_text.split(None, 1)[0]
-    wide = line_text is not None and len(line_text.split()) == 1
+    # (`line_text` is passed only for a line that spans its measure; a token
+    # that short -- a figure stacked in a table cell, a lone bullet -- is not
+    # one the line had to break)
+    wide = line_text is not None and len(line_text.split()) == 1 and \
+        len(line_text.strip()) >= URL_WIDE_MIN_CHARS and \
+        not any(ch.isspace() for ch in next_text.split(None, 1)[0]) and \
+        _URL_SEP.search(line_text) is not None
     if not (wide or _URL_TOKEN.search(x + y) or
             (_URL_SEP.search(x) and _URL_SEP.search(y))):
         return False
@@ -1729,7 +1736,8 @@ def para_from_lines(lines: List[Line], col_l: float, col_r: float,
                 not getattr(lines[0], "_main_col", False):
             p.align = "right"
             if _wp71("wide_not_right") and \
-                    x1 - x0 > WIDE_NOT_RIGHT_FRAC * (col_r - col_l):
+                    x1 - x0 > WIDE_NOT_RIGHT_FRAC * (col_r - col_l) and \
+                    not _row_of_cells(lines[0]):
                 # WP71: settled by `_merge_flow_paras`, which sees the
                 # paragraphs around it (`_settle_wide_right`)
                 p._wide_right = True
@@ -1788,7 +1796,8 @@ def para_from_lines(lines: List[Line], col_l: float, col_r: float,
                                     and ln.bbox[2]
                                     >= col_r - p.right_indent - 3.0),
                        at_edge=ln.bbox[2] >= col_r - p.right_indent - 3.0,
-                       line_text=ln.text)
+                       line_text=ln.text if ln.bbox[0] <= min(
+                           q.bbox[0] for q in lines) + 3.0 else None)
     # ``right_flush`` deliberately ignores the final source line: that is how
     # a normal justified paragraph has a ragged last line.  A short metadata
     # block can look the same to that heuristic, except its final row is wider
@@ -1827,7 +1836,9 @@ def para_from_lines(lines: List[Line], col_l: float, col_r: float,
                                         and lines[j - 1].bbox[2]
                                         >= col_r - p.right_indent - 3.0),
                            at_edge=lines[j - 1].bbox[2] >= col_r - p.right_indent - 3.0,
-                           line_text=lines[j - 1].text)
+                           line_text=lines[j - 1].text if j > 1 and
+                           lines[j - 1].bbox[0] <= min(q.bbox[0] for q in lines[1:]) + 3.0
+                           else None)
                 runs.extend(runs_from_spans(lines[j].spans))
             p.runs = runs
             # its one tab is the marker's separator, not a tabbed row
@@ -10467,6 +10478,18 @@ def _runs_in(a: Para, b: Para) -> bool:
 # not text set flush right, unless a paragraph beside it is flush right too
 # (an address block).
 WIDE_NOT_RIGHT_FRAC = 0.8
+
+
+WIDE_CELL_GAP_EM = 2.0
+
+
+def _row_of_cells(ln: Line) -> bool:
+    """Is the line a row of cells -- items set in columns across it (a
+    resume's skills, three bullets to a row) -- rather than one run of text?
+    Its spans stand apart by more than WIDE_CELL_GAP_EM."""
+    sz = _line_size(ln) or 10.0
+    sp = sorted((s for s in ln.spans if s.text.strip()), key=lambda s: s.bbox[0])
+    return any(b.bbox[0] - a.bbox[2] > WIDE_CELL_GAP_EM * sz for a, b in zip(sp, sp[1:]))
 
 
 def _settle_wide_right(seq) -> None:

@@ -284,6 +284,19 @@ class UrlJoin(unittest.TestCase):
         tok = "dib=eyJ2IjoiMSJ9.pv3kvhQSwJK2b5HjBZ46GDupAPfIF1CN687FFpEtNRTBQcPiAKFvj8c"
         self.assertEqual(_join(tok, "cFofX-uonK8dmlv", line_text=tok), tok)
 
+    def test_figures_stacked_in_a_cell_keep_their_space(self):
+        self.assertEqual(_join("695,200", "7,176,500", line_text="695,200"), "695,200 ")
+        bullet = chr(0x25CF)
+        self.assertEqual(_join(bullet, bullet, line_text=bullet), bullet + " ")
+
+    def test_a_row_of_cells_is_not_a_wide_line(self):
+        cells = Line(spans=[_sized("C++", 108.0, 130.0, 300.0, 11.0).spans[0],
+                            _sized("MATLAB", 300.0, 340.0, 300.0, 11.0).spans[0]],
+                     bbox=(108.0, 290.0, 540.0, 303.0))
+        self.assertTrue(I._row_of_cells(cells))
+        self.assertFalse(I._row_of_cells(_sized("Fire Department Staffing", 108.0, 540.0,
+                                                 300.0, 11.0)))
+
     def test_switched_off_it_is_a_space(self):
         self.addCleanup(_off("url_join"))
         self.assertEqual(_join("see https://example.org/courses/", "1595954/files"),
