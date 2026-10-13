@@ -6,7 +6,7 @@ traceable to a committed artifact under `docs/evidence/`.
 
 ## Unreleased
 
-## 0.3.0b2 — 2026-10-1x
+## 0.3.0b2 — 2026-10-13
 
 Fixes for the résumés and Word reports that failed 0.3.0b1's test on documents
 never seen in development, published quietly: like 0.3.0b1, this release did
