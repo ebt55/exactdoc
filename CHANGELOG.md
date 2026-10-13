@@ -6,6 +6,21 @@ traceable to a committed artifact under `docs/evidence/`.
 
 ## Unreleased
 
+### Changes
+
+- **A stray drawing no longer grows into a picture of the whole page (WP68).**
+  A logo touching a page's full-page background picture became a picture of
+  the sheet with every line on it (an NSF audit transmittal's summary page);
+  a report's thumb tabs took each of its pages the same way (a Peace Corps
+  semiannual report, 109 pages for 50); a cover band's stripe stood in the
+  text flow before the cover (a HUD audit summary, page 1 blank). On those
+  three: the summary page is text again (document word recall 0.77 to 0.99),
+  the report is 64 pages, and the HUD summary is page-exact with 0.99 of its
+  words on the right page, in LibreOffice and Word. A photograph's drop shadow
+  is no longer a grey box above it. Corpus: no document worse than 0.3.0b1's
+  final sweep in either lane; three InDesign reports outside the promise set
+  longer as live text ([evidence](docs/evidence/wp68-2026-10-13.json)).
+
 ## 0.3.0b2 — 2026-10-13
 
 Fixes for the résumés and Word reports that failed 0.3.0b1's test on documents
