@@ -763,7 +763,7 @@ _URL_SEP = re.compile(r"[/?&=]")
 # back a page late (11 -> 12). A copied URL keeps its zero-width spaces.
 URL_OVERFLOW = "zwsp"
 _ZWSP = chr(0x200B)
-_URL_SEP_BREAK = re.compile(r"(?<=[/?&=])(?=[^\s\u200b])")
+_URL_SEP_BREAK = re.compile(r"(?<=[/?&=])(?=[^\s\u200b/])")   # never inside "//"
 
 
 def _url_overflow(p: Para) -> None:

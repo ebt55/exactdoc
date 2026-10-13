@@ -297,7 +297,7 @@ class UrlJoin(unittest.TestCase):
         q = Para(runs=[r])
         I._url_overflow(q)
         z = chr(0x200B)
-        self.assertEqual(q.runs[0].text, "see https:/" + z + "/" + z + "example.org/" + z +
+        self.assertEqual(q.runs[0].text, "see https://" + z + "example.org/" + z +
                          "courses/" + z + "1595954/" + z + "files?" + z + "x=" + z + "1")
         self.assertEqual(I.URL_OVERFLOW, "zwsp")
 
