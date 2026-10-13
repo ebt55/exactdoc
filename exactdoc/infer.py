@@ -10837,8 +10837,9 @@ def _margin_labels(flow_blocks, taken) -> dict:
         lab = b.lines[0]
         t = lab.text.strip()
         if id(lab) in taken or not t or len(t) > LABEL_MAX_CHARS or \
-                len(t.split()) > 2 or not lab.horizontal or not lab.spans:
-            continue
+                len(t.split()) > 2 or not lab.horizontal or not lab.spans or \
+                sum(ch.isalpha() for ch in t) < 2:
+            continue            # (a label is a word: a lone glyph is a table's)
         lsz = _line_size(lab)
         best = None
         for host, hb in lines:
