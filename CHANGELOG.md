@@ -6,6 +6,10 @@ traceable to a committed artifact under `docs/evidence/`.
 
 ## Unreleased
 
+### Changes
+
+- Investigated: page spill levers (WP69), not shipped; see [evidence](docs/evidence/wp69-2026-10-13.json).
+
 ## 0.3.0b2 — 2026-10-13
 
 Fixes for the résumés and Word reports that failed 0.3.0b1's test on documents

@@ -1,0 +1,123 @@
+{
+ "schema": "exactdoc.wp-evidence.v1",
+ "about": "WP69 (mechanism B, the holdout-3 triage's page-spill levers): investigated, NOT shipped. The triage held that each source page ending in a hard page break makes a 1-3-line spill cost a whole page, and proposed levers to absorb it. Measured, none reaches the holdout-3 cases it was aimed at: their spills are layout-reconstruction errors (a memo's stamp/header block, a signature grid, URL wraps, resume samples read as two columns), not 1-3-line residuals. Coordinator decision 2026-10-13: shelve; branch wp69 (a6a6b2b on 2d7788c) kept unmerged for later.",
+ "tree": "wp69 a6a6b2b (8b23311 seam join + Word reserve; 89dd9d9 reserve off; a6a6b2b CHANGELOG) on integration 2d7788c (0.3.0b2); not merged",
+ "baseline": "0.3.0b2 release sweeps C:\\lotmp\\scr\\runs\\final-34d4413-{raw,prod}.sweep.json (corpus) and the holdout-3 exam C:\\lotmp\\scr\\runs\\holdout3-rc.holdout3 ({raw,prod}.sweep.json, word-prod); holdout-1/-2 lanes C:\\lotmp\\wp69x\\hold\\h{1,2}base-{raw,prod} at cd689c5 (no converter change to 2d7788c).",
+ "image": "exactdoc-gate:boot sha256:bab1cfc0d2cd",
+ "gate": {
+  "log": "C:\\lotmp\\scr\\runs\\wp69-g2.log",
+  "commit": "a6a6b2b",
+  "mode": "strict, baseline bound",
+  "tests": "2175 OK (2 skipped, 2 expected failures)",
+  "failed_steps": 0,
+  "product": "PASS 16/16 (<2pt 0.8142, live 0.9784, dy50 0.3)",
+  "raw": "PASS 16/16 (<2pt 0.6168, live 0.9784, dy50 0.65)",
+  "earlier": "C:\\lotmp\\scr\\runs\\wp69-g1.log at 3577775 (pre-rebase, reserve ON): FAILED_STEPS=2 -- product lane regression on 01_whitepaper_market (within2pt 0.8128 -> 0.749) from lever b, and the holdout3-manifest digest not yet registered at cd689c5 (registered by the 0.3.0b2 release commit a9a734e; cleared by the rebase)."
+ },
+ "levers": {
+  "a3_widow_control": {
+   "tried": "measured first (the one lever that also acts in Word): widow/orphan control on the body paragraphs of the target documents, LibreOffice and Word",
+   "result": "moves no page in either renderer on any target case",
+   "shipped": false
+  },
+  "a1_seam_join": {
+   "tried": "inference marks seams where the source's own page break cut a paragraph (same face/size/leading/indent, no list/heading/numbering/line breaks, the sentence runs on in lower case; infer._mark_joinable_seams); the writer may omit that page break so the overrun runs on (docxout._resolve_joins). Refine loop: join only where the render shows a spill the levers cannot take back (need > lever room) and the next page's measured room + gap holds it (refine._decide_joins), continuation lines reassigned to page n. Raw lane: open-loop rule (_seam_excess at the loop floors > 0 and _flow_balance of the pair <= 0). Never under gdocs, never two in a row.",
+   "result": "zero loop joins on 202 documents (corpus, holdout-1/-2/-3); one open-loop join in the raw lane, y09 (below). None of the target cases is reachable: h3_17 page 2 opens with the memo's continuation header (seam not joinable); h3_14 page 1 does not spill (its spill is on page 2); h3_34 p6 need 138pt < lever room 203pt so the levers, not a join, own it; h3_01/h3_02/h3_32 have no joinable spilling seam.",
+   "shipped": false
+  },
+  "b_word_reserve": {
+   "tried": "under the refine loop, a page the model keeps within one more body line of its box is paid that line from the gentle gap tier only (never floors), and the loop's pushes keep it (pagefit.WORD_SLACK, WORD_SLACK_LINES = 1.0): the model's rendered-minus-modelled height p90 is +13.7pt, one body line.",
+   "result": "fixes h3_32 in Word (8 -> 7 pages); does not fix h3_01 (needs ~14.8pt, gentle budget 11.8pt). Gate regression: 01_whitepaper_market p2 keeps 22.3pt spare (inside the reserve) and the reserve moved its lines -- product within2pt 0.8128 -> 0.749 -- where Word needed nothing. Shipped OFF on the branch: nothing yet tells a page at risk in Word from one that is not.",
+   "shipped": false
+  },
+  "a2_font_shrink": {
+   "tried": "not implemented",
+   "result": "lines are exact-leading, so a shrink acts only through re-wrap, and only on LibreOffice spills the loop already sees and measures; no target case has a residual it would reach.",
+   "shipped": false
+  },
+  "c3_word_fixture": {
+   "tried": "synthetic page within one body line of full, one-line justified paragraphs set to 99.0% and 99.7% of the measure, rendered in LibreOffice and Word (word_oracle, under the lock)",
+   "result": "not reproducible: both renderers set the page alike; no Word-only spill fixture exists.",
+   "shipped": false
+  }
+ },
+ "holdout3_cases": {
+  "note": "LibreOffice pages, wp69 a6a6b2b; every holdout-3 DOCX is content-identical to the exam's in both lanes, so the exam's Word lane holds.",
+  "columns": [
+   "src_pages",
+   "product",
+   "raw",
+   "word_product"
+  ],
+  "h3_01": [
+   11,
+   11,
+   11,
+   12
+  ],
+  "h3_02": [
+   11,
+   13,
+   16,
+   13
+  ],
+  "h3_14": [
+   6,
+   7,
+   6,
+   7
+  ],
+  "h3_17": [
+   2,
+   3,
+   3,
+   3
+  ],
+  "h3_32": [
+   7,
+   7,
+   8,
+   8
+  ],
+  "h3_34": [
+   12,
+   15,
+   15,
+   15
+  ],
+  "causes": {
+   "h3_17": "memo stamp / DATE-TO-SUBJECT header block and the continuation header on page 2",
+   "h3_14": "signature grid (pictures and names) not read as a grid",
+   "h3_34": "long unbroken URLs wrap differently in the DOCX than in Chrome's print",
+   "h3_02": "blank resume templates read as two columns",
+   "h3_01": "Word-only, needs ~14.8pt",
+   "h3_32": "Word-only by one line (lever b would fix it)"
+  }
+ },
+ "census": {
+  "gdocs": "byte-identical, 202/202 unique outputs (corpus + holdout-1/-2/-3; local conversion of both trees, C:\\lotmp\\wp69x\\bulkdiff.txt)",
+  "raw": "1 mover of 202: y09_nist_sp800207 (one open-loop join at page 16, modelled excess +3.9pt at the floors)",
+  "product": "0 movers: DOCX content hashes identical on corpus 90/90, holdout-3 41/41, holdout-1 36/36, holdout-2 32/32 (canonical container)",
+  "joins_need_over_room": 0
+ },
+ "y09": {
+  "document": "y09_nist_sp800207.pdf (raw lane)",
+  "pages": "59 -> 59 in LibreOffice and in Word (rendered both, under the lock)",
+  "within2pt": [
+   0.7207,
+   0.6994
+  ],
+  "mean_ssim": [
+   0.7771,
+   0.7705
+  ],
+  "cause": "the open-loop model put page 15 3.9pt over its box at the loop's floors; LibreOffice actually fits it, so dropping the seam moved the continuation's lines up a page. Within criterion 8's tolerances. Options had it shipped: require the excess to clear the model's error band (~one body line), or make joins loop-only."
+ },
+ "criterion_8": {
+  "accepted": "C:\\lotmp\\scr\\runs\\final-71af76e-{raw,prod}.sweep.json",
+  "product": "PASS, 0 documents worse (C:\\lotmp\\scr\\runs\\wp69-a-prod.sweep.json, a6a6b2b)",
+  "raw": "PASS, 0 documents worse (C:\\lotmp\\scr\\runs\\wp69-b-raw.sweep.json, a6a6b2b)",
+  "page_exact": "corpus product 71 -> 71, raw 66 -> 66 against the 0.3.0b2 release sweeps"
+ },
+ "decision": "shelved by the coordinator 2026-10-13: a lever never seen working, shipped before a sealed exam, adds risk without gain. The real causes go to WP71."
+}
