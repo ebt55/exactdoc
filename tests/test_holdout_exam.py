@@ -652,6 +652,157 @@ class Holdout3(unittest.TestCase):
             X.locate_manifest(setd, "nothing.json", "0" * 64)
 
 
+def r3v2(m, prows, wrows, **kw):
+    return ev(m, prows, wrows, r3_rule="v2", **kw)
+
+
+def clean_v2(**kw):
+    m, p, w = clean(**kw)
+    for r in p + w:
+        r["doc_recall"] = 0.99
+    return m, p, w
+
+
+class R3v2(unittest.TestCase):
+    """Amendment 7's R3 (owner-adopted 2026-10-13), for holdout-4 on: no output,
+    doc_recall < 0.9, or |dpages| > max(1, 20% of the source), in either lane."""
+
+    def test_the_rule_text_is_amendment_7s(self):
+        self.assertIn("doc_recall) < 0.9", X.R3_RULES["v2"])
+        self.assertIn("|dpages| > max(1, 20% of the source pages)", X.R3_RULES["v2"])
+        self.assertIn("belong to R2", X.R3_RULES["v2"])
+
+    def test_clean_run_passes_and_names_its_rule(self):
+        m, p, w = clean_v2()
+        res = r3v2(m, p, w)
+        self.assertTrue(res["R3"]["pass"])
+        self.assertEqual(res["R3"]["rule"], "v2")
+        self.assertIn("(v2)", X.render_text(res))
+
+    def test_doc_recall_below_0_9_is_catastrophic_0_9_is_not(self):
+        m, p, w = clean_v2()
+        p = replace(p, "document", "s00.pdf", lo("s00.pdf", 4, 4, doc_recall=0.89))
+        res = r3v2(m, p, w)
+        self.assertEqual(res["R3"]["short_catastrophic"], ["s00.pdf"])
+        self.assertIn("doc_recall 0.890 < 0.9",
+                      next(d for d in res["documents"] if d["doc"] == "s00.pdf")["r3_why"]["lo"])
+        p = replace(p, "document", "s00.pdf", lo("s00.pdf", 4, 4, doc_recall=0.9))
+        self.assertTrue(r3v2(m, p, w)["R3"]["pass"])
+
+    def test_either_lane(self):
+        m, p, w = clean_v2()
+        w = replace(w, "doc", "s01.pdf", wd("s01.pdf", 4, 4, doc_recall=0.5))
+        self.assertEqual(r3v2(m, p, w)["R3"]["by_lane"]["word"], ["s01.pdf"])
+
+    def test_page_allowance_is_max_of_one_page_and_20_percent(self):
+        m, p, w = clean_v2(short_pages=2)
+        p = replace(p, "document", "s00.pdf", lo("s00.pdf", 2, 3, doc_recall=0.99))   # +1: allowed
+        self.assertTrue(r3v2(m, p, w)["R3"]["pass"])
+        self.assertFalse(ev(m, p, w)["R3"]["pass"])         # v1: +50% was catastrophic
+        p = replace(p, "document", "s00.pdf", lo("s00.pdf", 2, 4, doc_recall=0.99))   # +2: not
+        self.assertFalse(r3v2(m, p, w)["R3"]["pass"])
+        m, p, w = clean_v2(short_pages=10)
+        p = replace(p, "document", "s00.pdf", lo("s00.pdf", 10, 12, doc_recall=0.99))  # 2 of 2
+        self.assertTrue(r3v2(m, p, w)["R3"]["pass"])
+        p = replace(p, "document", "s00.pdf", lo("s00.pdf", 10, 7, doc_recall=0.99))   # -3 > 2
+        self.assertFalse(r3v2(m, p, w)["R3"]["pass"])
+
+    def test_right_page_recall_is_r2s_not_r3s(self):
+        m, p, w = clean_v2()
+        p = replace(p, "document", "s00.pdf", lo("s00.pdf", 4, 4, cr=0.3, doc_recall=0.95))
+        self.assertTrue(r3v2(m, p, w)["R3"]["pass"])
+        self.assertFalse(ev(m, p, w)["R3"]["pass"])          # v1 read char_recall
+
+    def test_no_output_is_catastrophic(self):
+        m, p, w = clean_v2()
+        p = replace(p, "document", "s02.pdf", {"document": "s02.pdf", "refused": "OcrRequiredError"})
+        w = replace(w, "doc", "s02.pdf", {"doc": "s02.pdf", "flavour": "product", "opened": False,
+                                          "error": X.NO_DOCX})
+        self.assertEqual(r3v2(m, p, w)["R3"]["short_catastrophic"], ["s02.pdf"])
+
+    def test_one_long_allowed(self):
+        m, p, w = clean_v2(n_long=3)
+        p = replace(p, "document", "l00.pdf", lo("l00.pdf", 40, 40, doc_recall=0.5))
+        self.assertTrue(r3v2(m, p, w)["R3"]["pass"])
+        p = replace(p, "document", "l01.pdf", lo("l01.pdf", 40, 50, doc_recall=0.99))
+        self.assertFalse(r3v2(m, p, w)["R3"]["pass"])
+
+    def test_a_row_without_doc_recall_is_an_invalid_exam_under_v2_only(self):
+        m, p, w = clean_v2()
+        del p[0]["doc_recall"]
+        with self.assertRaises(X.ExamInvalid):
+            r3v2(m, p, w)
+        self.assertTrue(ev(m, p, w)["R3"]["pass"])           # v1 never reads it
+
+    def test_holdout2_and_holdout3_keep_v1_holdout4_reads_v2(self):
+        self.assertEqual((X.EXAMS["holdout2"]["r3_rule"], X.EXAMS["holdout3"]["r3_rule"],
+                          X.EXAMS["holdout4"]["r3_rule"]), ("v1", "v1", "v2"))
+
+
+class Holdout4(unittest.TestCase):
+    def setUp(self):
+        self.root = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.root)
+        os.makedirs(os.path.join(self.root, "docs", "evidence"))
+
+    def _register(self, name, **reg):
+        path = os.path.join(self.root, "docs", "evidence", name)
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(reg, fh)
+        return path
+
+    def test_unregistered_is_refused(self):
+        with self.assertRaises(X.ExamInvalid) as cm:
+            X.exam("holdout4", root=self.root)
+        self.assertIn("not registered", str(cm.exception))
+        if not any(f.startswith("holdout4-registration-")
+                   for f in os.listdir(os.path.join(ROOT, "docs", "evidence"))):
+            with self.assertRaises(X.ExamInvalid):
+                X.exam("holdout4")
+
+    def test_a_registration_fills_the_row(self):
+        self._register("holdout4-registration-2026-10-30.json", manifest_sha256="a" * 64,
+                       documents=40, promise_field="promised")
+        ex = X.exam("holdout4", root=self.root)
+        self.assertEqual((ex["sha256"], ex["documents"], ex["promise_fields"], ex["release"],
+                          ex["r3_rule"], ex["prefix"], ex["ledger"]),
+                         ("a" * 64, 40, ("promised",), "0.3.0b3", "v2", "holdout4-",
+                          "holdout4-exam.ledger.jsonl"))
+        self.assertEqual(ex["registration"],
+                         "docs/evidence/holdout4-registration-2026-10-30.json")
+
+    def test_two_registrations_refuse(self):
+        self._register("holdout4-registration-2026-10-30.json", manifest_sha256="a" * 64,
+                       documents=40)
+        self._register("holdout4-registration-2026-10-31.json", manifest_sha256="b" * 64,
+                       documents=40)
+        with self.assertRaises(X.ExamInvalid):
+            X.exam("holdout4", root=self.root)
+
+    def test_a_registration_is_not_a_result(self):
+        self.assertFalse(X.results_pattern("holdout4-").match(
+            "holdout4-registration-2026-10-30.json"))
+
+
+class Rescore(unittest.TestCase):
+    def test_reported_never_a_verdict_and_the_recorded_rule_reproduces(self):
+        m, p, w = clean_v2(short_pages=2)
+        p = replace(p, "document", "s00.pdf", lo("s00.pdf", 2, 3, cr=0.45, doc_recall=0.99))
+        p = replace(p, "document", "s01.pdf", lo("s01.pdf", 2, 2, doc_recall=0.89))
+        r = X.rescore_r3(m, sweep(p), {x["doc"]: x for x in w}, exit_map=EXIT_MAP,
+                         expect_commit=COMMIT, profiles=PROFILES, exam_name="holdout3")
+        self.assertEqual(r["status"], "reported, not a verdict")
+        self.assertFalse(r["recorded_verdict"]["R3"])
+        self.assertEqual(r["R3"]["v1"]["short_catastrophic"], ["s00.pdf"])
+        self.assertEqual(r["R3"]["v2"]["short_catastrophic"], ["s01.pdf"])
+        row = {d["doc"]: d for d in r["documents"]}
+        self.assertEqual((row["s00.pdf"]["catastrophic_v1"], row["s00.pdf"]["catastrophic_v2"]),
+                         (True, False))
+        text = X.render_rescore(r)
+        self.assertIn("REPORTED, NOT A VERDICT", text)
+        self.assertIn("recorded verdict (stands)", text)
+
+
 class DrySet(unittest.TestCase):
     def test_two_pdf_synthetic_set(self):
         try:
