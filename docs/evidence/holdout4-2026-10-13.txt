@@ -1,0 +1,48 @@
+holdout4 exam (beta-bar.md amendment 6): 36 documents, 32 promised (27 short, 5 long) under promised_narrowed
+R1 PASS  crashes 0; refusals 0 (untyped 0, CLI-confirmed); Word opened clean 36/36
+R2 PASS  LibreOffice short promised page-exact 24/27 = 89% (ok); word recall >= 0.9 25/27 = 93% (ok)
+R2 PASS  Word        short promised page-exact 22/27 = 82% (ok); word recall >= 0.9 24/27 = 89% (ok)
+R3 FAIL  promised catastrophic (v2): short 2 (allowed 0) h4_34_arxiv_2509_12700_insar_filtering.pdf h4_35_arxiv_2509_12573_training_free_deferral.pdf; long 0 (allowed 1) 
+R4 reported LibreOffice long promised n=5 (measured 5): median |dpages| 0.0%; within max(1,2%) 3/5 = 60%; word recall >= 0.85 3/5 = 60%
+R4 reported Word        long promised n=5 (measured 5): median |dpages| 0.0%; within max(1,2%) 3/5 = 60%; word recall >= 0.85 4/5 = 80%
+R5 reported: no live Docs lane was flown for this exam; the gated-16 live qualification stays as recorded
+announce: no   (R1 PASS, R2 PASS, R3 FAIL)
+reading: R2: the word-recall share is required in each lane (LibreOffice and Word); refused/crashed/unmeasured short promised documents count as misses. R3 (v2): catastrophic in either lane counts; no output in a lane is catastrophic; word recall = document-level doc_recall; pages = |dpages| > max(1, 20%). R1: crashes are product-sweep rows; raw is reported; a refusal is typed when its code maps to an exit code other than 1, and the real CLI's exit status must equal it when confirmed.
+
+document                                     class                 P   pp len   | LO pages  wr   cr    | Word pages wr  cr    open | raw pages wr   | flags
+h4_01_mga_aviation_resume_packet.pdf         resume                P    5 short |   5/5   0.99 1.00  |   6/5   0.99 1.00  ok   |   5/5   0.99 | word-pages
+h4_02_smashingdocs_simple_ats_resume_gdocs.p resume                P    2 short |   2/2   1.00 0.99  |   2/2   1.00 0.99  ok   |   2/2   1.00 | 
+h4_03_resumegenius_basic_resume_gdocs.pdf    resume                P    1 short |   1/1   1.00 0.99  |   1/1   1.00 0.99  ok   |   1/1   1.00 | 
+h4_04_mhclg_rochford_holding_direction_lette ordinary-word         P    2 short |   2/2   1.00 1.00  |   2/2   1.00 1.00  ok   |   2/2   1.00 | 
+h4_05_asc_awerbs_timeline_letter.pdf         ordinary-word         P    1 short |   1/1   1.00 1.00  |   1/1   1.00 1.00  ok   |   1/1   1.00 | 
+h4_06_dfe_liverpool_improvement_notice.pdf   ordinary-word         P    3 short |   3/3   1.00 1.00  |   3/3   1.00 1.00  ok   |   3/3   1.00 | 
+h4_07_civil_society_europe_civil_dialogue_re ordinary-word         P    3 short |   3/3   1.00 1.00  |   3/3   1.00 1.00  ok   |   3/3   1.00 | 
+h4_08_csus_faculty_senate_minutes_2025_11_20 ordinary-word         P    2 short |   2/2   0.99 1.00  |   2/2   0.99 1.00  ok   |   2/2   0.99 | 
+h4_09_unm_faculty_senate_agenda_2025_11_25.p ordinary-word         P    1 short |   1/1   1.00 1.00  |   1/1   1.00 1.00  ok   |   2/1   0.67 | 
+h4_10_pleasanton_council_memo_sb707.pdf      ordinary-word         P    1 short |   1/1   1.00 1.00  |   1/1   1.00 1.00  ok   |   1/1   1.00 | 
+h4_11_uchs_teachers_and_syllabi_gdocs.pdf    ordinary-gdocs        P   14 short |  14/14  1.00 1.00  |  14/14  1.00 1.00  ok   |  14/14  1.00 | 
+h4_12_arxiv_2509_11492_claimiq_checkthat.pdf ordinary-latex        P    9 short |   9/9   0.95 0.97  |   9/9   0.94 0.97  ok   |  11/9   0.63 | 
+h4_13_arxiv_2509_11487_urban_visualizations. ordinary-latex        P   11 short |  11/11  0.98 0.99  |  11/11  0.98 0.99  ok   |  11/11  0.98 | 
+h4_14_arxiv_2509_22675_sir_time_scales.pdf   ordinary-latex        P   17 short |  17/17  0.95 0.97  |  17/17  0.94 0.97  ok   |  21/17  0.47 | 
+h4_15_arxiv_2509_11501_hurricane_harvey_labo ordinary-latex        P   16 short |  16/16  0.98 0.99  |  16/16  0.97 0.99  ok   |  18/16  0.45 | 
+h4_16_arxiv_2509_11514_cs_cl_long.pdf        long-report-ordinary  P   26 long  |  31/26  0.75 0.87  |  30/26  0.89 0.94  ok   |  33/26  0.58 | 
+h4_17_arxiv_2509_01867_lagrange_value_3.pdf  long-report-ordinary  -   22 long  |  23/22  0.51 0.81  |  23/22  0.51 0.81  ok   |  24/22  0.43 | 
+h4_18_arxiv_2509_02457_smr_phd_thesis.pdf    long-report-ordinary  P  168 long  | 179/168 0.49 0.79  | 180/168 0.36 0.74  ok   | 186/168 0.28 | 
+h4_19_apha_bovine_tb_explanatory_supplement_ long-report-ordinary  P   69 long  |  69/69  1.00 1.00  |  69/69  1.00 1.00  ok   |  69/69  1.00 | 
+h4_20_cefas_salmon_stocks_2025.pdf           long-report-ordinary  P   35 long  |  35/35  1.00 1.00  |  35/35  1.00 1.00  ok   |  35/35  1.00 | 
+h4_21_esma_final_report_insider_lists_its.pd long-report-ordinary  P   24 long  |  24/24  1.00 1.00  |  24/24  1.00 1.00  ok   |  38/24  0.22 | 
+h4_22_hmlr_annual_report_accounts_2025_26.pd annual-report         -  136 long  | 175/136 0.13 0.38  | 179/136 0.13 0.36  ok   | 195/136 0.12 | 
+h4_23_maib_annual_report_2025.pdf            annual-report         -   53 long  |  56/53  0.30 0.68  |  56/53  0.31 0.68  ok   |  61/53  0.29 | 
+h4_24_esma_annual_report_2024.pdf            annual-report         -  110 long  | 122/110 0.24 0.56  | 118/110 0.32 0.60  ok   | 127/110 0.21 | 
+h4_25_ie_education_circular_0068_2025.pdf    ordinary-word         P    4 short |   4/4   1.00 1.00  |   4/4   1.00 1.00  ok   |   4/4   1.00 | 
+h4_26_cbsa_memorandum_d21_1_1.pdf            ordinary-word         P   15 short |  15/15  1.00 1.00  |  15/15  1.00 1.00  ok   |  17/15  0.45 | 
+h4_27_pbac_letter_glp1_obesity.pdf           ordinary-word         P    5 short |   5/5   1.00 1.00  |   5/5   1.00 1.00  ok   |   5/5   1.00 | 
+h4_28_gusa_womens_hockey_club_constitution.p ordinary-gdocs        P    6 short |   6/6   0.99 0.99  |   6/6   0.99 0.99  ok   |   6/6   0.99 | 
+h4_29_gdocs_club_constitution_template.pdf   ordinary-gdocs        P    2 short |   2/2   1.00 0.97  |   2/2   1.00 0.97  ok   |   2/2   1.00 | 
+h4_30_web_print_mit_ocw_6_0001_syllabus.pdf  web-print             P    3 short |   3/3   0.98 0.98  |   3/3   0.98 0.98  ok   |   3/3   0.98 | 
+h4_31_web_print_w3c_code_of_conduct.pdf      web-print             P   17 short |  17/17  1.00 1.00  |  17/17  1.00 1.00  ok   |  20/17  0.31 | 
+h4_32_web_print_apache_code_of_conduct.pdf   web-print             P    5 short |   6/5   0.93 0.93  |   6/5   0.93 0.94  ok   |   7/5   0.92 | lo-pages word-pages
+h4_33_arxiv_2509_13236_layout_aware_ocr.pdf  ordinary-latex        P    5 short |   5/5   0.97 1.00  |   6/5   0.66 0.74  ok   |   7/5   0.37 | word-pages word-wr
+h4_34_arxiv_2509_12700_insar_filtering.pdf   ordinary-latex        P   19 short |  38/19  0.41 0.52  |  37/19  0.41 0.52  ok   |  40/19  0.35 | CATASTROPHIC(lo,word) lo-pages lo-wr word-pages word-wr
+h4_35_arxiv_2509_12573_training_free_deferra ordinary-latex        P   11 short |  12/11  0.55 0.72  |  12/11  0.54 0.72  ok   |  13/11  0.51 | CATASTROPHIC(lo,word) lo-pages lo-wr word-pages word-wr
+h4_36_arxiv_2509_13369_right_to_override.pdf ordinary-latex        P   16 short |  16/16  0.99 1.00  |  16/16  0.97 1.00  ok   |  16/16  0.99 | 
