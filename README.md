@@ -18,8 +18,8 @@ settings; Google Docs shows the DOCX made for it ([still image](docs/images/hero
 adds a thin white strip above the dark band, and the footer's page number sits
 further left than in the PDF, set larger in Word and Google Docs.</sub>
 
-> **Beta (0.3.0b2), on PyPI.** Not announced yet: see the results on
-> [documents it has never seen](#tested-on-documents-it-has-never-seen) below.
+> **Beta (0.3.0b3), on PyPI.** How it does on PDFs it has never seen, good
+> and bad, is [below](#tested-on-documents-it-has-never-seen).
 
 ## Install
 
@@ -77,17 +77,18 @@ Word yourself, not from text boxes pinned to the page:
 
 What exactdoc promises depends on the program that made the PDF. Documents
 written as flowing text in **Word, Google Docs, LibreOffice or LaTeX** are
-promised. Designed layouts are not, yet. Numbers below are from the release
-measurement ([record](docs/evidence/release-measurement-2026-10-13.json)) and,
-where they say "never seen", from [the test below](#tested-on-documents-it-has-never-seen)
-([results](docs/evidence/holdout3-2026-10-13.json)).
+promised. Designed layouts are not, yet. Numbers below are from the 0.3.0b3
+release measurement ([record](docs/evidence/release-measurement-2026-10-13-b3.json))
+and, where they say "never seen", from [the test below](#tested-on-documents-it-has-never-seen)
+([results](docs/evidence/holdout4-2026-10-13.json)).
 
 | Kind of PDF | Today |
 |---|---|
-| Letters, memos, policies, syllabi and other documents of up to 20 pages written in Word, Google Docs, LibreOffice or LaTeX | Mostly: of 9 never seen, 5 kept their page count and words, but three made in Word came back unusable ([below](#tested-on-documents-it-has-never-seen)) |
-| Résumés | Mostly: of 13 never seen, 12 kept their page count in LibreOffice and 11 in Word; a packet of blank résumé templates went from 11 pages to 13 |
-| Reports over 20 pages written in Word | Mixed: of 7 never seen, one came back page for page; five gained 1–6 pages, and a 50-page semiannual report came back with 109 |
-| Long documents written in LaTeX | Mostly: a 100-page technical report never seen came back page for page in LibreOffice (one page more in Word); a 137-page manual gained 10 pages |
+| Letters, memos, minutes, policies and other documents of up to 20 pages written in Word, Google Docs or LibreOffice | Works well: of 13 never seen, all 13 kept their page count, with at least 99% of their words on the right page, in LibreOffice and Word |
+| Résumés | Mostly: of 3 never seen, all 3 kept their page count in LibreOffice and 2 in Word; a 5-page résumé packet came back with 6 pages in Word |
+| Papers of up to 20 pages written in LaTeX | Mostly: of 8 arXiv papers never seen, 6 kept their page count in LibreOffice and 5 in Word, but two came back unusable: a 19-page paper at twice its length, an 11-page paper missing 15% of its words ([below](#tested-on-documents-it-has-never-seen)) |
+| Reports over 20 pages | Good: three government reports never seen (24, 35 and 69 pages) came back page for page, with at least 99% of their words on the right page, in LibreOffice and Word |
+| Long documents written in LaTeX | Partly: a 26-page arXiv paper never seen came back with 31 pages (30 in Word), and a 168-page PhD thesis with 179 (180 in Word) |
 | Tables, simple two-column pages, headers, footers, footnotes, links | Works well |
 | Latin, Cyrillic and Greek text | Works well |
 | Chinese, Japanese and Korean text | Partly: the text survives, but some runs become pictures |
@@ -97,7 +98,7 @@ where they say "never seen", from [the test below](#tested-on-documents-it-has-n
 | Multi-column booklets (IRS, GPO, Federal Register style) | Not yet: IRS Publication 501 grows from 31 pages to 45 in LibreOffice |
 | Dense journal papers, equations | Not yet: equations come apart, and pages can be added |
 | Slide decks, brochures, posters | Not yet |
-| Web pages printed from a browser | Partly: of 4 never seen, 3 came back page for page in LibreOffice and 2 in Word; a 12-page course page saved from Chrome on a Mac came back with 15 |
+| Web pages printed from a browser | Mostly: of 3 never seen, 2 came back page for page in LibreOffice and Word; a 5-page code of conduct came back with 6 |
 | Scans without a text layer, fillable forms, over 250 pages | Refused with a clear message and exit code (no OCR is built in; `--max-pages` raises the cap) |
 
 <table>
@@ -124,8 +125,8 @@ gated on every push in CI inside the pinned measurement image, and
 each milestone converts 95 frozen PDFs (those 16 and 79 more, most of them
 public real-world documents), opens every DOCX in LibreOffice, Microsoft Word
 and Google Docs, and compares it with the PDF page by page. In the release
-measurement for 0.3.0b2 ([record](docs/evidence/release-measurement-2026-10-13.json),
-[scorecard](docs/evidence/beta-readiness-2026-10-13b.json); the Google Docs figures
+measurement for 0.3.0b3 ([record](docs/evidence/release-measurement-2026-10-13-b3.json),
+[scorecard](docs/evidence/beta-readiness-2026-10-13-b3.json); the Google Docs figures
 are from the 11 October flight, and the DOCX made for Google Docs has not
 changed since):
 
@@ -145,30 +146,33 @@ it does on PDFs it has seen. How the measurement works:
 
 ### Tested on documents it has never seen
 
-Before the release, 41 public PDFs never used in development were sealed and
-then converted once, on the release candidate. 35 were classed as promised
-before the run: 26 of up to 20 pages and 9 longer. Google Docs was not part of
-this test ([results](docs/evidence/holdout3-2026-10-13.txt), [data](docs/evidence/holdout3-2026-10-13.json));
-0.3.0b1's 32 test documents are now part of development.
+Before the release, 36 public PDFs never used in development were sealed, then
+converted once, on the release candidate, and opened in LibreOffice and Word.
+32 were classed as promised before the run: 27 of up to 20 pages and 5 longer.
+The bar for announcing was set in advance; Google Docs was not part of this
+test ([results](docs/evidence/holdout4-2026-10-13.txt), [data](docs/evidence/holdout4-2026-10-13.json)).
 
-- **No crashes, and Word opened all 41 cleanly: pass.**
-- **Short promised documents: fail.** 20 of 26 kept exactly their page count in LibreOffice and 18 of 26 in Word; as many (20 and 18) had at least 90% of their words on the right page. Both are below the 80% bar.
-- **No unusable result: fail.** Four short promised documents came back unusable: an NSF audit transmittal letter made in Word (7 pages for 6, 17% of its words on the right page), a Dallas city council memo exported from Word (3 pages for 2), a HUD audit summary made in Word (9 pages for 8, under half its text on the right page) and a course page saved as PDF from Chrome on a Mac (15 pages for 12). Of the long ones, a 50-page semiannual audit report came back with 109 pages, the one long miss the bar allows.
-- **Long promised documents (reported):** a median page-count error of 5.3%; 3 of 9 within 2% (or one page), and 4 of 9 in LibreOffice (2 in Word) with at least 85% of their words on the right page.
+- **R1, no crashes: pass.** Nothing crashed or was refused, and Word opened all 36 cleanly.
+- **R2, short promised documents: pass.** 24 of 27 kept exactly their page count in LibreOffice and 22 of 27 in Word (the bar is 80%); 25 and 24 had at least 90% of their words on the right page.
+- **R3, no unusable result: fail.** Two short arXiv LaTeX papers came out unusable: a 19-page statistics paper came out at twice its length (38 pages in LibreOffice, 37 in Word), and an 11-page paper lost 15% of its words. No long document was unusable.
+- **R4, long promised documents (reported):** a median page-count error of 0%; 3 of 5 within 2% (or one page), and 3 of 5 in LibreOffice (4 in Word) with at least 85% of their words on the right page.
+- **R5, Google Docs (reported):** not part of this test; the live Google Docs check of the 16 gated test documents stands.
 
-For 0.3.0b3 we changed what counts as an unusable result: text that is all
-there but pushed onto the next page no longer counts as lost, and real text
-loss is judged more strictly (90% of the words, not 50%). We fixed that rule
-before seeing any new test documents. Re-scored under it, for information
-only, holdout-3 still fails: 3 short documents are unusable instead of 4 (a
-one-page LaTeX CV that loses its "Europass" heading into a logo picture, the
-6-page NSF audit cover letter, whose page-2 text is turned into a picture, and
-the 12-page course page printed from Chrome that grows to 15 pages), and 1 long
-([re-score](docs/evidence/holdout3-rescore-r3v2-2026-10-13.json)). 0.3.0b2's
-verdict does not change.
+So 0.3.0b3 met the page and word bar on short documents in both Word and
+LibreOffice, but two LaTeX papers came out unusable, so it does not yet meet
+the full bar we set. It is announced anyway, as decided before the test ran.
+This release ends the loop of fixing against one sealed test after another:
+from here on, each release carries a fresh report card on documents it has
+never seen.
 
-This did not meet the bar we set in advance for announcing it; 0.3.0b3 is the
-fix release.
+On a different set of never-seen PDFs, 0.3.0b2 kept 20 of 26 short promised
+documents page-exact in LibreOffice and 18 in Word, with four unusable
+([results](docs/evidence/holdout3-2026-10-13.txt)); 0.3.0b3 kept 24 of 27 and
+22 of 27, with two unusable. Since 0.3.0b2 the "unusable" rule is stricter on
+lost text (fewer than 90% of the words anywhere in the output, where it was
+under half) and leaves text pushed onto the next page to the page test; under
+it 0.3.0b2's test would have counted three short documents unusable, not four
+([re-score](docs/evidence/holdout3-rescore-r3v2-2026-10-13.json)).
 
 ## Fonts
 

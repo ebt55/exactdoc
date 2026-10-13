@@ -236,8 +236,9 @@ STOCK_FONTS = {
 # The release this scorecard gates. A criterion-8 waiver names the release it
 # was granted for; once this moves on (the next beta, GA), a waiver for an
 # earlier release is stale and blocks until it is renewed or deleted
-# (docs/beta-bar.md, "Exceptions"). 0.3.0b1 was published 2026-10-11.
-RELEASE = "0.3.0b2"
+# (docs/beta-bar.md, "Exceptions"). 0.3.0b1 was published 2026-10-11, 0.3.0b2
+# on 2026-10-13.
+RELEASE = "0.3.0b3"
 
 # ------------------------------------------------------- criterion-8 waivers
 # Bounded, self-retiring exceptions to criterion 8, in the shape of the gdocs
