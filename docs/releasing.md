@@ -7,14 +7,15 @@ when a version tag is pushed. Nothing here uses an API token: PyPI's *Trusted
 Publishing* gives the workflow a credential that lasts minutes, for one upload,
 and only from this repository's release workflow.
 
-The first public beta, **0.3.0b1**, was published on PyPI on 2026-10-12; the
-next is 0.3.0b2. The version in `pyproject.toml` changes only in the release
-commit itself, and that commit is not made while any gating criterion of
+The first public beta, **0.3.0b1**, was published on PyPI on 2026-10-12 and
+**0.3.0b2** on 2026-10-13, both quietly; **0.3.0b3** is the first announced
+release. The version in `pyproject.toml` changes only in the release commit
+itself, and that commit is not made while any gating criterion of
 [the beta bar](beta-bar.md) fails.
 
 ## What runs, in order
 
-When a tag such as `v0.3.0b2` is pushed, `release.yml` runs four jobs:
+When a tag such as `v0.3.0b3` is pushed, `release.yml` runs four jobs:
 
 | Job | What it does | Stops the release when |
 |---|---|---|
@@ -73,7 +74,7 @@ image) and `install` are both green.
 
 ## Each release
 
-The commands below use `0.3.0b2`; replace it with the version being released.
+The commands below use `0.3.0b3`; replace it with the version being released.
 
 1. **Check readiness against [the beta bar](beta-bar.md)**, ratified by the
    owner on 2026-10-05. On the commit to release: the canonical gate is green
@@ -84,7 +85,7 @@ The commands below use `0.3.0b2`; replace it with the version being released.
    reported for the beta and gate 1.0.
 
 2. **Bump the version, in one commit.**
-   - `pyproject.toml`: `version = "0.3.0b2"`. The classifier is already
+   - `pyproject.toml`: `version = "0.3.0b3"`. The classifier is already
      `"Development Status :: 4 - Beta"` (since 0.3.0b1) and stays so until 1.0.
    - `uv.lock`: run `uv lock`, then `uv lock --check`. The lock records the
      project's own version; the gate's `uv sync --frozen` never compares it
@@ -96,7 +97,7 @@ The commands below use `0.3.0b2`; replace it with the version being released.
    - `CHANGELOG.md`: the heading line `## Unreleased` becomes exactly
 
      ```text
-     ## 0.3.0b2 — 2026-MM-DD
+     ## 0.3.0b3 — 2026-MM-DD
      ```
 
      with the release date in ISO form and an em dash, the same shape as
@@ -146,8 +147,8 @@ The commands below use `0.3.0b2`; replace it with the version being released.
    version in `pyproject.toml`, or the `build` job stops:
 
    ```bash
-   git tag -a v0.3.0b2 -m "exactdoc 0.3.0b2"
-   git push origin v0.3.0b2
+   git tag -a v0.3.0b3 -m "exactdoc 0.3.0b3"
+   git push origin v0.3.0b3
    ```
 
 5. **Watch it run.** GitHub → **Actions → release**. `build`, `testpypi` and
@@ -161,9 +162,9 @@ The commands below use `0.3.0b2`; replace it with the version being released.
 
    ```bash
    python -m venv /tmp/try && . /tmp/try/bin/activate          # Windows: py -m venv %TEMP%\try && %TEMP%\try\Scripts\activate
-   pip download --no-deps --index-url https://test.pypi.org/simple/ exactdoc==0.3.0b2 -d dl
-   pip install dl/exactdoc-0.3.0b2-py3-none-any.whl
-   exactdoc --version          # exactdoc 0.3.0b2
+   pip download --no-deps --index-url https://test.pypi.org/simple/ exactdoc==0.3.0b3 -d dl
+   pip install dl/exactdoc-0.3.0b3-py3-none-any.whl
+   exactdoc --version          # exactdoc 0.3.0b3
    exactdoc some.pdf           # writes some.docx; without LibreOffice it says so
    exactdoc "résumé 日本.pdf" > log.txt   # a non-Latin name, stdout to a file: exit 0
    ```
@@ -177,7 +178,7 @@ The commands below use `0.3.0b2`; replace it with the version being released.
 8. **Check the real thing** in another fresh virtualenv:
 
    ```bash
-   pip install --pre exactdoc==0.3.0b2
+   pip install --pre exactdoc==0.3.0b3
    exactdoc --version
    ```
 
@@ -192,9 +193,9 @@ The commands below use `0.3.0b2`; replace it with the version being released.
 
    ```bash
    # the CHANGELOG section written in step 2, without its heading
-   awk '/^## 0\.3\.0b2 /{f=1; next} /^## /{f=0} f' CHANGELOG.md > notes-0.3.0b2.md
-   gh release create v0.3.0b2 --prerelease --verify-tag \
-     --title "exactdoc 0.3.0b2" --notes-file notes-0.3.0b2.md
+   awk '/^## 0\.3\.0b3 /{f=1; next} /^## /{f=0} f' CHANGELOG.md > notes-0.3.0b3.md
+   gh release create v0.3.0b3 --prerelease --verify-tag \
+     --title "exactdoc 0.3.0b3" --notes-file notes-0.3.0b3.md
    ```
 
    Check the front page afterwards: no release should be marked *Latest*
@@ -209,11 +210,11 @@ The commands below use `0.3.0b2`; replace it with the version being released.
 ## When something goes wrong
 
 - **`build` says the tag does not match.** Delete the tag
-  (`git push --delete origin v0.3.0b2` and `git tag -d v0.3.0b2`), fix the
+  (`git push --delete origin v0.3.0b3` and `git tag -d v0.3.0b3`), fix the
   version, tag again.
 - **An upload says the file already exists.** PyPI and TestPyPI never accept
   the same file name twice, even after a deletion. Bump to the next number
-  (`0.3.0b3`) and release that.
+  (`0.3.0b4`) and release that.
 - **`invalid-publisher`.** One of the five fields in setup step 3 does not
   match the run: owner, repository, workflow file name (`release.yml`),
   environment name, or the project name.

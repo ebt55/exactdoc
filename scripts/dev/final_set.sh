@@ -27,7 +27,7 @@
 #   --keep-going        continue after a failed gate (it is still reported)
 #   --allow-busy        start (a)-(e) beside other containers (testing only; printed;
 #                       the quiet wait in (f) is never waived)
-#   --release V         default 0.3.0b2
+#   --release V         default 0.3.0b3
 #   --frac F            (f) time documents whose sweep time is >= F of their limit
 #                       (default 0.4; sweeps run 1.4-2.3x a lone conversion, WP20b)
 #
@@ -39,7 +39,7 @@ export MSYS_NO_PATHCONV=1
 set -u
 
 DRY=0; ONLY=""; STEPS="a,b,c,d,e,f,g"; ACCEPTED=""; DOCS_ROWS=""; NO_DOCS=0
-KEEP_GOING=0; RELEASE="0.3.0b2"; FRAC="0.4"; ALLOW_BUSY=0
+KEEP_GOING=0; RELEASE="0.3.0b3"; FRAC="0.4"; ALLOW_BUSY=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --dry-run) DRY=1; shift;;

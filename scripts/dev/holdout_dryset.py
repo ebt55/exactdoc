@@ -1,6 +1,7 @@
 """A 2-PDF synthetic stand-in for a sealed holdout, to prove the exam's plumbing end to end.
 
-    python scripts/dev/holdout_dryset.py OUTDIR [--manifest-name holdout3.json]
+    python scripts/dev/holdout_dryset.py OUTDIR [--manifest-name holdout3.json] \
+        [--promise-field promised_narrowed]
 
 Writes OUTDIR/pdfs/{d01_short_letter.pdf, d02_long_report.pdf} with reportlab
 (invariant mode: the same bytes every time), OUTDIR/<manifest name> in the sealed
@@ -45,7 +46,10 @@ def _sha(path):
         return hashlib.sha256(fh.read()).hexdigest()
 
 
-def build(out, manifest_name="holdout2.json"):
+def build(out, manifest_name="holdout2.json", promise_field="promised_b_narrowed"):
+    """The synthetic set, its manifest naming the promise under `promise_field`
+    (the exam's own field: holdout_exam.sh passes it from the exam's row), so the
+    dry run reads the synthetic manifest the way the exam reads the sealed one."""
     pdfs = os.path.join(out, "pdfs")
     os.makedirs(pdfs, exist_ok=True)
     specs = [("d01_short_letter", "A short letter", 3, "ordinary-word"),
@@ -64,6 +68,7 @@ def build(out, manifest_name="holdout2.json"):
                      "producer": "ReportLab", "creator": "holdout_dryset.py",
                      "design_class": cls, "promised_a_current_bar": True,
                      "promised_b_narrowed": True, "reason_b": "synthetic"}
+        docs[key][promise_field] = True
     man = {"schema": "exactdoc.holdout2.v0", "synthetic": True, "sealed": False,
            "note": "SYNTHETIC dry-run set for scripts/dev/holdout_exam.sh; not a sealed holdout",
            "documents": docs}
@@ -83,5 +88,6 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("outdir")
     ap.add_argument("--manifest-name", default="holdout2.json")
+    ap.add_argument("--promise-field", default="promised_b_narrowed")
     a = ap.parse_args()
-    print(build(a.outdir, a.manifest_name))
+    print(build(a.outdir, a.manifest_name, a.promise_field))

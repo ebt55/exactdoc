@@ -4,7 +4,86 @@ Notable changes to exactdoc. Every quality number in this file is measured in
 the canonical environment (`docker/gate.Dockerfile`, pinned by digest) and
 traceable to a committed artifact under `docs/evidence/`.
 
-## Unreleased
+## 0.3.0b3 — 2026-10-14
+
+Fixes for the short documents that failed 0.3.0b2's test on documents never
+seen in development. This release is announced. Under the stop rule adopted
+for it (amendment 7 to the beta bar), 0.3.0b3 is tagged and announced whatever
+its test showed, with the numbers as they came out; it ends the loop of fixing
+against one sealed exam after another. From here on, each release carries a
+fresh report card on documents it has never seen.
+
+### Known issues
+
+Measured on holdout-4, a sealed set of 36 public PDFs never used in
+development (32 of them promised: 27 of up to 20 pages, 5 longer), converted
+once on the release candidate in LibreOffice and Word
+([results](docs/evidence/holdout4-2026-10-13.txt),
+[data](docs/evidence/holdout4-2026-10-13.json)). Verdict: **announce: no**, on
+the "no unusable result" rule alone. No crashes, and Word opened all 36
+cleanly. Of the 27 short promised documents, 24 kept exactly their page count
+in LibreOffice and 22 in Word, and 25 and 24 had at least 90% of their words
+on the right page: both lanes clear the 80% bar.
+
+- Two short arXiv LaTeX papers come back unusable. A 19-page statistics paper
+  comes out at twice its length (38 pages in LibreOffice, 37 in Word), with
+  its words all there. An 11-page human-computer interaction paper loses 15%
+  of its words (85% of them appear anywhere in the output, in both lanes; 12
+  pages for 11).
+- A code-of-conduct web page printed from Chrome (Apache) comes back with 6
+  pages for 5, in LibreOffice and Word.
+- In Word only: a 5-page arXiv paper on OCR comes back with 6 pages and 66% of
+  its words on the right page, and a 5-page résumé packet with 6 pages.
+- Long promised documents: a median page-count error of 0%; 3 of 5 within 2%
+  (or one page), and 3 of 5 in LibreOffice (4 in Word) with at least 85% of
+  their words on the right page. A 26-page arXiv paper comes back with 31
+  pages (30 in Word), and a 168-page PhD thesis with 179 (180 in Word).
+- A web address the PDF broke across two lines is joined into one with
+  invisible zero-width spaces after each `/ ? & =` in it (so it can still
+  wrap). Text copied from the visible address can include them: copy the link
+  instead, or delete them after pasting
+  ([limitations](docs/deep-dive/limitations.md)).
+
+### Changes
+
+- **Four readings for short documents that ran long (WP71).** A blank
+  resume template whose placeholder fields all say the same thing ("City,
+  ST" down the right of every entry), whose headings are centred across the
+  page or whose coursework list is set two to a row, is no longer laid out as
+  two columns. A letter's signature pages -- a signature picture over each
+  signer's name and title, two signers to a row -- are a grid of rows, the
+  pictures anchored where they stand, not one paragraph per row with the
+  pictures stacked between. A memo's small DATE / TO / SUBJECT labels head
+  the line they stand beside, and a list item's full first line is no longer
+  read as right-aligned (so it rejoins its item). A URL a line broke inside
+  of at the margin is joined with nothing, with a zero-width break
+  opportunity after each `/ ? & =` in it. Each reading is its own switch
+  (`infer.WP71_RULES`), standard profile only: the Google Docs profile is
+  byte-identical. `tests/test_wp71_readings.py`;
+  [evidence](docs/evidence/wp71-2026-10-13.json). Costs, accepted: a UK
+  strategy report designed in InDesign, outside the promise, comes back with
+  107 pages for 81 (105 before); live text on three Wikipedia pages printed
+  from Chrome drops 0.7 to 1.7 points, because the source's text layer reads
+  each line's piece of a URL as a word of its own and the joined URL does not
+  match them; a New Zealand discussion paper has 1.9 points fewer words
+  within 2pt of their place (0.754 to 0.735); and a US Federal Reserve
+  monetary policy report gains a page in the open-loop (raw) lane, 109 for 79.
+- **A stray drawing no longer grows into a picture of the whole page (WP68).**
+  A logo touching a page's full-page background picture became a picture of
+  the sheet with every line on it (an NSF audit transmittal's summary page);
+  a report's thumb tabs took each of its pages the same way (a Peace Corps
+  semiannual report, 109 pages for 50); a cover band's stripe stood in the
+  text flow before the cover (a HUD audit summary, page 1 blank). On those
+  three: the summary page is text again (document word recall 0.77 to 0.99),
+  the report is 64 pages, and the HUD summary is page-exact with 0.99 of its
+  words on the right page, in LibreOffice and Word. A photograph's drop shadow
+  is no longer a grey box above it. Corpus: no document worse than 0.3.0b1's
+  final sweep in either lane; four reports designed in InDesign, outside the
+  promise, set longer as live text where a page picture had held it: two UK
+  government strategies, the Library of Congress annual report and a
+  university ombuds annual report
+  ([evidence](docs/evidence/wp68-2026-10-13.json)).
+- Investigated: page spill levers (WP69), not shipped; see [evidence](docs/evidence/wp69-2026-10-13.json).
 
 ## 0.3.0b2 — 2026-10-13
 

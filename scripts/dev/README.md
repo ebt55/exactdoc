@@ -17,7 +17,7 @@ Windows host with Git Bash, Docker, and the canonical image `exactdoc-gate:boot`
 | `record_env.sh <name> <tree> [file]` | `evidence.py --record-canonical` in a fresh container, written to `testkit/<file>` (default `canonical_env.proposed.json`, which nothing compares against). Writing `canonical_env.json` redefines canonical: owner approval only. |
 | `gdsweep.py OUT [--corpus both] [--only a,b]` | Live Google Docs sweep: convert with the gdocs candidate profile, upload, Google's own PDF export, score. Resumable. Needs `EXACTDOC_ROOT=<tree>` and the `EXACTDOC_GDOCS_CREDENTIALS` / `EXACTDOC_GDOCS_TOKEN` env vars; uploads to the owner's Drive. |
 | `final_set.sh [--dry-run] [--only "a b"] --accepted SWEEP <tree> <name>` | The final measurement set for the beta scorecard in one resumable command: preflight, strict gate, product + raw sweeps, Word on both, the Docs command printed, quiet serial timing, `beta_readiness` into `docs/evidence/beta-readiness-<date>.json`. See [below](#the-final-measurement-set-wp44-final_setsh). Helpers: `final_set_helpers.py`. |
-| `holdout_exam.sh [--exam holdout3] [--expect-promised N] [--dry-run] [--print] [--rerun-reason T] <tree> <name>` | A single-use release exam on a sealed holdout set (beta-bar.md, amendment 6): holdout-3 for 0.3.0b2 by default, holdout-2 (0.3.0b1, run 2026-10-11) for history. Verify the manifest and PDFs, product + raw sweeps over them, the CLI's exit status for every refusal, Word over the product DOCX, R1-R5 into `docs/evidence/<exam>-<date>.json`. See [below](#the-holdout-release-exam-wp52-wp63-holdout_examsh). Parts: `holdout_exam.py` (the `EXAMS` table), `holdout_sweep.py`, `holdout_word.py`, `holdout_dryset.py`. |
+| `holdout_exam.sh [--exam holdout3] [--expect-promised N] [--dry-run] [--print] [--rerun-reason T] <tree> <name>` | A single-use release exam on a sealed holdout set (beta-bar.md, amendment 6): `--exam holdout4` decided 0.3.0b3 (run 2026-10-13); the default is still `holdout3` (0.3.0b2, run 2026-10-13), and holdout-2 (0.3.0b1, run 2026-10-11) is history. Every exam is spent: the next release needs a new sealed set and its own `EXAMS` row, and that row should become the default. Verify the manifest and PDFs, product + raw sweeps over them, the CLI's exit status for every refusal, Word over the product DOCX, R1-R5 into `docs/evidence/<exam>-<date>.json`. See [below](#the-holdout-release-exam-wp52-wp63-holdout_examsh). Parts: `holdout_exam.py` (the `EXAMS` table), `holdout_sweep.py`, `holdout_word.py`, `holdout_dryset.py`. |
 | `flypairs.py PROBE OUT A B` | Fly a probe set's `<doc>.<A>.gdocs.docx` / `<doc>.<B>.gdocs.docx` pairs live and score them (a missing variant is skipped). |
 
 The Word lane is in the package's testkit: `python testkit/word_oracle.py sweep
@@ -83,8 +83,9 @@ and are written into the evidence as "not a final measurement".
         --exam holdout3 --expect-promised 35 <tree> <name>
 
 Run once per sealed set, on the frozen release candidate, after `final_set.sh`.
-Which set is `--exam` (default `holdout3`, the exam for 0.3.0b2; `holdout2`
-decided 0.3.0b1 on 2026-10-11). Each exam is one row of `EXAMS` in
+Which set is `--exam` (default `holdout3`, the exam for 0.3.0b2; `holdout4`
+decided 0.3.0b3 and `holdout2` 0.3.0b1, each run once; all three are spent, so
+the next release adds its own row and makes it the default). Each exam is one row of `EXAMS` in
 `holdout_exam.py`: the release, the sealed manifest's SHA-256 and document
 count (holdout-3's are read from its registration,
 `docs/evidence/holdout3-registration-2026-10-12.json`), the set directory

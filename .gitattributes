@@ -65,3 +65,9 @@ docs/evidence/holdout2-manifest.json -text
 # The published holdout-3 manifest stays byte-identical to its registered hash
 # (docs/evidence/holdout3-registration-2026-10-12.json).
 docs/evidence/holdout3-manifest.json -text
+
+# The published holdout-4 manifest and sampling recipes stay byte-identical to
+# the SHA-256s in docs/evidence/holdout4-registration-2026-10-13.json.
+docs/evidence/holdout4-manifest.json -text
+docs/evidence/holdout4-RECIPE.md -text
+docs/evidence/holdout4-RECIPE-2.md -text
