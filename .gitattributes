@@ -61,3 +61,7 @@ testkit/fixtures_expansion/*.pdf binary
 # The published holdout-2 manifest must stay byte-identical to the hash
 # pre-registered in docs/beta-bar.md: no line-ending conversion on any checkout.
 docs/evidence/holdout2-manifest.json -text
+
+# The published holdout-3 manifest stays byte-identical to its registered hash
+# (docs/evidence/holdout3-registration-2026-10-12.json).
+docs/evidence/holdout3-manifest.json -text

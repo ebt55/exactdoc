@@ -1,0 +1,336 @@
+{
+ "schema": "exactdoc.release-measurement.v1",
+ "generated_utc": "2026-10-13T09:06:35Z",
+ "release": "0.3.0b2",
+ "commit": "34d441388b3b40b8585a6b165a746307bc29272b",
+ "tree": "clean detached worktree at 34d4413 (C:/lotmp/rc2)",
+ "image": {
+  "ref": "exactdoc-gate:boot",
+  "id": "sha256:bab1cfc0d2cd15c1c1a63d6db86fb1bfcb7f8f33ce7ee608568303fa58536f20"
+ },
+ "command": "EXACTDOC_SCR='C:\\lotmp\\scr' bash scripts/dev/final_set.sh --steps b,c,d,f --accepted 'C:\\lotmp\\scr\\runs\\accepted-wp31-prod.rescored5.sweep.json' C:/lotmp/rc2 final-34d4413; step g by hand (beta_readiness --release 0.3.0b2 --allow-mixed-commits --allow-stale)",
+ "gate": "strict: Ran 2137 tests OK (skipped=2, expected failures=2); FAILED_STEPS=0; BASELINE_BINDING=strict; product PASS pagematch 16/16 <2pt 0.8142 live 0.9784 dy50 0.3; raw PASS pagematch 16/16 <2pt 0.6168 live 0.9784 dy50 0.65",
+ "sweeps": {
+  "product": {
+   "profile": "pdfium/standard/libreoffice/refine3@240dpi",
+   "rows": 90,
+   "summary": {
+    "documents": 90,
+    "errors": 0,
+    "mean_abs_ratio_err": 0.0522,
+    "mean_char_doc_recall": 0.9816,
+    "mean_char_recall": 0.9204,
+    "mean_doc_recall": 0.9554,
+    "mean_edit_score": 0.628,
+    "mean_live_text_cov": 0.9561,
+    "mean_ssim": 0.7569,
+    "mean_within2pt": 0.4259,
+    "mean_word_recall": 0.8659,
+    "measured": 90,
+    "median_ratio": 1.0,
+    "page_exact": 71,
+    "refused": 0,
+    "total_convert_s": 1505.2
+   },
+   "provenance": {
+    "canonical": false,
+    "environment_fingerprint": "2f950c647f7cfc7b869b51fbd3f4af7df6ce584b8fe96c1312ce6294491f67ff",
+    "git_commit": "34d441388b3b40b8585a6b165a746307bc29272b",
+    "git_dirty": false,
+    "git_source": "host (EXACTDOC_GIT_COMMIT)",
+    "image_id": "sha256:bab1cfc0d2cd15c1c1a63d6db86fb1bfcb7f8f33ce7ee608568303fa58536f20",
+    "image_ref": "exactdoc-gate:boot",
+    "reading": {
+     "scorer": "wp42",
+     "source": "ca563181d6ad"
+    }
+   }
+  },
+  "raw": {
+   "profile": "pdfium/standard/none/refine0@240dpi",
+   "rows": 90,
+   "summary": {
+    "documents": 90,
+    "errors": 0,
+    "mean_abs_ratio_err": 0.1056,
+    "mean_char_doc_recall": 0.9817,
+    "mean_char_recall": 0.8829,
+    "mean_doc_recall": 0.9554,
+    "mean_edit_score": 0.6292,
+    "mean_live_text_cov": 0.9561,
+    "mean_ssim": 0.7133,
+    "mean_within2pt": 0.3183,
+    "mean_word_recall": 0.8225,
+    "measured": 90,
+    "median_ratio": 1.0,
+    "page_exact": 66,
+    "refused": 0,
+    "total_convert_s": 473.0
+   },
+   "provenance": {
+    "canonical": false,
+    "environment_fingerprint": "2f950c647f7cfc7b869b51fbd3f4af7df6ce584b8fe96c1312ce6294491f67ff",
+    "git_commit": "34d441388b3b40b8585a6b165a746307bc29272b",
+    "git_dirty": false,
+    "git_source": "host (EXACTDOC_GIT_COMMIT)",
+    "image_id": "sha256:bab1cfc0d2cd15c1c1a63d6db86fb1bfcb7f8f33ce7ee608568303fa58536f20",
+    "image_ref": "exactdoc-gate:boot",
+    "reading": {
+     "scorer": "wp42",
+     "source": "ca563181d6ad"
+    }
+   }
+  }
+ },
+ "word": {
+  "product": {
+   "rows": 90,
+   "errors": 0,
+   "hangs": 0,
+   "repair_prompts": 0,
+   "page_exact": 69
+  },
+  "raw": {
+   "rows": 90,
+   "errors": 0,
+   "hangs": 0,
+   "repair_prompts": 0,
+   "page_exact": 63
+  }
+ },
+ "docs_lane": {
+  "rows": "C:\\lotmp\\rcgd\\out\\rows.jsonl",
+  "flown_on": "410d3700ed2bb13e3613bef11cc3f39771b4fbf8",
+  "reused": true,
+  "gdocs_docx_parts_identical": 90,
+  "refused_both": [
+   "y07_irs_f1040_form.pdf",
+   "y11_nist_sp80053r5_overcap.pdf",
+   "y14_irs_fw9_form.pdf",
+   "y23_luatex.pdf",
+   "y25_texbytopic.pdf"
+  ],
+  "differ": []
+ },
+ "serial_timing": [
+  {
+   "profile": "product",
+   "document": "y03_nist_fips197.pdf",
+   "src_pages": 46,
+   "convert_s": 23.25,
+   "limit_s": 69.0,
+   "host_cpu_before": 6,
+   "host_cpu_after": 6
+  },
+  {
+   "profile": "product",
+   "document": "y06_irs_1040_instructions.pdf",
+   "src_pages": 126,
+   "convert_s": 163.93,
+   "limit_s": 189.0,
+   "host_cpu_before": 3,
+   "host_cpu_after": 6
+  },
+  {
+   "profile": "product",
+   "document": "y12_irs_pub15.pdf",
+   "src_pages": 59,
+   "convert_s": 43.23,
+   "limit_s": 88.5,
+   "host_cpu_before": 9,
+   "host_cpu_after": 10
+  },
+  {
+   "profile": "product",
+   "document": "y13_irs_pub501.pdf",
+   "src_pages": 31,
+   "convert_s": 35.06,
+   "limit_s": 60.0,
+   "host_cpu_before": 6,
+   "host_cpu_after": 7
+  },
+  {
+   "profile": "product",
+   "document": "y18_eurlex_ai_act.pdf",
+   "src_pages": 144,
+   "convert_s": 69.72,
+   "limit_s": 216.0,
+   "host_cpu_before": 18,
+   "host_cpu_after": 12
+  },
+  {
+   "profile": "product",
+   "document": "y47_ar_ilo_word365.pdf",
+   "src_pages": 57,
+   "convert_s": 52.52,
+   "limit_s": 85.5,
+   "host_cpu_before": 3,
+   "host_cpu_after": 3
+  },
+  {
+   "profile": "product",
+   "document": "y60_cdc_mmwr_indd19.pdf",
+   "src_pages": 24,
+   "convert_s": 23.09,
+   "limit_s": 60.0,
+   "host_cpu_before": 2,
+   "host_cpu_after": 5
+  },
+  {
+   "profile": "product",
+   "document": "y64_bls_release_xpp.pdf",
+   "src_pages": 39,
+   "convert_s": 27.24,
+   "limit_s": 60.0,
+   "host_cpu_before": 5,
+   "host_cpu_after": 3
+  },
+  {
+   "profile": "raw",
+   "document": "c2_paper2col.pdf",
+   "src_pages": 1,
+   "convert_s": 0.38,
+   "limit_s": 1.0,
+   "host_cpu_before": 0,
+   "host_cpu_after": 8
+  },
+  {
+   "profile": "raw",
+   "document": "y06_irs_1040_instructions.pdf",
+   "src_pages": 126,
+   "convert_s": 57.29,
+   "limit_s": 126.0,
+   "host_cpu_before": 8,
+   "host_cpu_after": 9
+  },
+  {
+   "profile": "raw",
+   "document": "y13_irs_pub501.pdf",
+   "src_pages": 31,
+   "convert_s": 10.72,
+   "limit_s": 31.0,
+   "host_cpu_before": 4,
+   "host_cpu_after": 4
+  },
+  {
+   "profile": "raw",
+   "document": "y40_frontiers_dvips_gs.pdf",
+   "src_pages": 10,
+   "convert_s": 3.3,
+   "limit_s": 10.0,
+   "host_cpu_before": 5,
+   "host_cpu_after": 6
+  },
+  {
+   "profile": "raw",
+   "document": "y41_arxiv_ieeetran.pdf",
+   "src_pages": 8,
+   "convert_s": 3.26,
+   "limit_s": 8.0,
+   "host_cpu_before": 25,
+   "host_cpu_after": 15
+  },
+  {
+   "profile": "raw",
+   "document": "y42_arxiv_acmart.pdf",
+   "src_pages": 5,
+   "convert_s": 1.88,
+   "limit_s": 5.0,
+   "host_cpu_before": 0,
+   "host_cpu_after": 18
+  },
+  {
+   "profile": "raw",
+   "document": "y56_scan_usda1921_lura.pdf",
+   "src_pages": 10,
+   "convert_s": 4.35,
+   "limit_s": 10.0,
+   "host_cpu_before": 25,
+   "host_cpu_after": 6
+  },
+  {
+   "profile": "raw",
+   "document": "y61_fedreg_gpo_3col.pdf",
+   "src_pages": 4,
+   "convert_s": 1.6,
+   "limit_s": 4.0,
+   "host_cpu_before": 8,
+   "host_cpu_after": 1
+  }
+ ],
+ "timing_note": "every document timed after its own 60 s quiet window (no other container, host CPU < 20%); nothing else of ours ran during step f",
+ "scorecard": {
+  "file": "docs/evidence/beta-readiness-2026-10-13.json",
+  "verdict": "NOT READY",
+  "criteria": {
+   "1": "PASS",
+   "2": "PASS",
+   "3": "PASS",
+   "4": "PASS",
+   "5": "PASS",
+   "6": "PASS",
+   "7": "REPORTED",
+   "8": "FAIL",
+   "9": "REPORTED",
+   "10": "PASS",
+   "11": "PASS",
+   "12": "PASS",
+   "13": "REPORTED"
+  }
+ },
+ "pending_owner_decisions": [
+  "y37_plos_one_dvipdfmx dy_p50 waiver: granted for 0.3.0b1, stale under 0.3.0b2 (criterion 8 FAIL by 1 until renewed or deleted)"
+ ],
+ "holdout3_exam": {
+  "evidence": "docs/evidence/holdout3-2026-10-13.json",
+  "run_on": "61044f1312d59eeda789b813d7272354b02c056b",
+  "why_another_commit": "the exam's first start on 34d4413 refused at step (a), before any start was recorded: holdout-3's manifest names its promise promised_narrowed; the tooling fix a4fac77 was merged as 61044f1",
+  "measurement_still_valid": "61044f1 differs from 34d4413 only in scripts/dev and tests (git diff --stat 34d4413 61044f1: scripts/dev/README.md 2 +-, scripts/dev/holdout_exam.py 23 ++++-, tests/test_holdout_exam.py 50 ++++---; 3 files, 53 insertions, 22 deletions); the converter, testkit and the corpus are unchanged, so the release measurement on 34d4413 is the measurement of the converter the exam ran"
+ },
+ "inputs": {
+  "gate_log": {
+   "path": "C:\\lotmp\\scr\\runs\\final-34d4413-gate.log",
+   "sha256": "b97024d8a325aeb0f11c643eab6c7901650fa3331b933cceb631a1496fe5bdc8"
+  },
+  "product_sweep": {
+   "path": "C:\\lotmp\\scr\\runs\\final-34d4413-prod.sweep.json",
+   "sha256": "bed22377fe0f2b6f03e4310eda879fc5fcb5e0dac2d54c3ff84391c944ffe770"
+  },
+  "raw_sweep": {
+   "path": "C:\\lotmp\\scr\\runs\\final-34d4413-raw.sweep.json",
+   "sha256": "3f712c641dc164c28cda74368bdd727ba2635e1969054d88063d02a71450501b"
+  },
+  "word_product": {
+   "path": "C:\\lotmp\\scr\\runs\\final-34d4413-word-prod\\rows.jsonl",
+   "sha256": "11bea631318ab2085f669d36ec7970f0833b2b62b97197a86c0cb417c7b107cc"
+  },
+  "word_raw": {
+   "path": "C:\\lotmp\\scr\\runs\\final-34d4413-word-raw\\rows.jsonl",
+   "sha256": "8fd537bc78822cefd96b557e4e403c36facd424a54d37c263eab16156181c0e1"
+  },
+  "timing_product": {
+   "path": "C:\\lotmp\\scr\\runs\\final-34d4413-product-serial.timing.json",
+   "sha256": "db5ec9ab2e6703cd6652018cf8c4c7c39da0f1e9dd389d2d7662f80470114caa"
+  },
+  "timing_raw": {
+   "path": "C:\\lotmp\\scr\\runs\\final-34d4413-raw-serial.timing.json",
+   "sha256": "7b580e0992a1c0bebe9623e9146ceb417346a3ff054a389ee3c0a329a9bb40c2"
+  },
+  "final_set_log": {
+   "path": "C:\\lotmp\\scr\\runs\\final-34d4413.final\\final_set.log",
+   "sha256": "1e5fffa3a0d9de5c127915cc0198d01955d6a8d3d4e490f3008daac1ad93530d"
+  },
+  "accepted": {
+   "path": "C:\\lotmp\\scr\\runs\\accepted-wp31-prod.rescored5.sweep.json",
+   "sha256": "fcb8ca9782cc62623e7c399a72a8877e667afb0c3e42d77187ea385de62b668c"
+  },
+  "docs_rows": {
+   "path": "C:\\lotmp\\rcgd\\out\\rows.jsonl",
+   "sha256": "b772687bfb0c2f74a6296b4074911bfbdb405b0a594d8db018c64080a8521317"
+  },
+  "gdocs_identity": {
+   "path": "C:\\lotmp\\wp65\\gdhash.json",
+   "sha256": "24f02f34b19b81bd2576a6f8173362435ae185fc536b909ea143c903543caf2c"
+  }
+ }
+}
