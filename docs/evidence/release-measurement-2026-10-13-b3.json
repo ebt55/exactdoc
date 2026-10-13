@@ -1,0 +1,327 @@
+{
+ "schema": "exactdoc.release-measurement.v1",
+ "generated_utc": "2026-10-13T18:16:58Z",
+ "release": "0.3.0b3",
+ "commit": "a2a181b0c28e71fae3dd135030ecd7e07fd91bf3",
+ "tree": "clean detached worktree at a2a181b (C:/lotmp/rc3)",
+ "image": {
+  "ref": "exactdoc-gate:boot",
+  "id": "sha256:bab1cfc0d2cd15c1c1a63d6db86fb1bfcb7f8f33ce7ee608568303fa58536f20"
+ },
+ "command": "EXACTDOC_SCR='C:\\lotmp\\scr' bash scripts/dev/final_set.sh --steps b,c,d,f --release 0.3.0b3 --accepted 'C:\\lotmp\\scr\\runs\\final-71af76e-prod.sweep.json' C:/lotmp/rc3 final-a2a181b; step g by hand (beta_readiness --release 0.3.0b3 --allow-mixed-commits --allow-stale)",
+ "release_string": "beta_readiness.py's RELEASE constant (testkit/beta_readiness.py:240) and final_set.sh's default (scripts/dev/final_set.sh:42) still read 0.3.0b2 on a2a181b; no change was committed for the measurement. final_set.sh was run with --release 0.3.0b3 (it is used only by step g), and step g -- beta_readiness.py, run by hand -- with --release 0.3.0b3, so the scorecard was read for 0.3.0b3: its JSON records release 0.3.0b3, its text says '0.3.0b3 is not tagged while any gating criterion fails', and the waiver file it read is empty.",
+ "machine": "no foreign (rab_*) or other container ran at any point of the measurement or the exam; the measurement scripts' own containers only (final_set's two sweep containers side by side, as for b1 and b2; the exam's two sweep containers)",
+ "gate": "strict: Ran 2219 tests OK (skipped=3, expected failures=2); FAILED_STEPS=0; BASELINE_BINDING=strict; product PASS pagematch 16/16 <2pt 0.8142 live 0.9784 dy50 0.3; raw PASS pagematch 16/16 <2pt 0.6168 live 0.9784 dy50 0.65",
+ "sweeps": {
+  "product": {
+   "profile": "pdfium/standard/libreoffice/refine3@240dpi",
+   "rows": 90,
+   "summary": {
+    "documents": 90,
+    "errors": 0,
+    "mean_abs_ratio_err": 0.0489,
+    "mean_char_doc_recall": 0.9821,
+    "mean_char_recall": 0.9233,
+    "mean_doc_recall": 0.9559,
+    "mean_edit_score": 0.6287,
+    "mean_live_text_cov": 0.9566,
+    "mean_ssim": 0.7575,
+    "mean_within2pt": 0.4256,
+    "mean_word_recall": 0.8683,
+    "measured": 90,
+    "median_ratio": 1.0,
+    "page_exact": 71,
+    "refused": 0,
+    "total_convert_s": 1634.9
+   },
+   "provenance": {
+    "canonical": false,
+    "environment_fingerprint": "2f950c647f7cfc7b869b51fbd3f4af7df6ce584b8fe96c1312ce6294491f67ff",
+    "git_commit": "a2a181b0c28e71fae3dd135030ecd7e07fd91bf3",
+    "git_dirty": false,
+    "git_source": "host (EXACTDOC_GIT_COMMIT)",
+    "image_id": "sha256:bab1cfc0d2cd15c1c1a63d6db86fb1bfcb7f8f33ce7ee608568303fa58536f20",
+    "image_ref": "exactdoc-gate:boot",
+    "reading": {
+     "scorer": "wp42",
+     "source": "ca563181d6ad"
+    }
+   }
+  },
+  "raw": {
+   "profile": "pdfium/standard/none/refine0@240dpi",
+   "rows": 90,
+   "summary": {
+    "documents": 90,
+    "errors": 0,
+    "mean_abs_ratio_err": 0.1029,
+    "mean_char_doc_recall": 0.9822,
+    "mean_char_recall": 0.8845,
+    "mean_doc_recall": 0.9558,
+    "mean_edit_score": 0.6298,
+    "mean_live_text_cov": 0.9566,
+    "mean_ssim": 0.7137,
+    "mean_within2pt": 0.318,
+    "mean_word_recall": 0.8236,
+    "measured": 90,
+    "median_ratio": 1.0,
+    "page_exact": 66,
+    "refused": 0,
+    "total_convert_s": 506.5
+   },
+   "provenance": {
+    "canonical": false,
+    "environment_fingerprint": "2f950c647f7cfc7b869b51fbd3f4af7df6ce584b8fe96c1312ce6294491f67ff",
+    "git_commit": "a2a181b0c28e71fae3dd135030ecd7e07fd91bf3",
+    "git_dirty": false,
+    "git_source": "host (EXACTDOC_GIT_COMMIT)",
+    "image_id": "sha256:bab1cfc0d2cd15c1c1a63d6db86fb1bfcb7f8f33ce7ee608568303fa58536f20",
+    "image_ref": "exactdoc-gate:boot",
+    "reading": {
+     "scorer": "wp42",
+     "source": "ca563181d6ad"
+    }
+   }
+  }
+ },
+ "word": {
+  "product": {
+   "rows": 90,
+   "errors": 0,
+   "hangs": 0,
+   "repair_prompts": 0,
+   "page_exact": 69
+  },
+  "raw": {
+   "rows": 90,
+   "errors": 0,
+   "hangs": 0,
+   "repair_prompts": 0,
+   "page_exact": 63
+  }
+ },
+ "docs_lane": {
+  "rows": "C:\\lotmp\\rcgd\\out\\rows.jsonl",
+  "flown_on": "410d3700ed2bb13e3613bef11cc3f39771b4fbf8",
+  "reused": true,
+  "gdocs_docx_parts_identical": 90,
+  "refused_both": [
+   "y07_irs_f1040_form.pdf",
+   "y11_nist_sp80053r5_overcap.pdf",
+   "y14_irs_fw9_form.pdf",
+   "y23_luatex.pdf",
+   "y25_texbytopic.pdf"
+  ],
+  "differ": []
+ },
+ "serial_timing": [
+  {
+   "profile": "product",
+   "document": "y03_nist_fips197.pdf",
+   "src_pages": 46,
+   "convert_s": 21.91,
+   "limit_s": 69.0,
+   "host_cpu_before": 12,
+   "host_cpu_after": 16
+  },
+  {
+   "profile": "product",
+   "document": "y06_irs_1040_instructions.pdf",
+   "src_pages": 126,
+   "convert_s": 156.2,
+   "limit_s": 189.0,
+   "host_cpu_before": 6,
+   "host_cpu_after": 0
+  },
+  {
+   "profile": "product",
+   "document": "y12_irs_pub15.pdf",
+   "src_pages": 59,
+   "convert_s": 39.44,
+   "limit_s": 88.5,
+   "host_cpu_before": 0,
+   "host_cpu_after": 9
+  },
+  {
+   "profile": "product",
+   "document": "y13_irs_pub501.pdf",
+   "src_pages": 31,
+   "convert_s": 32.53,
+   "limit_s": 60.0,
+   "host_cpu_before": 12,
+   "host_cpu_after": 3
+  },
+  {
+   "profile": "product",
+   "document": "y18_eurlex_ai_act.pdf",
+   "src_pages": 144,
+   "convert_s": 66.56,
+   "limit_s": 216.0,
+   "host_cpu_before": 10,
+   "host_cpu_after": 6
+  },
+  {
+   "profile": "product",
+   "document": "y21_worldbank_wdr24.pdf",
+   "src_pages": 48,
+   "convert_s": 21.2,
+   "limit_s": 72.0,
+   "host_cpu_before": 3,
+   "host_cpu_after": 6
+  },
+  {
+   "profile": "product",
+   "document": "y47_ar_ilo_word365.pdf",
+   "src_pages": 57,
+   "convert_s": 47.95,
+   "limit_s": 85.5,
+   "host_cpu_before": 7,
+   "host_cpu_after": 3
+  },
+  {
+   "profile": "product",
+   "document": "y60_cdc_mmwr_indd19.pdf",
+   "src_pages": 24,
+   "convert_s": 21.42,
+   "limit_s": 60.0,
+   "host_cpu_before": 3,
+   "host_cpu_after": 7
+  },
+  {
+   "profile": "product",
+   "document": "y64_bls_release_xpp.pdf",
+   "src_pages": 39,
+   "convert_s": 25.47,
+   "limit_s": 60.0,
+   "host_cpu_before": 7,
+   "host_cpu_after": 11
+  },
+  {
+   "profile": "raw",
+   "document": "x11_chrome_toc_headings.pdf",
+   "src_pages": 2,
+   "convert_s": 0.66,
+   "limit_s": 2.0,
+   "host_cpu_before": 4,
+   "host_cpu_after": 0
+  },
+  {
+   "profile": "raw",
+   "document": "y06_irs_1040_instructions.pdf",
+   "src_pages": 126,
+   "convert_s": 52.45,
+   "limit_s": 126.0,
+   "host_cpu_before": 6,
+   "host_cpu_after": 1
+  },
+  {
+   "profile": "raw",
+   "document": "y13_irs_pub501.pdf",
+   "src_pages": 31,
+   "convert_s": 10.07,
+   "limit_s": 31.0,
+   "host_cpu_before": 5,
+   "host_cpu_after": 6
+  },
+  {
+   "profile": "raw",
+   "document": "y41_arxiv_ieeetran.pdf",
+   "src_pages": 8,
+   "convert_s": 2.66,
+   "limit_s": 8.0,
+   "host_cpu_before": 20,
+   "host_cpu_after": 10
+  },
+  {
+   "profile": "raw",
+   "document": "y56_scan_usda1921_lura.pdf",
+   "src_pages": 10,
+   "convert_s": 3.89,
+   "limit_s": 10.0,
+   "host_cpu_before": 8,
+   "host_cpu_after": 8
+  },
+  {
+   "profile": "raw",
+   "document": "y61_fedreg_gpo_3col.pdf",
+   "src_pages": 4,
+   "convert_s": 1.58,
+   "limit_s": 4.0,
+   "host_cpu_before": 6,
+   "host_cpu_after": 7
+  }
+ ],
+ "timing_note": "every document timed after its own 60 s quiet window (no other container, host CPU < 20%); nothing else of ours ran during step f",
+ "scorecard": {
+  "file": "docs/evidence/beta-readiness-2026-10-13-b3.json",
+  "verdict": "READY",
+  "release": "0.3.0b3",
+  "criteria": {
+   "1": "PASS",
+   "2": "PASS",
+   "3": "PASS",
+   "4": "PASS",
+   "5": "PASS",
+   "6": "PASS",
+   "7": "REPORTED",
+   "8": "PASS",
+   "9": "REPORTED",
+   "10": "PASS",
+   "11": "PASS",
+   "12": "PASS",
+   "13": "REPORTED"
+  }
+ },
+ "holdout4_exam": {
+  "evidence": "docs/evidence/holdout4-2026-10-13.json",
+  "run_on": "a2a181b0c28e71fae3dd135030ecd7e07fd91bf3",
+  "same_commit_as_measurement": true,
+  "dry_run": "the synthetic --dry-run on a2a181b's scripts refused at step (a) before recording anything: holdout_dryset.py named the synthetic promise promised_b_narrowed, the holdout4 row reads promised_narrowed. Fixed in tooling on branch wp72-fix (dd1ebc0: scripts/dev/holdout_dryset.py 12 +++-, holdout_exam.py 3 +-, holdout_exam.sh 1 +, tests/test_holdout_exam.py 27 +; converter untouched); the dry run then passed with those scripts against rc3's tree. The sealed exam never reads the synthetic set, so it ran from rc3 at a2a181b itself, unchanged."
+ },
+ "inputs": {
+  "gate_log": {
+   "path": "C:\\lotmp\\scr\\runs\\final-a2a181b-gate.log",
+   "sha256": "89517e3f8a5d38c4c58b1da85079a87a2ba2887a975b43f50c6bf647cd38ec7b"
+  },
+  "product_sweep": {
+   "path": "C:\\lotmp\\scr\\runs\\final-a2a181b-prod.sweep.json",
+   "sha256": "cc025c2062f70cd4dd6427f7c15c4368751028d1764f361f117a02c00089c2d9"
+  },
+  "raw_sweep": {
+   "path": "C:\\lotmp\\scr\\runs\\final-a2a181b-raw.sweep.json",
+   "sha256": "e0f83db14809541fb1096ddf178fd2aac735b29b49b4ed1760ea3b1c571eb5db"
+  },
+  "word_product": {
+   "path": "C:\\lotmp\\scr\\runs\\final-a2a181b-word-prod\\rows.jsonl",
+   "sha256": "1f14f84efc672cf132fe4f8abf10824d374cef6874a22933063f96f7350bc59f"
+  },
+  "word_raw": {
+   "path": "C:\\lotmp\\scr\\runs\\final-a2a181b-word-raw\\rows.jsonl",
+   "sha256": "497f01e6271028fa0eb0b1423e5329f682661b65943085d11c1a737e511d31ea"
+  },
+  "timing_product": {
+   "path": "C:\\lotmp\\scr\\runs\\final-a2a181b-product-serial.timing.json",
+   "sha256": "d9e79968a309828659cc8abf12f1e6c700d903279811279f48082af8bd34a6c1"
+  },
+  "timing_raw": {
+   "path": "C:\\lotmp\\scr\\runs\\final-a2a181b-raw-serial.timing.json",
+   "sha256": "13b53df82ae3f06f510712618e2098eaba9d140ce884bda1751542c40d5130bd"
+  },
+  "final_set_log": {
+   "path": "C:\\lotmp\\scr\\runs\\final-a2a181b.final\\final_set.log",
+   "sha256": "908a46fbe81e5585ddd4f66450fc03f1796cb2d3ee997b3adc928885f1a8cbb0"
+  },
+  "accepted": {
+   "path": "C:\\lotmp\\scr\\runs\\final-71af76e-prod.sweep.json",
+   "sha256": "4fb4ff9ab467525128621ec7d44c0512534878cac7b20ed2dddee3ee1deff3d7"
+  },
+  "docs_rows": {
+   "path": "C:\\lotmp\\rcgd\\out\\rows.jsonl",
+   "sha256": "b772687bfb0c2f74a6296b4074911bfbdb405b0a594d8db018c64080a8521317"
+  },
+  "gdocs_identity": {
+   "path": "C:\\lotmp\\wp72\\gdhash.json",
+   "sha256": "dd9bc8a6dd0018facbec1d5f691813d5635ce52c8ba4f5f1456d08db4da5813a"
+  }
+ }
+}
