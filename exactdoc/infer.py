@@ -747,7 +747,93 @@ def _rule_right_edge(ir: DocIR, hf: dict, page_w: float,
 
 
 # ------------------------------------------------------------------ runs/paras
-def _soft_join(runs: List[Run], next_text: str, dehyphenate: bool = True):
+# WP71: a URL or path a line broke inside of (Chrome breaks a long URL
+# anywhere at the margin) is one token. Both halves must read as one: the
+# joined token names a scheme or host, or each half carries a path separator.
+_URL_TOKEN = re.compile(r"(?:[a-z][a-z0-9+.-]*://|www\.)", re.I)
+_URL_SEP = re.compile(r"[/?&=]")
+
+
+# WP71: what a joined URL may break at in the output. None: nowhere but where
+# the renderer must; "zwsp": a zero-width space after each / ? & = inside it;
+# "lock": a line break where the source broke it. Measured on holdout-3 in
+# the canonical container (product lane): the Chrome-printed greensheet,
+# 15 pages for 12 before WP71, is 14 with None, 13 with "zwsp" (word recall
+# 0.53 -> 0.96) and 15 with "lock", which also put a blank resume template
+# back a page late (11 -> 12). A copied URL keeps its zero-width spaces.
+URL_OVERFLOW = "zwsp"
+URL_WIDE_MIN_CHARS = 20       # a one-token line this long, margin to edge
+_ZWSP = chr(0x200B)
+_URL_SEP_BREAK = re.compile(r"(?<=[/?&=])(?=[^\s\u200b/])")   # never inside "//"
+
+
+def _url_overflow(p: Para) -> None:
+    """The break opportunities URL_OVERFLOW gives a paragraph a URL was
+    joined in (`_soft_join`, WP71)."""
+    if not any(getattr(r, "_url_join", False) for r in p.runs):
+        return
+    if URL_OVERFLOW == "lock":
+        p.line_breaks = True
+    elif URL_OVERFLOW == "zwsp":
+        for r in p.runs:
+            r.text = re.sub(r"\S+", lambda m: _URL_SEP_BREAK.sub(_ZWSP, m.group())
+                            if _URL_TOKEN.search(m.group()) or len(m.group()) > 40
+                            else m.group(), r.text)
+
+
+def _url_continues(last: str, next_text: str, line_text: Optional[str] = None) -> bool:
+    """Does the line ending `last` break a URL that `next_text` continues?
+    (`_soft_join`, WP71). `line_text`: the broken line's own text -- one token
+    from margin to edge is a token wider than the measure, broken where it
+    had to be."""
+    if not last or last[-1].isspace() or not next_text or next_text[0].isspace():
+        return False
+    x = last.rsplit(None, 1)[-1]
+    y = next_text.split(None, 1)[0]
+    if _URL_TOKEN.match(y):
+        return False        # a URL that STARTS the next line is a token of its own
+    # (`line_text` is passed only for a line that spans its measure; a token
+    # that short -- a figure stacked in a table cell, a lone bullet -- is not
+    # one the line had to break)
+    wide = line_text is not None and len(line_text.split()) == 1 and \
+        len(line_text.strip()) >= URL_WIDE_MIN_CHARS and \
+        not any(ch.isspace() for ch in next_text.split(None, 1)[0]) and \
+        _URL_SEP.search(line_text) is not None
+    scheme = _URL_TOKEN.search(x + y) is not None
+    if not (wide or scheme or (_URL_SEP.search(x) and _URL_SEP.search(y))):
+        return False
+    ev = hyphen.current()
+    if not (wide or scheme):
+        # Separators alone are no URL: "and/or" + "input/output", "1/2" +
+        # "3/4", "x=1" + "y=2" are words, figures and formulas a justified
+        # line happened to end and begin with.
+        if any(_URL_FIGURE.fullmatch(h) or _URL_FORMULA.fullmatch(h) for h in (x, y)):
+            return False
+        if ev is not None and all(_attested(ev, h) for h in (x, y)):
+            return False
+    if ev is not None:
+        for half in (x, y):
+            w = half.strip("()[]<>.,;:\"'").lower()
+            if w and ev.words.get(w):
+                return False
+    return True
+
+
+# WP71 (review): a half that is a figure ("1/2", "3,4") or a short formula
+# ("x=1", "a/b") is no piece of a URL.
+_URL_FIGURE = re.compile(r"[\d.,/=+\-*()%]+")
+_URL_FORMULA = re.compile(r"[\w.]{0,3}[=/][\w.]{0,3}[.,;:)]?")
+
+
+def _attested(ev, half: str) -> bool:
+    """Is every word in `half` one the document uses (the vocabulary is
+    letters only, `hyphen._TOKEN`)?"""
+    toks = hyphen._TOKEN.findall(half.lower())
+    return bool(toks) and all(ev.words.get(t) for t in toks)
+
+
+def _soft_join(runs: List[Run], next_text: str, dehyphenate: bool = True,
+               at_edge: bool = False, line_text: Optional[str] = None):
     """Append a joiner between wrapped lines: space normally, dehyphenate
     when the previous line ends with a hyphenated word break.
 
@@ -777,6 +863,11 @@ def _soft_join(runs: List[Run], next_text: str, dehyphenate: bool = True):
             dehyphenate = ev.is_break(pair[0], pair[1], at_edge=dehyphenate)
         if dehyphenate:
             runs[-1].text = last[:-1]
+    elif at_edge and _wp71("url_join") and _url_continues(last, next_text, line_text):
+        # WP71: one URL, broken where the line reached its edge
+        runs[-1]._url_join = True
+        if URL_OVERFLOW == "lock":
+            runs[-1].text += "\n"      # the source's own break, kept
     elif not last.endswith((" ", "-")):
         runs[-1].text += " "
 
@@ -992,6 +1083,10 @@ def _marker_split_idx(spans) -> Optional[int]:
     own trailing space (WeasyPrint markers sit flush against the text box).
     """
     for j in range(min(3, len(spans) - 1)):
+        if getattr(spans[j], "_margin_label", False) and \
+                not getattr(spans[j + 1], "_margin_label", False) and \
+                all(getattr(x, "_margin_label", False) for x in spans[:j + 1]):
+            return j             # WP71: a margin label (`_margin_labels`)
         prefix = "".join(s.text for s in spans[:j + 1])
         sep = (spans[j + 1].bbox[0] - spans[j].bbox[2] >= 2.0) or \
             prefix.endswith(" ")
@@ -1663,6 +1758,12 @@ def para_from_lines(lines: List[Line], col_l: float, col_r: float,
         elif col_r - x1 < 2.5 and x0 - col_l > 10 and \
                 not getattr(lines[0], "_main_col", False):
             p.align = "right"
+            if _wp71("wide_not_right") and \
+                    x1 - x0 > WIDE_NOT_RIGHT_FRAC * (col_r - col_l) and \
+                    not _row_of_cells(lines[0]):
+                # WP71: settled by `_merge_flow_paras`, which sees the
+                # paragraphs around it (`_settle_wide_right`)
+                p._wide_right = True
     minx = min(xs0)
     p.left_indent = max(0.0, round(minx - col_l, 1))
     if p.align in ("left", "justify"):
@@ -1716,7 +1817,10 @@ def para_from_lines(lines: List[Line], col_l: float, col_r: float,
             _soft_join(p.runs, lines[i + 1].text,
                        dehyphenate=(p.align == "justify"
                                     and ln.bbox[2]
-                                    >= col_r - p.right_indent - 3.0))
+                                    >= col_r - p.right_indent - 3.0),
+                       at_edge=ln.bbox[2] >= col_r - p.right_indent - 3.0,
+                       line_text=ln.text if ln.bbox[0] <= min(
+                           q.bbox[0] for q in lines) + 3.0 else None)
     # ``right_flush`` deliberately ignores the final source line: that is how
     # a normal justified paragraph has a ragged last line.  A short metadata
     # block can look the same to that heuristic, except its final row is wider
@@ -1753,12 +1857,18 @@ def para_from_lines(lines: List[Line], col_l: float, col_r: float,
                 _soft_join(runs, lines[j].text,
                            dehyphenate=(p.align == "justify"
                                         and lines[j - 1].bbox[2]
-                                        >= col_r - p.right_indent - 3.0))
+                                        >= col_r - p.right_indent - 3.0),
+                           at_edge=lines[j - 1].bbox[2] >= col_r - p.right_indent - 3.0,
+                           line_text=lines[j - 1].text if j > 1 and
+                           lines[j - 1].bbox[0] <= min(q.bbox[0] for q in lines[1:]) + 3.0
+                           else None)
                 runs.extend(runs_from_spans(lines[j].spans))
             p.runs = runs
             # its one tab is the marker's separator, not a tabbed row
             # (`_mergeable` lets the item's continuation join it)
             p._marker_tab = True
+    if URL_OVERFLOW and _wp71("url_join"):
+        _url_overflow(p)
     if getattr(lines[0], "_gutter", None) is not None and p.align != "center":
         _gutter_para(p, lines, col_l)
     _keep_room(p, col_l, col_r)
@@ -6426,6 +6536,25 @@ def _wp68(rule: str) -> bool:
     return _TAB_LAYOUTS.get() and WP68_RULES.get(rule, False)
 
 
+# WP71's readings (holdout-3's short documents, development data since its
+# exam). Standard profile only, exactly as WP49's: keyed on _TAB_LAYOUTS, so
+# the Google Docs profile is byte-identical; each has its own switch.
+WP71_RULES = {
+    "tab_fields_same_text": True,  # _right_tab_fields: identical fields need no rag
+    "tab_fields_not_banner": True,  # _right_tab_fields: a centred banner is no field
+    "tab_fields_two_up": True,     # _right_tab_fields: a two-up list is no field
+    "tab_fields_wide_field": True,  # _right_tab_fields: one long field beside white
+    "picture_grid": True,          # _picture_grid_chunks: pictures over captions, a grid
+    "margin_labels": True,         # _merge_list_markers: a small label beside its line
+    "wide_not_right": True,        # para_from_lines: a full line is not right-aligned
+    "url_join": True,              # _soft_join: a URL wrapped mid-token joins with nothing
+}
+
+
+def _wp71(rule: str) -> bool:
+    return _TAB_LAYOUTS.get() and WP71_RULES.get(rule, False)
+
+
 def _clipped_strokes(ir: DocIR) -> None:
     """Each page's strokes at the box their clip shows, and a stroke wholly
     outside its clip dropped (parse_pdfium._clip_path_bbox)."""
@@ -7552,6 +7681,12 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
                 cuts = [c for c in cuts
                         if not _sidebar_cut(c, rects, consumed, lay.content_w)]
         _restore_uncut(cuts, consumed)
+        grid_pics = []
+        if anchored and _wp71("picture_grid") and p.number not in deck:
+            grid_pics = _stash_picture_grid(p, elements, blocks, consumed)
+            if grid_pics:
+                gone = {id(e) for e in grid_pics}
+                elements = [e for e in elements if id(e) not in gone]
         # the page's elements before the float passes, for `_float_overfull`
         pre_float = list(elements)
         if p.number in deck:
@@ -7568,6 +7703,12 @@ def _infer_body(lay: DocLayout, ir: DocIR, hf: dict, n_pages: int,
                     elements, blocks, lay, p.width, p.height, pictures_only=True)
                 pl.floats = list(pl.floats or ()) + floated
             elements = _merge_graphic_rows(elements, blocks, p.number)
+        for e in grid_pics:
+            # anchored at its own position, as a picture set on a text line is
+            bb = _el_bbox(e)
+            e.align = "left"
+            e.left_indent = max(0.0, round(bb[0] - lay.margin_l, 1))
+            pl.floats = list(pl.floats or ()) + [FloatEl(el=e, bbox=tuple(bb))]
         if _wp60("foot_not_band"):
             _drop_footer_echoes(blocks, consumed, elements, p,
                                 [doc_lay.footer_default, doc_lay.footer_even,
@@ -10354,7 +10495,42 @@ def _runs_in(a: Para, b: Para) -> bool:
         abs(b.bbox[0] - a.bbox[0]) <= 2.5
 
 
+# WP71: a one-line paragraph flush with the column's right edge and wider than
+# this share of the column is a full line indented on the left -- a list
+# item's first line its block builder cut from the rest (h3 memo bullets) --
+# not text set flush right, unless a paragraph beside it is flush right too
+# (an address block).
+WIDE_NOT_RIGHT_FRAC = 0.8
+
+
+WIDE_CELL_GAP_EM = 2.0
+
+
+def _row_of_cells(ln: Line) -> bool:
+    """Is the line a row of cells -- items set in columns across it (a
+    resume's skills, three bullets to a row) -- rather than one run of text?
+    Its spans stand apart by more than WIDE_CELL_GAP_EM."""
+    sz = _line_size(ln) or 10.0
+    sp = sorted((s for s in ln.spans if s.text.strip()), key=lambda s: s.bbox[0])
+    return any(b.bbox[0] - a.bbox[2] > WIDE_CELL_GAP_EM * sz for a, b in zip(sp, sp[1:]))
+
+
+def _settle_wide_right(seq) -> None:
+    paras = [el for el in seq if isinstance(el, Para)]
+    for k, el in enumerate(paras):
+        if not getattr(el, "_wide_right", False) or el.align != "right":
+            continue
+        near = paras[max(0, k - 1):k] + paras[k + 1:k + 2]
+        if any(q.align == "right" and not getattr(q, "_wide_right", False)
+               for q in near):
+            continue
+        el.align = "left"
+        el._wide_right = False
+
+
 def _merge_flow_paras(seq, col_r, col_l=None):
+    if _wp71("wide_not_right"):
+        _settle_wide_right(seq)
     out = []
     for el in seq:
         if out and isinstance(el, Para) and isinstance(out[-1], Para) \
@@ -10381,7 +10557,7 @@ def _merge_flow_paras(seq, col_r, col_l=None):
                 was_flush = abs(a.bbox[0] - col_l) < 3.0   # its END edge
             else:
                 was_flush = abs(a.bbox[2] - col_r) < 3.0
-            _soft_join(a.runs, el.text, dehyphenate=was_flush)
+            _soft_join(a.runs, el.text, dehyphenate=was_flush, at_edge=was_flush)
             a.runs += el.runs
             a.bbox = bbox_union(a.bbox, el.bbox)
             a._vis_lines = getattr(a, "_vis_lines", 1) + getattr(el, "_vis_lines", 1)
@@ -10555,6 +10731,10 @@ def _merge_list_markers(flow_blocks):
             # number opened the block of the item's LAST lines ("2.
             # criteria:", two lines) and the first line stood alone above it.
             marker_lines.append((b.lines[0], b))
+    labels = {}
+    if _wp71("margin_labels"):
+        labels = _margin_labels(flow_blocks, {id(l) for l, _ in marker_lines})
+        marker_lines += [(l, b) for l, b, _host in labels.values()]
     marker_lines = _drop_leader_values(marker_lines, flow_blocks)
     marker_ids = {id(l) for l, _ in marker_lines}
     consumed = set()
@@ -10562,7 +10742,16 @@ def _merge_list_markers(flow_blocks):
         best = None  # (gap, line, block)
         raised = False
         msz = _line_size(ln)
-        for c in flow_blocks:
+        if id(ln) in labels:
+            host = labels[id(ln)][2]
+            hb = [c for c in flow_blocks if any(fl is host for fl in c.lines)]
+            # (never into a marker line: it is consumed into its own item
+            # line below, and a label put on it would go with it, unseen)
+            if hb and id(host) not in marker_ids and id(host) not in consumed:
+                best = (host.bbox[0] - ln.bbox[2], host, hb[0])
+                for sp in ln.spans:
+                    sp._margin_label = True
+        for c in ([] if id(ln) in labels else flow_blocks):
             for fl in c.lines:
                 if id(fl) in marker_ids or id(fl) in consumed or not fl.spans:
                     continue
@@ -10641,6 +10830,67 @@ def _merge_list_markers(flow_blocks):
         for l in keep:
             bb = bbox_union(bb, l.bbox)
         out.append(TextBlock(lines=keep, bbox=bb))
+    return out
+
+
+# WP71: a margin label -- "DATE", "TO", "SUBJECT" set small in the margin
+# of a memo's head, each beside its line -- is read as that line's hanging
+# label. Its row partner sits on its baseline as far as type of two sizes
+# can: the baselines differ by at most this share of the smaller line's
+# pitch, and the label's box lies at least this much inside the line's.
+LABEL_BASELINE_PITCH = 0.45
+LABEL_BOX_OVERLAP = 0.5
+LABEL_MAX_CHARS = 12          # a word or two
+LABEL_MAX_GAP_EM = 3.0        # of the host line's size, label to line
+LABEL_SIZE_SHARE = 0.85       # a label is set smaller than its line
+
+
+def _margin_labels(flow_blocks, taken) -> dict:
+    """{id(label line): (label line, its block, host line)}.
+
+    A block of one short line set smaller than the line it stands beside,
+    ending just left of where that line starts, on that line's row: the
+    baselines within LABEL_BASELINE_PITCH of the smaller line's pitch and the
+    label's box at least LABEL_BOX_OVERLAP inside the line's. Two 6pt lines
+    stacked a line apart are no row: each pitch is the other's distance."""
+    out = {}
+    lines = [(l, b) for b in flow_blocks for l in b.lines
+             if l.horizontal and l.spans and l.text.strip()]
+    for b in flow_blocks:
+        if len(b.lines) != 1:
+            continue
+        lab = b.lines[0]
+        t = lab.text.strip()
+        if id(lab) in taken or not t or len(t) > LABEL_MAX_CHARS or \
+                len(t.split()) > 2 or not lab.horizontal or not lab.spans or \
+                sum(ch.isalpha() for ch in t) < 2:
+            continue            # (a label is a word: a lone glyph is a table's)
+        lsz = _line_size(lab)
+        best = None
+        for host, hb in lines:
+            if host is lab or hb is b or id(host) in taken:
+                continue
+            hsz = _line_size(host)
+            if lsz > LABEL_SIZE_SHARE * hsz:
+                continue
+            gap = host.bbox[0] - lab.bbox[2]
+            if not (0.0 <= gap <= LABEL_MAX_GAP_EM * hsz):
+                continue
+            pitch = 1.2 * min(lsz, hsz)
+            if abs(host.baseline - lab.baseline) > LABEL_BASELINE_PITCH * pitch:
+                continue
+            ov = min(lab.bbox[3], host.bbox[3]) - max(lab.bbox[1], host.bbox[1])
+            short = min(lab.bbox[3] - lab.bbox[1], host.bbox[3] - host.bbox[1])
+            if short <= 0 or ov < LABEL_BOX_OVERLAP * short:
+                continue
+            # the host opens its block: a label heads a line, never the
+            # middle of a paragraph
+            if hb.lines[0] is not host:
+                continue
+            if best is None or gap < best[0]:
+                best = (gap, host)
+        if best is not None:
+            out[id(lab)] = (lab, b, best[1])
     return out
 
 
@@ -11549,6 +11799,275 @@ def _by_pos(its):
     return sorted(its, key=lambda t: (t[1][1], t[1][0]) if t[1] else (0.0, 0.0))
 
 
+# WP71: a grid of pictures over short captions (a letter's signature page).
+GRID_MIN_ROWS = 3            # rows of cells, each row in every column
+GRID_MIN_COLS = 2
+GRID_MAX_CELL_LINES = 3      # a caption: a name and a title or two
+# A signature grid's pictures are of a size only roughly: signatures run from
+# a short scrawl to a long one (a letter's signature pages: 71-162pt wide).
+GRID_PIC_SIZE_SHARE = 0.55   # each picture's width within this of the median
+GRID_X_TOL = 12.0            # pictures of one column start within this
+GRID_ROW_TOL = 4.0           # the captions of one row start within this
+GRID_PIC_CAPTION_SHARE = 0.5  # a picture is at least this wide against its caption
+
+
+def _picture_grid(items):
+    """The rows of a grid of pictures over captions, or None.
+
+    WP71. A letter's signature pages set a signature picture over each
+    signer's name and title, two signers to a row, row under row. Nothing
+    read it as a grid: the two names of a row, one parser block, became one
+    paragraph ("Sheila ... Henry ... Member of Congress Member of Congress"),
+    the pictures fell between the rows, and the page ran long. A cell is a
+    picture with the lines under it that overlap it, at most
+    GRID_MAX_CELL_LINES of them; the columns' pictures are of a size (within
+    GRID_PIC_SIZE_SHARE of their median width); a cell is narrower than the
+    columns' pitch; and nothing else -- no other line, picture or table --
+    lies in the grid's band. A rule a cell's picture sits on (the signature
+    line) is the cell's.
+
+    Returns (rows, y0, y1, used): rows top to bottom, each a list of cells
+    left to right, each cell a list of items; `used` the ids of the items it
+    took (a block's lines are cut into one block per cell)."""
+    pics = [it for it in items if it[0] == "el" and it[1] is not None and
+            isinstance(it[2], (ImageEl, FigureEl))]
+    if len(pics) < GRID_MIN_ROWS * GRID_MIN_COLS:
+        return None
+    widths = sorted(it[1][2] - it[1][0] for it in pics)
+    med = widths[len(widths) // 2]
+    if med <= 0 or any(abs(w - med) > GRID_PIC_SIZE_SHARE * med for w in widths):
+        return None
+    xs = _cluster([it[1][0] for it in pics], GRID_X_TOL)
+    if len(xs) < GRID_MIN_COLS:
+        return None
+    cols = [sorted((it for it in pics if abs(it[1][0] - x) < GRID_X_TOL),
+                   key=lambda t: t[1][1]) for x in xs]
+    if sum(len(c) for c in cols) != len(pics):
+        return None
+    pitch = min(b - a for a, b in zip(xs, xs[1:]))
+    spans = [(x, x + max(it[1][2] - it[1][0] for it in c)) for x, c in zip(xs, cols)]
+    if any(x1 - x0 >= pitch for x0, x1 in spans):
+        return None
+    # every text line, by the column it overlaps
+    cells = {}                       # (col, pic index) -> lines
+    loose = []
+    for it in items:
+        if it[0] != "blk":
+            continue
+        for ln in it[2].lines:
+            if not ln.text.strip():
+                continue
+            k = [j for j, (x0, x1) in enumerate(spans)
+                 if ln.bbox[0] < x1 and ln.bbox[2] > x0]
+            if len(k) != 1 or ln.bbox[2] > spans[k[0]][0] + pitch - GRID_X_TOL:
+                loose.append(ln)
+                continue
+            above = [i for i, pic in enumerate(cols[k[0]]) if pic[1][1] <= ln.bbox[1]]
+            if not above:
+                loose.append(ln)
+                continue
+            cells.setdefault((k[0], above[-1]), []).append(ln)
+    # rows: one cell per column whose captions start together
+    heads = []
+    for (c, i), lns in cells.items():
+        heads.append((min(l.bbox[1] for l in lns), c, i))
+    heads.sort()
+    rows, cur = [], []
+    for y, c, i in heads:
+        if cur and y - cur[0][0] > GRID_ROW_TOL:
+            rows.append(cur)
+            cur = []
+        cur.append((y, c, i))
+    if cur:
+        rows.append(cur)
+
+    def signed(c, i):
+        # A signature is signed where the name is set: the caption starts at
+        # the picture's left edge and the picture is about as wide as it. A
+        # brochure's icon is small over a wider caption, often centred.
+        pic, lns = cols[c][i], cells[(c, i)]
+        pw = pic[1][2] - pic[1][0]
+        return abs(min(l.bbox[0] for l in lns) - pic[1][0]) <= GRID_X_TOL and \
+            pw >= GRID_PIC_CAPTION_SHARE * max(l.bbox[2] - l.bbox[0] for l in lns)
+
+    def good(row):
+        return sorted(c for _y, c, _i in row) == list(range(len(cols))) and \
+            all(len(cells[(c, i)]) <= GRID_MAX_CELL_LINES and signed(c, i)
+                for _y, c, i in row)
+    run, best = [], []
+    for row in rows:
+        if good(row):
+            run.append(row)
+            if len(run) > len(best):
+                best = list(run)
+        else:
+            run = []
+    if len(best) < GRID_MIN_ROWS:
+        return None
+    out = []
+    taken_pics = set()
+    for row in best:
+        r = []
+        for _y, c, i in sorted(row, key=lambda t: t[1]):
+            pic = cols[c][i]
+            taken_pics.add(id(pic))
+            r.append((pic, cells[(c, i)]))
+        out.append(r)
+    y0 = min(min(pic[1][1], min(l.bbox[1] for l in lns)) for r in out for pic, lns in r)
+    y1 = max(max(pic[1][3], max(l.bbox[3] for l in lns)) for r in out for pic, lns in r)
+    taken_lines = {id(l) for r in out for _p, lns in r for l in lns}
+    # nothing else in the band: rules the pictures sit on are the cells'
+    rules = {}
+    for it in items:
+        if it[1] is None or it[1][3] < y0 or it[1][1] > y1 or id(it) in taken_pics:
+            continue
+        if it[0] == "blk":
+            if any(id(l) not in taken_lines and l.text.strip() for l in it[2].lines):
+                return None
+            continue
+        if isinstance(it[2], RuleEl):
+            k = [j for j, (x0, x1) in enumerate(spans)
+                 if it[1][0] < x1 and it[1][2] > x0]
+            if len(k) == 1:
+                rules[id(it)] = (k[0], it)
+                continue
+        return None
+    return out, y0, y1, rules, taken_pics, taken_lines
+
+
+def _stash_picture_grid(p: PageIR, elements, blocks, consumed) -> list:
+    """WP71: a picture grid's pictures, taken out of the flow (returned, to be
+    anchored at their own positions), and its rows stashed on the page for
+    `_assemble_chunks` (`_picture_grid_chunks`). Read before the float
+    passes, which would anchor some of the pictures (those a name is set on)
+    and merge each row of the rest into one figure."""
+    items = []
+    for e in elements:
+        bb = _el_bbox(e)
+        if bb is not None:
+            items.append(("el", tuple(bb), e))
+    for b in blocks:
+        keep = [l for l in b.lines if id(l) not in consumed]
+        if keep:
+            nb = _mk_block(keep)
+            items.append(("blk", nb.bbox, nb))
+    g = _picture_grid(items)
+    if g is None:
+        return []
+    rows, y0, y1, _rules, _taken_pics, _taken_lines = g
+    xs = sorted({round(pic[1][0], 1) for r in rows for pic, _l in r})
+    spans = []
+    for c in range(len(rows[0])):
+        x0 = min(r[c][0][1][0] for r in rows)
+        x1 = max(r[c][0][1][2] for r in rows)
+        spans.append((x0, x1))
+    p._wp71_grid = {
+        "y0": y0, "y1": y1, "spans": spans, "xs": xs,
+        "rows": [[(pic[1], {id(l) for l in lns}) for pic, lns in r] for r in rows]}
+    return [pic[2] for r in rows for pic, _l in r]
+
+
+def _caption_lines(p: Para, lines) -> None:
+    """A grid cell's caption keeps the source's lines (a name over a title):
+    the joins `_soft_join` made between them become soft breaks, the
+    paragraph left-aligned to its cell. Untouched unless its text is exactly
+    those lines, joined."""
+    full = "".join(r.text for r in p.runs)
+    ls = [t for t in lines if t]
+    if len(ls) < 2 or full.rstrip() != " ".join(ls):
+        return
+    cuts, at = set(), 0
+    for t in ls[:-1]:
+        at += len(t)
+        cuts.add(at)
+        at += 1
+    pos = 0
+    for r in p.runs:
+        chars = list(r.text)
+        for k in range(len(chars)):
+            if pos + k in cuts and chars[k] == " ":
+                chars[k] = "\n"
+        pos += len(r.text)
+        r.text = "".join(chars)
+    p.line_breaks = True
+    p.align = "left"
+    p.right_indent = 0.0
+
+
+def _picture_grid_chunks(items, grid, lay: DocLayout, content_l: float,
+                         content_r: float, lay_rows) -> Optional[List[Chunk]]:
+    """The page as flow / a picture grid's rows / flow, one borderless layout
+    row per grid row (the grid `_stash_picture_grid` read), or None when the
+    flow items no longer make that grid. The pictures are anchored at their
+    own positions; a row holds its cells' captions and the rules the
+    pictures sit on, and is pinned to the row's height, picture included."""
+    y0, y1, spans, rows = grid["y0"], grid["y1"], grid["spans"], grid["rows"]
+    row_tops = [min(pb[1] for pb, _ids in r) for r in rows]
+    cell_of = {}
+    for k, r in enumerate(rows):
+        for c, (_pb, ids) in enumerate(r):
+            for i in ids:
+                cell_of[i] = (k, c)
+    cells = [[[] for _c in r] for r in rows]
+    above, below = [], []
+    for it in items:
+        bb = it[1]
+        if bb is None or bb[3] < y0 - 1.0 or bb[1] > y1 + 1.0:
+            (above if bb is None or bb[1] < y0 else below).append(it)
+            continue
+        if it[0] == "blk":
+            for l in it[2].lines:
+                if id(l) in cell_of:
+                    k, c = cell_of[id(l)]
+                    cells[k][c].append(l)
+                elif l.text.strip():
+                    return None
+            continue
+        if isinstance(it[2], RuleEl):
+            ks = [c for c, (x0, x1) in enumerate(spans) if bb[0] < x1 and bb[2] > x0]
+            rk = [k for k, t in enumerate(row_tops) if t <= bb[1] + 1.0]
+            if len(ks) == 1 and rk:
+                cells[rk[-1]][ks[0]].append(it)
+                continue
+        return None
+    if any(not any(isinstance(x, Line) for x in cell) for r in cells for cell in r):
+        return None
+    chunks: List[Chunk] = []
+
+    def flow(its):
+        if its:
+            ch = Chunk(n_cols=1)
+            ch.elements = _merge_flow_paras(
+                _to_flow(_by_pos(its), content_l, content_r, doc_rows=lay_rows),
+                content_r)
+            chunks.append(ch)
+    flow(above)
+    for k, r in enumerate(cells):
+        top = row_tops[k]
+        bot = max(max(pb[3] for pb, _ids in rows[k]),
+                  max((x.bbox[3] if isinstance(x, Line) else x[1][3]) for cell in r for x in cell))
+        sides = []
+        for cell in r:
+            # a caption is set line by line (a name, a title): each line
+            # a paragraph of its own, as the source breaks it
+            its = [("blk", l.bbox, _mk_block([l])) for l in cell if isinstance(l, Line)]
+            sides.append(_by_pos(its + [x for x in cell if not isinstance(x, Line)]))
+        lt = _layout_table(sides, top, bot, content_l, content_r, lay_rows)
+        for c, cell in enumerate(lt.rows[0]):
+            lines = [l.text.strip() for l in r[c] if isinstance(l, Line)] \
+                if c < len(r) else []
+            for q in cell.blocks:
+                if isinstance(q, Para):
+                    _caption_lines(q, lines)
+        lt.row_heights = [_layout_row_pin(lt, top, lay)]
+        lt._sbs = "grid"
+        ch = Chunk(n_cols=1)
+        ch.elements = [lt]
+        chunks.append(ch)
+    flow(below)
+    return chunks
+
+
 def _side_by_side_chunks(items, lay: DocLayout, page: PageIR, content_l: float,
                          content_r: float, lay_rows) -> Optional[List[Chunk]]:
     """The page as flow / side-by-side regions, or None when it has none."""
@@ -11710,6 +12229,66 @@ RIGHT_TAB_MAX_RUN = 3         # a field is at most this many consecutive lines
 # of the room between the margin and the right line's start.
 RIGHT_TAB_LIST_SHARE = 0.6
 RIGHT_TAB_RUN_PITCH_EM = 1.8  # baselines this close (em) are consecutive lines
+# WP71: a right-hand line centred on the page's middle within this (em) is a
+# banner, not a field (`_right_tab_fields`); and fields whose texts number at
+# most this many distinct strings need not start ragged.
+RIGHT_TAB_CENTRE_EM = 1.5
+RIGHT_TAB_SAME_TEXTS = 2
+# WP71: a two-up list's cells are within this share of each other's width.
+TWO_UP_WIDTH_SHARE = 0.25
+
+
+def _two_up_item(l, lines, content_l: float, w: float) -> bool:
+    """Is `l` the right-hand item of a list set two-up?
+
+    WP71. A template sets a coursework list two items to a row: `- Class` at
+    the list indent and `- Class` again half a page across, on one baseline.
+    The right-hand items are neither fields at a right tab nor lines of a
+    column, and counted as right-hand lines they kept the fields beside them
+    from reading as fields. Its partner on the baseline starts at the margin
+    side with the same first glyph and is of a like width, and both are
+    narrow."""
+    t = l.text.strip()
+    if not t or l.bbox[2] - l.bbox[0] > _ROW_MAX_RIGHT * w:
+        return False
+    lw = l.bbox[2] - l.bbox[0]
+    for m in lines:
+        if m is l or not m.horizontal or abs(m.baseline - l.baseline) > _ROW_BASELINE_TOL:
+            continue
+        mt = m.text.strip()
+        if not mt or mt[0] != t[0] or t[0].isalnum():
+            continue
+        if m.bbox[2] > l.bbox[0] - _ROW_MIN_GAP or m.bbox[0] >= content_l + 0.35 * w:
+            continue
+        # the partner item: its marker and the text the parser may have read
+        # as a line of its own beside it, up to the gap before `l`
+        x1 = max(n.bbox[2] for n in lines if n.horizontal and
+                 abs(n.baseline - l.baseline) <= _ROW_BASELINE_TOL and
+                 n.bbox[0] >= m.bbox[0] and n.bbox[2] <= l.bbox[0] - _ROW_MIN_GAP)
+        mw = x1 - m.bbox[0]
+        if abs(mw - lw) <= TWO_UP_WIDTH_SHARE * max(mw, lw):
+            return True
+    return False
+
+
+# WP71: at most this share of a page's fields may be wider than _ROW_MAX_RIGHT,
+# each alone on its baseline's band and beside a margin line that ends at
+# least RIGHT_TAB_WIDE_GAP_EM before it starts.
+RIGHT_TAB_WIDE_SHARE = 1 / 3
+RIGHT_TAB_WIDE_GAP_EM = 4.0
+
+
+def _wide_field(l, lines, em: float) -> bool:
+    """Is the wide right-hand line `l` a field set beside a line with white
+    between them (`_right_tab_fields`, WP71)?"""
+    near = [m for m in lines if m is not l and m.horizontal and m.text.strip()
+            and abs(m.baseline - l.baseline) <= RIGHT_TAB_RUN_PITCH_EM * em
+            and m.bbox[2] > l.bbox[0] - _ROW_MIN_GAP]
+    if near:
+        return False        # another line runs up to it or stacks on it
+    return any(m is not l and m.horizontal and m.text.strip() and
+               abs(m.baseline - l.baseline) <= _ROW_BASELINE_TOL and
+               m.bbox[2] <= l.bbox[0] - RIGHT_TAB_WIDE_GAP_EM * em for m in lines)
 
 
 def _right_tab_fields(lines, content_l: float, content_r: float) -> Optional[float]:
@@ -11737,6 +12316,18 @@ def _right_tab_fields(lines, content_l: float, content_r: float) -> Optional[flo
         return None
     right = [l for l in lines if l.horizontal and l.text.strip() and
              l.bbox[0] >= content_l + 0.35 * w]
+    if right and _wp71("tab_fields_not_banner"):
+        # WP71: a line set centred on the page -- a name, a section heading in
+        # a template whose headings are centred -- crosses the page's middle
+        # and belongs to neither side; it is no field and no column line.
+        mid = content_l + 0.5 * w
+        sizes = sorted(_line_size(l) for l in right)
+        em0 = sizes[len(sizes) // 2] or 10.0
+        right = [l for l in right if not (
+            l.bbox[0] < mid <= l.bbox[2] and
+            abs((l.bbox[0] + l.bbox[2]) / 2.0 - mid) <= RIGHT_TAB_CENTRE_EM * em0)]
+    if right and _wp71("tab_fields_two_up"):
+        right = [l for l in right if not _two_up_item(l, lines, content_l, w)]
     if len(right) < RIGHT_TAB_MIN_LINES:
         return None
     sizes = sorted(_line_size(l) for l in right)
@@ -11753,9 +12344,20 @@ def _right_tab_fields(lines, content_l: float, content_r: float) -> Optional[flo
     if len(flush) < max(RIGHT_TAB_MIN_LINES, RIGHT_TAB_FLUSH_SHARE * len(right)):
         return None
     starts = [l.bbox[0] for l in flush]
-    if max(starts) - min(starts) < RIGHT_TAB_RAGGED_EM * em:
+    if max(starts) - min(starts) < RIGHT_TAB_RAGGED_EM * em and not (
+            _wp71("tab_fields_same_text") and
+            len({l.text.strip() for l in flush}) <= RIGHT_TAB_SAME_TEXTS):
+        # WP71: the starts of fields that all say the same thing ("City, ST"
+        # down a blank template) cannot spread, and a column's lines -- even a
+        # two-column skills list's -- do not all say the same thing.
         return None
-    if any(l.bbox[2] - l.bbox[0] > _ROW_MAX_RIGHT * w for l in flush):
+    wide = [l for l in flush if l.bbox[2] - l.bbox[0] > _ROW_MAX_RIGHT * w]
+    if wide and not (_wp71("tab_fields_wide_field") and
+                     len(wide) <= RIGHT_TAB_WIDE_SHARE * len(flush) and
+                     all(_wide_field(l, lines, em) for l in wide)):
+        # WP71: one long field ("Expected Graduation: Month Year") among short
+        # ones is still a field when the page's white stands between it and
+        # the line it is set beside; a column's line abuts its gutter.
         return None
     # A field is a line or two (a place, a date range); a right-aligned
     # sidebar or pull quote runs on for many. Lines a line pitch apart are
@@ -12060,6 +12662,17 @@ def _assemble_chunks(elements, flow_blocks, lay: DocLayout, page: PageIR,
     content_w = content_r - content_l
     body_h = lay.page_h - lay.margin_t - lay.margin_b
     flow_blocks = _merge_list_markers(flow_blocks)
+
+    # WP71: a picture grid read before the float passes (`_stash_picture_grid`)
+    # decides the page before any column test: its pictures are already out of
+    # the flow, and a producer that blocks the captions per column would have
+    # the column readers set them as two columns under the anchored pictures.
+    if getattr(page, "_wp71_grid", None) is not None:
+        grid = _picture_grid_chunks(
+            _page_items(elements, flow_blocks, content_l, content_r),
+            page._wp71_grid, lay, content_l, content_r, lay_rows)
+        if grid:
+            return _position_chunks(grid, lay, page_top)
 
     # A >=3 column grid is checked first and, when found, decides the page on
     # its own. The two-column path below is left exactly as it was: it owns
