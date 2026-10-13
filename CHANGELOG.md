@@ -21,7 +21,8 @@ traceable to a committed artifact under `docs/evidence/`.
   of at the margin is joined with nothing, with a zero-width break
   opportunity after each `/ ? & =` in it. Each reading is its own switch
   (`infer.WP71_RULES`), standard profile only: the Google Docs profile is
-  byte-identical. `tests/test_wp71_readings.py`.
+  byte-identical. `tests/test_wp71_readings.py`;
+  [evidence](docs/evidence/wp71-2026-10-13.json).
 - **A stray drawing no longer grows into a picture of the whole page (WP68).**
   A logo touching a page's full-page background picture became a picture of
   the sheet with every line on it (an NSF audit transmittal's summary page);

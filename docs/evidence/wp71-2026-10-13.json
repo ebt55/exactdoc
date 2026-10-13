@@ -1,0 +1,147 @@
+{
+ "schema": "exactdoc.wp-evidence.v1",
+ "about": "WP71: four readings for holdout-3's short documents (development data since its exam), standard profile only, each its own switch (infer.WP71_RULES); the Google Docs profile is byte-identical. Item 2: right-tab fields a blank template sets (identical fields need no rag; a banner centred across the middle and the right item of a two-up list are no field; one long field beside white is a field). Item 3: a grid of pictures over captions (a letter's signature pages), read before the float passes and before any column test, one borderless layout row per grid row, the pictures anchored. Item 4: a small margin label heads the line it stands beside; a full line indented on the left is not right-aligned unless a paragraph beside it is (not a row of cells). Item 1: a URL broken inside at the line's edge joins with nothing, zero-width break opportunities after / ? & = in it.",
+ "tree": "wp71 7926519 (review round) on integration 6860855 (WP68 merged); WP71's code was 99e5ae0 before the review round and 45c85dd after the 0.55 decision",
+ "baseline": "6860855. Corpus sweeps C:\\lotmp\\scr\\runs\\wp71-b-{raw,prod} (6860855) against wp71-f-{raw,prod} (99e5ae0) and wp71-r-{raw,prod} (7926519); holdout lanes C:\\lotmp\\wp71x\\hold\\h{1,2,3}b-* (6860855), h{1,2,3}f-* (99e5ae0), h{1,2,3}r-* (7926519).",
+ "image": "exactdoc-gate:boot sha256:bab1cfc0d2cd",
+ "gate": {
+  "log": "C:\\lotmp\\scr\\runs\\wp71-g4.log",
+  "commit": "7926519",
+  "mode": "strict, baseline bound",
+  "tests": "2219 OK (3 skipped, 2 expected failures)",
+  "product": "PASS 16/16 (<2pt 0.8142, live 0.9784, dy50 0.3)",
+  "raw": "PASS 16/16 (<2pt 0.6168, live 0.9784, dy50 0.65)",
+  "failed_steps": 0,
+  "earlier": {
+   "99e5ae0": "C:\\lotmp\\scr\\runs\\wp71-g2.log, 2213 OK, FAILED_STEPS=0, the same lane numbers",
+   "45c85dd": "C:\\lotmp\\scr\\runs\\wp71-g3.log, 2215 OK, FAILED_STEPS=0, the same lane numbers"
+  }
+ },
+ "criterion_8": {
+  "accepted": "C:\\lotmp\\scr\\runs\\final-71af76e-{raw,prod}.sweep.json (0.3.0b1's final sweep)",
+  "raw": "PASS, 0 documents worse (C:\\lotmp\\scr\\runs\\wp71-r-raw.sweep.json, 7926519)",
+  "product": "PASS, 0 documents worse (C:\\lotmp\\scr\\runs\\wp71-r-prod.sweep.json, 7926519)",
+  "note": "at the intermediate head 80f90c1 the product lane failed by one: y60 dy_p50 32.61 -> 63.74, a reference's year and the URL starting the next line joined into one token; fixed (a URL that starts the next line keeps its space): y60 product 29 -> 27 pages (src 24), dy_p50 32.61 -> 26.85, word recall 0.346 -> 0.465"
+ },
+ "corpus_vs_base": {
+  "page_exact": "LibreOffice product 71 -> 71, raw 66 -> 66 (6860855 -> 7926519)",
+  "product_docx_movers": "33 of 90 (content SHA-256 of the kept DOCX, 6860855 -> 99e5ae0); 99e5ae0 -> 7926519: 4 (y12, y13, y18, y26)",
+  "largest_losses": {
+   "y33_nz_paper_powerpdf": "product within2pt 0.7535 -> 0.7348, raw 0.4397 -> 0.4263 (the wide-line rule)",
+   "y39_copernicus_npg_2col": "raw word recall 0.8845 -> 0.8782 at 80f90c1; unchanged at 7926519"
+  },
+  "gains": {
+   "y60_cdc_mmwr_indd19": "product 29 -> 27 pages (src 24), word recall 0.346 -> 0.465; raw 32 -> 31",
+   "y34_census_slides_pptx365": "word recall 0.926 -> 0.970 (WP68 and WP71 together; WP71's own share not separated)"
+  }
+ },
+ "gdocs_identity": {
+  "what": "word/*.xml SHA-256, gdocs profile, corpus + holdout-1/-2/-3 (202 distinct outputs; local conversion of both trees)",
+  "identical": 202,
+  "different": 0,
+  "base": "6860855",
+  "head": "7926519",
+  "file": "C:\\lotmp\\wp71x\\diff_R.txt"
+ },
+ "movers_standard_profile": {
+  "what": "raw-profile word/*.xml SHA-256, the same 202 documents (local conversion)",
+  "base_6860855_to_7926519": "92 of 202 moved",
+  "review_round_99e5ae0_to_7926519": "9 moved: h3_14 (the 0.55 share; the only mover of that step), and y12, y13, y18, y26, h14, h16, h23, h2_24 (separator-only joins refused); none of h3_35, h20, h2_30 -- their joins carry a scheme",
+  "per_item_raw_movers": "item 2: 2 (h2_28, h3_02); item 3: 1 (h3_14); item 4: 92; item 1: 53 (before the review round's guards)",
+  "holdout_lanes_docx_movers_6860855_to_99e5ae0": "holdout-1 20/36, holdout-2 19/32, holdout-3 19/41, each lane",
+  "holdout_lanes_99e5ae0_to_7926519": {
+   "holdout1": "raw: h14 within2pt -0.0001, h16 bytes only; product: h14, h16 bytes only, h23 dy_p50 46.0 -> 46.18; page-exact unchanged (raw 9, product 13)",
+   "holdout2": "h2_24 bytes only, both lanes; page-exact unchanged (raw 16, product 19)",
+   "holdout3": "h3_14 only: product 7 -> 6 pages, within2pt 0.345 -> 0.659; raw dy_p50 13.1 -> 13.7; page-exact product 24 -> 25, raw 20 -> 20"
+  },
+  "files": [
+   "C:\\lotmp\\wp71x\\diff_F.txt",
+   "C:\\lotmp\\wp71x\\diff_G.txt",
+   "C:\\lotmp\\wp71x\\diff_R.txt"
+  ]
+ },
+ "per_item_holdout3": {
+  "_columns": "product lane, canonical container, pages out/src; attribution by commit before the rebase onto 6860855",
+  "item_2": "h3_02 13 -> 12 (pages 3 and 9 one column again); the rest, 12 -> 11, came only from a join bug later removed; page 4's empty bullet lines still spill",
+  "item_3": "at 0.25: h3_14 7 -> 7, within2pt 0.588 -> 0.345 (page 5's signatures 71-162pt wide fail the share; the loop published round 0); at 0.55: 6/6 in LibreOffice and Word, within2pt 0.659, dy_p50 0.0, the only mover",
+  "item_4": "h3_17 3 -> 2 in LibreOffice and Word, word recall 0.59 -> 0.99, within2pt 0.04 -> 0.24; h3_08/h3_09/h3_20 within2pt up; h3_07's skills rows protected by _row_of_cells",
+  "item_1": "h3_34 15 -> 13 (word recall 0.53 -> 0.96); overflow variants measured: none 14, zwsp 13, w:br lock 15 (and h3_02 a page worse) -- zwsp ships, never inside //; at 7926519 h3_34 stays 13"
+ },
+ "holdout3_development_reading": {
+  "label": "development reading, not an exam (holdout-3 is development data since its single exam run)",
+  "commit": "7926519",
+  "inputs": {
+   "product": "C:\\lotmp\\wp71x\\hold\\h3r-prod.sweep.json",
+   "raw": "C:\\lotmp\\wp71x\\hold\\h3r-raw.sweep.json",
+   "word": "C:\\lotmp\\wp71x\\word_h3r\\rows.jsonl",
+   "verdict": "C:\\lotmp\\wp71x\\h3r_verdict.txt",
+   "r3v2": "C:\\lotmp\\wp71x\\h3r_r3v2.json"
+  },
+  "R1": "PASS: 0 crashes, Word opened clean 41/41",
+  "R2_libreoffice": "short promised page-exact 23/26 = 88%; word recall >= 0.9 23/26 = 88%",
+  "R2_word": "short promised page-exact 21/26 = 81%; word recall >= 0.9 21/26 = 81%",
+  "R3_v1": "pass: short 0, long 1 (h3_28)",
+  "R3_v2": "would fail: short 1 (h3_13, document recall 0.89), long 1 (h3_28)",
+  "short_misses": "h3_01 (Word 12/11), h3_02 (12/11), h3_15 (7/6), h3_32 (Word 8/7), h3_34 (13/12); word recall: h3_13",
+  "for_reference": "0.3.0b2's exam: LibreOffice 20/26, Word 18/26; 99e5ae0 (share 0.25): LibreOffice 22/26, Word 20/26"
+ },
+ "targets": {
+  "h3_02": "13/11 -> 12/11 (LibreOffice and Word)",
+  "h3_14": "7/6 -> 6/6 (LibreOffice and Word), within2pt 0.588 -> 0.659",
+  "h3_17": "3/2 -> 2/2 (LibreOffice and Word)",
+  "h3_34": "15/12 -> 13/12 (LibreOffice and Word), word recall 0.53 -> 0.96"
+ },
+ "word_lane": {
+  "how": "testkit/word_oracle.py under C:\\lotmp\\word.lock, product DOCX",
+  "corpus_movers_6860855_to_99e5ae0": "33 documents: page-exact 18 -> 18; y60 27 -> 26 (src 24); no repair prompt, all opened (C:\\lotmp\\wp71x\\word_{b,f}\\rows.jsonl)",
+  "corpus_movers_99e5ae0_to_7926519": "4 documents (y12, y13, y18, y26): pages unchanged, word recall unchanged to 1e-4 (C:\\lotmp\\wp71x\\wordr_{f,r}\\rows.jsonl)",
+  "holdout3": "41 documents at 7926519 (C:\\lotmp\\wp71x\\word_h3r\\rows.jsonl): opened clean 41/41"
+ },
+ "review_round": {
+  "verdict": "MERGE-WITH-CHANGES (final code review of 99e5ae0), no blockers",
+  "a": "_merge_list_markers: a label whose nearest line was a marker glyph of its own rode on that line into its item and was dropped with it; a marker line is never a label's host (fixture)",
+  "b": "_url_continues: where only separators made the join, a figure or short formula half, or two halves whose every word the document uses, keep their space (fixtures: and/or + input/output, 1/2 + 3/4, x=1 + y=2); h3_34 stays 13; h3_35, h20 and h2_30 do not move (their joins carry a scheme)",
+  "c": "_assemble_chunks: the stashed grid is read before any column test; a reportlab fixture with the captions drawn per column was two columns under the anchored pictures before, a grid now",
+  "d": "GRID_PIC_SIZE_SHARE 0.55 committed and tested (45c85dd)"
+ },
+ "rules": {
+  "tab_fields_same_text": "ON",
+  "tab_fields_not_banner": "ON",
+  "tab_fields_two_up": "ON",
+  "tab_fields_wide_field": "ON",
+  "picture_grid": "ON (share 0.55; caption starts at the picture's left edge; picture >= 0.5 of the caption's width; <= 3 lines a cell; cell narrower than the pitch; nothing else in the band)",
+  "margin_labels": "ON",
+  "wide_not_right": "ON",
+  "url_join": "ON (URL_OVERFLOW = zwsp)"
+ },
+ "accepted": {
+  "picture_size_share": {
+   "decision": "approved at 0.55 with conditions (coordinator, 2026-10-13)",
+   "why": "a real signature grid has naturally varied signature widths; at 0.25 item 3 regressed its own target",
+   "conditions_met": "fixture of a 2:1 signature grid; a brochure icon-grid control (icons of varied size, 1-3 caption lines, left-aligned or centred, captions of a row on one line) is not a grid -- stopped by two new cell tests, not by the share; re-census against 99e5ae0: h3_14 the only mover; gate run again (wp71-g3)"
+  },
+  "h33_uk_biological_security_strategy": {
+   "decision": "accepted (coordinator, 2026-10-13)",
+   "what": "holdout-1, product 105 -> 107 pages (src 81), word recall 0.207 -> 0.198",
+   "why": "an InDesign report outside the promise, and long; cause: the wide-line rule turns the full closing lines of a narrow column's paragraphs from right-aligned to left, and they merge and reflow"
+  },
+  "url_join_costs": {
+   "decision": "accepted as the cost of correct URL joins and the wide-line rule (coordinator, 2026-10-13)",
+   "what": {
+    "h3_35_wikipedia_curriculum_vitae_chrome_print": "within2pt 0.359 -> 0.335, word recall 0.996 -> 0.987, live text 0.995 -> 0.988",
+    "h20_wikipedia_pdf_en": "live text 0.996 -> 0.979",
+    "h2_30_wikipedia_resume_chrome_print": "live text 0.996 -> 0.988",
+    "y33_nz_paper_powerpdf": "within2pt -0.019 product, -0.013 raw",
+    "h28_fed_monetary_policy_report_2024_07": "raw 108 -> 109 pages"
+   },
+   "why": "the source extracts each line's URL fragment as a token of its own, so a correct join reads as a miss"
+  }
+ },
+ "follow_ups": [
+  "The zero-width spaces inside joined URLs carry into copy-paste: a user-facing cost, to revisit after 0.3.0b3.",
+  "Item 4c: a stamp's text set in a narrow frame wraps (the memo's RECEIVED stamp); not needed for h3_17.",
+  "h3_02 page 4: a blank template's empty bullet lines run taller than the source's and spill (12/11).",
+  "h3_01 and h3_32 miss in Word only by a page; h3_15 is WP68's."
+ ],
+ "timing": "not taken"
+}
