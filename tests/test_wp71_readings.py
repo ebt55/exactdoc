@@ -234,7 +234,9 @@ class MarginLabels(unittest.TestCase):
         blocks = _memo_head()
         blocks[1].lines[0].spans[0].text = chr(0x2032)
         out = I._merge_list_markers(blocks)
-        self.assertEqual(len([l for b in out for l in b.lines]), 5)
+        texts = [l.text for b in out for l in b.lines]
+        self.assertEqual(len(texts), 4)          # TO and SUBJECT head their lines
+        self.assertIn(chr(0x2032), texts)        # the glyph stands alone
 
     def test_text_the_same_size_is_not_a_label(self):
         out = I._merge_list_markers(_memo_head(label_size=12.0))
