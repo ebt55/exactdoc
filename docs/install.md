@@ -18,7 +18,8 @@ pip install --pre exactdoc
 exactdoc --version
 ```
 
-`--pre` because 0.3.0b1 is a pre-release. While no final release exists,
+`--pre` because exactdoc's releases are betas, and a beta is a pre-release.
+While no final release exists,
 plain `pip install exactdoc` installs it too: pip falls back to a pre-release
 when nothing else matches. To work on exactdoc itself, install from a clone
 instead: `git clone https://github.com/ebt55/exactdoc && cd exactdoc && pip install -e .`

@@ -254,6 +254,42 @@ class SectionBackstop(unittest.TestCase):
         self.assertLessEqual(sec.top_margin.pt + sec.bottom_margin.pt,
                              lay.page_h - docxout.MIN_BODY_PT + 0.01)
 
+    def test_a_bottom_margin_that_alone_leaves_no_body_is_clamped_too(self):
+        # WP64 (S4): with margin_b >= page_h - one line, clamping the top
+        # alone still left the section no body, and Word refuses the file.
+        from exactdoc.layout import DocLayout
+        from docx import Document
+        for top, bottom in ((72.0, 790.0), (0.0, 792.0), (400.0, 785.0)):
+            with self.subTest(top=top, bottom=bottom):
+                lay = DocLayout()
+                lay.margin_t, lay.margin_b = top, bottom
+                sec = Document().sections[0]
+                with self.assertLogs("exactdoc.docxout", "WARNING"):
+                    docxout._config_section(sec, lay)
+                body = lay.page_h - sec.top_margin.pt - sec.bottom_margin.pt
+                self.assertGreaterEqual(body, docxout.MIN_BODY_PT - 0.01)
+                self.assertGreaterEqual(sec.top_margin.pt, 0.0)
+
+    def test_sane_margins_are_written_as_they_are(self):
+        from exactdoc.layout import DocLayout
+        from docx import Document
+        lay = DocLayout()
+        lay.margin_t, lay.margin_b = 54.0, 61.5
+        before = docxout.SECTION_CLAMPS[0]
+        sec = Document().sections[0]
+        docxout._config_section(sec, lay)
+        self.assertEqual(docxout.SECTION_CLAMPS[0], before)
+        self.assertAlmostEqual(sec.top_margin.pt, 54.0, places=2)
+        self.assertAlmostEqual(sec.bottom_margin.pt, 61.5, places=2)
+
+    def test_the_gdocs_switch_is_reset_after_every_write(self):
+        from exactdoc.layout import DocLayout
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            docxout.write_docx(DocLayout(), os.path.join(d, "g.docx"),
+                               output_profile="gdocs")
+        self.assertTrue(docxout._CLAMP_SECTIONS[0])
+
 
 # --------------------------------------------------------- end to end
 @unittest.skipUnless(F.available(), "reportlab is not installed")

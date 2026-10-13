@@ -6,6 +6,8 @@ traceable to a committed artifact under `docs/evidence/`.
 
 ## Unreleased
 
+### Changes
+
 - **The release exam runs holdout-3 for 0.3.0b2 (WP63; developer tooling).**
   `scripts/dev/holdout_exam.sh` was hard-wired to holdout-2: run for the next
   beta it would have refused, or recorded 0.3.0b2's exam as a rerun of
@@ -22,6 +24,40 @@ traceable to a committed artifact under `docs/evidence/`.
   so the y37 waiver granted for 0.3.0b1 now reads as stale until the owner
   renews or deletes it. The host Python defaults to a `.venv` in the tree or
   its main checkout instead of one user's path.
+- **Résumé layouts that failed the holdout-2 exam (WP59).** Holdout-2's
+  résumés (a development set since its single run) failed on six layout
+  mechanisms. Each is now read for what it is, with a synthetic test page in
+  `tests/test_wp59_resumes.py` beside the look-alike it must leave alone:
+  - **Page colour.** Word's page colour paints one fill over the whole sheet
+    of every page. It was read as a cover band and a page-tall header, so the
+    text went into the header and the body section was left with no room, and
+    Word refused to export the file. It is now the document's background
+    colour, and light text on a dark page colour stays readable.
+  - **Tall strip.** A running strip that reaches past the middle of the page
+    is not a header. As a backstop, no section is written whose margins leave
+    the body less than one line (it fires on no corpus document).
+  - **Page border.** Word's page border (four rules near the paper's edges)
+    is no longer read as a box around the whole page.
+  - **Two-sided lists.** A skills list set flush right beside a coursework
+    list no longer turns a résumé page into two columns, and the dates stay
+    beside their entries.
+  - **Left-tab fields.** A place or date set at a left tab stays on its
+    entry's line instead of being welded into the next paragraph.
+  - **Text-font boxes.** A text face whose glyph boxes are several times its
+    size (Word's Cambria) no longer puts entries above their own headings.
+
+  On holdout-2 the federal résumé comes back with 3 pages for 3 (it was 6)
+  with all its words on the right page, and Word now exports it; the CMU set
+  comes back with 8 pages for 8 (it was 9) and 99.8% of its words on the
+  right page. No corpus document is worse than in the accepted sweep, and the
+  Google Docs output is byte-identical on every document
+  ([evidence](docs/evidence/wp59-2026-10-13.json)). One unpromised designed
+  brochure got worse in LibreOffice (4 pages for 2, it was 3) and better in
+  Word (5, it was 9); the evidence records why it was accepted.
+- **The section backstop covers the bottom margin too (WP64).** A bottom
+  margin within one line of the page height could still leave a section with
+  no body, which Word refuses; both margins are now clamped. No document in
+  the corpus or the holdouts reaches it.
 
 ## 0.3.0b1 — 2026-10-12
 

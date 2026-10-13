@@ -70,7 +70,7 @@ import harness
 
 SCHEMA = "exactdoc.churn.v1"
 # A token this frequent in the source can match a same-text neighbour by
-# coincidence. The reviewer's cut (C:\lotmp\scr\wp41\churn.py, 2026-10-10):
+# coincidence. The reviewer's cut (WP41's churn probe, 2026-10-10):
 # on y37, 80% of the lost and 64% of the gained words are such tokens.
 FREQUENT = 20
 # A common word "moved" when its dy in one render differs from its dy in the
