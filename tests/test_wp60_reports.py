@@ -433,6 +433,18 @@ class TheFooterEcho(unittest.TestCase):
         foot = _ln(72, 746, 145, "www.example.gov", 9)
         self.assertEqual(self._run([foot], panel=False), set())
 
+    def test_a_paragraphs_last_line_above_the_footer_survives(self):
+        """Final review's probe: a paragraph whose short last line, in the
+        foot band just above the real footer, is whole words of the footer
+        ('Border Security.' over 'Audit of Border Security Operations 4')
+        is the paragraph's, not the footer's. Only the lowest row can be."""
+        body = _ln(72, 731, 160, "Border Security.", 11)
+        foot = _ln(72, 760, 300, "Audit of Border Security Operations", 9)
+        got = self._run([body, foot],
+                        footer="Audit of Border Security Operations 4")
+        self.assertNotIn(id(body), got)
+        self.assertIn(id(foot), got)
+
     def test_a_column_wide_box_is_no_sidebar_page(self):
         """MMWR's summary boxes fill a column of two (0.48 of the measure):
         their pages keep their foot lines."""

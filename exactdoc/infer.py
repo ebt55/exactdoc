@@ -10934,8 +10934,15 @@ def _drop_footer_echoes(blocks, consumed, elements, p: PageIR, parts,
     if not said:
         return
     foot = max([p.height - BOTZ] + panels)
-    for ln in _all_lines(blocks):
+    lines = list(_all_lines(blocks))
+    for ln in lines:
         if id(ln) in consumed or ln.bbox[1] < foot:
+            continue
+        # Only the page's lowest text row: a footer is the last thing on the
+        # page. A paragraph's short last line just above the footer ('Border
+        # Security.' over 'Audit of Border Security Operations 4') is whole
+        # words of the footer too, and it was consumed (WP60 final review).
+        if any(o.bbox[1] > ln.bbox[3] for o in lines if o is not ln):
             continue
         t = _echo_tokens(ln.text)
         # whole words, in order, and enough of them to be the footer's: a
