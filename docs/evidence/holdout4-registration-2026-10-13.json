@@ -1,24 +1,36 @@
 {
-  "what": "Registration of the sealed holdout-4, the exam for 0.3.0b3, before any conversion, by a collector agent independent of the 0.3.0b3 fixes",
+  "what": "Registration of the sealed holdout-4, the exam for 0.3.0b3, before any conversion, by a collector agent independent of the 0.3.0b3 fixes; two tranches in one manifest",
   "registered": "2026-10-13",
-  "manifest_sha256": "1f54afd217a24646062398a66ad3fe815292b35d2c35e4a68d3eb9ed1cadc4af",
-  "documents": 24,
+  "manifest_sha256": "a7e281c35dca624ef00226c62444edb2ff6d1066075a77a3701d207203e40a58",
+  "documents": 36,
   "promise_field": "promised_narrowed",
-  "promised": 20,
-  "short_promised": 15,
+  "promised": 32,
+  "short_promised": 27,
   "long_promised": 5,
   "not_promised": 4,
-  "pages": 731,
-  "rule": "docs/beta-bar.md amendment 6 (R1, R2, R4, R5) with amendment 7 (a) R3 v2; run once with scripts/dev/holdout_exam.sh (exam holdout4); the manifest and the full recipe are published after its single run",
-  "classification": "as recorded in the manifest before any run, under amendment 6 point 2 (Word, Google Docs, LibreOffice or LaTeX flowing text promised; InDesign-made annual reports Not yet; a LaTeX document with more than 3% Greek/mathematical characters is not promised under the README's dense-equation disclaimer); no document is reclassified after a result",
-  "sampling_recipe": {
-    "file": "C:/lotmp/rv_hold4/RECIPE.md (published with the manifest after the run)",
-    "v1_sha256": "8ace924d70387b483cd420740efb1d24ea191eb045eadeb7bbeafd92b5335c84",
-    "v1_written": "2026-10-13T15:08:04+05:30, before any candidate was looked at; deviations D1-D6 and the outcome table were appended afterwards, the v1 body was never edited",
-    "final_sha256": "52cb61ade15ac261a261165320944b6f4adcc81c015dfbb7807b0b909f5ad3f9",
-    "summary": "40 targeted in seven strata, each filled mechanically with the first N eligible candidates of a named source in the order the source returns them (fixed web-search queries, the GOV.UK search API by document type and date, the arXiv API by category and date window), with listed fallbacks; nothing chosen or dropped for looking easy or hard; every candidate and its fate logged. Strata (quota): S1 short letters/memos/minutes from UK, EU and US public bodies, universities and NGOs (9); S2 resume/CV samples and templates, career-centre, Google Docs and LaTeX (9); S3 arXiv LaTeX papers and theses, short and long (7); S4 Google Docs exports (3); S5 Chrome web prints (3); S6 long Word reports 21-250 pages (5); S7 designed/annual reports and a booklet as unpromised controls (4). Eligibility: public curl fetch, no login or bot wall; URL and SHA-256 not in the corpus, docs, or holdouts 1-3, and not the same source or series; real text layer (>= 100 characters on >= 90% of pages, 70% for S7) and not a scan; no AcroForm/XFA fields; 1-250 pages, Latin script, not slides; resumes only as organisation samples or templates; per-host caps. The exact queries and date windows are withheld until after the run so that the set cannot be reconstructed from this file.",
-    "outcome": "24 of 40: the recipe's sources ran out before 16 quota places were filled (S5 Chrome prints 0/3, S2c LaTeX resumes 0/2, S6b US state reports 0/2, S2a 1/5, S1b 1/3, S4 1/3, S7b 0/1), mostly from bot walls/geo-blocks, form-field signature boxes and producer mismatches; no source was added after candidates were seen"
+  "pages": 839,
+  "by_class": {"ordinary-word": 10, "ordinary-gdocs": 3, "ordinary-latex": 8, "resume": 3, "web-print": 3, "long-report-ordinary": 6, "annual-report": 3},
+  "tranches": {"1": 24, "2": 12},
+  "rule": "docs/beta-bar.md amendment 6 (R1, R2, R4, R5) with amendment 7 (a) R3 v2; run once with scripts/dev/holdout_exam.sh (exam holdout4); the manifest and both full recipes are published after its single run",
+  "classification": "as recorded in the manifest before any run, under amendment 6 point 2 (Word, Google Docs, LibreOffice or LaTeX flowing text and Chrome web prints promised; InDesign-made annual reports Not yet; a LaTeX document with more than 3% Greek/mathematical characters is not promised under the README's dense-equation disclaimer); no document is reclassified after a result",
+  "sampling_recipes": {
+    "recipe_1": {
+      "file": "C:/lotmp/rv_hold4/RECIPE.md",
+      "v1_sha256": "8ace924d70387b483cd420740efb1d24ea191eb045eadeb7bbeafd92b5335c84",
+      "v1_written": "2026-10-13T15:08:04+05:30, before any candidate was looked at",
+      "final_sha256": "52cb61ade15ac261a261165320944b6f4adcc81c015dfbb7807b0b909f5ad3f9",
+      "summary": "40 targeted in seven strata (short letters/memos/minutes from UK, EU and US public bodies, universities and NGOs; resume/CV samples and templates; arXiv LaTeX papers and theses, short and long; Google Docs exports; Chrome web prints; long Word reports; designed/annual reports and a booklet as unpromised controls), each filled with the first N eligible candidates of a named source in returned order (fixed web-search queries, the GOV.UK search API, the arXiv API), with listed fallbacks",
+      "outcome": "24 of 40: the sources ran out before 16 places were filled (bot walls and geo-blocks, signature form fields, producer mismatches); no source was added after candidates were seen"
+    },
+    "recipe_2": {
+      "file": "C:/lotmp/rv_hold4/RECIPE-2.md",
+      "v1_sha256": "c371155e455312b8debdfbf62063fc13730c4cec7ec9e31c45136aa70cce11f4",
+      "v1_written": "2026-10-13T16:29:00+05:30, on the coordinator's decision for a supplementary tranche, before any tranche-2 candidate was looked at",
+      "final_sha256": "e1f395881bb88e13d3b4b228ed83a9aa996ce1430d5b25057548fde78609fe27",
+      "summary": "12 more short documents: Word letters/memos from Irish, Canadian, Australian and New Zealand public bodies; university course outlines; Google Docs exports; Chrome web prints found by fixed queries or, for places left empty, printed for the set from a page list fixed in the recipe with headless Chrome at default settings (command recorded per document); a short-arXiv-LaTeX reserve filling only places the other sub-strata leave empty. Same eligibility, exclusion and classification rules; the exclusion set also holds every URL and SHA-256 tranche 1 looked at",
+      "outcome": "12 of 12: Irish, Canadian and Australian letters/memos 3 (New Zealand 0), course outlines 0, Google Docs 2, web prints 3 (0 found, 3 printed for the set), reserve arXiv 4"
+    },
+    "detail": "Summaries only; the exact queries, date windows and page list are withheld until after the run so that the set cannot be reconstructed from this file"
   },
-  "by_class": {"ordinary-word": 7, "ordinary-gdocs": 1, "ordinary-latex": 4, "resume": 3, "long-report-ordinary": 6, "annual-report": 3},
-  "converter_not_run": "Nobody ran exactdoc (or any other converter) on this set: the collector downloaded, hashed and classified the PDFs from their metadata and text layer only (pypdf, pdftotext, pdfminer), and did not read any fix branch, plan or WP68/WP69 code"
+  "converter_not_run": "Nobody ran exactdoc (or any other converter) on this set: the collector downloaded (or, for the three web prints, printed with headless Chrome), hashed and classified the PDFs from their metadata and text layer only (pypdf, pdftotext, pdfminer), and did not read any fix branch, plan or WP68/WP69 code"
 }
