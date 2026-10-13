@@ -747,7 +747,59 @@ def _rule_right_edge(ir: DocIR, hf: dict, page_w: float,
 
 
 # ------------------------------------------------------------------ runs/paras
-def _soft_join(runs: List[Run], next_text: str, dehyphenate: bool = True):
+# WP71: a URL or path a line broke inside of (Chrome breaks a long URL
+# anywhere at the margin) is one token. Both halves must read as one: the
+# joined token names a scheme or host, or each half carries a path separator.
+_URL_TOKEN = re.compile(r"(?:[a-z][a-z0-9+.-]*://|www\.)", re.I)
+_URL_SEP = re.compile(r"[/?&=]")
+
+
+# WP71: what a joined URL may break at in the output. None: nowhere but where
+# the renderer must; "zwsp": a zero-width space after each / ? & = inside it;
+# "lock": a line break where the source broke it.
+URL_OVERFLOW = None
+_ZWSP = chr(0x200B)
+_URL_SEP_BREAK = re.compile(r"(?<=[/?&=])(?=[^\s\u200b])")
+
+
+def _url_overflow(p: Para) -> None:
+    """The break opportunities URL_OVERFLOW gives a paragraph a URL was
+    joined in (`_soft_join`, WP71)."""
+    if not any(getattr(r, "_url_join", False) for r in p.runs):
+        return
+    if URL_OVERFLOW == "lock":
+        p.line_breaks = True
+    elif URL_OVERFLOW == "zwsp":
+        for r in p.runs:
+            r.text = re.sub(r"\S+", lambda m: _URL_SEP_BREAK.sub(_ZWSP, m.group())
+                            if _URL_TOKEN.search(m.group()) or len(m.group()) > 40
+                            else m.group(), r.text)
+
+
+def _url_continues(last: str, next_text: str, line_text: Optional[str] = None) -> bool:
+    """Does the line ending `last` break a URL that `next_text` continues?
+    (`_soft_join`, WP71). `line_text`: the broken line's own text -- one token
+    from margin to edge is a token wider than the measure, broken where it
+    had to be."""
+    if not last or last[-1].isspace() or not next_text or next_text[0].isspace():
+        return False
+    x = last.rsplit(None, 1)[-1]
+    y = next_text.split(None, 1)[0]
+    wide = line_text is not None and len(line_text.split()) == 1
+    if not (wide or _URL_TOKEN.search(x + y) or
+            (_URL_SEP.search(x) and _URL_SEP.search(y))):
+        return False
+    ev = hyphen.current()
+    if ev is not None:
+        for half in (x, y):
+            w = half.strip("()[]<>.,;:\"'").lower()
+            if w and ev.words.get(w):
+                return False
+    return True
+
+
+def _soft_join(runs: List[Run], next_text: str, dehyphenate: bool = True,
+               at_edge: bool = False, line_text: Optional[str] = None):
     """Append a joiner between wrapped lines: space normally, dehyphenate
     when the previous line ends with a hyphenated word break.
 
@@ -777,6 +829,11 @@ def _soft_join(runs: List[Run], next_text: str, dehyphenate: bool = True):
             dehyphenate = ev.is_break(pair[0], pair[1], at_edge=dehyphenate)
         if dehyphenate:
             runs[-1].text = last[:-1]
+    elif at_edge and _wp71("url_join") and _url_continues(last, next_text, line_text):
+        # WP71: one URL, broken where the line reached its edge
+        runs[-1]._url_join = True
+        if URL_OVERFLOW == "lock":
+            runs[-1].text += "\n"      # the source's own break, kept
     elif not last.endswith((" ", "-")):
         runs[-1].text += " "
 
@@ -1725,7 +1782,9 @@ def para_from_lines(lines: List[Line], col_l: float, col_r: float,
             _soft_join(p.runs, lines[i + 1].text,
                        dehyphenate=(p.align == "justify"
                                     and ln.bbox[2]
-                                    >= col_r - p.right_indent - 3.0))
+                                    >= col_r - p.right_indent - 3.0),
+                       at_edge=ln.bbox[2] >= col_r - p.right_indent - 3.0,
+                       line_text=ln.text)
     # ``right_flush`` deliberately ignores the final source line: that is how
     # a normal justified paragraph has a ragged last line.  A short metadata
     # block can look the same to that heuristic, except its final row is wider
@@ -1762,12 +1821,16 @@ def para_from_lines(lines: List[Line], col_l: float, col_r: float,
                 _soft_join(runs, lines[j].text,
                            dehyphenate=(p.align == "justify"
                                         and lines[j - 1].bbox[2]
-                                        >= col_r - p.right_indent - 3.0))
+                                        >= col_r - p.right_indent - 3.0),
+                           at_edge=lines[j - 1].bbox[2] >= col_r - p.right_indent - 3.0,
+                           line_text=lines[j - 1].text)
                 runs.extend(runs_from_spans(lines[j].spans))
             p.runs = runs
             # its one tab is the marker's separator, not a tabbed row
             # (`_mergeable` lets the item's continuation join it)
             p._marker_tab = True
+    if URL_OVERFLOW and _wp71("url_join"):
+        _url_overflow(p)
     if getattr(lines[0], "_gutter", None) is not None and p.align != "center":
         _gutter_para(p, lines, col_l)
     _keep_room(p, col_l, col_r)
@@ -6446,6 +6509,7 @@ WP71_RULES = {
     "picture_grid": True,          # _picture_grid_chunks: pictures over captions, a grid
     "margin_labels": True,         # _merge_list_markers: a small label beside its line
     "wide_not_right": True,        # para_from_lines: a full line is not right-aligned
+    "url_join": True,              # _soft_join: a URL wrapped mid-token joins with nothing
 }
 
 
@@ -10443,7 +10507,7 @@ def _merge_flow_paras(seq, col_r, col_l=None):
                 was_flush = abs(a.bbox[0] - col_l) < 3.0   # its END edge
             else:
                 was_flush = abs(a.bbox[2] - col_r) < 3.0
-            _soft_join(a.runs, el.text, dehyphenate=was_flush)
+            _soft_join(a.runs, el.text, dehyphenate=was_flush, at_edge=was_flush)
             a.runs += el.runs
             a.bbox = bbox_union(a.bbox, el.bbox)
             a._vis_lines = getattr(a, "_vis_lines", 1) + getattr(el, "_vis_lines", 1)

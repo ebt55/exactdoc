@@ -7,6 +7,8 @@ exam), each its own switch in `infer.WP71_RULES`, standard profile only.
      column lines; one long field set beside the page's white is a field.
   3. A grid of pictures over short captions (`infer._picture_grid`): a
      letter's signature pages, one layout row per row of signers.
+  1. A URL a line broke inside of, at the line's edge, joins with nothing
+     (`infer._url_continues`).
   4. A small label in the margin heads the line it stands beside
      (`infer._margin_labels`); a full line indented on the left is not
      right-aligned unless a paragraph beside it is (`_settle_wide_right`).
@@ -255,6 +257,49 @@ class WideLinesAreNotRightAligned(unittest.TestCase):
         p = self._para(400.0, 540.0)
         I._settle_wide_right([p])
         self.assertEqual(p.align, "right")
+
+
+# ------------------------------------------------ 1. a URL broken at the edge
+def _join(last, nxt, at_edge=True, line_text=None):
+    from exactdoc.layout import Run
+    runs = [Run(text=last, font="Arial", size=10.0, color="#000000")]
+    I._soft_join(runs, nxt, dehyphenate=False, at_edge=at_edge, line_text=line_text)
+    return runs[0].text
+
+
+class UrlJoin(unittest.TestCase):
+    def test_a_url_broken_at_the_edge_joins_with_nothing(self):
+        self.assertEqual(_join("see https://example.org/courses/", "1595954/files"),
+                         "see https://example.org/courses/")
+
+    def test_short_of_the_edge_it_keeps_its_space(self):
+        self.assertEqual(_join("see https://example.org/courses/", "1595954/files",
+                               at_edge=False), "see https://example.org/courses/ ")
+
+    def test_prose_keeps_its_space(self):
+        self.assertEqual(_join("the department generally", "implemented it"),
+                         "the department generally ")
+
+    def test_a_token_wider_than_the_measure_joins(self):
+        tok = "dib=eyJ2IjoiMSJ9.pv3kvhQSwJK2b5HjBZ46GDupAPfIF1CN687FFpEtNRTBQcPiAKFvj8c"
+        self.assertEqual(_join(tok, "cFofX-uonK8dmlv", line_text=tok), tok)
+
+    def test_switched_off_it_is_a_space(self):
+        self.addCleanup(_off("url_join"))
+        self.assertEqual(_join("see https://example.org/courses/", "1595954/files"),
+                         "see https://example.org/courses/ ")
+
+    def test_halves_the_document_uses_as_words_keep_their_space(self):
+        from exactdoc import hyphen
+        ev = hyphen.HyphenEvidence([["see the files and the courses here"]])
+        tok = hyphen.activate(ev)
+        try:
+            self.assertEqual(_join("at https://example.org/", "files"),
+                             "at https://example.org/ ")
+            self.assertEqual(_join("at https://example.org/", "q7x9"),
+                             "at https://example.org/")
+        finally:
+            hyphen.deactivate(tok)
 
 
 if __name__ == "__main__":
