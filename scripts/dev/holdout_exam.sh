@@ -160,6 +160,7 @@ fi
 if [ "$DRY" = 1 ] && [ ! -f "$MANIFEST" ]; then
   say "(a) generating the synthetic set: $HOLD"
   run hostpy "$HERE/holdout_dryset.py" "$HOLD" --manifest-name "$EXAM_MANIFEST_NAME" \
+      --promise-field "$EXAM_PROMISE_FIELD" \
     || RC=14 refuse "could not build the synthetic set"
 fi
 V_SHA=()                      # the sealed set: the exam's registered hash and count
