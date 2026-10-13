@@ -37,6 +37,20 @@ is 80%), and four came back unusable. 0.3.0b3 is the fix release.
 
 ### Changes
 
+- **The release rules for 0.3.0b3 (amendment 7 to the beta bar, WP66).**
+  From holdout-4 on, a promised document counts as unusable when it is
+  refused, crashes or has no output, when fewer than 90% of its words appear
+  anywhere in the output, or when its page count is off by more than one page
+  and 20%; text that is all there but pushed onto the next page is judged by
+  the page-exact test instead. Holdout-3 keeps the rule it was run under, and
+  re-scored under the new one for information it still fails (3 short
+  documents unusable instead of 4, and 1 long;
+  [re-score](docs/evidence/holdout3-rescore-r3v2-2026-10-13.json)). A stop
+  rule ends the loop: one fix round, holdout-4 sealed and run once, and
+  0.3.0b3 announced whatever it shows. The no-regression check now compares
+  with 0.3.0b1's final measurement, so the y37 exception granted for 0.3.0b1
+  is removed; on that basis the 0.3.0b2 scorecard reads ready
+  ([scorecard](docs/evidence/beta-readiness-2026-10-13b.json)).
 - **The release exam runs holdout-3 for 0.3.0b2 (WP63; developer tooling).**
   The script that runs the sealed exam was written for holdout-2 only: run for
   this beta it would have refused, or recorded 0.3.0b2's exam as a rerun of
@@ -45,8 +59,7 @@ is 80%), and four came back unusable. 0.3.0b3 is the fix release.
   its own record, so holdout-2's finished exam does not block it and a second
   holdout-3 run is refused, and `--expect-promised N` refuses before anything
   is converted unless N documents are promised. The scorecard now reads for
-  0.3.0b2, so the y37 exception granted for 0.3.0b1 reads as stale until the
-  owner renews or deletes it.
+  0.3.0b2.
 - **Résumé layouts that failed the holdout-2 exam (WP59).** Holdout-2's
   résumés (a development set since its single run) failed on six layout
   mechanisms. Each is now read for what it is, with a synthetic test page in

@@ -125,7 +125,7 @@ each milestone converts 95 frozen PDFs (those 16 and 79 more, most of them
 public real-world documents), opens every DOCX in LibreOffice, Microsoft Word
 and Google Docs, and compares it with the PDF page by page. In the release
 measurement for 0.3.0b2 ([record](docs/evidence/release-measurement-2026-10-13.json),
-[scorecard](docs/evidence/beta-readiness-2026-10-13.json); the Google Docs figures
+[scorecard](docs/evidence/beta-readiness-2026-10-13b.json); the Google Docs figures
 are from the 11 October flight, and the DOCX made for Google Docs has not
 changed since):
 
@@ -140,9 +140,7 @@ changed since):
   The other five are PDFs exactdoc refuses on purpose.
 
 These are the documents exactdoc was developed against, so they show how well
-it does on PDFs it has seen. The scorecard reads "not ready" on one point: an
-exception the owner granted for one unpromised journal paper's placement in
-0.3.0b1 has not been renewed for 0.3.0b2. How the measurement works:
+it does on PDFs it has seen. How the measurement works:
 [docs/deep-dive/measured-state.md](docs/deep-dive/measured-state.md).
 
 ### Tested on documents it has never seen
@@ -150,16 +148,24 @@ exception the owner granted for one unpromised journal paper's placement in
 Before the release, 41 public PDFs never used in development were sealed and
 then converted once, on the release candidate. 35 were classed as promised
 before the run: 26 of up to 20 pages and 9 longer. Google Docs was not part of
-this test ([results](docs/evidence/holdout3-2026-10-13.txt), [data](docs/evidence/holdout3-2026-10-13.json)).
-The 32 documents of 0.3.0b1's test are now part of development.
+this test ([results](docs/evidence/holdout3-2026-10-13.txt), [data](docs/evidence/holdout3-2026-10-13.json));
+0.3.0b1's 32 test documents are now part of development.
 
 - **No crashes, and Word opened all 41 cleanly: pass.**
 - **Short promised documents: fail.** 20 of 26 kept exactly their page count in LibreOffice and 18 of 26 in Word; as many (20 and 18) had at least 90% of their words on the right page. Both are below the 80% bar.
 - **No unusable result: fail.** Four short promised documents came back unusable: an NSF audit transmittal letter made in Word (7 pages for 6, 17% of its words on the right page), a Dallas city council memo exported from Word (3 pages for 2), a HUD audit summary made in Word (9 pages for 8, under half its text on the right page) and a course page saved as PDF from Chrome on a Mac (15 pages for 12). Of the long ones, a 50-page semiannual audit report came back with 109 pages, the one long miss the bar allows.
 - **Long promised documents (reported):** a median page-count error of 5.3%; 3 of 9 within 2% (or one page), and 4 of 9 in LibreOffice (2 in Word) with at least 85% of their words on the right page.
 
-<!-- WP66 placeholder: replace this line with the re-scored R3 sentence. -->
-**[Placeholder, to be filled before the tag:]** Under the stricter-on-lost-text rule adopted for 0.3.0b3, holdout-3 reads …
+For 0.3.0b3 we changed what counts as an unusable result: text that is all
+there but pushed onto the next page no longer counts as lost, and real text
+loss is judged more strictly (90% of the words, not 50%). We fixed that rule
+before seeing any new test documents. Re-scored under it, for information
+only, holdout-3 still fails: 3 short documents are unusable instead of 4 (a
+one-page LaTeX CV that loses its "Europass" heading into a logo picture, the
+6-page NSF audit cover letter, whose page-2 text is turned into a picture, and
+the 12-page course page printed from Chrome that grows to 15 pages), and 1 long
+([re-score](docs/evidence/holdout3-rescore-r3v2-2026-10-13.json)). 0.3.0b2's
+verdict does not change.
 
 This did not meet the bar we set in advance for announcing it; 0.3.0b3 is the
 fix release.
